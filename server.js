@@ -3054,6 +3054,22 @@ app.put('/api/categories', express.json(), async (req, res) => {
     }
 });
 
+// 除錯：容器內路徑與首頁檔案是否存在（修好 File not found 後可刪或改為僅 NODE_ENV!==production）
+app.get('/api/debug-path', (req, res) => {
+    const p = path.join(__dirname, 'public');
+    const idx = path.join(__dirname, 'public', 'iStudio-1.0.0', 'index.html');
+    let list = [];
+    try { list = fs.readdirSync(p); } catch (e) { list = [e.message]; }
+    res.json({
+        __dirname,
+        cwd: process.cwd(),
+        publicExists: fs.existsSync(p),
+        indexExists: fs.existsSync(idx),
+        indexPath: idx,
+        publicDirContents: list,
+    });
+});
+
 // 健康檢查（環境與資料庫對應狀態）
 app.get('/api/health', async (req, res) => {
     const info = {
