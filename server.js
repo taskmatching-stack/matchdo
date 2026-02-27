@@ -3610,7 +3610,8 @@ app.post('/api/generate-product-image', express.json(), async (req, res) => {
                 status: 'draft',
                 generation_prompt: generationPromptVal,
                 generation_seed: seedNum,
-                show_on_homepage: true
+                // 付費會員預設不公開到靈感牆（可自行開放）；免費會員預設公開
+                show_on_homepage: !(await hasActivePaidSubscription(currentUser.id))
             }).select('id').single();
             if (insertErr) console.error('生成後寫入 custom_products 失敗:', insertErr.message);
             else console.log('生成後已寫入 custom_products owner_id=%s', currentUser.id);
@@ -6029,9 +6030,12 @@ app.patch('/api/custom-products/:id', express.json(), async (req, res) => {
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ error: '無可更新欄位' });
         }
-        // 免費用戶不可取消展示在首頁（目前未接會員系統，一律視為免費）
+        // 只有付費會員才可將圖片設為不公開（show_on_homepage: false）
         if (updates.show_on_homepage === false) {
-            return res.status(400).json({ error: '免費用戶不可取消展示在首頁' });
+            const isPaid = await hasActivePaidSubscription(user.id);
+            if (!isPaid) {
+                return res.status(403).json({ error: '需付費訂閱才能將設計圖設為不公開' });
+            }
         }
 
         const { data, error } = await supabase
