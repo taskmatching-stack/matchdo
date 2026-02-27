@@ -4916,17 +4916,24 @@ app.post('/api/describe-reference-images', express.json(), async (req, res) => {
         const maxImages = 8;
         for (let i = 0; i < Math.min(images.length, maxImages); i++) {
             const dataUrl = images[i];
-            if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) continue;
-            const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-            if (!match) continue;
-            const mimeType = match[1].trim();
-            const base64Data = match[2].trim();
-            parts.push({
-                inlineData: {
-                    mimeType: mimeType || 'image/jpeg',
-                    data: base64Data
-                }
-            });
+            if (typeof dataUrl !== 'string') continue;
+            if (dataUrl.startsWith('data:')) {
+                // base64 data URL
+                const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+                if (!match) continue;
+                parts.push({ inlineData: { mimeType: match[1].trim() || 'image/jpeg', data: match[2].trim() } });
+            } else if (dataUrl.startsWith('http://') || dataUrl.startsWith('https://')) {
+                // 一般 URL（例如 Supabase Storage）：先 fetch 轉 base64
+                try {
+                    const fetchRes = await fetch(dataUrl);
+                    if (!fetchRes.ok) continue;
+                    const contentType = fetchRes.headers.get('content-type') || 'image/jpeg';
+                    const mimeType = contentType.split(';')[0].trim();
+                    const arrayBuf = await fetchRes.arrayBuffer();
+                    const base64Data = Buffer.from(arrayBuf).toString('base64');
+                    parts.push({ inlineData: { mimeType, data: base64Data } });
+                } catch (_) { continue; }
+            }
         }
         if (parts.length === 0) {
             return res.status(400).json({ success: false, error: '無法解析圖片格式' });
