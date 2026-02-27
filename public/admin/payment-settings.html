@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>金流設定 - MatchDO</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/config/auth-config.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container mt-4">
+        <h2>金流設定</h2>
+        <p class="text-muted">上線後可在此更換為正式帳號，無需改 .env。未填寫的欄位會使用 .env 設定。</p>
+
+        <div class="card mb-4">
+            <div class="card-header bg-light"><strong>綠界 ECPay</strong>（台灣／台幣）</div>
+            <div class="card-body">
+                <p class="small text-muted">測試：<a href="https://vendor-stage.ecpay.com.tw" target="_blank" rel="noopener">綠界測試後台</a> 登入取得 MerchantID、HashKey、HashIV。</p>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label small">MerchantID</label>
+                        <input type="text" class="form-control form-control-sm" id="ecpay_merchant_id" placeholder="例：2000132">
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label small">HashKey</label>
+                        <input type="password" class="form-control form-control-sm" id="ecpay_hash_key" placeholder="留空保留原值；更新請輸入新值">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">HashIV</label>
+                        <input type="password" class="form-control form-control-sm" id="ecpay_hash_iv" placeholder="留空保留原值">
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="ecpay_use_production">
+                    <label class="form-check-label small" for="ecpay_use_production">使用正式環境（勾選後會連到綠界正式金流）</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-light"><strong>PayPal</strong>（海外／美金）</div>
+            <div class="card-body">
+                <p class="small text-muted">測試：<a href="https://developer.paypal.com" target="_blank" rel="noopener">PayPal Developer</a> 建立 App 取得 Client ID、Secret（Sandbox）。</p>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label small">Client ID</label>
+                        <input type="text" class="form-control form-control-sm" id="paypal_client_id" placeholder="">
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label small">Client Secret</label>
+                        <input type="password" class="form-control form-control-sm" id="paypal_client_secret" placeholder="留空保留原值">
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="paypal_sandbox" checked>
+                    <label class="form-check-label small" for="paypal_sandbox">使用 Sandbox（測試環境）</label>
+                </div>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="btnSave">儲存設定</button>
+        <span id="saveStatus" class="ms-2 small"></span>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/iStudio-1.0.0/js/site-header.js"></script>
+    <script>
+$(async function () {
+    var token = '';
+    try {
+        var session = await (window.AuthService && AuthService.getSession ? AuthService.getSession() : Promise.resolve(null));
+        if (!session || !session.user) {
+            location.href = (AuthService.getLoginUrl ? AuthService.getLoginUrl() : '/login.html') + '?returnUrl=' + encodeURIComponent(location.pathname);
+            return;
+        }
+        var profile = await (AuthService.getUserProfile ? AuthService.getUserProfile() : Promise.resolve(null));
+        if (profile && profile.role !== 'admin') {
+            alert('僅管理員可操作');
+            location.href = '/index.html';
+            return;
+        }
+        token = session.access_token || '';
+    } catch (e) {
+        location.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname);
+        return;
+    }
+
+    function setStatus(msg, isErr) {
+        var el = $('#saveStatus');
+        el.text(msg).css('color', isErr ? '#dc3545' : '#198754');
+    }
+
+    $.ajax({ url: '/api/admin/payment-config', headers: { 'Authorization': 'Bearer ' + token }, dataType: 'json' })
+        .done(function (c) {
+            $('#ecpay_merchant_id').val(c.ecpay_merchant_id || '');
+            if (c.ecpay_hash_key_set) $('#ecpay_hash_key').attr('placeholder', '已設定 ' + (c.ecpay_hash_key || '****') + '，更新請輸入新值');
+            if (c.ecpay_hash_iv_set) $('#ecpay_hash_iv').attr('placeholder', '已設定 ' + (c.ecpay_hash_iv || '****') + '，更新請輸入新值');
+            $('#ecpay_use_production').prop('checked', !!c.ecpay_use_production);
+            $('#paypal_client_id').val(c.paypal_client_id || '');
+            if (c.paypal_client_secret_set) $('#paypal_client_secret').attr('placeholder', '已設定 ' + (c.paypal_client_secret || '****') + '，更新請輸入新值');
+            $('#paypal_sandbox').prop('checked', c.paypal_sandbox !== false);
+        })
+        .fail(function () { setStatus('無法載入設定', true); });
+
+    $('#btnSave').on('click', function () {
+        var payload = {
+            ecpay_merchant_id: $('#ecpay_merchant_id').val().trim(),
+            ecpay_use_production: $('#ecpay_use_production').prop('checked'),
+            paypal_client_id: $('#paypal_client_id').val().trim(),
+            paypal_sandbox: $('#paypal_sandbox').prop('checked')
+        };
+        var hk = $('#ecpay_hash_key').val();
+        var hi = $('#ecpay_hash_iv').val();
+        var ps = $('#paypal_client_secret').val();
+        if (hk !== '') payload.ecpay_hash_key = hk;
+        if (hi !== '') payload.ecpay_hash_iv = hi;
+        if (ps !== '') payload.paypal_client_secret = ps;
+
+        $('#btnSave').prop('disabled', true);
+        setStatus('儲存中…');
+        $.ajax({
+            url: '/api/admin/payment-config',
+            method: 'PATCH',
+            contentType: 'application/json',
+            headers: { 'Authorization': 'Bearer ' + token },
+            data: JSON.stringify(payload)
+        })
+            .done(function () { setStatus('已儲存'); })
+            .fail(function (xhr) { setStatus(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : '儲存失敗', true); })
+            .always(function () { $('#btnSave').prop('disabled', false); });
+    });
+});
+    </script>
+</body>
+</html>

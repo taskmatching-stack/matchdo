@@ -1,0 +1,28 @@
+---
+description: 頁尾與首頁一致、不准漏加或改壞
+globs: public/js/site-footer.js, public/partials/footer.html, **/*.html
+alwaysApply: false
+---
+
+# 頁尾一致（必守，不准再出現錯誤）
+
+凡**使用 `#site-header` 的前台頁面**，必須同時具備頁尾，且與首頁一致。
+
+## 1. 必須有的 HTML
+
+在 `</body>` 前要有：
+```html
+<div id="site-footer"></div>
+<script src="/js/site-footer.js"></script>
+```
+
+## 2. 不得改壞 site-footer.js
+
+- `site-footer.js` 會載入 `/partials/footer.html`（與首頁相同內容），失敗時用內建 HTML fallback。
+- 修改時不可移除「載入 partial 或 fallback」邏輯，不可改成只顯示一行連結。
+
+## 3. 新頁面檢查
+
+新增或修改 HTML 頁時：① 有 `#site-header` 就必須有 `#site-footer` + `site-footer.js`；② 不可刪除頁尾區塊。
+
+與選單規則同級：選單錯會全站壞，頁尾漏也會不一致。

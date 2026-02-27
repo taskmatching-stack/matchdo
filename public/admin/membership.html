@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>會員／訂閱管理 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-3">會員／訂閱管理</h4>
+        <p class="text-muted small mb-3">訂製品平台：方案設定、點數規則、功能權限、用戶等級與點數流水。規劃見 <code>docs/membership-tiers-and-points-plan.md</code>。</p>
+        <div id="membershipMsg" class="alert mb-3 py-2" style="display:none;"></div>
+
+        <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
+          <span class="me-2">目前狀態：</span>
+          <span id="loginStatusText">檢查中…</span>
+          <a id="loginStatusLink" href="/login.html" class="btn btn-sm btn-outline-primary" style="display:none;">前往登入</a>
+          <button type="button" id="logoutBtn" class="btn btn-sm btn-outline-secondary" style="display:none;">登出</button>
+        </div>
+
+        <ul class="nav nav-tabs mb-3" id="membershipTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="plans-tab" data-bs-toggle="tab" data-bs-target="#plans" type="button" role="tab">方案設定</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="points-tab" data-bs-toggle="tab" data-bs-target="#points" type="button" role="tab">點數規則</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="permissions-tab" data-bs-toggle="tab" data-bs-target="#permissions" type="button" role="tab">功能權限</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">用戶等級與點數</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="ledger-tab" data-bs-toggle="tab" data-bs-target="#ledger" type="button" role="tab">點數流水</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="usage-stats-tab" data-bs-toggle="tab" data-bs-target="#usage-stats" type="button" role="tab">扣點統計</button>
+          </li>
+        </ul>
+
+        <div class="tab-content" id="membershipTabContent">
+          <div class="tab-pane fade show active" id="plans" role="tabpanel">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">會員等級／方案設定</h6>
+                <p class="text-muted small">可編輯每級名稱、月費、每月點數、排序、權限（接案分類數、靈感牆、首頁對照圖、多語系）。</p>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>顯示名稱</th>
+                        <th>月費（元）</th>
+                        <th>每月點數</th>
+                        <th>排序</th>
+                        <th>操作</th>
+                      </tr>
+                    </thead>
+                    <tbody id="plansTbody"></tbody>
+                  </table>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary mt-2" id="btnLoadPlans">重新載入</button>
+              </div>
+            </div>
+            <div class="modal fade" id="planEditModal" tabindex="-1">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header"><h6 class="modal-title">編輯方案</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                  <div class="modal-body">
+                    <input type="hidden" id="planEditId" />
+                    <div class="mb-2"><label class="form-label small mb-0">顯示名稱</label><input type="text" id="planEditName" class="form-control form-control-sm" /></div>
+                    <div class="mb-2"><label class="form-label small mb-0">月費（元）</label><input type="number" id="planEditPrice" class="form-control form-control-sm" min="0" /></div>
+                    <div class="mb-2"><label class="form-label small mb-0">每月點數</label><input type="number" id="planEditCredits" class="form-control form-control-sm" min="0" /></div>
+                    <div class="mb-2"><label class="form-label small mb-0">排序</label><input type="number" id="planEditSort" class="form-control form-control-sm" /></div>
+                    <div class="mb-2"><label class="form-label small mb-0">製作方接案分類數量（-1 無限制）</label><input type="number" id="planEditMaxListings" class="form-control form-control-sm" min="-1" /></div>
+                    <div class="form-check form-check-inline"><input type="checkbox" id="planEditForceMediaWall" class="form-check-input" /><label class="form-check-label small">設計圖強制上靈感牆</label></div>
+                    <div class="form-check form-check-inline"><input type="checkbox" id="planEditShowHomepage" class="form-check-input" /><label class="form-check-label small">首頁作品對照圖</label></div>
+                    <div class="form-check form-check-inline"><input type="checkbox" id="planEditShowMultilang" class="form-check-input" /><label class="form-check-label small">製作方接案顯示於多語系</label></div>
+                  </div>
+                  <div class="modal-footer"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-primary btn-sm" id="btnSavePlan">儲存</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="points" role="tabpanel">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">點數規則</h6>
+                <p class="text-muted small">各「行為」對應消耗點數，儲存後寫入 payment_config。<strong>訂閱會員（付費方案）</strong>使用「我的 AI 編輯區」各功能時，實際扣點為表列點數的 <strong>6 折</strong>。</p>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr><th>行為</th><th>消耗點數</th><th>備註</th></tr>
+                    </thead>
+                    <tbody id="pointsTbody"></tbody>
+                  </table>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary mt-2" id="btnSavePoints">儲存點數規則</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="permissions" role="tabpanel">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">功能權限矩陣</h6>
+                <p class="text-muted small">各等級對應權限（由方案設定帶出）。「製作方接案分類數量」為方案內含數量；<strong>各方案用盡後皆可以 200 點/月/分類 加購</strong>。編輯請至「方案設定」分頁，點該方案的「編輯」。</p>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>方案</th>
+                        <th>設計圖強制上靈感牆</th>
+                        <th>製作方接案分類數量</th>
+                        <th>首頁作品對照圖</th>
+                        <th>製作方接案顯示於多語系（跨境）</th>
+                      </tr>
+                    </thead>
+                    <tbody id="permissionsTbody"></tbody>
+                  </table>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnLoadPermissions">重新載入</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="users" role="tabpanel">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">用戶所屬等級與點數</h6>
+                <p class="text-muted small">依 email 查詢用戶目前方案、點數、到期日；可手動調整會員等級或補點／扣點。</p>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-6">
+                    <input type="text" id="userSearchEmail" class="form-control form-control-sm" placeholder="輸入 email 查詢" />
+                  </div>
+                  <div class="col-auto">
+                    <button type="button" class="btn btn-sm btn-primary" id="btnSearchUser">查詢</button>
+                  </div>
+                </div>
+                <div id="userResult" class="mt-3" style="display:none;"></div>
+              </div>
+            </div>
+            <div class="modal fade" id="adjustCreditsModal" tabindex="-1">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header"><h6 class="modal-title">調整點數</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                  <div class="modal-body">
+                    <p class="small text-muted">正數＝補點，負數＝扣點。</p>
+                    <div class="mb-2"><label class="form-label small mb-0">點數</label><input type="number" id="adjustCreditsAmount" class="form-control form-control-sm" placeholder="例：100 或 -50" /></div>
+                    <div class="mb-2"><label class="form-label small mb-0">備註（選填）</label><input type="text" id="adjustCreditsDesc" class="form-control form-control-sm" placeholder="例：活動補點" /></div>
+                  </div>
+                  <div class="modal-footer"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-primary btn-sm" id="btnConfirmAdjustCredits">確認</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="ledger" role="tabpanel">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">點數流水／紀錄</h6>
+                <p class="text-muted small">查詢某用戶點數增減紀錄（發放、扣點、行為類型、時間）。</p>
+                <div class="row g-2 mb-3">
+                  <div class="col-md-6">
+                    <input type="text" id="ledgerSearchEmail" class="form-control form-control-sm" placeholder="輸入 email 查詢流水" />
+                  </div>
+                  <div class="col-auto">
+                    <button type="button" class="btn btn-sm btn-primary" id="btnSearchLedger">查詢</button>
+                  </div>
+                </div>
+                <div class="table-responsive"><table class="table table-sm table-bordered"><thead class="table-light"><tr><th>時間</th><th>類型</th><th>點數</th><th>餘額</th><th>來源／說明</th></tr></thead><tbody id="ledgerTbody"></tbody></table></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="usage-stats" role="tabpanel">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="card-title">時間區間</h6>
+                <p class="text-muted small mb-2">選擇查詢區間後按「載入統計」；圖表與表格會一併更新。</p>
+                <div class="d-flex flex-wrap align-items-end gap-2 mb-2">
+                  <div class="d-flex flex-wrap gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-range="today">今日</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-range="last7">最近 7 天</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-range="last30">最近 30 天</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-range="month">本月</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-range="all">全部</button>
+                  </div>
+                  <div class="d-flex flex-wrap align-items-end gap-2">
+                    <div>
+                      <label class="form-label small mb-0">起始日</label>
+                      <input type="date" id="usageStatsFrom" class="form-control form-control-sm" />
+                    </div>
+                    <div>
+                      <label class="form-label small mb-0">結束日</label>
+                      <input type="date" id="usageStatsTo" class="form-control form-control-sm" />
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" id="btnLoadUsageStats">載入統計</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="card-title">設計行為統計</h6>
+                <p class="text-muted small mb-2">首頁／設計頁：找廠商訂製、再設計並生圖成功、社群分享次數（與上方時間區間一致）。</p>
+                <div class="d-flex flex-wrap gap-4">
+                  <div><span class="text-muted small">找廠商訂製</span><div class="fs-4 fw-bold" id="designStatsFindVendor">—</div></div>
+                  <div><span class="text-muted small">再設計並生圖成功</span><div class="fs-4 fw-bold" id="designStatsRedesignOk">—</div></div>
+                  <div><span class="text-muted small">IG 分享</span><div class="fs-4 fw-bold" id="designStatsShareIg">—</div></div>
+                  <div><span class="text-muted small">Pinterest 分享</span><div class="fs-4 fw-bold" id="designStatsSharePinterest">—</div></div>
+                  <div><span class="text-muted small">FB 分享</span><div class="fs-4 fw-bold" id="designStatsShareFb">—</div></div>
+                  <div><span class="text-muted small">Line 分享</span><div class="fs-4 fw-bold" id="designStatsShareLine">—</div></div>
+                  <div><span class="text-muted small">複製連結</span><div class="fs-4 fw-bold" id="designStatsShareCopy">—</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-lg-6 mb-3">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h6 class="card-title">各功能點數累計</h6>
+                    <div class="position-relative" style="height:280px;">
+                      <canvas id="usageStatsBarChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-6 mb-3">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h6 class="card-title">每日消費趨勢</h6>
+                    <div class="position-relative" style="height:280px;">
+                      <canvas id="usageStatsLineChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="card-title">依會員層級</h6>
+                <p class="text-muted small mb-2">依 <code>profiles.member_level</code> 彙總該區間內各層級消費點數、人數與次數。</p>
+                <div class="row align-items-start">
+                  <div class="col-md-5 mb-3">
+                    <div class="position-relative" style="height:220px;">
+                      <canvas id="usageStatsLevelChart"></canvas>
+                    </div>
+                  </div>
+                  <div class="col-md-7">
+                    <div class="table-responsive">
+                      <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>會員層級</th>
+                            <th class="text-end">消費人數</th>
+                            <th class="text-end">次數</th>
+                            <th class="text-end">點數累計</th>
+                            <th class="text-end">平均點數/人</th>
+                          </tr>
+                        </thead>
+                        <tbody id="usageStatsLevelTbody"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">統計表（依功能）</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>功能（說明）</th>
+                        <th class="text-end">次數</th>
+                        <th class="text-end">點數累計</th>
+                        <th class="text-end">平均點數/次</th>
+                      </tr>
+                    </thead>
+                    <tbody id="usageStatsTbody"></tbody>
+                  </table>
+                </div>
+                <p class="small text-muted mb-0 mt-2" id="usageStatsSummary"></p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function(){
+  var plansCache = [];
+
+  async function getAuthHeaders() {
+    if (!window.AuthService || !AuthService.getSession) return {};
+    var session = await AuthService.getSession();
+    var token = session && session.access_token;
+    if (!token) return {};
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+  function showMsg(msg, isError) {
+    var el = document.getElementById('membershipMsg');
+    if (!el) return;
+    el.style.display = 'block';
+    el.className = 'alert mb-3 py-2 ' + (isError ? 'alert-danger' : 'alert-success');
+    el.textContent = msg;
+  }
+
+  async function loadPlans() {
+    var tbody = document.getElementById('plansTbody');
+    if (!tbody) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入且具管理員權限', true); return; }
+    try {
+      var res = await fetch('/api/admin/subscription-plans', { headers: headers });
+      var data = await res.json();
+      if (!res.ok) {
+        var errMsg = data.error || '載入方案失敗';
+        if (data.details) errMsg += '：' + data.details;
+        if (data.hint) errMsg += ' ' + data.hint;
+        showMsg(errMsg, true);
+        return;
+      }
+      plansCache = data.plans || [];
+      tbody.innerHTML = '';
+      if (plansCache.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">尚無方案。請在 Supabase SQL Editor 執行 <code>docs/seed-subscription-plans.sql</code> 寫入預設四筆方案後重新載入。</td></tr>';
+        return;
+      }
+      plansCache.forEach(function(p) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + (p.name || '—') + '</td>' +
+          '<td>' + (p.price != null ? p.price : 0) + '</td>' +
+          '<td>' + (p.credits_monthly != null ? p.credits_monthly : 0) + '</td>' +
+          '<td>' + (p.sort_order != null ? p.sort_order : 0) + '</td>' +
+          '<td><button type="button" class="btn btn-sm btn-outline-primary plan-edit-btn" data-id="' + p.id + '">編輯</button></td>';
+        tbody.appendChild(tr);
+        tr.querySelector('.plan-edit-btn').addEventListener('click', function(){ openPlanModal(p); });
+      });
+      renderPermissionsTable();
+    } catch (e) {
+      showMsg('載入方案失敗：' + (e.message || '網路錯誤'), true);
+    }
+  }
+  function openPlanModal(plan) {
+    document.getElementById('planEditId').value = plan.id;
+    document.getElementById('planEditName').value = plan.name || '';
+    document.getElementById('planEditPrice').value = plan.price != null ? plan.price : 0;
+    document.getElementById('planEditCredits').value = plan.credits_monthly != null ? plan.credits_monthly : 0;
+    document.getElementById('planEditSort').value = plan.sort_order != null ? plan.sort_order : 0;
+    document.getElementById('planEditMaxListings').value = plan.max_listings != null && plan.max_listings >= 0 ? plan.max_listings : (plan.max_listings === -1 ? -1 : 0);
+    var features = (plan.features && typeof plan.features === 'object') ? plan.features : {};
+    document.getElementById('planEditForceMediaWall').checked = !!features.force_media_wall;
+    document.getElementById('planEditShowHomepage').checked = !!features.show_homepage_match;
+    document.getElementById('planEditShowMultilang').checked = !!features.show_multilang;
+    new bootstrap.Modal(document.getElementById('planEditModal')).show();
+  }
+  async function savePlan() {
+    var id = document.getElementById('planEditId').value;
+    if (!id) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var payload = {
+      name: document.getElementById('planEditName').value.trim(),
+      price: parseInt(document.getElementById('planEditPrice').value, 10) || 0,
+      credits_monthly: parseInt(document.getElementById('planEditCredits').value, 10) || 0,
+      sort_order: parseInt(document.getElementById('planEditSort').value, 10) || 0,
+      max_listings: parseInt(document.getElementById('planEditMaxListings').value, 10),
+      features: {
+        force_media_wall: document.getElementById('planEditForceMediaWall').checked,
+        show_homepage_match: document.getElementById('planEditShowHomepage').checked,
+        show_multilang: document.getElementById('planEditShowMultilang').checked
+      }
+    };
+    if (isNaN(payload.max_listings) || payload.max_listings < 0) payload.max_listings = -1;
+    try {
+      var res = await fetch('/api/admin/subscription-plans/' + id, { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('已儲存');
+      bootstrap.Modal.getInstance(document.getElementById('planEditModal')).hide();
+      loadPlans();
+    } catch (e) {
+      showMsg('儲存失敗：' + (e.message || ''), true);
+    }
+  }
+
+  async function loadPoints() {
+    var tbody = document.getElementById('pointsTbody');
+    if (!tbody) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/points-config', { headers: headers });
+      var data = await res.json();
+      if (!res.ok) return;
+      var rows = [
+        { key: 'points_text_to_image', label: 'AI 文生圖', value: data.points_text_to_image, note: '點/次（無參考圖）' },
+        { key: 'points_image_to_image', label: 'AI 圖生圖', value: data.points_image_to_image, note: '點/次（有參考圖）' },
+        { key: 'points_ai_upscale', label: 'AI 放大', value: data.points_ai_upscale, note: '點/次（我的 AI 編輯區）' },
+        { key: 'points_ai_sketch', label: '草圖轉圖像', value: data.points_ai_sketch, note: '點/次（控制類，我的 AI 編輯區，預設 20）' },
+        { key: 'points_ai_structure', label: '結構轉圖像', value: data.points_ai_structure, note: '點/次（控制類，我的 AI 編輯區，預設 20）' },
+        { key: 'points_ai_style', label: '風格引導', value: data.points_ai_style, note: '點/次（控制類，我的 AI 編輯區，預設 20）' },
+        { key: 'points_ai_style_transfer', label: '風格轉換', value: data.points_ai_style_transfer, note: '點/次（控制類，內容圖+風格圖，預設 30）' },
+        { key: 'points_ai_erase', label: '移除物件', value: data.points_ai_erase, note: '點/次（編輯類，原圖+遮罩，預設 20）' },
+        { key: 'points_ai_inpaint', label: '內部補繪', value: data.points_ai_inpaint, note: '點/次（編輯類，原圖+遮罩+prompt，預設 20）' },
+        { key: 'points_ai_outpaint', label: '外擴繪圖', value: data.points_ai_outpaint, note: '點/次（編輯類，原圖+方向擴展+prompt，預設 15）' },
+        { key: 'points_ai_remove_bg', label: '圖像去背', value: data.points_ai_remove_bg, note: '點/次（編輯類，上傳圖片去背，預設 15）' },
+        { key: 'points_ai_replace_bg_relight', label: '置換背景與重打光', value: data.points_ai_replace_bg_relight, note: '點/次（編輯類，主體圖+背景描述或參考圖+重打光，預設 30）' },
+        { key: 'points_scene_simulate', label: '實境模擬', value: data.points_scene_simulate, note: '點/次（產品設計頁，環境+產品圖合成，預設 20）' },
+        { key: 'points_translation', label: '對話視窗翻譯', value: data.points_translation, note: '點/段（功能尚未上線）' },
+        { key: 'points_listing_per_category', label: '額外刊登接案製作資訊', value: data.points_listing_per_category, note: '點/月/分類（額度滿後加購）' }
+      ];
+      tbody.innerHTML = '';
+      rows.forEach(function(r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + r.label + '</td><td><input type="number" class="form-control form-control-sm points-input" data-key="' + r.key + '" value="' + (r.value != null ? r.value : 0) + '" min="0" style="width:80px;" /></td><td class="text-muted small">' + (r.note || '') + '</td>';
+        tbody.appendChild(tr);
+      });
+    } catch (e) {}
+  }
+  async function savePoints() {
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var payload = {};
+    document.querySelectorAll('#pointsTbody .points-input').forEach(function(inp) {
+      var k = inp.dataset.key;
+      if (k) payload[k] = parseInt(inp.value, 10) || 0;
+    });
+    if (Object.keys(payload).length === 0) {
+      showMsg('請先切換至「點數規則」分頁並等待載入完成後再儲存', true);
+      return;
+    }
+    var btn = document.getElementById('btnSavePoints');
+    if (btn) { btn.disabled = true; btn.textContent = '儲存中…'; }
+    try {
+      var res = await fetch('/api/admin/points-config', { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
+      var data = {};
+      try { data = await res.json(); } catch (_) { data = { error: '回應格式錯誤', details: await res.text().then(function(t){ return t.slice(0, 200); }) }; }
+      if (!res.ok) {
+        var errMsg = data.error || '儲存失敗';
+        if (data.details) errMsg += '：' + data.details;
+        if (data.hint) errMsg += ' ' + data.hint;
+        showMsg(errMsg, true);
+        return;
+      }
+      showMsg('點數規則已儲存');
+      loadPoints();
+    } catch (e) {
+      showMsg('儲存失敗：' + (e.message || String(e)), true);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '儲存點數規則'; }
+    }
+  }
+
+  function renderPermissionsTable() {
+    var tbody = document.getElementById('permissionsTbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    var defaultPerms = [
+      { forceMediaWall: true,  maxListings: '0', showHomepage: false, showMultilang: false },
+      { forceMediaWall: false, maxListings: '3',  showHomepage: true,  showMultilang: false },
+      { forceMediaWall: false, maxListings: '10', showHomepage: true,  showMultilang: true  },
+      { forceMediaWall: false, maxListings: '30', showHomepage: true,  showMultilang: true  }
+    ];
+    (plansCache || []).forEach(function(p) {
+      var sortOrder = p.sort_order != null ? p.sort_order : 0;
+      var features = (p.features && typeof p.features === 'object') ? p.features : {};
+      var def = defaultPerms[sortOrder] || defaultPerms[0];
+      var forceMediaWall = features.force_media_wall !== undefined ? features.force_media_wall : def.forceMediaWall;
+      var maxStr = (p.max_listings != null && p.max_listings >= 0) ? String(p.max_listings) : (p.max_listings === -1 ? '無限制' : def.maxListings);
+      var showHomepage = features.show_homepage_match !== undefined ? features.show_homepage_match : def.showHomepage;
+      var showMultilang = features.show_multilang !== undefined ? features.show_multilang : def.showMultilang;
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + (p.name || '—') + '</td>' +
+        '<td>' + (forceMediaWall ? '✅' : '❌') + '</td>' +
+        '<td>' + maxStr + '</td>' +
+        '<td>' + (showHomepage ? '✅' : '—') + '</td>' +
+        '<td>' + (showMultilang ? '✅' : '—') + '</td>';
+      tbody.appendChild(tr);
+    });
+    if ((plansCache || []).length === 0)
+      tbody.innerHTML = '<tr><td colspan="5" class="text-muted">請先載入方案設定</td></tr>';
+  }
+
+  var currentUserForAdjust = null;
+  async function searchUser() {
+    var email = document.getElementById('userSearchEmail').value.trim();
+    if (!email) { showMsg('請輸入 email', true); return; }
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var box = document.getElementById('userResult');
+    box.style.display = 'block';
+    box.innerHTML = '<p class="text-muted">查詢中…</p>';
+    try {
+      var res = await fetch('/api/admin/membership/user?email=' + encodeURIComponent(email), { headers: headers });
+      var data = await res.json();
+      if (!res.ok) { box.innerHTML = '<p class="text-danger">' + (data.error || '查詢失敗') + '</p>'; return; }
+      if (!data.user) { box.innerHTML = '<p class="text-muted">找不到該用戶</p>'; return; }
+      var u = data.user;
+      currentUserForAdjust = u;
+      var cred = u.credits || {};
+      var sub = u.subscription || {};
+      var html = '<div class="border rounded p-3">' +
+        '<p class="mb-1"><strong>' + (u.full_name || u.email || '') + '</strong> ' + (u.email || '') + '</p>' +
+        '<p class="mb-1 small">會員等級：' + (u.member_level || '一般') + '</p>' +
+        '<p class="mb-1 small">點數餘額：' + (cred.balance != null ? cred.balance : 0) + '（累計獲得 ' + (cred.total_earned != null ? cred.total_earned : 0) + ' / 消費 ' + (cred.total_spent != null ? cred.total_spent : 0) + '）</p>' +
+        '<p class="mb-2 small">訂閱：' + (sub.plan_name || '無') + (sub.end_date ? '，到期 ' + sub.end_date.slice(0,10) : '') + '</p>' +
+        '<button type="button" class="btn btn-sm btn-primary me-1" id="btnAdjustCredits">調整點數</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnEditMemberLevel">編輯等級</button>' +
+        '</div>';
+      box.innerHTML = html;
+      document.getElementById('btnAdjustCredits').addEventListener('click', function() {
+        document.getElementById('adjustCreditsAmount').value = '';
+        document.getElementById('adjustCreditsDesc').value = '';
+        new bootstrap.Modal(document.getElementById('adjustCreditsModal')).show();
+      });
+      document.getElementById('btnEditMemberLevel').addEventListener('click', async function() {
+        var level = prompt('請輸入會員等級（例如：一般、方案二）', u.member_level || '一般');
+        if (level === null) return;
+        var headers = await getAuthHeaders();
+        try {
+          var r = await fetch('/api/admin/users/' + u.id, { method: 'PATCH', headers: headers, body: JSON.stringify({ member_level: level.trim() }) });
+          var d = await r.json();
+          if (d.error) showMsg(d.error, true); else { showMsg('已更新'); searchUser(); }
+        } catch (err) { showMsg('更新失敗', true); }
+      });
+    } catch (e) {
+      box.innerHTML = '<p class="text-danger">' + (e.message || '查詢失敗') + '</p>';
+    }
+  }
+  async function confirmAdjustCredits() {
+    if (!currentUserForAdjust || !currentUserForAdjust.email) return;
+    var amount = parseInt(document.getElementById('adjustCreditsAmount').value, 10);
+    var desc = document.getElementById('adjustCreditsDesc').value.trim();
+    if (isNaN(amount) || amount === 0) { showMsg('請輸入有效點數（正數補點、負數扣點）', true); return; }
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/membership/adjust-credits', { method: 'POST', headers: headers, body: JSON.stringify({ email: currentUserForAdjust.email, amount: amount, description: desc || undefined }) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '調整失敗', true); return; }
+      showMsg('已調整，新餘額：' + data.new_balance);
+      bootstrap.Modal.getInstance(document.getElementById('adjustCreditsModal')).hide();
+      searchUser();
+    } catch (e) {
+      showMsg('調整失敗', true);
+    }
+  }
+
+  async function searchLedger() {
+    var email = document.getElementById('ledgerSearchEmail').value.trim();
+    if (!email) { showMsg('請輸入 email', true); return; }
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    var tbody = document.getElementById('ledgerTbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted">查詢中…</td></tr>';
+    try {
+      var res = await fetch('/api/admin/membership/ledger?email=' + encodeURIComponent(email), { headers: headers });
+      var data = await res.json();
+      if (!res.ok) { tbody.innerHTML = '<tr><td colspan="5" class="text-danger">' + (data.error || '查詢失敗') + '</td></tr>'; return; }
+      var list = data.ledger || [];
+      tbody.innerHTML = '';
+      if (list.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-muted">無流水紀錄</td></tr>'; return; }
+      list.forEach(function(t) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (t.created_at ? t.created_at.slice(0,19).replace('T',' ') : '') + '</td><td>' + (t.type || '') + '</td><td>' + (t.amount != null ? t.amount : '') + '</td><td>' + (t.balance_after != null ? t.balance_after : '') + '</td><td>' + (t.description || t.source || '') + '</td>';
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-danger">查詢失敗</td></tr>';
+    }
+  }
+
+  var usageStatsBarChartInst = null;
+  var usageStatsLineChartInst = null;
+  var usageStatsLevelChartInst = null;
+
+  function setUsageStatsDateRange(range) {
+    var fromEl = document.getElementById('usageStatsFrom');
+    var toEl = document.getElementById('usageStatsTo');
+    if (!fromEl || !toEl) return;
+    var today = new Date();
+    var toStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    var fromDate = new Date(today);
+    if (range === 'today') {
+      fromEl.value = toStr;
+      toEl.value = toStr;
+    } else if (range === 'last7') {
+      fromDate.setDate(fromDate.getDate() - 6);
+      fromEl.value = fromDate.getFullYear() + '-' + String(fromDate.getMonth() + 1).padStart(2, '0') + '-' + String(fromDate.getDate()).padStart(2, '0');
+      toEl.value = toStr;
+    } else if (range === 'last30') {
+      fromDate.setDate(fromDate.getDate() - 29);
+      fromEl.value = fromDate.getFullYear() + '-' + String(fromDate.getMonth() + 1).padStart(2, '0') + '-' + String(fromDate.getDate()).padStart(2, '0');
+      toEl.value = toStr;
+    } else if (range === 'month') {
+      fromEl.value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-01';
+      toEl.value = toStr;
+    } else {
+      fromEl.value = '';
+      toEl.value = '';
+    }
+  }
+
+  function drawUsageStatsCharts(stats, dailyTotals, byLevel) {
+    if (typeof Chart === 'undefined') return;
+    var barCtx = document.getElementById('usageStatsBarChart');
+    var lineCtx = document.getElementById('usageStatsLineChart');
+    var levelCtx = document.getElementById('usageStatsLevelChart');
+    if (usageStatsBarChartInst) { usageStatsBarChartInst.destroy(); usageStatsBarChartInst = null; }
+    if (usageStatsLineChartInst) { usageStatsLineChartInst.destroy(); usageStatsLineChartInst = null; }
+    if (usageStatsLevelChartInst) { usageStatsLevelChartInst.destroy(); usageStatsLevelChartInst = null; }
+    if (stats && stats.length > 0 && barCtx) {
+      var labels = stats.map(function(s) { return (s.description || '其他').slice(0, 12); });
+      var values = stats.map(function(s) { return s.total_points || 0; });
+      usageStatsBarChartInst = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ label: '點數累計', data: values, backgroundColor: 'rgba(102, 126, 234, 0.6)', borderColor: 'rgb(102, 126, 234)', borderWidth: 1 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true },
+            x: { maxRotation: 45, minRotation: 0 }
+          }
+        }
+      });
+    }
+    if (byLevel && byLevel.length > 0 && levelCtx) {
+      var levelLabels = byLevel.map(function(b) { return (b.member_level || '一般').slice(0, 8); });
+      var levelValues = byLevel.map(function(b) { return b.total_points || 0; });
+      var colors = ['rgba(102, 126, 234, 0.8)', 'rgba(118, 75, 162, 0.8)', 'rgba(237, 100, 166, 0.8)', 'rgba(255, 154, 158, 0.8)', 'rgba(250, 208, 196, 0.8)'];
+      usageStatsLevelChartInst = new Chart(levelCtx, {
+        type: 'doughnut',
+        data: {
+          labels: levelLabels,
+          datasets: [{ data: levelValues, backgroundColor: colors.slice(0, levelValues.length), borderWidth: 1 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+    if (dailyTotals && dailyTotals.length > 0 && lineCtx) {
+      var dayLabels = dailyTotals.map(function(d) { return d.date; });
+      var dayValues = dailyTotals.map(function(d) { return d.total_points || 0; });
+      usageStatsLineChartInst = new Chart(lineCtx, {
+        type: 'line',
+        data: {
+          labels: dayLabels,
+          datasets: [{ label: '每日點數', data: dayValues, borderColor: 'rgb(118, 75, 162)', backgroundColor: 'rgba(118, 75, 162, 0.1)', fill: true, tension: 0.2 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true },
+            x: { maxRotation: 45 }
+          }
+        }
+      });
+    }
+  }
+
+  async function loadUsageStats() {
+    var tbody = document.getElementById('usageStatsTbody');
+    var summaryEl = document.getElementById('usageStatsSummary');
+    if (!tbody) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入且具管理員權限', true); return; }
+    var fromDate = document.getElementById('usageStatsFrom')?.value?.trim() || '';
+    var toDate = document.getElementById('usageStatsTo')?.value?.trim() || '';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-muted">載入中…</td></tr>';
+    if (summaryEl) summaryEl.textContent = '';
+    try {
+      var url = '/api/admin/points-usage-stats?';
+      if (fromDate) url += 'from_date=' + encodeURIComponent(fromDate) + '&';
+      if (toDate) url += 'to_date=' + encodeURIComponent(toDate) + '&';
+      var res = await fetch(url, { headers: headers });
+      var data = await res.json();
+      if (!res.ok) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-danger">' + (data.error || '載入失敗') + '</td></tr>';
+        drawUsageStatsCharts([], [], []);
+        return;
+      }
+      var stats = data.stats || [];
+      var dailyTotals = data.daily_totals || [];
+      var byLevel = data.by_level || [];
+      var totalCount = data.total_count != null ? data.total_count : 0;
+      var totalPoints = data.total_points != null ? data.total_points : 0;
+      var levelTbody = document.getElementById('usageStatsLevelTbody');
+      if (levelTbody) {
+        levelTbody.innerHTML = '';
+        if (byLevel.length === 0) {
+          levelTbody.innerHTML = '<tr><td colspan="5" class="text-muted">此區間無依層級資料</td></tr>';
+        } else {
+          byLevel.forEach(function(b) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+              '<td>' + (b.member_level || '一般') + '</td>' +
+              '<td class="text-end">' + (b.user_count != null ? b.user_count.toLocaleString() : '0') + '</td>' +
+              '<td class="text-end">' + (b.count != null ? b.count.toLocaleString() : '0') + '</td>' +
+              '<td class="text-end">' + (b.total_points != null ? b.total_points.toLocaleString() : '0') + '</td>' +
+              '<td class="text-end">' + (b.avg_per_user != null ? b.avg_per_user.toLocaleString() : '—') + '</td>';
+            levelTbody.appendChild(tr);
+          });
+        }
+      }
+      tbody.innerHTML = '';
+      if (stats.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">此區間無扣點紀錄</td></tr>';
+      } else {
+        stats.forEach(function(s) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + (s.description || '其他') + '</td>' +
+            '<td class="text-end">' + (s.times != null ? s.times.toLocaleString() : '0') + '</td>' +
+            '<td class="text-end">' + (s.total_points != null ? s.total_points.toLocaleString() : '0') + '</td>' +
+            '<td class="text-end">' + (s.avg_points != null ? s.avg_points.toLocaleString() : '—') + '</td>';
+          tbody.appendChild(tr);
+        });
+      }
+      drawUsageStatsCharts(stats, dailyTotals, byLevel);
+      if (summaryEl) summaryEl.textContent = '共 ' + totalCount.toLocaleString() + ' 筆消費、點數累計 ' + totalPoints.toLocaleString() + ' 點。';
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-danger">載入失敗：' + (e.message || '') + '</td></tr>';
+      drawUsageStatsCharts([], [], []);
+    }
+    loadDesignActionStats();
+  }
+
+  async function loadDesignActionStats() {
+    var ids = ['designStatsFindVendor', 'designStatsRedesignOk', 'designStatsShareIg', 'designStatsSharePinterest', 'designStatsShareFb', 'designStatsShareLine', 'designStatsShareCopy'];
+    var keys = ['find_vendor_count', 'redesign_generate_ok_count', 'share_instagram_count', 'share_pinterest_count', 'share_facebook_count', 'share_line_count', 'share_copy_link_count'];
+    var els = ids.map(function(id) { return document.getElementById(id); });
+    if (!els[0]) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { els.forEach(function(el) { if (el) el.textContent = '—'; }); return; }
+    var fromDate = document.getElementById('usageStatsFrom')?.value?.trim() || '';
+    var toDate = document.getElementById('usageStatsTo')?.value?.trim() || '';
+    try {
+      var url = '/api/admin/design-action-stats?';
+      if (fromDate) url += 'from_date=' + encodeURIComponent(fromDate) + '&';
+      if (toDate) url += 'to_date=' + encodeURIComponent(toDate) + '&';
+      var res = await fetch(url, { headers: headers });
+      var data = await res.json();
+      if (res.ok) {
+        keys.forEach(function(k, i) { if (els[i]) els[i].textContent = (data[k] != null ? data[k] : 0).toLocaleString(); });
+      } else {
+        els.forEach(function(el) { if (el) el.textContent = '—'; });
+      }
+    } catch (e) {
+      els.forEach(function(el) { if (el) el.textContent = '—'; });
+    }
+  }
+
+  async function updateLoginStatus(){
+    var statusText = document.getElementById('loginStatusText');
+    var loginLink = document.getElementById('loginStatusLink');
+    var logoutBtn = document.getElementById('logoutBtn');
+    if(!statusText) return;
+    try{
+      var session = window.AuthService ? await AuthService.getSession() : null;
+      if(session && session.access_token){
+        statusText.textContent = '已登入（可操作後台）';
+        if(loginLink) loginLink.style.display = 'none';
+        if(logoutBtn) logoutBtn.style.display = 'inline-block';
+        loadPlans();
+        loadPoints();
+      } else {
+        statusText.textContent = '未登入';
+        if(loginLink){ loginLink.style.display = 'inline-block'; loginLink.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname); }
+        if(logoutBtn) logoutBtn.style.display = 'none';
+      }
+    }catch(e){
+      statusText.textContent = '未登入';
+      if(loginLink) loginLink.style.display = 'inline-block';
+      if(logoutBtn) logoutBtn.style.display = 'none';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    updateLoginStatus();
+    document.getElementById('logoutBtn')?.addEventListener('click', function(){
+      if(window.AuthService && typeof AuthService.signOut === 'function') AuthService.signOut();
+      location.href = '/login.html';
+    });
+    document.getElementById('btnLoadPlans')?.addEventListener('click', loadPlans);
+    document.getElementById('btnSavePlan')?.addEventListener('click', savePlan);
+    document.getElementById('btnSavePoints')?.addEventListener('click', savePoints);
+    document.getElementById('btnLoadPermissions')?.addEventListener('click', function(){ loadPlans(); });
+    document.getElementById('btnSearchUser')?.addEventListener('click', searchUser);
+    document.getElementById('btnSearchLedger')?.addEventListener('click', searchLedger);
+    document.getElementById('btnLoadUsageStats')?.addEventListener('click', loadUsageStats);
+    document.getElementById('usage-stats-tab')?.addEventListener('shown.bs.tab', function(){
+      var from = document.getElementById('usageStatsFrom')?.value?.trim();
+      var to = document.getElementById('usageStatsTo')?.value?.trim();
+      if (!from && !to) setUsageStatsDateRange('last30');
+      loadUsageStats();
+    });
+    document.querySelectorAll('#usage-stats [data-range]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var range = this.getAttribute('data-range');
+        if (range) { setUsageStatsDateRange(range); loadUsageStats(); }
+      });
+    });
+    document.getElementById('btnConfirmAdjustCredits')?.addEventListener('click', confirmAdjustCredits);
+    document.getElementById('points-tab')?.addEventListener('shown.bs.tab', loadPoints);
+    document.getElementById('permissions-tab')?.addEventListener('shown.bs.tab', function(){ if (plansCache.length === 0) loadPlans(); else renderPermissionsTable(); });
+  });
+})();
+  </script>
+</body>
+</html>

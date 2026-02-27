@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 設定 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-3">AI 設定</h4>
+        <p class="text-muted small mb-3">Gemini 翻譯／讀圖模型與實境模擬系統提示詞。可隨官方更新型號與提示詞內容。</p>
+        <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
+
+        <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
+          <span class="me-2">目前狀態：</span>
+          <span id="loginStatusText">檢查中…</span>
+          <a id="loginStatusLink" href="/login.html" class="btn btn-sm btn-outline-primary" style="display:none;">前往登入</a>
+          <button type="button" id="logoutBtn" class="btn btn-sm btn-outline-secondary" style="display:none;">登出</button>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="card-title">AI 模型設定</h6>
+            <p class="text-muted small">翻譯用於 prompt 中→英；讀圖／分析用於圖片描述、客製分析、估算、標籤等。可隨官方更新型號。</p>
+            <div class="mb-3">
+              <label class="form-label small mb-1">Gemini 翻譯模型</label>
+              <input type="text" id="aiConfigGeminiModel" class="form-control form-control-sm" placeholder="gemini-2.5-flash-lite" />
+              <p class="form-text small text-muted mb-0">例：gemini-2.5-flash-lite（預設）、gemini-2.5-flash、gemini-2.0-flash 等。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">Gemini 讀圖／分析模型</label>
+              <input type="text" id="aiConfigGeminiModelRead" class="form-control form-control-sm" placeholder="gemini-3-flash-preview" />
+              <p class="form-text small text-muted mb-0">例：gemini-3-flash-preview（預設）、gemini-2.5-flash 等，依 <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noopener">官方文件</a> 填寫。</p>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">實境模擬系統提示詞</h6>
+            <p class="text-muted small mb-2">前台「實境模擬」生圖時，會將此系統提示詞與使用者輸入的提示詞（選填）組合後送交 Flux 2.0 PRO。留空則僅使用使用者輸入。</p>
+            <textarea id="sceneSimSystemPrompt" class="form-control form-control-sm" rows="4" placeholder="例：將產品自然融入真實室內場景，保持產品主體清晰，背景為生活化環境。"></textarea>
+            <button type="button" class="btn btn-sm btn-primary mt-2" id="btnSaveSceneSimPrompt">儲存</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function(){
+  async function getAuthHeaders() {
+    if (!window.AuthService || !AuthService.getSession) return {};
+    var session = await AuthService.getSession();
+    var token = session && session.access_token;
+    if (!token) return {};
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+  function showMsg(msg, isError) {
+    var el = document.getElementById('aiSettingsMsg');
+    if (!el) return;
+    el.style.display = 'block';
+    el.className = 'alert mb-3 py-2 ' + (isError ? 'alert-danger' : 'alert-success');
+    el.textContent = msg;
+  }
+
+  async function loadAiConfig() {
+    var inp = document.getElementById('aiConfigGeminiModel');
+    var inpRead = document.getElementById('aiConfigGeminiModelRead');
+    if (!inp) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/ai-config', { headers: headers });
+      var data = await res.json();
+      if (res.ok) {
+        if (data.gemini_model != null) inp.value = data.gemini_model;
+        if (inpRead && data.gemini_model_read != null) inpRead.value = data.gemini_model_read;
+      }
+    } catch (e) {}
+  }
+  async function saveAiConfig() {
+    var inp = document.getElementById('aiConfigGeminiModel');
+    var inpRead = document.getElementById('aiConfigGeminiModelRead');
+    if (!inp) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var payload = { gemini_model: inp.value.trim() || 'gemini-2.5-flash-lite' };
+    if (inpRead) payload.gemini_model_read = inpRead.value.trim() || 'gemini-3-flash-preview';
+    try {
+      var res = await fetch('/api/admin/ai-config', { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('AI 模型設定已儲存');
+    } catch (e) { showMsg('儲存失敗', true); }
+  }
+
+  async function loadSceneSimPrompt() {
+    var ta = document.getElementById('sceneSimSystemPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/scene-sim-prompt', { headers: headers });
+      var data = await res.json();
+      if (res.ok && data.system_prompt != null) ta.value = data.system_prompt;
+    } catch (e) {}
+  }
+  async function saveSceneSimPrompt() {
+    var ta = document.getElementById('sceneSimSystemPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    try {
+      var res = await fetch('/api/admin/scene-sim-prompt', { method: 'PATCH', headers: headers, body: JSON.stringify({ system_prompt: ta.value.trim() }) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('實境模擬系統提示詞已儲存');
+    } catch (e) { showMsg('儲存失敗', true); }
+  }
+
+  async function updateLoginStatus() {
+    var statusText = document.getElementById('loginStatusText');
+    var loginLink = document.getElementById('loginStatusLink');
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (!statusText) return;
+    try {
+      var session = window.AuthService ? await AuthService.getSession() : null;
+      if (session && session.access_token) {
+        statusText.textContent = '已登入（可操作後台）';
+        if (loginLink) loginLink.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        loadAiConfig();
+        loadSceneSimPrompt();
+      } else {
+        statusText.textContent = '未登入';
+        if (loginLink) { loginLink.style.display = 'inline-block'; loginLink.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname); }
+        if (logoutBtn) logoutBtn.style.display = 'none';
+      }
+    } catch (e) {
+      statusText.textContent = '未登入';
+      if (loginLink) loginLink.style.display = 'inline-block';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    updateLoginStatus();
+    document.getElementById('logoutBtn')?.addEventListener('click', function() {
+      if (window.AuthService && typeof AuthService.signOut === 'function') AuthService.signOut();
+      location.href = '/login.html';
+    });
+    document.getElementById('btnSaveAiConfig')?.addEventListener('click', saveAiConfig);
+    document.getElementById('btnSaveSceneSimPrompt')?.addEventListener('click', saveSceneSimPrompt);
+  });
+})();
+  </script>
+</body>
+</html>

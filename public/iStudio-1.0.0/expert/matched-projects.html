@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>媒合專案 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="../img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="../css/style.css" rel="stylesheet">
+
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+</head>
+
+<body>
+    <!-- 共用前台導覽 -->
+    <div id="site-header"></div>
+
+    <!-- Page Header Start -->
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark" data-i18n="matchedProjects.title">媒合專案</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="../index.html" data-i18n="nav.home">首頁</a></li>
+                        <li class="breadcrumb-item"><a href="dashboard.html" data-i18n="matchedProjects.breadcrumbConsole">控制台</a></li>
+                        <li class="breadcrumb-item active" data-i18n="matchedProjects.breadcrumbMatched">媒合專案</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- Matched Projects Start -->
+    <div class="container-xxl py-3">
+        <div class="container">
+            <!-- 篩選選項 -->
+            <div class="row mb-3">
+                <div class="col-lg-12">
+                    <div class="bg-light rounded p-3">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <select class="form-select" id="statusFilter">
+                                    <option value="" data-i18n="matchedProjects.filterAllStatus">全部狀態</option>
+                                    <option value="pending" data-i18n="matchedProjects.statusPending">待處理</option>
+                                    <option value="contacted" data-i18n="matchedProjects.statusContacted">已聯繫</option>
+                                    <option value="accepted" data-i18n="matchedProjects.statusAccepted">已接案</option>
+                                    <option value="declined" data-i18n="matchedProjects.statusDeclined">已婉拒</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="sortFilter">
+                                    <option value="score" data-i18n="matchedProjects.sortByScore">依媒合分數</option>
+                                    <option value="date" data-i18n="matchedProjects.sortByDate">依建立時間</option>
+                                    <option value="budget" data-i18n="matchedProjects.sortByBudget">依預算範圍</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="searchInput" data-i18n-placeholder="matchedProjects.searchPlaceholder" placeholder="搜尋專案關鍵字...">
+                                    <button class="btn btn-primary" type="button">
+                                        <i class="fas fa-search"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 此頁＝我已媒合的專案列表；預媒合在「可媒合專案」頁 -->
+            <p class="text-muted small mb-3"><span data-i18n="matchedProjects.pageDesc">此頁顯示您已成功媒合的專案。若要「預媒合」或申請新專案，請至</span> <a href="browse-projects.html" data-i18n="matchedProjects.browseLink">可媒合專案</a>。</p>
+            <!-- 專案列表 -->
+            <div id="matchedProjectsContainer">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden" data-i18n="myCustomProducts.loading">載入中...</span>
+                    </div>
+                    <p class="mt-3" data-i18n="matchedProjects.loading">正在載入「我已媒合的專案」列表...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Matched Projects End -->
+
+    <!-- Contact Modal -->
+    <div class="modal fade" id="contactModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-envelope me-2"></i><span data-i18n="matchedProjects.contactClient">聯繫客戶</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="contactForm">
+                        <div class="mb-3">
+                            <label class="form-label" data-i18n="matchedProjects.projectName">專案名稱</label>
+                            <input type="text" class="form-control" id="projectTitle" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">預估報價 *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">NT$</span>
+                                <input type="number" class="form-control" id="estimatedPrice" required>
+                            </div>
+                            <small class="text-muted">請提供初步報價，與客戶洽談時可再調整</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">預估工期 *</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="estimatedDays" required>
+                                <span class="input-group-text">天</span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">留言給客戶</label>
+                            <textarea class="form-control" id="contactMessage" rows="4" 
+                                placeholder="介紹您的服務優勢、過往案例或其他想與客戶分享的資訊..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="submitContact">
+                        <i class="fas fa-paper-plane me-2"></i>送出聯繫
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Start -->
+    <div class="container-fluid bg-dark text-body footer mt-5 pt-5">
+        <div class="container py-5">
+            <div class="row g-5">
+                <div class="col-lg-12 text-center">
+                    <p class="mb-0">&copy; <a class="text-primary" href="#">MatchDO 合做</a>. All Rights Reserved.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Footer End -->
+
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../lib/wow/wow.min.js"></script>
+    <script src="../lib/easing/easing.min.js"></script>
+    <script src="../lib/waypoints/waypoints.min.js"></script>
+    <script src="../lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="../js/main.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="../js/site-header.js"></script>
+
+    <!-- Matched Projects Logic -->
+    <script>
+        let currentUser = null;
+        let currentProjectId = null;
+        const supabase = window.supabaseClient;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.i18n && window.i18n.ready) {
+                window.i18n.ready.then(function () { window.i18n.applyPage(); });
+            }
+            try {
+                if (!window.AuthService) {
+                    window.location.href = (AuthService.getLoginUrl && AuthService.getLoginUrl()) || '/login.html';
+                    return;
+                }
+                const session = await AuthService.getSession();
+                const user = session && session.user;
+                if (!user) {
+                    window.location.href = (AuthService.getLoginUrl && AuthService.getLoginUrl()) || '/login.html';
+                    return;
+                }
+                currentUser = user;
+                loadMatchedProjects();
+                $('#statusFilter, #sortFilter').on('change', function() { loadMatchedProjects(); });
+                $('#searchInput').on('keyup', function(e) { if (e.key === 'Enter') loadMatchedProjects(); });
+            } catch (e) {
+                console.error(e);
+                $('#matchedProjectsContainer').html(
+                    '<div class="alert alert-danger">登入狀態異常，請<a href="' + (AuthService.getLoginUrl && AuthService.getLoginUrl() || '/login.html') + '">重新登入</a>後再試。</div>'
+                );
+            }
+        });
+
+        function loadWithTimeout(promise, ms) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('載入逾時，請重整頁面或稍後再試')), ms))
+            ]);
+        }
+
+        async function loadMatchedProjects() {
+            const container = $('#matchedProjectsContainer');
+            container.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2">正在載入「我已媒合的專案」列表...</p></div>');
+            try {
+                if (!supabase) throw new Error('連線未就緒，請重整頁面');
+                if (!currentUser || !currentUser.id) throw new Error('請先登入');
+
+                const { data: matches, error: matchErr } = await loadWithTimeout(
+                    supabase
+                        .from('matches')
+                        .select('id, project_id, expert_listing_id, match_score, status, created_at')
+                        .eq('expert_id', currentUser.id)
+                        .eq('status', 'active')
+                        .order('created_at', { ascending: false }),
+                    12000
+                );
+
+                if (matchErr) throw matchErr;
+
+                if (!matches || matches.length === 0) {
+                    container.html(`
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-handshake fa-4x text-muted mb-4"></i>
+                                <h4 class="mb-3">暫無媒合專案</h4>
+                                <p class="text-muted mb-4">
+                                    您可到「可媒合專案」主動尋找並申請媒合適合的專案，<br>
+                                    或等待發案者送出媒合後，專案會出現在這裡。
+                                </p>
+                                <a href="browse-projects.html" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-search me-2"></i>前往可媒合專案
+                                </a>
+                                <a href="my-listings.html" class="btn btn-outline-primary btn-lg ms-2">
+                                    <i class="fas fa-list me-2"></i>我的報價
+                                </a>
+                            </div>
+                        </div>
+                    `);
+                    return;
+                }
+
+                const projectIds = [...new Set(matches.map(m => m.project_id).filter(Boolean))];
+                const listingIds = [...new Set(matches.map(m => m.expert_listing_id).filter(Boolean))];
+                let projectMap = {};
+                if (projectIds.length > 0) {
+                    const { data: projects } = await supabase.from('projects').select('id, title, project_location').in('id', projectIds);
+                    (projects || []).forEach(p => { projectMap[p.id] = p; });
+                }
+                let listingMap = {};
+                if (listingIds.length > 0) {
+                    const { data: listings } = await supabase.from('listings').select('id, title').in('id', listingIds);
+                    (listings || []).forEach(l => { listingMap[l.id] = l; });
+                }
+
+                const list = matches.map(m => {
+                    const proj = projectMap[m.project_id];
+                    const listing = listingMap[m.expert_listing_id];
+                    return {
+                        match_id: m.id,
+                        project_id: m.project_id,
+                        project_title: proj ? (proj.title || '未命名專案') : '未命名專案',
+                        project_location: proj ? (proj.project_location || []) : [],
+                        match_score: m.match_score,
+                        status: m.status,
+                        created_at: m.created_at,
+                        listing_title: listing ? listing.title : '',
+                        contact: null
+                    };
+                });
+                displayProjects(list);
+            } catch (error) {
+                console.error('載入媒合專案失敗:', error);
+                const msg = (error && error.message) || '載入失敗';
+                container.html(`
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-exclamation-circle fa-3x text-danger mb-3"></i>
+                            <h5 class="mb-2">無法載入媒合專案</h5>
+                            <p class="text-muted mb-4">${msg}</p>
+                            <button type="button" class="btn btn-primary" onclick="loadMatchedProjects()">
+                                <i class="fas fa-redo me-2"></i>重試
+                            </button>
+                            <a href="browse-projects.html" class="btn btn-outline-primary ms-2">前往可媒合專案</a>
+                        </div>
+                    </div>
+                `);
+            }
+        }
+
+        function escape(s) {
+            if (s == null) return '';
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function displayProjects(projects) {
+            const container = $('#matchedProjectsContainer');
+            if (!projects || projects.length === 0) return;
+            let html = '<div class="row g-4">';
+            projects.forEach(p => {
+                const statusBadge = getStatusBadge(p.status);
+                const scoreColor = getMatchScoreColor(Number(p.match_score));
+                const locText = Array.isArray(p.project_location) && p.project_location.length ? p.project_location.join('、') : '未指定';
+                const contact = p.contact || {};
+                const hasContact = contact.phone || contact.mobile || contact.email || contact.line_id;
+                html += `
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${escape(p.project_title)}</h5>
+                                ${statusBadge}
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <span class="text-muted">媒合分數</span>
+                                    <span class="badge ${scoreColor} ms-2">${p.match_score}</span>
+                                    ${p.listing_title ? `<small class="text-muted d-block mt-1">對應報價：${escape(p.listing_title)}</small>` : ''}
+                                </div>
+                                <div class="mb-2"><small class="text-muted">地區</small> ${escape(locText)}</div>
+                                <div class="mb-2"><small class="text-muted">建立時間</small> ${p.created_at ? new Date(p.created_at).toLocaleDateString('zh-TW') : '-'}</div>
+                                ${hasContact ? `
+                                <div class="border-top pt-3 mt-3">
+                                    <small class="text-muted d-block mb-2">發案者聯絡方式</small>
+                                    <div class="small">
+                                        ${contact.phone ? `<div><i class="fas fa-phone me-1"></i> ${escape(contact.phone)}</div>` : ''}
+                                        ${contact.mobile ? `<div><i class="fas fa-mobile me-1"></i> ${escape(contact.mobile)}</div>` : ''}
+                                        ${contact.email ? `<div><i class="fas fa-envelope me-1"></i> ${escape(contact.email)}</div>` : ''}
+                                        ${contact.line_id ? `<div><i class="fab fa-line me-1"></i> ${escape(contact.line_id)}</div>` : ''}
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="card-footer bg-white border-top">
+                                <a href="/client/project-detail.html?project_id=${escape(p.project_id)}" class="btn btn-primary">
+                                    <i class="fas fa-eye me-2"></i>查看專案詳情
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            container.html(html);
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'pending': '<span class="badge bg-warning">待處理</span>',
+                'contacted': '<span class="badge bg-info">已聯繫</span>',
+                'accepted': '<span class="badge bg-success">已接案</span>',
+                'declined': '<span class="badge bg-secondary">已婉拒</span>'
+            };
+            return badges[status] || '<span class="badge bg-secondary">未知</span>';
+        }
+
+        function getMatchScoreColor(score) {
+            if (score >= 90) return 'bg-success';
+            if (score >= 70) return 'bg-info';
+            if (score >= 50) return 'bg-warning';
+            return 'bg-danger';
+        }
+
+        function openContactModal(projectId, projectTitle) {
+            currentProjectId = projectId;
+            $('#projectTitle').val(projectTitle);
+            $('#contactForm')[0].reset();
+            $('#projectTitle').val(projectTitle);
+            new bootstrap.Modal($('#contactModal')).show();
+        }
+
+        function viewProjectDetail(projectId) {
+            // TODO: 導向專案詳情頁
+            alert('專案詳情功能開發中...');
+        }
+
+        async function handleContactSubmit() {
+            const estimatedPrice = $('#estimatedPrice').val();
+            const estimatedDays = $('#estimatedDays').val();
+            const message = $('#contactMessage').val();
+
+            if (!estimatedPrice || !estimatedDays) {
+                alert('請填寫必填欄位');
+                return;
+            }
+
+            try {
+                // TODO: 送出聯繫請求到後端 API
+                // 儲存到 conversations 或 contacts 表
+
+                alert('聯繫請求已送出！客戶會在 24 小時內回覆。');
+                bootstrap.Modal.getInstance($('#contactModal')).hide();
+                await loadMatchedProjects();
+
+            } catch (error) {
+                console.error('送出聯繫失敗:', error);
+                alert('送出失敗，請稍後再試');
+            }
+        }
+    </script>
+</body>
+
+</html>

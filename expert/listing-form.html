@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>新增報價 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="../img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="/css/style.css" rel="stylesheet">
+
+    <style>
+        .preview-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .preview-images img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+            border: 2px solid #ddd;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 共用前台導覽 -->
+    <div id="site-header"></div>
+
+    <!-- Page Header Start -->
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark">新增報價</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="../index.html">首頁</a></li>
+                        <li class="breadcrumb-item"><a href="my-listings.html">我的報價</a></li>
+                        <li class="breadcrumb-item active">新增報價</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- Listing Form Start -->
+    <div class="container-xxl py-3">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="bg-light rounded p-5">
+                        <div class="text-center mb-5">
+                            <h1 class="mb-4">建立您的報價項目</h1>
+                        </div>
+
+                        <form id="listingForm">
+                            <div class="row g-3">
+                                <!-- 品名/服務名稱 -->
+                                <div class="col-12">
+                                    <label class="form-label">服務名稱 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="title" required 
+                                           placeholder="例：室內設計規劃、木工訂製、油漆工程">
+                                    <div class="form-text">簡潔明確的服務名稱有助於客戶快速了解</div>
+                                </div>
+
+                                <!-- 分類 -->
+                                <div class="col-12">
+                                    <label class="form-label">服務分類 <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="category" required>
+                                        <option value="">請選擇分類</option>
+                                    </select>
+                                </div>
+
+                                <!-- 計價方式：單一單價 或 階梯定價 -->
+                                <div class="col-12">
+                                    <label class="form-label">計價方式</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="pricingMode" id="pricingSingle" value="single" checked>
+                                        <label class="form-check-label" for="pricingSingle">單一單價區間（所有數量同一單價）</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="pricingMode" id="pricingTiers" value="tiers">
+                                        <label class="form-check-label" for="pricingTiers">階梯定價（不同數量區間可設不同單價）</label>
+                                    </div>
+                                </div>
+
+                                <!-- 單一單價區間（與單位對應，供媒合：發包數量 × 此單價 ＝ 總價） -->
+                                <div id="singlePriceSection" class="col-12">
+                                    <div class="row g-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label">單價下限 (元/單位) <span class="text-danger">*</span></label>
+                                            <input type="number" class="form-control" id="priceMin" min="0" step="1" placeholder="例：2500">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">單價上限 (元/單位) <span class="text-danger">*</span></label>
+                                            <input type="number" class="form-control" id="priceMax" min="0" step="1" placeholder="例：3500">
+                                        </div>
+                                    </div>
+                                    <div class="form-text">媒合時會用「您的單價 × 發包商數量」與發包商總預算比對</div>
+                                </div>
+
+                                <!-- 階梯定價：多組數量區間 × 單價區間 -->
+                                <div id="tiersSection" class="col-12 d-none">
+                                    <label class="form-label">數量區間與單價區間</label>
+                                    <div class="form-text mb-2">依「數量下限～上限」對應「單價下限～上限」；上限留空表示「以上」</div>
+                                    <div id="priceTiersContainer">
+                                        <div class="price-tier-row row g-2 align-items-end mb-2">
+                                            <div class="col-2"><input type="number" class="form-control form-control-sm" name="tier_qty_min" placeholder="數量起" min="0" step="0.01"></div>
+                                            <div class="col-2"><input type="number" class="form-control form-control-sm" name="tier_qty_max" placeholder="數量迄" min="0" step="0.01" title="留空＝以上"></div>
+                                            <div class="col-2"><input type="number" class="form-control form-control-sm" name="tier_unit_min" placeholder="單價下限" min="0" step="1"></div>
+                                            <div class="col-2"><input type="number" class="form-control form-control-sm" name="tier_unit_max" placeholder="單價上限" min="0" step="1"></div>
+                                            <div class="col-2"><button type="button" class="btn btn-sm btn-outline-danger remove-tier">移除</button></div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="addTierRow"><i class="bi bi-plus me-1"></i>新增一階</button>
+                                </div>
+
+                                <!-- 單位與交期（依所選分類從 DB 撈該分類專家使用的單位，不硬編碼） -->
+                                <div class="col-md-6">
+                                    <label class="form-label">計價單位 <span class="text-danger">*</span></label>
+                                    <div id="unitWrapper">
+                                        <span class="text-muted small">請先選擇服務分類</span>
+                                    </div>
+                                    <div class="form-text">與發包商填寫的單位一致才能媒合；同分類用相同單位</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">預計交期 (天)</label>
+                                    <input type="number" class="form-control" id="deliveryDays" min="1" 
+                                           placeholder="7">
+                                    <div class="form-text">預計完成所需天數</div>
+                                </div>
+
+                                <!-- 標籤 (供媒合：與發包端工項標籤對齊才易被媒合) -->
+                                <div class="col-12">
+                                    <label class="form-label">服務標籤 (TAGS)</label>
+                                    <input type="text" class="form-control" id="listingTags" 
+                                           placeholder="多個標籤請用逗號或頓號分隔，例：系統櫃、收納、客廳、木工">
+                                    <div class="form-text">填寫與服務相關的關鍵字，發包端會依標籤對齊媒合</div>
+                                </div>
+
+                                <!-- 工作區域 -->
+                                <div class="col-12">
+                                    <label class="form-label">服務區域 <span class="text-danger">*</span></label>
+                                    <div class="form-text mb-2">請選擇您可提供服務的區域（可複選）</div>
+                                    <div class="row g-2" id="serviceLocationCheckboxes">
+                                        <!-- JavaScript 動態生成縣市選項 -->
+                                    </div>
+                                </div>
+
+                                <!-- 遠端工作 -->
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="isRemote">
+                                        <label class="form-check-label" for="isRemote">
+                                            <i class="bi bi-laptop me-1"></i>可接受遠端工作
+                                        </label>
+                                    </div>
+                                    <div class="form-text">勾選後，您的報價將顯示為可遠端服務</div>
+                                </div>
+
+                                <!-- 服務說明 -->
+                                <div class="col-12">
+                                    <label class="form-label">服務說明 <span class="text-danger">*</span></label>
+                                    <textarea class="form-control" id="description" rows="5" required
+                                              placeholder="詳細描述您的服務內容、流程、特色等"></textarea>
+                                    <div class="form-text">詳細的說明有助於提高媒合成功率</div>
+                                </div>
+
+                                <!-- 作品／媒體：最多 5 張圖片、YouTube、嵌入碼 -->
+                                <div class="col-12">
+                                    <label class="form-label">作品圖片（選填，最多 5 張）</label>
+                                    <input type="file" class="form-control" id="images" accept="image/*" multiple data-max="5">
+                                    <div class="form-text">可上傳最多 5 張圖片，或於下方填寫圖片網址</div>
+                                    <div id="imagePreview" class="preview-images"></div>
+                                    <div class="mt-2">
+                                        <label class="form-label small">圖片網址（選填，每行一筆，最多 5 筆）</label>
+                                        <textarea class="form-control form-control-sm" id="imageUrls" rows="2" placeholder="https://...&#10;https://..."></textarea>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">YouTube 連結（選填，每行一筆）</label>
+                                    <textarea class="form-control" id="youtubeUrls" rows="2" placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/..."></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">媒體嵌入碼（選填，例：Sketchfab、iframe）</label>
+                                    <textarea class="form-control font-monospace small" id="mediaEmbeds" rows="4" placeholder="貼上 iframe 或嵌入碼，可多段"></textarea>
+                                    <div class="form-text">例如 Sketchfab、地圖等提供的「嵌入」程式碼</div>
+                                </div>
+
+                                <!-- 提交按鈕 -->
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary w-100 py-3">
+                                        <i class="bi bi-check-circle me-2"></i>發布報價
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+
+                        <div id="alertContainer" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Listing Form End -->
+
+    <!-- Footer Start -->
+    <div class="container-fluid bg-dark text-body footer mt-5 pt-5">
+        <div class="container py-5">
+            <div class="row g-5">
+                <div class="col-lg-12 text-center">
+                    <p class="mb-2"><a class="text-primary" href="/contact.html">聯絡我們</a></p>
+                    <p class="mb-0">&copy; <a class="text-primary" href="/index.html">MatchDO 合做</a>. All Rights Reserved.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Footer End -->
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="../js/site-header.js"></script>
+
+    <script>
+        let currentUser = null;
+
+        // 台灣縣市列表
+        const taiwanCities = [
+            '台北市', '新北市', '桃園市', '台中市', '台南市', '高雄市',
+            '基隆市', '新竹市', '新竹縣', '苗栗縣', '彰化縣', '南投縣',
+            '雲林縣', '嘉義市', '嘉義縣', '屏東縣', '宜蘭縣', '花蓮縣',
+            '台東縣', '澎湖縣', '金門縣', '連江縣', '全台灣'
+        ];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 檢查登入狀態
+            const ok = await AuthMiddleware.requireExpert();
+            if (!ok) return;
+            currentUser = await AuthService.getCurrentUser();
+            
+            // 載入分類選項
+            await loadCategories();
+
+            // 載入服務區域選項
+            loadServiceLocationOptions();
+
+            // 圖片預覽
+            document.getElementById('images').addEventListener('change', previewImages);
+
+            // 計價方式切換
+            document.querySelectorAll('input[name="pricingMode"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const single = document.getElementById('singlePriceSection');
+                    const tiers = document.getElementById('tiersSection');
+                    if (document.getElementById('pricingTiers').checked) {
+                        single.classList.add('d-none');
+                        tiers.classList.remove('d-none');
+                    } else {
+                        single.classList.remove('d-none');
+                        tiers.classList.add('d-none');
+                    }
+                });
+            });
+
+            // 階梯定價：新增一階
+            document.getElementById('addTierRow').addEventListener('click', () => {
+                const first = document.querySelector('.price-tier-row');
+                if (!first) return;
+                const clone = first.cloneNode(true);
+                clone.querySelectorAll('input').forEach(i => { i.value = ''; });
+                document.getElementById('priceTiersContainer').appendChild(clone);
+            });
+
+            // 階梯定價：移除一階（委託給容器）
+            document.getElementById('priceTiersContainer').addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-tier')) {
+                    const row = e.target.closest('.price-tier-row');
+                    if (row && document.querySelectorAll('.price-tier-row').length > 1) row.remove();
+                }
+            });
+
+            // 表單提交
+            document.getElementById('listingForm').addEventListener('submit', handleSubmit);
+        });
+
+        async function loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const data = await response.json();
+                
+                const categorySelect = document.getElementById('category');
+                // API 返回 { categories: [...], via: '...' } 格式
+                const categories = data.categories || [];
+                categories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat.key;
+                    option.textContent = cat.name; // 欄位名稱是 name 而非 display_name
+                    categorySelect.appendChild(option);
+                });
+                categorySelect.addEventListener('change', loadUnitsForCategory);
+                loadUnitsForCategory(); // 若有預選分類（編輯時）也載入單位
+            } catch (error) {
+                console.error('載入分類失敗:', error);
+                showAlert('載入分類失敗，請重新整理頁面', 'danger');
+            }
+        }
+
+        async function loadUnitsForCategory() {
+            const category = document.getElementById('category').value;
+            const wrap = document.getElementById('unitWrapper');
+            if (!wrap) return;
+            if (!category) {
+                wrap.innerHTML = '<span class="text-muted small">請先選擇服務分類</span>';
+                return;
+            }
+            try {
+                const res = await fetch('/api/listings/units-by-category?category=' + encodeURIComponent(category));
+                const data = await res.json().catch(() => ({}));
+                const units = (data.units && Array.isArray(data.units)) ? data.units : [];
+                if (units.length > 0) {
+                    wrap.innerHTML = '<select class="form-select" id="unit" required><option value="">請選擇單位</option>' +
+                        units.map(u => '<option value="' + u.replace(/"/g, '&quot;') + '">' + u + '</option>').join('') + '</select>';
+                } else {
+                    wrap.innerHTML = '<input type="text" class="form-control" id="unit" required placeholder="例：瓶、ml、式">';
+                    const el = document.getElementById('unit');
+                    if (el) el.setAttribute('title', '此分類尚無報價，您填的單位將成為該分類的計價單位');
+                }
+            } catch (e) {
+                wrap.innerHTML = '<span class="text-danger small">無法載入單位，請稍後再試</span>';
+            }
+        }
+
+        function loadServiceLocationOptions() {
+            const container = document.getElementById('serviceLocationCheckboxes');
+            taiwanCities.forEach(city => {
+                const col = document.createElement('div');
+                col.className = 'col-md-3 col-sm-4 col-6';
+                col.innerHTML = `
+                    <div class="form-check">
+                        <input class="form-check-input service-location-checkbox" type="checkbox" 
+                               id="city-${city}" value="${city}">
+                        <label class="form-check-label" for="city-${city}">
+                            ${city}
+                        </label>
+                    </div>
+                `;
+                container.appendChild(col);
+            });
+        }
+
+        function previewImages(event) {
+            const input = event.target;
+            const files = Array.from(input.files || []).filter(f => f.type.startsWith('image/')).slice(0, 5);
+            const previewContainer = document.getElementById('imagePreview');
+            previewContainer.innerHTML = '';
+            if (files.length > 5) {
+                showAlert('最多上傳 5 張圖片，已只顯示前 5 張', 'info');
+            }
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    previewContainer.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+            if (files.length < (input.files || []).length) {
+                const dt = new DataTransfer();
+                files.forEach(f => dt.items.add(f));
+                input.files = dt.files;
+            }
+        }
+
+        async function handleSubmit(event) {
+            event.preventDefault();
+
+            const title = document.getElementById('title').value.trim();
+            const category = document.getElementById('category').value;
+            const unitEl = document.getElementById('unit');
+            if (!category) {
+                showAlert('請選擇服務分類', 'danger');
+                return;
+            }
+            if (!unitEl) {
+                showAlert('請先選擇服務分類，系統會載入該分類的計價單位', 'danger');
+                return;
+            }
+            const unit = (unitEl.value || '').trim();
+            if (!unit) {
+                showAlert('請填寫計價單位', 'danger');
+                return;
+            }
+            const deliveryDays = parseInt(document.getElementById('deliveryDays').value) || null;
+            const description = document.getElementById('description').value.trim();
+            const isRemote = document.getElementById('isRemote').checked;
+            const useTiers = document.getElementById('pricingTiers').checked;
+
+            let price_min, price_max, price_tiers = null;
+
+            if (useTiers) {
+                const rows = document.querySelectorAll('.price-tier-row');
+                const tiers = [];
+                rows.forEach(row => {
+                    const qMin = parseFloat(row.querySelector('[name="tier_qty_min"]').value);
+                    const qMaxRaw = row.querySelector('[name="tier_qty_max"]').value.trim();
+                    const qMax = qMaxRaw === '' ? null : parseFloat(qMaxRaw);
+                    const uMin = parseInt(row.querySelector('[name="tier_unit_min"]').value, 10);
+                    const uMax = parseInt(row.querySelector('[name="tier_unit_max"]').value, 10);
+                    if (isNaN(qMin) || isNaN(uMin) || isNaN(uMax)) return;
+                    tiers.push({
+                        quantity_min: qMin,
+                        quantity_max: qMax,
+                        unit_price_min: uMin,
+                        unit_price_max: uMax
+                    });
+                });
+                tiers.sort((a, b) => (a.quantity_min || 0) - (b.quantity_min || 0));
+                if (tiers.length === 0) {
+                    showAlert('請至少填寫一階的數量與單價', 'danger');
+                    return;
+                }
+                if (tiers.some(t => t.unit_price_max < t.unit_price_min)) {
+                    showAlert('每一階的單價上限不可小於下限', 'danger');
+                    return;
+                }
+                price_tiers = tiers;
+                price_min = tiers[0].unit_price_min;
+                price_max = tiers[0].unit_price_max;
+            } else {
+                price_min = parseInt(document.getElementById('priceMin').value, 10);
+                price_max = parseInt(document.getElementById('priceMax').value, 10);
+                if (isNaN(price_min) || isNaN(price_max)) {
+                    showAlert('請填寫單價下限與上限', 'danger');
+                    return;
+                }
+                if (price_max < price_min) {
+                    showAlert('單價上限不能低於單價下限', 'danger');
+                    return;
+                }
+            }
+
+            const serviceLocation = Array.from(
+                document.querySelectorAll('.service-location-checkbox:checked')
+            ).map(cb => cb.value);
+
+            if (serviceLocation.length === 0 && !isRemote) {
+                showAlert('請至少選擇一個服務區域，或勾選「可接受遠端工作」', 'warning');
+                return;
+            }
+
+            const tagsInput = (document.getElementById('listingTags') || {}).value || '';
+            const tags = tagsInput.split(/[,，、\s]+/).map(t => t.trim()).filter(Boolean);
+
+            const imageUrlsText = (document.getElementById('imageUrls') || {}).value || '';
+            const imageUrls = imageUrlsText.split(/\n/).map(u => u.trim()).filter(u => u && u.startsWith('http')).slice(0, 5);
+            const youtubeUrlsText = (document.getElementById('youtubeUrls') || {}).value || '';
+            const youtube_urls = youtubeUrlsText.split(/\n/).map(u => u.trim()).filter(u => u && (u.includes('youtube.com') || u.includes('youtu.be')));
+            const mediaEmbedsText = (document.getElementById('mediaEmbeds') || {}).value || '';
+            const media_embeds = mediaEmbedsText.split(/\n\n+/).map(s => s.trim()).filter(Boolean).map(html => ({ html }));
+
+            const listingData = {
+                expert_id: currentUser.id,
+                title,
+                category,
+                price_min,
+                price_max,
+                unit,
+                delivery_days: deliveryDays,
+                description,
+                service_location: serviceLocation,
+                is_remote: isRemote,
+                status: 'active',
+                images: imageUrls,
+                tags
+            };
+            if (price_tiers && price_tiers.length > 0) listingData.price_tiers = price_tiers;
+            if (youtube_urls.length > 0) listingData.youtube_urls = youtube_urls;
+            if (media_embeds.length > 0) listingData.media_embeds = media_embeds;
+
+            try {
+                // 儲存到資料庫
+                const { data, error } = await supabaseClient
+                    .from('listings')
+                    .insert([listingData])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                showAlert('報價發布成功！即將跳轉...', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = 'my-listings.html';
+                }, 1500);
+
+            } catch (error) {
+                console.error('發布失敗:', error);
+                showAlert('發布失敗：' + error.message, 'danger');
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.getElementById('alertContainer').appendChild(alertDiv);
+
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+
+</html>

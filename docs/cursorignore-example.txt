@@ -1,0 +1,11 @@
+# 複製此檔內容到專案「根目錄」並存成 .cursorignore（無副檔名）
+# 可減少 Cursor 索引與 OOM（記憶體溢出）
+#
+# 做法：在專案根目錄（與 package.json 同層）新增檔案 .cursorignore，
+#       將下面幾行貼上後存檔。
+
+node_modules/
+dist/
+.git/
+*.log
+uploads/

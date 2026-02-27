@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的客製產品 - MatchDO 合做</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script type="module" src="/config/auth-config.js"></script>
+    <script type="module" src="/iStudio-1.0.0/js/auth-middleware.js"></script>
+    <script type="module" src="/iStudio-1.0.0/js/site-header.js"></script>
+    <style>
+        .product-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        .status-badge {
+            font-size: 0.85rem;
+            padding: 0.35rem 0.75rem;
+        }
+        .product-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        .empty-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container py-5">
+        <div class="row mb-4">
+            <div class="col">
+                <h2><i class="bi bi-box-seam me-2"></i>我的客製產品</h2>
+                <p class="text-muted">管理您的所有客製化產品需求</p>
+            </div>
+            <div class="col-auto">
+                <a href="/iStudio-1.0.0/custom-product.html" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-2"></i>建立新產品
+                </a>
+            </div>
+        </div>
+
+        <!-- 載入中 -->
+        <div id="loadingSpinner" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">載入中...</span>
+            </div>
+            <p class="mt-3 text-muted">載入產品列表...</p>
+        </div>
+
+        <!-- 產品列表 -->
+        <div id="productsList" class="row g-4" style="display: none;"></div>
+
+        <!-- 空白狀態 -->
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <i class="bi bi-inbox" style="font-size: 4rem; color: #dee2e6;"></i>
+            <h4 class="mt-3">尚無客製產品</h4>
+            <p>立即建立您的第一個客製化產品需求</p>
+            <a href="/iStudio-1.0.0/custom-product.html" class="btn btn-primary mt-3">
+                <i class="bi bi-plus-lg me-2"></i>開始建立
+            </a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { AuthService } from '/config/auth-config.js';
+        import { AuthMiddleware } from '/iStudio-1.0.0/js/auth-middleware.js';
+
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 檢查登入狀態
+            const isAuth = await AuthMiddleware.requireAuth();
+            if (!isAuth) return;
+
+            currentUser = await AuthService.getCurrentUser();
+            
+            // 載入產品列表
+            await loadProducts();
+        });
+
+        async function loadProducts() {
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+
+                if (!token) {
+                    throw new Error('未找到有效的登入 token');
+                }
+
+                const response = await fetch('/api/custom-products', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '載入失敗');
+                }
+
+                const products = data.products || [];
+
+                // 隱藏載入動畫
+                document.getElementById('loadingSpinner').style.display = 'none';
+
+                if (products.length === 0) {
+                    document.getElementById('emptyState').style.display = 'block';
+                } else {
+                    document.getElementById('productsList').style.display = 'flex';
+                    renderProducts(products);
+                }
+
+            } catch (error) {
+                console.error('載入產品列表失敗:', error);
+                document.getElementById('loadingSpinner').style.display = 'none';
+                showAlert('載入產品列表失敗: ' + error.message, 'danger');
+            }
+        }
+
+        function renderProducts(products) {
+            const container = document.getElementById('productsList');
+            container.innerHTML = '';
+
+            products.forEach(product => {
+                const card = createProductCard(product);
+                container.appendChild(card);
+            });
+        }
+
+        function createProductCard(product) {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+
+            const statusInfo = getStatusInfo(product.status);
+            const imageUrl = product.ai_generated_image_url || product.reference_image_url || 'https://via.placeholder.com/400x300?text=No+Image';
+
+            col.innerHTML = `
+                <div class="card product-card h-100">
+                    <img src="${imageUrl}" class="card-img-top product-image" alt="${product.title}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">${escapeHtml(product.title)}</h5>
+                            <span class="badge ${statusInfo.class} status-badge">${statusInfo.text}</span>
+                        </div>
+                        <p class="card-text text-muted small">${escapeHtml(product.description.substring(0, 100))}${product.description.length > 100 ? '...' : ''}</p>
+                        <div class="text-muted small mb-3">
+                            <i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary btn-sm" onclick="viewProduct('${product.id}')">
+                                <i class="bi bi-eye me-1"></i>查看詳情
+                            </button>
+                            ${product.status === 'draft' ? `
+                                <button class="btn btn-outline-success btn-sm" onclick="matchProduct('${product.id}')">
+                                    <i class="bi bi-search me-1"></i>開始媒合
+                                </button>
+                            ` : ''}
+                            ${product.status === 'matched' ? `
+                                <button class="btn btn-success btn-sm" onclick="viewMatches('${product.id}')">
+                                    <i class="bi bi-people me-1"></i>查看廠商
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return col;
+        }
+
+        function getStatusInfo(status) {
+            const statusMap = {
+                'draft': { text: '草稿', class: 'bg-secondary' },
+                'analyzing': { text: '分析中', class: 'bg-info' },
+                'matched': { text: '已媒合', class: 'bg-success' },
+                'contacted': { text: '已聯繫', class: 'bg-warning' },
+                'completed': { text: '已完成', class: 'bg-primary' }
+            };
+            return statusMap[status] || { text: status, class: 'bg-secondary' };
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-TW', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit' 
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.viewProduct = function(productId) {
+            window.location.href = `custom-product-detail.html?id=${productId}`;
+        };
+
+        window.matchProduct = async function(productId) {
+            if (!confirm('確定要開始媒合廠商嗎？')) return;
+
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+
+                const response = await fetch(`/api/custom-products/${productId}/match`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '媒合失敗');
+                }
+
+                showAlert('媒合成功！正在跳轉...', 'success');
+                setTimeout(() => {
+                    window.location.href = `custom-product-detail.html?id=${productId}`;
+                }, 1500);
+
+            } catch (error) {
+                console.error('媒合失敗:', error);
+                showAlert('媒合失敗: ' + error.message, 'danger');
+            }
+        };
+
+        window.viewMatches = function(productId) {
+            window.location.href = `custom-product-detail.html?id=${productId}`;
+        };
+
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+            alertDiv.style.zIndex = '9999';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+    </script>
+</body>
+</html>

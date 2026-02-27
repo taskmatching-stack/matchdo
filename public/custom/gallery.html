@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="utf-8">
+    <title>圖庫找廠商 - 客製產品 | MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="瀏覽廠商作品圖庫，依關鍵字或分類篩選，選圖聯繫廠商或加入再設計">
+
+    <link href="/img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+    <style>
+        html { scrollbar-gutter: stable; }
+        body.modal-open { overflow: hidden; padding-right: 0 !important; margin-right: 0 !important; }
+        #galleryModal { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
+        #galleryModal .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
+        /* 圖庫卡片整齊：固定比例、圖片覆蓋、等高 */
+        #galleryGrid .gallery-card { transition: transform .15s ease, box-shadow .15s ease; }
+        #galleryGrid .gallery-card:hover { transform: translateY(-2px); box-shadow: 0 .25rem .5rem rgba(0,0,0,.1) !important; }
+        #galleryGrid .ratio img { object-fit: cover; width: 100%; height: 100%; }
+        #galleryGrid .card-body { min-height: 4rem; display: flex; flex-direction: column; justify-content: flex-start; }
+        #galleryGrid .card-title { line-height: 1.3; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container py-4">
+        <h1 class="mb-2"><i class="bi bi-images me-2"></i><span data-i18n="gallery.title">圖庫找廠商</span></h1>
+        <p class="text-muted mb-4" data-i18n="gallery.desc">瀏覽廠商作品，用關鍵字或分類篩選；點選作品可查看廠商資訊、聯繫廠商或加入再設計。</p>
+
+        <!-- 篩選列 -->
+        <div class="row align-items-center mb-4 g-3">
+            <div class="col-md-5 col-lg-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="galleryKeyword" class="form-control" data-i18n-placeholder="gallery.placeholder" placeholder="關鍵字搜尋標題、標籤" autocomplete="off">
+                </div>
+            </div>
+            <div class="col-md-7 col-lg-8">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="text-muted small" data-i18n="gallery.categoryLabel">分類：</span>
+                    <div class="d-flex flex-wrap gap-2" id="galleryCategories">
+                        <button type="button" class="btn btn-primary btn-sm active" data-category="" data-i18n="gallery.all">全部</button>
+                        <!-- 動態填入 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 載入中 / 無資料 -->
+        <div id="galleryLoading" class="text-center py-5 text-muted">
+            <div class="spinner-border mb-2" role="status"></div>
+            <p class="mb-0" data-i18n="gallery.loading">載入作品中...</p>
+        </div>
+        <div id="galleryEmpty" class="text-center py-5 d-none">
+            <i class="bi bi-images display-4 text-muted"></i>
+            <p class="mt-2 text-muted" data-i18n="gallery.empty">尚無作品圖，或目前篩選無結果。請試試其他關鍵字或分類。</p>
+            <p class="small text-muted">若您已在「我的廠商作品」上傳資料卻看不到：請確認後端 .env 已設 <code>SUPABASE_SERVICE_ROLE_KEY</code>，並在 Supabase 執行過 <code>docs/seed-manufacturers-and-portfolio.sql</code>。</p>
+            <a href="/custom/" class="btn btn-outline-primary" data-i18n="gallery.backToCustom">返回客製產品首頁</a>
+        </div>
+
+        <!-- 圖牆 -->
+        <div id="galleryGrid" class="row g-4 d-none">
+            <!-- 卡片由 JS 動態插入 -->
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+
+    <!-- 作品詳情 Modal：放在 body 下、固定覆蓋視窗，避免背後版面被擠壓 -->
+    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="galleryModalLabel">作品詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <img id="modalImage" src="" alt="" class="img-fluid rounded">
+                        </div>
+                        <div class="col-md-6">
+                            <h6 id="modalTitle" class="mb-2"></h6>
+                            <p id="modalDescription" class="text-muted small mb-2"></p>
+                            <div id="modalDesignHighlightBlock" class="mb-3 d-none">
+                                <strong class="small text-secondary">作品重點</strong>
+                                <p id="modalDesignHighlight" class="small mb-0 mt-1"></p>
+                            </div>
+                            <p class="mb-1"><strong>廠商</strong> <span id="modalMfrName"></span></p>
+                            <p class="mb-1 small text-muted"><i class="bi bi-geo-alt me-1"></i><span id="modalMfrLocation"></span></p>
+                            <div id="modalContact" class="small mb-3"></div>
+                            <div id="modalTags" class="mb-3"></div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a id="modalBtnContact" href="#" class="btn btn-primary btn-sm" target="_blank" rel="noopener">聯繫廠商</a>
+                                <a id="modalBtnRedesign" href="#" class="btn btn-outline-primary btn-sm">用此圖再設計</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/site-footer.js"></script>
+    <script>
+(function() {
+    const PORTFOLIO_API = '/api/manufacturer-portfolio';
+    const CATEGORIES_API = '/api/custom-product-categories';
+    let allItems = [];
+    let categoryList = [];
+    let selectedCategoryKey = '';
+    let keywordTimer = null;
+
+    const $loading = document.getElementById('galleryLoading');
+    const $empty = document.getElementById('galleryEmpty');
+    const $grid = document.getElementById('galleryGrid');
+    const $categories = document.getElementById('galleryCategories');
+    const $keyword = document.getElementById('galleryKeyword');
+
+    function showLoading(show) {
+        $loading.classList.toggle('d-none', !show);
+        $empty.classList.add('d-none');
+        $grid.classList.add('d-none');
+    }
+
+    function renderCategoryButtons(currentKey) {
+        const key = (currentKey || '') === '' ? '' : currentKey;
+        let html = `<button type="button" class="btn btn-outline-primary btn-sm${key === '' ? ' active' : ''}" data-category-key="">全部</button>`;
+        (categoryList || []).forEach(c => {
+            const isActive = (c.key || '') === key ? ' active' : '';
+            html += `<button type="button" class="btn btn-outline-primary btn-sm${isActive}" data-category-key="${escapeHtml(c.key || '')}">${escapeHtml(c.name || c.key || '')}</button>`;
+        });
+        $categories.innerHTML = html;
+        $categories.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                var raw = (btn.dataset.categoryKey != null ? btn.dataset.categoryKey : btn.getAttribute('data-category-key') || '').trim();
+                selectedCategoryKey = raw;
+                $categories.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadPortfolio();
+            });
+        });
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function applyFilters() {
+        var g = document.getElementById('galleryGrid');
+        var e = document.getElementById('galleryEmpty');
+        var keyword = ($keyword && $keyword.value || '').trim().toLowerCase();
+        var list = allItems || [];
+        if (keyword) {
+            list = list.filter(p => {
+                var titleMatch = (p.title || '').toLowerCase().includes(keyword);
+                var tagsMatch = (p.tags || []).some(t => String(t).toLowerCase().includes(keyword));
+                return titleMatch || tagsMatch;
+            });
+        }
+        renderGrid(list);
+        if (g) g.classList.toggle('d-none', list.length === 0);
+        if (e) e.classList.toggle('d-none', list.length > 0);
+    }
+
+    function renderGrid(items) {
+        var g = document.getElementById('galleryGrid');
+        if (!g) return;
+        var html = (items || []).map(p => {
+            const title = escapeHtml(p.title || '未命名作品');
+            const mfr = escapeHtml(p.manufacturer_name || '');
+            const img = p.image_url ? escapeHtml(p.image_url) : '';
+            const tags = (p.tags || []).slice(0, 3).map(t => `<span class="badge bg-light text-dark me-1">${escapeHtml(t)}</span>`).join('');
+            return `
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 border-0 shadow-sm gallery-card" data-id="${escapeHtml(p.id)}" style="cursor:pointer;">
+                        <div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">
+                            ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt='無圖';" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
+                        </div>
+                        <div class="card-body py-2">
+                            <h6 class="card-title small text-truncate mb-0">${title}</h6>
+                            <p class="card-text small text-muted mb-0">${mfr}</p>
+                            ${tags ? `<div class="mt-1">${tags}</div>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+        g.innerHTML = html;
+        g.querySelectorAll('.gallery-card').forEach(function (el) {
+            el.addEventListener('click', function () { openModal(el.dataset.id); });
+        });
+    }
+
+    function openModal(portfolioId) {
+        var id = String(portfolioId || '');
+        const p = allItems.find(function (i) { return String(i && i.id) === id; });
+        if (!p) return;
+        const modal = new bootstrap.Modal(document.getElementById('galleryModal'));
+        // 訂製品圖庫：只顯示主圖，不對照（改製品圖庫另頁再做改造前/後對照）
+        document.getElementById('modalImage').src = p.image_url || '';
+        document.getElementById('modalImage').alt = p.title || '';
+        document.getElementById('modalTitle').textContent = p.title || '未命名作品';
+        document.getElementById('modalDescription').textContent = p.description || '';
+        const highlight = (p.design_highlight || '').trim();
+        const $highlightBlock = document.getElementById('modalDesignHighlightBlock');
+        const $highlightText = document.getElementById('modalDesignHighlight');
+        if (highlight) {
+            $highlightBlock.classList.remove('d-none');
+            $highlightText.textContent = highlight;
+        } else {
+            $highlightBlock.classList.add('d-none');
+        }
+        document.getElementById('modalMfrName').textContent = p.manufacturer_name || '';
+        document.getElementById('modalMfrLocation').textContent = p.manufacturer_location || '—';
+
+        const contact = p.manufacturer_contact || {};
+        let contactHtml = '';
+        if (contact.email) contactHtml += `<div><i class="bi bi-envelope me-1"></i><a href="mailto:${escapeHtml(contact.email)}">${escapeHtml(contact.email)}</a></div>`;
+        if (contact.phone) contactHtml += `<div><i class="bi bi-telephone me-1"></i><a href="tel:${escapeHtml(contact.phone)}">${escapeHtml(contact.phone)}</a></div>`;
+        if (contact.line) contactHtml += `<div><i class="bi bi-chat me-1"></i>LINE: ${escapeHtml(contact.line)}</div>`;
+        if (contact.url) contactHtml += `<div><i class="bi bi-link-45deg me-1"></i><a href="${escapeHtml(contact.url)}" target="_blank" rel="noopener">前往賣場/官網</a></div>`;
+        document.getElementById('modalContact').innerHTML = contactHtml || '<span class="text-muted">未提供聯絡方式</span>';
+
+        const tags = (p.tags || []).map(t => `<span class="badge bg-secondary me-1">${escapeHtml(t)}</span>`).join('');
+        document.getElementById('modalTags').innerHTML = tags ? tags : '';
+
+        const contactUrl = contact.url || (contact.email ? 'mailto:' + contact.email : '#');
+        const contactBtn = document.getElementById('modalBtnContact');
+        contactBtn.href = contactUrl;
+        contactBtn.textContent = contact.url ? '前往賣場/官網' : (contact.email ? '寫信聯繫' : '聯繫廠商');
+
+        const redesignUrl = '/custom-product.html?from_gallery=1&image_url=' + encodeURIComponent(p.image_url || '') + '&portfolio_id=' + encodeURIComponent(p.id || '');
+        document.getElementById('modalBtnRedesign').href = redesignUrl;
+
+        modal.show();
+    }
+
+    async function loadCategories() {
+        try {
+            const res = await fetch(CATEGORIES_API);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '載入分類失敗');
+            categoryList = (data.categories || []).map(c => ({ key: c.key, name: c.name }));
+            renderCategoryButtons(selectedCategoryKey);
+        } catch (err) {
+            console.error(err);
+            categoryList = [];
+            renderCategoryButtons('');
+        }
+    }
+
+    /** 圖庫與首頁同一來源：直接從 /api/media-wall 取「廠商對比」項目，首頁有顯示這裡就一定有 */
+    function mapMediaWallComparisonToGallery(items) {
+        return (items || []).filter(function (x) { return x.type === 'comparison'; }).map(function (p) {
+            return {
+                id: p.id,
+                manufacturer_id: p.manufacturer_id || null,
+                title: p.title || '廠商作品',
+                image_url: p.image_url || null,
+                image_url_before: p.image_url_before || null,
+                design_highlight: p.design_highlight || null,
+                manufacturer_name: '廠商作品',
+                manufacturer_location: '',
+                manufacturer_contact: null,
+                tags: [],
+                description: null
+            };
+        });
+    }
+
+    function apiUrl(path) {
+        var o = window.location.origin;
+        if (!o || o === 'null' || window.location.protocol === 'file:') return path;
+        return o + path;
+    }
+
+    var DEMO_ITEM = { id: 'demo-1', title: '對比範例', image_url: 'https://placehold.co/400x300/5a7a5a/d4e4d4?text=%E5%AF%A6%E5%93%81', manufacturer_name: '廠商作品', manufacturer_location: '', manufacturer_contact: null, tags: [], description: null };
+
+    async function loadPortfolio() {
+        var loadingEl = document.getElementById('galleryLoading');
+        var emptyEl = document.getElementById('galleryEmpty');
+        var gridEl = document.getElementById('galleryGrid');
+        if (loadingEl) loadingEl.classList.remove('d-none');
+        if (emptyEl) emptyEl.classList.add('d-none');
+        if (gridEl) gridEl.classList.add('d-none');
+        try {
+            if (window.location.protocol === 'file:') {
+                if (emptyEl) { var fp = emptyEl.querySelector('p'); if (fp) fp.textContent = '請用網址開啟：http://localhost:3000/custom/gallery.html'; emptyEl.classList.remove('d-none'); }
+                return;
+            }
+            if (window.__GALLERY_ITEMS__ && Array.isArray(window.__GALLERY_ITEMS__) && window.__GALLERY_ITEMS__.length > 0) {
+                allItems = window.__GALLERY_ITEMS__;
+            } else {
+                var apiRes = await fetch(apiUrl('/api/gallery-items'));
+                var apiData = {};
+                try { apiData = await apiRes.json(); } catch (_) { apiData = {}; }
+                if (apiRes.ok && Array.isArray(apiData.items) && apiData.items.length > 0) {
+                    allItems = apiData.items;
+                } else {
+                    var mwRes = await fetch(apiUrl('/api/media-wall?per_page=50'));
+                    var mwData = {};
+                    try { mwData = await mwRes.json(); } catch (_) { mwData = {}; }
+                    var rawItems = Array.isArray(mwData.items) ? mwData.items : [];
+                    allItems = mapMediaWallComparisonToGallery(rawItems);
+                    if (allItems.length === 0 && rawItems.length > 0) {
+                        allItems = rawItems.filter(function (x) { return x.type === 'comparison'; }).map(function (p) {
+                            return { id: p.id, manufacturer_id: p.manufacturer_id, title: p.title || '廠商作品', image_url: p.image_url, image_url_before: p.image_url_before, design_highlight: p.design_highlight, manufacturer_name: '廠商作品', manufacturer_location: '', manufacturer_contact: null, tags: [], description: null };
+                        });
+                    }
+                }
+            }
+            if (!allItems || allItems.length === 0) allItems = [DEMO_ITEM];
+            var isAll = selectedCategoryKey === '' || selectedCategoryKey == null || String(selectedCategoryKey).trim() === '';
+            if (!isAll && allItems.length > 0) {
+                try {
+                    var catRes = await fetch(apiUrl(PORTFOLIO_API + '?category=' + encodeURIComponent(selectedCategoryKey)));
+                    var catData = await catRes.json();
+                    var catIds = (catData.items || []).map(function (x) { return x.id; });
+                    if (catIds.length > 0) allItems = allItems.filter(function (p) { return catIds.indexOf(p.id) >= 0; });
+                } catch (_) {}
+            }
+            applyFilters();
+        } catch (err) {
+            console.error('圖庫載入失敗', err);
+            allItems = [DEMO_ITEM];
+            applyFilters();
+            var emptyEl2 = document.getElementById('galleryEmpty');
+            if (emptyEl2) { var fp = emptyEl2.querySelector('p'); if (fp) fp.textContent = '載入失敗，已顯示範例。請確認後端已啟動。'; }
+        } finally {
+            if (loadingEl) loadingEl.classList.add('d-none');
+        }
+    }
+
+    if ($keyword) $keyword.addEventListener('input', function () {
+        clearTimeout(keywordTimer);
+        keywordTimer = setTimeout(applyFilters, 300);
+    });
+
+    function runInit() {
+        (async function init() {
+            try {
+                if (!document.getElementById('galleryGrid')) return;
+                await loadPortfolio();
+                loadCategories();
+            } catch (e) {
+                console.error('圖庫 init 錯誤', e);
+                var emptyEl = document.getElementById('galleryEmpty');
+                var gridEl = document.getElementById('galleryGrid');
+                var loadingEl = document.getElementById('galleryLoading');
+                if (emptyEl) { emptyEl.classList.remove('d-none'); var ep = emptyEl.querySelector('p'); if (ep) ep.textContent = '頁面載入錯誤，請重新整理。'; }
+                if (gridEl) gridEl.classList.add('d-none');
+                if (loadingEl) loadingEl.classList.add('d-none');
+            }
+        })();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runInit);
+    } else {
+        runInit();
+    }
+})();
+    </script>
+    <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
+</body>
+</html>

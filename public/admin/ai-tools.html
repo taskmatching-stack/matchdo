@@ -1,0 +1,2385 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 工具 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    #admin-ai-tools { max-width: 1200px; margin: 0 auto; }
+    #admin-ai-tools .create-panel {
+      display: grid;
+      grid-template-columns: minmax(300px, 400px) 1fr;
+      gap: 2rem;
+      align-items: start;
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,.06);
+      border: 1px solid #e5e7eb;
+    }
+    @media (max-width: 768px) {
+      #admin-ai-tools .create-panel { grid-template-columns: 1fr; gap: 1.5rem; padding: 1.5rem; }
+    }
+    #admin-ai-tools .create-panel-left { min-width: 0; }
+    #admin-ai-tools .create-panel-right {
+      min-height: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border-radius: 12px;
+      border: 2px dashed #cbd5e1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    #admin-ai-tools .create-panel-right.has-preview { background: #fff; border-color: #e2e8f0; border-style: solid; }
+    #admin-ai-tools .create-panel-right.has-result { background: #fff; border-color: #0d9488; border-style: solid; box-shadow: inset 0 0 0 1px rgba(13,148,136,.15); }
+    #admin-ai-tools .empty-state { text-align: center; padding: 1.5rem; max-width: 320px; }
+    #admin-ai-tools .empty-state .empty-icon { font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem; }
+    #admin-ai-tools .empty-state .empty-title { font-size: 1rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem; }
+    #admin-ai-tools .empty-state .empty-steps { font-size: 0.875rem; color: #64748b; line-height: 1.6; margin: 0; }
+    #admin-ai-tools .empty-state .empty-steps span { display: block; margin-top: 0.35rem; }
+    #admin-ai-tools .display-area { width: 100%; }
+    #admin-ai-tools .display-area .display-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #64748b; margin-bottom: 0.75rem; }
+    #admin-ai-tools .display-area img { max-width: 100%; max-height: 65vh; object-fit: contain; border-radius: 12px; display: block; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+    #admin-ai-tools .display-actions { margin-top: 1.25rem; display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }
+    #admin-ai-tools .loading-state .spinner-wrap { margin-bottom: 1rem; }
+    #admin-ai-tools .loading-state .loading-msg { font-size: 0.9375rem; color: #64748b; margin: 0; }
+    #admin-ai-tools .loading-state .loading-hint { font-size: 0.8125rem; color: #94a3b8; margin-top: 0.35rem; }
+    #admin-ai-tools .tool-list { list-style: none; padding: 0; margin: 0 0 1.5rem 0; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+    #admin-ai-tools .tool-list li { border-bottom: 1px solid #e5e7eb; }
+    #admin-ai-tools .tool-list li:last-child { border-bottom: none; }
+    #admin-ai-tools .tool-list a, #admin-ai-tools .tool-list span { display: block; padding: 0.75rem 1rem; font-size: 0.9375rem; color: #374151; text-decoration: none; }
+    #admin-ai-tools .tool-list a:hover { background: #f1f5f9; }
+    #admin-ai-tools .tool-list .active { background: rgba(13,148,136,.1); color: #0d9488; font-weight: 600; border-left: 3px solid #0d9488; }
+    #admin-ai-tools .tool-list .coming { color: #94a3b8; font-size: 0.8125rem; }
+    #admin-ai-tools .tool-list .tool-list-header { font-size: 0.75rem; font-weight: 600; color: #64748b; padding: 0.5rem 1rem; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+    #admin-ai-tools .tool-settings { margin-top: 0.75rem; }
+    #admin-ai-tools .settings-section-title { font-size: 0.8125rem; font-weight: 600; color: #64748b; margin-bottom: 0.5rem; }
+    #admin-ai-tools .upload-zone {
+      border: 2px dashed #cbd5e1; border-radius: 12px; padding: 1.75rem; text-align: center; background: #f8fafc;
+      cursor: pointer; transition: border-color .2s, background .2s;
+    }
+    #admin-ai-tools .upload-zone:hover { border-color: #94a3b8; background: #f1f5f9; }
+    #admin-ai-tools .upload-zone.dragover { border-color: #0d9488; background: rgba(13,148,136,.06); }
+    #admin-ai-tools .upload-zone.has-file { border-style: solid; border-color: #0d9488; background: rgba(13,148,136,.06); }
+    #admin-ai-tools .upload-zone .upload-icon { font-size: 2.25rem; color: #94a3b8; margin-bottom: 0.5rem; }
+    #admin-ai-tools .upload-zone.has-file .upload-icon { color: #0d9488; }
+    #admin-ai-tools .upload-zone .upload-text { font-size: 0.9375rem; color: #64748b; }
+    #admin-ai-tools .upload-zone .upload-fmt { font-size: 0.8125rem; color: #94a3b8; margin-top: 0.25rem; }
+    #admin-ai-tools .preview-thumb { max-width: 100%; max-height: 160px; object-fit: contain; border-radius: 10px; margin-top: 0.75rem; border: 1px solid #e2e8f0; }
+    #admin-ai-tools .btn-upscale { padding: 0.75rem 1.25rem; font-weight: 600; border-radius: 10px; }
+    #admin-ai-tools .sketch-instructions { font-size: 0.8125rem; color: #64748b; margin-bottom: 1rem; padding-left: 0.25rem; }
+    #admin-ai-tools .sketch-instructions .sketch-instructions-icon { color: #0d9488; margin-right: 0.35rem; }
+    #admin-ai-tools .sketch-instructions ul { margin: 0.35rem 0 0 1rem; padding: 0; }
+    #admin-ai-tools .sketch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 480px) { #admin-ai-tools .sketch-row { grid-template-columns: 1fr; } }
+    #admin-ai-tools .sketch-row.full { grid-template-columns: 1fr; }
+    #admin-ai-tools .sketch-slider-wrap { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+    #admin-ai-tools .sketch-slider-wrap input[type="range"] { flex: 1; }
+    #admin-ai-tools .sketch-slider-wrap .sketch-value { font-variant-numeric: tabular-nums; min-width: 2.5rem; font-size: 0.875rem; color: #475569; }
+    #admin-ai-tools .btn-sketch { padding: 0.75rem 1.25rem; font-weight: 600; border-radius: 10px; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-2">AI 工具</h4>
+        <p class="text-muted small mb-4">左欄選擇工具與設定，右欄顯示預覽與結果。管理員使用不扣點。</p>
+
+        <div id="authRequired" class="alert alert-warning mb-3" style="display:none;">
+          請先<a href="/login.html" class="alert-link">登入</a>且帳號具管理員或測試員權限後再使用。
+        </div>
+
+        <div id="admin-ai-tools">
+        <div id="mainPanel" class="create-panel" style="display:none;">
+          <div class="create-panel-left">
+            <label class="form-label fw-bold">工具</label>
+            <ul class="tool-list" id="toolList">
+              <li><a href="#" class="active" data-tool="upscale"><i class="bi bi-zoom-in me-2"></i>放大</a></li>
+              <li class="tool-list-header">編輯</li>
+              <li><a href="#" data-tool="erase"><i class="bi bi-eraser me-2"></i>移除物件</a></li>
+              <li><a href="#" data-tool="inpaint"><i class="bi bi-brush-fill me-2"></i>內部補繪</a></li>
+              <li><a href="#" data-tool="outpaint"><i class="bi bi-aspect-ratio me-2"></i>外擴繪圖</a></li>
+              <li><a href="#" data-tool="removeBackground"><i class="bi bi-image-alt me-2"></i>圖像去背</a></li>
+              <li><a href="#" data-tool="replaceBackgroundRelight"><i class="bi bi-sun me-2"></i>置換背景與重打光</a></li>
+              <li class="tool-list-header">控制</li>
+              <li><a href="#" data-tool="sketch"><i class="bi bi-pencil-square me-2"></i>草圖轉圖像</a></li>
+              <li><a href="#" data-tool="structure"><i class="bi bi-diagram-3 me-2"></i>結構轉圖像</a></li>
+              <li><a href="#" data-tool="style"><i class="bi bi-palette2 me-2"></i>風格引導</a></li>
+              <li><a href="#" data-tool="styleTransfer"><i class="bi bi-brush-fill me-2"></i>風格轉換</a></li>
+            </ul>
+
+            <div class="tool-settings" id="settingsErase" style="display:none;">
+              <h6 class="mb-2">移除物件</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>上傳原圖後，在下方畫布塗抹要移除的區域（白色＝移除）</li>
+                  <li>可調整筆刷、按「清除遮罩」重畫後點「開始生成」</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image</label>
+                <div class="upload-zone" id="eraseImageUploadZone" role="button" tabindex="0">
+                  <input type="file" id="eraseImageFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="eraseImageUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="eraseImageUploadHint">拖曳或點擊選擇原圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                </div>
+              </div>
+              <div class="mb-2" id="eraseMaskPaintWrap" style="display:none;">
+                <label class="form-label small mb-1">遮罩繪製（塗抹白色＝要移除的區域）</label>
+                <div class="sketch-slider-wrap mb-1">
+                  <span class="sketch-value">筆刷</span>
+                  <input type="range" id="eraseBrushSize" class="form-range" min="4" max="80" value="24" step="2">
+                  <span class="sketch-value" id="eraseBrushSizeVal">24</span>
+                </div>
+                <div class="position-relative border rounded overflow-hidden bg-dark" style="max-height:320px;">
+                  <img id="eraseRefImg" alt="參考" class="position-absolute top-0 start-0 w-100 h-100" style="object-fit:contain; opacity:1; pointer-events:none;">
+                  <canvas id="eraseMaskCanvas" style="position:relative; display:block; cursor:crosshair; touch-action:none;"></canvas>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="btnEraseMaskClear">清除遮罩</button>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="eraseSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="eraseOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnErase" disabled><i class="bi bi-magic me-2" id="btnEraseIcon"></i><span id="btnEraseText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsInpaint" style="display:none;">
+              <h6 class="mb-2">內部補繪</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>上傳原圖後，在下方畫布塗抹要重繪的區域（白色＝重繪）</li>
+                  <li>填寫 prompt 描述該區域要生成的內容，選填 negative_prompt</li>
+                  <li>點「開始生成」</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image</label>
+                <div class="upload-zone" id="inpaintImageUploadZone" role="button" tabindex="0">
+                  <input type="file" id="inpaintImageFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="inpaintImageUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="inpaintImageUploadHint">拖曳或點擊選擇原圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                </div>
+              </div>
+              <div class="mb-2" id="inpaintMaskPaintWrap" style="display:none;">
+                <label class="form-label small mb-1">遮罩（白色＝要重繪的區域）</label>
+                <div class="sketch-slider-wrap mb-1">
+                  <span class="sketch-value">筆刷</span>
+                  <input type="range" id="inpaintBrushSize" class="form-range" min="4" max="80" value="24" step="2">
+                  <span class="sketch-value" id="inpaintBrushSizeVal">24</span>
+                </div>
+                <div class="position-relative border rounded overflow-hidden bg-dark" style="max-height:320px;">
+                  <img id="inpaintRefImg" alt="參考" class="position-absolute top-0 start-0 w-100 h-100" style="object-fit:contain; opacity:1; pointer-events:none;">
+                  <canvas id="inpaintMaskCanvas" style="position:relative; display:block; cursor:crosshair; touch-action:none;"></canvas>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-1" id="btnInpaintMaskClear">清除遮罩</button>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">prompt <span class="text-danger">*</span></label>
+                <input type="text" id="inpaintPrompt" class="form-control form-control-sm" placeholder="描述遮罩區域要生成的內容（中英文皆可）">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">negative_prompt</label>
+                <input type="text" id="inpaintNegativePrompt" class="form-control form-control-sm" placeholder="選填">
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="inpaintSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="inpaintOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnInpaint" disabled><i class="bi bi-magic me-2" id="btnInpaintIcon"></i><span id="btnInpaintText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsOutpaint" style="display:none;">
+              <h6 class="mb-2">外擴繪圖</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>上傳原圖，設定要擴展的方向（left / right / up / down）像素</li>
+                  <li>填寫 prompt 描述擴展區域的內容</li>
+                  <li>點「開始生成」</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image</label>
+                <div class="upload-zone" id="outpaintImageUploadZone" role="button" tabindex="0">
+                  <input type="file" id="outpaintImageFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="outpaintImageUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="outpaintImageUploadHint">拖曳或點擊選擇原圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">left（像素）</label>
+                  <input type="number" id="outpaintLeft" class="form-control form-control-sm" value="0" min="0" max="2048" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">right</label>
+                  <input type="number" id="outpaintRight" class="form-control form-control-sm" value="0" min="0" max="2048" step="1">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">up（像素）</label>
+                  <input type="number" id="outpaintUp" class="form-control form-control-sm" value="0" min="0" max="2048" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">down</label>
+                  <input type="number" id="outpaintDown" class="form-control form-control-sm" value="0" min="0" max="2048" step="1">
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">prompt（選填，不填則用預設「自然延伸」）</label>
+                <input type="text" id="outpaintPrompt" class="form-control form-control-sm" placeholder="描述擴展區域要生成的內容，中英文皆可會自動翻譯">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">creativity（0–1）</label>
+                <input type="number" id="outpaintCreativity" class="form-control form-control-sm" value="0.5" min="0" max="1" step="0.1">
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="outpaintSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="outpaintOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnOutpaint" disabled><i class="bi bi-magic me-2" id="btnOutpaintIcon"></i><span id="btnOutpaintText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsRemoveBg" style="display:none;">
+              <h6 class="mb-2">圖像去背</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>上傳一張圖片</li>
+                  <li>點「開始去背」即可取得透明背景圖（建議選 PNG）</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image</label>
+                <div class="upload-zone" id="removeBgImageUploadZone" role="button" tabindex="0">
+                  <input type="file" id="removeBgImageFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="removeBgImageUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="removeBgImageUploadHint">拖曳或點擊選擇圖片</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">output_format</label>
+                <select id="removeBgOutputFormat" class="form-select form-select-sm">
+                  <option value="png" selected>png（透明背景）</option>
+                </select>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnRemoveBg" disabled><i class="bi bi-magic me-2" id="btnRemoveBgIcon"></i><span id="btnRemoveBgText">開始去背</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsReplaceBgRelight" style="display:none;">
+              <h6 class="mb-2">置換背景與重打光</h6>
+              <div class="sketch-instructions">請提供主體圖，並至少填寫「背景描述」或上傳「背景參考圖」。</div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">subject_image（主體圖）</label>
+                <div class="upload-zone" id="replaceBgRelightSubjectUploadZone" role="button" tabindex="0">
+                  <input type="file" id="replaceBgRelightSubjectFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="replaceBgRelightSubjectUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="replaceBgRelightSubjectUploadHint">拖曳或點擊選擇主體圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">background_prompt（背景描述）</label>
+                <input type="text" id="replaceBgRelightBackgroundPrompt" class="form-control form-control-sm" placeholder="例如：pastel landscape">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">background_reference（選填）</label>
+                <div class="upload-zone" id="replaceBgRelightBgRefUploadZone" role="button" tabindex="0">
+                  <input type="file" id="replaceBgRelightBgRefFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="replaceBgRelightBgRefUploadIcon"><i class="bi bi-image"></i></span>
+                  <p class="mb-0 upload-text" id="replaceBgRelightBgRefUploadHint">選填：上傳背景參考圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">foreground_prompt / negative_prompt（選填）</label>
+                <input type="text" id="replaceBgRelightForegroundPrompt" class="form-control form-control-sm mb-1" placeholder="foreground_prompt">
+                <input type="text" id="replaceBgRelightNegativePrompt" class="form-control form-control-sm" placeholder="negative_prompt">
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">preserve_original_subject（0–1）</label>
+                  <input type="number" id="replaceBgRelightPreserve" class="form-control form-control-sm" value="0.6" min="0" max="1" step="0.1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">original_background_depth（0–1）</label>
+                  <input type="number" id="replaceBgRelightDepth" class="form-control form-control-sm" value="0.5" min="0" max="1" step="0.1">
+                </div>
+              </div>
+              <div class="mb-2">
+                <div class="form-check">
+                  <input type="checkbox" class="form-check-input" id="replaceBgRelightKeepBg" value="1">
+                  <label class="form-check-label small" for="replaceBgRelightKeepBg">keep_original_background</label>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">light_source_strength（0–1）</label>
+                <input type="number" id="replaceBgRelightLightStrength" class="form-control form-control-sm" value="0.3" min="0" max="1" step="0.1">
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">light_reference（選填）</label>
+                <div class="upload-zone" id="replaceBgRelightLightRefUploadZone" role="button" tabindex="0">
+                  <input type="file" id="replaceBgRelightLightRefFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="replaceBgRelightLightRefUploadIcon"><i class="bi bi-brightness-high"></i></span>
+                  <p class="mb-0 upload-text" id="replaceBgRelightLightRefUploadHint">選填：上傳打光參考圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">light_source_direction</label>
+                <select id="replaceBgRelightLightDir" class="form-select form-select-sm">
+                  <option value="none" selected>none</option>
+                  <option value="above">above</option>
+                  <option value="below">below</option>
+                  <option value="left">left</option>
+                  <option value="right">right</option>
+                </select>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="replaceBgRelightSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="replaceBgRelightOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnReplaceBgRelight" disabled><i class="bi bi-magic me-2" id="btnReplaceBgRelightIcon"></i><span id="btnReplaceBgRelightText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsStyleTransfer" style="display:none;">
+              <h6 class="mb-2">風格轉換</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>上傳內容圖 + 風格圖，選填 prompt / seed 等</li>
+                  <li>點「開始生成」</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image（內容圖）</label>
+                <div class="upload-zone" id="stContentUploadZone" role="button" tabindex="0">
+                  <input type="file" id="stContentFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="stContentUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="stContentUploadHint">拖曳或點擊選擇內容圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                  <div id="stContentPreviewWrap" class="mt-2" style="display:none;">
+                    <img id="stContentPreviewImg" class="preview-thumb" alt="內容圖預覽">
+                  </div>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">style_image（風格圖）</label>
+                <div class="upload-zone" id="stStyleUploadZone" role="button" tabindex="0">
+                  <input type="file" id="stStyleFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="stStyleUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="stStyleUploadHint">拖曳或點擊選擇風格圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                  <div id="stStylePreviewWrap" class="mt-2" style="display:none;">
+                    <img id="stStylePreviewImg" class="preview-thumb" alt="風格圖預覽">
+                  </div>
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">prompt</label>
+                  <input type="text" id="stPrompt" class="form-control form-control-sm" placeholder="選填" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">negative_prompt</label>
+                  <input type="text" id="stNegativePrompt" class="form-control form-control-sm" placeholder="選填" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="stSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="stOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnStyleTransfer" disabled><i class="bi bi-magic me-2" id="btnStyleTransferIcon"></i><span id="btnStyleTransferText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsStyle" style="display:none;">
+              <h6 class="mb-2">風格引導</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>上傳參考圖、填寫 prompt 與選填參數</li>
+                  <li>點「開始生成」</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image</label>
+                <div class="upload-zone" id="styleUploadZone" role="button" tabindex="0">
+                  <input type="file" id="styleFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="styleUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="styleUploadHint">拖曳或點擊選擇圖片</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                  <div id="stylePreviewWrap" class="mt-2" style="display:none;">
+                    <img id="stylePreviewImg" class="preview-thumb" alt="圖片預覽">
+                  </div>
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">aspect_ratio</label>
+                  <select id="styleAspectRatio" class="form-select form-select-sm">
+                    <option value="1:1" selected>1:1</option>
+                    <option value="16:9">16:9</option>
+                    <option value="9:16">9:16</option>
+                    <option value="21:9">21:9</option>
+                    <option value="9:21">9:21</option>
+                    <option value="2:3">2:3</option>
+                    <option value="3:2">3:2</option>
+                    <option value="4:5">4:5</option>
+                    <option value="5:4">5:4</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="styleOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">prompt</label>
+                  <input type="text" id="stylePrompt" class="form-control form-control-sm" placeholder="例：cat in the forest" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">fidelity</label>
+                  <div class="sketch-slider-wrap">
+                    <input type="range" id="styleFidelity" class="form-range" min="0" max="1" step="0.05" value="0.5">
+                    <span class="sketch-value" id="styleFidelityVal">0.5</span>
+                  </div>
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">negative_prompt</label>
+                  <input type="text" id="styleNegativePrompt" class="form-control form-control-sm" placeholder="在這裡插入 text（不想出現的內容）" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="styleSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnStyle" disabled><i class="bi bi-magic me-2" id="btnStyleIcon"></i><span id="btnStyleText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsStructure" style="display:none;">
+              <h6 class="mb-2">結構轉圖像</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>拖曳或點擊上傳圖片</li>
+                  <li>填寫描述（prompt）與選填參數</li>
+                  <li>點「開始生成」</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image</label>
+                <div class="upload-zone" id="structureUploadZone" role="button" tabindex="0">
+                  <input type="file" id="structureFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="structureUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="structureUploadHint">拖曳或點擊選擇圖片</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                  <div id="structurePreviewWrap" class="mt-2" style="display:none;">
+                    <img id="structurePreviewImg" class="preview-thumb" alt="圖片預覽">
+                  </div>
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">prompt</label>
+                  <input type="text" id="structurePrompt" class="form-control form-control-sm" placeholder="例：a creepy wooden cathedral in the forest" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">negative_prompt</label>
+                  <input type="text" id="structureNegativePrompt" class="form-control form-control-sm" placeholder="在這裡插入 text（不想出現的內容）" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">control_strength</label>
+                  <div class="sketch-slider-wrap">
+                    <input type="range" id="structureControlStrength" class="form-range" min="0" max="1" step="0.05" value="0.7">
+                    <span class="sketch-value" id="structureControlStrengthVal">0.7</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="structureSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="structureOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnStructure" disabled><i class="bi bi-magic me-2" id="btnStructureIcon"></i><span id="btnStructureText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsSketch" style="display:none;">
+              <h6 class="mb-2">草圖轉圖像</h6>
+              <div class="sketch-instructions">
+                <span class="sketch-instructions-icon"><i class="bi bi-play-circle-fill"></i></span>依序操作：
+                <ul>
+                  <li>拖曳或點擊上傳草圖</li>
+                  <li>填寫描述（prompt）與選填參數</li>
+                  <li>點「開始生成」</li>
+                </ul>
+              </div>
+              <div class="mb-2">
+                <label class="form-label small mb-1">image</label>
+                <div class="upload-zone" id="sketchUploadZone" role="button" tabindex="0">
+                  <input type="file" id="sketchFileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                  <span class="upload-icon" id="sketchUploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                  <p class="mb-0 upload-text" id="sketchUploadHint">拖曳或點擊選擇草圖</p>
+                  <p class="mb-0 upload-fmt">JPEG / PNG / WebP</p>
+                  <div id="sketchPreviewWrap" class="mt-2" style="display:none;">
+                    <img id="sketchPreviewImg" class="preview-thumb" alt="草圖預覽">
+                  </div>
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">prompt</label>
+                  <input type="text" id="sketchPrompt" class="form-control form-control-sm" placeholder="例：a creepy wooden cathedral in the forest" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row full">
+                <div>
+                  <label class="form-label small mb-1">negative_prompt</label>
+                  <input type="text" id="sketchNegativePrompt" class="form-control form-control-sm" placeholder="在這裡插入 text（不想出現的內容）" maxlength="10000">
+                </div>
+              </div>
+              <div class="mb-2 sketch-row">
+                <div>
+                  <label class="form-label small mb-1">control_strength</label>
+                  <div class="sketch-slider-wrap">
+                    <input type="range" id="sketchControlStrength" class="form-range" min="0" max="1" step="0.05" value="0.7">
+                    <span class="sketch-value" id="sketchControlStrengthVal">0.7</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="form-label small mb-1">seed</label>
+                  <input type="number" id="sketchSeed" class="form-control form-control-sm" value="0" min="0" max="4294967294" step="1">
+                </div>
+                <div>
+                  <label class="form-label small mb-1">output_format</label>
+                  <select id="sketchOutputFormat" class="form-select form-select-sm">
+                    <option value="jpeg" selected>jpeg</option>
+                    <option value="png">png</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-sketch" id="btnSketch" disabled><i class="bi bi-magic me-2" id="btnSketchIcon"></i><span id="btnSketchText">開始生成</span></button>
+              </div>
+            </div>
+
+            <div class="tool-settings" id="settingsUpscale">
+              <span class="settings-section-title">選擇圖片</span>
+              <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="上傳圖片">
+                <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" class="d-none">
+                <span class="upload-icon" id="uploadIcon"><i class="bi bi-cloud-arrow-up"></i></span>
+                <p class="mb-0 upload-text" id="uploadHint">拖曳圖片到這裡，或點擊選擇</p>
+                <p class="mb-0 upload-fmt">支援 JPEG、PNG、WebP</p>
+                <div id="previewWrap" class="mt-2" style="display:none;">
+                  <img id="previewImg" class="preview-thumb" alt="已選圖片預覽">
+                  <p class="small text-muted mt-1 mb-0" id="previewName"></p>
+                </div>
+              </div>
+              <div class="mt-3">
+                <button type="button" class="btn btn-primary w-100 btn-upscale" id="btnUpscale" disabled><i class="bi bi-zoom-in me-2" id="btnIcon"></i><span id="btnText">開始放大</span></button>
+              </div>
+            </div>
+          </div>
+          <div class="create-panel-right" id="displayPanel">
+            <div id="displayPlaceholder" class="empty-state" style="display:none;">
+              <div class="empty-icon"><i class="bi bi-image"></i></div>
+              <p class="empty-title">預覽與結果會顯示在這裡</p>
+              <p class="empty-steps"><span>1. 在左側選擇「放大」</span><span>2. 上傳一張圖片</span><span>3. 點「開始放大」</span></p>
+            </div>
+            <div id="displayArea" class="display-area" style="display:none;">
+              <p class="display-label" id="displayLabel">原圖預覽</p>
+              <img id="displayImg" src="" alt="">
+              <div id="displayActions" class="display-actions" style="display:none;">
+                <a id="downloadLink" href="#" download="admin-upscaled.png" class="btn btn-success"><i class="bi bi-download me-2"></i>下載圖片</a>
+                <button type="button" class="btn btn-outline-secondary" id="btnAgain">再試一張</button>
+              </div>
+            </div>
+            <div id="loadingInline" class="loading-state text-center py-4" style="display:none;">
+              <div class="spinner-wrap"><div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem;"></div></div>
+              <p class="loading-msg">正在放大圖片…</p>
+              <p class="loading-hint">約需 10–30 秒，請稍候</p>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div id="errorAlert" class="alert alert-danger mt-3" style="display:none;"></div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function(){
+  var uploadZone = document.getElementById('uploadZone');
+  var fileInput = document.getElementById('fileInput');
+  var previewWrap = document.getElementById('previewWrap');
+  var previewImg = document.getElementById('previewImg');
+  var previewName = document.getElementById('previewName');
+  var btnUpscale = document.getElementById('btnUpscale');
+  var displayPanel = document.getElementById('displayPanel');
+  var displayPlaceholder = document.getElementById('displayPlaceholder');
+  var displayArea = document.getElementById('displayArea');
+  var displayImg = document.getElementById('displayImg');
+  var displayActions = document.getElementById('displayActions');
+  var downloadLink = document.getElementById('downloadLink');
+  var loadingInline = document.getElementById('loadingInline');
+  var errorAlert = document.getElementById('errorAlert');
+  var authRequired = document.getElementById('authRequired');
+  var mainPanel = document.getElementById('mainPanel');
+
+  var selectedFile = null;
+  var displayLabel = document.getElementById('displayLabel');
+  var btnText = document.getElementById('btnText');
+  var btnIcon = document.getElementById('btnIcon');
+  var btnAgain = document.getElementById('btnAgain');
+  var settingsUpscaleEl = document.getElementById('settingsUpscale');
+  var settingsSketchEl = document.getElementById('settingsSketch');
+  var settingsStructureEl = document.getElementById('settingsStructure');
+  var settingsStyleEl = document.getElementById('settingsStyle');
+  var settingsStyleTransferEl = document.getElementById('settingsStyleTransfer');
+  var settingsEraseEl = document.getElementById('settingsErase');
+  var settingsInpaintEl = document.getElementById('settingsInpaint');
+  var settingsOutpaintEl = document.getElementById('settingsOutpaint');
+  var settingsRemoveBgEl = document.getElementById('settingsRemoveBg');
+  var settingsReplaceBgRelightEl = document.getElementById('settingsReplaceBgRelight');
+  var currentTool = 'upscale';
+
+  var sketchUploadZone = document.getElementById('sketchUploadZone');
+  var sketchFileInput = document.getElementById('sketchFileInput');
+  var sketchPreviewWrap = document.getElementById('sketchPreviewWrap');
+  var sketchPreviewImg = document.getElementById('sketchPreviewImg');
+  var sketchPrompt = document.getElementById('sketchPrompt');
+  var sketchNegativePrompt = document.getElementById('sketchNegativePrompt');
+  var sketchControlStrength = document.getElementById('sketchControlStrength');
+  var sketchControlStrengthVal = document.getElementById('sketchControlStrengthVal');
+  var sketchSeed = document.getElementById('sketchSeed');
+  var sketchOutputFormat = document.getElementById('sketchOutputFormat');
+  var btnSketch = document.getElementById('btnSketch');
+  var btnSketchIcon = document.getElementById('btnSketchIcon');
+  var btnSketchText = document.getElementById('btnSketchText');
+  var sketchSelectedFile = null;
+
+  var structureUploadZone = document.getElementById('structureUploadZone');
+  var structureFileInput = document.getElementById('structureFileInput');
+  var structurePreviewWrap = document.getElementById('structurePreviewWrap');
+  var structurePreviewImg = document.getElementById('structurePreviewImg');
+  var structurePrompt = document.getElementById('structurePrompt');
+  var structureNegativePrompt = document.getElementById('structureNegativePrompt');
+  var structureControlStrength = document.getElementById('structureControlStrength');
+  var structureControlStrengthVal = document.getElementById('structureControlStrengthVal');
+  var structureSeed = document.getElementById('structureSeed');
+  var structureOutputFormat = document.getElementById('structureOutputFormat');
+  var btnStructure = document.getElementById('btnStructure');
+  var btnStructureIcon = document.getElementById('btnStructureIcon');
+  var btnStructureText = document.getElementById('btnStructureText');
+  var structureSelectedFile = null;
+
+  var styleUploadZone = document.getElementById('styleUploadZone');
+  var styleFileInput = document.getElementById('styleFileInput');
+  var stylePreviewWrap = document.getElementById('stylePreviewWrap');
+  var stylePreviewImg = document.getElementById('stylePreviewImg');
+  var stylePrompt = document.getElementById('stylePrompt');
+  var styleNegativePrompt = document.getElementById('styleNegativePrompt');
+  var styleFidelity = document.getElementById('styleFidelity');
+  var styleFidelityVal = document.getElementById('styleFidelityVal');
+  var styleAspectRatio = document.getElementById('styleAspectRatio');
+  var styleSeed = document.getElementById('styleSeed');
+  var styleOutputFormat = document.getElementById('styleOutputFormat');
+  var btnStyle = document.getElementById('btnStyle');
+  var btnStyleIcon = document.getElementById('btnStyleIcon');
+  var btnStyleText = document.getElementById('btnStyleText');
+  var styleSelectedFile = null;
+
+  var stContentUploadZone = document.getElementById('stContentUploadZone');
+  var stContentFileInput = document.getElementById('stContentFileInput');
+  var stContentPreviewWrap = document.getElementById('stContentPreviewWrap');
+  var stContentPreviewImg = document.getElementById('stContentPreviewImg');
+  var stStyleUploadZone = document.getElementById('stStyleUploadZone');
+  var stStyleFileInput = document.getElementById('stStyleFileInput');
+  var stStylePreviewWrap = document.getElementById('stStylePreviewWrap');
+  var stStylePreviewImg = document.getElementById('stStylePreviewImg');
+  var stPrompt = document.getElementById('stPrompt');
+  var stNegativePrompt = document.getElementById('stNegativePrompt');
+  var stSeed = document.getElementById('stSeed');
+  var stOutputFormat = document.getElementById('stOutputFormat');
+  var btnStyleTransfer = document.getElementById('btnStyleTransfer');
+  var btnStyleTransferIcon = document.getElementById('btnStyleTransferIcon');
+  var btnStyleTransferText = document.getElementById('btnStyleTransferText');
+  var stContentFile = null;
+  var stStyleFile = null;
+
+  var outpaintImageUploadZone = document.getElementById('outpaintImageUploadZone');
+  var outpaintImageFileInput = document.getElementById('outpaintImageFileInput');
+  var outpaintLeft = document.getElementById('outpaintLeft');
+  var outpaintRight = document.getElementById('outpaintRight');
+  var outpaintUp = document.getElementById('outpaintUp');
+  var outpaintDown = document.getElementById('outpaintDown');
+  var outpaintPrompt = document.getElementById('outpaintPrompt');
+  var outpaintCreativity = document.getElementById('outpaintCreativity');
+  var outpaintSeed = document.getElementById('outpaintSeed');
+  var outpaintOutputFormat = document.getElementById('outpaintOutputFormat');
+  var btnOutpaint = document.getElementById('btnOutpaint');
+  var btnOutpaintIcon = document.getElementById('btnOutpaintIcon');
+  var btnOutpaintText = document.getElementById('btnOutpaintText');
+  var outpaintImageFile = null;
+
+  var removeBgImageUploadZone = document.getElementById('removeBgImageUploadZone');
+  var removeBgImageFileInput = document.getElementById('removeBgImageFileInput');
+  var removeBgOutputFormat = document.getElementById('removeBgOutputFormat');
+  var btnRemoveBg = document.getElementById('btnRemoveBg');
+  var btnRemoveBgIcon = document.getElementById('btnRemoveBgIcon');
+  var btnRemoveBgText = document.getElementById('btnRemoveBgText');
+  var removeBgImageFile = null;
+
+  var replaceBgRelightSubjectUploadZone = document.getElementById('replaceBgRelightSubjectUploadZone');
+  var replaceBgRelightSubjectFileInput = document.getElementById('replaceBgRelightSubjectFileInput');
+  var replaceBgRelightBgRefUploadZone = document.getElementById('replaceBgRelightBgRefUploadZone');
+  var replaceBgRelightBgRefFileInput = document.getElementById('replaceBgRelightBgRefFileInput');
+  var replaceBgRelightLightRefUploadZone = document.getElementById('replaceBgRelightLightRefUploadZone');
+  var replaceBgRelightLightRefFileInput = document.getElementById('replaceBgRelightLightRefFileInput');
+  var replaceBgRelightBackgroundPrompt = document.getElementById('replaceBgRelightBackgroundPrompt');
+  var replaceBgRelightPreserve = document.getElementById('replaceBgRelightPreserve');
+  var replaceBgRelightDepth = document.getElementById('replaceBgRelightDepth');
+  var replaceBgRelightKeepBg = document.getElementById('replaceBgRelightKeepBg');
+  var replaceBgRelightLightStrength = document.getElementById('replaceBgRelightLightStrength');
+  var replaceBgRelightLightDir = document.getElementById('replaceBgRelightLightDir');
+  var replaceBgRelightSeed = document.getElementById('replaceBgRelightSeed');
+  var replaceBgRelightOutputFormat = document.getElementById('replaceBgRelightOutputFormat');
+  var btnReplaceBgRelight = document.getElementById('btnReplaceBgRelight');
+  var btnReplaceBgRelightIcon = document.getElementById('btnReplaceBgRelightIcon');
+  var btnReplaceBgRelightText = document.getElementById('btnReplaceBgRelightText');
+  var replaceBgRelightSubjectFile = null;
+  var replaceBgRelightBgRefFile = null;
+  var replaceBgRelightLightRefFile = null;
+
+  var eraseImageUploadZone = document.getElementById('eraseImageUploadZone');
+  var eraseImageFileInput = document.getElementById('eraseImageFileInput');
+  var eraseImagePreviewWrap = document.getElementById('eraseImagePreviewWrap');
+  var eraseImagePreviewImg = document.getElementById('eraseImagePreviewImg');
+  var eraseMaskPaintWrap = document.getElementById('eraseMaskPaintWrap');
+  var eraseRefImg = document.getElementById('eraseRefImg');
+  var eraseMaskCanvas = document.getElementById('eraseMaskCanvas');
+  var eraseBrushSize = document.getElementById('eraseBrushSize');
+  var eraseBrushSizeVal = document.getElementById('eraseBrushSizeVal');
+  var btnEraseMaskClear = document.getElementById('btnEraseMaskClear');
+  var eraseSeed = document.getElementById('eraseSeed');
+  var eraseOutputFormat = document.getElementById('eraseOutputFormat');
+  var btnErase = document.getElementById('btnErase');
+  var btnEraseIcon = document.getElementById('btnEraseIcon');
+  var btnEraseText = document.getElementById('btnEraseText');
+  var eraseImageFile = null;
+  var eraseImageWidth = 0;
+  var eraseImageHeight = 0;
+  var eraseMaskCtx = null;
+  var eraseIsDrawing = false;
+  var eraseLastX = 0;
+  var eraseLastY = 0;
+
+  var inpaintImageUploadZone = document.getElementById('inpaintImageUploadZone');
+  var inpaintImageFileInput = document.getElementById('inpaintImageFileInput');
+  var inpaintMaskPaintWrap = document.getElementById('inpaintMaskPaintWrap');
+  var inpaintRefImg = document.getElementById('inpaintRefImg');
+  var inpaintMaskCanvas = document.getElementById('inpaintMaskCanvas');
+  var inpaintBrushSize = document.getElementById('inpaintBrushSize');
+  var inpaintBrushSizeVal = document.getElementById('inpaintBrushSizeVal');
+  var btnInpaintMaskClear = document.getElementById('btnInpaintMaskClear');
+  var inpaintPrompt = document.getElementById('inpaintPrompt');
+  var inpaintNegativePrompt = document.getElementById('inpaintNegativePrompt');
+  var inpaintSeed = document.getElementById('inpaintSeed');
+  var inpaintOutputFormat = document.getElementById('inpaintOutputFormat');
+  var btnInpaint = document.getElementById('btnInpaint');
+  var btnInpaintIcon = document.getElementById('btnInpaintIcon');
+  var btnInpaintText = document.getElementById('btnInpaintText');
+  var inpaintImageFile = null;
+  var inpaintImageWidth = 0;
+  var inpaintImageHeight = 0;
+  var inpaintMaskCtx = null;
+  var inpaintIsDrawing = false;
+  var inpaintLastX = 0;
+  var inpaintLastY = 0;
+
+  function setButtonLoading(loading) {
+    btnUpscale.disabled = loading;
+    btnText.textContent = loading ? '放大中…' : '開始放大';
+    btnIcon.className = loading ? 'spinner-border spinner-border-sm me-2' : 'bi bi-zoom-in me-2';
+  }
+
+  function showError(msg) {
+    errorAlert.textContent = msg;
+    errorAlert.style.display = 'block';
+    loadingInline.style.display = 'none';
+  }
+  function hideError() { errorAlert.style.display = 'none'; }
+
+  function showRight(phase) {
+    displayPlaceholder.style.display = phase === 'placeholder' ? 'block' : 'none';
+    displayArea.style.display = phase === 'result' || phase === 'preview' ? 'block' : 'none';
+    displayActions.style.display = phase === 'result' ? 'flex' : 'none';
+    loadingInline.style.display = phase === 'loading' ? 'block' : 'none';
+    displayPanel.classList.remove('has-preview', 'has-result');
+    if (phase === 'preview') {
+      displayPanel.classList.add('has-preview');
+      displayLabel.textContent = currentTool === 'sketch' ? '草圖預覽' : currentTool === 'structure' || currentTool === 'style' || currentTool === 'styleTransfer' ? '圖片預覽' : currentTool === 'erase' || currentTool === 'inpaint' || currentTool === 'outpaint' || currentTool === 'removeBackground' || currentTool === 'replaceBackgroundRelight' ? '原圖預覽' : '原圖預覽';
+    }
+    if (phase === 'result') {
+      displayPanel.classList.add('has-result');
+      displayLabel.textContent = currentTool === 'sketch' ? '草圖轉圖像 生成結果' : currentTool === 'structure' ? '結構轉圖像 生成結果' : currentTool === 'style' ? '風格引導 生成結果' : currentTool === 'styleTransfer' ? '風格轉換 生成結果' : currentTool === 'erase' ? '移除物件 生成結果' : currentTool === 'inpaint' ? '內部補繪 生成結果' : currentTool === 'outpaint' ? '外擴繪圖 生成結果' : currentTool === 'removeBackground' ? '圖像去背 生成結果' : currentTool === 'replaceBackgroundRelight' ? '置換背景與重打光 生成結果' : '放大結果 (4x)';
+    }
+  }
+
+  uploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') fileInput.click(); });
+  uploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+  uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
+  uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover'); });
+  uploadZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files && fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    selectedFile = file;
+    uploadZone.classList.add('has-file');
+    document.getElementById('uploadHint').textContent = '已選擇圖片';
+    document.getElementById('uploadIcon').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    previewWrap.style.display = 'block';
+    previewImg.src = URL.createObjectURL(file);
+    previewName.textContent = file.name;
+    btnUpscale.disabled = false;
+    displayImg.src = URL.createObjectURL(file);
+    showRight('preview');
+    displayActions.style.display = 'none';
+  }
+
+  btnUpscale.addEventListener('click', async function() {
+    if (!selectedFile) return;
+    var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+    var token = session && (session.access_token || (session.session && session.session.access_token));
+    if (!token) { showError('請先登入'); return; }
+    hideError();
+    setButtonLoading(true);
+    showRight('loading');
+
+    var form = new FormData();
+    form.append('image', selectedFile);
+
+    try {
+      var res = await fetch('/api/upscale-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+      var data = await res.json().catch(function() { return {}; });
+
+      if (!res.ok) {
+        showError(data.error || '放大失敗');
+        showRight('preview');
+        setButtonLoading(false);
+        return;
+      }
+      if (data.success && data.imageData) {
+        displayImg.src = data.imageData;
+        downloadLink.href = data.imageData;
+        downloadLink.download = 'admin-upscaled.png';
+        showRight('result');
+      } else {
+        showError(data.error || '未取得結果');
+        showRight('preview');
+      }
+    } catch (e) {
+      showError('網路錯誤');
+      showRight('preview');
+    }
+    setButtonLoading(false);
+  });
+
+  btnAgain.addEventListener('click', function() {
+    if (currentTool === 'sketch') {
+      sketchSelectedFile = null;
+      if (sketchFileInput) sketchFileInput.value = '';
+      if (sketchUploadZone) {
+        sketchUploadZone.classList.remove('has-file');
+        document.getElementById('sketchUploadHint').textContent = '拖曳或點擊選擇草圖';
+        document.getElementById('sketchUploadIcon').innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (sketchPreviewWrap) sketchPreviewWrap.style.display = 'none';
+      if (btnSketch) btnSketch.disabled = true;
+    } else if (currentTool === 'structure') {
+      structureSelectedFile = null;
+      if (structureFileInput) structureFileInput.value = '';
+      if (structureUploadZone) {
+        structureUploadZone.classList.remove('has-file');
+        document.getElementById('structureUploadHint').textContent = '拖曳或點擊選擇圖片';
+        document.getElementById('structureUploadIcon').innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (structurePreviewWrap) structurePreviewWrap.style.display = 'none';
+      if (btnStructure) btnStructure.disabled = true;
+    } else if (currentTool === 'style') {
+      styleSelectedFile = null;
+      if (styleFileInput) styleFileInput.value = '';
+      if (styleUploadZone) {
+        styleUploadZone.classList.remove('has-file');
+        document.getElementById('styleUploadHint').textContent = '拖曳或點擊選擇圖片';
+        document.getElementById('styleUploadIcon').innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (stylePreviewWrap) stylePreviewWrap.style.display = 'none';
+      if (btnStyle) btnStyle.disabled = true;
+    } else if (currentTool === 'styleTransfer') {
+      stContentFile = null;
+      stStyleFile = null;
+      if (stContentFileInput) stContentFileInput.value = '';
+      if (stStyleFileInput) stStyleFileInput.value = '';
+      if (stContentUploadZone) {
+        stContentUploadZone.classList.remove('has-file');
+        document.getElementById('stContentUploadHint').textContent = '拖曳或點擊選擇內容圖';
+        document.getElementById('stContentUploadIcon').innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (stStyleUploadZone) {
+        stStyleUploadZone.classList.remove('has-file');
+        document.getElementById('stStyleUploadHint').textContent = '拖曳或點擊選擇風格圖';
+        document.getElementById('stStyleUploadIcon').innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (stContentPreviewWrap) stContentPreviewWrap.style.display = 'none';
+      if (stStylePreviewWrap) stStylePreviewWrap.style.display = 'none';
+      if (btnStyleTransfer) btnStyleTransfer.disabled = true;
+    } else if (currentTool === 'erase') {
+      eraseImageFile = null;
+      eraseImageWidth = 0;
+      eraseImageHeight = 0;
+      if (eraseImageFileInput) eraseImageFileInput.value = '';
+      if (eraseImageUploadZone) {
+        eraseImageUploadZone.classList.remove('has-file');
+        document.getElementById('eraseImageUploadHint').textContent = '拖曳或點擊選擇原圖';
+        document.getElementById('eraseImageUploadIcon').innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (eraseImagePreviewWrap) eraseImagePreviewWrap.style.display = 'none';
+      if (eraseMaskPaintWrap) eraseMaskPaintWrap.style.display = 'none';
+      if (eraseRefImg) eraseRefImg.src = '';
+      if (eraseMaskCanvas) { eraseMaskCanvas.width = 0; eraseMaskCanvas.height = 0; }
+      eraseMaskCtx = null;
+      if (btnErase) btnErase.disabled = true;
+    } else if (currentTool === 'inpaint') {
+      inpaintImageFile = null;
+      inpaintImageWidth = 0;
+      inpaintImageHeight = 0;
+      if (inpaintImageFileInput) inpaintImageFileInput.value = '';
+      if (inpaintImageUploadZone) {
+        inpaintImageUploadZone.classList.remove('has-file');
+        var hint = document.getElementById('inpaintImageUploadHint');
+        if (hint) hint.textContent = '拖曳或點擊選擇原圖';
+        var icon = document.getElementById('inpaintImageUploadIcon');
+        if (icon) icon.innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (inpaintMaskPaintWrap) inpaintMaskPaintWrap.style.display = 'none';
+      if (inpaintRefImg) inpaintRefImg.src = '';
+      if (inpaintMaskCanvas) { inpaintMaskCanvas.width = 0; inpaintMaskCanvas.height = 0; }
+      inpaintMaskCtx = null;
+      if (inpaintPrompt) inpaintPrompt.value = '';
+      if (inpaintNegativePrompt) inpaintNegativePrompt.value = '';
+      if (btnInpaint) btnInpaint.disabled = true;
+    } else if (currentTool === 'outpaint') {
+      outpaintImageFile = null;
+      if (outpaintImageFileInput) outpaintImageFileInput.value = '';
+      if (outpaintImageUploadZone) {
+        outpaintImageUploadZone.classList.remove('has-file');
+        var hint = document.getElementById('outpaintImageUploadHint');
+        if (hint) hint.textContent = '拖曳或點擊選擇原圖';
+        var icon = document.getElementById('outpaintImageUploadIcon');
+        if (icon) icon.innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (outpaintLeft) outpaintLeft.value = '0';
+      if (outpaintRight) outpaintRight.value = '0';
+      if (outpaintUp) outpaintUp.value = '0';
+      if (outpaintDown) outpaintDown.value = '0';
+      if (outpaintPrompt) outpaintPrompt.value = '';
+      if (outpaintCreativity) outpaintCreativity.value = '0.5';
+      if (btnOutpaint) btnOutpaint.disabled = true;
+    } else if (currentTool === 'removeBackground') {
+      removeBgImageFile = null;
+      if (removeBgImageFileInput) removeBgImageFileInput.value = '';
+      if (removeBgImageUploadZone) {
+        removeBgImageUploadZone.classList.remove('has-file');
+        var hint = document.getElementById('removeBgImageUploadHint');
+        if (hint) hint.textContent = '拖曳或點擊選擇圖片';
+        var icon = document.getElementById('removeBgImageUploadIcon');
+        if (icon) icon.innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (btnRemoveBg) btnRemoveBg.disabled = true;
+    } else if (currentTool === 'replaceBackgroundRelight') {
+      replaceBgRelightSubjectFile = null;
+      replaceBgRelightBgRefFile = null;
+      replaceBgRelightLightRefFile = null;
+      if (replaceBgRelightSubjectFileInput) replaceBgRelightSubjectFileInput.value = '';
+      if (replaceBgRelightBgRefFileInput) replaceBgRelightBgRefFileInput.value = '';
+      if (replaceBgRelightLightRefFileInput) replaceBgRelightLightRefFileInput.value = '';
+      if (replaceBgRelightSubjectUploadZone) {
+        replaceBgRelightSubjectUploadZone.classList.remove('has-file');
+        var h = document.getElementById('replaceBgRelightSubjectUploadHint'); if (h) h.textContent = '拖曳或點擊選擇主體圖';
+        var ic = document.getElementById('replaceBgRelightSubjectUploadIcon'); if (ic) ic.innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      }
+      if (replaceBgRelightBgRefUploadZone) {
+        replaceBgRelightBgRefUploadZone.classList.remove('has-file');
+        var h2 = document.getElementById('replaceBgRelightBgRefUploadHint'); if (h2) h2.textContent = '選填：上傳背景參考圖';
+        var ic2 = document.getElementById('replaceBgRelightBgRefUploadIcon'); if (ic2) ic2.innerHTML = '<i class="bi bi-image"></i>';
+      }
+      if (replaceBgRelightLightRefUploadZone) {
+        replaceBgRelightLightRefUploadZone.classList.remove('has-file');
+        var h3 = document.getElementById('replaceBgRelightLightRefUploadHint'); if (h3) h3.textContent = '選填：上傳打光參考圖';
+        var ic3 = document.getElementById('replaceBgRelightLightRefUploadIcon'); if (ic3) ic3.innerHTML = '<i class="bi bi-brightness-high"></i>';
+      }
+      if (replaceBgRelightBackgroundPrompt) replaceBgRelightBackgroundPrompt.value = '';
+      if (btnReplaceBgRelight) btnReplaceBgRelight.disabled = true;
+    } else {
+      selectedFile = null;
+      fileInput.value = '';
+      uploadZone.classList.remove('has-file');
+      document.getElementById('uploadHint').textContent = '拖曳圖片到這裡，或點擊選擇';
+      document.getElementById('uploadIcon').innerHTML = '<i class="bi bi-cloud-arrow-up"></i>';
+      previewWrap.style.display = 'none';
+      btnUpscale.disabled = true;
+    }
+    displayImg.src = '';
+    showRight('placeholder');
+    hideError();
+  });
+
+  if (sketchControlStrength && sketchControlStrengthVal) {
+    sketchControlStrength.addEventListener('input', function() { sketchControlStrengthVal.textContent = sketchControlStrength.value; });
+  }
+  if (sketchUploadZone && sketchFileInput) {
+    sketchUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') sketchFileInput.click(); });
+    sketchUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sketchFileInput.click(); } });
+    sketchUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); sketchUploadZone.classList.add('dragover'); });
+    sketchUploadZone.addEventListener('dragleave', function() { sketchUploadZone.classList.remove('dragover'); });
+    sketchUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      sketchUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setSketchFile(e.dataTransfer.files[0]);
+    });
+    sketchFileInput.addEventListener('change', function() {
+      if (sketchFileInput.files && sketchFileInput.files[0]) setSketchFile(sketchFileInput.files[0]);
+    });
+  }
+  function setSketchFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    sketchSelectedFile = file;
+    sketchUploadZone.classList.add('has-file');
+    document.getElementById('sketchUploadHint').textContent = '已選擇草圖';
+    document.getElementById('sketchUploadIcon').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    sketchPreviewWrap.style.display = 'block';
+    sketchPreviewImg.src = URL.createObjectURL(file);
+    btnSketch.disabled = !sketchPrompt.value.trim();
+    displayImg.src = URL.createObjectURL(file);
+    showRight('preview');
+    displayLabel.textContent = '草圖預覽';
+    displayActions.style.display = 'none';
+  }
+  if (sketchPrompt) {
+    sketchPrompt.addEventListener('input', function() {
+      btnSketch.disabled = !sketchSelectedFile || !sketchPrompt.value.trim();
+    });
+  }
+  if (btnSketch) {
+    btnSketch.addEventListener('click', async function() {
+      if (!sketchSelectedFile || !sketchPrompt.value.trim()) return;
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnSketch.disabled = true;
+      btnSketchText.textContent = '生成中…';
+      btnSketchIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在生成草圖轉圖像…';
+      var form = new FormData();
+      form.append('image', sketchSelectedFile);
+      form.append('prompt', sketchPrompt.value.trim());
+      if (sketchNegativePrompt.value.trim()) form.append('negative_prompt', sketchNegativePrompt.value.trim());
+      form.append('control_strength', sketchControlStrength.value);
+      form.append('seed', sketchSeed.value || '0');
+      form.append('output_format', sketchOutputFormat.value);
+      try {
+        var res = await fetch('/api/sketch-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+        var data = await res.json().catch(function() { return {}; });
+        if (!res.ok) {
+          showError(data.error || '生成失敗');
+          showRight('preview');
+          displayLabel.textContent = '草圖預覽';
+        } else if (data.success && data.imageData) {
+          displayImg.src = data.imageData;
+          downloadLink.href = data.imageData;
+          downloadLink.download = 'admin-sketch.' + (data.output_format || 'jpeg');
+          displayLabel.textContent = '草圖轉圖像 生成結果';
+          showRight('result');
+        } else {
+          showError(data.error || '未取得結果');
+          showRight('preview');
+        }
+      } catch (e) {
+        showError('網路錯誤');
+        showRight('preview');
+      }
+      btnSketch.disabled = !sketchSelectedFile || !sketchPrompt.value.trim();
+      btnSketchText.textContent = '開始生成';
+      btnSketchIcon.className = 'bi bi-magic me-2';
+      loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+    });
+  }
+
+  if (structureControlStrength && structureControlStrengthVal) {
+    structureControlStrength.addEventListener('input', function() { structureControlStrengthVal.textContent = structureControlStrength.value; });
+  }
+  if (structureUploadZone && structureFileInput) {
+    structureUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') structureFileInput.click(); });
+    structureUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); structureFileInput.click(); } });
+    structureUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); structureUploadZone.classList.add('dragover'); });
+    structureUploadZone.addEventListener('dragleave', function() { structureUploadZone.classList.remove('dragover'); });
+    structureUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      structureUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setStructureFile(e.dataTransfer.files[0]);
+    });
+    structureFileInput.addEventListener('change', function() {
+      if (structureFileInput.files && structureFileInput.files[0]) setStructureFile(structureFileInput.files[0]);
+    });
+  }
+  function setStructureFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    structureSelectedFile = file;
+    structureUploadZone.classList.add('has-file');
+    document.getElementById('structureUploadHint').textContent = '已選擇圖片';
+    document.getElementById('structureUploadIcon').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    structurePreviewWrap.style.display = 'block';
+    structurePreviewImg.src = URL.createObjectURL(file);
+    btnStructure.disabled = !structurePrompt.value.trim();
+    displayImg.src = URL.createObjectURL(file);
+    showRight('preview');
+    displayLabel.textContent = '圖片預覽';
+    displayActions.style.display = 'none';
+  }
+  if (structurePrompt) {
+    structurePrompt.addEventListener('input', function() {
+      btnStructure.disabled = !structureSelectedFile || !structurePrompt.value.trim();
+    });
+  }
+  if (btnStructure) {
+    btnStructure.addEventListener('click', async function() {
+      if (!structureSelectedFile || !structurePrompt.value.trim()) return;
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnStructure.disabled = true;
+      btnStructureText.textContent = '生成中…';
+      btnStructureIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在生成結構轉圖像…';
+      var form = new FormData();
+      form.append('image', structureSelectedFile);
+      form.append('prompt', structurePrompt.value.trim());
+      if (structureNegativePrompt.value.trim()) form.append('negative_prompt', structureNegativePrompt.value.trim());
+      form.append('control_strength', structureControlStrength.value);
+      form.append('seed', structureSeed.value || '0');
+      form.append('output_format', structureOutputFormat.value);
+      try {
+        var res = await fetch('/api/structure-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+        var data = await res.json().catch(function() { return {}; });
+        if (!res.ok) {
+          showError(data.error || '生成失敗');
+          showRight('preview');
+          displayLabel.textContent = '圖片預覽';
+        } else if (data.success && data.imageData) {
+          displayImg.src = data.imageData;
+          downloadLink.href = data.imageData;
+          downloadLink.download = 'admin-structure.' + (data.output_format || 'jpeg');
+          displayLabel.textContent = '結構轉圖像 生成結果';
+          showRight('result');
+        } else {
+          showError(data.error || '未取得結果');
+          showRight('preview');
+        }
+      } catch (e) {
+        showError('網路錯誤');
+        showRight('preview');
+      }
+      btnStructure.disabled = !structureSelectedFile || !structurePrompt.value.trim();
+      btnStructureText.textContent = '開始生成';
+      btnStructureIcon.className = 'bi bi-magic me-2';
+      loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+    });
+  }
+
+  if (styleFidelity && styleFidelityVal) {
+    styleFidelity.addEventListener('input', function() { styleFidelityVal.textContent = styleFidelity.value; });
+  }
+  if (styleUploadZone && styleFileInput) {
+    styleUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') styleFileInput.click(); });
+    styleUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); styleFileInput.click(); } });
+    styleUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); styleUploadZone.classList.add('dragover'); });
+    styleUploadZone.addEventListener('dragleave', function() { styleUploadZone.classList.remove('dragover'); });
+    styleUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      styleUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setStyleFile(e.dataTransfer.files[0]);
+    });
+    styleFileInput.addEventListener('change', function() {
+      if (styleFileInput.files && styleFileInput.files[0]) setStyleFile(styleFileInput.files[0]);
+    });
+  }
+  function setStyleFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    styleSelectedFile = file;
+    styleUploadZone.classList.add('has-file');
+    document.getElementById('styleUploadHint').textContent = '已選擇圖片';
+    document.getElementById('styleUploadIcon').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    stylePreviewWrap.style.display = 'block';
+    stylePreviewImg.src = URL.createObjectURL(file);
+    btnStyle.disabled = !stylePrompt.value.trim();
+    displayImg.src = URL.createObjectURL(file);
+    showRight('preview');
+    displayLabel.textContent = '圖片預覽';
+    displayActions.style.display = 'none';
+  }
+  if (stylePrompt) {
+    stylePrompt.addEventListener('input', function() {
+      btnStyle.disabled = !styleSelectedFile || !stylePrompt.value.trim();
+    });
+  }
+  if (btnStyle) {
+    btnStyle.addEventListener('click', async function() {
+      if (!styleSelectedFile || !stylePrompt.value.trim()) return;
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnStyle.disabled = true;
+      btnStyleText.textContent = '生成中…';
+      btnStyleIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在生成風格引導…';
+      var form = new FormData();
+      form.append('image', styleSelectedFile);
+      form.append('prompt', stylePrompt.value.trim());
+      if (styleNegativePrompt.value.trim()) form.append('negative_prompt', styleNegativePrompt.value.trim());
+      form.append('fidelity', styleFidelity.value);
+      form.append('aspect_ratio', styleAspectRatio.value);
+      form.append('seed', styleSeed.value || '0');
+      form.append('output_format', styleOutputFormat.value);
+      try {
+        var res = await fetch('/api/style-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+        var data = await res.json().catch(function() { return {}; });
+        if (!res.ok) {
+          showError(data.error || '生成失敗');
+          showRight('preview');
+          displayLabel.textContent = '圖片預覽';
+        } else if (data.success && data.imageData) {
+          displayImg.src = data.imageData;
+          downloadLink.href = data.imageData;
+          downloadLink.download = 'admin-style.' + (data.output_format || 'jpeg');
+          displayLabel.textContent = '風格引導 生成結果';
+          showRight('result');
+        } else {
+          showError(data.error || '未取得結果');
+          showRight('preview');
+        }
+      } catch (e) {
+        showError('網路錯誤');
+        showRight('preview');
+      }
+      btnStyle.disabled = !styleSelectedFile || !stylePrompt.value.trim();
+      btnStyleText.textContent = '開始生成';
+      btnStyleIcon.className = 'bi bi-magic me-2';
+      loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+    });
+  }
+
+  function stUpdateButton() {
+    if (btnStyleTransfer) btnStyleTransfer.disabled = !stContentFile || !stStyleFile;
+  }
+  if (stContentUploadZone && stContentFileInput) {
+    stContentUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') stContentFileInput.click(); });
+    stContentUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stContentFileInput.click(); } });
+    stContentUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); stContentUploadZone.classList.add('dragover'); });
+    stContentUploadZone.addEventListener('dragleave', function() { stContentUploadZone.classList.remove('dragover'); });
+    stContentUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      stContentUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setStContentFile(e.dataTransfer.files[0]);
+    });
+    stContentFileInput.addEventListener('change', function() {
+      if (stContentFileInput.files && stContentFileInput.files[0]) setStContentFile(stContentFileInput.files[0]);
+    });
+  }
+  function setStContentFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    stContentFile = file;
+    stContentUploadZone.classList.add('has-file');
+    document.getElementById('stContentUploadHint').textContent = '已選擇內容圖';
+    document.getElementById('stContentUploadIcon').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    stContentPreviewWrap.style.display = 'block';
+    stContentPreviewImg.src = URL.createObjectURL(file);
+    stUpdateButton();
+    displayImg.src = URL.createObjectURL(file);
+    showRight('preview');
+    displayLabel.textContent = '內容圖預覽';
+    displayActions.style.display = 'none';
+  }
+  if (stStyleUploadZone && stStyleFileInput) {
+    stStyleUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') stStyleFileInput.click(); });
+    stStyleUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); stStyleFileInput.click(); } });
+    stStyleUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); stStyleUploadZone.classList.add('dragover'); });
+    stStyleUploadZone.addEventListener('dragleave', function() { stStyleUploadZone.classList.remove('dragover'); });
+    stStyleUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      stStyleUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setStStyleFile(e.dataTransfer.files[0]);
+    });
+    stStyleFileInput.addEventListener('change', function() {
+      if (stStyleFileInput.files && stStyleFileInput.files[0]) setStStyleFile(stStyleFileInput.files[0]);
+    });
+  }
+  function setStStyleFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    stStyleFile = file;
+    stStyleUploadZone.classList.add('has-file');
+    document.getElementById('stStyleUploadHint').textContent = '已選擇風格圖';
+    document.getElementById('stStyleUploadIcon').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    stStylePreviewWrap.style.display = 'block';
+    stStylePreviewImg.src = URL.createObjectURL(file);
+    stUpdateButton();
+  }
+  if (btnStyleTransfer) {
+    btnStyleTransfer.addEventListener('click', async function() {
+      if (!stContentFile || !stStyleFile) return;
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnStyleTransfer.disabled = true;
+      btnStyleTransferText.textContent = '生成中…';
+      btnStyleTransferIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在生成風格轉換…';
+      var form = new FormData();
+      form.append('image', stContentFile);
+      form.append('style_image', stStyleFile);
+      if (stPrompt && stPrompt.value.trim()) form.append('prompt', stPrompt.value.trim());
+      if (stNegativePrompt && stNegativePrompt.value.trim()) form.append('negative_prompt', stNegativePrompt.value.trim());
+      form.append('seed', stSeed ? stSeed.value || '0' : '0');
+      form.append('output_format', stOutputFormat ? stOutputFormat.value : 'jpeg');
+      try {
+        var res = await fetch('/api/style-transfer-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+        var data = await res.json().catch(function() { return {}; });
+        if (!res.ok) {
+          showError(data.error || '生成失敗');
+          showRight('preview');
+          displayLabel.textContent = '內容圖預覽';
+        } else if (data.success && data.imageData) {
+          displayImg.src = data.imageData;
+          downloadLink.href = data.imageData;
+          downloadLink.download = 'admin-style-transfer.' + (data.output_format || 'jpeg');
+          displayLabel.textContent = '風格轉換 生成結果';
+          showRight('result');
+        } else {
+          showError(data.error || '未取得結果');
+          showRight('preview');
+        }
+      } catch (e) {
+        showError('網路錯誤');
+        showRight('preview');
+      }
+      stUpdateButton();
+      btnStyleTransferText.textContent = '開始生成';
+      btnStyleTransferIcon.className = 'bi bi-magic me-2';
+      loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+    });
+  }
+
+  function eraseUpdateButton() {
+    if (btnErase) btnErase.disabled = !eraseImageFile || !(eraseMaskCanvas && eraseMaskCanvas.width);
+  }
+  function eraseClearMask() {
+    if (!eraseMaskCtx || !eraseMaskCanvas.width) return;
+    eraseMaskCtx.fillStyle = 'rgba(0,0,0,0.32)';
+    eraseMaskCtx.fillRect(0, 0, eraseMaskCanvas.width, eraseMaskCanvas.height);
+    eraseUpdateButton();
+  }
+  function eraseGetBrushSize() { return parseInt(eraseBrushSize ? eraseBrushSize.value : 24, 10) || 24; }
+  function eraseDrawDot(x, y) {
+    if (!eraseMaskCtx) return;
+    var r = eraseGetBrushSize() / 2;
+    eraseMaskCtx.fillStyle = '#fff';
+    eraseMaskCtx.beginPath();
+    eraseMaskCtx.arc(x, y, r, 0, Math.PI * 2);
+    eraseMaskCtx.fill();
+  }
+  function eraseInitMaskPaint(w, h) {
+    var maxH = 320;
+    var cw = w; var ch = h;
+    if (ch > maxH) { cw = (w * maxH / h) | 0; ch = maxH; }
+    eraseMaskCanvas.width = cw;
+    eraseMaskCanvas.height = ch;
+    eraseMaskCanvas.style.width = cw + 'px';
+    eraseMaskCanvas.style.height = ch + 'px';
+    if (eraseRefImg) {
+      eraseRefImg.style.width = cw + 'px';
+      eraseRefImg.style.height = ch + 'px';
+      eraseRefImg.style.objectFit = 'contain';
+    }
+    eraseMaskCtx = eraseMaskCanvas.getContext('2d');
+    eraseMaskCtx.fillStyle = 'rgba(0,0,0,0.32)';
+    eraseMaskCtx.fillRect(0, 0, cw, ch);
+  }
+  function eraseGetMaskBlob(cb) {
+    var w = eraseImageWidth;
+    var h = eraseImageHeight;
+    if (w <= 0 || h <= 0) { cb(null); return; }
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+    if (eraseMaskCanvas.width && eraseMaskCanvas.height) {
+      ctx.drawImage(eraseMaskCanvas, 0, 0, eraseMaskCanvas.width, eraseMaskCanvas.height, 0, 0, w, h);
+    }
+    c.toBlob(function(blob) { cb(blob); }, 'image/png');
+  }
+  function eraseSetupDrawing() {
+    function getXY(e) {
+      var rect = eraseMaskCanvas.getBoundingClientRect();
+      var scaleX = eraseMaskCanvas.width / rect.width;
+      var scaleY = eraseMaskCanvas.height / rect.height;
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+    function start(e) { e.preventDefault(); eraseIsDrawing = true; var p = getXY(e); eraseLastX = p.x; eraseLastY = p.y; eraseDrawDot(p.x, p.y); }
+    function move(e) {
+      e.preventDefault();
+      if (!eraseIsDrawing) return;
+      var p = getXY(e);
+      eraseMaskCtx.beginPath();
+      eraseMaskCtx.moveTo(eraseLastX, eraseLastY);
+      eraseMaskCtx.lineTo(p.x, p.y);
+      eraseMaskCtx.strokeStyle = '#fff';
+      eraseMaskCtx.lineWidth = eraseGetBrushSize();
+      eraseMaskCtx.lineCap = 'round';
+      eraseMaskCtx.stroke();
+      eraseLastX = p.x;
+      eraseLastY = p.y;
+    }
+    function end(e) { e.preventDefault(); eraseIsDrawing = false; eraseUpdateButton(); }
+    eraseMaskCanvas.addEventListener('mousedown', start);
+    eraseMaskCanvas.addEventListener('mousemove', move);
+    eraseMaskCanvas.addEventListener('mouseup', end);
+    eraseMaskCanvas.addEventListener('mouseleave', end);
+    eraseMaskCanvas.addEventListener('touchstart', start, { passive: false });
+    eraseMaskCanvas.addEventListener('touchmove', move, { passive: false });
+    eraseMaskCanvas.addEventListener('touchend', end, { passive: false });
+  }
+  if (eraseBrushSize && eraseBrushSizeVal) {
+    eraseBrushSize.addEventListener('input', function() { eraseBrushSizeVal.textContent = eraseBrushSize.value; });
+  }
+  if (btnEraseMaskClear) btnEraseMaskClear.addEventListener('click', function() { eraseClearMask(); });
+  if (eraseImageUploadZone && eraseImageFileInput) {
+    eraseImageUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') eraseImageFileInput.click(); });
+    eraseImageUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); eraseImageFileInput.click(); } });
+    eraseImageUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); eraseImageUploadZone.classList.add('dragover'); });
+    eraseImageUploadZone.addEventListener('dragleave', function() { eraseImageUploadZone.classList.remove('dragover'); });
+    eraseImageUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      eraseImageUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setEraseImageFile(e.dataTransfer.files[0]);
+    });
+    eraseImageFileInput.addEventListener('change', function() {
+      if (eraseImageFileInput.files && eraseImageFileInput.files[0]) setEraseImageFile(eraseImageFileInput.files[0]);
+    });
+  }
+  function setEraseImageFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    eraseImageFile = file;
+    eraseImageUploadZone.classList.add('has-file');
+    document.getElementById('eraseImageUploadHint').textContent = '已選擇原圖';
+    document.getElementById('eraseImageUploadIcon').innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    var url = URL.createObjectURL(file);
+    displayImg.src = url;
+    showRight('preview');
+    displayLabel.textContent = '原圖預覽';
+    displayActions.style.display = 'none';
+    var img = new Image();
+    img.onload = function() {
+      eraseImageWidth = img.naturalWidth;
+      eraseImageHeight = img.naturalHeight;
+      if (eraseRefImg) eraseRefImg.src = url;
+      eraseInitMaskPaint(eraseImageWidth, eraseImageHeight);
+      if (eraseMaskPaintWrap) eraseMaskPaintWrap.style.display = 'block';
+      if (!eraseMaskCanvas._drawingSetup) { eraseMaskCanvas._drawingSetup = true; eraseSetupDrawing(); }
+      eraseUpdateButton();
+    };
+    img.src = url;
+  }
+  if (btnErase) {
+    btnErase.addEventListener('click', async function() {
+      if (!eraseImageFile || !(eraseMaskCanvas && eraseMaskCanvas.width)) return;
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnErase.disabled = true;
+      btnEraseText.textContent = '生成中…';
+      btnEraseIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在移除物件…';
+      eraseGetMaskBlob(function(maskBlob) {
+        if (!maskBlob) {
+          showError('無法產生遮罩');
+          eraseUpdateButton();
+          btnEraseText.textContent = '開始生成';
+          btnEraseIcon.className = 'bi bi-magic me-2';
+          showRight('preview');
+          return;
+        }
+        var form = new FormData();
+        form.append('image', eraseImageFile);
+        form.append('mask', maskBlob, 'mask.png');
+        form.append('seed', eraseSeed ? eraseSeed.value || '0' : '0');
+        form.append('output_format', eraseOutputFormat ? eraseOutputFormat.value : 'jpeg');
+        fetch('/api/erase-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form })
+          .then(function(res) { return res.json().catch(function() { return {}; }).then(function(data) { return { res: res, data: data }; }); })
+          .then(function(o) {
+            var res = o.res;
+            var data = o.data;
+            if (res.status === 402) {
+              showError('點數不足');
+              showRight('preview');
+              displayLabel.textContent = '原圖預覽';
+            } else if (!res.ok) {
+              showError(data.error || '生成失敗');
+              showRight('preview');
+              displayLabel.textContent = '原圖預覽';
+            } else if (data.success && data.imageData) {
+              displayImg.src = data.imageData;
+              downloadLink.href = data.imageData;
+              downloadLink.download = 'admin-erase.' + (data.output_format || 'jpeg');
+              displayLabel.textContent = '移除物件 生成結果';
+              showRight('result');
+            } else {
+              showError(data.error || '未取得結果');
+              showRight('preview');
+            }
+          })
+          .catch(function() { showError('網路錯誤'); showRight('preview'); })
+          .then(function() {
+            eraseUpdateButton();
+            btnEraseText.textContent = '開始生成';
+            btnEraseIcon.className = 'bi bi-magic me-2';
+            loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+          });
+      });
+    });
+  }
+
+  function inpaintUpdateButton() {
+    if (btnInpaint) btnInpaint.disabled = !inpaintImageFile || !(inpaintMaskCanvas && inpaintMaskCanvas.width) || !(inpaintPrompt && inpaintPrompt.value.trim());
+  }
+  function inpaintClearMask() {
+    if (!inpaintMaskCtx || !inpaintMaskCanvas || !inpaintMaskCanvas.width) return;
+    inpaintMaskCtx.fillStyle = 'rgba(0,0,0,0.32)';
+    inpaintMaskCtx.fillRect(0, 0, inpaintMaskCanvas.width, inpaintMaskCanvas.height);
+    inpaintUpdateButton();
+  }
+  function inpaintGetBrushSize() { return parseInt(inpaintBrushSize ? inpaintBrushSize.value : 24, 10) || 24; }
+  function inpaintDrawDot(x, y) {
+    if (!inpaintMaskCtx) return;
+    var r = inpaintGetBrushSize() / 2;
+    inpaintMaskCtx.fillStyle = '#fff';
+    inpaintMaskCtx.beginPath();
+    inpaintMaskCtx.arc(x, y, r, 0, Math.PI * 2);
+    inpaintMaskCtx.fill();
+  }
+  function inpaintInitMaskPaint(w, h) {
+    var maxH = 320;
+    var cw = w; var ch = h;
+    if (ch > maxH) { cw = (w * maxH / h) | 0; ch = maxH; }
+    if (!inpaintMaskCanvas) return;
+    inpaintMaskCanvas.width = cw;
+    inpaintMaskCanvas.height = ch;
+    inpaintMaskCanvas.style.width = cw + 'px';
+    inpaintMaskCanvas.style.height = ch + 'px';
+    if (inpaintRefImg) {
+      inpaintRefImg.style.width = cw + 'px';
+      inpaintRefImg.style.height = ch + 'px';
+      inpaintRefImg.style.objectFit = 'contain';
+    }
+    inpaintMaskCtx = inpaintMaskCanvas.getContext('2d');
+    inpaintMaskCtx.fillStyle = 'rgba(0,0,0,0.32)';
+    inpaintMaskCtx.fillRect(0, 0, cw, ch);
+  }
+  function inpaintGetMaskBlob(cb) {
+    var w = inpaintImageWidth;
+    var h = inpaintImageHeight;
+    if (w <= 0 || h <= 0) { cb(null); return; }
+    var c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+    if (inpaintMaskCanvas && inpaintMaskCanvas.width && inpaintMaskCanvas.height) {
+      ctx.drawImage(inpaintMaskCanvas, 0, 0, inpaintMaskCanvas.width, inpaintMaskCanvas.height, 0, 0, w, h);
+    }
+    c.toBlob(function(blob) { cb(blob); }, 'image/png');
+  }
+  function inpaintSetupDrawing() {
+    if (!inpaintMaskCanvas) return;
+    function getXY(e) {
+      var rect = inpaintMaskCanvas.getBoundingClientRect();
+      var scaleX = inpaintMaskCanvas.width / rect.width;
+      var scaleY = inpaintMaskCanvas.height / rect.height;
+      var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+    }
+    function start(e) { e.preventDefault(); inpaintIsDrawing = true; var p = getXY(e); inpaintLastX = p.x; inpaintLastY = p.y; inpaintDrawDot(p.x, p.y); }
+    function move(e) {
+      e.preventDefault();
+      if (!inpaintIsDrawing) return;
+      var p = getXY(e);
+      inpaintMaskCtx.beginPath();
+      inpaintMaskCtx.moveTo(inpaintLastX, inpaintLastY);
+      inpaintMaskCtx.lineTo(p.x, p.y);
+      inpaintMaskCtx.strokeStyle = '#fff';
+      inpaintMaskCtx.lineWidth = inpaintGetBrushSize();
+      inpaintMaskCtx.lineCap = 'round';
+      inpaintMaskCtx.stroke();
+      inpaintLastX = p.x;
+      inpaintLastY = p.y;
+    }
+    function end(e) { e.preventDefault(); inpaintIsDrawing = false; inpaintUpdateButton(); }
+    inpaintMaskCanvas.addEventListener('mousedown', start);
+    inpaintMaskCanvas.addEventListener('mousemove', move);
+    inpaintMaskCanvas.addEventListener('mouseup', end);
+    inpaintMaskCanvas.addEventListener('mouseleave', end);
+    inpaintMaskCanvas.addEventListener('touchstart', start, { passive: false });
+    inpaintMaskCanvas.addEventListener('touchmove', move, { passive: false });
+    inpaintMaskCanvas.addEventListener('touchend', end, { passive: false });
+  }
+  if (inpaintBrushSize && inpaintBrushSizeVal) {
+    inpaintBrushSize.addEventListener('input', function() { inpaintBrushSizeVal.textContent = inpaintBrushSize.value; });
+  }
+  if (btnInpaintMaskClear) btnInpaintMaskClear.addEventListener('click', function() { inpaintClearMask(); });
+  if (inpaintImageUploadZone && inpaintImageFileInput) {
+    inpaintImageUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') inpaintImageFileInput.click(); });
+    inpaintImageUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inpaintImageFileInput.click(); } });
+    inpaintImageUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); inpaintImageUploadZone.classList.add('dragover'); });
+    inpaintImageUploadZone.addEventListener('dragleave', function() { inpaintImageUploadZone.classList.remove('dragover'); });
+    inpaintImageUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      inpaintImageUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setInpaintImageFile(e.dataTransfer.files[0]);
+    });
+    inpaintImageFileInput.addEventListener('change', function() {
+      if (inpaintImageFileInput.files && inpaintImageFileInput.files[0]) setInpaintImageFile(inpaintImageFileInput.files[0]);
+    });
+  }
+  function setInpaintImageFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    inpaintImageFile = file;
+    inpaintImageUploadZone.classList.add('has-file');
+    var hint = document.getElementById('inpaintImageUploadHint');
+    if (hint) hint.textContent = '已選擇原圖';
+    var icon = document.getElementById('inpaintImageUploadIcon');
+    if (icon) icon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    var url = URL.createObjectURL(file);
+    displayImg.src = url;
+    showRight('preview');
+    displayLabel.textContent = '原圖預覽';
+    displayActions.style.display = 'none';
+    var img = new Image();
+    img.onload = function() {
+      inpaintImageWidth = img.naturalWidth;
+      inpaintImageHeight = img.naturalHeight;
+      if (inpaintRefImg) inpaintRefImg.src = url;
+      inpaintInitMaskPaint(inpaintImageWidth, inpaintImageHeight);
+      if (inpaintMaskPaintWrap) inpaintMaskPaintWrap.style.display = 'block';
+      if (!inpaintMaskCanvas._drawingSetup) { inpaintMaskCanvas._drawingSetup = true; inpaintSetupDrawing(); }
+      inpaintUpdateButton();
+    };
+    img.src = url;
+  }
+  if (inpaintPrompt) inpaintPrompt.addEventListener('input', inpaintUpdateButton);
+  if (btnInpaint) {
+    btnInpaint.addEventListener('click', async function() {
+      if (!inpaintImageFile || !(inpaintMaskCanvas && inpaintMaskCanvas.width) || !(inpaintPrompt && inpaintPrompt.value.trim())) return;
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnInpaint.disabled = true;
+      btnInpaintText.textContent = '生成中…';
+      btnInpaintIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在內部補繪…';
+      inpaintGetMaskBlob(function(maskBlob) {
+        if (!maskBlob) {
+          showError('無法產生遮罩');
+          inpaintUpdateButton();
+          btnInpaintText.textContent = '開始生成';
+          btnInpaintIcon.className = 'bi bi-magic me-2';
+          showRight('preview');
+          return;
+        }
+        var form = new FormData();
+        form.append('image', inpaintImageFile);
+        form.append('mask', maskBlob, 'mask.png');
+        form.append('prompt', inpaintPrompt.value.trim());
+        if (inpaintNegativePrompt && inpaintNegativePrompt.value.trim()) form.append('negative_prompt', inpaintNegativePrompt.value.trim());
+        form.append('seed', inpaintSeed ? inpaintSeed.value || '0' : '0');
+        form.append('output_format', inpaintOutputFormat ? inpaintOutputFormat.value : 'jpeg');
+        fetch('/api/inpaint-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form })
+          .then(function(res) { return res.json().catch(function() { return {}; }).then(function(data) { return { res: res, data: data }; }); })
+          .then(function(o) {
+            var res = o.res;
+            var data = o.data;
+            if (res.status === 402) {
+              showError('點數不足');
+              showRight('preview');
+              displayLabel.textContent = '原圖預覽';
+            } else if (!res.ok) {
+              showError(data.error || '生成失敗');
+              showRight('preview');
+              displayLabel.textContent = '原圖預覽';
+            } else if (data.imageData) {
+              displayImg.src = data.imageData;
+              downloadLink.href = data.imageData;
+              downloadLink.download = 'admin-inpaint.' + (data.output_format || 'jpeg');
+              displayLabel.textContent = '內部補繪 生成結果';
+              showRight('result');
+            } else {
+              showError(data.error || '未取得結果');
+              showRight('preview');
+            }
+          })
+          .catch(function() { showError('網路錯誤'); showRight('preview'); })
+          .then(function() {
+            inpaintUpdateButton();
+            btnInpaintText.textContent = '開始生成';
+            btnInpaintIcon.className = 'bi bi-magic me-2';
+            loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+          });
+      });
+    });
+  }
+
+  function outpaintUpdateButton() {
+    var left = parseInt(outpaintLeft && outpaintLeft.value, 10) || 0;
+    var right = parseInt(outpaintRight && outpaintRight.value, 10) || 0;
+    var up = parseInt(outpaintUp && outpaintUp.value, 10) || 0;
+    var down = parseInt(outpaintDown && outpaintDown.value, 10) || 0;
+    var hasExpand = (left + right + up + down) > 0;
+    if (btnOutpaint) btnOutpaint.disabled = !outpaintImageFile || !hasExpand;
+  }
+  if (outpaintImageUploadZone && outpaintImageFileInput) {
+    outpaintImageUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') outpaintImageFileInput.click(); });
+    outpaintImageUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); outpaintImageFileInput.click(); } });
+    outpaintImageUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); outpaintImageUploadZone.classList.add('dragover'); });
+    outpaintImageUploadZone.addEventListener('dragleave', function() { outpaintImageUploadZone.classList.remove('dragover'); });
+    outpaintImageUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      outpaintImageUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setOutpaintImageFile(e.dataTransfer.files[0]);
+    });
+    outpaintImageFileInput.addEventListener('change', function() {
+      if (outpaintImageFileInput.files && outpaintImageFileInput.files[0]) setOutpaintImageFile(outpaintImageFileInput.files[0]);
+    });
+  }
+  function setOutpaintImageFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    outpaintImageFile = file;
+    outpaintImageUploadZone.classList.add('has-file');
+    var hint = document.getElementById('outpaintImageUploadHint');
+    if (hint) hint.textContent = '已選擇原圖';
+    var icon = document.getElementById('outpaintImageUploadIcon');
+    if (icon) icon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    displayImg.src = URL.createObjectURL(file);
+    showRight('preview');
+    displayLabel.textContent = '原圖預覽';
+    displayActions.style.display = 'none';
+    outpaintUpdateButton();
+  }
+  [outpaintLeft, outpaintRight, outpaintUp, outpaintDown].forEach(function(el) {
+    if (el) { el.addEventListener('input', outpaintUpdateButton); el.addEventListener('change', outpaintUpdateButton); }
+  });
+  if (outpaintPrompt) outpaintPrompt.addEventListener('input', outpaintUpdateButton);
+  if (btnOutpaint) {
+    btnOutpaint.addEventListener('click', async function() {
+      if (!outpaintImageFile) return;
+      var left = Math.max(0, parseInt(outpaintLeft && outpaintLeft.value, 10) || 0);
+      var right = Math.max(0, parseInt(outpaintRight && outpaintRight.value, 10) || 0);
+      var up = Math.max(0, parseInt(outpaintUp && outpaintUp.value, 10) || 0);
+      var down = Math.max(0, parseInt(outpaintDown && outpaintDown.value, 10) || 0);
+      if (left + right + up + down === 0) { showError('請至少設定一個擴展方向（left/right/up/down）的像素值'); return; }
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnOutpaint.disabled = true;
+      btnOutpaintText.textContent = '生成中…';
+      btnOutpaintIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在外擴繪圖…';
+      var form = new FormData();
+      form.append('image', outpaintImageFile);
+      form.append('prompt', (outpaintPrompt && outpaintPrompt.value && outpaintPrompt.value.trim()) ? outpaintPrompt.value.trim() : '');
+      form.append('left', String(left));
+      form.append('right', String(right));
+      form.append('up', String(up));
+      form.append('down', String(down));
+      form.append('creativity', outpaintCreativity && outpaintCreativity.value !== undefined ? outpaintCreativity.value : '0.5');
+      form.append('seed', outpaintSeed ? outpaintSeed.value || '0' : '0');
+      form.append('output_format', outpaintOutputFormat ? outpaintOutputFormat.value : 'jpeg');
+      try {
+        var res = await fetch('/api/outpaint-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+        var data = await res.json().catch(function() { return {}; });
+        if (res.status === 402) {
+          showError('點數不足');
+          showRight('preview');
+          displayLabel.textContent = '原圖預覽';
+        } else if (!res.ok) {
+          showError(data.error || '生成失敗');
+          showRight('preview');
+          displayLabel.textContent = '原圖預覽';
+        } else if (data.imageData) {
+          displayImg.src = data.imageData;
+          downloadLink.href = data.imageData;
+          downloadLink.download = 'admin-outpaint.' + (data.output_format || 'jpeg');
+          displayLabel.textContent = '外擴繪圖 生成結果';
+          showRight('result');
+        } else {
+          showError(data.error || '未取得結果');
+          showRight('preview');
+        }
+      } catch (e) {
+        showError('網路錯誤');
+        showRight('preview');
+      }
+      outpaintUpdateButton();
+      btnOutpaintText.textContent = '開始生成';
+      btnOutpaintIcon.className = 'bi bi-magic me-2';
+      loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+    });
+  }
+
+  document.getElementById('toolList').querySelectorAll('a[data-tool]').forEach(function(a) {
+    a.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('toolList').querySelectorAll('a').forEach(function(x) { x.classList.remove('active'); });
+      this.classList.add('active');
+      currentTool = this.getAttribute('data-tool');
+      if (currentTool === 'upscale') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = '';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「放大」</span><span>2. 上傳一張圖片</span><span>3. 點「開始放大」</span>';
+        }
+      } else if (currentTool === 'erase') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = '';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「移除物件」</span><span>2. 上傳原圖後在畫布塗抹要移除的區域（白＝移除）</span><span>3. 點「開始生成」</span>';
+        }
+      } else if (currentTool === 'inpaint') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = '';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「內部補繪」</span><span>2. 上傳原圖後在畫布塗抹要重繪的區域（白＝重繪）</span><span>3. 填寫 prompt 後點「開始生成」</span>';
+        }
+      } else if (currentTool === 'outpaint') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = '';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「外擴繪圖」</span><span>2. 上傳原圖並設定擴展方向（left/right/up/down）</span><span>3. 填寫 prompt 後點「開始生成」</span>';
+        }
+        if (typeof outpaintUpdateButton === 'function') outpaintUpdateButton();
+      } else if (currentTool === 'removeBackground') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = '';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「圖像去背」</span><span>2. 上傳一張圖片</span><span>3. 點「開始去背」</span>';
+        }
+        if (typeof removeBgUpdateButton === 'function') removeBgUpdateButton();
+      } else if (currentTool === 'replaceBackgroundRelight') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = '';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「置換背景與重打光」</span><span>2. 上傳主體圖並填寫背景描述或上傳背景參考圖</span><span>3. 點「開始生成」</span>';
+        }
+        if (typeof replaceBgRelightUpdateButton === 'function') replaceBgRelightUpdateButton();
+      } else if (currentTool === 'structure') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = '';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「結構轉圖像」</span><span>2. 上傳圖片並填寫 prompt</span><span>3. 點「開始生成」</span>';
+        }
+      } else if (currentTool === 'style') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = '';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「風格引導」</span><span>2. 上傳圖片並填寫 prompt</span><span>3. 點「開始生成」</span>';
+        }
+      } else if (currentTool === 'styleTransfer') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = 'none';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = '';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「風格轉換」</span><span>2. 上傳內容圖與風格圖</span><span>3. 點「開始生成」</span>';
+        }
+      } else if (currentTool === 'sketch') {
+        if (settingsUpscaleEl) settingsUpscaleEl.style.display = 'none';
+        if (settingsSketchEl) settingsSketchEl.style.display = '';
+        if (settingsStructureEl) settingsStructureEl.style.display = 'none';
+        if (settingsStyleEl) settingsStyleEl.style.display = 'none';
+        if (settingsStyleTransferEl) settingsStyleTransferEl.style.display = 'none';
+        if (settingsEraseEl) settingsEraseEl.style.display = 'none';
+        if (settingsInpaintEl) settingsInpaintEl.style.display = 'none';
+        if (settingsOutpaintEl) settingsOutpaintEl.style.display = 'none';
+        if (settingsRemoveBgEl) settingsRemoveBgEl.style.display = 'none';
+        if (settingsReplaceBgRelightEl) settingsReplaceBgRelightEl.style.display = 'none';
+        if (displayPlaceholder) {
+          var steps = displayPlaceholder.querySelector('.empty-steps');
+          if (steps) steps.innerHTML = '<span>1. 在左側選擇「草圖轉圖像」</span><span>2. 上傳草圖並填寫 prompt</span><span>3. 點「開始生成」</span>';
+        }
+      }
+    });
+  });
+
+  function removeBgUpdateButton() {
+    if (btnRemoveBg) btnRemoveBg.disabled = !removeBgImageFile;
+  }
+  if (removeBgImageUploadZone && removeBgImageFileInput) {
+    removeBgImageUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') removeBgImageFileInput.click(); });
+    removeBgImageUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); removeBgImageFileInput.click(); } });
+    removeBgImageUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); removeBgImageUploadZone.classList.add('dragover'); });
+    removeBgImageUploadZone.addEventListener('dragleave', function() { removeBgImageUploadZone.classList.remove('dragover'); });
+    removeBgImageUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      removeBgImageUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setRemoveBgImageFile(e.dataTransfer.files[0]);
+    });
+    removeBgImageFileInput.addEventListener('change', function() {
+      if (removeBgImageFileInput.files && removeBgImageFileInput.files[0]) setRemoveBgImageFile(removeBgImageFileInput.files[0]);
+    });
+  }
+  function setRemoveBgImageFile(file) {
+    if (!file || !file.type.match(/^image\/(jpeg|png|webp)/)) return;
+    removeBgImageFile = file;
+    removeBgImageUploadZone.classList.add('has-file');
+    var hint = document.getElementById('removeBgImageUploadHint');
+    if (hint) hint.textContent = '已選擇圖片';
+    var icon = document.getElementById('removeBgImageUploadIcon');
+    if (icon) icon.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    displayImg.src = URL.createObjectURL(file);
+    showRight('preview');
+    displayLabel.textContent = '原圖預覽';
+    displayActions.style.display = 'none';
+    removeBgUpdateButton();
+  }
+  if (btnRemoveBg) {
+    btnRemoveBg.addEventListener('click', async function() {
+      if (!removeBgImageFile) return;
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnRemoveBg.disabled = true;
+      btnRemoveBgText.textContent = '去背中…';
+      btnRemoveBgIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在圖像去背…';
+      var form = new FormData();
+      form.append('image', removeBgImageFile);
+      form.append('output_format', removeBgOutputFormat ? removeBgOutputFormat.value : 'jpeg');
+      try {
+        var res = await fetch('/api/remove-background-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+        var data = await res.json().catch(function() { return {}; });
+        if (res.status === 402) {
+          showError('點數不足');
+          showRight('preview');
+          displayLabel.textContent = '原圖預覽';
+        } else if (!res.ok) {
+          showError(data.error || '去背失敗');
+          showRight('preview');
+          displayLabel.textContent = '原圖預覽';
+        } else if (data.imageData) {
+          displayImg.src = data.imageData;
+          downloadLink.href = data.imageData;
+          downloadLink.download = 'admin-remove-bg.' + (data.output_format || 'jpeg');
+          displayLabel.textContent = '圖像去背 生成結果';
+          showRight('result');
+        } else {
+          showError(data.error || '未取得結果');
+          showRight('preview');
+        }
+      } catch (e) {
+        showError('網路錯誤');
+        showRight('preview');
+      }
+      removeBgUpdateButton();
+      btnRemoveBgText.textContent = '開始去背';
+      btnRemoveBgIcon.className = 'bi bi-magic me-2';
+      loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+    });
+  }
+
+  function replaceBgRelightUpdateButton() {
+    var hasPrompt = replaceBgRelightBackgroundPrompt && (replaceBgRelightBackgroundPrompt.value || '').trim().length > 0;
+    var hasRef = !!replaceBgRelightBgRefFile;
+    if (btnReplaceBgRelight) btnReplaceBgRelight.disabled = !replaceBgRelightSubjectFile || (!hasPrompt && !hasRef);
+  }
+  if (replaceBgRelightSubjectUploadZone && replaceBgRelightSubjectFileInput) {
+    replaceBgRelightSubjectUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') replaceBgRelightSubjectFileInput.click(); });
+    replaceBgRelightSubjectUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); replaceBgRelightSubjectFileInput.click(); } });
+    replaceBgRelightSubjectUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); replaceBgRelightSubjectUploadZone.classList.add('dragover'); });
+    replaceBgRelightSubjectUploadZone.addEventListener('dragleave', function() { replaceBgRelightSubjectUploadZone.classList.remove('dragover'); });
+    replaceBgRelightSubjectUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      replaceBgRelightSubjectUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setReplaceBgRelightSubjectFile(e.dataTransfer.files[0]);
+    });
+    replaceBgRelightSubjectFileInput.addEventListener('change', function() {
+      if (replaceBgRelightSubjectFileInput.files && replaceBgRelightSubjectFileInput.files[0]) setReplaceBgRelightSubjectFile(replaceBgRelightSubjectFileInput.files[0]);
+    });
+  }
+  function setReplaceBgRelightSubjectFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    replaceBgRelightSubjectFile = file;
+    replaceBgRelightSubjectUploadZone.classList.add('has-file');
+    var h = document.getElementById('replaceBgRelightSubjectUploadHint'); if (h) h.textContent = '已選擇主體圖';
+    var ic = document.getElementById('replaceBgRelightSubjectUploadIcon'); if (ic) ic.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    if (displayImg) { displayImg.src = URL.createObjectURL(file); showRight('preview'); displayLabel.textContent = '原圖預覽'; displayActions.style.display = 'none'; }
+    replaceBgRelightUpdateButton();
+  }
+  if (replaceBgRelightBgRefUploadZone && replaceBgRelightBgRefFileInput) {
+    replaceBgRelightBgRefUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') replaceBgRelightBgRefFileInput.click(); });
+    replaceBgRelightBgRefUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); replaceBgRelightBgRefFileInput.click(); } });
+    replaceBgRelightBgRefUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); replaceBgRelightBgRefUploadZone.classList.add('dragover'); });
+    replaceBgRelightBgRefUploadZone.addEventListener('dragleave', function() { replaceBgRelightBgRefUploadZone.classList.remove('dragover'); });
+    replaceBgRelightBgRefUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      replaceBgRelightBgRefUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setReplaceBgRelightBgRefFile(e.dataTransfer.files[0]);
+    });
+    replaceBgRelightBgRefFileInput.addEventListener('change', function() {
+      if (replaceBgRelightBgRefFileInput.files && replaceBgRelightBgRefFileInput.files[0]) setReplaceBgRelightBgRefFile(replaceBgRelightBgRefFileInput.files[0]);
+    });
+  }
+  function setReplaceBgRelightBgRefFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    replaceBgRelightBgRefFile = file;
+    replaceBgRelightBgRefUploadZone.classList.add('has-file');
+    var h = document.getElementById('replaceBgRelightBgRefUploadHint'); if (h) h.textContent = '已選擇背景參考圖';
+    var ic = document.getElementById('replaceBgRelightBgRefUploadIcon'); if (ic) ic.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    replaceBgRelightUpdateButton();
+  }
+  if (replaceBgRelightLightRefUploadZone && replaceBgRelightLightRefFileInput) {
+    replaceBgRelightLightRefUploadZone.addEventListener('click', function(e) { if (e.target.tagName !== 'INPUT') replaceBgRelightLightRefFileInput.click(); });
+    replaceBgRelightLightRefUploadZone.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); replaceBgRelightLightRefFileInput.click(); } });
+    replaceBgRelightLightRefUploadZone.addEventListener('dragover', function(e) { e.preventDefault(); replaceBgRelightLightRefUploadZone.classList.add('dragover'); });
+    replaceBgRelightLightRefUploadZone.addEventListener('dragleave', function() { replaceBgRelightLightRefUploadZone.classList.remove('dragover'); });
+    replaceBgRelightLightRefUploadZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      replaceBgRelightLightRefUploadZone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setReplaceBgRelightLightRefFile(e.dataTransfer.files[0]);
+    });
+    replaceBgRelightLightRefFileInput.addEventListener('change', function() {
+      if (replaceBgRelightLightRefFileInput.files && replaceBgRelightLightRefFileInput.files[0]) setReplaceBgRelightLightRefFile(replaceBgRelightLightRefFileInput.files[0]);
+    });
+  }
+  function setReplaceBgRelightLightRefFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    replaceBgRelightLightRefFile = file;
+    replaceBgRelightLightRefUploadZone.classList.add('has-file');
+    var h = document.getElementById('replaceBgRelightLightRefUploadHint'); if (h) h.textContent = '已選擇打光參考圖';
+    var ic = document.getElementById('replaceBgRelightLightRefUploadIcon'); if (ic) ic.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+    replaceBgRelightUpdateButton();
+  }
+  if (replaceBgRelightBackgroundPrompt) replaceBgRelightBackgroundPrompt.addEventListener('input', replaceBgRelightUpdateButton);
+  if (replaceBgRelightBackgroundPrompt) replaceBgRelightBackgroundPrompt.addEventListener('change', replaceBgRelightUpdateButton);
+  if (btnReplaceBgRelight) {
+    btnReplaceBgRelight.addEventListener('click', async function() {
+      if (!replaceBgRelightSubjectFile) return;
+      var hasPrompt = replaceBgRelightBackgroundPrompt && (replaceBgRelightBackgroundPrompt.value || '').trim().length > 0;
+      var hasRef = !!replaceBgRelightBgRefFile;
+      if (!hasPrompt && !hasRef) { showError('請填寫背景描述或上傳背景參考圖'); return; }
+      var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+      var token = session && (session.access_token || (session.session && session.session.access_token));
+      if (!token) { showError('請先登入'); return; }
+      hideError();
+      btnReplaceBgRelight.disabled = true;
+      btnReplaceBgRelightText.textContent = '生成中…';
+      btnReplaceBgRelightIcon.className = 'spinner-border spinner-border-sm me-2';
+      showRight('loading');
+      loadingInline.querySelector('.loading-msg').textContent = '正在置換背景與重打光…';
+      var form = new FormData();
+      form.append('subject_image', replaceBgRelightSubjectFile);
+      if (hasPrompt) form.append('background_prompt', (replaceBgRelightBackgroundPrompt && replaceBgRelightBackgroundPrompt.value) ? replaceBgRelightBackgroundPrompt.value.trim() : '');
+      if (replaceBgRelightBgRefFile) form.append('background_reference', replaceBgRelightBgRefFile);
+      var fp = document.getElementById('replaceBgRelightForegroundPrompt');
+      if (fp && fp.value && fp.value.trim()) form.append('foreground_prompt', fp.value.trim());
+      var np = document.getElementById('replaceBgRelightNegativePrompt');
+      if (np && np.value && np.value.trim()) form.append('negative_prompt', np.value.trim());
+      if (replaceBgRelightPreserve && replaceBgRelightPreserve.value !== undefined) form.append('preserve_original_subject', replaceBgRelightPreserve.value);
+      if (replaceBgRelightDepth && replaceBgRelightDepth.value !== undefined) form.append('original_background_depth', replaceBgRelightDepth.value);
+      if (replaceBgRelightKeepBg && replaceBgRelightKeepBg.checked) form.append('keep_original_background', 'true');
+      if (replaceBgRelightLightStrength && replaceBgRelightLightStrength.value !== undefined) form.append('light_source_strength', replaceBgRelightLightStrength.value);
+      if (replaceBgRelightLightRefFile) form.append('light_reference', replaceBgRelightLightRefFile);
+      if (replaceBgRelightLightDir && replaceBgRelightLightDir.value) form.append('light_source_direction', replaceBgRelightLightDir.value);
+      if (replaceBgRelightSeed && replaceBgRelightSeed.value !== undefined) form.append('seed', replaceBgRelightSeed.value);
+      form.append('output_format', replaceBgRelightOutputFormat ? replaceBgRelightOutputFormat.value : 'jpeg');
+      try {
+        var res = await fetch('/api/replace-background-relight-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
+        var data = await res.json().catch(function() { return {}; });
+        if (res.status === 402) {
+          showError('點數不足');
+          showRight('preview');
+          displayLabel.textContent = '原圖預覽';
+          btnReplaceBgRelight.disabled = false;
+        } else if (!res.ok) {
+          showError(data.error || '生成失敗');
+          showRight('preview');
+          displayLabel.textContent = '原圖預覽';
+        } else if (data.imageData) {
+          displayImg.src = data.imageData;
+          downloadLink.href = data.imageData;
+          downloadLink.download = 'admin-replace-bg-relight.' + (data.output_format || 'jpeg');
+          displayLabel.textContent = '置換背景與重打光 生成結果';
+          showRight('result');
+        } else {
+          showError(data.error || '未取得結果');
+          showRight('preview');
+        }
+      } catch (e) {
+        showError('網路錯誤');
+        showRight('preview');
+      }
+      replaceBgRelightUpdateButton();
+      btnReplaceBgRelightText.textContent = '開始生成';
+      btnReplaceBgRelightIcon.className = 'bi bi-magic me-2';
+      loadingInline.querySelector('.loading-msg').textContent = '正在放大圖片…';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', async function() {
+    var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || (window.AuthService && (await AuthService.getSession())) || null;
+    if (!session || !session.user) {
+      authRequired.style.display = 'block';
+      return;
+    }
+    var token = session.access_token || (session.session && session.session.access_token);
+    if (!token) {
+      authRequired.style.display = 'block';
+      return;
+    }
+    var canUse = (window.AuthService && typeof AuthService.isTesterOrAdmin === 'function') ? await AuthService.isTesterOrAdmin() : false;
+    if (!canUse) {
+      var p = await (window.AuthService && AuthService.getUserProfile ? AuthService.getUserProfile() : Promise.resolve(null));
+      canUse = p && (p.role === 'admin' || p.role === 'tester');
+    }
+    if (!canUse) {
+      authRequired.style.display = 'block';
+      return;
+    }
+    var r = await fetch('/api/admin/points-config', { headers: { Authorization: 'Bearer ' + token } });
+    if (r.status === 401 || r.status === 403) {
+      authRequired.style.display = 'block';
+      return;
+    }
+    mainPanel.style.display = 'grid';
+    showRight('placeholder');
+  });
+})();
+  </script>
+</body>
+</html>

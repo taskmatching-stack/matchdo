@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>用戶管理 - MatchDO</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container mt-4">
+        <h2>用戶管理</h2>
+        <div class="row mb-3">
+            <div class="col-3"><div class="card"><div class="card-body text-center"><h4 id="totalUsers">0</h4><small>總用戶</small></div></div></div>
+            <div class="col-3"><div class="card"><div class="card-body text-center"><h4 id="adminUsers">0</h4><small>管理員</small></div></div></div>
+        </div>
+        <div class="row mb-2">
+            <div class="col-md-auto mb-2">
+                <label class="form-label small mb-0">角色</label>
+                <select class="form-select form-select-sm" id="filterRole" style="min-width:90px">
+                    <option value="">全部</option>
+                    <option value="user">用戶</option>
+                    <option value="admin">管理員</option>
+                    <option value="tester">測試員</option>
+                </select>
+            </div>
+            <div class="col-md-auto mb-2">
+                <label class="form-label small mb-0">會員等級</label>
+                <select class="form-select form-select-sm" id="filterMemberLevel" style="min-width:90px">
+                    <option value="">全部</option>
+                    <option value="一般">一般</option>
+                    <option value="進階">進階</option>
+                    <option value="尊榮">尊榮</option>
+                    <option value="VIP">VIP</option>
+                </select>
+            </div>
+            <div class="col-md-auto mb-2 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="filterClear">清除篩選</button>
+            </div>
+            <div class="col-md-auto mb-2 d-flex align-items-end ms-auto">
+                <button type="button" class="btn btn-primary btn-sm" id="btnAddUser"><i class="fas fa-plus me-1"></i>新增用戶</button>
+            </div>
+        </div>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Email</th>
+                    <th>姓名</th>
+                    <th>角色</th>
+                    <th>會員等級</th>
+                    <th>點數</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="usersTable"><tr><td colspan="7" class="text-center">載入中...</td></tr></tbody>
+        </table>
+    </div>
+
+    <!-- 新增用戶 Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addUserModalLabel">新增用戶</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="addEmail" class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="addEmail" placeholder="user@example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addPassword" class="form-label">密碼 <span class="text-danger">*</span> <small class="text-muted">至少 6 字元</small></label>
+                        <input type="password" class="form-control" id="addPassword" placeholder="請設定密碼" minlength="6" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addFullName" class="form-label">姓名</label>
+                        <input type="text" class="form-control" id="addFullName" placeholder="選填">
+                    </div>
+                    <div class="mb-3">
+                        <label for="addRole" class="form-label">角色</label>
+                        <select class="form-select" id="addRole">
+                            <option value="user">用戶</option>
+                            <option value="admin">管理員</option>
+                            <option value="tester">測試員</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addMemberLevel" class="form-label">會員等級</label>
+                        <select class="form-select" id="addMemberLevel">
+                            <option value="一般">一般</option>
+                            <option value="進階">進階</option>
+                            <option value="尊榮">尊榮</option>
+                            <option value="VIP">VIP</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="addUserSave">建立</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯 Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUserModalLabel">編輯用戶</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-2" id="editUserEmail"></p>
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label">角色</label>
+                        <select class="form-select" id="editRole">
+                            <option value="user">用戶</option>
+                            <option value="admin">管理員</option>
+                            <option value="tester">測試員</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editMemberLevel" class="form-label">會員等級</label>
+                        <select class="form-select" id="editMemberLevel">
+                            <option value="一般">一般</option>
+                            <option value="進階">進階</option>
+                            <option value="尊榮">尊榮</option>
+                            <option value="VIP">VIP</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPoints" class="form-label">點數</label>
+                        <input type="number" class="form-control" id="editPoints" min="0" step="1" placeholder="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="editUserSave">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/iStudio-1.0.0/js/site-header.js"></script>
+    <script src="/js/site-footer.js"></script>
+    <script>
+        function escapeHtml(s) {
+            if (s == null) return '';
+            var d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+        $(async function () {
+            function showError(msg) {
+                $('#usersTable').html('<tr><td colspan="7" class="text-center text-danger">' + escapeHtml(msg) + '</td></tr>');
+            }
+            try {
+                if (!window.AuthService) { alert('AuthService 未載入'); return; }
+                var loadTimeout = 12000;
+                var timeoutPromise = new Promise(function (_, reject) {
+                    setTimeout(function () { reject(new Error('載入逾時')); }, loadTimeout);
+                });
+                var sessionPromise = AuthService.getSession();
+                var session = await Promise.race([sessionPromise, timeoutPromise]);
+                if (!session || !session.user) {
+                    location.href = (AuthService.getLoginUrl ? AuthService.getLoginUrl() : '/login.html') + '?returnUrl=' + encodeURIComponent(location.pathname);
+                    return;
+                }
+                var profile = await Promise.race([AuthService.getUserProfile(), timeoutPromise]).catch(function () { return null; });
+                if ((session.user.user_metadata && session.user.user_metadata.role !== 'admin') && (profile && profile.role !== 'admin')) {
+                    alert('無權限');
+                    location.href = '/index.html';
+                    return;
+                }
+
+                var token = session.access_token || '';
+                function loadUsers() {
+                    return $.ajax({
+                        url: '/api/admin/users',
+                        headers: { 'Authorization': 'Bearer ' + token },
+                        dataType: 'json'
+                    });
+                }
+
+                var data = await Promise.race([
+                    loadUsers(),
+                    new Promise(function (_, reject) { setTimeout(function () { reject({ error: '載入逾時，請重新整理或檢查網路' }); }, loadTimeout); })
+                ]).catch(function (err) { return err && err.error ? err : { error: '載入失敗' }; });
+                if (data && data.error) {
+                    showError(data.error === '查詢用戶失敗' ? '請先執行 SQL：docs/admin-user-management-profiles-migration.sql' : data.error);
+                    return;
+                }
+                var allUsers = data.users || [];
+                $('#totalUsers').text(allUsers.length);
+                $('#adminUsers').text(allUsers.filter(function (u) { return u.role === 'admin'; }).length);
+
+                function fillTable(list) {
+                    var html = '';
+                    for (var i = 0; i < list.length; i++) {
+                        var u = list[i];
+                        var roleBadge = u.role === 'admin' ? '<span class="badge bg-danger">管理員</span>' : (u.role === 'tester' ? '<span class="badge bg-info">測試員</span>' : '<span class="badge bg-secondary">用戶</span>');
+                        var level = escapeHtml(u.member_level || '一般');
+                        var pts = typeof u.points === 'number' ? u.points : (parseInt(u.points, 10) || 0);
+                        var roleVal = (u.role === 'admin' || u.role === 'tester') ? u.role : 'user';
+                        html += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(u.email) + '</td><td>' + escapeHtml(u.full_name || '—') + '</td><td>' + roleBadge + '</td><td>' + level + '</td><td>' + pts + '</td><td><button class="btn btn-sm btn-primary btn-edit-user" data-id="' + escapeHtml(u.id) + '" data-email="' + escapeHtml(u.email) + '" data-role="' + escapeHtml(roleVal) + '" data-level="' + escapeHtml(u.member_level || '一般') + '" data-points="' + pts + '">編輯</button></td></tr>';
+                    }
+                    $('#usersTable').html(html || '<tr><td colspan="7" class="text-center text-muted">尚無用戶（或篩選後無符合）</td></tr>');
+                }
+                function applyFilter() {
+                    var roleVal = ($('#filterRole').val() || '').trim();
+                    var levelVal = ($('#filterMemberLevel').val() || '').trim();
+                    var list = allUsers.filter(function (u) {
+                        if (roleVal && (u.role || 'user') !== roleVal) return false;
+                        if (levelVal && (u.member_level || '一般') !== levelVal) return false;
+                        return true;
+                    });
+                    fillTable(list);
+                }
+                fillTable(allUsers);
+                $('#filterRole').on('change', applyFilter);
+                $('#filterMemberLevel').on('change', applyFilter);
+                $('#filterClear').on('click', function () {
+                    $('#filterRole').val('');
+                    $('#filterMemberLevel').val('');
+                    applyFilter();
+                });
+
+                var editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+                var addUserModalEl = new bootstrap.Modal(document.getElementById('addUserModal'));
+                var editingId = null;
+
+                $('#btnAddUser').on('click', function () {
+                    $('#addEmail').val('');
+                    $('#addPassword').val('');
+                    $('#addFullName').val('');
+                    $('#addRole').val('user');
+                    $('#addMemberLevel').val('一般');
+                    addUserModalEl.show();
+                });
+
+                $('#addUserSave').on('click', async function () {
+                    var email = ($('#addEmail').val() || '').trim();
+                    var password = $('#addPassword').val() || '';
+                    if (!email) { alert('請填寫 Email'); return; }
+                    if (password.length < 6) { alert('密碼至少 6 個字元'); return; }
+                    $(this).prop('disabled', true).text('建立中...');
+                    try {
+                        var res = await fetch('/api/admin/users', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify({
+                                email: email,
+                                password: password,
+                                full_name: ($('#addFullName').val() || '').trim(),
+                                role: $('#addRole').val() || 'user',
+                                member_level: $('#addMemberLevel').val() || '一般'
+                            })
+                        });
+                        var result = await res.json();
+                        if (!res.ok) {
+                            alert(result.error || '建立失敗');
+                            return;
+                        }
+                        addUserModalEl.hide();
+                        loadUsers().then(function (data) {
+                            if (data.error) return;
+                            allUsers = data.users || [];
+                            $('#totalUsers').text(allUsers.length);
+                            $('#adminUsers').text(allUsers.filter(function (u) { return u.role === 'admin'; }).length);
+                            applyFilter();
+                        });
+                    } catch (e) {
+                        alert('請求失敗：' + (e.message || e));
+                    } finally {
+                        $('#addUserSave').prop('disabled', false).text('建立');
+                    }
+                });
+
+                $(document).on('click', '.btn-edit-user', function () {
+                    var id = $(this).data('id');
+                    var email = $(this).data('email');
+                    var role = $(this).data('role') || 'user';
+                    var level = $(this).data('level') || '一般';
+                    var points = $(this).data('points');
+                    editingId = id;
+                    $('#editUserEmail').text(email);
+                    $('#editRole').val(role === 'admin' || role === 'tester' ? role : 'user');
+                    $('#editMemberLevel').val(level);
+                    $('#editPoints').val(points);
+                    editModal.show();
+                });
+
+                $('#editUserSave').on('click', async function () {
+                    if (!editingId) return;
+                    var level = $('#editMemberLevel').val();
+                    var pointsVal = $('#editPoints').val();
+                    var points = pointsVal === '' ? null : parseInt(pointsVal, 10);
+                    if (points !== null && (isNaN(points) || points < 0)) {
+                        alert('點數請輸入 0 或正整數');
+                        return;
+                    }
+                    $(this).prop('disabled', true).text('儲存中...');
+                    try {
+                        var roleVal = $('#editRole').val() || 'user';
+                        var payload = { member_level: level, role: roleVal };
+                        if (points !== null) payload.points = points;
+                        var res = await fetch('/api/admin/users/' + encodeURIComponent(editingId), {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify(payload)
+                        });
+                        var result = await res.json();
+                        if (!res.ok) {
+                            alert(result.error || '儲存失敗');
+                            return;
+                        }
+                        editModal.hide();
+                        loadUsers().then(function (data) {
+                            if (data.error) return;
+                            allUsers = data.users || [];
+                            $('#totalUsers').text(allUsers.length);
+                            $('#adminUsers').text(allUsers.filter(function (u) { return u.role === 'admin'; }).length);
+                            applyFilter();
+                        });
+                    } catch (e) {
+                        alert('請求失敗：' + (e.message || e));
+                    } finally {
+                        $('#editUserSave').prop('disabled', false).text('儲存');
+                    }
+                });
+            } catch (e) {
+                $('#usersTable').html('<tr><td colspan="7" class="text-center text-danger">錯誤：' + escapeHtml(e.message) + '</td></tr>');
+            }
+        });
+    </script>
+</body>
+</html>

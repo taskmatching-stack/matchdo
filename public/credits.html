@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n-title="credits.title">我的點數 - MATCHDO 合做</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/theme-colors.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .credits-hero { background: linear-gradient(135deg, #445D7E 0%, #3a5169 100%); color: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .credits-hero .balance { font-size: 2rem; font-weight: 700; }
+    .payment-section { background: #fff; border: 1px solid #dee2e6; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .payment-section .step-label { font-size: 0.75rem; text-transform: uppercase; color: #6c757d; margin-bottom: 0.5rem; font-weight: 600; }
+    .pay-card { border: 2px solid #dee2e6; border-radius: 12px; padding: 1rem 1.25rem; cursor: pointer; transition: border-color .2s, background .2s; display: flex; align-items: center; gap: 1rem; }
+    .pay-card:hover { border-color: #adb5bd; background: #f0f0f0; }
+    .pay-card.selected { border-color: #445D7E; background: #e8ecf0; }
+    .pay-card .icon { font-size: 2rem; opacity: .9; }
+    .preset-btn { border: 1px solid #dee2e6; border-radius: 8px; padding: 0.6rem 1rem; margin: 0.25rem; cursor: pointer; background: #fff; transition: border-color .2s, background .2s; }
+    .preset-btn:hover, .preset-btn.active { border-color: #445D7E; background: #e8ecf0; }
+    .btn-pay { min-width: 180px; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="site-header"></div>
+
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h4 mb-0" data-i18n="credits.title">我的點數</h1>
+      <a href="/index.html" class="btn btn-outline-secondary btn-sm" data-i18n="credits.backHome">返回首頁</a>
+    </div>
+
+    <div id="loginRequired" class="alert alert-warning" style="display:none;">
+      <span data-i18n="credits.loginRequired">請先</span> <a href="/login.html" data-i18n="credits.loginRequiredLink">登入</a> <span data-i18n="credits.loginRequiredSuffix">後查看點數與儲值。</span>
+    </div>
+
+    <div id="creditsPanel" style="display:none;">
+      <div id="renewalReminder" class="alert alert-warning border-0 shadow-sm mb-3 d-none" role="alert">
+        <i class="bi bi-calendar-event me-2"></i>
+        <span id="renewalReminderText"></span>
+        <a href="/subscription-plans.html" class="alert-link ms-2" data-i18n="credits.renewNow">立即續訂</a>
+      </div>
+      <div class="credits-hero">
+        <div class="small opacity-90" data-i18n="credits.currentBalance">目前餘額</div>
+        <div class="balance" id="creditsBalance">0</div>
+        <div class="small"><span data-i18n="credits.totalEarned">累計獲得</span> <span id="totalEarned">0</span> · <span data-i18n="credits.totalSpent">累計消費</span> <span id="totalSpent">0</span></div>
+      </div>
+
+      <!-- 付款介面：訂閱與儲值分開顯示 -->
+      <div class="payment-section">
+        <h5 class="mb-4" id="paymentSectionTitle" data-i18n="credits.topUpTitle">儲值點數</h5>
+
+        <!-- 儲值點數模式：選擇金額／自訂 -->
+        <div id="step1TopUp">
+          <div class="step-label" data-i18n="credits.step1">步驟 1：選擇方案或自訂金額</div>
+          <div class="mb-3">
+            <button type="button" class="preset-btn" data-amount="300" data-credits="330">300 <span data-i18n="credits.points">點</span> ＝ 330</button>
+            <button type="button" class="preset-btn" data-amount="900" data-credits="1100">900 ＝ 1100</button>
+            <button type="button" class="preset-btn" data-amount="1800" data-credits="2400">1800 ＝ 2400</button>
+            <button type="button" class="preset-btn" id="presetCustom"><span data-i18n="credits.customAmount">自訂金額</span></button>
+          </div>
+          <p id="pointsInfoNote" class="text-muted small mb-2" style="display:none;"></p>
+        </div>
+
+        <!-- 訂閱方案模式：僅顯示方案與金額（不與儲值混在一起） -->
+        <div id="step1Subscription" style="display:none;">
+          <div class="step-label">訂閱方案</div>
+          <p id="subscriptionSummary" class="mb-3"></p>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label" data-i18n="credits.amountLabel">金額（台幣／美金依付款方式）</label>
+            <input type="number" class="form-control" id="amount" min="1" data-i18n-placeholder="credits.amountPlaceholder" placeholder="例：300" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" id="creditsLabel" data-i18n="credits.creditsLabel">獲得點數</label>
+            <input type="number" class="form-control" id="credits" min="1" data-i18n-placeholder="credits.creditsPlaceholder" placeholder="例：330" />
+          </div>
+        </div>
+        <p class="text-muted small mb-4" id="paymentHint" data-i18n="credits.paymentHint">中文／台灣：綠界（台幣）；英文／海外：PayPal（美金）。</p>
+
+        <div class="step-label" data-i18n="credits.step2">步驟 2：選擇付款方式</div>
+        <div class="d-flex flex-wrap gap-3 mb-4">
+          <div class="pay-card" data-provider="ecpay" style="min-width: 220px;">
+            <span class="icon text-primary"><i class="bi bi-credit-card"></i></span>
+            <div>
+              <strong data-i18n="credits.ecpay">綠界 ECPay</strong><br />
+              <span class="small text-muted" data-i18n="credits.ecpayDesc">信用卡 / ATM / 超商（台幣）</span>
+            </div>
+          </div>
+          <div class="pay-card" data-provider="paypal" style="min-width: 220px;">
+            <span class="icon" style="color:#003087;"><i class="bi bi-paypal"></i></span>
+            <div>
+              <strong data-i18n="credits.paypal">PayPal</strong><br />
+              <span class="small text-muted" data-i18n="credits.paypalDesc">信用卡 / PayPal 餘額（美金）</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-label" data-i18n="credits.step3">步驟 3：確認並前往付款</div>
+        <button type="button" class="btn btn-primary btn-pay" id="btnPay" disabled><i class="bi bi-lock-fill me-2"></i><span data-i18n="credits.btnPay">前往付款</span></button>
+        <div id="payError" class="text-danger mt-2 small" style="display:none;"></div>
+      </div>
+
+      <hr class="my-4" />
+      <h6 data-i18n="credits.recentHistory">近期紀錄</h6>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th data-i18n="credits.time">時間</th><th data-i18n="credits.type">類型</th><th data-i18n="credits.points">點數</th><th data-i18n="credits.balance">餘額</th><th data-i18n="credits.description">說明</th></tr></thead>
+          <tbody id="txTable"></tbody>
+        </table>
+      </div>
+      <p id="txEmpty" class="text-muted small" data-i18n="credits.noHistory">尚無紀錄</p>
+    </div>
+  </div>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/js/site-header.js"></script>
+  <script>
+(function () {
+  var session = null;
+  var selectedProvider = null;
+  var lang = (typeof window !== 'undefined' && window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+
+  function t(key) {
+    if (typeof window !== 'undefined' && window.i18n && window.i18n.t) {
+      var v = window.i18n.t(key);
+      if (v && v !== key) return v;
+    }
+    var fallback = { 'credits.typePurchase': '儲值', 'credits.typeConsumed': '消費', 'credits.typeGranted': '贈送', 'credits.errAmount': '請填寫金額與點數', 'credits.errProvider': '請選擇付款方式', 'credits.errCreate': '建立訂單失敗', 'credits.renewalReminder': '您的「{plan}」將於 {date} 到期（約 {days} 天），請及早續訂。', 'credits.renewNow': '立即續訂' };
+    return fallback[key] || key;
+  }
+
+  function show(el, show) { if (el) el.style.display = show ? '' : 'none'; }
+  function setText(el, text) { if (el) el.textContent = text; }
+
+  function getAuthHeaders() {
+    if (!session || !session.access_token) return {};
+    return { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
+  }
+
+  function loadRenewalReminder() {
+    var el = document.getElementById('renewalReminder');
+    var textEl = document.getElementById('renewalReminderText');
+    if (!el || !textEl) return;
+    fetch('/api/me/subscription', { headers: getAuthHeaders() })
+      .then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.renewal_reminder) {
+          el.classList.add('d-none');
+          return;
+        }
+        var r = data.renewal_reminder;
+        var endStr = r.end_date ? new Date(r.end_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW') : '';
+        var msg = (t('credits.renewalReminder') || '您的「{plan}」將於 {date} 到期（約 {days} 天），請及早續訂。').replace('{plan}', r.plan_name || '').replace('{date}', endStr).replace('{days}', r.days_left);
+        textEl.textContent = msg;
+        el.classList.remove('d-none');
+      })
+      .catch(function () { el.classList.add('d-none'); });
+  }
+
+  function loadCredits() {
+    fetch('/api/me/credits', { headers: getAuthHeaders() })
+      .then(function (r) {
+        if (r.status === 401) { show(document.getElementById('loginRequired'), true); show(document.getElementById('creditsPanel'), false); return; }
+        return r.json();
+      })
+      .then(function (data) {
+        if (!data) return;
+        show(document.getElementById('loginRequired'), false);
+        show(document.getElementById('creditsPanel'), true);
+        setText(document.getElementById('creditsBalance'), data.balance);
+        setText(document.getElementById('totalEarned'), data.total_earned || 0);
+        setText(document.getElementById('totalSpent'), data.total_spent || 0);
+        var tbody = document.getElementById('txTable');
+        var empty = document.getElementById('txEmpty');
+        if (data.transactions && data.transactions.length > 0) {
+          empty.style.display = 'none';
+          tbody.innerHTML = data.transactions.map(function (tr) {
+            var time = tr.created_at ? new Date(tr.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'zh-TW') : '';
+            var typeKey = tr.type === 'purchase' ? 'credits.typePurchase' : (tr.type === 'consumed' ? 'credits.typeConsumed' : 'credits.typeGranted');
+            var typeText = t(typeKey);
+            return '<tr><td>' + time + '</td><td>' + typeText + '</td><td>' + (tr.amount > 0 ? '+' : '') + tr.amount + '</td><td>' + (tr.balance_after || '') + '</td><td>' + (tr.description || '-') + '</td></tr>';
+          }).join('');
+        } else {
+          tbody.innerHTML = '';
+          show(empty, true);
+        }
+        loadRenewalReminder();
+      })
+      .catch(function () {
+        show(document.getElementById('loginRequired'), true);
+        show(document.getElementById('creditsPanel'), false);
+      });
+  }
+
+  document.querySelectorAll('.preset-btn[data-amount]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.preset-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('amount').value = btn.getAttribute('data-amount');
+      document.getElementById('credits').value = btn.getAttribute('data-credits');
+    });
+  });
+  document.getElementById('presetCustom').addEventListener('click', function () {
+    document.querySelectorAll('.preset-btn').forEach(function (b) { b.classList.remove('active'); });
+    document.getElementById('amount').focus();
+  });
+
+  document.querySelectorAll('.pay-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      document.querySelectorAll('.pay-card').forEach(function (c) { c.classList.remove('selected'); });
+      card.classList.add('selected');
+      selectedProvider = card.getAttribute('data-provider');
+      document.getElementById('btnPay').disabled = false;
+    });
+  });
+
+  document.getElementById('btnPay').addEventListener('click', function () {
+    var amount = parseInt(document.getElementById('amount').value, 10);
+    var credits = parseInt(document.getElementById('credits').value, 10);
+    var errEl = document.getElementById('payError');
+    show(errEl, false);
+    if (!amount || amount < 1 || !credits || credits < 1) {
+      setText(errEl, t('credits.errAmount'));
+      show(errEl, true);
+      return;
+    }
+    if (!selectedProvider) {
+      setText(errEl, t('credits.errProvider'));
+      show(errEl, true);
+      return;
+    }
+    this.disabled = true;
+    var billing = urlBilling || '';
+    var plan = urlPlan || '';
+    var isMonthlySubscription = billing === 'monthly' && plan;
+    if (selectedProvider === 'ecpay') {
+      var apiUrl = isMonthlySubscription ? '/api/payment/ecpay/create-subscription' : '/api/payment/ecpay/create';
+      var bodyPayload = { amount: amount, credits: credits };
+      if (!isMonthlySubscription && (billing === 'yearly' && plan)) {
+        bodyPayload.billing = 'yearly';
+        bodyPayload.plan = plan;
+      }
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(bodyPayload)
+      })
+        .then(function (r) {
+          if (r.status === 503) return r.json().then(function (d) { throw { message: d.error, hint: d.hint }; });
+          return r.text();
+        })
+        .then(function (html) {
+          document.open();
+          document.write(html);
+          document.close();
+        })
+        .catch(function (e) {
+          document.getElementById('btnPay').disabled = false;
+          var msg = (e && e.message) || t('credits.errCreate');
+          if (e && e.hint) msg += ' ' + e.hint;
+          setText(errEl, msg);
+          show(errEl, true);
+        });
+    } else {
+      var paypalPayload = { amount: amount, credits: credits };
+      if (billing === 'yearly' && plan) {
+        paypalPayload.billing = 'yearly';
+        paypalPayload.plan = plan;
+      }
+      fetch('/api/payment/paypal/create', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(paypalPayload)
+      })
+        .then(function (r) {
+          if (r.status === 503) return r.json().then(function (d) { throw { message: d.error, hint: d.hint }; });
+          return r.json();
+        })
+        .then(function (data) {
+          if (data.approval_url) {
+            window.location.href = data.approval_url;
+          } else {
+            document.getElementById('btnPay').disabled = false;
+            setText(errEl, data.error || t('credits.errCreate'));
+            show(errEl, true);
+          }
+        })
+        .catch(function (e) {
+          document.getElementById('btnPay').disabled = false;
+          var msg = (e && e.message) || t('credits.errCreate');
+          if (e && e.hint) msg += ' ' + e.hint;
+          setText(errEl, msg);
+          show(errEl, true);
+        });
+    }
+  });
+
+  var urlBilling = '';
+  var urlPlan = '';
+
+  function applyUrlParams() {
+    var params = typeof window !== 'undefined' && window.location && window.location.search ? new URLSearchParams(window.location.search) : null;
+    var titleEl = document.getElementById('paymentSectionTitle');
+    var step1TopUp = document.getElementById('step1TopUp');
+    var step1Sub = document.getElementById('step1Subscription');
+    var summaryEl = document.getElementById('subscriptionSummary');
+    var hintEl = document.getElementById('paymentHint');
+    var amount = params ? params.get('amount') : '';
+    var credits = params ? params.get('credits') : '';
+    urlBilling = (params && params.get('billing')) ? params.get('billing').toLowerCase() : '';
+    urlPlan = (params && params.get('plan')) || '';
+
+    var isSubscriptionMode = (urlBilling === 'monthly' || urlBilling === 'yearly') && urlPlan;
+
+    if (isSubscriptionMode) {
+      if (titleEl) titleEl.textContent = '訂閱方案付款';
+      if (step1TopUp) step1TopUp.style.display = 'none';
+      if (step1Sub) step1Sub.style.display = 'block';
+      var billingText = urlBilling === 'yearly' ? '年繳' : '月繳';
+      if (summaryEl) summaryEl.textContent = '您正在訂閱方案（' + billingText + '），金額與點數由方案固定，不可修改。訂閱與儲值為不同邏輯：此為方案月費／年費，非單次儲值。';
+      var amountInput = document.getElementById('amount');
+      var creditsInput = document.getElementById('credits');
+      if (amountInput) { amountInput.value = amount || ''; amountInput.readOnly = true; amountInput.classList.add('bg-light'); }
+      if (creditsInput) { creditsInput.value = credits || ''; creditsInput.readOnly = true; creditsInput.classList.add('bg-light'); }
+      var credLabel = document.getElementById('creditsLabel');
+      if (credLabel) credLabel.textContent = urlBilling === 'yearly' ? '年訂閱獲得點數' : '每期點數';
+      if (hintEl) hintEl.textContent = urlBilling === 'monthly' ? '月訂閱：綠界信用卡定期定額，每月自動扣款。' : (urlBilling === 'yearly' ? '年繳：依選擇之付款方式一次付清。' : hintEl.textContent);
+      if (urlBilling === 'monthly') {
+        var payCards = document.querySelectorAll('.pay-card');
+        payCards.forEach(function (c) {
+          if (c.getAttribute('data-provider') === 'paypal') {
+            c.style.opacity = '0.6';
+            c.style.pointerEvents = 'none';
+            c.title = '月訂閱僅支援綠界信用卡定期定額';
+          } else {
+            c.classList.add('selected');
+            selectedProvider = 'ecpay';
+          }
+        });
+        var btnPay = document.getElementById('btnPay');
+        if (btnPay) btnPay.disabled = false;
+      }
+    } else {
+      if (titleEl) titleEl.textContent = (typeof window !== 'undefined' && window.i18n && window.i18n.t && window.i18n.t('credits.topUpTitle')) || '儲值點數';
+      if (step1TopUp) step1TopUp.style.display = 'block';
+      if (step1Sub) step1Sub.style.display = 'none';
+      var amountInputTopUp = document.getElementById('amount');
+      var creditsInputTopUp = document.getElementById('credits');
+      if (amountInputTopUp) { amountInputTopUp.readOnly = false; amountInputTopUp.classList.remove('bg-light'); if (amount) amountInputTopUp.value = amount; }
+      if (creditsInputTopUp) { creditsInputTopUp.readOnly = false; creditsInputTopUp.classList.remove('bg-light'); if (credits) creditsInputTopUp.value = credits; }
+      if (amount && credits) {
+        document.querySelectorAll('.preset-btn[data-amount]').forEach(function (b) {
+          if (b.getAttribute('data-amount') === amount && b.getAttribute('data-credits') === credits) b.classList.add('active');
+        });
+      }
+      fetch('/api/points-info').then(function (r) { return r.json(); }).then(function (data) {
+        var n = (data && data.points_listing_per_category != null) ? data.points_listing_per_category : 200;
+        var note = document.getElementById('pointsInfoNote');
+        if (note) { note.textContent = '各方案用盡後可加購 ' + n + ' 點/月/分類（與後台點數規則同步）。'; note.style.display = 'block'; }
+      }).catch(function () {
+        var note = document.getElementById('pointsInfoNote');
+        if (note) { note.textContent = '各方案用盡後可加購 200 點/月/分類（與後台點數規則同步）。'; note.style.display = 'block'; }
+      });
+    }
+  }
+
+  function init() {
+    if (typeof AuthService !== 'undefined' && AuthService.getSession) {
+      AuthService.getSession().then(function (s) {
+        session = s;
+        applyUrlParams();
+        loadCredits();
+      });
+    } else {
+      show(document.getElementById('loginRequired'), true);
+    }
+  }
+
+  if (window.i18n && window.i18n.ready) {
+    window.i18n.ready.then(function () {
+      if (window.i18n.applyPage) window.i18n.applyPage();
+      if (window.i18n.getLang) lang = window.i18n.getLang();
+      init();
+    });
+  } else {
+    init();
+  }
+})();
+  </script>
+</body>
+</html>

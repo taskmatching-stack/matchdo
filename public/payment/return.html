@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>付款結果 - MATCHDO 合做</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="bg-light d-flex align-items-center min-vh-100">
+  <div class="container text-center py-5">
+    <div id="loading" class="mb-3">
+      <div class="spinner-border text-primary" role="status"></div>
+      <p class="mt-2 text-muted">處理付款結果中…</p>
+    </div>
+    <div id="result" style="display:none;">
+      <div id="resultSuccess" style="display:none;">
+        <div class="text-success display-4 mb-2"><i class="bi bi-check-circle-fill"></i></div>
+        <h4>付款成功</h4>
+        <p class="text-muted">點數已入帳，目前餘額：<strong id="balanceAfter">0</strong> 點</p>
+      </div>
+      <div id="resultFail" style="display:none;">
+        <div class="text-danger display-4 mb-2"><i class="bi bi-x-circle-fill"></i></div>
+        <h4>付款失敗或已取消</h4>
+        <p class="text-muted" id="failMessage">請重新嘗試或聯絡客服。</p>
+      </div>
+      <div id="resultEcpay" style="display:none;">
+        <p class="text-muted">綠界付款結果將由系統通知，請稍候確認點數是否入帳。</p>
+      </div>
+      <a href="/credits.html" class="btn btn-primary mt-3">查看我的點數</a>
+      <a href="/index.html" class="btn btn-outline-secondary mt-3 ms-2">返回首頁</a>
+    </div>
+  </div>
+
+  <script src="/config/auth-config.js"></script>
+  <script>
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var provider = params.get('provider');
+  var cancel = params.get('cancel');
+  var token = params.get('token');
+  var orderId = params.get('order_id');
+
+  function show(el, on) { if (el) el.style.display = on ? '' : 'none'; }
+
+  if (cancel === '1') {
+    show(document.getElementById('loading'), false);
+    show(document.getElementById('result'), true);
+    show(document.getElementById('resultFail'), true);
+    document.getElementById('failMessage').textContent = '您已取消付款。';
+    return;
+  }
+
+  if (provider === 'paypal' && token) {
+    var session = null;
+    if (typeof AuthService !== 'undefined' && AuthService.getSession) {
+      AuthService.getSession().then(function (s) {
+        session = s;
+        if (!session || !session.access_token) {
+          show(document.getElementById('loading'), false);
+          show(document.getElementById('result'), true);
+          show(document.getElementById('resultFail'), true);
+          document.getElementById('failMessage').textContent = '請重新登入後再查看點數。';
+          return;
+        }
+        fetch('/api/payment/paypal/capture', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            show(document.getElementById('loading'), false);
+            show(document.getElementById('result'), true);
+            if (data.success && data.balance_after !== undefined) {
+              show(document.getElementById('resultSuccess'), true);
+              document.getElementById('balanceAfter').textContent = data.balance_after;
+            } else {
+              show(document.getElementById('resultFail'), true);
+              document.getElementById('failMessage').textContent = data.error || '請款失敗，請聯絡客服。';
+            }
+          })
+          .catch(function () {
+            show(document.getElementById('loading'), false);
+            show(document.getElementById('result'), true);
+            show(document.getElementById('resultFail'), true);
+            document.getElementById('failMessage').textContent = '請款時發生錯誤，請至「我的點數」確認是否已入帳。';
+          });
+      });
+    } else {
+      show(document.getElementById('loading'), false);
+      show(document.getElementById('result'), true);
+      show(document.getElementById('resultEcpay'), true);
+    }
+    return;
+  }
+
+  if (orderId && !provider) {
+    show(document.getElementById('loading'), false);
+    show(document.getElementById('result'), true);
+    show(document.getElementById('resultEcpay'), true);
+    return;
+  }
+
+  show(document.getElementById('loading'), false);
+  show(document.getElementById('result'), true);
+  show(document.getElementById('resultFail'), true);
+})();
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</body>
+</html>

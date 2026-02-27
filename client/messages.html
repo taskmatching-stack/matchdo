@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n-title="messages.title">我的對話 - MatchDO 合做</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+    <style>
+        .messages-layout { display: flex; height: calc(100vh - 120px); min-height: 400px; }
+        .messages-side { width: 320px; min-width: 280px; border-right: 1px solid #dee2e6; overflow-y: auto; }
+        .messages-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .conv-item, .contact-item { padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid #eee; }
+        .conv-item:hover, .contact-item:hover { background: #f8f9fa; }
+        .conv-item.active, .contact-item.active { background: #e7f1ff; }
+        .conv-item .last-msg { font-size: 0.85rem; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .messages-panel { flex: 1; overflow-y: auto; padding: 1rem; }
+        .msg-bubble { max-width: 80%; padding: 0.5rem 0.75rem; border-radius: 1rem; margin-bottom: 0.5rem; }
+        .msg-bubble.mine { margin-left: auto; background: #0d6efd; color: #fff; }
+        .msg-bubble.theirs { background: #e9ecef; }
+        .msg-time { font-size: 0.75rem; color: #6c757d; }
+        .messages-form { padding: 0.75rem; border-top: 1px solid #dee2e6; }
+        @media (max-width: 768px) {
+            .messages-layout { flex-direction: column; height: auto; min-height: 80vh; }
+            .messages-side { width: 100%; max-height: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark"><i class="bi bi-chat-dots me-2"></i><span data-i18n="messages.title">我的對話</span></h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="/client/dashboard.html" data-i18n="matchedProjects.breadcrumbConsole">控制台</a></li>
+                        <li class="breadcrumb-item active" data-i18n="messages.title">我的對話</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid py-2">
+        <div class="messages-layout">
+            <div class="messages-side">
+                <ul class="nav nav-tabs nav-fill px-2 pt-2" role="tablist">
+                    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-conversations" data-i18n="messages.tabConversations">最近對話</a></li>
+                    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-contacts" data-i18n="messages.tabContacts">聯絡清單</a></li>
+                </ul>
+                <div class="tab-content">
+                    <div id="tab-conversations" class="tab-pane show active">
+                        <div id="conversationsList"></div>
+                        <div id="conversationsEmpty" class="p-3 text-muted small text-center" style="display:none;" data-i18n="messages.emptyConversations">尚無對話</div>
+                    </div>
+                    <div id="tab-contacts" class="tab-pane">
+                        <div id="contactsList"></div>
+                        <div id="contactsEmpty" class="p-3 text-muted small text-center" style="display:none;" data-i18n="messages.emptyContacts">尚未儲存聯絡</div>
+                    </div>
+                </div>
+            </div>
+            <div class="messages-main">
+                <div id="noConversation" class="d-flex align-items-center justify-content-center flex-grow-1 text-muted">
+                    <div class="text-center"><i class="bi bi-chat-left-text" style="font-size:3rem;"></i><p class="mt-2" data-i18n="messages.selectConversation">從左側選擇對話或聯絡人</p></div>
+                </div>
+                <div id="conversationPanel" style="display: none;">
+                    <div class="d-flex align-items-center border-bottom px-3 py-2">
+                        <span id="conversationTitle" class="fw-bold"></span>
+                        <div class="ms-auto">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnToggleContact" title=""><i class="bi bi-person-plus"></i></button>
+                        </div>
+                    </div>
+                    <div class="messages-panel" id="messagesPanel"></div>
+                    <div class="messages-form">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="messageInput" data-i18n-placeholder="messages.inputPlaceholder" placeholder="輸入訊息..." maxlength="2000">
+                            <button class="btn btn-primary" type="button" id="btnSend" data-i18n="messages.send">送出</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+        (function() {
+            let token = null;
+            let currentConversationId = null;
+            let currentOtherUserId = null;
+            let contactSet = new Set();
+
+            async function getToken() {
+                if (token) return token;
+                try {
+                    const s = await (window.AuthService && AuthService.getSession ? AuthService.getSession() : null);
+                    token = s && s.access_token ? s.access_token : null;
+                } catch (e) { token = null; }
+                return token;
+            }
+
+            function headers() { return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }; }
+
+            async function loadConversations() {
+                const res = await fetch('/api/direct-conversations', { headers: { 'Authorization': 'Bearer ' + token } });
+                const data = await res.json();
+                const list = (data.conversations || []);
+                const el = document.getElementById('conversationsList');
+                const empty = document.getElementById('conversationsEmpty');
+                el.innerHTML = '';
+                if (list.length === 0) { empty.style.display = 'block'; return; }
+                empty.style.display = 'none';
+                list.forEach(c => {
+                    const name = (c.display && c.display.full_name) || c.other_user_id.slice(0, 8) + '…';
+                    const last = c.last_message ? (c.last_message.body || '').substring(0, 40) : '';
+                    const div = document.createElement('div');
+                    div.className = 'conv-item' + (currentConversationId === c.id ? ' active' : '');
+                    div.dataset.conversationId = c.id;
+                    div.dataset.otherUserId = c.other_user_id;
+                    div.dataset.displayName = name;
+                    div.innerHTML = '<div class="fw-bold">' + escapeHtml(name) + '</div><div class="last-msg">' + escapeHtml(last) + '</div>';
+                    div.addEventListener('click', () => selectConversation(c.id, c.other_user_id, name));
+                    el.appendChild(div);
+                });
+            }
+
+            async function loadContacts() {
+                const res = await fetch('/api/contact-list', { headers: { 'Authorization': 'Bearer ' + token } });
+                const data = await res.json();
+                const list = (data.contacts || []);
+                contactSet = new Set(list.map(c => c.saved_user_id));
+                const el = document.getElementById('contactsList');
+                const empty = document.getElementById('contactsEmpty');
+                el.innerHTML = '';
+                if (list.length === 0) { empty.style.display = 'block'; return; }
+                empty.style.display = 'none';
+                list.forEach(c => {
+                    const name = (c.display && c.display.full_name) || (c.saved_user_id || '').slice(0, 8) + '…';
+                    const div = document.createElement('div');
+                    div.className = 'contact-item' + (currentOtherUserId === c.saved_user_id ? ' active' : '');
+                    div.dataset.userId = c.saved_user_id;
+                    div.innerHTML = '<div class="fw-bold">' + escapeHtml(name) + '</div>';
+                    div.addEventListener('click', () => openOrSelectConversation(c.saved_user_id, name));
+                    el.appendChild(div);
+                });
+                updateContactButton();
+            }
+
+            function openOrSelectConversation(otherUserId, displayName) {
+                fetch('/api/direct-conversations', {
+                    method: 'POST',
+                    headers: headers(),
+                    body: JSON.stringify({ other_user_id: otherUserId })
+                }).then(r => r.json()).then(data => {
+                    if (data.conversation_id) selectConversation(data.conversation_id, otherUserId, displayName);
+                });
+            }
+
+            function selectConversation(conversationId, otherUserId, displayName) {
+                currentConversationId = conversationId;
+                currentOtherUserId = otherUserId;
+                document.getElementById('noConversation').style.display = 'none';
+                document.getElementById('conversationPanel').style.display = 'flex';
+                document.getElementById('conversationPanel').style.flexDirection = 'column';
+                document.getElementById('conversationTitle').textContent = displayName || otherUserId.slice(0, 8) + '…';
+                document.querySelectorAll('.conv-item, .contact-item').forEach(n => {
+                    n.classList.toggle('active', (n.dataset.conversationId === conversationId) || (n.dataset.userId === otherUserId));
+                });
+                updateContactButton();
+                loadMessages();
+            }
+
+            function t(k) { return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; }
+            function updateContactButton() {
+                const btn = document.getElementById('btnToggleContact');
+                if (!currentOtherUserId) { btn.style.display = 'none'; return; }
+                btn.style.display = 'inline-block';
+                const inList = contactSet.has(currentOtherUserId);
+                btn.title = inList ? t('messages.removeFromContacts') : t('messages.addToContacts');
+                btn.innerHTML = inList ? '<i class="bi bi-person-dash"></i> ' + t('messages.removeFromContacts') : '<i class="bi bi-person-plus"></i> ' + t('messages.addToContacts');
+                btn.onclick = () => toggleContact(inList);
+            }
+
+            function toggleContact(remove) {
+                const url = remove ? '/api/contact-list/' + encodeURIComponent(currentOtherUserId) : '/api/contact-list';
+                const opts = { method: remove ? 'DELETE' : 'POST', headers: headers() };
+                if (!remove) opts.body = JSON.stringify({ user_id: currentOtherUserId });
+                fetch(url, opts).then(r => { if (r.ok) loadContacts(); });
+            }
+
+            function loadMessages() {
+                if (!currentConversationId) return;
+                const panel = document.getElementById('messagesPanel');
+                panel.innerHTML = '<div class="text-center py-3 text-muted">' + t('messages.loading') + '</div>';
+                fetch('/api/direct-conversations/' + currentConversationId + '/messages', { headers: { 'Authorization': 'Bearer ' + token } })
+                    .then(r => r.json())
+                    .then(data => {
+                        panel.innerHTML = '';
+                        (data.messages || []).forEach(m => {
+                            const div = document.createElement('div');
+                            div.className = 'msg-bubble ' + (m.is_mine ? 'mine' : 'theirs');
+                            div.innerHTML = '<div>' + escapeHtml(m.body) + '</div><div class="msg-time">' + (m.created_at ? new Date(m.created_at).toLocaleString('zh-TW') : '') + '</div>';
+                            panel.appendChild(div);
+                        });
+                        panel.scrollTop = panel.scrollHeight;
+                    });
+            }
+
+            function sendMessage() {
+                const input = document.getElementById('messageInput');
+                const body = (input.value || '').trim();
+                if (!body || !currentConversationId) return;
+                input.value = '';
+                fetch('/api/direct-conversations/' + currentConversationId + '/messages', {
+                    method: 'POST',
+                    headers: headers(),
+                    body: JSON.stringify({ body })
+                }).then(r => r.json()).then(data => {
+                    if (data.message) {
+                        const panel = document.getElementById('messagesPanel');
+                        const div = document.createElement('div');
+                        div.className = 'msg-bubble mine';
+                        div.innerHTML = '<div>' + escapeHtml(data.message.body) + '</div><div class="msg-time">' + (data.message.created_at ? new Date(data.message.created_at).toLocaleString('zh-TW') : '') + '</div>';
+                        panel.appendChild(div);
+                        panel.scrollTop = panel.scrollHeight;
+                    }
+                    loadConversations();
+                });
+            }
+
+            function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+            document.addEventListener('DOMContentLoaded', async function() {
+                const whenReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+                whenReady.then(function() {
+                    if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                    var titleText = (window.i18n && window.i18n.t) ? window.i18n.t('messages.title') + ' - MatchDO' : '我的對話 - MatchDO';
+                    var titleEl = document.querySelector('title');
+                    if (titleEl) titleEl.textContent = titleText;
+                    updateContactButton();
+                });
+                const ok = await AuthMiddleware.requireAuth();
+                if (!ok) return;
+                token = await getToken();
+                if (!token) { window.location.href = '/login.html'; return; }
+                await loadConversations();
+                await loadContacts();
+                const params = new URLSearchParams(window.location.search);
+                const convId = params.get('conversation_id');
+                const openUserId = params.get('open');
+                if (convId) {
+                    const list = document.querySelectorAll('.conv-item[data-conversation-id="' + convId + '"]');
+                    if (list.length) list[0].click();
+                } else if (openUserId) {
+                    openOrSelectConversation(openUserId, '');
+                    history.replaceState({}, '', window.location.pathname);
+                }
+                document.getElementById('btnSend').addEventListener('click', sendMessage);
+                document.getElementById('messageInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') sendMessage(); });
+            });
+        })();
+    </script>
+    <div id="site-footer"></div>
+    <script src="/js/site-footer.js"></script>
+</body>
+</html>

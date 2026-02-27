@@ -1,0 +1,12 @@
+# Phase 1.6: 上傳改為 Supabase Storage，本地上傳目錄不納版控
+uploads/
+node_modules/
+.env
+.env.local
+.env.*.local
+stability-key.txt
+# Google OAuth 金鑰檔（勿提交）
+client_secret*.json
+credentials*.json
+*.log
+.DS_Store

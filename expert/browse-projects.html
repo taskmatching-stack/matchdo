@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>可媒合專案 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+</head>
+
+<body>
+    <div id="site-header"></div>
+
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark">可媒合專案</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="../index.html">首頁</a></li>
+                        <li class="breadcrumb-item"><a href="dashboard.html">控制台</a></li>
+                        <li class="breadcrumb-item"><a href="matched-projects.html">媒合專案</a></li>
+                        <li class="breadcrumb-item active">可媒合專案</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-xxl py-3">
+        <div class="container">
+            <!-- 流程對齊發包端 project-detail：報價單 → 預媒合 → 媒合 → 列表 -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="mb-3"><i class="fas fa-list-ol me-2 text-primary"></i>流程說明（與發包端一致）</h5>
+                    <p class="text-muted small mb-0"><strong>① 報價單</strong>（下方先載入）→ <strong>② 預媒合</strong>／<strong>③ 媒合</strong>：發包方在專案詳情勾選項目、點「預媒合測試」或「送出媒合」→ <strong>④ 列表</strong>：您被媒合到的專案顯示於此。</p>
+                </div>
+            </div>
+            <!-- ① 報價單：與 my-listings 相同方式載入（沒報價單無法媒合） -->
+            <div class="mb-2"><strong>① 報價單</strong></div>
+            <div id="myListingsStatus" class="mb-4">
+                <span class="text-muted"><span class="spinner-border spinner-border-sm me-1"></span>正在載入報價…</span>
+            </div>
+            <!-- ② 預媒合：與發案端一樣，一次試算、直接顯示結果 -->
+            <div class="mb-2"><strong>② 預媒合</strong></div>
+            <div class="card border-0 bg-light mb-4">
+                <div class="card-body py-3">
+                    <p class="mb-2 small">依您的報價試算：目前有多少已發包專案與您相符（與發案端預媒合一樣，一次試算）。</p>
+                    <button type="button" class="btn btn-info text-white btn-sm" id="btnPreMatchTest">
+                        <i class="fas fa-chart-line me-1"></i>預媒合測試
+                    </button>
+                    <div id="preMatchSummaryResult" class="mt-3"><p class="text-muted small mb-0">（點「預媒合測試」顯示試算結果）</p></div>
+                </div>
+            </div>
+            <div class="mb-2"><strong>③ 媒合</strong></div>
+            <div class="card border-0 bg-light mb-4">
+                <div class="card-body py-3">
+                    <p class="mb-2 small"><strong>兩種方式：</strong></p>
+                    <ul class="small mb-0">
+                        <li>發包方點「送出媒合」後，符合的專案會出現在④。</li>
+                        <li><strong>您也可以主動出擊</strong>：在下方「可媒合專案」對有興趣的專案點「媒合」。</li>
+                    </ul>
+                </div>
+            </div>
+            <!-- 可媒合專案（承包商主動出擊，點媒合即寫入、不需對方同意） -->
+            <div class="mb-2"><strong>可媒合專案</strong></div>
+            <div id="applyableProjectsContainer" class="mb-4">
+                <p class="text-muted small mb-2">載入有已發包項目的專案，點「媒合」即依您的報價與專案條件配對並寫入，不需對方同意。</p>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btnLoadApplyable">
+                    <i class="fas fa-search me-1"></i>載入可媒合專案
+                </button>
+                <div id="applyableProjectsList" class="mt-3"></div>
+            </div>
+            <!-- ④ 列表：已媒合到的專案 -->
+            <div class="mb-2"><strong>④ 已媒合到的專案</strong></div>
+            <div id="browseContainer">
+                <p class="text-muted small mb-3">發包方送出媒合或您對專案點「媒合」後，專案會出現在此。點擊下方按鈕顯示列表。</p>
+                <button type="button" class="btn btn-primary" id="btnShowMatchableList">
+                    <i class="fas fa-list me-2"></i>顯示已媒合到的專案
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid bg-dark text-body footer mt-5 pt-5">
+        <div class="container py-5">
+            <div class="row g-5">
+                <div class="col-lg-12 text-center">
+                    <p class="mb-2"><a class="text-primary" href="/contact.html">聯絡我們</a></p>
+                    <p class="mb-0">&copy; <a class="text-primary" href="/index.html">MatchDO 合做</a>. All Rights Reserved.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../lib/wow/wow.min.js"></script>
+    <script src="../lib/easing/easing.min.js"></script>
+    <script src="../lib/waypoints/waypoints.min.js"></script>
+    <script src="../lib/owlcarousel/owl.carousel.min.js"></script>
+    <script src="../js/main.js"></script>
+    <script src="../js/site-header.js"></script>
+    <script>
+        let currentUser = null;
+
+        $(document).ready(async function () {
+            const ok = await AuthMiddleware.requireExpert();
+            if (!ok) return;
+            currentUser = await AuthService.getCurrentUser();
+            loadListingsLikeMyListings();
+            $('#btnPreMatchTest').on('click', function() { runPreMatchSummary(); });
+            $('#btnLoadApplyable').on('click', function() { loadApplyableProjects(); });
+            $('#btnShowMatchableList').on('click', function() {
+                $(this).prop('disabled', true);
+                loadMyMatches();
+            });
+        });
+
+        async function getAuthHeaders() {
+            const session = await AuthService.getSession();
+            if (!session || !session.access_token) return {};
+            return { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' };
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            var t = document.createElement('div');
+            t.textContent = s;
+            return t.innerHTML;
+        }
+
+        /** ① 報價單：與 my-listings 相同方式載入（supabase listings eq expert_id） */
+        async function loadListingsLikeMyListings() {
+            var container = document.getElementById('myListingsStatus');
+            var sup = window.supabaseClient || window.__supabaseClient;
+            if (!sup || !currentUser) {
+                container.innerHTML = '<p class="text-warning mb-0">無法取得報價，請重整頁面。 <a href="my-listings.html">我的報價</a></p>';
+                return;
+            }
+            try {
+                var _r = await sup.from('listings').select('id, title, status, category, price_min, price_max').eq('expert_id', currentUser.id).order('created_at', { ascending: false });
+                if (_r.error) throw _r.error;
+                var listings = _r.data || [];
+                if (!listings.length) {
+                    container.innerHTML = '<div class="alert alert-warning mb-0">尚無報價項目，無法媒合。 <a href="listing-form.html" class="alert-link">新增報價</a> &nbsp; <a href="my-listings.html" class="alert-link">我的報價</a></div>';
+                    return;
+                }
+                var activeCount = listings.filter(function(l) { return l.status === 'active'; }).length;
+                var rows = listings.map(function(l) {
+                    var statusText = l.status === 'active' ? '有效' : (l.status || '草稿');
+                    var statusClass = l.status === 'active' ? 'success' : 'secondary';
+                    var price = (l.price_min != null || l.price_max != null) ? (l.price_min != null ? l.price_min.toLocaleString() : '') + ' ~ ' + (l.price_max != null ? l.price_max.toLocaleString() : '') + ' 元' : '—';
+                    return '<tr><td>' + escapeHtml(l.title || '未命名') + '</td><td>' + escapeHtml(l.category || '') + '</td><td class="small">' + price + '</td><td><span class="badge bg-' + statusClass + '">' + escapeHtml(statusText) + '</span></td><td><a href="my-listings.html" class="small">管理</a></td></tr>';
+                }).join('');
+                container.innerHTML =
+                    '<p class="text-success mb-2"><i class="fas fa-check-circle me-1"></i>已載入 <strong>' + listings.length + '</strong> 筆報價（有效 ' + activeCount + ' 筆） &nbsp; <a href="my-listings.html" class="small">我的報價</a> &nbsp; <a href="my-listings.html" class="small">報價健檢</a></p>' +
+                    '<div class="table-responsive"><table class="table table-bordered table-sm"><thead><tr><th>報價名稱</th><th>分類</th><th>價格</th><th width="80">狀態</th><th width="60">操作</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = '<p class="text-danger mb-0">載入報價失敗：' + escapeHtml(e.message || '請重整頁面') + ' <a href="my-listings.html">我的報價</a></p>';
+            }
+        }
+
+        /** 載入可媒合專案（有已發包項目的專案），並顯示「媒合」按鈕 */
+        async function loadApplyableProjects() {
+            var listEl = $('#applyableProjectsList');
+            var btn = $('#btnLoadApplyable');
+            btn.prop('disabled', true);
+            listEl.html('<p class="text-muted small mb-0"><span class="spinner-border spinner-border-sm me-1"></span>載入中…</p>');
+            try {
+                var headers = await getAuthHeaders();
+                var res = await fetch('/api/match/vendor/projects', { headers: headers });
+                var raw = await res.text();
+                var data;
+                try { data = raw ? JSON.parse(raw) : {}; } catch (_) {
+                    listEl.html('<p class="text-danger small mb-0">伺服器回傳異常，請確認已登入且後端服務正常。</p>');
+                    btn.prop('disabled', false);
+                    return;
+                }
+                if (!res.ok) {
+                    listEl.html('<p class="text-danger small mb-0">' + escapeHtml(data.error || data.message || '載入失敗') + '</p>');
+                    btn.prop('disabled', false);
+                    return;
+                }
+                var projects = data.projects || [];
+                if (projects.length === 0) {
+                    listEl.html('<p class="text-muted small mb-0">' + escapeHtml(data.message || '目前沒有可媒合的專案') + '</p>');
+                    btn.prop('disabled', false);
+                    return;
+                }
+                var html = '<div class="list-group">';
+                projects.forEach(function(p) {
+                    var locText = Array.isArray(p.project_location) && p.project_location.length ? p.project_location.join('、') : '未指定';
+                    if (p.already_matched) {
+                        html += '<div class="list-group-item d-flex justify-content-between align-items-center">';
+                        html += '<div><strong>' + escapeHtml(p.title) + '</strong> <span class="text-muted small">' + (p.items_count || 0) + ' 項 · ' + locText + '</span></div>';
+                        html += '<span class="badge bg-success">已媒合</span>';
+                        html += '</div>';
+                    } else {
+                        html += '<div class="list-group-item d-flex justify-content-between align-items-center" data-project-id="' + escapeHtml(p.id) + '">';
+                        html += '<div><strong>' + escapeHtml(p.title) + '</strong> <span class="text-muted small">' + (p.items_count || 0) + ' 項 · ' + locText + '</span></div>';
+                        html += '<button type="button" class="btn btn-primary btn-sm btn-apply-match" data-project-id="' + escapeHtml(p.id) + '"><i class="fas fa-handshake me-1"></i>媒合</button>';
+                        html += '</div>';
+                    }
+                });
+                html += '</div>';
+                listEl.html(html);
+                listEl.find('.btn-apply-match').on('click', function() {
+                    var pid = $(this).data('project-id');
+                    if (pid) applyForProject(pid, $(this));
+                });
+            } catch (e) {
+                listEl.html('<p class="text-danger small mb-0">' + escapeHtml(e.message || '載入失敗') + '</p>');
+            }
+            btn.prop('disabled', false);
+        }
+
+        /** 對專案執行媒合（呼叫 POST /api/match/vendor/apply，寫入 matches、不需對方同意） */
+        async function applyForProject(projectId, btnEl) {
+            if (!projectId) return;
+            var btn = btnEl && btnEl.length ? btnEl : $('[data-project-id="' + projectId + '"].btn-apply-match');
+            if (btn.length) {
+                btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>媒合中…');
+            }
+            try {
+                var headers = await getAuthHeaders();
+                var res = await fetch('/api/match/vendor/apply', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ project_id: projectId })
+                });
+                var raw = await res.text();
+                var data;
+                try { data = raw ? JSON.parse(raw) : {}; } catch (_) { data = {}; }
+                if (!res.ok) {
+                    alert(data.error || data.message || '媒合失敗');
+                    if (btn.length) btn.prop('disabled', false).html('<i class="fas fa-handshake me-1"></i>媒合');
+                    return;
+                }
+                alert(data.message || '媒合成功！專案已加入「已媒合到的專案」。');
+                loadApplyableProjects();
+            } catch (e) {
+                alert(e.message || '媒合失敗');
+                if (btn.length) btn.prop('disabled', false).html('<i class="fas fa-handshake me-1"></i>媒合');
+            }
+        }
+
+        /** 預媒合測試：與發案端一樣一次試算，直接顯示「符合專案數」摘要 */
+        async function runPreMatchSummary() {
+            var resultEl = $('#preMatchSummaryResult');
+            var btn = $('#btnPreMatchTest');
+            resultEl.show().html('<p class="text-muted mb-0"><span class="spinner-border spinner-border-sm me-1"></span>試算中…</p>');
+            btn.prop('disabled', true);
+            try {
+                var headers = await getAuthHeaders();
+                var res = await fetch('/api/match/vendor/preview-summary', { headers: headers });
+                var text = await res.text();
+                var data;
+                try {
+                    data = text ? JSON.parse(text) : {};
+                } catch (_) {
+                    resultEl.html('<p class="text-danger mb-0">伺服器回傳了網頁而非資料，請確認已啟動後端服務（npm start）且網址正確。</p>');
+                    btn.prop('disabled', false);
+                    return;
+                }
+                if (!res.ok) {
+                    resultEl.html('<p class="text-danger mb-0">' + escapeHtml(data.error || data.message || '試算失敗') + '</p>');
+                    return;
+                }
+                var total = data.total_projects || 0;
+                var matched = data.matched_projects || 0;
+                resultEl.html(
+                    '<div class="alert alert-light border mb-0">' +
+                    '<p class="mb-1"><strong>已發包專案</strong>：' + total + ' 個</p>' +
+                    '<p class="mb-0"><strong>與您的報價相符</strong>：' + matched + ' 個</p>' +
+                    (data.message ? '<p class="small text-muted mt-2 mb-0">' + escapeHtml(data.message) + '</p>' : '') +
+                    '</div>'
+                );
+            } catch (e) {
+                resultEl.html('<p class="text-danger mb-0">' + escapeHtml(e.message || '試算失敗') + '</p>');
+            }
+            btn.prop('disabled', false);
+        }
+
+        /** ④ 僅在使用者點擊後載入「媒合後」的專案列表 */
+        async function loadMyMatches() {
+            const container = $('#browseContainer');
+            container.html('<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">正在載入已媒合到的專案…</p></div>');
+            const esc = (s) => (s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
+            try {
+                const headers = await getAuthHeaders();
+                const res = await fetch('/api/match/vendor/my-matches', { headers });
+                const raw = await res.text();
+                let data;
+                try { data = raw ? JSON.parse(raw) : {}; } catch (_) {
+                    container.html('<p class="text-danger">伺服器回傳了網頁而非資料，請確認已啟動後端服務且已登入。</p>');
+                    return;
+                }
+                if (!res.ok) throw new Error(data.error || data.message || '載入失敗');
+                const matches = data.matches || [];
+                if (matches.length === 0) {
+                    container.html(`
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body text-center py-5">
+                                <i class="fas fa-handshake fa-4x text-muted mb-4"></i>
+                                <h4 class="mb-3">尚無媒合到您的專案</h4>
+                                <p class="text-muted">發包方在專案詳情頁勾選項目並點「送出媒合」後，系統會依工項與您的報價進行媒合，符合的專案才會出現在此處。</p>
+                                <a href="matched-projects.html" class="btn btn-outline-primary">媒合專案</a>
+                            </div>
+                        </div>
+                    `);
+                    return;
+                }
+                let html = '<div class="row g-4">';
+                matches.forEach(m => {
+                    const locText = Array.isArray(m.project_location) && m.project_location.length ? m.project_location.join('、') : '未指定';
+                    html += `
+                        <div class="col-lg-6">
+                            <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
+                                <div class="card-body">
+                                    <h5 class="card-title">${esc(m.project_title)}</h5>
+                                    <p class="text-muted small mb-2">${esc(locText)}</p>
+                                    <p class="mb-2"><span class="badge bg-success">媒合分數 ${m.match_score || '-'}</span>${m.listing_title ? ' · 對應報價：' + esc(m.listing_title) : ''}</p>
+                                    <a href="matched-projects.html" class="btn btn-outline-primary btn-sm">查看並聯繫發案方</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.html(html);
+            } catch (err) {
+                console.error(err);
+                const msg = (err && err.message) ? String(err.message).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '載入失敗';
+                container.html('<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>' + msg + '</div>');
+            }
+        }
+
+        function escape(s) {
+            if (s == null) return '';
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<!--
+  【產品設計表單 - 唯一維護檔】
+  只改這一個 HTML：public/custom-product.html
+  搭配一個 JS：public/js/custom-product.js
+  其他路徑（含 iStudio）皆導向此頁，勿改 public/iStudio-1.0.0/custom-product.html
+  結構說明：docs/FILE-STRUCTURE.md
+-->
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>產品設計 - MATCHDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="" name="keywords">
+    <meta content="" name="description">
+
+    <!-- Favicon -->
+    <link href="img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="lib/animate/animate.min.css" rel="stylesheet">
+    <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- 共用前台導覽（由 site-header.js 載入） -->
+    <div id="site-header"></div>
+
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+
+
+    <style>
+        #custom-product { max-width: 1200px; margin: 0 auto; }
+        #custom-product .create-panel {
+            display: grid;
+            grid-template-columns: minmax(320px, 420px) 1fr;
+            gap: 2rem;
+            align-items: start;
+            background: #fff;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 2px 16px rgba(0,0,0,.06);
+            border: 1px solid #e5e7eb;
+        }
+        @media (max-width: 768px) {
+            #custom-product .create-panel { grid-template-columns: 1fr; }
+        }
+        #custom-product .create-panel-left { min-width: 0; }
+        #custom-product .create-panel-right {
+            min-height: 320px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px dashed #cbd5e1;
+            padding: 1.5rem;
+        }
+        #custom-product .create-panel-right { flex-direction: column; align-items: stretch; justify-content: flex-start; overflow-y: auto; }
+        #custom-product .create-panel-right.has-result { background: #fff; border-style: solid; border-color: #e5e7eb; }
+        #custom-product .create-panel-right.has-result .placeholder-hint { display: none; }
+        #custom-product .create-panel-right .placeholder-hint { color: #94a3b8; font-size: 0.9375rem; }
+        #custom-product #generatedImagePreview:not(:empty) { margin-bottom: 1rem; }
+        #custom-product #pastGeneratedGallery { display: block !important; width: 100%; flex: 1; min-height: 0; }
+        #custom-product #pastGeneratedGallery:empty { display: none; }
+        #custom-product #generatedImagePreview { flex-shrink: 0; }
+        #custom-product .past-gallery-inner,
+        #custom-product .past-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 0.5rem; width: 100%; }
+        #custom-product .past-gallery-title { font-size: 0.8125rem; color: #64748b; margin-bottom: 0.5rem; width: 100%; }
+        #custom-product .past-gallery .past-item,
+        #custom-product .past-gallery-inner .past-item { aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; display: block; }
+        #custom-product .past-gallery .past-item img,
+        #custom-product .past-gallery-inner .past-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #custom-product .past-gallery-inner .past-item-wrap { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+        #custom-product .past-gallery-inner .past-item-caption { font-size: 0.7rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+        /* 歷史圖放大 modal：與首頁媒體牆 lightbox 一致（圓角、陰影、疊加詳情、footer 按鈕）；避免開啟時版面被撐開或忽大忽小 */
+        html { scrollbar-gutter: stable; }
+        body.modal-open { overflow: hidden; padding-right: 0 !important; margin-right: 0 !important; }
+        #pastItemModal { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
+        #pastItemModal .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
+        #sceneSimAssetPickerModal { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
+        #sceneSimAssetPickerModal .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
+        #pastItemModal .past-item-modal-dialog { width: 100%; max-width: min(720px, 94vw); max-height: 90vh; margin: 1rem auto; box-sizing: border-box; }
+        #pastItemModal .modal-content { width: 100%; max-width: 100%; max-height: 90vh; border-radius: 12px; border: none; box-shadow: 0 12px 40px rgba(0,0,0,.2); overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
+        #pastItemModal .modal-header { padding: 0.75rem 1rem; background: #f0f4f8; border-bottom: 2px solid #445D7E; }
+        #pastItemModal .modal-title { font-size: 1rem; font-weight: 600; color: #445D7E; }
+        #pastItemModal .modal-body { padding: 0; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; background: #f5f7fa; text-align: center; position: relative; display: flex; flex-direction: column; align-items: stretch; max-width: 100%; box-sizing: border-box; }
+        #pastItemModal #pastItemModalBody { flex: 1; min-height: 200px; padding: 0.5rem; display: flex; align-items: center; justify-content: center; position: relative; max-width: 100%; overflow: hidden; box-sizing: border-box; }
+        #pastItemModal #pastItemModalBodyInner { width: 100%; max-width: 100%; height: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; box-sizing: border-box; }
+        #pastItemModal #pastItemModalBodyInner img { max-width: 100%; max-height: 78vh; width: auto; height: auto; object-fit: contain; border-radius: 8px; }
+        #pastItemModal #pastItemModalDetail { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.4rem 0.6rem 0.5rem; background: linear-gradient(transparent, rgba(45,64,89,.95)); color: #fff; text-align: left; font-size: 0.7rem; }
+        #pastItemModal #pastItemModalDetail .detail-label { color: rgba(255,255,255,.85); margin-right: 0.25rem; }
+        #pastItemModal #pastItemModalDetail .detail-value { color: #fff; margin-bottom: 0.15rem; word-break: break-word; display: inline; }
+        #pastItemModal #pastItemModalDetail .detail-row { margin-bottom: 0.15rem; }
+        #pastItemModal #pastItemModalDetail .detail-row:last-child { margin-bottom: 0; }
+        #pastItemModal #pastItemModalShowSection { padding: 0.5rem 0.75rem; background: #fff; border-top: 1px solid #eee; text-align: left; }
+        #pastItemModal .modal-footer { padding: 0.6rem 1rem; background: #fff; border-top: 2px solid rgba(68,93,126,.2); }
+        .past-lightbox { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; box-sizing: border-box; }
+        .past-lightbox-backdrop { position: absolute; inset: 0; background: rgba(45,64,89,.85); cursor: pointer; }
+        .past-lightbox-content { position: relative; max-width: 95vw; max-height: 95vh; display: flex; align-items: center; justify-content: center; }
+        .past-lightbox-close { position: absolute; top: -2.5rem; right: 0; z-index: 10; width: 2rem; height: 2rem; border: none; background: rgba(255,255,255,.95); color: #445D7E; font-size: 1.5rem; line-height: 1; cursor: pointer; border-radius: 4px; }
+        .past-lightbox-close:hover { background: #445D7E; color: #fff; }
+        .past-lightbox-image-wrap { position: relative; max-width: 90vw; max-height: 85vh; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 40px rgba(68,93,126,.35); }
+        .past-lightbox-image { display: block; max-width: 100%; max-height: 85vh; width: auto; height: auto; vertical-align: middle; }
+        .past-lightbox-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 1rem 1.25rem; background: linear-gradient(transparent, rgba(45,64,89,.92)); color: #fff; }
+        .past-lightbox-prompt { margin: 0 0 0.5rem 0; font-size: 0.9rem; line-height: 1.4; word-break: break-word; }
+        .past-lightbox-meta { margin: 0; font-size: 0.8rem; opacity: .95; }
+        .past-lightbox-meta span + span { margin-left: 1rem; }
+        #custom-product .form-row { display: grid; grid-template-columns: 90px 1fr; gap: 0.75rem 1rem; align-items: center; margin-bottom: 1rem; }
+        #custom-product .form-row.full { grid-template-columns: 1fr; }
+        #custom-product .form-row .label { font-size: 0.875rem; color: #374151; font-weight: 500; }
+        #custom-product .form-row .label span { color: #6b7280; font-weight: 400; }
+        #custom-product .prompt-hero {
+            width: 100%; min-height: 90px; padding: 0.875rem 1rem;
+            border-radius: 10px; border: 1px solid #e5e7eb;
+            font-size: 0.9375rem; line-height: 1.5; resize: vertical;
+        }
+        #custom-product .prompt-hero:focus { border-color: var(--bs-primary); outline: none; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
+        /* 分類：單一區塊、固定高度，不因選項多寡變換大小 */
+        #custom-product .cat-tablet {
+            display: flex; gap: 0; margin-bottom: 1rem; align-items: stretch;
+            border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; background: #fff;
+        }
+        #custom-product .cat-main-panel { flex: 1; min-width: 0; border-right: 1px solid #e5e7eb; }
+        #custom-product .cat-sub-panel { flex: 1; min-width: 0; }
+        #custom-product .cat-tablet .cat-label {
+            font-size: 0.75rem; color: #64748b; font-weight: 500; padding: 0.35rem 0.5rem; background: #f8fafc;
+            display: block; border-bottom: 1px solid #e5e7eb;
+        }
+        #custom-product .cat-tablet .cat-label-required { color: #334155; font-weight: 600; }
+        #custom-product .cat-sub-panel .cat-label { border-bottom: 1px solid #e5e7eb; }
+        #custom-product .cat-tablet .cat-list {
+            height: 7.5rem; overflow-y: auto; overflow-x: hidden;
+            font-size: 0.875rem; background: #fff;
+        }
+        #custom-product .cat-tablet .cat-option {
+            padding: 0.4rem 0.5rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #custom-product .cat-tablet .cat-option:hover { background: #f1f5f9; }
+        #custom-product .cat-tablet .cat-option.selected { background: #e2e8f0; color: #0f172a; }
+        #custom-product .cat-sub-panel .cat-list.empty { background: #f8fafc; color: #94a3b8; padding: 0.5rem; display: flex; align-items: center; }
+        /* 捲軸：60px 寬 */
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar { width: 60px; }
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar-track { background: #f1f5f9; }
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar-thumb { background: #94a3b8; }
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+        #custom-product .cat-tablet .cat-list { scrollbar-width: auto; scrollbar-color: #94a3b8 #f1f5f9; }
+        #custom-product .ref-cards-wrap::-webkit-scrollbar { width: 60px; }
+        #custom-product .ref-cards-wrap::-webkit-scrollbar-track {
+            background: #f1f5f9; margin: 4px 0;
+            border-radius: 0 !important; -webkit-border-radius: 0 !important;
+        }
+        #custom-product .ref-cards-wrap::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,.2); border: none;
+            border-radius: 0 !important; -webkit-border-radius: 0 !important;
+        }
+        #custom-product .ref-cards-wrap::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.3); }
+        #custom-product .ref-cards-wrap::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+        #custom-product .ref-cards-wrap { scrollbar-width: auto; scrollbar-color: rgba(0,0,0,.25) #f1f5f9; }
+        #custom-product .file-input-hidden {
+            position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1;
+        }
+        /* 8 個加圖按鈕，無縮圖上方 UI */
+        #custom-product .ref-slots { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.4rem; margin-top: 0.5rem; }
+        #custom-product .ref-slot { aspect-ratio: 1; border-radius: 8px; border: 2px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 0; overflow: hidden; }
+        #custom-product .ref-slot.filled { border-style: solid; border-color: #e5e7eb; padding: 0; }
+        #custom-product .ref-slot.filled.selected { border-color: var(--bs-primary, #0d9488); border-width: 3px; box-shadow: 0 0 0 1px var(--bs-primary, #0d9488); }
+        #custom-product .ref-slot .ref-slot-add { width: 100%; height: 100%; border: none; background: transparent; color: #64748b; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.2rem; }
+        #custom-product .ref-slot .ref-slot-add:hover { background: #f1f5f9; color: #475569; }
+        #custom-product .ref-slot .ref-slot-thumb { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
+        #custom-product .ref-slot .ref-slot-clear { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: none; background: rgba(0,0,0,.5); color: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; line-height: 1; padding: 0; }
+        #custom-product .ref-slot.filled { position: relative; }
+        #custom-product .ref-cards-wrap { margin-top: 0.5rem; max-height: 200px; overflow-y: auto; }
+        #custom-product .ref-cards { display: flex; flex-direction: column; gap: 0.4rem; }
+        /* 只顯示選中那張的生成選單，點縮圖即切換 */
+        #custom-product .ref-cards .ref-card { display: none; }
+        #custom-product .ref-cards .ref-card.ref-card-selected { display: flex; }
+        #custom-product .ref-card {
+            border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.5rem;
+            display: flex; align-items: flex-start; gap: 0.5rem; min-height: 0;
+        }
+        #custom-product .ref-card.ref-card-selected { border-color: var(--bs-primary, #0d9488); background: rgba(13,148,136,.04); }
+        #custom-product .ref-card .ref-card-thumb { width: 36px; height: 36px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: #f3f4f6; }
+        #custom-product .ref-card .ref-card-label { display: block; margin-bottom: 0.15rem; }
+        #custom-product .ref-card .ref-card-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+        #custom-product .ref-card .ref-desc { min-height: 36px; padding: 0.3rem; font-size: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; resize: vertical; }
+        #custom-product .ref-card .btn-describe-one { font-size: 0.75rem; padding: 0.3rem 0.5rem; align-self: flex-start; }
+        #custom-product .btn-merge-desc { margin-top: 0.35rem; font-size: 0.8125rem; }
+        #custom-product .btn-generate { width: 100%; padding: 0.875rem; font-size: 1rem; font-weight: 600; border-radius: 10px; border: none; margin-top: 1.25rem; }
+        #custom-product .page-title { font-size: 1.375rem; font-weight: 700; color: #111; margin-bottom: 0.25rem; }
+        #custom-product .page-sub { font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem; }
+        #custom-product #generatedImagePreview { width: 100%; max-width: 100%; }
+        #custom-product #generatedImagePreview .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+        #custom-product #generatedImagePreview img { max-width: 100%; height: auto; display: block; }
+        #custom-product #designTabs { border-bottom: 2px solid #e5e7eb; }
+        #custom-product #designTabs .nav-link { color: #6b7280; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px; padding: 0.6rem 1rem; font-weight: 500; }
+        #custom-product #designTabs .nav-link:hover { color: #333; }
+        #custom-product #designTabs .nav-link.active { color: #445D7E; background: transparent; border-bottom-color: #445D7E; }
+        /* 實境模擬 */
+        #custom-product .scene-sim-panel { min-height: 360px; }
+        #custom-product .scene-sim-prompt-input { max-height: 2.5rem; }
+        #custom-product .scene-sim-images-row .label { font-size: 0.875rem; color: #374151; font-weight: 500; }
+        #custom-product .scene-sim-two-col { display: flex; gap: 1rem; align-items: stretch; }
+        #custom-product .scene-sim-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+        #custom-product .scene-sim-col-label { font-size: 0.75rem; color: #64748b; }
+        #custom-product .scene-sim-upload-zone {
+            border: 2px dashed #cbd5e1; border-radius: 10px; padding: 0.75rem; text-align: center; cursor: pointer;
+            background: #f8fafc; transition: border-color .2s, background .2s; aspect-ratio: 1; min-height: 140px; display: flex; align-items: center; justify-content: center; position: relative;
+        }
+        #custom-product .scene-sim-upload-zone:hover { border-color: #445D7E; background: #f0f4f8; }
+        #custom-product .scene-sim-upload-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; margin: 0; z-index: 1; }
+        #custom-product .scene-sim-upload-zone.has-image .scene-sim-upload-label { display: none; }
+        #custom-product .scene-sim-upload-text { color: #64748b; font-size: 0.8125rem; }
+        #custom-product .scene-sim-upload-zone.has-image .scene-sim-upload-text { display: none; }
+        #custom-product .scene-sim-upload-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
+        #custom-product .scene-sim-preview-wrap {
+            aspect-ratio: 1; min-height: 140px; border-radius: 10px; overflow: hidden; cursor: pointer;
+            border: 2px dashed #cbd5e1; background: #f8fafc; position: relative; display: flex; align-items: center; justify-content: center;
+        }
+        #custom-product .scene-sim-preview-wrap:hover { border-color: #445D7E; }
+        #custom-product .scene-sim-preview-inner { padding: 0.5rem; text-align: center; }
+        #custom-product .scene-sim-preview-hint { font-size: 0.8125rem; color: #64748b; }
+        #custom-product .scene-sim-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    </style>
+    <div class="container-fluid py-4" style="background: #f1f5f9;">
+        <div class="container">
+            <div id="custom-product" class="py-2">
+                <h1 class="page-title" data-i18n="customProduct.pageTitle">產品設計</h1>
+                <p class="page-sub" data-i18n="customProduct.pageSub">輸入描述、選分類與參考圖，一鍵生成</p>
+
+                <ul class="nav nav-tabs mb-3" id="designTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-product-design" data-bs-toggle="tab" data-bs-target="#panel-product-design" type="button" role="tab" aria-controls="panel-product-design" aria-selected="true" data-i18n="customProduct.productDesignTab">產品設計</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-scene-sim" data-bs-toggle="tab" data-bs-target="#panel-scene-sim" type="button" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-i18n="home.sceneSim">實境模擬</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="designTabContent">
+                    <div class="tab-pane fade show active" id="panel-product-design" role="tabpanel" aria-labelledby="tab-product-design">
+                <form id="customProductForm">
+                    <div class="create-panel">
+                        <div class="create-panel-left">
+                            <div class="form-row full">
+                                <label class="label" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
+                                <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="請輸入風格、材質、結構與顏色"></textarea>
+                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">可從下方參考圖的「從此圖產生描述」結果中，選取需要的句子貼到本框使用。</p>
+                            </div>
+
+                            <div class="cat-tablet">
+                                <div class="cat-main-panel">
+                                    <span class="cat-label cat-label-required" data-i18n="customProduct.categoryMainRequired">主分類（必選）</span>
+                                    <div id="imageCategoryMainList" class="cat-list" role="listbox"></div>
+                                    <input type="hidden" id="imageCategoryMainSelect" name="imageCategoryMain" value="">
+                                </div>
+                                <div class="cat-sub-panel">
+                                    <span class="cat-label cat-label-required" data-i18n="customProduct.categorySubRequired">子分類（必選）</span>
+                                    <div id="imageCategorySubList" class="cat-list empty" role="listbox" data-i18n="customProduct.selectMainFirst">請先選左側主分類</div>
+                                    <input type="hidden" id="imageCategorySubSelect" name="imageCategorySub" value="">
+                                </div>
+                            </div>
+                            <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
+
+                            <div class="form-row full">
+                                <span class="label" data-i18n="customProduct.refImages">參考圖</span>
+                                <div id="referenceImagesSlots" class="ref-slots"></div>
+                                <input type="file" id="referenceImageFile" accept="image/*" class="file-input-hidden">
+                                <div class="ref-cards-wrap">
+                                    <div id="referenceImagesCards" class="ref-cards"></div>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-merge-desc" id="mergeDescriptionsBtn" style="display: none;">將以上描述合併至上方描述框</button>
+                            </div>
+
+                            <div class="form-row full">
+                                <label class="label" for="generationSeed" data-i18n="customProduct.seedLabel">Seed（選填）</label>
+                                <input type="number" id="generationSeed" name="generationSeed" class="form-control" data-i18n-placeholder="customProduct.seedPlaceholder" placeholder="留空＝隨機，整數可重現相同風格" min="-2147483648" max="2147483647" step="1" style="max-width: 12rem;">
+                            </div>
+                            <button type="button" class="btn btn-primary btn-generate" id="generateImageBtn">
+                                <i class="fas fa-wand-magic-sparkles me-2"></i><span data-i18n="customProduct.generate">生成圖片</span>
+                            </button>
+                        </div>
+                        <div class="create-panel-right" id="generatedImagePreviewWrap">
+                            <div id="generatedImagePreview"></div>
+                            <div id="pastGeneratedGallery" class="past-gallery"></div>
+                            <p class="placeholder-hint mb-0" id="generatedImagePlaceholder">生成後的草圖會顯示在這裡</p>
+                        </div>
+                    </div>
+                </form>
+                    </div>
+                    <div class="tab-pane fade" id="panel-scene-sim" role="tabpanel" aria-labelledby="tab-scene-sim">
+                        <div class="create-panel scene-sim-panel">
+                            <div class="create-panel-left">
+                                <div class="form-row full">
+                                    <label class="label" for="sceneSimPrompt" data-i18n="customProduct.promptOptional">提示詞（選填）</label>
+                                    <input type="text" id="sceneSimPrompt" class="form-control form-control-sm scene-sim-prompt-input" data-i18n-placeholder="customProduct.promptOptional" placeholder="選填，可描述想放的位置或穿戴方式" />
+                                </div>
+                                <div class="form-row full scene-sim-images-row">
+                                    <span class="label w-100 mb-1">圖片</span>
+                                    <div class="scene-sim-two-col">
+                                        <div class="scene-sim-col">
+                                            <span class="scene-sim-col-label" data-i18n="customProduct.environmentPerson">環境／人物</span>
+                                            <div id="sceneSimUploadZone" class="scene-sim-upload-zone" role="button" tabindex="0" aria-label="Upload environment or person image">
+                                                <input type="file" id="sceneSimFile" accept="image/*" class="d-none">
+                                                <label for="sceneSimFile" class="scene-sim-upload-label"><span class="scene-sim-upload-text">點擊或拖曳</span></label>
+                                                <img id="sceneSimUploadImg" src="" alt="" class="scene-sim-upload-img d-none">
+                                            </div>
+                                        </div>
+                                        <div class="scene-sim-col">
+                                            <span class="scene-sim-col-label" data-i18n="customProduct.productLabel">產品</span>
+                                            <div id="sceneSimPreviewWrap" class="scene-sim-preview-wrap" data-i18n-title="customProduct.clickToSelectFromAssets" title="點擊可從數位資產選擇圖片">
+                                                <div id="sceneSimPreviewInner" class="scene-sim-preview-inner">
+                                                    <span class="scene-sim-preview-hint" data-i18n="customProduct.clickToSelect">點擊選擇</span>
+                                                </div>
+                                                <img id="sceneSimPreviewImg" src="" alt="" class="scene-sim-preview-img d-none">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-generate w-100 mt-2" id="sceneSimApplyBtn">
+                                    <i class="fas fa-cube me-2"></i><span data-i18n="customProduct.applyToScene">套用至實境</span>
+                                </button>
+                            </div>
+                            <div class="create-panel-right" id="sceneSimResultWrap">
+                                <p class="placeholder-hint mb-0 text-muted" data-i18n="customProduct.resultHere">結果會顯示在這裡</p>
+                                <p class="scene-sim-result-note text-muted small mt-2 mb-0" data-i18n="customProduct.sceneSimResultNote">此圖不會存入數位資產，請自行下載保存。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- 共用前台頁腳（由 site-common.js 載入） -->
+    <div id="site-footer"></div>
+
+    <!-- 歷史縮圖點擊：與首頁媒體牆一致 — 大圖、底部疊加提示詞/SEED/帳號、前往連結+關閉 -->
+    <div class="modal fade" id="pastItemModal" tabindex="-1" aria-labelledby="pastItemModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered past-item-modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="pastItemModalLabel" data-i18n="customProduct.pastItemModalTitle">生成草圖</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0 text-center">
+                    <div id="pastItemModalBody" style="min-height:120px;">
+                        <div id="pastItemModalBodyInner"></div>
+                        <div id="pastItemModalDetail">
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.prompt">提示詞</span><span id="pastItemModalPrompt" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="pastItemModalSeed" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="pastItemModalOwner" class="detail-value"></span></div>
+                        </div>
+                    </div>
+                    <div id="pastItemModalShowSection" class="d-none">
+                        <label class="d-flex align-items-center gap-2 mb-0">
+                            <input type="checkbox" id="pastItemModalShowOnHomepage" class="form-check-input" disabled>
+                            <span class="small" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</span>
+                        </label>
+                        <p id="pastItemModalShowOnHomepageHint" class="text-muted small mb-0 mt-1" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" id="pastItemModalSceneSim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
+                    <a id="pastItemModalLink" href="#" class="btn btn-primary btn-sm d-none" target="_blank" rel="noopener" data-i18n="home.findVendor">找廠商訂製</a>
+                    <button type="button" id="pastItemModalRedesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 實境模擬：從數位資產選擇圖片 -->
+    <div class="modal fade" id="sceneSimAssetPickerModal" tabindex="-1" aria-labelledby="sceneSimAssetPickerLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="sceneSimAssetPickerLabel" data-i18n="customProduct.selectFromDigitalAssets">從數位資產選擇圖片</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div id="sceneSimAssetList" class="row g-2"></div>
+                    <p id="sceneSimAssetEmpty" class="text-muted small mb-0 d-none" data-i18n="customProduct.noDigitalAssetsHint">尚無數位資產，請先在產品設計中生成並儲存。</p>
+                    <p id="sceneSimAssetLoading" class="text-muted small mb-0" data-i18n="home.loading">載入中…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top -->
+    <a href="#!" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <!-- 歷史圖放大：點縮圖不開新分頁，改開此 modal，圖上疊加提示詞 / Seed / 帳號 -->
+    <div id="pastItemLightbox" class="past-lightbox" aria-hidden="true" style="display: none;">
+        <div class="past-lightbox-backdrop"></div>
+        <div class="past-lightbox-content">
+            <button type="button" class="past-lightbox-close" aria-label="Close" data-i18n="home.close">&times;</button>
+            <div class="past-lightbox-image-wrap">
+                <img id="pastLightboxImage" src="" alt="" class="past-lightbox-image">
+                <div class="past-lightbox-overlay">
+                    <p class="past-lightbox-prompt" id="pastLightboxPrompt"></p>
+                    <p class="past-lightbox-meta"><span id="pastLightboxSeed"></span><span id="pastLightboxAccount"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="lib/wow/wow.min.js"></script>
+    <script src="lib/easing/easing.min.js"></script>
+    <script src="lib/waypoints/waypoints.min.js"></script>
+    <script src="lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="js/site-common.js"></script>
+    <script src="js/custom-product.js?v=2"></script>
+    <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
+</body>
+
+</html>

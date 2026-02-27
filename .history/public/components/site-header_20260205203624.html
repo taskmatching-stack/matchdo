@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!-- 
+    MatchDO 共用導航列
+    可被所有頁面引入的標準 Header
+-->
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <div class="container">
+        <!-- Logo -->
+        <a class="navbar-brand fw-bold text-primary" href="/">
+            <i class="fas fa-handshake me-2"></i>MatchDO
+        </a>
+        
+        <!-- Mobile Toggle -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <!-- Navigation Menu -->
+        <div class="collapse navbar-collapse" id="mainNavigation">
+            <!-- 動態生成的選單會插入這裡 -->
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">
+                        <i class="fas fa-spinner fa-spin me-1"></i>載入中...
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<script>
+// 自動初始化導航
+(async function() {
+    // 等待 AuthService 和 NavigationBuilder 載入
+    const waitForDependencies = setInterval(async () => {
+        if (window.AuthService && window.NavigationBuilder) {
+            clearInterval(waitForDependencies);
+            
+            try {
+                const navBuilder = new NavigationBuilder();
+                await navBuilder.init();
+                
+                const navContainer = document.getElementById('mainNavigation');
+                if (navContainer) {
+                    navContainer.innerHTML = navBuilder.generateHTML();
+                }
+            } catch (error) {
+                console.error('導航初始化失敗:', error);
+            }
+        }
+    }, 100);
+    
+    // 10秒後停止嘗試
+    setTimeout(() => clearInterval(waitForDependencies), 10000);
+})();
+</script>

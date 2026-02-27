@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客戶控制台 - MatchDO 合做</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body {
+            background: #f5f7fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            color: #667eea !important;
+            font-size: 1.5rem;
+        }
+        
+        .nav-link {
+            color: #666;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            color: #667eea !important;
+        }
+        
+        .btn-logout {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        .btn-logout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .page-header {
+            background: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.3s, box-shadow 0.3s;
+            height: 100%;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+        
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+        
+        .stat-icon.primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-icon.success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .stat-icon.warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-icon.info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            margin: 0.5rem 0 0.25rem 0;
+        }
+        
+        .stat-label {
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        .action-card {
+            background: white;
+            border: 2px dashed #dee2e6;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: block;
+            height: 100%;
+        }
+        
+        .action-card:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-4px);
+        }
+        
+        .action-card i {
+            font-size: 3rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .action-card h5 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .action-card p {
+            color: #999;
+            margin: 0;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .list-item {
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.3s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        
+        .list-item:last-child {
+            border-bottom: none;
+        }
+        
+        .list-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .badge {
+            padding: 0.35rem 0.8rem;
+            font-weight: 600;
+            border-radius: 20px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+        }
+        
+        .empty-state i {
+            font-size: 4rem;
+            color: #ddd;
+            margin-bottom: 1rem;
+        }
+        
+        .empty-state p {
+            color: #999;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 導航欄 -->
+    <nav class="navbar navbar-expand-lg navbar-light sticky-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand" href="../public/index.html">
+                <i class="bi bi-building-gear"></i> MatchDO
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto me-4">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="dashboard.html">
+                            <i class="bi bi-speedometer2"></i> 控制台
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="my-projects.html">
+                            <i class="bi bi-folder"></i> 我的專案
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="matched-experts.html">
+                            <i class="bi bi-people"></i> 媒合廠商
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="contact-unlocks.html">
+                            <i class="bi bi-envelope"></i> 聯絡紀錄
+                        </a>
+                    </li>
+                </ul>
+                <button class="btn btn-logout" id="logoutBtn">登出</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 頁面標題 -->
+    <div class="page-header">
+        <div class="container-fluid px-4">
+            <h1 class="mb-2">客戶控制台</h1>
+            <p class="text-muted mb-0">歡迎回來！快速查看您的專案進度和媒合狀況</p>
+        </div>
+    </div>
+
+    <!-- 主要內容 -->
+    <div class="container-fluid px-4 pb-5">
+        <!-- 統計卡片 -->
+        <div class="row g-4 mb-5">
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label">我的專案</div>
+                            <div class="stat-value" id="totalProjects">-</div>
+                        </div>
+                        <div class="stat-icon primary">
+                            <i class="bi bi-folder"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label">已發包項目</div>
+                            <div class="stat-value" id="publishedItems">-</div>
+                        </div>
+                        <div class="stat-icon success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label">媒合廠商</div>
+                            <div class="stat-value" id="totalMatches">-</div>
+                        </div>
+                        <div class="stat-icon warning">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <div class="stat-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="stat-label">已解鎖聯絡</div>
+                            <div class="stat-value" id="totalUnlocks">-</div>
+                        </div>
+                        <div class="stat-icon info">
+                            <i class="bi bi-unlock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="mb-5">
+            <h2 class="section-title">快速操作</h2>
+            <div class="row g-4">
+                <div class="col-lg-4 col-md-6">
+                    <a href="my-projects.html?action=create" class="action-card">
+                        <i class="bi bi-plus-circle"></i>
+                        <h5>建立新專案</h5>
+                        <p>開始尋找合適廠商</p>
+                    </a>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <a href="my-projects.html" class="action-card">
+                        <i class="bi bi-folder-open"></i>
+                        <h5>查看所有專案</h5>
+                        <p>管理進行中的專案</p>
+                    </a>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <a href="matched-experts.html" class="action-card">
+                        <i class="bi bi-people-fill"></i>
+                        <h5>查看媒合廠商</h5>
+                        <p>瀏覽推薦的專家</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近專案和媒合 -->
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <h2 class="section-title">最近專案</h2>
+                <div class="content-card">
+                    <div id="recentProjects">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <h2 class="section-title">最新媒合</h2>
+                <div class="content-card">
+                    <div id="recentMatches">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Dashboard Script -->
+    <script type="module">
+        import { AuthService } from '../js/auth-service.js';
+
+        let currentUser = null;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // 檢查登入狀態
+                currentUser = await AuthService.getCurrentUser();
+                if (!currentUser) {
+                    window.location.href = '../public/login.html';
+                    return;
+                }
+
+                // 逐個載入，避免一個失敗全部卡住
+                loadStatistics().catch(err => console.error('統計載入失敗:', err));
+                loadRecentProjects().catch(err => console.error('專案載入失敗:', err));
+                loadRecentMatches().catch(err => console.error('媒合載入失敗:', err));
+            } catch (error) {
+                console.error('初始化失敗:', error);
+                alert('系統初始化失敗，請重新登入');
+                window.location.href = '../public/login.html';
+            }
+        });
+
+        // 登出
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await AuthService.signOut();
+            window.location.href = '../public/index.html';
+        });
+
+        // 載入統計數據
+        async function loadStatistics() {
+            try {
+                const { data: projects } = await AuthService.supabase
+                    .from('projects')
+                    .select('id')
+                    .eq('owner_id', currentUser.id);
+
+                document.getElementById('totalProjects').textContent = projects?.length || 0;
+
+                const projectIds = projects?.map(p => p.id) || [];
+
+                if (projectIds.length > 0) {
+                    const { count: itemsCount } = await AuthService.supabase
+                        .from('project_items')
+                        .select('*', { count: 'exact', head: true })
+                        .in('project_id', projectIds)
+                        .in('status', ['published', 'matched', 'assigned', 'in_progress', 'completed']);
+
+                    document.getElementById('publishedItems').textContent = itemsCount || 0;
+
+                    const { count: matchesCount } = await AuthService.supabase
+                        .from('matches')
+                        .select('*', { count: 'exact', head: true })
+                        .in('project_id', projectIds)
+                        .eq('status', 'active');
+
+                    document.getElementById('totalMatches').textContent = matchesCount || 0;
+
+                    const { count: unlocksCount } = await AuthService.supabase
+                        .from('contact_unlocks')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('requester_id', currentUser.id)
+                        .eq('status', 'accepted');
+
+                    document.getElementById('totalUnlocks').textContent = unlocksCount || 0;
+                } else {
+                    document.getElementById('publishedItems').textContent = 0;
+                    document.getElementById('totalMatches').textContent = 0;
+                    document.getElementById('totalUnlocks').textContent = 0;
+                }
+            } catch (error) {
+                console.error('載入統計失敗:', error);
+            }
+        }
+
+        // 載入最近專案
+        async function loadRecentProjects() {
+            const container = document.getElementById('recentProjects');
+            try {
+                const { data: projects, error } = await AuthService.supabase
+                    .from('projects')
+                    .select('*')
+                    .eq('owner_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (error) {
+                    console.error('查詢專案錯誤:', error);
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-exclamation-triangle text-warning"></i>
+                            <p class="text-muted">無法載入專案資料</p>
+                            <small class="text-danger d-block">${error.message}</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                if (!projects || projects.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-folder-x"></i>
+                            <p>尚無專案</p>
+                            <a href="my-projects.html?action=create" class="btn btn-primary">建立第一個專案</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = projects.map(project => `
+                    <a href="project-detail.html?id=${project.id}" class="list-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${escapeHtml(project.title)}</h6>
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar me-1"></i>
+                                    ${new Date(project.created_at).toLocaleDateString('zh-TW')}
+                                </small>
+                            </div>
+                            <span class="badge bg-${getStatusColor(project.status)}">
+                                ${getStatusText(project.status)}
+                            </span>
+                        </div>
+                    </a>
+                `).join('');
+            } catch (error) {
+                console.error('載入專案失敗:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-exclamation-triangle text-danger"></i>
+                        <p class="text-danger">系統錯誤</p>
+                        <small class="text-muted">${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        // 載入最新媒合
+        async function loadRecentMatches() {
+            const container = document.getElementById('recentMatches');
+            try {
+                const { data: projects, error: projectError } = await AuthService.supabase
+                    .from('projects')
+                    .select('id')
+                    .eq('owner_id', currentUser.id);
+
+                if (projectError) {
+                    console.error('查詢專案錯誤:', projectError);
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-exclamation-triangle text-warning"></i>
+                            <p class="text-muted">無法載入媒合資料</p>
+                            <small class="text-danger d-block">${projectError.message}</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                if (!projects || projects.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-people-x"></i>
+                            <p>尚無媒合記錄</p>
+                            <small class="text-muted">建立專案後系統將自動媒合廠商</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const projectIds = projects.map(p => p.id);
+
+                const { data: matches, error } = await AuthService.supabase
+                    .from('matches')
+                    .select(`
+                        *,
+                        expert:expert_id(email, id),
+                        project:project_id(title)
+                    `)
+                    .in('project_id', projectIds)
+                    .eq('status', 'active')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (error) {
+                    console.error('查詢媒合錯誤:', error);
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-people-x"></i>
+                            <p>尚無媒合記錄</p>
+                            <small class="text-muted">建立專案後系統將自動媒合廠商</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                if (!matches || matches.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-people-x"></i>
+                            <p>尚無媒合記錄</p>
+                            <small class="text-muted">建立專案後系統將自動媒合廠商</small>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = matches.map(match => `
+                    <div class="list-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-2">${escapeHtml(match.project?.title || '未知專案')}</h6>
+                                <small class="text-muted d-block mb-2">
+                                    <i class="bi bi-person me-1"></i>
+                                    ${escapeHtml(match.expert?.email || '未知廠商')}
+                                </small>
+                                <span class="badge bg-success">媒合分數: ${match.match_score}%</span>
+                            </div>
+                            <small class="text-muted">${new Date(match.created_at).toLocaleDateString('zh-TW')}</small>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('載入媒合記錄失敗:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="bi bi-exclamation-triangle text-danger"></i>
+                        <p class="text-danger">系統錯誤</p>
+                        <small class="text-muted">${error.message}</small>
+                    </div>
+                `;
+            }
+        }
+
+        // 輔助函數
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                draft: 'secondary',
+                published: 'primary',
+                in_progress: 'info',
+                completed: 'success',
+                cancelled: 'danger'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                draft: '草稿',
+                published: '已發布',
+                in_progress: '進行中',
+                completed: '已完成',
+                cancelled: '已取消'
+            };
+            return texts[status] || status;
+        }
+    </script>
+</body>
+</html>

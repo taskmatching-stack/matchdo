@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測試數據生成器</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>🧪 測試數據生成器</h2>
+        <p class="text-muted">為 MatchDO 平台生成測試用的專案數據</p>
+        
+        <div class="card">
+            <div class="card-body">
+                <button id="generateBtn" class="btn btn-primary btn-lg">
+                    <i class="bi bi-play-fill"></i> 生成測試數據
+                </button>
+                <button id="clearBtn" class="btn btn-danger btn-lg ms-2">
+                    <i class="bi bi-trash"></i> 清除所有測試數據
+                </button>
+            </div>
+        </div>
+
+        <div id="output" class="mt-4">
+            <pre id="log" class="bg-dark text-light p-3 rounded" style="min-height: 400px; max-height: 600px; overflow-y: auto;"></pre>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+
+    <script>
+        const logEl = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logEl.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        const projectTemplates = [
+            { title: '公司形象網站設計', description: '需要設計一個專業的企業形象網站，包含首頁、關於我們、服務介紹、聯絡我們等頁面。需支援RWD響應式設計。', category: '網頁設計', budget: 80000 },
+            { title: '電商平台開發', description: '建立完整的電商平台，需包含商品管理、購物車、金流串接、會員系統等功能。', category: 'APP開發', budget: 300000 },
+            { title: '品牌Logo設計', description: '為新創公司設計品牌Logo，需要3-5個提案，可修改3次，包含基本應用（名片、信封）。', category: 'Logo設計', budget: 15000 },
+            { title: '辦公室室內設計', description: '約30坪的辦公室空間，需要規劃工作區、會議室和休息區。風格希望是現代簡約。', category: '室內設計', budget: 250000 },
+            { title: '產品宣傳影片', description: '拍攝並剪輯3分鐘的產品介紹影片，需包含腳本撰寫、配音、字幕。', category: '影片剪輯', budget: 50000 },
+            { title: '社群媒體廣告設計', description: '設計一系列FB/IG廣告圖片，共20張，包含文案撰寫。需符合品牌調性。', category: '平面設計', budget: 25000 },
+            { title: 'SEO網站優化', description: '改善網站SEO，提升關鍵字排名，包含3個月的維護和月報。', category: 'SEO優化', budget: 60000 },
+            { title: '品牌行銷策略規劃', description: '制定完整的年度行銷策略，包含市場分析、競品分析和執行計畫。', category: '行銷企劃', budget: 120000 }
+        ];
+
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            logEl.textContent = '';
+            log('🚀 開始生成測試數據...\n');
+
+            try {
+                // 檢查登入狀態
+                const user = await AuthService.getCurrentUser();
+                if (!user) {
+                    log('請先登入系統', 'error');
+                    alert('請先登入後再使用此功能');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                log(`使用用戶: ${user.email}`, 'success');
+                log('');
+
+                // 生成專案
+                log('📦 開始生成測試專案...');
+                const projects = [];
+
+                for (let i = 0; i < projectTemplates.length; i++) {
+                    const template = projectTemplates[i];
+                    const project = {
+                        owner_id: user.id,
+                        category: template.category,
+                        budget: template.budget + Math.floor(Math.random() * 20000),
+                        description: template.description,
+                        status: ['analyzing', 'matched', 'in_progress'][Math.floor(Math.random() * 3)],
+                        images: [],
+                        analysis: {
+                            summary: template.title,
+                            items: []
+                        },
+                        created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString()
+                    };
+
+                    const { data, error } = await supabaseClient
+                        .from('projects')
+                        .insert(project)
+                        .select()
+                        .single();
+
+                    if (error) {
+                        log(`專案 ${i + 1} 建立失敗: ${error.message}`, 'error');
+                    } else {
+                        projects.push(data);
+                        log(`專案 ${i + 1}: ${template.title} (ID: ${data.id.substring(0, 8)}...)`, 'success');
+                    }
+
+                    // 避免請求過快
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                log('');
+                log('='.repeat(50));
+                log(`✨ 測試數據生成完成！`, 'success');
+                log('='.repeat(50));
+                log(`總共建立: ${projects.length} 個專案`, 'success');
+                log('');
+                log('💡 接下來可以:');
+                log('   - 訪問「我的專案」查看列表');
+                log('   - 訪問「發案控制台」查看統計');
+                log('');
+
+                if (projects.length > 0) {
+                    log(`🔗 測試連結:`);
+                    log(`   控制台: /client/dashboard.html`);
+                    log(`   專案列表: /client/my-projects.html`);
+                    log(`   第一個專案: /client/project-detail.html?id=${projects[0].id}`);
+                }
+
+            } catch (error) {
+                log(`發生錯誤: ${error.message}`, 'error');
+                console.error(error);
+            }
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', async () => {
+            if (!confirm('⚠️ 確定要清除所有測試數據嗎？此操作無法復原！')) {
+                return;
+            }
+
+            logEl.textContent = '';
+            log('🗑️ 開始清除測試數據...\n');
+
+            try {
+                const user = await AuthService.getCurrentUser();
+                if (!user) {
+                    log('請先登入系統', 'error');
+                    return;
+                }
+
+                // 刪除當前用戶的所有專案
+                const { data, error } = await supabaseClient
+                    .from('projects')
+                    .delete()
+                    .eq('owner_id', user.id)
+                    .select();
+
+                if (error) {
+                    log(`清除失敗: ${error.message}`, 'error');
+                } else {
+                    log(`成功清除 ${data?.length || 0} 個專案`, 'success');
+                }
+
+            } catch (error) {
+                log(`發生錯誤: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "ai-matching",
+  "version": "1.0.0",
+  "description": "AI自動估價系統，Node.js + Supabase + Bootstrap5",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "dotenv": "^16.3.1",
+    "openai": "^4.50.0",
+    "@supabase/supabase-js": "^2.39.7"
+  }
+}

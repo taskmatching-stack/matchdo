@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MATCHDO 分類管理</title>
+  <link href="../iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <!-- 共用後台標頭（由 admin-common.js 載入） -->
+  <div id="admin-header"></div>
+
+  <div class="container-fluid">
+    <div class="row">
+      <!-- 共用後台側欄（由 admin-common.js 載入） -->
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0">分類列表</h4>
+          <div class="btn-group">
+            <button id="saveBtn" class="btn btn-primary">儲存變更</button>
+            <button id="addRow" class="btn btn-secondary">新增主分類</button>
+            <button id="previewDefault" class="btn btn-outline-secondary" title="查看預設檔內容">預覽預設</button>
+            <button id="importDefault" class="btn btn-outline-primary" title="補齊缺漏的主分類與子分類，不會覆寫您已填寫的提示詞">一鍵匯入（保留現有提示詞）</button>
+            <button id="collapseAll" class="btn btn-outline-secondary" title="全部收合子分類">全部收合</button>
+            <button id="expandAll" class="btn btn-outline-secondary" title="全部展開子分類">全部展開</button>
+            <button id="checkHealth" class="btn btn-outline-info">檢查健康</button>
+          </div>
+        </div>
+        <p class="text-muted small mb-2">儲存變更＝將目前列表寫入資料庫。一鍵匯入＝依預設檔補齊缺漏，<strong>不會覆寫您已填寫的主分類提示詞</strong>。可「新增主分類」、用「↑」「↓」調整主分類順序、在任一大項按「＋ 子分類」增列，再按儲存。若儲存時出現 sort_order 錯誤，請在 Supabase SQL Editor 執行 <code>docs/add-ai-categories-sort-order.sql</code>。</p>
+        <div id="statusWrap" class="alert mb-3 py-2" style="display:none;" role="alert">
+          <span id="status"></span>
+        </div>
+
+        <div id="dataSourceIndicator" class="alert alert-info mb-3" style="display:none;">
+          <strong>數據來源：</strong><span id="dataSourceText"></span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered" id="catTable">
+            <thead class="table-light">
+              <tr>
+                <th style="width:15%;">類型</th>
+                <th style="width:15%;">key</th>
+                <th style="width:15%;">名稱</th>
+                <th style="width:35%;">提示詞 (Prompt) <small class="text-muted" title="建議結構：角色說明 → 【分析流程】→ 輸出格式 JSON 陣列 [{\"item_name\",\"spec\",\"quantity\",\"unit\"}] → 【注意事項】；可用 {subcategory} 代表子分類">ⓘ</small></th>
+                <th style="width:10%;">排序</th>
+                <th style="width:10%;">刪除</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <details class="mb-3">
+            <summary class="text-muted">📝 提示詞撰寫方式（為何有些這麼完整？）</summary>
+            <div class="p-3 bg-light border rounded small">
+              <p class="mb-2"><strong>為什麼要寫得完整？</strong> 系統會把 AI 的回應當成 JSON 解析，用來顯示「項目、規格、數量、單位」。若提示詞沒要求固定格式，AI 可能回一般文字，前端就無法正確顯示估價表。</p>
+              <p class="mb-2"><strong>你一定要有的：</strong></p>
+              <ol class="mb-2">
+                <li><strong>角色</strong>：一句話說明 AI 是誰（例：你是專業○○顧問）。</li>
+                <li><strong>輸出格式</strong>：明確寫「請輸出 JSON 陣列」，並列出欄位：<code>item_name</code>（項目名稱）、<code>spec</code>（規格）、<code>quantity</code>（數量，數字）、<code>unit</code>（單位）。</li>
+                <li>若該分類有子分類，可寫 <code>{subcategory}</code>，系統會自動替換成使用者選的子分類名稱。</li>
+              </ol>
+              <p class="mb-2"><strong>選填但建議加：</strong>【分析流程】讓 AI 依步驟思考；【注意事項】可寫單位偏好、無圖片時的處理等。</p>
+              <p class="mb-0"><strong>最精簡範例：</strong></p>
+              <pre class="bg-white p-2 border rounded mt-1 mb-0" style="font-size:0.85em;">你是○○顧問。依所選子分類「{subcategory}」與用戶描述，列出項目。請<strong>只輸出</strong> JSON 陣列：[{"item_name":"項目","spec":"規格","quantity":數量,"unit":"單位"}]，quantity 為數字。</pre>
+            </div>
+          </details>
+          <details>
+            <summary>除錯資訊</summary>
+            <div class="mt-2">
+              <pre id="debugPanel" class="bg-light p-3 border" style="white-space:pre-wrap;"></pre>
+            </div>
+          </details>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+  <script>
+
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories', { cache: 'no-store' });
+        const data = await res.json();
+        
+        console.log('API 返回數據:', data);
+        const list = Array.isArray(data.categories) ? data.categories : [];
+        
+        // 顯示數據來源
+        const indicator = document.getElementById('dataSourceIndicator');
+        const sourceText = document.getElementById('dataSourceText');
+        if (data.via) {
+          indicator.style.display = 'block';
+          const isNewSchema = data.via === 'normalized-db' || data.via === 'split-db';
+          indicator.className = isNewSchema ? 'alert alert-success mb-3' : 'alert alert-info mb-3';
+          sourceText.textContent = isNewSchema ? '✓ 主分類/子分類獨立表 (新架構)' : '✓ 舊版資料庫 (相容模式)';
+        }
+        
+        const tbody = document.querySelector('#catTable tbody');
+        tbody.innerHTML = '';
+        
+        if (list.length === 0) {
+          document.getElementById('status').textContent = '⚠ 目前沒有分類，請點選「一鍵匯入預設分類」';
+          return;
+        }
+        
+        list.forEach((cat, catIdx) => {
+          // 主分類行
+          const mainTr = document.createElement('tr');
+          mainTr.className = 'table-primary main-category-row';
+          mainTr.dataset.categoryKey = cat.key;
+          const subCount = Array.isArray(cat.sub) ? cat.sub.length : (cat.subcategories || []).length;
+          mainTr.innerHTML = `
+            <td><strong>主分類</strong>
+              <button type="button" class="btn btn-sm btn-outline-primary toggle-subs" title="收合/展開子分類" data-collapsed="0">▼ 收合</button>
+              <span class="text-muted small ms-1">(${subCount} 項)</span>
+              <button type="button" class="btn btn-sm btn-outline-secondary move-main-up" title="上移">↑</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary move-main-down" title="下移">↓</button>
+              <button type="button" class="btn btn-sm btn-outline-success add-sub-under" data-key="${(cat.key || '').replace(/"/g, '&quot;')}" title="在此主分類下新增一筆子分類">＋ 子分類</button>
+            </td>
+            <td><input class="form-control form-control-sm fw-bold" value="${cat.key || ''}" data-field="key" data-level="main" /></td>
+            <td><input class="form-control form-control-sm fw-bold" value="${cat.name || ''}" data-field="name" data-level="main" /></td>
+            <td><textarea class="form-control" rows="2" data-field="prompt" data-level="main" placeholder="建議含：角色、【分析流程】、{subcategory}、輸出格式 JSON 陣列、【注意事項】">${(cat.prompt || '').replace(/<\/textarea>/gi, '<\\/textarea>')}</textarea></td>
+            <td>-</td>
+            <td><button class="btn btn-sm btn-danger del-main" data-key="${cat.key}">刪除</button></td>
+          `;
+          tbody.appendChild(mainTr);
+          
+          // 子分類行（需要從 ai_subcategories 表獲取 prompt）
+          const subs = cat.subcategories || cat.sub || [];
+          if (Array.isArray(subs) && subs.length > 0) {
+            subs.forEach((sub, subIdx) => {
+              const subTr = document.createElement('tr');
+              subTr.className = 'subcategory-row sub-row-of-main';
+              subTr.dataset.parentKey = cat.key;
+              subTr.dataset.subName = sub;
+              const subConfig = cat.sub_configs && cat.sub_configs[sub] ? cat.sub_configs[sub] : null;
+              const subPrompt = (subConfig && !Array.isArray(subConfig) && typeof subConfig.prompt !== 'undefined') ? subConfig.prompt : '';
+              const configToStore = Array.isArray(subConfig) ? { _formFields: subConfig } : (subConfig && typeof subConfig === 'object' ? subConfig : {});
+              subTr.dataset.subConfig = JSON.stringify(configToStore);
+              subTr.innerHTML = `
+                <td class="ps-4"><span class="text-muted">└ 子分類</span></td>
+                <td><input class="form-control form-control-sm" value="${cat.key}__${sub}" data-field="key" data-level="sub" readonly /></td>
+                <td><input class="form-control form-control-sm" value="${sub}" data-field="name" data-level="sub" data-original="${sub}" /></td>
+                <td><textarea class="form-control form-control-sm" rows="2" data-field="prompt" data-level="sub" placeholder="空白則繼承主分類；可含 {subcategory}">${subPrompt}</textarea></td>
+                <td><input type="number" class="form-control form-control-sm" value="${subIdx}" data-field="sort" style="width:60px;" /></td>
+                <td><button class="btn btn-sm btn-danger del-sub" data-parent="${cat.key}" data-name="${sub}">刪除</button></td>
+              `;
+              tbody.appendChild(subTr);
+            });
+          }
+        });
+        
+        // 預設全部收合，縮短版面
+        tbody.querySelectorAll('tr.main-category-row').forEach(mainTr => {
+          const key = mainTr.dataset.categoryKey;
+          const btn = mainTr.querySelector('.toggle-subs');
+          if (!btn) return;
+          let n = 0;
+          let next = mainTr.nextElementSibling;
+          while (next && next.classList.contains('subcategory-row') && next.dataset.parentKey === key) {
+            next.style.display = 'none';
+            n++;
+            next = next.nextElementSibling;
+          }
+          btn.dataset.collapsed = '1';
+          btn.textContent = '▶ 展開 (' + n + ' 項)';
+        });
+        
+        document.getElementById('status').textContent = `✓ 已載入 ${list.length} 筆分類（預設收合，點「展開」或「全部展開」可顯示子分類）`;
+      } catch (e) {
+        console.error('載入分類失敗:', e);
+        document.getElementById('status').textContent = '✖ 載入失敗：' + e.message;
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'addRow') {
+        const tr = document.createElement('tr');
+        tr.className = 'table-primary main-category-row';
+        tr.innerHTML = `
+          <td><strong>主分類</strong>
+              <button type="button" class="btn btn-sm btn-outline-primary toggle-subs" title="收合/展開子分類" data-collapsed="0">▼ 收合</button>
+              <span class="text-muted small ms-1">(0 項)</span>
+              <button type="button" class="btn btn-sm btn-outline-secondary move-main-up" title="上移">↑</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary move-main-down" title="下移">↓</button>
+              <button type="button" class="btn btn-sm btn-outline-success add-sub-under" data-key="" title="在此主分類下新增子分類">＋ 子分類</button>
+            </td>
+          <td><input class="form-control form-control-sm" data-field="key" data-level="main" /></td>
+          <td><input class="form-control form-control-sm" data-field="name" data-level="main" /></td>
+          <td><textarea class="form-control" rows="2" data-field="prompt" data-level="main"></textarea></td>
+          <td>-</td>
+          <td><button class="btn btn-sm btn-danger del-main">刪除</button></td>
+        `;
+        document.querySelector('#catTable tbody').appendChild(tr);
+      }
+      if (e.target && e.target.classList.contains('toggle-subs')) {
+        const mainTr = e.target.closest('tr');
+        if (!mainTr || !mainTr.classList.contains('main-category-row')) return;
+        const key = mainTr.dataset.categoryKey;
+        const btn = e.target;
+        const collapsed = btn.dataset.collapsed === '1';
+        let n = 0;
+        let next = mainTr.nextElementSibling;
+        while (next && next.classList.contains('subcategory-row') && next.dataset.parentKey === key) {
+          next.style.display = collapsed ? '' : 'none';
+          n++;
+          next = next.nextElementSibling;
+        }
+        btn.dataset.collapsed = collapsed ? '0' : '1';
+        const subCount = n;
+        btn.textContent = collapsed ? '▼ 收合' : '▶ 展開 (' + subCount + ' 項)';
+      }
+      if (e.target && (e.target.classList.contains('move-main-up') || e.target.classList.contains('move-main-down'))) {
+        const mainTr = e.target.closest('tr');
+        if (!mainTr || !mainTr.classList.contains('main-category-row')) return;
+        const tbody = document.querySelector('#catTable tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const idx = rows.indexOf(mainTr);
+        if (idx < 0) return;
+        let endIdx = idx + 1;
+        while (endIdx < rows.length && rows[endIdx].classList.contains('subcategory-row')) endIdx++;
+        const isUp = e.target.classList.contains('move-main-up');
+        if (isUp) {
+          if (idx === 0) return;
+          let prevIdx = idx - 1;
+          while (prevIdx >= 0 && rows[prevIdx].classList.contains('subcategory-row')) prevIdx--;
+          if (prevIdx < 0) return;
+          const fragment = document.createDocumentFragment();
+          for (let i = idx; i < endIdx; i++) fragment.appendChild(rows[idx]);
+          tbody.insertBefore(fragment, rows[prevIdx]);
+        } else {
+          if (endIdx >= rows.length) return;
+          const nextMain = rows[endIdx];
+          let nextEnd = endIdx + 1;
+          while (nextEnd < rows.length && rows[nextEnd].classList.contains('subcategory-row')) nextEnd++;
+          const fragment = document.createDocumentFragment();
+          for (let i = idx; i < endIdx; i++) fragment.appendChild(rows[idx]);
+          const afterNextBlock = nextEnd < rows.length ? rows[nextEnd] : null;
+          if (afterNextBlock) tbody.insertBefore(fragment, afterNextBlock);
+          else tbody.appendChild(fragment);
+        }
+      }
+      if (e.target && e.target.classList.contains('add-sub-under')) {
+        const mainTr = e.target.closest('tr');
+        const keyInput = mainTr.querySelector('[data-field="key"][data-level="main"]');
+        const mainKey = keyInput ? keyInput.value.trim() : (e.target.dataset.key || '');
+        let insertAfter = mainTr;
+        let next = mainTr.nextElementSibling;
+        while (next && next.classList.contains('subcategory-row')) {
+          insertAfter = next;
+          next = next.nextElementSibling;
+        }
+        const subTr = document.createElement('tr');
+        subTr.className = 'subcategory-row';
+        subTr.dataset.parentKey = mainKey;
+        subTr.dataset.subConfig = '{}';
+        const keyPlaceholder = mainKey ? mainKey + '__' : '';
+        subTr.innerHTML = `
+          <td class="ps-4"><span class="text-muted">└ 子分類</span></td>
+          <td><input class="form-control form-control-sm" value="${keyPlaceholder}" data-field="key" data-level="sub" readonly placeholder="儲存後自動產生" /></td>
+          <td><input class="form-control form-control-sm" data-field="name" data-level="sub" placeholder="輸入子分類名稱" /></td>
+          <td><textarea class="form-control form-control-sm" rows="2" data-field="prompt" data-level="sub" placeholder="空白則繼承主分類；可含 {subcategory}"></textarea></td>
+          <td><input type="number" class="form-control form-control-sm" value="0" data-field="sort" style="width:60px;" /></td>
+          <td><button class="btn btn-sm btn-danger del-sub" data-parent="${mainKey}">刪除</button></td>
+        `;
+        insertAfter.insertAdjacentElement('afterend', subTr);
+      }
+      if (e.target && (e.target.classList.contains('del-main') || e.target.classList.contains('del-sub'))) {
+        e.target.closest('tr').remove();
+      }
+      if (e.target && e.target.id === 'saveBtn') {
+        saveCategories();
+      }
+      if (e.target && e.target.id === 'previewDefault') {
+        previewDefaultCategories();
+      }
+      if (e.target && e.target.id === 'importDefault') {
+        importDefaultCategories();
+      }
+      if (e.target && e.target.id === 'collapseAll') {
+        document.querySelectorAll('#catTable tbody tr.main-category-row').forEach(mainTr => {
+          const key = mainTr.dataset.categoryKey;
+          const btn = mainTr.querySelector('.toggle-subs');
+          if (!btn || btn.dataset.collapsed === '1') return;
+          let n = 0;
+          let next = mainTr.nextElementSibling;
+          while (next && next.classList.contains('subcategory-row') && next.dataset.parentKey === key) {
+            next.style.display = 'none';
+            n++;
+            next = next.nextElementSibling;
+          }
+          if (btn) { btn.dataset.collapsed = '1'; btn.textContent = '▶ 展開 (' + n + ' 項)'; }
+        });
+      }
+      if (e.target && e.target.id === 'expandAll') {
+        document.querySelectorAll('#catTable tbody tr.main-category-row').forEach(mainTr => {
+          const key = mainTr.dataset.categoryKey;
+          const btn = mainTr.querySelector('.toggle-subs');
+          if (!btn || btn.dataset.collapsed === '0') return;
+          let n = 0;
+          let next = mainTr.nextElementSibling;
+          while (next && next.classList.contains('subcategory-row') && next.dataset.parentKey === key) {
+            next.style.display = '';
+            n++;
+            next = next.nextElementSibling;
+          }
+          if (btn) { btn.dataset.collapsed = '0'; btn.textContent = '▼ 收合'; }
+        });
+      }
+      if (e.target && e.target.id === 'checkHealth') {
+        checkHealth();
+      }
+    });
+
+    async function saveCategories() {
+      const rows = document.querySelectorAll('#catTable tbody tr');
+      const mainCategories = [];
+      let currentMain = null;
+      
+      rows.forEach(row => {
+        if (row.classList.contains('main-category-row')) {
+          // 主分類
+          const keyInput = row.querySelector('[data-field="key"][data-level="main"]');
+          const nameInput = row.querySelector('[data-field="name"][data-level="main"]');
+          const promptTextarea = row.querySelector('[data-field="prompt"][data-level="main"]');
+          
+          if (keyInput && nameInput) {
+            const key = keyInput.value.trim();
+            const name = nameInput.value.trim();
+            if (!key || !name) {
+              statusWrap.style.display = 'block';
+              statusWrap.className = 'alert alert-danger mb-3 py-2';
+              status.textContent = '✖ 請填寫每一筆主分類的 key（英文）與名稱，不可留白。';
+              return;
+            }
+            currentMain = {
+              key,
+              name,
+              prompt: promptTextarea ? promptTextarea.value.trim() : '',
+              sub: [],
+              sort_order: mainCategories.length
+            };
+            mainCategories.push(currentMain);
+          }
+        } else if (row.classList.contains('subcategory-row') && currentMain) {
+          const nameInput = row.querySelector('[data-field="name"][data-level="sub"]');
+          const promptTextarea = row.querySelector('[data-field="prompt"][data-level="sub"]');
+          if (nameInput) {
+            const subName = nameInput.value.trim();
+            if (subName) {
+              currentMain.sub.push(subName);
+              if (!currentMain.sub_configs) currentMain.sub_configs = {};
+              let existing = {};
+              try {
+                const raw = row.dataset.subConfig;
+                if (raw) existing = JSON.parse(raw);
+              } catch (_) {}
+              currentMain.sub_configs[subName] = Object.assign({}, existing, { prompt: promptTextarea ? promptTextarea.value.trim() : '' });
+            }
+          }
+        }
+      });
+      
+      const status = document.getElementById('status');
+      const statusWrap = document.getElementById('statusWrap');
+      if (mainCategories.length === 0) {
+        statusWrap.style.display = 'block';
+        statusWrap.className = 'alert alert-warning mb-3 py-2';
+        status.textContent = '✖ 沒有任何主分類可儲存，請至少保留一筆主分類。';
+        return;
+      }
+      statusWrap.style.display = 'block';
+      statusWrap.className = 'alert alert-secondary mb-3 py-2';
+      status.textContent = '儲存中...';
+      
+      try {
+        const res = await fetch('/api/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categories: mainCategories })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          statusWrap.className = 'alert alert-success mb-3 py-2';
+          status.innerHTML = `✔ 已儲存（${data.count != null ? data.count : ''} 筆主分類已寫入）。<button type="button" class="btn btn-sm btn-link p-0 ms-1" onclick="loadCategories()">重新載入列表</button>`;
+          // 不再自動重整列表，避免打斷編輯
+        } else {
+          statusWrap.className = 'alert alert-danger mb-3 py-2';
+          status.textContent = '✖ 儲存失敗' + (data && data.error ? '：' + data.error : '');
+        }
+      } catch (e) {
+        statusWrap.className = 'alert alert-danger mb-3 py-2';
+        status.textContent = '✖ 儲存失敗（網路錯誤）';
+      }
+    }
+
+    // 載入共用標頭與側欄
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCategories();
+    });
+
+    async function previewDefaultCategories() {
+      const status = document.getElementById('status');
+      const statusWrap = document.getElementById('statusWrap');
+      statusWrap.style.display = 'block';
+      statusWrap.className = 'alert alert-info mb-3 py-2';
+      status.textContent = '讀取中...';
+      try {
+        const res = await fetch('/api/categories/preview-default', { cache: 'no-store' });
+        const data = await res.json();
+        if (data && data.summary) {
+          const lines = data.summary.map(s => `${s.name}（${s.key}）：${s.subCount} 個子分類`).join('；');
+          status.innerHTML = `預設檔將匯入：${lines}。<br><small>確認無誤後請按「一鍵匯入預設分類」寫入資料庫。</small>`;
+        } else {
+          status.textContent = data.error || '無法讀取預設檔';
+          statusWrap.className = 'alert alert-warning mb-3 py-2';
+        }
+      } catch (e) {
+        status.textContent = '預覽失敗：' + (e.message || String(e));
+        statusWrap.className = 'alert alert-danger mb-3 py-2';
+      }
+    }
+
+    async function importDefaultCategories() {
+      const status = document.getElementById('status');
+      const statusWrap = document.getElementById('statusWrap');
+      statusWrap.style.display = 'block';
+      statusWrap.className = 'alert alert-secondary mb-3 py-2';
+      status.textContent = '匯入預設中...';
+      try {
+        const res = await fetch('/api/categories/import-default', { method: 'POST' });
+        const data = await res.json();
+        if (data && data.success) {
+          const subCount = data.subCount != null ? data.subCount : 0;
+          status.innerHTML = `✔ ${data.message || '已匯入'}（${data.count} 筆主分類、${subCount} 筆子分類）。<button type="button" class="btn btn-sm btn-link p-0 ms-1" onclick="loadCategories()">重新載入列表</button>`;
+          document.getElementById('statusWrap').style.display = 'block';
+          document.getElementById('statusWrap').className = 'alert alert-success mb-3 py-2';
+          // 不自動重整，避免打斷編輯；需要看新資料時再按「重新載入列表」
+        } else {
+          // 匯入失敗，顯示錯誤訊息
+          const msg = (data && data.error) ? data.error : '未知錯誤';
+          status.innerHTML = `✖ 匯入失敗：${msg}<br><small>${data.details || ''}</small>`;
+          if (data.via === 'local-only') {
+            status.innerHTML += '<br><span style="color:#f39c12;">⚠ 資料庫連線異常，請使用 SQL Editor 手動匯入</span>';
+            status.innerHTML += '<br><a href="#" onclick="loadFromLocal(); return false;" class="btn btn-sm btn-warning mt-2">暫時載入本地預設檔</a>';
+            showDebug('資料庫連線失敗', suggest(msg));
+          }
+        }
+      } catch (e) {
+        status.innerHTML = '✖ 匯入失敗（網路錯誤）<br><a href="#" onclick="loadFromLocal(); return false;" class="btn btn-sm btn-warning mt-2">暫時載入本地預設檔</a>';
+        showDebug('匯入失敗（網路）', e.message || String(e));
+      }
+    }
+
+    // 臨時方案：直接讀取本地預設檔案
+    async function loadFromLocal() {
+      const status = document.getElementById('status');
+      try {
+        const res = await fetch('/config/default-categories.json');
+        const json = await res.json();
+        const list = Array.isArray(json.categories) ? json.categories : [];
+        
+        const indicator = document.getElementById('dataSourceIndicator');
+        const sourceText = document.getElementById('dataSourceText');
+        indicator.style.display = 'block';
+        indicator.className = 'alert alert-warning mb-3';
+        sourceText.textContent = '⚠ 本地預設分類（僅供編輯，儲存時會嘗試寫入資料庫）';
+        
+        const tbody = document.querySelector('#catTable tbody');
+        tbody.innerHTML = '';
+        list.forEach(cat => {
+          const tr = document.createElement('tr');
+          const subs = cat.sub || [];
+          const subsStr = Array.isArray(subs) ? subs.join(',') : '';
+          tr.innerHTML = `
+            <td><input class="form-control" value="${cat.key || ''}" /></td>
+            <td><input class="form-control" value="${cat.name || ''}" /></td>
+            <td><textarea class="form-control" rows="3">${cat.prompt || ''}</textarea></td>
+            <td><textarea class="form-control" rows="4">${subsStr}</textarea></td>
+            <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        status.textContent = `✔ 已載入 ${list.length} 筆本地預設分類（請修復資料庫後再儲存）`;
+      } catch (e) {
+        status.textContent = '✖ 本地預設檔讀取失敗';
+      }
+    }
+
+    async function checkHealth() {
+      const status = document.getElementById('status');
+      status.textContent = '檢查中...';
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        status.textContent = '健康檢查完成';
+        showDebug('健康檢查', JSON.stringify(data, null, 2));
+        // 額外提示
+        if (data && data.supabase && data.supabase.error) {
+          showDebug('Supabase 錯誤提示', suggest(data.supabase.error));
+        }
+        if (data && data.db && data.db.error) {
+          showDebug('PG 直連錯誤提示', suggest(data.db.error));
+        }
+      } catch (e) {
+        status.textContent = '檢查失敗';
+        showDebug('健康檢查失敗', e.message || String(e));
+      }
+    }
+
+    function showDebug(title, details) {
+      const panel = document.getElementById('debugPanel');
+      const prev = panel.textContent ? panel.textContent + "\n\n" : '';
+      panel.textContent = prev + `[${new Date().toLocaleString()}] ${title}\n` + (typeof details === 'string' ? details : JSON.stringify(details, null, 2));
+    }
+
+    function suggest(errorText) {
+      const t = (errorText || '').toLowerCase();
+      let tips = '';
+      if (t.includes('schema cache') || t.includes('relation does not exist')) {
+        tips = `可能原因：PostgREST 尚未看到 ai_categories。\n處置：\n1) 在 Supabase SQL Editor 建表 public.ai_categories。\n2) 執行 ALTER 促使快取刷新：\n   alter table public.ai_categories alter column prompt set default '';`;
+      }
+      if (t.includes('enotfound') || t.includes('getaddrinfo')) {
+        tips += (tips ? '\n\n' : '') + `可能原因：直連 PostgreSQL DNS 解析失敗。\n處置：\n1) 測試時可忽略，改用 Supabase REST（不需直連）。\n2) 如需直連，確認 SUPABASE_DB_URL 網路/防火牆與密碼 URL encode（@→%40）。`;
+      }
+      if (!tips) tips = errorText;
+      return tips;
+    }
+
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+</body>
+</html>

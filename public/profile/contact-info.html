@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>聯絡資訊設定 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark">聯絡資訊設定</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="/index.html">首頁</a></li>
+                        <li class="breadcrumb-item active">聯絡資訊</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-xxl py-3">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <!-- 說明區塊 -->
+                    <div class="alert alert-info mb-3">
+                        <h5><i class="fas fa-info-circle me-2"></i>隱私保護說明</h5>
+                        <ul class="mb-0">
+                            <li>您的聯絡資訊預設是<strong>隱藏</strong>的</li>
+                            <li>只有當<strong>媒合成功</strong>後，對方才能看到您勾選公開的資訊</li>
+                            <li>您可以隨時調整哪些資訊要公開、哪些要保密</li>
+                            <li>官網和作品集建議公開，有助於提升媒合率</li>
+                        </ul>
+                    </div>
+
+                    <!-- 聯絡資訊表單 -->
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-address-card me-2"></i>我的聯絡資訊</h5>
+                        </div>
+                        <div class="card-body p-4">
+                            <form id="contactInfoForm">
+                                <!-- 基本資訊 -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-building me-2"></i>基本資訊</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label">公司/工作室名稱</label>
+                                        <input type="text" class="form-control" id="companyName" placeholder="選填">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">服務地區</label>
+                                        <input type="text" class="form-control" id="address" placeholder="例：台北市大安區">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">自我介紹</label>
+                                        <textarea class="form-control" id="bio" rows="3" placeholder="簡單介紹您的服務特色或專長..."></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- 電話資訊 -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-phone me-2"></i>電話資訊</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label">市話</label>
+                                        <input type="tel" class="form-control" id="phone" placeholder="例：02-12345678">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="phoneVisible">
+                                            <label class="form-check-label" for="phoneVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">手機</label>
+                                        <input type="tel" class="form-control" id="mobile" placeholder="例：0912-345678">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="mobileVisible">
+                                            <label class="form-check-label" for="mobileVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 即時通訊 -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-comments me-2"></i>即時通訊</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-4">
+                                        <label class="form-label">LINE ID</label>
+                                        <input type="text" class="form-control" id="lineId" placeholder="您的 LINE ID">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="lineVisible">
+                                            <label class="form-check-label" for="lineVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">WeChat ID</label>
+                                        <input type="text" class="form-control" id="wechatId" placeholder="選填">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="wechatVisible">
+                                            <label class="form-check-label" for="wechatVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Telegram</label>
+                                        <input type="text" class="form-control" id="telegramId" placeholder="選填">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="telegramVisible">
+                                            <label class="form-check-label" for="telegramVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Email -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-envelope me-2"></i>Email</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label">聯絡 Email</label>
+                                        <input type="email" class="form-control" id="email" placeholder="例：contact@example.com">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="emailVisible">
+                                            <label class="form-check-label" for="emailVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 社群網站 -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fab fa-facebook me-2"></i>社群網站</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="fab fa-facebook text-primary me-1"></i>Facebook</label>
+                                        <input type="url" class="form-control" id="facebookUrl" placeholder="https://facebook.com/...">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="facebookVisible">
+                                            <label class="form-check-label" for="facebookVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="fab fa-instagram text-danger me-1"></i>Instagram</label>
+                                        <input type="url" class="form-control" id="instagramUrl" placeholder="https://instagram.com/...">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="instagramVisible">
+                                            <label class="form-check-label" for="instagramVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="fab fa-youtube text-danger me-1"></i>YouTube</label>
+                                        <input type="url" class="form-control" id="youtubeUrl" placeholder="https://youtube.com/...">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="youtubeVisible">
+                                            <label class="form-check-label" for="youtubeVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="fab fa-linkedin text-info me-1"></i>LinkedIn</label>
+                                        <input type="url" class="form-control" id="linkedinUrl" placeholder="https://linkedin.com/in/...">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="linkedinVisible">
+                                            <label class="form-check-label" for="linkedinVisible">
+                                                <small>✅ 媒合成功後公開</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 專業連結 -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-globe me-2"></i>專業連結（建議公開）</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label">官方網站</label>
+                                        <input type="url" class="form-control" id="websiteUrl" placeholder="https://...">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="websiteVisible" checked>
+                                            <label class="form-check-label" for="websiteVisible">
+                                                <small>✅ 公開顯示（建議）</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">作品集</label>
+                                        <input type="url" class="form-control" id="portfolioUrl" placeholder="https://...">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="portfolioVisible" checked>
+                                            <label class="form-check-label" for="portfolioVisible">
+                                                <small>✅ 公開顯示（建議）</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 偏好聯絡方式 -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-star me-2"></i>偏好聯絡方式（可複選）</h6>
+                                <div class="row g-2 mb-4">
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="phone" id="prefer_phone">
+                                            <label class="form-check-label" for="prefer_phone">電話</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="line" id="prefer_line">
+                                            <label class="form-check-label" for="prefer_line">LINE</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="email" id="prefer_email">
+                                            <label class="form-check-label" for="prefer_email">Email</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" value="facebook" id="prefer_facebook">
+                                            <label class="form-check-label" for="prefer_facebook">Facebook</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 營業時間 -->
+                                <h6 class="border-bottom pb-2 mb-3"><i class="fas fa-clock me-2"></i>營業時間</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label">平日</label>
+                                        <input type="text" class="form-control" id="weekdaysHours" placeholder="例：09:00-18:00">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">假日</label>
+                                        <input type="text" class="form-control" id="weekendHours" placeholder="例：10:00-17:00 或 休息">
+                                    </div>
+                                </div>
+
+                                <!-- 儲存按鈕 -->
+                                <div class="text-center">
+                                    <button type="submit" class="btn btn-primary btn-lg px-5">
+                                        <i class="fas fa-save me-2"></i>儲存設定
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid bg-dark text-body footer mt-5 pt-5">
+        <div class="container py-5">
+            <div class="row g-5">
+                <div class="col-lg-12 text-center">
+                    <p class="mb-0">&copy; <a class="text-primary" href="#">MatchDO 合做</a>. All Rights Reserved.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../js/main.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="../js/site-header.js"></script>
+
+    <script>
+        let currentUser = null;
+
+        $(document).ready(async function () {
+            const { data: { user } } = await AuthService.getUser();
+            if (!user) {
+                window.location.href = (AuthService.getLoginUrl && AuthService.getLoginUrl()) || '/login.html';
+                return;
+            }
+            currentUser = user;
+            await loadContactInfo();
+
+            $('#contactInfoForm').submit(async function (e) {
+                e.preventDefault();
+                await saveContactInfo();
+            });
+        });
+
+        async function loadContactInfo() {
+            try {
+                const { data, error } = await AuthService.supabase
+                    .from('contact_info')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .single();
+
+                if (data) {
+                    // 填充表單
+                    $('#companyName').val(data.company_name || '');
+                    $('#address').val(data.company_address || '');
+                    $('#bio').val(currentUser.user_metadata?.bio || '');
+                    $('#phone').val(data.phone || '');
+                    $('#phoneVisible').prop('checked', data.phone_visible || false);
+                    $('#mobile').val(data.mobile || '');
+                    $('#mobileVisible').prop('checked', data.mobile_visible || false);
+                    $('#lineId').val(data.line_id || '');
+                    $('#lineVisible').prop('checked', data.line_visible || false);
+                    $('#wechatId').val(data.wechat_id || '');
+                    $('#wechatVisible').prop('checked', data.wechat_visible || false);
+                    $('#telegramId').val(data.telegram_id || '');
+                    $('#telegramVisible').prop('checked', data.telegram_visible || false);
+                    $('#email').val(data.email || '');
+                    $('#emailVisible').prop('checked', data.email_visible || false);
+                    $('#facebookUrl').val(data.facebook_url || '');
+                    $('#facebookVisible').prop('checked', data.facebook_visible || false);
+                    $('#instagramUrl').val(data.instagram_url || '');
+                    $('#instagramVisible').prop('checked', data.instagram_visible || false);
+                    $('#youtubeUrl').val(data.youtube_url || '');
+                    $('#youtubeVisible').prop('checked', data.youtube_visible || false);
+                    $('#linkedinUrl').val(data.linkedin_url || '');
+                    $('#linkedinVisible').prop('checked', data.linkedin_visible || false);
+                    $('#websiteUrl').val(data.website_url || '');
+                    $('#websiteVisible').prop('checked', data.website_visible !== false);
+                    $('#portfolioUrl').val(data.portfolio_url || '');
+                    $('#portfolioVisible').prop('checked', data.portfolio_visible !== false);
+
+                    // 偏好聯絡方式
+                    if (data.preferred_contact_methods) {
+                        data.preferred_contact_methods.forEach(method => {
+                            $(`#prefer_${method}`).prop('checked', true);
+                        });
+                    }
+
+                    // 營業時間
+                    if (data.business_hours) {
+                        $('#weekdaysHours').val(data.business_hours.weekdays || '');
+                        $('#weekendHours').val(data.business_hours.weekend || '');
+                    }
+                }
+            } catch (error) {
+                console.error('載入聯絡資訊失敗:', error);
+            }
+        }
+
+        async function saveContactInfo() {
+            const btn = $('#contactInfoForm button[type="submit"]');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>儲存中...');
+
+            try {
+                // 收集偏好聯絡方式
+                const preferredMethods = [];
+                $('input[id^="prefer_"]:checked').each(function() {
+                    preferredMethods.push($(this).val());
+                });
+
+                const contactData = {
+                    user_id: currentUser.id,
+                    company_name: $('#companyName').val(),
+                    company_address: $('#address').val(),
+                    phone: $('#phone').val(),
+                    phone_visible: $('#phoneVisible').is(':checked'),
+                    mobile: $('#mobile').val(),
+                    mobile_visible: $('#mobileVisible').is(':checked'),
+                    line_id: $('#lineId').val(),
+                    line_visible: $('#lineVisible').is(':checked'),
+                    wechat_id: $('#wechatId').val(),
+                    wechat_visible: $('#wechatVisible').is(':checked'),
+                    telegram_id: $('#telegramId').val(),
+                    telegram_visible: $('#telegramVisible').is(':checked'),
+                    email: $('#email').val(),
+                    email_visible: $('#emailVisible').is(':checked'),
+                    facebook_url: $('#facebookUrl').val(),
+                    facebook_visible: $('#facebookVisible').is(':checked'),
+                    instagram_url: $('#instagramUrl').val(),
+                    instagram_visible: $('#instagramVisible').is(':checked'),
+                    youtube_url: $('#youtubeUrl').val(),
+                    youtube_visible: $('#youtubeVisible').is(':checked'),
+                    linkedin_url: $('#linkedinUrl').val(),
+                    linkedin_visible: $('#linkedinVisible').is(':checked'),
+                    website_url: $('#websiteUrl').val(),
+                    website_visible: $('#websiteVisible').is(':checked'),
+                    portfolio_url: $('#portfolioUrl').val(),
+                    portfolio_visible: $('#portfolioVisible').is(':checked'),
+                    preferred_contact_methods: preferredMethods,
+                    business_hours: {
+                        weekdays: $('#weekdaysHours').val(),
+                        weekend: $('#weekendHours').val()
+                    }
+                };
+
+                const { error } = await AuthService.supabase
+                    .from('contact_info')
+                    .upsert(contactData);
+
+                if (error) throw error;
+
+                alert('✅ 聯絡資訊已儲存！');
+            } catch (error) {
+                console.error('儲存失敗:', error);
+                alert('❌ 儲存失敗：' + error.message);
+            } finally {
+                btn.prop('disabled', false).html('<i class="fas fa-save me-2"></i>儲存設定');
+            }
+        }
+    </script>
+</body>
+</html>

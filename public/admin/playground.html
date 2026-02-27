@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>生圖 Playground - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .playground-prompt { min-height: 120px; resize: vertical; }
+    .ref-slots-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+    .ref-slot { width: 72px; height: 72px; border: 2px dashed #dee2e6; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f8f9fa; position: relative; flex-shrink: 0; }
+    .ref-slot img { width: 100%; height: 100%; object-fit: cover; }
+    .ref-slot .ref-slot-remove { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; padding: 0; line-height: 1; font-size: 14px; border-radius: 4px; }
+    .ref-slot-add { cursor: pointer; color: #6c757d; font-size: 24px; }
+    .result-image { max-width: 100%; max-height: 70vh; border-radius: 8px; border: 1px solid #dee2e6; }
+    #sizeAspect { display: none; }
+    #sizeManualPanel { display: none; }
+    .size-manual-panel { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 1rem; min-width: 280px; }
+    .size-manual-panel .form-label { font-weight: 500; }
+    .size-manual-panel input[type="range"] { width: 100%; max-width: 200px; }
+    .size-manual-panel .input-with-slider { margin-bottom: 1rem; }
+    .resolution-display { font-variant-numeric: tabular-nums; color: #6c757d; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-3">生圖 Playground</h4>
+        <p class="text-muted small mb-4">管理員專用：文生圖／圖生圖，可選模型與解析度。不串任何預設系統提示詞，僅使用您輸入的描述。</p>
+
+        <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
+          <span id="loginStatusText">檢查中…</span>
+          <a id="loginStatusLink" href="/login.html" class="btn btn-sm btn-outline-primary" style="display:none;">前往登入</a>
+        </div>
+        <div id="authRequired" class="alert alert-warning mb-3" style="display:none;">
+          請先<a href="/login.html" class="alert-link">登入</a>且帳號具管理員或測試員權限後再使用。
+        </div>
+
+        <div class="card mb-4">
+          <div class="card-body">
+            <label class="form-label fw-bold">描述（Prompt）</label>
+            <textarea id="prompt" class="form-control playground-prompt" placeholder="請輸入要生成的圖像描述…"></textarea>
+
+            <div class="d-flex flex-wrap align-items-start gap-4 mt-3">
+              <div>
+                <label class="form-label small text-muted">參考圖（選填，最多 8 張，有圖則為圖生圖）</label>
+                <div class="ref-slots-wrap" id="refSlotsWrap">
+                  <div class="ref-slot ref-slot-add" id="refSlotAdd" title="加圖">
+                    <i class="bi bi-plus-lg"></i>
+                  </div>
+                </div>
+                <input type="file" id="refFile" accept="image/*" multiple class="d-none" />
+              </div>
+              <div class="flex-grow-1">
+                <div class="row g-2">
+                  <div class="col-auto">
+                    <label class="form-label small mb-0">模型</label>
+                    <select id="model" class="form-select form-select-sm">
+                      <option value="flux-2-max">FLUX.2 max</option>
+                      <option value="flux-2-pro" selected>FLUX.2 pro</option>
+                      <option value="flux-2-flex">FLUX.2 flex</option>
+                      <option value="flux-2-klein-9b">FLUX.2 klein 9B</option>
+                      <option value="flux-2-klein-4b">FLUX.2 klein 4B</option>
+                    </select>
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label small mb-0">Size Mode</label>
+                    <select id="sizeMode" class="form-select form-select-sm">
+                      <option value="same">Same as input</option>
+                      <option value="aspect">Aspect ratio</option>
+                      <option value="manual">Manual</option>
+                    </select>
+                  </div>
+                  <div class="col-auto" id="sizeAspect">
+                    <label class="form-label small mb-0">比例</label>
+                    <select id="aspectRatio" class="form-select form-select-sm">
+                      <option value="1:1">1:1</option>
+                      <option value="16:9">16:9</option>
+                      <option value="9:16">9:16</option>
+                      <option value="4:3">4:3</option>
+                      <option value="3:4">3:4</option>
+                    </select>
+                  </div>
+                  <div class="col-auto" id="sizeManualPanel">
+                    <div class="size-manual-panel">
+                      <div class="mb-2 fw-bold small">解析度（Manual）</div>
+                      <div class="input-with-slider">
+                        <label class="form-label small mb-1">Width <i class="bi bi-info-circle text-muted" title="寬度 512–2048，建議 8 的倍數"></i></label>
+                        <div class="d-flex align-items-center gap-2">
+                          <input type="number" id="width" class="form-control form-control-sm" value="1024" min="512" max="2048" step="8" style="width:80px;" />
+                          <input type="range" id="widthSlider" min="512" max="2048" step="8" value="1024" class="form-range flex-grow-1" style="max-width:160px;" />
+                        </div>
+                      </div>
+                      <div class="input-with-slider mb-0">
+                        <label class="form-label small mb-1">Height <i class="bi bi-info-circle text-muted" title="高度 512–2048，建議 8 的倍數"></i></label>
+                        <div class="d-flex align-items-center gap-2">
+                          <input type="number" id="height" class="form-control form-control-sm" value="1024" min="512" max="2048" step="8" style="width:80px;" />
+                          <input type="range" id="heightSlider" min="512" max="2048" step="8" value="1024" class="form-range flex-grow-1" style="max-width:160px;" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-auto d-flex align-items-end pb-1">
+                    <span class="resolution-display small" id="resolutionDisplay" title="目前解析度">1024×1024</span>
+                  </div>
+                  <div class="col-auto d-flex gap-1 align-items-end">
+                    <div>
+                      <label class="form-label small mb-0">輸出格式</label>
+                      <select id="outputFormat" class="form-select form-select-sm" style="width:100px;">
+                        <option value="jpeg" selected>JPEG</option>
+                        <option value="png">PNG</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-auto d-flex gap-1 align-items-end">
+                    <div>
+                      <label class="form-label small mb-0">Seed（選填）</label>
+                      <input type="number" id="seed" class="form-control form-control-sm" placeholder="隨機" style="width:100px;" />
+                    </div>
+                  </div>
+                  <div class="col-auto d-flex align-items-end">
+                    <button type="button" id="btnGenerate" class="btn btn-dark rounded-circle d-flex align-items-center justify-content-center" style="width:48px;height:48px;" title="生成">
+                      <i class="bi bi-play-fill"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="statusWrap" class="alert mb-3 py-2" style="display:none;" role="alert">
+          <span id="statusText"></span>
+        </div>
+
+        <div class="card" id="resultCard" style="display:none;">
+          <div class="card-body">
+            <h6 class="card-title">生成結果</h6>
+            <div class="mb-2">
+              <img id="resultImage" class="result-image" src="" alt="生成結果" />
+            </div>
+            <p class="text-muted small mb-0">Seed: <span id="resultSeed"></span> · 解析度: <span id="resultRes"></span></p>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function(){
+  const promptEl = document.getElementById('prompt');
+  const refFile = document.getElementById('refFile');
+  const refSlotsWrap = document.getElementById('refSlotsWrap');
+  const refSlotAdd = document.getElementById('refSlotAdd');
+  const modelEl = document.getElementById('model');
+  const sizeModeEl = document.getElementById('sizeMode');
+  const sizeAspect = document.getElementById('sizeAspect');
+  const sizeManualPanel = document.getElementById('sizeManualPanel');
+  const aspectRatioEl = document.getElementById('aspectRatio');
+  const widthEl = document.getElementById('width');
+  const heightEl = document.getElementById('height');
+  const widthSlider = document.getElementById('widthSlider');
+  const heightSlider = document.getElementById('heightSlider');
+  const resolutionDisplay = document.getElementById('resolutionDisplay');
+  const seedEl = document.getElementById('seed');
+  const outputFormatEl = document.getElementById('outputFormat');
+  const btnGenerate = document.getElementById('btnGenerate');
+  const statusWrap = document.getElementById('statusWrap');
+  const statusText = document.getElementById('statusText');
+  const resultCard = document.getElementById('resultCard');
+  const resultImage = document.getElementById('resultImage');
+  const resultSeed = document.getElementById('resultSeed');
+  const resultRes = document.getElementById('resultRes');
+
+  const ASPECT_MAP = { '1:1': [1024,1024], '16:9': [1024,576], '9:16': [576,1024], '4:3': [1024,768], '3:4': [768,1024] };
+  const MAX_REF_IMAGES = 8;
+
+  let refImagesList = [];
+  let refDimensions = { w: 1024, h: 1024 };
+
+  function renderRefSlots() {
+    var wrap = refSlotsWrap;
+    if (!wrap) return;
+    var addEl = refSlotAdd;
+    wrap.innerHTML = '';
+    refImagesList.forEach(function(dataUrl, idx) {
+      var slot = document.createElement('div');
+      slot.className = 'ref-slot';
+      slot.innerHTML = '<img src="' + dataUrl + '" alt="" /><button type="button" class="btn btn-sm btn-outline-danger ref-slot-remove" data-index="' + idx + '" title="移除">×</button>';
+      wrap.appendChild(slot);
+      slot.querySelector('.ref-slot-remove').addEventListener('click', function() {
+        refImagesList.splice(parseInt(this.dataset.index, 10), 1);
+        updateRefDimensionsFromList();
+        renderRefSlots();
+      });
+    });
+    if (addEl) {
+      addEl.style.display = refImagesList.length >= MAX_REF_IMAGES ? 'none' : 'flex';
+      wrap.appendChild(addEl);
+    }
+  }
+  function updateRefDimensionsFromList() {
+    if (refImagesList.length === 0) {
+      refDimensions = { w: 1024, h: 1024 };
+      return;
+    }
+    var img = new Image();
+    img.onload = function() {
+      refDimensions = { w: img.naturalWidth || 1024, h: img.naturalHeight || 1024 };
+      updateResolutionDisplay();
+    };
+    img.src = refImagesList[0];
+  }
+
+  function showStatus(msg, isError) {
+    statusWrap.style.display = 'block';
+    statusWrap.className = 'alert mb-3 py-2 ' + (isError ? 'alert-danger' : 'alert-info');
+    statusText.textContent = msg;
+  }
+  function hideStatus() { statusWrap.style.display = 'none'; }
+
+  function clampResolution(v) {
+    const n = parseInt(v, 10);
+    if (isNaN(n)) return 1024;
+    const step = 8;
+    const rounded = Math.round(n / step) * step;
+    return Math.min(2048, Math.max(512, rounded));
+  }
+  function updateResolutionDisplay() {
+    const { w, h } = getWidthHeight();
+    if (resolutionDisplay) resolutionDisplay.textContent = w + '×' + h;
+  }
+  function updateSizeModeUI() {
+    const mode = sizeModeEl.value;
+    sizeAspect.style.display = mode === 'aspect' ? 'flex' : 'none';
+    sizeManualPanel.style.display = mode === 'manual' ? 'block' : 'none';
+    updateResolutionDisplay();
+  }
+  sizeModeEl.addEventListener('change', updateSizeModeUI);
+
+  if (widthEl && widthSlider) {
+    widthEl.addEventListener('input', function() {
+      const v = clampResolution(widthEl.value);
+      widthEl.value = v;
+      widthSlider.value = v;
+      updateResolutionDisplay();
+    });
+    widthSlider.addEventListener('input', function() {
+      const v = parseInt(widthSlider.value, 10);
+      widthEl.value = v;
+      updateResolutionDisplay();
+    });
+  }
+  if (heightEl && heightSlider) {
+    heightEl.addEventListener('input', function() {
+      const v = clampResolution(heightEl.value);
+      heightEl.value = v;
+      heightSlider.value = v;
+      updateResolutionDisplay();
+    });
+    heightSlider.addEventListener('input', function() {
+      const v = parseInt(heightSlider.value, 10);
+      heightEl.value = v;
+      updateResolutionDisplay();
+    });
+  }
+  aspectRatioEl.addEventListener('change', updateResolutionDisplay);
+
+  updateSizeModeUI();
+
+  refSlotAdd.addEventListener('click', function() {
+    if (refImagesList.length >= MAX_REF_IMAGES) return;
+    refFile.click();
+  });
+  refFile.addEventListener('change', function() {
+    var files = this.files;
+    if (!files || files.length === 0) return;
+    var added = 0;
+    function readNext(i) {
+      if (i >= files.length || refImagesList.length >= MAX_REF_IMAGES) {
+        refFile.value = '';
+        updateRefDimensionsFromList();
+        renderRefSlots();
+        return;
+      }
+      var f = files[i];
+      if (!f.type || !f.type.startsWith('image/')) {
+        readNext(i + 1);
+        return;
+      }
+      var r = new FileReader();
+      r.onload = function() {
+        refImagesList.push(r.result);
+        added++;
+        readNext(i + 1);
+      };
+      r.readAsDataURL(f);
+    }
+    readNext(0);
+  });
+  renderRefSlots();
+
+  function getWidthHeight() {
+    const mode = sizeModeEl.value;
+    if (mode === 'aspect') {
+      const pair = ASPECT_MAP[aspectRatioEl.value] || [1024,1024];
+      return { w: pair[0], h: pair[1] };
+    }
+    if (mode === 'manual') {
+      return { w: parseInt(widthEl.value, 10) || 1024, h: parseInt(heightEl.value, 10) || 1024 };
+    }
+    return refDimensions;
+  }
+
+  async function getAuthHeaders() {
+    if (!window.AuthService || !AuthService.getSession) return {};
+    const session = await AuthService.getSession();
+    const token = session && session.access_token;
+    if (!token) return {};
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+
+  btnGenerate.addEventListener('click', async function() {
+    const raw = (promptEl.value || '').trim();
+    if (!raw) {
+      showStatus('請輸入描述（prompt）', true);
+      return;
+    }
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) {
+      showStatus('請先登入且具管理員權限', true);
+      return;
+    }
+    const { w, h } = getWidthHeight();
+    var referenceImages = refImagesList.length > 0 ? refImagesList.slice(0, MAX_REF_IMAGES) : null;
+    btnGenerate.disabled = true;
+    showStatus('生成中，請稍候…', false);
+    resultCard.style.display = 'none';
+    try {
+      const res = await fetch('/api/admin/playground-generate', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          prompt: raw,
+          referenceImages: referenceImages,
+          model: modelEl.value,
+          width: w,
+          height: h,
+          output_format: (outputFormatEl && outputFormatEl.value) ? outputFormatEl.value : 'jpeg',
+          seed: seedEl.value ? parseInt(seedEl.value, 10) : undefined
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showStatus(data.error || '生圖失敗', true);
+        return;
+      }
+      hideStatus();
+      resultImage.src = data.imageData || '';
+      resultSeed.textContent = data.seedUsed != null ? data.seedUsed : '—';
+      resultRes.textContent = (data.width && data.height) ? (data.width + '×' + data.height) : '—';
+      resultCard.style.display = 'block';
+    } catch (e) {
+      showStatus(e.message || '請求失敗', true);
+    } finally {
+      btnGenerate.disabled = false;
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', async function() {
+    var loginStatusText = document.getElementById('loginStatusText');
+    var loginStatusLink = document.getElementById('loginStatusLink');
+    var authRequired = document.getElementById('authRequired');
+    if (!window.AuthService) {
+      loginStatusText.textContent = 'AuthService 未載入';
+      authRequired.style.display = 'block';
+      return;
+    }
+    const session = await AuthService.getSession();
+    if (!session || !session.access_token) {
+      loginStatusText.textContent = '未登入';
+      loginStatusLink.style.display = 'inline-block';
+      authRequired.style.display = 'block';
+      return;
+    }
+    var canUse = (typeof AuthService.isTesterOrAdmin === 'function') ? await AuthService.isTesterOrAdmin() : false;
+    if (!canUse) {
+      var p = await (AuthService.getUserProfile ? AuthService.getUserProfile() : Promise.resolve(null));
+      canUse = p && (p.role === 'admin' || p.role === 'tester');
+    }
+    if (!canUse) {
+      loginStatusText.textContent = '目前帳號非管理員／測試員，無法使用 Playground';
+      authRequired.style.display = 'block';
+      return;
+    }
+    var profile = await (AuthService.getUserProfile ? AuthService.getUserProfile() : Promise.resolve(null));
+    loginStatusText.textContent = (profile && profile.role === 'tester') ? '已登入（測試員）' : '已登入（管理員）';
+  });
+})();
+  </script>
+</body>
+</html>

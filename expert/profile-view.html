@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>專家自介 - MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="../img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/js/site-header.js"></script>
+
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <h3 class="mb-0 text-dark">專家自介</h3>
+        </div>
+    </div>
+
+    <div class="container-xxl py-4">
+        <div class="container">
+            <div id="profileLoading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted">載入中...</p>
+            </div>
+            <div id="profileError" class="alert alert-danger d-none"></div>
+            <div id="profileContent" class="d-none">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-body p-4">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <img id="profileAvatar" src="" alt="" class="rounded-circle" style="width:80px;height:80px;object-fit:cover;">
+                            </div>
+                            <div class="col">
+                                <h4 id="profileName" class="mb-1"></h4>
+                                <p id="profileBio" class="text-muted mb-0"></p>
+                                <a id="editProfileBtn" href="/profile/contact-info.html" class="btn btn-outline-primary btn-sm mt-2 d-none">
+                                    <i class="fas fa-edit me-1"></i>編輯自介與聯絡資訊
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-address-card me-2"></i>聯絡方式</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="profileContact" class="row g-2"></div>
+                        <p id="profileContactEmpty" class="text-muted small mb-0 d-none">該專家尚未公開聯絡資訊。</p>
+                    </div>
+                </div>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0"><i class="fas fa-images me-2"></i>作品集</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="profilePortfolio" class="row g-3"></div>
+                        <p id="profilePortfolioEmpty" class="text-muted small mb-0 d-none">尚無作品。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid bg-dark text-body footer mt-5 pt-5">
+        <div class="container py-5">
+            <div class="col-12 text-center">
+                <p class="mb-2"><a class="text-primary" href="/contact.html">聯絡我們</a></p>
+                <p class="mb-0 text-white-50">&copy; <a href="/index.html" class="text-primary">MatchDO 合做</a>. All Rights Reserved.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function escapeHtml(s) {
+            if (s == null) return '';
+            const div = document.createElement('div');
+            div.textContent = s;
+            return div.innerHTML;
+        }
+        function getQuery(name) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(name) || '';
+        }
+        async function loadProfile() {
+            const expertId = getQuery('expert_id');
+            if (!expertId) {
+                document.getElementById('profileLoading').classList.add('d-none');
+                document.getElementById('profileError').classList.remove('d-none');
+                document.getElementById('profileError').textContent = '缺少專家編號';
+                return;
+            }
+            let data = null;
+            try {
+                const currentUser = window.AuthService ? await AuthService.getCurrentUser() : null;
+                const isOwn = currentUser && currentUser.id === expertId;
+                if (isOwn && window.supabaseClient) {
+                    const fullName = currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || '專家';
+                    let contact = {};
+                    let portfolio = [];
+                    const { data: contactRow } = await supabaseClient.from('contact_info').select('*').eq('user_id', expertId).maybeSingle();
+                    if (contactRow) {
+                        if (contactRow.company_name) contact.company_name = contactRow.company_name;
+                        if (contactRow.company_address) contact.company_address = contactRow.company_address;
+                        if (contactRow.bio) contact.bio = contactRow.bio;
+                        if (contactRow.phone) contact.phone = contactRow.phone;
+                        if (contactRow.mobile) contact.mobile = contactRow.mobile;
+                        if (contactRow.email) contact.email = contactRow.email;
+                        if (contactRow.line_id) contact.line_id = contactRow.line_id;
+                        if (contactRow.website_url) contact.website_url = contactRow.website_url;
+                        if (contactRow.portfolio_url) contact.portfolio_url = contactRow.portfolio_url;
+                    }
+                    const { data: port } = await supabaseClient.from('expert_portfolio').select('id, title, description, image_url, sort_order').eq('expert_id', expertId).order('sort_order', { ascending: true });
+                    portfolio = port || [];
+                    data = { expert_id: expertId, full_name: fullName, avatar_url: null, bio: contact.bio || '', contact, portfolio };
+                }
+                if (!data) {
+                    const res = await fetch('/api/expert/public-profile?expert_id=' + encodeURIComponent(expertId));
+                    let json = {};
+                    try { json = await res.json(); } catch (_) {}
+                    document.getElementById('profileLoading').classList.add('d-none');
+                    if (!res.ok) {
+                        document.getElementById('profileError').classList.remove('d-none');
+                        document.getElementById('profileError').textContent = json.error || ('HTTP ' + res.status + ' 無法載入專家資料');
+                        return;
+                    }
+                    data = json;
+                }
+                document.getElementById('profileLoading').classList.add('d-none');
+                document.getElementById('profileContent').classList.remove('d-none');
+                const editBtn = document.getElementById('editProfileBtn');
+                if (editBtn && data.expert_id && window.AuthService) {
+                    const me = await AuthService.getCurrentUser();
+                    if (me && me.id === data.expert_id) editBtn.classList.remove('d-none');
+                }
+                const name = data.full_name || '專家';
+                const avatar = data.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=667eea&color=fff');
+                document.getElementById('profileName').textContent = name;
+                document.getElementById('profileAvatar').src = avatar;
+                document.getElementById('profileAvatar').alt = name;
+                document.getElementById('profileBio').textContent = data.bio || '';
+
+                const c = data.contact || {};
+                const contactEl = document.getElementById('profileContact');
+                const contactEmpty = document.getElementById('profileContactEmpty');
+                const parts = [];
+                if (c.phone) parts.push('<div class="col-12 col-md-6"><i class="fas fa-phone me-2 text-muted"></i>' + escapeHtml(c.phone) + '</div>');
+                if (c.mobile) parts.push('<div class="col-12 col-md-6"><i class="fas fa-mobile me-2 text-muted"></i>' + escapeHtml(c.mobile) + '</div>');
+                if (c.email) parts.push('<div class="col-12 col-md-6"><i class="fas fa-envelope me-2 text-muted"></i><a href="mailto:' + escapeHtml(c.email) + '">' + escapeHtml(c.email) + '</a></div>');
+                if (c.line_id) parts.push('<div class="col-12 col-md-6"><i class="fab fa-line me-2 text-muted"></i>' + escapeHtml(c.line_id) + '</div>');
+                if (c.website_url) parts.push('<div class="col-12"><i class="fas fa-globe me-2 text-muted"></i><a href="' + escapeHtml(c.website_url) + '" target="_blank" rel="noopener">' + escapeHtml(c.website_url) + '</a></div>');
+                if (c.portfolio_url) parts.push('<div class="col-12"><i class="fas fa-images me-2 text-muted"></i><a href="' + escapeHtml(c.portfolio_url) + '" target="_blank" rel="noopener">作品集連結</a></div>');
+                if (c.company_name) parts.push('<div class="col-12"><i class="fas fa-building me-2 text-muted"></i>' + escapeHtml(c.company_name) + '</div>');
+                if (c.company_address) parts.push('<div class="col-12"><i class="fas fa-map-marker-alt me-2 text-muted"></i>' + escapeHtml(c.company_address) + '</div>');
+                contactEl.innerHTML = parts.join('');
+                contactEmpty.classList.toggle('d-none', parts.length > 0);
+
+                const portfolio = data.portfolio || [];
+                const portfolioEl = document.getElementById('profilePortfolio');
+                const portfolioEmpty = document.getElementById('profilePortfolioEmpty');
+                portfolioEmpty.classList.toggle('d-none', portfolio.length > 0);
+                portfolioEl.innerHTML = portfolio.map(p => `
+                    <div class="col-sm-6 col-md-4">
+                        <div class="card h-100">
+                            ${p.image_url ? '<img src="' + escapeHtml(p.image_url) + '" class="card-img-top" style="height:160px;object-fit:cover;" alt="">' : '<div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height:160px;"><i class="fas fa-image fa-2x text-muted"></i></div>'}
+                            <div class="card-body">
+                                <h6 class="card-title">${escapeHtml(p.title || '')}</h6>
+                                ${p.description ? '<p class="card-text small text-muted">' + escapeHtml(p.description) + '</p>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('profileLoading').classList.add('d-none');
+                document.getElementById('profileError').classList.remove('d-none');
+                document.getElementById('profileError').textContent = '載入失敗：' + (e && e.message ? e.message : '請稍後再試');
+            }
+        }
+        document.addEventListener('DOMContentLoaded', loadProfile);
+    </script>
+</body>
+</html>

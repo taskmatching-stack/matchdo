@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>測試 Profiles 表</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config/auth-config.js"></script>
+</head>
+<body>
+    <h1>測試 Profiles 表連接</h1>
+    <button onclick="testProfiles()">測試查詢 Profiles</button>
+    <div id="result" style="margin-top: 20px; padding: 20px; background: #f5f5f5;"></div>
+
+    <script>
+        async function testProfiles() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '測試中...';
+
+            try {
+                console.log('AuthService:', window.AuthService);
+                console.log('supabaseClient:', window.supabaseClient);
+
+                if (!window.AuthService) {
+                    resultDiv.innerHTML = '<span style="color: red;">❌ AuthService 未載入</span>';
+                    return;
+                }
+
+                // 測試 1: 檢查當前用戶
+                const { data: { user }, error: userError } = await AuthService.getUser();
+                console.log('當前用戶:', user, userError);
+
+                if (userError || !user) {
+                    resultDiv.innerHTML = '<span style="color: red;">❌ 未登入或取得用戶失敗</span><br>' + 
+                        (userError ? userError.message : '');
+                    return;
+                }
+
+                resultDiv.innerHTML += '<span style="color: green;">✅ 已登入: ' + user.email + '</span><br>';
+
+                // 測試 2: 查詢 profiles 表
+                const { data: profiles, error: profilesError } = await AuthService.supabase
+                    .from('profiles')
+                    .select('*')
+                    .limit(5);
+
+                console.log('Profiles 查詢結果:', profiles, profilesError);
+
+                if (profilesError) {
+                    resultDiv.innerHTML += '<span style="color: red;">❌ 查詢 profiles 表失敗</span><br>' + 
+                        '<pre>' + JSON.stringify(profilesError, null, 2) + '</pre>';
+                    
+                    // 檢查是否是表不存在
+                    if (profilesError.message.includes('relation') || profilesError.message.includes('does not exist')) {
+                        resultDiv.innerHTML += '<br><strong>profiles 表不存在！</strong><br>' +
+                            '請執行: <code>docs/user-roles-schema.sql</code>';
+                    }
+                    return;
+                }
+
+                resultDiv.innerHTML += '<span style="color: green;">✅ profiles 表存在</span><br>';
+                resultDiv.innerHTML += '<strong>查詢結果 (' + (profiles ? profiles.length : 0) + ' 筆):</strong><br>';
+                resultDiv.innerHTML += '<pre>' + JSON.stringify(profiles, null, 2) + '</pre>';
+
+                // 測試 3: 取得用戶 Profile
+                const profile = await AuthService.getUserProfile();
+                console.log('getUserProfile 結果:', profile);
+
+                resultDiv.innerHTML += '<br><strong>當前用戶 Profile:</strong><br>';
+                resultDiv.innerHTML += '<pre>' + JSON.stringify(profile, null, 2) + '</pre>';
+
+                // 檢查角色
+                const isAdmin = user.user_metadata?.role === 'admin' || profile?.role === 'admin';
+                resultDiv.innerHTML += '<br><strong>是否為管理員:</strong> ' + (isAdmin ? 
+                    '<span style="color: green;">✅ 是</span>' : 
+                    '<span style="color: orange;">⚠️ 否</span>');
+
+            } catch (error) {
+                console.error('測試失敗:', error);
+                resultDiv.innerHTML += '<span style="color: red;">❌ 測試失敗</span><br>' + 
+                    '<pre>' + error.message + '</pre>';
+            }
+        }
+
+        // 頁面載入時自動測試
+        window.addEventListener('load', () => {
+            setTimeout(testProfiles, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的廠商作品 - MatchDO 合做</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark"><i class="bi bi-images me-2"></i>我的廠商作品</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="/index.html">首頁</a></li>
+                        <li class="breadcrumb-item active">我的廠商作品</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <div class="container py-4">
+        <p class="text-muted mb-4" id="pageLead">首次請先建立廠商資料，建立後即可在此頁<strong>上傳、管理作品圖</strong>，填寫作品重點與標籤，作品會顯示於圖庫供客戶瀏覽。</p>
+
+        <!-- 載入中 -->
+        <div id="loadingBlock" class="text-center py-5 text-muted">
+            <div class="spinner-border mb-2" role="status"></div>
+            <p class="mb-0">載入中...</p>
+        </div>
+
+        <!-- 第一次使用：填寫廠商資料即可開始（不需管理員綁定） -->
+        <div id="noManufacturerBlock" class="d-none">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-shop me-2"></i>第一步：建立我的廠商資料</h5>
+                    <p class="text-muted small mb-1">第一次使用請填寫以下資料。</p>
+                    <p class="text-muted small mb-0">建立後，此頁會出現「<strong>新增作品</strong>」與作品列表，即可上傳作品圖、填寫作品重點與標籤。</p>
+                    <form id="createManufacturerForm">
+                        <div class="mb-3">
+                            <label for="createName" class="form-label">廠商名稱 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="createName" required placeholder="例：○○工坊">
+                        </div>
+                        <div class="mb-3">
+                            <label for="createDescription" class="form-label">簡介（選填）</label>
+                            <textarea class="form-control" id="createDescription" rows="2" placeholder="主要服務或專長"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="createLocation" class="form-label">所在地（選填）</label>
+                            <input type="text" class="form-control" id="createLocation" placeholder="例：台北市">
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label for="createPhone" class="form-label">聯絡電話（選填）</label>
+                                <input type="text" class="form-control" id="createPhone" placeholder="0912-345678">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="createEmail" class="form-label">聯絡 Email（選填，預設為登入信箱）</label>
+                                <input type="email" class="form-control" id="createEmail" placeholder="">
+                            </div>
+                        </div>
+                        <div class="mt-3 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" id="btnCreateMfr">建立廠商資料</button>
+                            <a href="/custom/" class="btn btn-outline-secondary">稍後再說</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div id="mainBlock" class="d-none">
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item"><button class="nav-link active" id="tabPortfolio" data-bs-toggle="tab" data-bs-target="#panelPortfolio" type="button">作品</button></li>
+                <li class="nav-item"><button class="nav-link" id="tabCollections" data-bs-toggle="tab" data-bs-target="#panelCollections" type="button">資料夾</button></li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="panelPortfolio">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                <p class="mb-0 text-muted small" id="manufacturerNameLabel"></p>
+                <button type="button" class="btn btn-primary" id="btnAdd">
+                    <i class="bi bi-plus-lg me-1"></i>新增作品
+                </button>
+            </div>
+
+            <!-- 作品列表 -->
+            <div id="portfolioList" class="row g-3">
+                <!-- 動態填入 -->
+            </div>
+            <div id="portfolioEmpty" class="text-center py-5 text-muted d-none">
+                <i class="bi bi-images display-4"></i>
+                <p class="mt-2">尚無作品，點「新增作品」上傳第一張。</p>
+            </div>
+                </div>
+                <div class="tab-pane fade" id="panelCollections">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                        <p class="mb-0 text-muted small">將作品分組為資料夾，方便客戶瀏覽系列。</p>
+                        <button type="button" class="btn btn-primary" id="btnAddCollection">
+                            <i class="bi bi-folder-plus me-1"></i>新增資料夾
+                        </button>
+                    </div>
+                    <div id="collectionsList" class="row g-3"></div>
+                    <div id="collectionsEmpty" class="text-center py-5 text-muted d-none">
+                        <i class="bi bi-folder2 display-4"></i>
+                        <p class="mt-2">尚無資料夾，點「新增資料夾」建立第一個。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/編輯 資料夾 Modal -->
+    <div class="modal fade" id="collectionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="collectionModalTitle">新增資料夾</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="collectionForm">
+                        <input type="hidden" id="formCollectionId" value="">
+                        <div class="mb-3">
+                            <label for="formCollectionTitle" class="form-label">資料夾名稱 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="formCollectionTitle" required placeholder="例：西裝系列">
+                        </div>
+                        <div class="mb-3">
+                            <label for="formCollectionDescription" class="form-label">說明（選填）</label>
+                            <textarea class="form-control" id="formCollectionDescription" rows="2" placeholder="此資料夾的簡述"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">分類（可複選）</label>
+                            <div id="formCollectionCategoryChecks" class="d-flex flex-wrap gap-2"></div>
+                            <div class="form-text small">勾選此資料夾要顯示在哪些訂製品分類；不勾選表示全部分類皆可看到。</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveCollection">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 管理資料夾內作品 Modal -->
+    <div class="modal fade" id="collectionItemsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="collectionItemsModalTitle">管理資料夾內作品</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-2">勾選要加入此資料夾的作品，取消勾選會從資料夾移除。</p>
+                    <div id="collectionItemsChecklist" class="border rounded p-2" style="max-height: 320px; overflow-y: auto;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveCollectionItems">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/編輯 Modal -->
+    <div class="modal fade" id="portfolioModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="portfolioModalTitle">新增作品</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="portfolioForm">
+                        <input type="hidden" id="formPortfolioId" value="">
+                        <div class="mb-3">
+                            <label for="formTitle" class="form-label">標題</label>
+                            <input type="text" class="form-control" id="formTitle" placeholder="例：西裝改修身款">
+                        </div>
+                        <div class="mb-3">
+                            <label for="formDescription" class="form-label">說明（選填）</label>
+                            <textarea class="form-control" id="formDescription" rows="2" placeholder="作品簡述"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="formDesignHighlight" class="form-label"><strong>作品重點</strong></label>
+                            <textarea class="form-control" id="formDesignHighlight" rows="3" placeholder="例：材質、工法、特色說明"></textarea>
+                            <div class="form-text">顯示於圖庫作品詳情，供客戶了解此作品重點。</div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">作品圖片 <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control" id="formImage" accept="image/*">
+                                <div id="formImagePreview" class="mt-2"></div>
+                                <input type="hidden" id="formImageUrl" value="">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">第二張圖片（選填）</label>
+                                <input type="file" class="form-control" id="formImageBefore" accept="image/*">
+                                <div id="formImageBeforePreview" class="mt-2"></div>
+                                <input type="hidden" id="formImageUrlBefore" value="">
+                            </div>
+                        </div>
+                        <div class="mb-3 mt-3">
+                            <label for="formTags" class="form-label">標籤（選填，逗號分隔）</label>
+                            <input type="text" class="form-control" id="formTags" placeholder="例：西裝, 改款, 修身">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="btnSave">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container pb-4" id="bottomLinks">
+        <a href="/custom/" class="btn btn-outline-secondary">返回客製產品首頁</a>
+        <a href="/custom/gallery.html" class="btn btn-outline-primary ms-2 d-none" id="linkPreviewGallery" target="_blank">在圖庫中預覽我的作品</a>
+    </div>
+
+    <div id="site-footer"></div>
+    <script src="/js/site-footer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+(function() {
+    let manufacturerId = '';
+    let myManufacturer = null;
+    let list = [];
+    let collections = [];
+    let collectionItemIdsByCollection = {};
+    let collectionCategories = [];
+    let modalInstance = null;
+    let collectionModalInstance = null;
+    let collectionItemsModalInstance = null;
+
+    const $loadingBlock = document.getElementById('loadingBlock');
+    const $mainBlock = document.getElementById('mainBlock');
+    const $manufacturerNameLabel = document.getElementById('manufacturerNameLabel');
+    const $portfolioList = document.getElementById('portfolioList');
+    const $portfolioEmpty = document.getElementById('portfolioEmpty');
+    const $noManufacturerBlock = document.getElementById('noManufacturerBlock');
+    const $btnAdd = document.getElementById('btnAdd');
+    const $pageLead = document.getElementById('pageLead');
+    const $linkPreviewGallery = document.getElementById('linkPreviewGallery');
+    const $portfolioModal = document.getElementById('portfolioModal');
+    const $portfolioModalTitle = document.getElementById('portfolioModalTitle');
+    const $btnSave = document.getElementById('btnSave');
+
+    function getAuthHeaders() {
+        var session = (window.supabaseClient && window.supabaseClient.auth) ? null : window.getSessionFromStorage && window.getSessionFromStorage();
+        if (!session && window.supabaseClient && window.supabaseClient.auth) {
+            return window.supabaseClient.auth.getSession().then(function(s) {
+                var sess = (s && s.data && s.data.session) ? s.data.session : null;
+                return sess ? { 'Authorization': 'Bearer ' + sess.access_token } : {};
+            });
+        }
+        var token = (session && session.access_token) ? session.access_token : (window.__authSessionForHeader && window.__authSessionForHeader.access_token);
+        return Promise.resolve(token ? { 'Authorization': 'Bearer ' + token } : {});
+    }
+
+    function showMain() {
+        $loadingBlock.classList.add('d-none');
+        if (manufacturerId && myManufacturer) {
+            $noManufacturerBlock.classList.add('d-none');
+            $mainBlock.classList.remove('d-none');
+            $manufacturerNameLabel.textContent = '我的廠商：' + (myManufacturer.name || manufacturerId);
+            if ($pageLead) $pageLead.textContent = '管理您的作品圖、填寫作品重點與標籤，作品會顯示於圖庫供客戶瀏覽。';
+            if ($linkPreviewGallery) $linkPreviewGallery.classList.remove('d-none');
+            loadList();
+            loadCollections();
+        } else {
+            $mainBlock.classList.add('d-none');
+            $noManufacturerBlock.classList.remove('d-none');
+            if ($linkPreviewGallery) $linkPreviewGallery.classList.add('d-none');
+        }
+    }
+
+    function loadManufacturerName() {
+        if (myManufacturer) $manufacturerNameLabel.textContent = '我的廠商：' + (myManufacturer.name || manufacturerId);
+    }
+
+    function loadList() {
+        if (!manufacturerId) return;
+        fetch('/api/manufacturer-portfolio?manufacturer_id=' + encodeURIComponent(manufacturerId))
+            .then(r => r.json())
+            .then(data => {
+                list = data.items || [];
+                renderList();
+            })
+            .catch(() => { list = []; renderList(); });
+    }
+
+    function renderList() {
+        if (list.length === 0) {
+            $portfolioList.classList.add('d-none');
+            $portfolioEmpty.classList.remove('d-none');
+            return;
+        }
+        $portfolioEmpty.classList.add('d-none');
+        $portfolioList.classList.remove('d-none');
+        $portfolioList.innerHTML = list.map(p => {
+            const title = escapeHtml(p.title || '未命名');
+            const highlight = (p.design_highlight || '').slice(0, 60) + ((p.design_highlight || '').length > 60 ? '…' : '');
+            const img = p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="${title}" class="rounded object-fit-cover" style="width:100%;height:120px;object-fit:cover">` : '<div class="bg-light rounded d-flex align-items-center justify-content-center" style="height:120px"><i class="bi bi-image text-muted"></i></div>';
+            return `
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow-sm">
+                        <div class="ratio ratio-4x3 bg-light">${img}</div>
+                        <div class="card-body py-2">
+                            <h6 class="card-title small text-truncate">${title}</h6>
+                            ${highlight ? `<p class="small text-muted mb-1 text-truncate" title="${escapeHtml(p.design_highlight || '')}">${escapeHtml(highlight)}</p>` : ''}
+                            <div class="d-flex gap-1 mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary flex-grow-1" data-edit="${escapeHtml(p.id)}"><i class="bi bi-pencil"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-delete="${escapeHtml(p.id)}"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+        $portfolioList.querySelectorAll('[data-edit]').forEach(el => el.addEventListener('click', () => openEdit(el.dataset.edit)));
+        $portfolioList.querySelectorAll('[data-delete]').forEach(el => el.addEventListener('click', () => confirmDelete(el.dataset.delete)));
+    }
+
+    function loadCollections() {
+        if (!manufacturerId) return;
+        fetch('/api/manufacturers/' + encodeURIComponent(manufacturerId) + '/collections')
+            .then(r => r.json())
+            .then(data => { collections = data.items || []; renderCollections(); })
+            .catch(() => { collections = []; renderCollections(); });
+    }
+
+    function renderCollections() {
+        const $list = document.getElementById('collectionsList');
+        const $empty = document.getElementById('collectionsEmpty');
+        if (collections.length === 0) {
+            $list.classList.add('d-none');
+            $empty.classList.remove('d-none');
+            return;
+        }
+        $empty.classList.add('d-none');
+        $list.classList.remove('d-none');
+        $list.innerHTML = collections.map(c => {
+            const title = escapeHtml(c.title || '未命名');
+            const desc = (c.description || '').slice(0, 50) + ((c.description || '').length > 50 ? '…' : '');
+            const cover = c.cover_image_url
+                ? `<img src="${escapeHtml(c.cover_image_url)}" alt="" class="rounded object-fit-cover" style="width:100%;height:100px;object-fit:cover">`
+                : '<div class="bg-light rounded d-flex align-items-center justify-content-center" style="height:100px"><i class="bi bi-folder2 text-muted fs-2"></i></div>';
+            return `
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 shadow-sm">
+                        <div class="ratio ratio-4x3 bg-light">${cover}</div>
+                        <div class="card-body py-2">
+                            <h6 class="card-title small text-truncate">${title}</h6>
+                            ${desc ? `<p class="small text-muted mb-1 text-truncate">${escapeHtml(desc)}</p>` : ''}
+                            <div class="d-flex flex-wrap gap-1 mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-collection-items="${escapeHtml(c.id)}"><i class="bi bi-list-ul me-1"></i>管理作品</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-collection-edit="${escapeHtml(c.id)}"><i class="bi bi-pencil"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-collection-delete="${escapeHtml(c.id)}"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+        $list.querySelectorAll('[data-collection-items]').forEach(el => el.addEventListener('click', () => openCollectionItems(el.dataset.collectionItems)));
+        $list.querySelectorAll('[data-collection-edit]').forEach(el => el.addEventListener('click', () => openEditCollection(el.dataset.collectionEdit)));
+        $list.querySelectorAll('[data-collection-delete]').forEach(el => el.addEventListener('click', () => confirmDeleteCollection(el.dataset.collectionDelete)));
+    }
+
+    function loadCollectionCategories() {
+        if (collectionCategories.length > 0) return Promise.resolve(collectionCategories);
+        return fetch('/api/custom-product-categories').then(r => r.json()).then(d => {
+            collectionCategories = d.categories || [];
+            return collectionCategories;
+        }).catch(() => { collectionCategories = []; return []; });
+    }
+
+    function renderCollectionCategoryChecks(selectedKeys) {
+        const container = document.getElementById('formCollectionCategoryChecks');
+        if (!container) return;
+        selectedKeys = selectedKeys || [];
+        if (collectionCategories.length === 0) {
+            container.innerHTML = '<span class="text-muted small">載入分類中…</span>';
+            return;
+        }
+        container.innerHTML = collectionCategories.map(c => {
+            const key = (c.key != null && c.key !== '') ? String(c.key) : '';
+            const name = (c.name || key || '').replace(/</g, '&lt;');
+            const checked = selectedKeys.indexOf(key) !== -1;
+            const id = 'formCollectionCat_' + (key || 'x').replace(/[^a-zA-Z0-9_-]/g, '_');
+            return `<div class="form-check form-check-inline"><input type="checkbox" class="form-check-input collection-cat-check" data-key="${escapeHtml(key)}" id="${id}" ${checked ? 'checked' : ''}><label class="form-check-label small" for="${id}">${name}</label></div>`;
+        }).join('') || '<span class="text-muted small">尚無分類</span>';
+    }
+
+    function getSelectedCollectionCategoryKeys() {
+        const keys = [];
+        document.querySelectorAll('#formCollectionCategoryChecks .collection-cat-check:checked').forEach(cb => {
+            const k = cb.getAttribute('data-key');
+            if (k != null && k !== '') keys.push(k);
+        });
+        return keys;
+    }
+
+    function openAddCollection() {
+        document.getElementById('formCollectionId').value = '';
+        document.getElementById('formCollectionTitle').value = '';
+        document.getElementById('formCollectionDescription').value = '';
+        document.getElementById('collectionModalTitle').textContent = '新增資料夾';
+        collectionModalInstance = new bootstrap.Modal(document.getElementById('collectionModal'));
+        collectionModalInstance.show();
+        loadCollectionCategories().then(() => renderCollectionCategoryChecks([]));
+    }
+
+    function openEditCollection(id) {
+        const c = collections.find(x => x.id === id);
+        if (!c) return;
+        document.getElementById('formCollectionId').value = c.id;
+        document.getElementById('formCollectionTitle').value = c.title || '';
+        document.getElementById('formCollectionDescription').value = c.description || '';
+        document.getElementById('collectionModalTitle').textContent = '編輯資料夾';
+        collectionModalInstance = new bootstrap.Modal(document.getElementById('collectionModal'));
+        collectionModalInstance.show();
+        const keys = Array.isArray(c.category_keys) ? c.category_keys : [];
+        loadCollectionCategories().then(() => renderCollectionCategoryChecks(keys));
+    }
+
+    function confirmDeleteCollection(id) {
+        if (!confirm('確定要刪除此資料夾嗎？資料夾內的關聯會一併移除，作品本身不會刪除。')) return;
+        getAuthHeaders().then(headers => {
+            fetch('/api/me/manufacturer/collections/' + encodeURIComponent(id), { method: 'DELETE', headers })
+                .then(r => { if (r.ok) loadCollections(); else r.json().then(d => alert(d.error || '刪除失敗')); })
+                .catch(() => alert('刪除失敗'));
+        });
+    }
+
+    function openCollectionItems(collectionId) {
+        window._collectionItemsModalCollectionId = collectionId;
+        const title = (collections.find(c => c.id === collectionId) || {}).title || '資料夾';
+        document.getElementById('collectionItemsModalTitle').textContent = '管理資料夾內作品：「' + escapeHtml(title) + '」';
+        const $checklist = document.getElementById('collectionItemsChecklist');
+        $checklist.innerHTML = '<p class="text-muted mb-0">載入中...</p>';
+        collectionItemsModalInstance = new bootstrap.Modal(document.getElementById('collectionItemsModal'));
+        collectionItemsModalInstance.show();
+        Promise.all([
+            fetch('/api/manufacturers/' + encodeURIComponent(manufacturerId) + '/collections/' + encodeURIComponent(collectionId)).then(r => r.json()),
+            Promise.resolve(list)
+        ]).then(([collData, portfolioList]) => {
+            const currentIds = (collData.items || []).map(p => p.id);
+            const idSet = new Set(currentIds);
+            if (portfolioList.length === 0) {
+                $checklist.innerHTML = '<p class="text-muted mb-0">尚無作品，請先至「作品」分頁新增作品。</p>';
+                return;
+            }
+            $checklist.innerHTML = portfolioList.map(p => {
+                const checked = idSet.has(p.id);
+                const img = p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="" class="rounded me-2" style="width:48px;height:48px;object-fit:cover">` : '';
+                return `<label class="d-flex align-items-center gap-2 p-2 border-bottom border-light list-group-item-action mb-0">
+                    <input type="checkbox" class="form-check-input" data-portfolio-id="${escapeHtml(p.id)}" ${checked ? 'checked' : ''}>
+                    ${img}
+                    <span class="small text-truncate flex-grow-1">${escapeHtml(p.title || '未命名')}</span>
+                </label>`;
+            }).join('');
+        }).catch(() => { $checklist.innerHTML = '<p class="text-danger mb-0">載入失敗</p>'; });
+    }
+
+    function saveCollectionItems() {
+        const collectionId = window._collectionItemsModalCollectionId;
+        if (!collectionId) return;
+        const $checklist = document.getElementById('collectionItemsChecklist');
+        const checked = Array.from($checklist.querySelectorAll('input[type=checkbox]:checked')).map(el => el.dataset.portfolioId);
+        getAuthHeaders().then(headers => {
+            headers['Content-Type'] = 'application/json';
+            fetch('/api/manufacturers/' + encodeURIComponent(manufacturerId) + '/collections/' + encodeURIComponent(collectionId))
+                .then(r => r.json())
+                .then(collData => {
+                    const currentIds = (collData.items || []).map(p => p.id);
+                    const toAdd = checked.filter(pid => !currentIds.includes(pid));
+                    const toRemove = currentIds.filter(pid => !checked.includes(pid));
+                    const promises = [];
+                    toAdd.forEach(portfolioId => promises.push(
+                        fetch('/api/me/manufacturer/collections/' + encodeURIComponent(collectionId) + '/items', {
+                            method: 'POST', headers, body: JSON.stringify({ portfolio_id: portfolioId })
+                        })
+                    ));
+                    toRemove.forEach(portfolioId => promises.push(
+                        fetch('/api/me/manufacturer/collections/' + encodeURIComponent(collectionId) + '/items/' + encodeURIComponent(portfolioId), { method: 'DELETE', headers })
+                    ));
+                    return Promise.all(promises);
+                })
+                .then(() => {
+                    collectionItemsModalInstance.hide();
+                    loadCollections();
+                })
+                .catch(() => alert('儲存失敗'));
+        });
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        const div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function openAdd() {
+        document.getElementById('formPortfolioId').value = '';
+        document.getElementById('formTitle').value = '';
+        document.getElementById('formDescription').value = '';
+        document.getElementById('formDesignHighlight').value = '';
+        document.getElementById('formTags').value = '';
+        document.getElementById('formImage').value = '';
+        document.getElementById('formImageBefore').value = '';
+        document.getElementById('formImageUrl').value = '';
+        document.getElementById('formImageUrlBefore').value = '';
+        document.getElementById('formImagePreview').innerHTML = '';
+        document.getElementById('formImageBeforePreview').innerHTML = '';
+        $portfolioModalTitle.textContent = '新增作品';
+        modalInstance = new bootstrap.Modal($portfolioModal);
+        modalInstance.show();
+    }
+
+    function openEdit(id) {
+        const p = list.find(x => x.id === id);
+        if (!p) return;
+        document.getElementById('formPortfolioId').value = p.id;
+        document.getElementById('formTitle').value = p.title || '';
+        document.getElementById('formDescription').value = p.description || '';
+        document.getElementById('formDesignHighlight').value = p.design_highlight || '';
+        document.getElementById('formTags').value = Array.isArray(p.tags) ? p.tags.join(', ') : (p.tags || '');
+        document.getElementById('formImage').value = '';
+        document.getElementById('formImageBefore').value = '';
+        document.getElementById('formImageUrl').value = p.image_url || '';
+        document.getElementById('formImageUrlBefore').value = p.image_url_before || '';
+        const prev = document.getElementById('formImagePreview');
+        prev.innerHTML = p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="" class="img-thumbnail" style="max-height:80px">` : '';
+        const prevBefore = document.getElementById('formImageBeforePreview');
+        prevBefore.innerHTML = p.image_url_before ? `<img src="${escapeHtml(p.image_url_before)}" alt="" class="img-thumbnail" style="max-height:80px">` : '';
+        $portfolioModalTitle.textContent = '編輯作品';
+        modalInstance = new bootstrap.Modal($portfolioModal);
+        modalInstance.show();
+    }
+
+    function confirmDelete(id) {
+        if (!confirm('確定要刪除這張作品嗎？')) return;
+        fetch('/api/manufacturers/' + encodeURIComponent(manufacturerId) + '/portfolio/' + encodeURIComponent(id), { method: 'DELETE' })
+            .then(r => { if (r.ok) loadList(); else r.json().then(d => alert(d.error || '刪除失敗')); })
+            .catch(() => alert('刪除失敗'));
+    }
+
+    $btnSave.addEventListener('click', function() {
+        const portfolioId = document.getElementById('formPortfolioId').value;
+        const title = document.getElementById('formTitle').value.trim();
+        const description = document.getElementById('formDescription').value.trim();
+        const design_highlight = document.getElementById('formDesignHighlight').value.trim();
+        const tagsStr = document.getElementById('formTags').value.trim();
+        const tags = tagsStr ? tagsStr.split(/[,，\s]+/).filter(Boolean) : [];
+        const formImage = document.getElementById('formImage');
+        const formImageBefore = document.getElementById('formImageBefore');
+        const formImageUrl = document.getElementById('formImageUrl').value.trim();
+        const formImageUrlBefore = document.getElementById('formImageUrlBefore').value.trim();
+
+        if (!formImage.files.length && !formImageUrl && !portfolioId) {
+            alert('請上傳作品圖片');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('description', description);
+        formData.append('design_highlight', design_highlight);
+        formData.append('tags', JSON.stringify(tags));
+        if (formImage.files.length) formData.append('image', formImage.files[0]);
+        else if (formImageUrl) formData.append('image_url', formImageUrl);
+        if (formImageBefore.files.length) formData.append('image_before', formImageBefore.files[0]);
+        else if (formImageUrlBefore) formData.append('image_url_before', formImageUrlBefore);
+
+        const url = portfolioId
+            ? '/api/manufacturers/' + encodeURIComponent(manufacturerId) + '/portfolio/' + encodeURIComponent(portfolioId)
+            : '/api/manufacturers/' + encodeURIComponent(manufacturerId) + '/portfolio';
+        const method = portfolioId ? 'PUT' : 'POST';
+
+        fetch(url, { method, body: formData })
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    modalInstance.hide();
+                    loadList();
+                } else alert(data.error || '儲存失敗');
+            })
+            .catch(() => alert('儲存失敗'));
+    });
+
+    $btnAdd.addEventListener('click', openAdd);
+
+    document.getElementById('btnAddCollection').addEventListener('click', openAddCollection);
+    document.getElementById('btnSaveCollection').addEventListener('click', async function() {
+        const id = document.getElementById('formCollectionId').value.trim();
+        const title = document.getElementById('formCollectionTitle').value.trim();
+        const description = document.getElementById('formCollectionDescription').value.trim();
+        const category_keys = getSelectedCollectionCategoryKeys();
+        if (!title) { alert('請填寫資料夾名稱'); return; }
+        const headers = await getAuthHeaders();
+        headers['Content-Type'] = 'application/json';
+        const url = id ? '/api/me/manufacturer/collections/' + encodeURIComponent(id) : '/api/me/manufacturer/collections';
+        const method = id ? 'PUT' : 'POST';
+        const body = JSON.stringify({ title, description, category_keys });
+        fetch(url, { method, headers, body })
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+                if (ok) {
+                    if (collectionModalInstance) collectionModalInstance.hide();
+                    loadCollections();
+                } else alert(data.error || '儲存失敗');
+            })
+            .catch(() => alert('儲存失敗'));
+    });
+    document.getElementById('btnSaveCollectionItems').addEventListener('click', saveCollectionItems);
+
+    document.getElementById('createManufacturerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var name = document.getElementById('createName').value.trim();
+        if (!name) { alert('請填寫廠商名稱'); return; }
+        var btn = document.getElementById('btnCreateMfr');
+        btn.disabled = true;
+        var headers = await getAuthHeaders();
+        headers['Content-Type'] = 'application/json';
+        try {
+            var r = await fetch('/api/me/manufacturer', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({
+                    name: name,
+                    description: document.getElementById('createDescription').value.trim(),
+                    location: document.getElementById('createLocation').value.trim(),
+                    phone: document.getElementById('createPhone').value.trim(),
+                    email: document.getElementById('createEmail').value.trim()
+                })
+            });
+            var data = await r.json().catch(function() { return {}; });
+            if (r.ok && data.id) {
+                myManufacturer = data;
+                manufacturerId = data.id;
+                showMain();
+            } else {
+                alert(data.error || '建立失敗');
+                btn.disabled = false;
+            }
+        } catch (err) {
+            alert('建立失敗');
+            btn.disabled = false;
+        }
+    });
+
+    // 廠商專用：登入後取得「我的廠商」（有則管理作品，無則顯示建立表單）
+    (async function init() {
+        var ok = typeof AuthMiddleware !== 'undefined' && AuthMiddleware.requireAuth
+            ? await AuthMiddleware.requireAuth()
+            : true;
+        if (!ok) return;
+        $loadingBlock.classList.remove('d-none');
+        var headers = await getAuthHeaders();
+        try {
+            var r = await fetch('/api/me/manufacturer', { headers: headers });
+            var data = {};
+            try { data = await r.json(); } catch (e) {}
+            if (r.status === 401) {
+                window.location.href = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl) ? AuthService.getLoginUrl() : '/login.html';
+                return;
+            }
+            if (r.ok && data.id) {
+                myManufacturer = data;
+                manufacturerId = data.id;
+                showMain();
+            } else {
+                manufacturerId = '';
+                myManufacturer = null;
+                showMain();
+            }
+        } catch (e) {
+            manufacturerId = '';
+            myManufacturer = null;
+            showMain();
+        }
+    })();
+})();
+    </script>
+</body>
+</html>

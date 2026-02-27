@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>專家自介 - MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+</head>
+<body>
+    <p>載入中...</p>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const ok = await AuthMiddleware.requireExpert();
+            if (!ok) return;
+            const currentUser = await AuthService.getCurrentUser();
+            if (!currentUser || !currentUser.id) {
+                window.location.href = '/login.html';
+                return;
+            }
+            window.location.replace('/expert/profile-view.html?expert_id=' + encodeURIComponent(currentUser.id));
+        });
+    </script>
+</body>
+</html>

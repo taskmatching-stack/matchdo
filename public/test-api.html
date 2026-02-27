@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>API 測試</title>
+</head>
+<body>
+    <h1>測試子分類 API</h1>
+    <button onclick="testAPI()">點我測試</button>
+    <pre id="result"></pre>
+    
+    <script>
+    async function testAPI() {
+        const result = document.getElementById('result');
+        result.textContent = '測試中...';
+        
+        try {
+            const res = await fetch('/api/subcategories?category_key=home');
+            const data = await res.json();
+            
+            result.textContent = JSON.stringify(data, null, 2);
+            
+            // 檢查清潔服務
+            const cleanService = data.subcategories?.find(s => s.name === '清潔服務');
+            if (cleanService) {
+                console.log('清潔服務 form_config:', cleanService.form_config);
+                if (!cleanService.form_config || cleanService.form_config.length === 0) {
+                    result.textContent += '\n\n❌ 問題：清潔服務的 form_config 是空的！\n你需要在 Supabase 執行 SQL！';
+                } else {
+                    result.textContent += '\n\n✅ 清潔服務有 ' + cleanService.form_config.length + ' 個欄位';
+                }
+            }
+        } catch (e) {
+            result.textContent = '❌ 錯誤: ' + e.message;
+        }
+    }
+    </script>
+</body>
+</html>

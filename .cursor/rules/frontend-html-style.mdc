@@ -1,0 +1,46 @@
+---
+description: 前台 HTML 頁面樣式一致：必載 style.css、標題列用 page-title-bar
+globs: client/**/*.html, expert/**/*.html, admin/**/*.html, public/**/*.html
+alwaysApply: false
+---
+
+# 前台頁面樣式一致（必守）
+
+凡**使用 `#site-header` 的頁面**，必須同時做到兩件事，否則會與全站樣式不一致。
+
+## 1. 必載全站樣式
+
+在 `<head>` 裡一定要有（順序可調整，但不可省略）：
+
+```html
+<link href="/css/style.css" rel="stylesheet">
+```
+
+若有主題可再加：`<link href="/css/theme-custom.css" rel="stylesheet">`。
+
+## 2. 標題列一律用 page-title-bar
+
+有「頁面標題 + 麵包屑」時，用下面結構，**禁止**使用 `bg-primary`、`text-white` 的 teal 條：
+
+```html
+<div class="container-fluid page-title-bar">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="mb-0 text-dark">頁面標題</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/index.html">首頁</a></li>
+                    <li class="breadcrumb-item active">當前頁</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+</div>
+```
+
+## 新增頁面時
+
+- **優先**：從範本複製再改內容 → `docs/templates/page-with-header.html`
+- 若手寫或 AI 生成新頁：依本規則檢查是否含 `/css/style.css` 與 `page-title-bar` 結構
+
+詳見 `docs/matchdo-todo.md` 的「前台樣式一致規範」一節。

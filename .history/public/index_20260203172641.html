@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 自動估價系統 MVP</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <h1 class="text-center mb-4">📸 設計圖轉估價單</h1>
+    <div class="card p-4 shadow-sm">
+        <div class="mb-3">
+            <label for="imageInput" class="form-label">上傳設計圖 (JPG/PNG)</label>
+            <input class="form-control" type="file" id="imageInput" accept="image/*">
+        </div>
+        <button onclick="analyzeImage()" class="btn btn-primary w-100" id="btnAnalyze">開始 AI 估算</button>
+    </div>
+    <div id="resultArea" class="mt-4 d-none">
+        <h3>💰 預估總價：<span id="totalPrice" class="text-danger"></span> 元</h3>
+        <table class="table table-striped mt-3">
+            <thead>
+                <tr>
+                    <th>項目</th>
+                    <th>規格</th>
+                    <th>數量</th>
+                    <th>媒合單價</th>
+                    <th>小計</th>
+                </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+        </table>
+    </div>
+</div>
+<script>
+    async function analyzeImage() {
+        const fileInput = document.getElementById('imageInput');
+        const btn = document.getElementById('btnAnalyze');
+        if(fileInput.files.length === 0) return alert("請先選擇圖片");
+        const formData = new FormData();
+        formData.append('designImage', fileInput.files[0]);
+        btn.innerText = "AI 運算中...";
+        btn.disabled = true;
+        try {
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.success) {
+                document.getElementById('resultArea').classList.remove('d-none');
+                document.getElementById('totalPrice').innerText = data.total.toLocaleString();
+                const tbody = document.getElementById('resultBody');
+                tbody.innerHTML = '';
+                data.details.forEach(row => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${row.item}</td>
+                            <td>${row.spec}</td>
+                            <td>${row.qty} ${row.unit}</td>
+                            <td>${row.matched_price}</td>
+                            <td>${row.subtotal}</td>
+                        </tr>
+                    `;
+                });
+            }
+        } catch (err) {
+            alert("發生錯誤");
+        } finally {
+            btn.innerText = "開始 AI 估算";
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>

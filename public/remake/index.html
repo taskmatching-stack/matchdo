@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="remake">
+<head>
+    <meta charset="utf-8">
+    <title data-i18n="remake.pageTitle">再製／改裝現有品 - MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="上傳現有品圖片，AI 依再製分類改裝設計，媒合改製廠商">
+
+    <link href="/img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <!-- Hero：再製方案首頁 -->
+    <div class="container-fluid py-5 bg-light">
+        <div class="container py-5">
+            <div class="row align-items-center mb-5">
+                <div class="col-lg-7">
+                    <h1 class="display-5 mb-4" data-i18n="remake.heroTitle">再製／改裝現有品</h1>
+                    <p class="lead text-muted mb-4" data-i18n="remake.heroLead">
+                        上傳現有品圖片並選擇再製分類（服裝改製、家具翻新、皮件保養等），AI 依圖改裝設計後為您媒合廠商。再製方案必須有圖，分類與訂製方案分開管理。
+                    </p>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="/remake-product.html" class="btn btn-primary btn-lg px-4"><i class="bi bi-plus-circle me-2"></i><span data-i18n="remake.btnCreate">建立再製設計</span></a>
+                        <a href="/client/find-makers.html" class="btn btn-success btn-lg px-4"><i class="bi bi-shop me-2"></i><span data-i18n="remake.btnFindMakers">找製作方</span></a>
+                        <a href="/custom/gallery.html" class="btn btn-outline-primary btn-lg px-4"><i class="bi bi-images me-2"></i><span data-i18n="remake.btnGallery">圖庫找廠商</span></a>
+                        <a href="/client/my-custom-products.html" class="btn btn-outline-secondary btn-lg px-4"><i class="bi bi-box-seam me-2"></i><span data-i18n="remake.btnMyProducts">我的產品</span></a>
+                    </div>
+                </div>
+                <div class="col-lg-5 text-center text-muted">
+                    <i class="bi bi-tools" style="font-size: 8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 流程簡述 -->
+    <div class="container py-5">
+        <h2 class="text-center mb-4" data-i18n="remake.flowTitle">流程說明</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px;">1</span>
+                        <h5 class="card-title" data-i18n="remake.flow1Title">上傳現有品圖片</h5>
+                        <p class="card-text text-muted small" data-i18n="remake.flow1Desc">再製方案必須上傳至少一張參考圖，選擇再製分類（後台「再製分類」管理）。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px;">2</span>
+                        <h5 class="card-title" data-i18n="remake.flow2Title">AI 改裝設計</h5>
+                        <p class="card-text text-muted small" data-i18n="remake.flow2Desc">AI 依分類提示詞與您的描述，依圖生成改裝後草圖。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px;">3</span>
+                        <h5 class="card-title" data-i18n="remake.flow3Title">聯繫廠商</h5>
+                        <p class="card-text text-muted small" data-i18n="remake.flow3Desc">瀏覽廠商作品與聯絡方式，選擇後發送聯繫或前往廠商自架賣場。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工作入口：與訂製方案一致 -->
+    <div class="container py-4">
+        <p class="text-muted small text-center mb-3" data-i18n="remake.workHint">同一帳號可同時使用客戶與供應商功能</p>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-3"><i class="bi bi-person me-2"></i><span data-i18n="remake.clientSection">再製客戶</span></h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="/remake-product.html" class="btn btn-outline-primary btn-sm"><span data-i18n="remake.btnCreate">建立再製設計</span></a>
+                            <a href="/client/find-makers.html" class="btn btn-outline-success btn-sm"><span data-i18n="remake.btnFindMakers">找製作方</span></a>
+                            <a href="/client/my-custom-products.html" class="btn btn-outline-primary btn-sm"><span data-i18n="remake.btnMyProducts">我的產品</span></a>
+                            <a href="/custom/gallery.html" class="btn btn-outline-primary btn-sm"><span data-i18n="remake.btnGallery">圖庫找廠商</span></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-3"><i class="bi bi-shop me-2"></i><span data-i18n="remake.vendorSection">訂製品供應商</span></h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm">廠商控制台</a>
+                            <a href="/client/manufacturer-portfolio.html" class="btn btn-outline-secondary btn-sm">我的廠商作品</a>
+                            <a href="/client/manufacturer-inquiries.html" class="btn btn-outline-secondary btn-sm">訂製詢價列表</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container pb-5" id="service-matching-cta">
+        <div class="text-center">
+            <p class="text-muted mb-2" data-i18n="remake.ctaText">需要發包工程、找施工專家？</p>
+            <a href="/index.html#ai-estimate" class="btn btn-outline-secondary" data-i18n="remake.ctaBtn">前往服務媒合首頁</a>
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+    <a href="#!" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/site-footer.js"></script>
+    <script>
+        (function () {
+            if (window.i18n && window.i18n.ready) {
+                window.i18n.ready.then(function () {
+                    if (window.i18n.applyPage) window.i18n.applyPage();
+                    var t = window.i18n.t;
+                    if (t && document.querySelector('title[data-i18n]')) {
+                        var key = document.querySelector('title').getAttribute('data-i18n');
+                        if (key && t(key) !== key) document.title = t(key);
+                    }
+                });
+            }
+            fetch('/api/public-config').then(function (r) { return r.json(); }).then(function (c) {
+                if (c.enableServiceMatching === false) {
+                    var el = document.getElementById('service-matching-cta');
+                    if (el) el.classList.add('d-none');
+                }
+            }).catch(function () {});
+        })();
+    </script>
+</body>
+</html>

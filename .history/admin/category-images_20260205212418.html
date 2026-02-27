@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>分類圖片管理 - MatchDO 管理後台</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="/iStudio-1.0.0/img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
+
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/iStudio-1.0.0/js/site-header.js"></script>
+</head>
+
+<body>
+    <!-- 共用導覽 -->
+    <div id="site-header"></div>
+
+    <!-- Page Header Start -->
+    <div class="container-fluid bg-primary py-2">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="text-white mb-0">
+                    <i class="fas fa-images me-2"></i>分類預設圖片管理
+                </h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb bg-transparent mb-0">
+                        <li class="breadcrumb-item"><a class="text-white" href="/">首頁</a></li>
+                        <li class="breadcrumb-item"><a class="text-white" href="/admin/index.html">管理後台</a></li>
+                        <li class="breadcrumb-item text-white active">分類圖片管理</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- Main Content Start -->
+    <div class="container-xxl py-3">
+        <div class="container">
+            <!-- 說明區塊 -->
+            <div class="alert alert-info mb-4">
+                <h5 class="alert-heading">
+                    <i class="fas fa-info-circle me-2"></i>分類預設圖片說明
+                </h5>
+                <p class="mb-2">為每個專案分類（主分類和子分類）設置預設封面圖片，當使用者建立專案時會自動使用對應的預設圖。</p>
+                <ul class="mb-0">
+                    <li>建議尺寸：<strong>1200 x 800 px</strong>（3:2 比例）</li>
+                    <li>檔案格式：JPG、PNG 或 WebP</li>
+                    <li>檔案大小：< 500KB</li>
+                    <li>風格：專業、清晰、符合分類主題</li>
+                    <li><strong class="text-danger">現在可以上傳子分類圖片了！</strong></li>
+                </ul>
+            </div>
+
+            <!-- 統計資訊 -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="text-primary mb-2" id="totalCategories">0</h3>
+                            <p class="text-muted mb-0">總分類數</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="text-success mb-2" id="uploadedImages">0</h3>
+                            <p class="text-muted mb-0">已上傳圖片</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="text-warning mb-2" id="defaultImages">0</h3>
+                            <p class="text-muted mb-0">使用預設圖</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <h3 class="text-info mb-2" id="subcategoryCount">0</h3>
+                            <p class="text-muted mb-0">子分類總數</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分類列表 -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h5 class="mb-0">分類圖片列表</h5>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchInput" 
+                                       placeholder="搜尋分類名稱..." 
+                                       onkeyup="filterCategories()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- 載入中 -->
+                    <div id="loadingSection" class="text-center py-5">
+                        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                        <p class="mt-3 text-muted">載入分類資料中...</p>
+                    </div>
+
+                    <!-- 分類網格 -->
+                    <div id="categoriesGrid" class="p-4 d-none">
+                        <!-- 動態生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Main Content End -->
+
+    <!-- 上傳圖片 Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-upload me-2"></i>上傳分類圖片
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">分類資訊</label>
+                        <div class="alert alert-light">
+                            <div><strong>分類名稱：</strong><span id="modalCategoryName"></span></div>
+                            <div><strong>分類類型：</strong><span id="modalCategoryType"></span></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">目前圖片</label>
+                        <div class="border rounded p-3 text-center bg-light">
+                            <img id="modalCurrentImage" src="" class="img-fluid" 
+                                 style="max-height: 300px; object-fit: contain;" alt="目前圖片"
+                                 onerror="this.src='/iStudio-1.0.0/img/categories/default-project.svg'">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">選擇新圖片</label>
+                        <input type="file" class="form-control" id="modalFileInput" 
+                               accept="image/jpeg,image/png,image/webp" onchange="previewImage(this)">
+                        <small class="text-muted">建議尺寸：1200 x 800 px，檔案大小 < 500KB</small>
+                    </div>
+                    <div class="mb-3 d-none" id="previewSection">
+                        <label class="form-label">預覽新圖片</label>
+                        <div class="border rounded p-3 text-center bg-light">
+                            <img id="modalPreviewImage" src="" class="img-fluid" 
+                                 style="max-height: 300px; object-fit: contain;" alt="預覽">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmUploadBtn" onclick="confirmUpload()">
+                        <i class="fas fa-check me-2"></i>確認上傳
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Category Default Images Config -->
+    <script src="/config/category-default-images.js"></script>
+
+    <!-- Main Script -->
+    <script>
+        let currentUser = null;
+        let currentCategory = null; // { parentKey, subIndex, name, isParent }
+        let uploadModal = null;
+        let allCategories = []; // 原始資料庫資料
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 檢查登入與權限
+            if (!window.AuthService) {
+                alert('認證服務未載入');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            currentUser = await AuthService.getCurrentUser();
+            if (!currentUser) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            // 檢查是否為管理員
+            const isAdmin = await AuthService.isAdmin();
+            if (!isAdmin) {
+                alert('⚠️ 您沒有權限訪問此頁面');
+                window.location.href = '/';
+                return;
+            }
+
+            // 初始化 Modal
+            uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+
+            // 載入分類資料
+            await loadCategories();
+        });
+
+        // 載入所有分類
+        async function loadCategories() {
+            try {
+                // 從資料庫讀取所有分類（不篩選 parent_key）
+                const { data: categories, error } = await AuthService.supabase
+                    .from('ai_categories')
+                    .select('*')
+                    .order('name', { ascending: true });
+                
+                if (error) {
+                    console.error('資料庫查詢錯誤:', error);
+                    throw error;
+                }
+                
+                if (!categories || categories.length === 0) {
+                    document.getElementById('loadingSection').innerHTML = 
+                        '<p class="text-muted text-center py-5">資料庫中暫無分類資料</p>';
+                    return;
+                }
+                
+                // 只保留有 subcategories 的主分類
+                allCategories = categories.filter(cat => 
+                    cat.subcategories && Array.isArray(cat.subcategories) && cat.subcategories.length > 0
+                );
+                
+                console.log('✅ 載入成功:', allCategories.length, '個主分類');
+                
+                // 計算統計
+                let totalSubs = 0;
+                let uploadedCount = 0;
+                
+                allCategories.forEach(cat => {
+                    if (cat.image_url) uploadedCount++;
+                    
+                    // 支援兩種格式
+                    if (cat.subcategories) {
+                        cat.subcategories.forEach(sub => {
+                            totalSubs++;
+                            // 如果是物件格式且有 image_url
+                            if (typeof sub === 'object' && sub.image_url) {
+                                uploadedCount++;
+                            }
+                        });
+                    }
+                });
+                
+                const totalCount = allCategories.length + totalSubs;
+
+                // 更新統計
+                document.getElementById('totalCategories').textContent = totalCount;
+                document.getElementById('uploadedImages').textContent = uploadedCount;
+                document.getElementById('defaultImages').textContent = totalCount - uploadedCount;
+                document.getElementById('subcategoryCount').textContent = totalSubs;
+
+                // 顯示分類網格
+                renderCategories();
+
+                // 隱藏載入中
+                document.getElementById('loadingSection').classList.add('d-none');
+                document.getElementById('categoriesGrid').classList.remove('d-none');
+
+            } catch (error) {
+                console.error('❌ 載入分類失敗:', error);
+                document.getElementById('loadingSection').innerHTML = `
+                    <div class="alert alert-danger m-4">
+                        <h5>載入失敗</h5>
+                        <p>錯誤訊息：${error.message}</p>
+                        <p class="mb-0">請檢查：</p>
+                        <ul>
+                            <li>ai_categories 表是否存在</li>
+                            <li>是否有查詢權限</li>
+                            <li>RLS policies 是否正確設定</li>
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        // 渲染分類網格（階層結構）
+        function renderCategories() {
+            const grid = document.getElementById('categoriesGrid');
+            let html = '';
+            
+            allCategories.forEach((parent, index) => {
+                const collapseId = `collapse-${parent.key}`;
+                const subcategories = parent.subcategories || [];
+                
+                html += `
+                    <div class="mb-4 category-group" data-parent-name="${parent.name}">
+                        <div class="card border-0 shadow-sm">
+                            <!-- 主分類標題欄 -->
+                            <div class="card-header bg-primary text-white" style="cursor: pointer;"
+                                 data-bs-toggle="collapse" data-bs-target="#${collapseId}">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <h5 class="mb-0">
+                                            <i class="fas fa-folder-open me-2"></i>${parent.name}
+                                            <span class="badge bg-white text-primary ms-2">${subcategories.length} 個子分類</span>
+                                        </h5>
+                                    </div>
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- 可折疊內容區 -->
+                            <div id="${collapseId}" class="collapse ${index === 0 ? 'show' : ''}">
+                                <div class="card-body p-3">
+                                    <div class="row g-3">
+                                        <!-- 主分類卡片 -->
+                                        <div class="col-md-3">
+                                            ${renderCategoryCard(parent, -1, true)}
+                                        </div>
+                                        
+                                        <!-- 子分類卡片 -->
+                                        ${subcategories.map((sub, subIndex) => `
+                                            <div class="col-md-3" data-subcategory="${getSubName(sub)}">
+                                                ${renderCategoryCard(parent, subIndex, false)}
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+        
+        // 取得子分類名稱（支援兩種格式）
+        function getSubName(sub) {
+            return typeof sub === 'string' ? sub : sub.name;
+        }
+        
+        // 取得子分類圖片 URL（支援兩種格式）
+        function getSubImageUrl(sub, subName) {
+            if (typeof sub === 'object' && sub.image_url) {
+                return sub.image_url;
+            }
+            return CategoryDefaultImages[subName] || CategoryDefaultImages.default;
+        }
+        
+        // 渲染單一分類卡片
+        function renderCategoryCard(parent, subIndex, isParent) {
+            let name, imageUrl, isUploaded;
+            
+            if (isParent) {
+                // 主分類
+                name = parent.name;
+                imageUrl = parent.image_url || CategoryDefaultImages[name] || CategoryDefaultImages.default;
+                isUploaded = !!parent.image_url;
+            } else {
+                // 子分類
+                const sub = parent.subcategories[subIndex];
+                name = getSubName(sub);
+                imageUrl = getSubImageUrl(sub, name);
+                isUploaded = (typeof sub === 'object' && !!sub.image_url);
+            }
+            
+            const cardBorder = isParent ? 'border-primary border-2' : '';
+            const badgeColor = isParent ? 'bg-primary' : 'bg-info';
+            const badgeText = isParent ? '主分類' : '子分類';
+            
+            return `
+                <div class="card h-100 shadow-sm ${cardBorder}">
+                    <div class="position-relative">
+                        <img src="${imageUrl}" class="card-img-top" 
+                             alt="${name}" 
+                             style="height: 160px; object-fit: cover;"
+                             onerror="this.src='/iStudio-1.0.0/img/categories/default-project.svg'">
+                        <span class="position-absolute top-0 start-0 m-2 badge ${badgeColor}">
+                            ${badgeText}
+                        </span>
+                        <span class="position-absolute top-0 end-0 m-2 badge ${isUploaded ? 'bg-success' : 'bg-warning text-dark'}">
+                            ${isUploaded ? '自訂' : '預設'}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="card-title mb-2">${name}</h6>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-sm btn-primary" 
+                                    onclick='openUploadModal("${parent.key}", ${subIndex}, "${name}", ${isParent})'>
+                                <i class="fas fa-upload me-1"></i>上傳圖片
+                            </button>
+                            ${isUploaded ? `
+                                <button class="btn btn-sm btn-outline-danger" 
+                                        onclick='deleteImage("${parent.key}", ${subIndex}, "${name}", ${isParent})'>
+                                    <i class="fas fa-trash me-1"></i>刪除圖片
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 搜尋過濾
+        function filterCategories() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const groups = document.querySelectorAll('.category-group');
+
+            groups.forEach(group => {
+                const parentName = group.dataset.parentName.toLowerCase();
+                const subCards = group.querySelectorAll('[data-subcategory]');
+                let hasMatch = parentName.includes(searchTerm);
+                
+                // 檢查子分類
+                subCards.forEach(card => {
+                    const subName = card.dataset.subcategory.toLowerCase();
+                    if (subName.includes(searchTerm)) {
+                        hasMatch = true;
+                        card.classList.remove('d-none');
+                    } else if (searchTerm && !parentName.includes(searchTerm)) {
+                        card.classList.add('d-none');
+                    } else {
+                        card.classList.remove('d-none');
+                    }
+                });
+                
+                if (hasMatch || !searchTerm) {
+                    group.classList.remove('d-none');
+                } else {
+                    group.classList.add('d-none');
+                }
+            });
+        }
+
+        // 開啟上傳 Modal
+        function openUploadModal(parentKey, subIndex, categoryName, isParent) {
+            currentCategory = {
+                parentKey: parentKey,
+                subIndex: subIndex,
+                name: categoryName,
+                isParent: isParent
+            };
+            
+            // 找到對應的分類資料
+            const parent = allCategories.find(c => c.key === parentKey);
+            let imageUrl;
+            
+            if (isParent) {
+                imageUrl = parent.image_url || CategoryDefaultImages[categoryName] || CategoryDefaultImages.default;
+            } else {
+                const sub = parent.subcategories[subIndex];
+                imageUrl = getSubImageUrl(sub, categoryName);
+            }
+
+            document.getElementById('modalCategoryName').textContent = categoryName;
+            document.getElementById('modalCategoryType').textContent = isParent ? '主分類' : `子分類（${parent.name}）`;
+            document.getElementById('modalCurrentImage').src = imageUrl;
+            document.getElementById('modalFileInput').value = '';
+            document.getElementById('previewSection').classList.add('d-none');
+
+            uploadModal.show();
+        }
+
+        // 預覽圖片
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // 檢查檔案大小
+                if (file.size > 500 * 1024) {
+                    alert('⚠️ 檔案大小超過 500KB，請壓縮後再上傳');
+                    input.value = '';
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('modalPreviewImage').src = e.target.result;
+                    document.getElementById('previewSection').classList.remove('d-none');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // 確認上傳
+        async function confirmUpload() {
+            const fileInput = document.getElementById('modalFileInput');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('⚠️ 請選擇圖片檔案');
+                return;
+            }
+
+            const btn = document.getElementById('confirmUploadBtn');
+            
+            try {
+                // 顯示載入中
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>上傳中...';
+
+                // 產生檔案名稱（只保留英文、數字、破折號）
+                const timestamp = Date.now();
+                const ext = file.name.split('.').pop();
+                // 移除所有非 ASCII 字符，只保留 a-z, A-Z, 0-9
+                const safeName = currentCategory.name
+                    .replace(/[^a-zA-Z0-9]/g, '-')  // 將非英數字轉成 -
+                    .replace(/-+/g, '-')             // 合併連續的 -
+                    .replace(/^-|-$/g, '');          // 移除頭尾的 -
+                const fileName = `categories/${currentCategory.parentKey}-${safeName || 'image'}-${timestamp}.${ext}`;
+
+                // 上傳到 Supabase Storage
+                const { data: uploadData, error: uploadError } = await AuthService.supabase.storage
+                    .from('project-images')
+                    .upload(fileName, file, {
+                        cacheControl: '3600',
+                        upsert: true
+                    });
+
+                if (uploadError) throw uploadError;
+
+                // 取得公開 URL
+                const { data: { publicUrl } } = AuthService.supabase.storage
+                    .from('project-images')
+                    .getPublicUrl(fileName);
+
+                console.log('✅ 圖片已上傳:', publicUrl);
+
+                // 更新資料庫
+                if (currentCategory.isParent) {
+                    // 更新主分類
+                    await updateParentImage(currentCategory.parentKey, publicUrl);
+                } else {
+                    // 更新子分類
+                    await updateSubcategoryImage(currentCategory.parentKey, currentCategory.subIndex, publicUrl);
+                }
+
+                alert('✅ 圖片已成功上傳！');
+                uploadModal.hide();
+                
+                // 重新載入
+                await loadCategories();
+
+            } catch (error) {
+                console.error('❌ 上傳失敗:', error);
+                alert(`❌ 上傳失敗：${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check me-2"></i>確認上傳';
+            }
+        }
+
+        // 更新主分類圖片
+        async function updateParentImage(parentKey, imageUrl) {
+            const { error } = await AuthService.supabase
+                .from('ai_categories')
+                .update({ image_url: imageUrl })
+                .eq('key', parentKey);
+            
+            if (error) throw error;
+            console.log('✅ 主分類圖片已更新');
+        }
+
+        // 更新子分類圖片
+        async function updateSubcategoryImage(parentKey, subIndex, imageUrl) {
+            // 先取得當前資料
+            const { data: category, error: fetchError } = await AuthService.supabase
+                .from('ai_categories')
+                .select('subcategories')
+                .eq('key', parentKey)
+                .single();
+            
+            if (fetchError) throw fetchError;
+            
+            let subcategories = category.subcategories;
+            
+            // 轉換格式（如果是字串陣列，轉成物件陣列）
+            if (subcategories.length > 0 && typeof subcategories[0] === 'string') {
+                console.log('⚙️ 偵測到舊格式，正在轉換...');
+                subcategories = subcategories.map(name => ({
+                    name: name,
+                    image_url: null
+                }));
+            }
+            
+            // 更新指定子分類的 image_url
+            subcategories[subIndex].image_url = imageUrl;
+            
+            // 寫回資料庫
+            const { error: updateError } = await AuthService.supabase
+                .from('ai_categories')
+                .update({ subcategories: subcategories })
+                .eq('key', parentKey);
+            
+            if (updateError) throw updateError;
+            console.log('✅ 子分類圖片已更新');
+        }
+
+        // 刪除圖片
+        async function deleteImage(parentKey, subIndex, categoryName, isParent) {
+            if (!confirm(`確定要刪除「${categoryName}」的圖片嗎？\n將恢復為預設圖片。`)) {
+                return;
+            }
+
+            try {
+                if (isParent) {
+                    // 刪除主分類圖片
+                    const { error } = await AuthService.supabase
+                        .from('ai_categories')
+                        .update({ image_url: null })
+                        .eq('key', parentKey);
+                    
+                    if (error) throw error;
+                } else {
+                    // 刪除子分類圖片
+                    const { data: category, error: fetchError } = await AuthService.supabase
+                        .from('ai_categories')
+                        .select('subcategories')
+                        .eq('key', parentKey)
+                        .single();
+                    
+                    if (fetchError) throw fetchError;
+                    
+                    let subcategories = category.subcategories;
+                    
+                    // 如果是物件格式，清除 image_url
+                    if (typeof subcategories[subIndex] === 'object') {
+                        subcategories[subIndex].image_url = null;
+                        
+                        const { error: updateError } = await AuthService.supabase
+                            .from('ai_categories')
+                            .update({ subcategories: subcategories })
+                            .eq('key', parentKey);
+                        
+                        if (updateError) throw updateError;
+                    }
+                }
+                
+                alert('✅ 已恢復為預設圖片');
+                await loadCategories();
+                
+            } catch (error) {
+                console.error('❌ 刪除失敗:', error);
+                alert(`❌ 刪除失敗：${error.message}`);
+            }
+        }
+    </script>
+</body>
+
+</html>

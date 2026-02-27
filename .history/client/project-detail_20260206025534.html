@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>專案詳情 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="/img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="/css/style.css" rel="stylesheet">
+
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/site-header.js"></script>
+</head>
+
+<body>
+    <!-- 共用前台導覽 -->
+    <div id="site-header"></div>
+
+    <!-- Page Header Start -->
+    <div class="container-fluid bg-primary py-2">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="text-white mb-0">專案詳情</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb bg-transparent mb-0">
+                        <li class="breadcrumb-item"><a class="text-white" href="/index.html">首頁</a></li>
+                        <li class="breadcrumb-item"><a class="text-white" href="dashboard.html">控制台</a></li>
+                        <li class="breadcrumb-item"><a class="text-white" href="my-projects.html">我的專案</a></li>
+                        <li class="breadcrumb-item text-white active">專案詳情</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- Project Detail Start -->
+    <div class="container-xxl py-3">
+        <div class="container">
+            <!-- 載入中 -->
+            <div id="loadingSection" class="text-center py-5">
+                <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                <p class="mt-3 text-muted">載入專案資料中...</p>
+            </div>
+
+            <!-- 錯誤訊息 -->
+            <div id="errorSection" class="d-none">
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-circle fa-4x text-warning mb-4"></i>
+                    <h4 class="mb-3" id="errorMessage">載入失敗</h4>
+                    <p class="text-muted mb-4">請確認專案 ID 是否正確，或從專案列表選擇要查看的專案</p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="/client/my-projects.html" class="btn btn-primary">
+                            <i class="fas fa-list me-2"></i>返回專案列表
+                        </a>
+                        <a href="/index.html#ai-estimate" class="btn btn-success">
+                            <i class="fas fa-plus me-2"></i>建立新專案
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 專案內容 -->
+            <div id="projectContent" class="d-none">
+                <!-- 專案基本資訊 -->
+                <div class="row mb-4">
+                    <!-- 專案封面圖片 -->
+                    <div class="col-lg-4 mb-3">
+                        <div class="card border-0 shadow-sm">
+                            <img id="projectCoverImage" src="" class="card-img-top" alt="專案封面" style="height: 300px; object-fit: cover;">
+                            <div class="card-body">
+                                <h6 class="mb-2">封面圖片</h6>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="uploadCoverImage()">
+                                        <i class="fas fa-upload me-1"></i>上傳照片
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success" onclick="generateAICoverImage()">
+                                        <i class="fas fa-magic me-1"></i>AI 生成（20 點）
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="useDefaultImage()">
+                                        <i class="fas fa-undo me-1"></i>使用預設圖
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-8">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h2 class="mb-0" id="projectTitle">專案名稱</h2>
+                                    <span id="projectStatus" class="badge bg-primary">進行中</span>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <p class="text-muted mb-2">
+                                            <i class="fas fa-tag me-2"></i>
+                                            主分類：<span id="projectCategory">居家</span>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="text-muted mb-2">
+                                            <i class="fas fa-calendar me-2"></i>
+                                            建立時間：<span id="projectCreated">2026-02-05</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h5 class="mb-2">專案詳細描述</h5>
+                                    <div id="descriptionDisplayArea">
+                                        <p id="projectDescription" class="text-muted" style="white-space: pre-line;">專案描述載入中...</p>
+                                    </div>
+                                    <div id="descriptionEditArea" class="d-none">
+                                        <textarea id="editDescriptionInput" class="form-control" rows="5"></textarea>
+                                    </div>
+                                </div>
+                                
+                                <!-- 動態欄位顯示/編輯區 -->
+                                <div id="dynamicFieldsSection" class="mt-4 pt-3 border-top d-none">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="mb-0"><i class="fas fa-info-circle me-2 text-info"></i>分類專屬需求</h5>
+                                        <button class="btn btn-sm btn-outline-primary d-none" id="addCustomFieldBtn" onclick="addNewCustomField()">
+                                            <i class="fas fa-plus me-1"></i>新增欄位
+                                        </button>
+                                    </div>
+                                    <div id="dynamicFieldsContainer" class="row g-3">
+                                        <!-- 動態產生 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側快速操作移到下方 -->
+                </div>
+                
+                <!-- 快速操作 -->
+                <div class="row mb-4">
+                    <div class="col-lg-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <h5 class="mb-3">快速操作</h5>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <button class="btn btn-primary" onclick="editProject(this)">
+                                        <i class="fas fa-edit me-2"></i>編輯專案
+                                    </button>
+                                    <button class="btn btn-info text-white" onclick="preMatchProject()">
+                                        <i class="fas fa-search-dollar me-2"></i>預媒合測試
+                                    </button>
+                                    <button class="btn btn-success" onclick="manageItems()">
+                                        <i class="fas fa-tasks me-2"></i>管理分包項目
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteProject()">
+                                        <i class="fas fa-trash me-2"></i>刪除專案
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分包項目與統包組合 -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h4 class="mb-0">
+                                        <i class="fas fa-boxes me-2 text-primary"></i>
+                                        分包項目管理
+                                    </h4>
+                                    <button class="btn btn-primary btn-sm" onclick="addNewItem()">
+                                        <i class="fas fa-plus me-1"></i>新增項目
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-4">
+                                <!-- 批量操作按鈕 -->
+                                <div class="mb-3" id="batchActionsBar" style="display: none;">
+                                    <div class="d-flex gap-2">
+                                        <span class="badge bg-secondary align-self-center" id="selectedCount">已選 0 項</span>
+                                        <button class="btn btn-primary btn-sm" onclick="createPackageFromSelected()">
+                                            <i class="fas fa-box me-1"></i>組成統包組
+                                        </button>
+                                        <button class="btn btn-success btn-sm" onclick="publishSelectedItems()">
+                                            <i class="fas fa-paper-plane me-1"></i>送出媒合
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" onclick="clearSelection()">
+                                            <i class="fas fa-times me-1"></i>取消選擇
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- AI 辨識項目表格 -->
+                                <div id="projectItemsSection">
+                                    <div class="table-responsive">
+                                        <table class="table table-bordered" id="itemsTable">
+                                            <thead>
+                                                <tr>
+                                                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"></th>
+                                                    <th>項目</th>
+                                                    <th>規格</th>
+                                                    <th>數量</th>
+                                                    <th>單位</th>
+                                                    <th>刪除</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="itemsTableBody">
+                                                <tr>
+                                                    <td colspan="5" class="text-center text-muted">載入中...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button type="button" class="btn btn-secondary mb-2" id="addRow">新增項目</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 媒合專家列表 (簡化版以維持頁面穩定) -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3">
+                                <h4 class="mb-0">
+                                    <i class="fas fa-user-tie me-2 text-success"></i>
+                                    媒合專家列表
+                                </h4>
+                            </div>
+                            <div class="card-body p-4">
+                                <div id="matchedExpertsList">
+                                    <p class="text-muted text-center py-5">
+                                        <i class="fas fa-search fa-3x mb-3 d-block"></i>
+                                        尚未開始媒合，或暫無符合的專家
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Project Detail End -->
+
+    <!-- 編輯項目 Modal -->
+    <div class="modal fade" id="editItemModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>編輯項目
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editItemId">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">項目名稱 *</label>
+                        <input type="text" class="form-control" id="editItemName" placeholder="例如：客廳木地板施工">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">數量</label>
+                                <input type="number" class="form-control" id="editItemQuantity" min="0" step="0.01" placeholder="例如：30">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">單位</label>
+                                <select class="form-select" id="editItemUnit">
+                                    <option value="">請選擇單位</option>
+                                    <option value="坪">坪</option>
+                                    <option value="平方公尺">平方公尺</option>
+                                    <option value="才">才</option>
+                                    <option value="式">式</option>
+                                    <option value="組">組</option>
+                                    <option value="個">個</option>
+                                    <option value="件">件</option>
+                                    <option value="支">支</option>
+                                    <option value="米">米</option>
+                                    <option value="公分">公分</option>
+                                    <option value="尺">尺</option>
+                                    <option value="批">批</option>
+                                    <option value="項">項</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">備註</label>
+                        <textarea class="form-control" id="editItemDescription" rows="3" placeholder="補充說明..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveItemEdit()">
+                        <i class="fas fa-save me-1"></i>儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <!-- AI 生成封面圖片 Modal -->
+    <div class="modal fade" id="aiGenerateModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-magic me-2"></i>AI 生成專案封面圖片
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- 說明 -->
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i>關於 AI 生成封面圖
+                        </h6>
+                        <p class="mb-0">
+                            AI 將根據您的專案描述生成一張專業的封面圖片。
+                            您可以選擇是否避開機密內容，以保護商業機密。
+                        </p>
+                    </div>
+
+                    <!-- 專案內容預覽 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-file-alt me-2"></i>專案內容預覽
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-muted">專案名稱</label>
+                                <p class="mb-0" id="aiModalTitle">-</p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-muted">分類</label>
+                                <p class="mb-0" id="aiModalCategory">-</p>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label text-muted">專案描述</label>
+                                <p class="mb-0" id="aiModalDescription" style="max-height: 150px; overflow-y: auto;">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 專案圖片預覽 -->
+                    <div class="card mb-3" id="aiModalImagesCard">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-images me-2"></i>專案圖片（<span id="imageCount">0</span> 張）
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="aiModalImages" class="row g-2">
+                                <!-- 動態生成圖片縮圖 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 機密內容設定 -->
+                    <div class="card mb-3 border-warning">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h6 class="mb-0">
+                                <i class="fas fa-shield-alt me-2"></i>機密內容保護設定
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="avoidConfidential" checked>
+                                <label class="form-check-label" for="avoidConfidential">
+                                    <strong>避開機密內容生成</strong>
+                                    <small class="d-block text-muted mt-1">
+                                        AI 將只使用分類、風格等基本資訊生成通用示意圖，不會參考您的具體需求描述和圖片內容
+                                    </small>
+                                </label>
+                            </div>
+                            
+                            <div id="confidentialWarning" class="alert alert-warning mb-0 d-none">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>注意：</strong>取消勾選後，AI 將參考您的完整專案描述和圖片內容生成封面圖。
+                                請確保您願意讓 AI 分析這些內容。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI 生成提示詞預覽 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-robot me-2"></i>AI 生成參考資訊
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <textarea id="aiPromptPreview" class="form-control" rows="4" readonly 
+                                      style="font-size: 0.9rem; background-color: #f8f9fa;"></textarea>
+                            <small class="text-muted d-block mt-2">
+                                這是 AI 將會使用的資訊摘要。您可以檢查後再決定是否生成。
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- 點數消耗提示 -->
+                    <div class="alert alert-success mb-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="fas fa-coins me-2"></i>
+                                <strong>消耗點數：</strong>20 點
+                            </div>
+                            <div>
+                                <i class="fas fa-wallet me-2"></i>
+                                <strong>目前餘額：</strong><span id="currentCredits">載入中...</span> 點
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>取消
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="confirmAIGeneration()" id="confirmAIBtn">
+                        <i class="fas fa-magic me-2"></i>確認生成（20 點）
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/lib/wow/wow.min.js"></script>
+    <script src="/lib/easing/easing.min.js"></script>
+    <script src="/lib/waypoints/waypoints.min.js"></script>
+    <script src="/lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="/js/main.js"></script>
+    <script src="/js/site-header.js"></script>
+    
+    <!-- Category Default Images -->
+    <script src="/config/category-default-images.js"></script>
+
+    <!-- Project Detail Script -->
+    <script>
+        let currentUser = null;
+        let projectId = null;
+        let projectData = null;
+        let aiGenerateModal = null;
+        let allProjectItems = []; // 存儲所有項目資料供編輯使用
+        let currentDynamicData = {}; // 存儲目前專案的動態欄位數據
+        let isEditing = false; // 新增：編輯狀態旗標
+
+        // 載入動態欄位配置與數據
+        async function loadDynamicFields() {
+            const container = document.getElementById('dynamicFieldsContainer');
+            const section = document.getElementById('dynamicFieldsSection');
+            
+            try {
+                // 1. 直接從快取的 __AI_CATEGORIES_CACHE__ 或 API 讀取，避免名稱查詢錯誤
+                // 如果沒有快取，就發送最簡單的請求
+                let catData = null;
+                const { data, error } = await AuthService.supabase
+                    .from('ai_categories')
+                    .select('sub_configs')
+                    .eq('name', projectData.category)
+                    .maybeSingle();
+
+                if (!error && data) catData = data;
+
+                if (!catData || !catData.sub_configs) {
+                    console.log('該分類無動態欄位配置');
+                    return;
+                }
+
+                const subConfigs = catData.sub_configs;
+                
+                // 2. 取得目前專案儲存的數據 (從 description JSON 讀取)
+                let savedFields = {};
+                if (projectData.description) {
+                    try {
+                        const desc = JSON.parse(projectData.description);
+                        savedFields = desc.dynamic_fields || {};
+                    } catch(e) {}
+                }
+                currentDynamicData = savedFields;
+
+                // 3. 取得專案的子分類
+                let subcats = [];
+                if (projectData.subcategory && Array.isArray(projectData.subcategory)) {
+                    subcats = projectData.subcategory;
+                }
+
+                if (subcats.length === 0) return;
+
+                // 4. 渲染欄位
+                let html = '';
+                let hasFields = false;
+
+                subcats.forEach(sub => {
+                    const fields = subConfigs[sub] || [];
+                    if (fields.length > 0) {
+                        hasFields = true;
+                        fields.forEach(f => {
+                            const val = (savedFields[sub] && savedFields[sub][f.label]) || '';
+                            const fieldUnit = f.unit ? ` (${f.unit})` : '';
+                            const displayVal = val || '<span class="text-muted">未填寫</span>';
+                            
+                            let editFieldHtml = '';
+                            if (f.type === 'select') {
+                                const optionsHtml = (f.options || []).map(opt => 
+                                    `<option value="${opt}" ${opt === val ? 'selected' : ''}>${opt}</option>`
+                                ).join('');
+                                editFieldHtml = `<select class="form-select form-select-sm detail-dynamic-field" data-sub="${sub}" data-label="${f.label}">${optionsHtml}</select>`;
+                            } else {
+                                editFieldHtml = `<input type="${f.type || 'text'}" class="form-control form-control-sm detail-dynamic-field" 
+                                    data-sub="${sub}" data-label="${f.label}" value="${val}" placeholder="${f.placeholder || ''}">`;
+                            }
+
+                            html += `
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label small fw-bold">${f.label}${fieldUnit}</label>
+                                    <div class="field-value-area" id="val-display-${sub}-${f.name}">
+                                        <div class="form-control-plaintext border-bottom pb-1">${displayVal}</div>
+                                    </div>
+                                    <div class="field-edit-area d-none" id="val-edit-${sub}-${f.name}">
+                                        ${editFieldHtml}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                });
+
+                if (hasFields) {
+                    container.innerHTML = html;
+                    section.classList.remove('d-none');
+                }
+
+            } catch (err) {
+                console.error('載入動態欄位失敗:', err);
+            }
+        }
+
+        // 從 URL 取得專案 ID
+        function getProjectIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // ...existing code...
+                // 載入專案資料
+                await loadProjectData();
+                await loadDynamicFields(); // 新增：載入動態欄位
+                await loadProjectItems();
+                // 移除 loadMatchedExperts() 呼叫，避免報錯
+                
+                console.log('=== Project Detail 初始化完成 ===');
+            } catch (error) {
+                // ...existing code...
+            }
+        });
+
+        // 載入專案資料
+        async function loadProjectData() {
+            try {
+                const { data, error } = await AuthService.supabase
+                    .from('projects')
+                    .select('*')
+                    .eq('id', projectId)
+                    .eq('owner_id', currentUser.id)
+                    .single();
+
+                if (error) throw error;
+                if (!data) throw new Error('專案不存在或無權限查看');
+
+                projectData = data;
+
+                // 顯示專案資訊
+                document.getElementById('projectTitle').textContent = data.title || '未命名專案';
+                document.getElementById('projectCreated').textContent = new Date(data.created_at).toLocaleDateString('zh-TW');
+                
+                // 顯示分類與子分類
+                let categoryDisplay = data.category || '未分類';
+                let subcats = [];
+                // 嘗試從 description 讀取子分類
+                if (data.description) {
+                    try {
+                        const descJson = JSON.parse(data.description);
+                        if (descJson.subcategory && Array.isArray(descJson.subcategory) && descJson.subcategory.length > 0) {
+                            subcats = descJson.subcategory;
+                        }
+                    } catch(e) {}
+                }
+                
+                if (subcats.length > 0) {
+                    categoryDisplay += ` > ${subcats.join(', ')}`;
+                }
+                document.getElementById('projectCategory').textContent = categoryDisplay;
+                
+                // 解析 description
+                let descText = '無描述';
+                if (data.description) {
+                    try {
+                        const descJson = JSON.parse(data.description);
+                        // 如果是我們系統產生的 JSON，嘗試提取有意義的資訊
+                        if (descJson.user_description) {
+                            descText = descJson.user_description; // 優先顯示使用者輸入的描述
+                        } else if (descJson.prompt) {
+                            // 判斷這是否為原始提示詞，如果是，則顯示友善的預設文字
+                            if (descJson.prompt.includes('你是專業')) {
+                                descText = 'AI 已根據您的需求完成初步估價分析。請檢視下方「分包項目管理」區塊，您可以自由增刪項目、調整數量，或將項目組合成統包發包。確認無誤後，請點擊「發佈專案」以開始媒合專家。';
+                            } else {
+                                descText = descJson.prompt;
+                            }
+                        } else if (typeof descJson === 'string') {
+                            descText = descJson;
+                        }
+                    } catch (e) {
+                        descText = data.description; // 非 JSON，直接顯示
+                    }
+                }
+                
+                document.getElementById('projectDescription').innerText = descText;
+
+                // 顯示封面圖片
+                const coverImage = getProjectCoverImage(data);
+                document.getElementById('projectCoverImage').src = coverImage;
+                
+                // 狀態標籤
+                const statusBadge = document.getElementById('projectStatus');
+                const statusMap = {
+                    'draft': { text: '編輯中', class: 'bg-info' },
+                    'analyzing': { text: '編輯中', class: 'bg-info' },
+                    'editing': { text: '編輯中', class: 'bg-info' },
+                    'open': { text: '已發佈', class: 'bg-primary' },
+                    'in_progress': { text: '施工中', class: 'bg-warning' },
+                    'completed': { text: '已完成', class: 'bg-success' },
+                    'cancelled': { text: '已取消', class: 'bg-secondary' }
+                };
+                const status = statusMap[data.status] || { text: '未知', class: 'bg-secondary' };
+                statusBadge.textContent = status.text;
+                statusBadge.className = `badge ${status.class}`;
+
+                // 顯示內容區
+                document.getElementById('loadingSection').classList.add('d-none');
+                document.getElementById('projectContent').classList.remove('d-none');
+                
+            } catch (error) {
+                console.error('❌ 載入專案失敗:', error);
+                document.getElementById('loadingSection').classList.add('d-none');
+                document.getElementById('errorSection').classList.remove('d-none');
+                document.getElementById('errorMessage').textContent = error.message;
+            }
+        }
+
+        // 載入專案工項
+        async function loadProjectItems() {
+            try {
+                // 如果 projectData 已經有 items (在 loadProjectData 中解析過的)
+                // 這裡我們直接重新解析一次最保險
+                if (!projectData || !projectData.description) return;
+
+                let items = [];
+                try {
+                    const descJson = JSON.parse(projectData.description);
+                    if (descJson.items && Array.isArray(descJson.items)) {
+                        items = descJson.items;
+                    }
+                } catch(e) {
+                    console.log('Description is not JSON, skipping items load');
+                    return;
+                }
+
+                if (items.length === 0) {
+                    document.getElementById('itemsTableBody').innerHTML = `
+                        <tr><td colspan="6" class="text-center text-muted">尚無項目</td></tr>
+                    `;
+                    return;
+                }
+
+                // 渲染表格
+                document.getElementById('itemsTableBody').innerHTML = items.map((item, index) => `
+                    <tr>
+                        <td><input type="checkbox" class="item-checkbox" value="${index}" onchange="updateBatchActions()"></td>
+                        <td>${item.item_name || '未命名'}</td>
+                        <td>${item.spec || '-'}</td>
+                        <td>${item.quantity || 0}</td>
+                        <td>${item.unit || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditItemModal(${index})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${index})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('載入工項失敗:', error);
+                document.getElementById('itemsTableBody').innerHTML = `<tr><td colspan="6" class="text-center text-danger">載入失敗：${error.message}</td></tr>`;
+            }
+        }
+
+        // 載入媒合專家列表 (目前階段暫不執行，改為靜態顯示)
+        async function loadMatchedExperts() {
+            const container = document.getElementById('matchedExpertsList');
+            container.innerHTML = `
+                <div class="alert alert-info border-0 shadow-sm mb-0">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <h6 class="mb-1">媒合功能說明</h6>
+                            <p class="mb-0 small">本專案目前處於「編輯中」階段。確認內容無誤並點擊「發佈專案」後，系統將自動為您媒合全台最專業的供應商。</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 複製到剪貼簿
+        function copyToClipboard(text, label) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert(`✅ ${label} 已複製：${text}`);
+            }).catch(err => {
+                console.error('複製失敗:', err);
+                alert(`❌ 複製失敗，請手動複製：${text}`);
+            });
+        }
+
+        // 載入分包項目
+        async function loadProjectItems() {
+            try {
+                // 如果 projectData 已經有 items (在 loadProjectData 中解析過的)
+                // 這裡我們直接重新解析一次最保險
+                if (!projectData || !projectData.description) return;
+
+                let items = [];
+                try {
+                    const descJson = JSON.parse(projectData.description);
+                    if (descJson.items && Array.isArray(descJson.items)) {
+                        items = descJson.items;
+                    }
+                } catch(e) {
+                    console.log('Description is not JSON, skipping items load');
+                    return;
+                }
+
+                if (items.length === 0) {
+                    document.getElementById('itemsTableBody').innerHTML = `
+                        <tr><td colspan="6" class="text-center text-muted">尚無項目</td></tr>
+                    `;
+                    return;
+                }
+
+                renderProjectItems(items);
+
+            } catch (error) {
+                console.error('❌ 載入項目失敗:', error);
+                document.getElementById('itemsTableBody').innerHTML = `
+                    <tr><td colspan="6" class="text-center text-danger">載入失敗: ${error.message}</td></tr>
+                `;
+            }
+        }
+
+        // 渲染項目表格
+        function renderProjectItems(items) {
+            const tbody = document.getElementById('itemsTableBody');
+            tbody.innerHTML = items.map((item, index) => `
+                <tr>
+                    <td class="text-center">
+                        <input type="checkbox" class="item-select" value="${index}" onchange="updateSelection()">
+                    </td>
+                    <td>${item.item_name || '-'}</td>
+                    <td>${item.spec || '-'}</td>
+                    <td>${item.quantity || 0}</td>
+                    <td>${item.unit || '-'}</td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${index})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 更新項目欄位
+        async function updateItem(itemId, field, value) {
+            try {
+                const updates = {};
+                if (field === 'quantity') {
+                    updates[field] = parseFloat(value) || null;
+                } else {
+                    updates[field] = value;
+                }
+
+                const { error } = await AuthService.supabase
+                    .from('project_items')
+                    .update(updates)
+                    .eq('id', itemId);
+
+                if (error) throw error;
+
+                // 更新全域資料
+                const item = allProjectItems.find(i => i.id === itemId);
+                if (item) item[field] = updates[field];
+
+            } catch (error) {
+                console.error('❌ 更新失敗:', error);
+                alert('❌ 更新失敗：' + error.message);
+            }
+        }
+
+        // 刪除項目
+        async function deleteItem(itemId) {
+            if (!confirm('確定要刪除此項目嗎？')) return;
+
+            try {
+                const { error } = await AuthService.supabase
+                    .from('project_items')
+                    .delete()
+                    .eq('id', itemId);
+
+                if (error) throw error;
+
+                await loadProjectItems();
+            } catch (error) {
+                console.error('❌ 刪除失敗:', error);
+                alert('❌ 刪除失敗：' + error.message);
+            }
+        }
+
+        // 新增項目
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('addRow')?.addEventListener('click', async () => {
+                const tbody = document.getElementById('itemsTableBody');
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td><input type="text" name="item_name" class="form-control" placeholder="請輸入項目名稱"></td>
+                    <td><input type="text" name="spec" class="form-control" placeholder="請輸入規格"></td>
+                    <td><input type="number" name="quantity" class="form-control" placeholder="數量"></td>
+                    <td><input type="text" name="unit" class="form-control" placeholder="單位"></td>
+                    <td><button type="button" class="btn btn-sm btn-primary" onclick="saveNewItem(this)">儲存</button></td>
+                `;
+                tbody.appendChild(newRow);
+            });
+        });
+
+        // 儲存新項目
+        async function saveNewItem(btn) {
+            const row = btn.closest('tr');
+            const item_name = row.querySelector('[name="item_name"]').value.trim();
+            const spec = row.querySelector('[name="spec"]').value.trim();
+            const quantity = parseFloat(row.querySelector('[name="quantity"]').value) || null;
+            const unit = row.querySelector('[name="unit"]').value.trim();
+
+            if (!item_name) {
+                alert('請輸入項目名稱');
+                return;
+            }
+
+            try {
+                const { data, error } = await AuthService.supabase
+                    .from('project_items')
+                    .insert([{
+                        project_id: projectId,
+                        item_name,
+                        spec,
+                        quantity,
+                        unit,
+                        status: 'pending'
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                await loadProjectItems();
+            } catch (error) {
+                console.error('❌ 新增失敗:', error);
+                alert('❌ 新增失敗：' + error.message);
+            }
+        }
+
+        // 載入媒合專家
+        async function loadMatchedExperts() {
+            try {
+                const { data: matches, error } = await AuthService.supabase
+                    .from('matches')
+                    .select(`
+                        *,
+                        expert:expert_id (
+                            id,
+                            email,
+                            user_metadata
+                        ),
+                        listing:listing_id (
+                            id,
+                            title,
+                            description
+                        )
+                    `)
+                    .eq('project_id', projectId)
+                    .eq('status', 'active')
+                    .order('score', { ascending: false });
+
+                if (error) throw error;
+
+                if (!matches || matches.length === 0) {
+                    return; // 保持預設訊息
+                }
+
+                // 渲染專家列表
+                renderMatchedExperts(matches);
+
+            } catch (error) {
+                console.error('❌ 載入媒合專家失敗:', error);
+            }
+        }
+
+        // 渲染媒合專家
+        function renderMatchedExperts(matches) {
+            const container = document.getElementById('matchedExpertsList');
+
+            const html = matches.map(match => {
+                const expert = match.expert;
+                const listing = match.listing;
+                const score = Math.round(match.score || 0);
+
+                return `
+                    <div class="card mb-3 border-primary">
+                        <div class="card-body p-4">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5 class="mb-2">
+                                        <i class="fas fa-user-circle me-2 text-primary"></i>
+                                        ${expert?.user_metadata?.full_name || expert?.email || '未知專家'}
+                                    </h5>
+                                    <p class="text-muted mb-2">${listing?.title || '未命名服務'}</p>
+                                    <p class="mb-3">${listing?.description || ''}</p>
+                                    
+                                    <!-- 媒合分數 -->
+                                    <div class="mb-3">
+                                        <span class="me-3">
+                                            <i class="fas fa-star text-warning me-1"></i>
+                                            媒合分數：<strong>${score} 分</strong>
+                                        </span>
+                                    </div>
+
+                                    <!-- 聯絡方式（媒合成功直接顯示） -->
+                                    <div class="alert alert-info mb-0">
+                                        <h6 class="mb-2">
+                                            <i class="fas fa-phone me-2"></i>聯絡方式
+                                        </h6>
+                                        <p class="mb-1" id="contact-${match.id}">
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            載入聯絡資訊中...
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="progress mb-2" style="height: 25px;">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: ${score}%">
+                                            ${score}%
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary w-100" onclick="contactExpert('${expert.id}')">
+                                        <i class="fas fa-envelope me-2"></i>立即聯繫
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+
+            // 載入每個專家的聯絡方式
+            matches.forEach(match => {
+                if (match.expert?.id) {
+                    loadContactInfo(match.expert.id, match.id);
+                }
+            });
+        }
+
+        // 載入聯絡資訊（媒合成功直接顯示，無需解鎖）
+        async function loadContactInfo(expertId, matchId) {
+            try {
+                const { data, error } = await AuthService.supabase
+                    .from('contact_info')
+                    .select('*')
+                    .eq('user_id', expertId)
+                    .single();
+
+                if (error) throw error;
+
+                const container = document.getElementById(`contact-${matchId}`);
+                
+                if (!data) {
+                    container.innerHTML = '<small class="text-muted">該專家尚未填寫聯絡資訊</small>';
+                    return;
+                }
+
+                // 組合聯絡資訊
+                const contacts = [];
+                if (data.phone) contacts.push(`<i class="fas fa-phone me-1"></i>${data.phone}`);
+                if (data.mobile) contacts.push(`<i class="fas fa-mobile me-1"></i>${data.mobile}`);
+                if (data.line_id) contacts.push(`<i class="fab fa-line me-1"></i>${data.line_id}`);
+                if (data.email) contacts.push(`<i class="fas fa-envelope me-1"></i>${data.email}`);
+
+                if (contacts.length === 0) {
+                    container.innerHTML = '<small class="text-muted">該專家尚未填寫聯絡資訊</small>';
+                } else {
+                    container.innerHTML = contacts.map(c => `<div class="mb-1">${c}</div>`).join('');
+                }
+
+            } catch (error) {
+                console.error('❌ 載入聯絡資訊失敗:', error);
+                const container = document.getElementById(`contact-${matchId}`);
+                container.innerHTML = '<small class="text-danger">載入失敗</small>';
+            }
+        }
+
+        // 工具函數
+        function getStatusColor(status) {
+            const colors = {
+                'draft': 'secondary',
+                'published': 'primary',
+                'matched': 'success',
+                'assigned': 'info',
+                'in_progress': 'warning',
+                'completed': 'success',
+                'cancelled': 'danger'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'draft': '草稿',
+                'published': '已發包',
+                'matched': '已媒合',
+                'assigned': '已指派',
+                'in_progress': '進行中',
+                'completed': '已完成',
+                'cancelled': '已取消'
+            };
+            return texts[status] || '未知';
+        }
+
+        function showError(message) {
+            document.getElementById('loadingSection').classList.add('d-none');
+            document.getElementById('errorSection').classList.remove('d-none');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // 操作函數（暫時跳轉或提示）
+        async function editProject() {
+            const btn = event.currentTarget;
+            
+            if (!isEditing) {
+                // 進入編輯模式
+                isEditing = true;
+                btn.innerHTML = '<i class="fas fa-save me-2"></i>儲存變更';
+                btn.className = 'btn btn-success';
+
+                document.getElementById('descriptionDisplayArea').classList.add('d-none');
+                document.getElementById('descriptionEditArea').classList.remove('d-none');
+                
+                // 設定編輯框內容
+                const currentDesc = document.getElementById('projectDescription').innerText;
+                document.getElementById('editDescriptionInput').value = currentDesc;
+
+                // 顯示「新增欄位」按鈕
+                const addFieldBtn = document.getElementById('addCustomFieldBtn');
+                if (addFieldBtn) addFieldBtn.classList.remove('d-none');
+
+                // 顯示所有動態欄位的編輯區
+                document.querySelectorAll('.field-value-area').forEach(el => el.classList.add('d-none'));
+                document.querySelectorAll('.field-edit-area').forEach(el => el.classList.remove('d-none'));
+                
+                // 顯示動態欄位區塊
+                document.getElementById('dynamicFieldsSection').classList.remove('d-none');
+                
+            } else {
+                // 執行儲存
+                await saveProjectChanges(btn);
+            }
+        }
+
+        async function preMatchProject() {
+            // 目前僅保留按鈕，功能待討論重新定義
+            alert('預媒合功能開發中，稍後將根據討論結果重新設定。');
+        }
+
+        async function saveProjectChanges(btn) {
+            const newDescText = document.getElementById('editDescriptionInput').value;
+            
+            // 收集動態欄位數據
+            const dynamicData = {};
+            document.querySelectorAll('.detail-dynamic-field').forEach(el => {
+                const sub = el.dataset.sub;
+                const label = el.dataset.label;
+                const val = el.value;
+                if (!dynamicData[sub]) dynamicData[sub] = {};
+                dynamicData[sub][label] = val;
+            });
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>儲存中...';
+
+            try {
+                // 1. 取得最新資料以更新 JSON
+                const { data: current, error: fError } = await AuthService.supabase
+                    .from('projects')
+                    .select('description')
+                    .eq('id', projectId)
+                    .single();
+                
+                if (fError) throw fError;
+
+                let descJson = {};
+                try { descJson = JSON.parse(current.description || '{}'); } catch(e) {}
+                
+                descJson.user_description = newDescText;
+                descJson.dynamic_fields = dynamicData;
+
+                // 2. 寫回資料庫
+                const { error: uError } = await AuthService.supabase
+                    .from('projects')
+                    .update({ 
+                        description: JSON.stringify(descJson)
+                    })
+                    .eq('id', projectId);
+
+                if (uError) throw uError;
+
+                // 3. 恢復顯示模式
+                isEditing = false;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-edit me-2"></i>編輯專案';
+                btn.className = 'btn btn-primary';
+
+                document.getElementById('projectDescription').innerText = newDescText;
+                document.getElementById('descriptionDisplayArea').classList.remove('d-none');
+                document.getElementById('descriptionEditArea').classList.add('d-none');
+
+                // 隱藏動態欄位的編輯區
+                document.querySelectorAll('.field-value-area').forEach(el => el.classList.remove('d-none'));
+                document.querySelectorAll('.field-edit-area').forEach(el => el.classList.add('d-none'));
+
+                // 重新載入動態欄位以更新顯示內容
+                await loadDynamicFields();
+
+                alert('✅ 專案資訊已更新！');
+
+            } catch (err) {
+                console.error('儲存失敗:', err);
+                alert('❌ 儲存失敗：' + err.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save me-2"></i>儲存變更';
+            }
+        }
+
+        function manageItems() {
+            window.location.href = `project-items.html?id=${projectId}`;
+        }
+
+        function deleteProject() {
+            if (confirm('確定要刪除此專案嗎？此操作無法復原。')) {
+                alert('刪除功能開發中');
+            }
+        }
+
+        function addNewItem() {
+            window.location.href = `project-items.html?id=${projectId}&action=new`;
+        }
+
+        // 選擇管理
+        function updateSelection() {
+            const checkboxes = document.querySelectorAll('.item-checkbox:checked');
+            const count = checkboxes.length;
+            
+            // 更新選擇數量顯示
+            document.getElementById('selectedCount').textContent = `已選 ${count} 項`;
+            
+            // 顯示/隱藏批量操作列
+            const actionsBar = document.getElementById('batchActionsBar');
+            if (count > 0) {
+                actionsBar.style.display = 'block';
+            } else {
+                actionsBar.style.display = 'none';
+            }
+        }
+
+        // 全選/取消全選
+        function toggleSelectAll(checkbox) {
+            const itemCheckboxes = document.querySelectorAll('.item-checkbox');
+            itemCheckboxes.forEach(cb => {
+                cb.checked = checkbox.checked;
+            });
+            updateSelection();
+        }
+
+        // 清除選擇
+        function clearSelection() {
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            checkboxes.forEach(cb => cb.checked = false);
+            document.getElementById('selectAllItems').checked = false;
+            updateSelection();
+        }
+
+        // 從選中項目建立統包組
+        async function createPackageFromSelected() {
+            const checkboxes = document.querySelectorAll('.item-checkbox:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedIds.length < 2) {
+                alert('⚠️ 請至少選擇 2 個項目才能組成統包');
+                return;
+            }
+
+            const groupName = prompt('請輸入統包組名稱:', `統包組 ${Date.now().toString().slice(-4)}`);
+            if (!groupName) return;
+
+            await createPackageGroup(selectedIds, groupName);
+            clearSelection();
+        }
+
+        // 送出選中項目進行媒合
+        async function publishSelectedItems() {
+            const checkboxes = document.querySelectorAll('.item-checkbox:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedIds.length === 0) {
+                alert('⚠️ 請至少選擇 1 個項目');
+                return;
+            }
+
+            if (!confirm(`確定要將選中的 ${selectedIds.length} 個項目送出媒合嗎？`)) {
+                return;
+            }
+
+            try {
+                // TODO: 呼叫媒合 API
+                // const response = await fetch('/api/match/run-split', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({
+                //         project_id: projectId,
+                //         item_ids: selectedIds
+                //     })
+                // });
+
+                // 暫時模擬成功
+                alert(`✅ 已送出 ${selectedIds.length} 個項目進行媒合\n\n媒合引擎將會：\n1. 分析每個項目需求\n2. 搜尋符合的專家\n3. 計算媒合分數\n4. 通知專家與您\n\n預計 2-5 分鐘完成媒合`);
+                
+                // 更新項目狀態為「已發包」
+                const { error } = await AuthService.supabase
+                    .from('project_items')
+                    .update({ status: 'published' })
+                    .in('id', selectedIds);
+
+                if (error) throw error;
+
+                clearSelection();
+                await loadProjectItems();
+
+            } catch (error) {
+                console.error('❌ 送出媒合失敗:', error);
+                alert('❌ 送出媒合失敗：' + error.message);
+            }
+        }
+
+        function contactExpert(expertId) {
+            alert(`聯繫專家 ${expertId} 功能開發中（可開啟對話視窗或跳轉到訊息頁面）`);
+        }
+        
+        // ==================== 封面圖片管理功能 ====================
+        
+        /**
+         * 上傳封面圖片
+         */
+        async function uploadCoverImage() {
+            // 建立檔案選擇器
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // 檢查檔案大小（限制 5MB）
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('檔案大小不可超過 5MB');
+                    return;
+                }
+                
+                try {
+                    // 顯示載入中
+                    const img = document.getElementById('projectCoverImage');
+                    const originalSrc = img.src;
+                    img.style.opacity = '0.5';
+                    
+                    // 上傳到 Supabase Storage
+                    // 清理檔名：移除中文和特殊字元，避免 Storage 錯誤
+                    const timestamp = Date.now();
+                    const ext = file.name.split('.').pop();
+                    const cleanName = file.name
+                        .replace(/\.[^.]+$/, '')  // 移除副檔名
+                        .replace(/[^a-zA-Z0-9]/g, '-')  // 非英數字轉 -
+                        .replace(/-+/g, '-')  // 合併連續 -
+                        .replace(/^-|-$/g, '')  // 移除頭尾 -
+                        .substring(0, 50);  // 限制長度
+                    const fileName = `project-covers/${projectId}/${timestamp}-${cleanName || 'cover'}.${ext}`;
+                    const { data, error } = await AuthService.supabase.storage
+                        .from('project-images')
+                        .upload(fileName, file, {
+                            cacheControl: '3600',
+                            upsert: false
+                        });
+                    
+                    if (error) throw error;
+                    
+                    // 取得公開 URL
+                    const { data: { publicUrl } } = AuthService.supabase.storage
+                        .from('project-images')
+                        .getPublicUrl(fileName);
+                    
+                    // 更新資料庫
+                    const { error: updateError } = await AuthService.supabase
+                        .from('projects')
+                        .update({
+                            cover_image_type: 'uploaded',
+                            cover_image_url: publicUrl,
+                            cover_image_category: null
+                        })
+                        .eq('id', projectId);
+                    
+                    if (updateError) throw updateError;
+                    
+                    // 更新顯示
+                    img.src = publicUrl;
+                    img.style.opacity = '1';
+                    projectData.cover_image_type = 'uploaded';
+                    projectData.cover_image_url = publicUrl;
+                    
+                    alert('✅ 封面圖片已更新');
+                    
+                } catch (error) {
+                    console.error('上傳失敗:', error);
+                    alert('❌ 上傳失敗：' + error.message);
+                    img.style.opacity = '1';
+                }
+            };
+            
+            input.click();
+        }
+        
+        /**
+         * AI 生成封面圖片
+         */
+        async function generateAICoverImage() {
+            try {
+                // 載入用戶點數
+                await loadUserCredits();
+                
+                // 填充 Modal 內容
+                document.getElementById('aiModalTitle').textContent = projectData.title || '未命名專案';
+                document.getElementById('aiModalCategory').textContent = projectData.category || '未分類';
+                document.getElementById('aiModalDescription').textContent = projectData.description || '無描述';
+                
+                // 載入專案圖片
+                await loadProjectImages();
+                
+                // 更新 AI 提示詞預覽
+                updateAIPromptPreview();
+                
+                // 顯示 Modal
+                aiGenerateModal.show();
+                
+            } catch (error) {
+                console.error('開啟 AI 生成失敗:', error);
+                alert('❌ ' + error.message);
+            }
+        }
+        
+        /**
+         * 載入用戶點數餘額
+         */
+        async function loadUserCredits() {
+            try {
+                const { data, error } = await AuthService.supabase
+                    .from('user_credits')
+                    .select('balance')
+                    .eq('user_id', currentUser.id)
+                    .single();
+                
+                if (error && error.code !== 'PGRST116') throw error;
+                
+                const balance = data?.balance || 0;
+                document.getElementById('currentCredits').textContent = balance;
+                
+                // 檢查點數是否足夠
+                if (balance < 20) {
+                    document.getElementById('confirmAIBtn').disabled = true;
+                    document.getElementById('currentCredits').parentElement.classList.add('text-danger');
+                    document.getElementById('currentCredits').parentElement.innerHTML = 
+                        '<i class="fas fa-exclamation-triangle me-2"></i>點數不足（需要 20 點）';
+                }
+            } catch (error) {
+                console.error('載入點數失敗:', error);
+                document.getElementById('currentCredits').textContent = '載入失敗';
+            }
+        }
+        
+        /**
+         * 載入專案圖片
+         */
+        async function loadProjectImages() {
+            try {
+                // 從 project_items 或 projects 表載入圖片
+                const { data: items, error } = await AuthService.supabase
+                    .from('project_items')
+                    .select('images')
+                    .eq('project_id', projectId);
+                
+                if (error) throw error;
+                
+                // 收集所有圖片
+                let allImages = [];
+                if (items && items.length > 0) {
+                    items.forEach(item => {
+                        if (item.images && Array.isArray(item.images)) {
+                            allImages = allImages.concat(item.images);
+                        }
+                    });
+                }
+                
+                // 更新圖片計數
+                document.getElementById('imageCount').textContent = allImages.length;
+                
+                // 顯示圖片縮圖
+                const imagesContainer = document.getElementById('aiModalImages');
+                if (allImages.length === 0) {
+                    imagesContainer.innerHTML = '<p class="text-muted text-center">此專案暫無上傳圖片</p>';
+                    document.getElementById('aiModalImagesCard').classList.add('d-none');
+                } else {
+                    document.getElementById('aiModalImagesCard').classList.remove('d-none');
+                    imagesContainer.innerHTML = allImages.slice(0, 6).map(img => `
+                        <div class="col-4 col-md-2">
+                            <img src="${img}" class="img-fluid rounded" 
+                                 style="width: 100%; height: 80px; object-fit: cover;" 
+                                 alt="專案圖片">
+                        </div>
+                    `).join('');
+                    
+                    if (allImages.length > 6) {
+                        imagesContainer.innerHTML += `
+                            <div class="col-4 col-md-2">
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 80px;">
+                                    <span class="text-muted">+${allImages.length - 6} 張</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('載入圖片失敗:', error);
+                document.getElementById('aiModalImages').innerHTML = 
+                    '<p class="text-danger">載入圖片失敗</p>';
+            }
+        }
+        
+        /**
+         * 更新 AI 提示詞預覽
+         */
+        function updateAIPromptPreview() {
+            const avoidConfidential = document.getElementById('avoidConfidential').checked;
+            
+            // 顯示/隱藏警告
+            if (avoidConfidential) {
+                document.getElementById('confidentialWarning').classList.add('d-none');
+            } else {
+                document.getElementById('confidentialWarning').classList.remove('d-none');
+            }
+            
+            let prompt = '';
+            
+            if (avoidConfidential) {
+                // 避開機密內容：只使用分類和基本風格
+                prompt = `生成一張專業的${projectData.category || '專案'}封面圖片。
+
+參考資訊：
+- 分類：${projectData.category || '未分類'}
+- 風格：現代、專業、簡潔
+- 色調：符合${projectData.category || '該領域'}的專業形象
+
+⚠️ 已啟用機密保護：不會使用您的專案描述和圖片內容`;
+            } else {
+                // 使用完整內容
+                prompt = `根據以下專案資訊生成封面圖片：
+
+專案名稱：${projectData.title || '未命名'}
+分類：${projectData.category || '未分類'}
+描述：${(projectData.description || '無描述').substring(0, 200)}${projectData.description?.length > 200 ? '...' : ''}
+
+⚠️ 將參考您的完整專案描述和圖片內容生成`;
+            }
+            
+            document.getElementById('aiPromptPreview').value = prompt;
+        }
+        
+        /**
+         * 確認 AI 生成
+         */
+        async function confirmAIGeneration() {
+            const avoidConfidential = document.getElementById('avoidConfidential').checked;
+            
+            if (!avoidConfidential) {
+                if (!confirm('確定要使用完整專案內容生成封面圖嗎？AI 將會分析您的專案描述和圖片。')) {
+                    return;
+                }
+            }
+            
+            try {
+                const btn = document.getElementById('confirmAIBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>生成中...';
+                
+                const img = document.getElementById('projectCoverImage');
+                img.style.opacity = '0.5';
+                
+                // 呼叫 AI 生成 API
+                const response = await fetch('/api/ai/generate-project-cover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: projectId,
+                        title: projectData.title,
+                        description: avoidConfidential ? null : projectData.description,
+                        category: projectData.category,
+                        avoidConfidential: avoidConfidential,
+                        useImages: !avoidConfidential
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || '生成失敗');
+                }
+                
+                const result = await response.json();
+                
+                // 更新顯示
+                img.src = result.imageUrl;
+                img.style.opacity = '1';
+                projectData.cover_image_type = 'ai_generated';
+                projectData.cover_image_url = result.imageUrl;
+                
+                // 關閉 Modal
+                aiGenerateModal.hide();
+                
+                alert(`✅ AI 封面圖片已生成！\n消耗點數：${result.pointsUsed} 點\n剩餘點數：${result.remainingCredits} 點`);
+                
+                // 更新點數顯示
+                document.getElementById('currentCredits').textContent = result.remainingCredits;
+                
+            } catch (error) {
+                console.error('AI 生成失敗:', error);
+                alert('❌ ' + error.message);
+            } finally {
+                const btn = document.getElementById('confirmAIBtn');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic me-2"></i>確認生成（20 點）';
+                img.style.opacity = '1';
+            }
+        }
+        
+        /**
+         * 使用預設圖片
+         */
+        async function useDefaultImage() {
+            try {
+                const img = document.getElementById('projectCoverImage');
+                img.style.opacity = '0.5';
+                
+                // 更新資料庫
+                const { error } = await AuthService.supabase
+                    .from('projects')
+                    .update({
+                        cover_image_type: 'default',
+                        cover_image_url: null,
+                        cover_image_category: projectData.category
+                    })
+                    .eq('id', projectId);
+                
+                if (error) throw error;
+                
+                // 取得預設圖片
+                const defaultImage = getCategoryDefaultImage(projectData.category);
+                
+                // 更新顯示
+                img.src = defaultImage;
+                img.style.opacity = '1';
+                projectData.cover_image_type = 'default';
+                projectData.cover_image_url = null;
+                projectData.cover_image_category = projectData.category;
+                
+                alert('✅ 已恢復為預設圖片');
+                
+            } catch (error) {
+                console.error('更新失敗:', error);
+                alert('❌ 更新失敗：' + error.message);
+                img.style.opacity = '1';
+            }
+        }
+    </script>
+</body>
+
+</html>

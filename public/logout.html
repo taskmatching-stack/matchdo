@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <title>登出中… - MatchDO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    (function () {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          var keys = [];
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf('sb-') === 0) keys.push(k);
+          }
+          for (var j = 0; j < keys.length; j++) localStorage.removeItem(keys[j]);
+        }
+      } catch (e) {}
+      window.location.replace('/login.html');
+    })();
+  </script>
+</head>
+<body>
+  <p>登出中…</p>
+</body>
+</html>

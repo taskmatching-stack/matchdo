@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MATCHDO 分類管理</title>
+  <link href="../iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <!-- 共用後台標頭（由 admin-common.js 載入） -->
+  <div id="admin-header"></div>
+
+  <div class="container-fluid">
+    <div class="row">
+      <!-- 共用後台側欄（由 admin-common.js 載入） -->
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0">分類列表</h4>
+          <div class="btn-group">
+            <button id="addRow" class="btn btn-secondary">新增一筆</button>
+            <button id="importDefault" class="btn btn-outline-primary">一鍵匯入預設分類</button>
+            <button id="checkHealth" class="btn btn-outline-info">檢查健康</button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered" id="catTable">
+            <thead class="table-light">
+              <tr>
+                <th style="width:180px;">key</th>
+                <th style="width:220px;">名稱</th>
+                <th>提示詞</th>
+                <th style="width:260px;">子分類（以逗號分隔）</th>
+                <th style="width:100px;">刪除</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <button id="saveBtn" class="btn btn-primary">儲存變更</button>
+          <span id="status" class="ms-3"></span>
+        </div>
+        <div class="mt-3">
+          <details>
+            <summary>除錯資訊</summary>
+            <div class="mt-2">
+              <pre id="debugPanel" class="bg-light p-3 border" style="white-space:pre-wrap;"></pre>
+            </div>
+          </details>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    async function loadCategories() {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      const list = Array.isArray(data.categories) ? data.categories : [];
+      const tbody = document.querySelector('#catTable tbody');
+      tbody.innerHTML = '';
+      list.forEach(cat => {
+        const tr = document.createElement('tr');
+        // 相容 sub 與 subcategories 兩種格式
+        const subs = cat.subcategories || cat.sub || [];
+        const subsStr = Array.isArray(subs) ? subs.join(',') : '';
+        tr.innerHTML = `
+          <td><input class="form-control" value="${cat.key || ''}" /></td>
+          <td><input class="form-control" value="${cat.name || ''}" /></td>
+          <td><textarea class="form-control" rows="3">${cat.prompt || ''}</textarea></td>
+          <td><input class="form-control" value="${subsStr}" /></td>
+          <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (list.length === 0) {
+        document.getElementById('status').textContent = '目前沒有分類，請新增一筆後儲存。';
+      } else {
+        document.getElementById('status').textContent = '';
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'addRow') {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="form-control" /></td>
+          <td><input class="form-control" /></td>
+          <td><textarea class="form-control" rows="3"></textarea></td>
+          <td><input class="form-control" /></td>
+          <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+        `;
+        document.querySelector('#catTable tbody').appendChild(tr);
+      }
+      if (e.target && e.target.classList.contains('del')) {
+        e.target.closest('tr').remove();
+      }
+      if (e.target && e.target.id === 'saveBtn') {
+        saveCategories();
+      }
+      if (e.target && e.target.id === 'importDefault') {
+        importDefaultCategories();
+      }
+      if (e.target && e.target.id === 'checkHealth') {
+        checkHealth();
+      }
+    });
+
+    async function saveCategories() {
+      const rows = document.querySelectorAll('#catTable tbody tr');
+      const payload = [];
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const key = cells[0].querySelector('input').value.trim();
+        const name = cells[1].querySelector('input').value.trim();
+        const prompt = cells[2].querySelector('textarea').value.trim();
+        const subStr = cells[3].querySelector('input').value.trim();
+        const sub = subStr ? subStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (key && name) {
+          payload.push({ key, name, prompt, sub });
+        }
+      });
+      const status = document.getElementById('status');
+      status.textContent = '儲存中...';
+      try {
+        const res = await fetch('/api/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categories: payload })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          status.textContent = `✔ 已儲存（更新 ${data.count} 筆）`;
+        } else {
+          status.textContent = '✖ 儲存失敗';
+        }
+      } catch (e) {
+        status.textContent = '✖ 儲存失敗（網路錯誤）';
+      }
+    }
+
+    // 載入共用標頭與側欄
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCategories();
+    });
+
+    async function importDefaultCategories() {
+      const status = document.getElementById('status');
+      status.textContent = '匯入預設中...';
+      try {
+        const res = await fetch('/api/categories/import-default', { method: 'POST' });
+        const data = await res.json();
+        if (data && data.success) {
+          if (data.via === 'local-only') {
+             status.textContent = `⚠ 已啟用本地鏡像模式（資料庫連線異常，但功能均可正常使用）。重新載入中...`;
+             showDebug('系統訊息', '資料庫連線失敗 (' + (data.warn || '') + ')，已自動切換至本地鏡像模式 (local-only)。前台與後台均可正常運作，無需擔心。');
+          } else {
+             status.textContent = `✔ 已匯入預設（${data.count} 筆 via=${data.via || 'unknown'}），重新載入中...`;
+          }
+          await loadCategories();
+        } else {
+          const msg = (data && data.error) ? data.error : '未知錯誤';
+          status.textContent = '✖ 匯入失敗：' + msg;
+          showDebug('匯入失敗', suggest(msg));
+        }
+      } catch (e) {
+        status.textContent = '✖ 匯入失敗（網路錯誤）';
+        showDebug('匯入失敗（網路）', e.message || String(e));
+      }
+    }
+
+    async function checkHealth() {
+      const status = document.getElementById('status');
+      status.textContent = '檢查中...';
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        status.textContent = '健康檢查完成';
+        showDebug('健康檢查', JSON.stringify(data, null, 2));
+        // 額外提示
+        if (data && data.supabase && data.supabase.error) {
+          showDebug('Supabase 錯誤提示', suggest(data.supabase.error));
+        }
+        if (data && data.db && data.db.error) {
+          showDebug('PG 直連錯誤提示', suggest(data.db.error));
+        }
+      } catch (e) {
+        status.textContent = '檢查失敗';
+        showDebug('健康檢查失敗', e.message || String(e));
+      }
+    }
+
+    function showDebug(title, details) {
+      const panel = document.getElementById('debugPanel');
+      const prev = panel.textContent ? panel.textContent + "\n\n" : '';
+      panel.textContent = prev + `[${new Date().toLocaleString()}] ${title}\n` + (typeof details === 'string' ? details : JSON.stringify(details, null, 2));
+    }
+
+    function suggest(errorText) {
+      const t = (errorText || '').toLowerCase();
+      let tips = '';
+      if (t.includes('schema cache') || t.includes('relation does not exist')) {
+        tips = `可能原因：PostgREST 尚未看到 ai_categories。\n處置：\n1) 在 Supabase SQL Editor 建表 public.ai_categories。\n2) 執行 ALTER 促使快取刷新：\n   alter table public.ai_categories alter column prompt set default '';`;
+      }
+      if (t.includes('enotfound') || t.includes('getaddrinfo')) {
+        tips += (tips ? '\n\n' : '') + `可能原因：直連 PostgreSQL DNS 解析失敗。\n處置：\n1) 測試時可忽略，改用 Supabase REST（不需直連）。\n2) 如需直連，確認 SUPABASE_DB_URL 網路/防火牆與密碼 URL encode（@→%40）。`;
+      }
+      if (!tips) tips = errorText;
+      return tips;
+    }
+  </script>
+  <script src="/admin/js/admin-common.js"></script>
+</body>
+</html>

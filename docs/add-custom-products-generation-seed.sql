@@ -1,0 +1,9 @@
+-- 客製產品：Seed 儲存方式說明（無需執行此檔）
+-- 後端已改為將 generation_seed 存進「現有」analysis_json 欄位，例如：
+--   analysis_json = { "generation_seed": 12345 }
+-- 因此不需新增 DB 欄位，也不需執行任何 ALTER TABLE。
+-- 若未來希望有獨立欄位，可選用下方 SQL（非必須）：
+--
+-- ALTER TABLE public.custom_products
+--     ADD COLUMN IF NOT EXISTS generation_seed BIGINT;
+-- COMMENT ON COLUMN public.custom_products.generation_seed IS 'FLUX 生圖時使用的 seed；NULL 表示隨機';

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>網站設定 - MatchDO 後台</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    <div id="admin-header"></div>
+    <div class="container-fluid">
+        <div class="row">
+            <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+            <main class="col-md-9 col-lg-10 py-4">
+                <h4 class="mb-3">網站設定</h4>
+                <p class="text-muted small mb-3">全站對外設定（GA4、日後擴充項目）。僅管理員可編輯。</p>
+
+                <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
+                    <span class="me-2">目前狀態：</span>
+                    <span id="loginStatusText">檢查中…</span>
+                    <a id="loginStatusLink" href="/login.html" class="btn btn-sm btn-outline-primary" style="display:none;">前往登入</a>
+                    <button type="button" id="logoutBtn" class="btn btn-sm btn-outline-secondary" style="display:none;">登出</button>
+                </div>
+
+                <div id="siteSettingsWrap" style="display:none;">
+                    <!-- GA4 -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">Google Analytics 4</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">填寫 GA4「衡量 ID」（格式 <code>G-XXXXXXXXXX</code>），儲存後前台會自動載入追蹤。留空則不載入。</p>
+                            <div class="mb-3">
+                                <label class="form-label" for="ga4MeasurementId">GA4 衡量 ID</label>
+                                <input type="text" class="form-control" id="ga4MeasurementId" placeholder="G-XXXXXXXXXX" autocomplete="off">
+                                <div class="form-text">在 GA4「管理 → 資料串流 → 選您的網站串流」中可看到「衡量 ID」。</div>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="btnSaveGa4">儲存 GA4</button>
+                            <span id="ga4SaveStatus" class="ms-2 small"></span>
+                        </div>
+                    </div>
+
+                    <!-- 預留：其他網站設定 -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">其他設定</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-0">此區預留日後新增網站相關設定（例如：網站名稱、客服信箱、社群連結等）。</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script>
+$(async function () {
+    var token = '';
+    try {
+        var session = await (window.AuthService && AuthService.getSession ? AuthService.getSession() : Promise.resolve(null));
+        if (!session || !session.user) {
+            $('#loginStatusText').text('請先登入');
+            $('#loginStatusLink').show();
+            return;
+        }
+        var profile = await (AuthService.getUserProfile ? AuthService.getUserProfile() : Promise.resolve(null));
+        if (!profile || profile.role !== 'admin') {
+            $('#loginStatusText').text('僅管理員可操作');
+            $('#logoutBtn').show();
+            return;
+        }
+        token = session.access_token || '';
+        $('#loginStatusText').text('已登入（管理員）');
+        $('#logoutBtn').show();
+        $('#siteSettingsWrap').show();
+    } catch (e) {
+        $('#loginStatusText').text('請先登入');
+        $('#loginStatusLink').show();
+        return;
+    }
+
+    function setStatus(msg, isErr) {
+        $('#ga4SaveStatus').text(msg).css('color', isErr ? '#dc3545' : '#198754');
+    }
+
+    $.ajax({ url: '/api/admin/ga4', headers: { 'Authorization': 'Bearer ' + token }, dataType: 'json' })
+        .done(function (r) {
+            $('#ga4MeasurementId').val(r.measurementId || '');
+        })
+        .fail(function () { setStatus('無法載入設定', true); });
+
+    $('#btnSaveGa4').on('click', function () {
+        var measurementId = $('#ga4MeasurementId').val().trim();
+        setStatus('儲存中…', false);
+        $.ajax({
+            url: '/api/admin/ga4',
+            method: 'PATCH',
+            contentType: 'application/json',
+            headers: { 'Authorization': 'Bearer ' + token },
+            data: JSON.stringify({ measurementId: measurementId })
+        })
+            .done(function () { setStatus('已儲存', false); })
+            .fail(function () { setStatus('儲存失敗', true); });
+    });
+
+    $('#logoutBtn').on('click', function () {
+        if (window.AuthService && AuthService.signOut) AuthService.signOut();
+        location.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname);
+    });
+});
+    </script>
+    <script src="/admin/js/admin-common.js"></script>
+</body>
+</html>

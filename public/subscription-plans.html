@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n-title="pricing.title">方案與定價 - MATCHDO 合做</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="/css/style.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .pricing-section { padding: 3rem 0 4rem; }
+    .pricing-section .section-title { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .pricing-section .section-subtitle { color: #6c757d; margin-bottom: 1.5rem; }
+    .pricing-toggle-wrap { display: flex; justify-content: center; margin-bottom: 2rem; }
+    .pricing-toggle { display: inline-flex; background: #e9ecef; border-radius: 999px; padding: 4px; gap: 4px; }
+    .pricing-toggle .btn-toggle { border: none; border-radius: 999px; padding: 0.5rem 1.25rem; font-size: 0.95rem; background: transparent; color: #6c757d; }
+    .pricing-toggle .btn-toggle.active { background: #fff; color: #212529; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+    .pricing-toggle .btn-toggle .badge { font-size: 0.7rem; margin-left: 0.35rem; }
+    .pricing-card { height: 100%; border-radius: 12px; border: 1px solid #e9ecef; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow .2s, border-color .2s; position: relative; }
+    .pricing-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); border-color: #dee2e6; }
+    .pricing-card .card-body { padding: 1.5rem 1.25rem; display: flex; flex-direction: column; min-height: 0; }
+    .pricing-card .card-body .pricing-card-actions { margin-top: auto; padding-top: 1.25rem; }
+    .pricing-card .plan-badge { position: absolute; top: -1px; left: 50%; transform: translateX(-50%); background: #198754; color: #fff; font-size: 0.75rem; padding: 0.25rem 0.75rem; border-radius: 0 0 8px 8px; font-weight: 600; }
+    .pricing-card .plan-name { font-size: 1.1rem; font-weight: 600; color: #212529; margin-bottom: 0.25rem; }
+    .pricing-card .plan-sub { font-size: 0.8rem; color: #6c757d; margin-bottom: 1rem; min-height: 1.25em; }
+    .pricing-card .price { font-size: 1.75rem; font-weight: 700; color: #0d6efd; line-height: 1.2; }
+    .pricing-card .price-unit { font-size: 0.9rem; font-weight: 500; color: #6c757d; }
+    .pricing-card .price + .points { margin-top: 0.5rem; font-size: 0.95rem; color: #495057; }
+    .pricing-card .btn-subscribe { width: 100%; }
+    .pricing-card .feature-list { list-style: none; padding: 0; margin: 1.25rem 0 0; font-size: 0.9rem; flex: 1; min-height: 0; }
+    .pricing-card .feature-list li { padding: 0.4rem 0; border-bottom: 1px solid #f1f3f5; display: flex; align-items: flex-start; gap: 0.5rem; }
+    .pricing-card .feature-list li:last-child { border-bottom: none; }
+    .pricing-card .feature-list .icon { flex-shrink: 0; margin-top: 0.15rem; }
+    .pricing-card .feature-list .text { flex: 1; min-width: 0; word-break: break-word; }
+    .pricing-card .feature-list .icon.yes { color: #198754; }
+    .pricing-card .feature-list .icon.no { color: #dc3545; }
+    .pricing-card .feature-list .icon.dash { color: #adb5bd; }
+    .points-rule-card { border-radius: 12px; border: 1px solid #e9ecef; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .points-rule-card .card-body { padding: 1.5rem; }
+    .points-rule-card h5 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+    .points-rule-card ul { margin: 0; padding-left: 1.25rem; font-size: 0.95rem; color: #495057; }
+    .points-rule-card li { margin-bottom: 0.35rem; }
+    .footer-note { font-size: 0.85rem; color: #6c757d; margin-top: 2rem; }
+  </style>
+</head>
+<body class="bg-light">
+  <!-- 與全站一致：共用導覽（選單、登入、語系由 site-header.js 注入） -->
+  <div id="site-header"></div>
+
+  <div class="container-fluid page-title-bar">
+    <div class="container">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="section-title mb-0" style="font-size:1.25rem;" data-i18n="pricing.title">方案與定價</h1>
+        <a href="/credits.html" class="btn btn-outline-primary btn-sm"><i class="bi bi-currency-exchange me-1"></i><span data-i18n="nav.myCredits">我的點數</span></a>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="/index.html" data-i18n="nav.home">首頁</a></li>
+            <li class="breadcrumb-item active" data-i18n="pricing.title">方案與定價</li>
+          </ol>
+        </nav>
+      </div>
+    </div>
+  </div>
+
+  <section class="pricing-section">
+    <div class="container">
+      <h1 class="section-title d-none" data-i18n="pricing.title">方案與定價</h1>
+      <p class="section-subtitle" data-i18n="pricing.subtitle">訂製品平台會員方案與點數規則，適用於訂製者與製作方。</p>
+
+      <!-- 月付 / 年付切換（參考 Leonardo，目前僅 UI） -->
+      <div class="pricing-toggle-wrap">
+        <div class="pricing-toggle" role="group">
+          <button type="button" class="btn-toggle active" id="pricingMonthly" data-i18n="pricing.payMonthly">月付</button>
+          <button type="button" class="btn-toggle" id="pricingYearly"><span data-i18n="pricing.payYearly">年付</span> <span class="badge bg-success" data-i18n="pricing.yearlyOff">約 2 個月免費</span></button>
+        </div>
+      </div>
+
+      <div class="row g-4" id="pricingCardsRow">
+        <div class="col-12 text-muted text-center py-4" id="pricingLoading">載入方案中…</div>
+      </div>
+
+      <div class="points-rule-card card mt-5">
+        <div class="card-body">
+          <h5><i class="bi bi-coin me-2"></i><span data-i18n="pricing.pointsRulesTitle">點數消耗規則</span></h5>
+          <p class="text-muted small mb-2">以下為通用規則；<strong>6 折僅適用「我的 AI 編輯區」</strong>，AI 設計圖、翻譯等依原價。</p>
+          <ul>
+            <li data-i18n="pricing.pointsRule1">AI 設計圖：依後台設定（例如每次 N 點）</li>
+            <li data-i18n="pricing.pointsRule2">描述詞（AI 產生描述）：依後台設定</li>
+            <li><strong>我的 AI 編輯區</strong>（放大、去背、置換背景、內部補繪等）：依後台設定；<strong>訂閱會員享 6 折</strong></li>
+            <li data-i18n="pricing.pointsRule3">找廠商：免費方案可用點數抵扣，單次消耗依後台設定</li>
+            <li data-i18n="pricing.pointsRule4">製作方接案分類（免費方案）：200 點/月/分類</li>
+            <li data-i18n="pricing.pointsRule5">對話介面跨國溝通翻譯：1 點/段（方案三、四）</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="footer-note" data-i18n="pricing.footerNote">詳細規則與數字以系統後台設定為準。</p>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="/js/site-header.js"></script>
+  <script>
+(function(){
+  var t = function(k){ return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; };
+  var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
+
+  function getPlanFeatures(sortOrder) {
+    var aiEditRowFree = { text: '我的 AI 編輯區（放大、去背等）：依後台點數', type: 'dash' };
+    var aiEditRowPaid = { text: '我的 AI 編輯區（放大、去背等）：訂閱享 6 折', type: 'yes' };
+    var features = [
+      [{ text: '設計圖須開放至靈感牆', type: 'yes' }, { text: '製作方接案：200 點/月/分類', type: 'yes' }, { text: '首頁作品對照圖', type: 'dash' }, aiEditRowFree, { text: '接案顯示於多語系（跨境）', type: 'dash' }],
+      [{ text: '設計圖可隱藏，不上靈感牆', type: 'yes' }, { text: '製作方接案分類：3 個', type: 'yes' }, { text: '首頁作品對照圖', type: 'yes' }, aiEditRowPaid, { text: '接案顯示於多語系（跨境）', type: 'no' }],
+      [{ text: '設計圖可隱藏，不上靈感牆', type: 'yes' }, { text: '製作方接案分類：10 個', type: 'yes' }, { text: '首頁作品對照圖', type: 'yes' }, aiEditRowPaid, { text: '接案顯示於多語系（跨境）', type: 'yes' }, { text: '對話介面跨國翻譯 1 點/段', type: 'yes' }],
+      [{ text: '設計圖可隱藏，不上靈感牆', type: 'yes' }, { text: '製作方接案分類：30 個', type: 'yes' }, { text: '首頁作品對照圖', type: 'yes' }, aiEditRowPaid, { text: '接案顯示於多語系（跨境）', type: 'yes' }, { text: '對話介面跨國翻譯 1 點/段', type: 'yes' }]
+    ];
+    var list = features[sortOrder];
+    if (!list) return '';
+    return list.map(function(f) {
+      var icon = f.type === 'yes' ? 'bi-check-circle-fill yes' : (f.type === 'no' ? 'bi-x-circle-fill no' : 'bi-dash-circle dash');
+      return '<li><span class="icon ' + f.type + '"><i class="bi ' + icon + '"></i></span><span class="text">' + f.text + '</span></li>';
+    }).join('');
+  }
+
+  function renderPlans(plans) {
+    var row = document.getElementById('pricingCardsRow');
+    if (!row) return;
+    row.innerHTML = '';
+    if (!plans || plans.length === 0) {
+      row.innerHTML = '<div class="col-12 text-muted text-center py-4">目前無方案，請稍後再試。</div>';
+      return;
+    }
+    plans.forEach(function(plan, idx) {
+      var sortOrder = plan.sort_order != null ? plan.sort_order : idx;
+      var price = plan.price != null ? plan.price : 0;
+      var credits = plan.credits_monthly != null ? plan.credits_monthly : 0;
+      var planKey = planKeys[sortOrder] || '';
+      var yearlyPrice = price * 10;
+      var yearlyCredits = Math.floor(credits * 12);
+      var isFree = price === 0;
+      var featureListHtml = getPlanFeatures(sortOrder);
+      var col = document.createElement('div');
+      col.className = 'col-sm-6 col-lg-3';
+      var badge = sortOrder === 2 ? '<span class="plan-badge">' + t('pricing.bestOffer') + '</span>' : '';
+      var freeBtnAttrs = isFree ? ' data-free-plan="true"' : '';
+      col.innerHTML =
+        '<div class="pricing-card card h-100">' + badge +
+        '<div class="card-body">' +
+        '<div class="plan-name">' + (plan.name || '') + '</div>' +
+        '<div class="plan-sub">' + (isFree ? t('pricing.planFreeSub') : '') + '</div>' +
+        '<div class="price">' +
+        '<span class="price-monthly">' + price + ' 元/月</span>' +
+        '<span class="price-yearly d-none">' + yearlyPrice + ' 元/年</span>' +
+        '</div>' +
+        '<div class="points">' + credits + ' <span>' + t('pricing.pointsPerMonth') + '</span></div>' +
+        (featureListHtml ? '<ul class="feature-list">' + featureListHtml + '</ul>' : '') +
+        '<div class="pricing-card-actions">' +
+        '<a href="#" class="btn ' + (isFree ? 'btn-outline-primary' : 'btn-primary') + ' btn-subscribe btn-subscribe-plan" ' +
+        'data-amount="' + price + '" data-credits="' + credits + '" data-amount-yearly="' + yearlyPrice + '" data-credits-yearly="' + yearlyCredits + '" ' +
+        (planKey ? 'data-plan="' + planKey + '"' : '') + freeBtnAttrs + '>' + (isFree ? (t('pricing.signInOrRegister') || '註冊／登入') : t('pricing.subscribe')) + '</a>' +
+        '</div></div></div>';
+      row.appendChild(col);
+    });
+    bindSubscribeButtons();
+  }
+
+  function bindSubscribeButtons() {
+    document.querySelectorAll('.btn-subscribe-plan').forEach(function(btn){
+      if (btn.getAttribute('data-free-plan') === 'true') return;
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        var isYearly = document.getElementById('pricingYearly') && document.getElementById('pricingYearly').classList.contains('active');
+        var amount = parseInt(btn.getAttribute(isYearly ? 'data-amount-yearly' : 'data-amount'), 10) || 0;
+        var credits = parseInt(btn.getAttribute(isYearly ? 'data-credits-yearly' : 'data-credits'), 10) || 0;
+        var plan = btn.getAttribute('data-plan');
+        var billing = isYearly ? 'yearly' : 'monthly';
+        var creditsUrl = '/credits.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
+        if (window.AuthService && AuthService.getSession) {
+          AuthService.getSession().then(function(s){
+            if (s && s.user) location.href = creditsUrl;
+            else location.href = (AuthService.getLoginUrl ? AuthService.getLoginUrl() : '/login.html') + '?returnUrl=' + encodeURIComponent(creditsUrl);
+          }).catch(function(){ location.href = '/login.html?returnUrl=' + encodeURIComponent(creditsUrl); });
+        } else {
+          location.href = '/login.html?returnUrl=' + encodeURIComponent(creditsUrl);
+        }
+      });
+    });
+  }
+
+  function updateFreePlanButton() {
+    var btn = document.querySelector('.btn-subscribe-plan[data-free-plan="true"]');
+    if (!btn) return;
+    var loginReturnUrl = (typeof window !== 'undefined' && window.location && window.location.pathname) ? (window.location.pathname + (window.location.search || '')) : '/subscription-plans.html';
+    var loginUrl = '/login.html?returnUrl=' + encodeURIComponent(loginReturnUrl);
+    if (typeof AuthService === 'undefined' || !AuthService.getSession) {
+      btn.href = loginUrl;
+      btn.textContent = (window.i18n && window.i18n.t && window.i18n.t('pricing.signInOrRegister')) || '註冊／登入';
+      return;
+    }
+    AuthService.getSession().then(function(s){
+      if (s && s.user) {
+        btn.removeAttribute('href');
+        btn.classList.add('disabled');
+        btn.style.pointerEvents = 'none';
+        btn.textContent = (window.i18n && window.i18n.t && window.i18n.t('pricing.alreadySubscribed')) || '已訂閱';
+      } else {
+        btn.href = loginUrl;
+        btn.textContent = (window.i18n && window.i18n.t && window.i18n.t('pricing.signInOrRegister')) || '註冊／登入';
+      }
+    }).catch(function(){
+      btn.href = loginUrl;
+      btn.textContent = (window.i18n && window.i18n.t && window.i18n.t('pricing.signInOrRegister')) || '註冊／登入';
+    });
+  }
+
+  function applyTitle(){
+    var titleText = t('pricing.title') + ' - MatchDO';
+    var el = document.querySelector('title');
+    if (el) el.textContent = titleText;
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var whenReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+    whenReady.then(function(){
+      if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+      applyTitle();
+    });
+
+    function setPricingCycle(isYearly) {
+      document.querySelectorAll('.pricing-toggle .btn-toggle').forEach(function(b){ b.classList.remove('active'); });
+      var btn = document.getElementById(isYearly ? 'pricingYearly' : 'pricingMonthly');
+      if (btn) btn.classList.add('active');
+      document.querySelectorAll('.price-monthly').forEach(function(el){ el.classList.toggle('d-none', isYearly); });
+      document.querySelectorAll('.price-yearly').forEach(function(el){ el.classList.toggle('d-none', !isYearly); });
+    }
+    document.getElementById('pricingMonthly')?.addEventListener('click', function(){ setPricingCycle(false); });
+    document.getElementById('pricingYearly')?.addEventListener('click', function(){ setPricingCycle(true); });
+
+    fetch('/api/subscription-plans').then(function(r){ return r.json(); }).then(function(data){
+      var row = document.getElementById('pricingCardsRow');
+      if (row) row.querySelector('#pricingLoading') && (row.innerHTML = '');
+      renderPlans(data.plans || []);
+      updateFreePlanButton();
+    }).catch(function(){
+      var row = document.getElementById('pricingCardsRow');
+      if (row) row.innerHTML = '<div class="col-12 text-muted text-center py-4">無法載入方案，請稍後再試。</div>';
+    });
+  });
+})();
+  </script>
+</body>
+</html>

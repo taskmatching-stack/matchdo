@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="utf-8">
+    <title>客製產品 - MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="從圖庫找廠商、上傳設計圖或文字搜尋，媒合訂製廠商">
+
+    <link href="/img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <!-- Hero：客製產品首頁 -->
+    <div class="container-fluid py-5 bg-light">
+        <div class="container py-5">
+            <div class="row align-items-center mb-5">
+                <div class="col-lg-7">
+                    <h1 class="display-5 mb-4" data-i18n="customHome.heroTitle">找訂製廠商，從圖庫開始</h1>
+                    <p class="lead text-muted mb-4" data-i18n="customHome.heroLead">
+                        上傳設計圖或輸入描述，AI 分析後為您媒合廠商；也可先瀏覽廠商作品圖庫，用文字搜尋、選圖再設計，可執行度更高。
+                    </p>
+                    <div class="d-flex flex-wrap gap-3">
+                        <a href="/custom-product.html" class="btn btn-primary btn-lg px-4"><i class="bi bi-plus-circle me-2"></i><span data-i18n="customHome.btnCreate">建立客製產品</span></a>
+                        <a href="/client/find-makers.html" class="btn btn-success btn-lg px-4"><i class="bi bi-shop me-2"></i><span data-i18n="nav.findMakers">找製作方</span></a>
+                        <a href="/custom/gallery.html" class="btn btn-outline-primary btn-lg px-4"><i class="bi bi-images me-2"></i><span data-i18n="customHome.btnGallery">圖庫找廠商</span></a>
+                        <a href="/client/my-custom-products.html" class="btn btn-outline-secondary btn-lg px-4"><i class="bi bi-box-seam me-2"></i><span data-i18n="customHome.btnMyProducts">我的數位資產</span></a>
+                    </div>
+                </div>
+                <div class="col-lg-5 text-center text-muted">
+                    <i class="bi bi-palette2" style="font-size: 8rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 流程簡述 -->
+    <div class="container py-5">
+        <h2 class="text-center mb-4" data-i18n="customHome.flowTitle">流程說明</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px;">1</span>
+                        <h5 class="card-title" data-i18n="customHome.flow1Title">輸入或選圖</h5>
+                        <p class="card-text text-muted small" data-i18n="customHome.flow1Desc">上傳設計圖、輸入描述，或從廠商作品圖庫用文字搜尋後選圖。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px;">2</span>
+                        <h5 class="card-title" data-i18n="customHome.flow2Title">分析與媒合</h5>
+                        <p class="card-text text-muted small" data-i18n="customHome.flow2Desc">AI 分析後建議分類，列出符合的訂製廠商（分類符合即可瀏覽）。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <span class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center mb-3" style="width: 48px; height: 48px;">3</span>
+                        <h5 class="card-title" data-i18n="customHome.flow3Title">聯繫廠商</h5>
+                        <p class="card-text text-muted small" data-i18n="customHome.flow3Desc">瀏覽廠商作品與聯絡方式，選擇後發送聯繫或前往廠商自架賣場。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 工作入口：訂製品客戶／供應商（一帳號可兼兩方） -->
+    <div class="container py-4">
+        <p class="text-muted small text-center mb-3" data-i18n="customHome.workHint">同一帳號可同時使用客戶與供應商功能</p>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-3"><i class="bi bi-person me-2"></i>訂製品客戶</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="/custom-product.html" class="btn btn-outline-primary btn-sm">建立新產品</a>
+                            <a href="/client/find-makers.html" class="btn btn-outline-success btn-sm">找製作方</a>
+                            <a href="/client/my-custom-products.html" class="btn btn-outline-primary btn-sm" data-i18n="customHome.btnMyProducts">我的數位資產</a>
+                            <a href="/custom/gallery.html" class="btn btn-outline-primary btn-sm">圖庫找廠商</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-3"><i class="bi bi-shop me-2"></i>訂製品供應商</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm">廠商控制台</a>
+                            <a href="/client/manufacturer-portfolio.html" class="btn btn-outline-secondary btn-sm">我的廠商作品</a>
+                            <a href="/client/manufacturer-inquiries.html" class="btn btn-outline-secondary btn-sm">訂製詢價列表</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 連結主站服務媒合（ENABLE_SERVICE_MATCHING=false 時由 JS 隱藏） -->
+    <div class="container pb-5" id="service-matching-cta">
+        <div class="text-center">
+            <p class="text-muted mb-2" data-i18n="customHome.ctaText">需要發包工程、找施工專家？</p>
+            <a href="/index.html#ai-estimate" class="btn btn-outline-secondary" data-i18n="customHome.ctaBtn">前往服務媒合首頁</a>
+        </div>
+    </div>
+
+    <div id="site-footer"></div>
+    <a href="#!" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/site-footer.js"></script>
+    <script>
+        (function () {
+            if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }
+            fetch('/api/public-config').then(function (r) { return r.json(); }).then(function (c) {
+                if (c.enableServiceMatching === false) {
+                    var el = document.getElementById('service-matching-cta');
+                    if (el) el.classList.add('d-none');
+                }
+            }).catch(function () {});
+        })();
+    </script>
+</body>
+</html>

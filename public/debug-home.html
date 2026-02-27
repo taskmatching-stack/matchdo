@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>首頁除錯</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>首頁除錯工具</h1>
+        
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5>步驟 1: 檢查 jQuery</h5>
+                <button onclick="checkJQuery()" class="btn btn-primary">檢查</button>
+                <div id="jqueryResult"></div>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5>步驟 2: 測試子分類 API</h5>
+                <button onclick="testSubcategoriesAPI()" class="btn btn-primary">測試 API</button>
+                <pre id="apiResult" class="mt-2"></pre>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5>步驟 3: 模擬首頁流程</h5>
+                <select id="testCategory" class="form-select mb-2">
+                    <option value="home">居家</option>
+                </select>
+                <select id="testSubcategory" class="form-select mb-2">
+                    <option value="清潔服務">清潔服務</option>
+                </select>
+                <div id="testDynamicFields"></div>
+                <button onclick="simulateHomePage()" class="btn btn-success">模擬載入</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <script>
+    function checkJQuery() {
+        const result = document.getElementById('jqueryResult');
+        if (typeof $ !== 'undefined') {
+            result.innerHTML = '<div class="alert alert-success mt-2">✅ jQuery 已載入，版本: ' + $.fn.jquery + '</div>';
+        } else {
+            result.innerHTML = '<div class="alert alert-danger mt-2">❌ jQuery 未載入</div>';
+        }
+    }
+    
+    async function testSubcategoriesAPI() {
+        const result = document.getElementById('apiResult');
+        result.textContent = '測試中...';
+        try {
+            const res = await fetch('/api/subcategories?category_key=home');
+            const data = await res.json();
+            result.textContent = JSON.stringify(data, null, 2);
+            
+            if (data.success && data.subcategories && data.subcategories.length > 0) {
+                const cleanService = data.subcategories.find(s => s.name === '清潔服務');
+                if (cleanService && cleanService.form_config && cleanService.form_config.length > 0) {
+                    result.textContent += '\n\n✅ 清潔服務有 ' + cleanService.form_config.length + ' 個欄位！';
+                } else {
+                    result.textContent += '\n\n❌ 清潔服務沒有 form_config！';
+                }
+            }
+        } catch (e) {
+            result.textContent = '❌ 錯誤: ' + e.message;
+        }
+    }
+    
+    async function simulateHomePage() {
+        const container = document.getElementById('testDynamicFields');
+        container.innerHTML = '<div class="alert alert-info">載入中...</div>';
+        
+        try {
+            // 模擬首頁的邏輯
+            const res = await fetch('/api/subcategories?category_key=home');
+            const data = await res.json();
+            console.log('API 返回:', data);
+            
+            if (!data.success || !data.subcategories) {
+                container.innerHTML = '<div class="alert alert-danger">API 返回失敗</div>';
+                return;
+            }
+            
+            const subcats = ['清潔服務'];
+            const allFields = {};
+            
+            subcats.forEach(subName => {
+                const subData = data.subcategories.find(s => s.name === subName);
+                console.log('找到子分類:', subData);
+                if (subData && subData.form_config) {
+                    subData.form_config.forEach(field => {
+                        const key = field.name || field.label;
+                        if (!allFields[key]) {
+                            allFields[key] = field;
+                        }
+                    });
+                }
+            });
+            
+            const fields = Object.values(allFields);
+            console.log('欄位:', fields);
+            
+            if (fields.length === 0) {
+                container.innerHTML = '<div class="alert alert-warning">沒有欄位</div>';
+                return;
+            }
+            
+            let html = '<div class="border p-3"><h6 class="text-primary">專案基本資訊</h6><div class="row">';
+            
+            fields.forEach(f => {
+                const fieldName = f.name || (f.label || '').replace(/\s+/g, '_');
+                const requiredBadge = f.required ? ' <span class="text-danger">*</span>' : '';
+                const unitText = f.unit ? ` (${f.unit})` : '';
+                
+                html += '<div class="col-md-6 mb-3">';
+                html += `<label class="form-label">${f.label}${unitText}${requiredBadge}</label>`;
+                
+                if (f.type === 'select') {
+                    html += `<select class="form-select">`;
+                    html += '<option value="">請選擇</option>';
+                    (f.options || []).forEach(opt => {
+                        html += `<option value="${opt}">${opt}</option>`;
+                    });
+                    html += '</select>';
+                } else if (f.type === 'number') {
+                    html += `<input type="number" class="form-control" placeholder="${f.placeholder || ''}">`;
+                } else {
+                    html += `<input type="text" class="form-control" placeholder="${f.placeholder || ''}">`;
+                }
+                
+                html += '</div>';
+            });
+            
+            html += '</div></div>';
+            container.innerHTML = html;
+            console.log('✅ 渲染完成');
+            
+        } catch (e) {
+            console.error('錯誤:', e);
+            container.innerHTML = '<div class="alert alert-danger">錯誤: ' + e.message + '</div>';
+        }
+    }
+    </script>
+</body>
+</html>

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>產品詳情 - MatchDO 合做</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        .product-image-large {
+            width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            border-radius: 12px;
+            background: #f8f9fa;
+        }
+        .manufacturer-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+        }
+        .manufacturer-card:hover {
+            border-left-color: #0d6efd;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateX(5px);
+        }
+        .match-score {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #198754;
+        }
+        .analysis-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            margin: 0.25rem;
+            background: #e9ecef;
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+        .capability-tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            margin: 0.25rem;
+            background: #e7f3ff;
+            border: 1px solid #bee5eb;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            color: #004085;
+        }
+        .rating-stars {
+            color: #ffc107;
+        }
+        .section-title {
+            border-left: 4px solid #0d6efd;
+            padding-left: 1rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container py-5">
+        <!-- 載入中 -->
+        <div id="loadingSpinner" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden" data-i18n="myCustomProducts.loading">載入中...</span>
+            </div>
+            <p class="mt-3 text-muted" data-i18n="customProductDetail.loading">載入產品資訊...</p>
+        </div>
+
+        <!-- 產品詳情 -->
+        <div id="productDetail" style="display: none;">
+            <!-- 返回按鈕 -->
+            <div class="mb-4">
+                <a href="/client/my-custom-products.html" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i><span data-i18n="customProductDetail.backToList">返回列表</span>
+                </a>
+            </div>
+
+            <!-- 產品基本資訊 -->
+            <div class="row mb-5">
+                <div class="col-lg-6">
+                    <img id="productImage" src="" alt="產品圖片" class="product-image-large mb-3">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="toggleImageView()">
+                            <i class="bi bi-arrow-left-right me-1"></i><span data-i18n="customProductDetail.switchImage">切換圖片</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h2 id="productTitle"></h2>
+                        <span id="productStatus" class="badge"></span>
+                    </div>
+                    <p id="productDescription" class="text-muted mb-4"></p>
+                    
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-3 text-muted" data-i18n="customProductDetail.productInfo">產品資訊</h6>
+                            <div class="row">
+                                <div class="col-6 mb-2">
+                                    <small class="text-muted" data-i18n="customProductDetail.category">分類</small>
+                                    <p id="productCategory" class="mb-0 fw-bold"></p>
+                                </div>
+                                <div class="col-6 mb-2">
+                                    <small class="text-muted" data-i18n="customProductDetail.createdAt">建立日期</small>
+                                    <p id="productDate" class="mb-0"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI 分析結果 -->
+                    <div id="analysisSection" class="card" style="display: none;">
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-3 text-muted">
+                                <i class="bi bi-robot me-2"></i><span data-i18n="customProductDetail.aiAnalysis">AI 分析結果</span>
+                            </h6>
+                            <div id="analysisContent"></div>
+                        </div>
+                    </div>
+
+                    <!-- 操作按鈕 -->
+                    <div id="actionButtons" class="d-grid gap-2 mt-4"></div>
+                </div>
+            </div>
+
+            <!-- 媒合廠商列表 -->
+            <div id="matchesSection" style="display: none;">
+                <h3 class="section-title" data-i18n="customProductDetail.recommendedVendors">推薦廠商</h3>
+                <p class="text-muted mb-4" data-i18n="customProductDetail.recommendedVendorsDesc">根據您的產品需求，我們為您找到以下合適的廠商</p>
+                
+                <div id="manufacturersList"></div>
+            </div>
+
+            <!-- 無媒合結果 -->
+            <div id="noMatches" class="text-center py-5" style="display: none;">
+                <i class="bi bi-search" style="font-size: 3rem; color: #dee2e6;"></i>
+                <h5 class="mt-3" data-i18n="customProductDetail.noMatchesYet">尚未媒合廠商</h5>
+                <p class="text-muted" data-i18n="customProductDetail.noMatchesHint">點擊「開始媒合」按鈕來尋找合適的廠商</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 聯繫廠商 Modal -->
+    <div class="modal fade" id="contactModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" data-i18n="customProductDetail.contactModalTitle">聯繫廠商</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="contactInfo"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="customProductDetail.close">關閉</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmContact()" data-i18n="customProductDetail.confirmContact">確認聯繫</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="../js/site-header.js"></script>
+
+    <script>
+
+        let currentUser = null;
+        let currentProduct = null;
+        let currentMatches = [];
+        let selectedManufacturer = null;
+        let showingAiImage = true;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.i18n && window.i18n.ready) {
+                window.i18n.ready.then(function () { window.i18n.applyPage(); });
+            }
+            const isAuth = await AuthMiddleware.requireAuth();
+            if (!isAuth) return;
+
+            currentUser = await AuthService.getCurrentUser();
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const productId = urlParams.get('id');
+
+            if (!productId) {
+                showAlert('缺少產品 ID', 'danger');
+                setTimeout(() => window.location.href = '/client/my-custom-products.html', 2000);
+                return;
+            }
+
+            await loadProductDetail(productId);
+        });
+
+        async function loadProductDetail(productId) {
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+
+                // 載入產品詳情
+                const productResponse = await fetch(`/api/custom-products/${productId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!productResponse.ok) {
+                    throw new Error('載入產品失敗');
+                }
+
+                const productData = await productResponse.json();
+                currentProduct = productData.product;
+
+                // 顯示產品資訊
+                renderProductDetail(currentProduct);
+
+                // 一律載入「符合此分類的廠商」（依產品分類／標題推斷，西裝不會出現 3D 列印等）
+                await loadMatches(productId);
+
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('productDetail').style.display = 'block';
+
+            } catch (error) {
+                console.error('載入產品詳情失敗:', error);
+                document.getElementById('loadingSpinner').style.display = 'none';
+                showAlert('載入產品詳情失敗: ' + error.message, 'danger');
+            }
+        }
+
+        function renderProductDetail(product) {
+            // 圖片
+            const imageUrl = product.ai_generated_image_url || product.reference_image_url || 'https://via.placeholder.com/800x600?text=No+Image';
+            document.getElementById('productImage').src = imageUrl;
+
+            // 基本資訊
+            document.getElementById('productTitle').textContent = product.title;
+            document.getElementById('productDescription').textContent = product.description;
+            document.getElementById('productCategory').textContent = product.category || (window.i18n && window.i18n.t ? window.i18n.t('customProductDetail.uncategorized') : '未分類');
+            document.getElementById('productDate').textContent = formatDate(product.created_at);
+
+            // 狀態標籤
+            const statusInfo = getStatusInfo(product.status);
+            const statusBadge = document.getElementById('productStatus');
+            statusBadge.textContent = statusInfo.text;
+            statusBadge.className = `badge ${statusInfo.class}`;
+
+            // AI 分析結果
+            if (product.analysis_json) {
+                renderAnalysis(product.analysis_json);
+            }
+
+            // 操作按鈕
+            renderActionButtons(product);
+        }
+
+        function renderAnalysis(analysis) {
+            const section = document.getElementById('analysisSection');
+            const content = document.getElementById('analysisContent');
+            
+            let html = '';
+
+            var t = window.i18n && window.i18n.t ? window.i18n.t.bind(window.i18n) : function (k) { return k; };
+            if (analysis.materials && analysis.materials.length > 0) {
+                html += '<div class="mb-3"><strong>' + t('customProductDetail.suggestedMaterials') + '</strong><br>';
+                analysis.materials.forEach(m => {
+                    html += `<span class="analysis-badge">${m}</span>`;
+                });
+                html += '</div>';
+            }
+
+            if (analysis.complexity) {
+                html += '<div class="mb-3"><strong>' + t('customProductDetail.complexity') + '</strong> ' + analysis.complexity + '</div>';
+            }
+
+            if (analysis.estimated_price_range) {
+                html += '<div class="mb-3"><strong>' + t('customProductDetail.estimatedPrice') + '</strong> ' + analysis.estimated_price_range + '</div>';
+            }
+
+            if (analysis.production_time) {
+                html += '<div class="mb-3"><strong>' + t('customProductDetail.productionTime') + '</strong> ' + analysis.production_time + '</div>';
+            }
+
+            if (analysis.tags && analysis.tags.length > 0) {
+                html += '<div><strong>' + t('customProductDetail.tags') + '</strong><br>';
+                analysis.tags.forEach(tag => {
+                    html += `<span class="analysis-badge">${tag}</span>`;
+                });
+                html += '</div>';
+            }
+
+            content.innerHTML = html;
+            section.style.display = 'block';
+        }
+
+        function renderActionButtons(product) {
+            const container = document.getElementById('actionButtons');
+            let html = '';
+
+            var t = window.i18n && window.i18n.t ? window.i18n.t.bind(window.i18n) : function (k) { return k; };
+            if (product.status === 'draft') {
+                html = `
+                    <button class="btn btn-primary btn-lg" onclick="startMatching()">
+                        <i class="bi bi-search me-2"></i>${t('customProductDetail.startMatchVendor')}
+                    </button>
+                `;
+            } else if (product.status === 'analyzing') {
+                html = `
+                    <button class="btn btn-secondary btn-lg" disabled>
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        ${t('customProductDetail.matching')}
+                    </button>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        async function loadMatches(productId) {
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                // 依產品分類取得製作方（與「找製作方」同邏輯，西裝不會出現 3D 列印等）
+                const response = await fetch(`/api/custom-products/${productId}/manufacturers`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await response.json();
+                currentMatches = data.manufacturers || [];
+
+                if (currentMatches.length > 0) {
+                    renderMatches(currentMatches);
+                    document.getElementById('matchesSection').style.display = 'block';
+                } else {
+                    document.getElementById('noMatches').style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error('載入製作方列表失敗:', error);
+                document.getElementById('noMatches').style.display = 'block';
+            }
+        }
+
+        function renderMatches(matches) {
+            const container = document.getElementById('manufacturersList');
+            container.innerHTML = '';
+
+            matches.forEach((mfr, index) => {
+                const card = createManufacturerCard(mfr, index + 1);
+                container.appendChild(card);
+            });
+        }
+
+        function createManufacturerCard(mfr, rank) {
+            const card = document.createElement('div');
+            card.className = 'card manufacturer-card mb-3';
+            
+            const stars = '★'.repeat(Math.floor(mfr.rating)) + '☆'.repeat(5 - Math.floor(mfr.rating));
+
+            card.innerHTML = `
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <div class="match-score">#${rank}</div>
+                            <small class="text-muted">${mfr.matchScore}%</small>
+                        </div>
+                        <div class="col">
+                            <h5 class="card-title mb-1">${mfr.name}</h5>
+                            <p class="text-muted mb-2">${mfr.specialty || '專業訂製服務'}</p>
+                            <div class="mb-2">
+                                <span class="rating-stars">${stars}</span>
+                                <span class="text-muted ms-2">${mfr.rating || 0}</span>
+                            </div>
+                            <div class="mb-2">
+                                <i class="bi bi-geo-alt me-1"></i>
+                                <span>${mfr.location || '未提供'}</span>
+                            </div>
+                            ${mfr.capabilities ? `
+                                <div>
+                                    ${mfr.capabilities.map(c => `<span class="capability-tag">${c}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-primary" onclick="openContactModal('${mfr.id}', '${mfr.name}')">
+                                <i class="bi bi-telephone me-2"></i>${(window.i18n && window.i18n.t) ? window.i18n.t('customProductDetail.contactVendor') : '聯繫廠商'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        window.startMatching = async function() {
+            if (!currentProduct) return;
+
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+
+                // 更新 UI
+                renderActionButtons({ ...currentProduct, status: 'analyzing' });
+
+                const response = await fetch(`/api/custom-products/${currentProduct.id}/match`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '媒合失敗');
+                }
+
+                showAlert('媒合成功！', 'success');
+                
+                // 重新載入頁面
+                setTimeout(() => window.location.reload(), 1500);
+
+            } catch (error) {
+                console.error('媒合失敗:', error);
+                showAlert('媒合失敗: ' + error.message, 'danger');
+                renderActionButtons(currentProduct);
+            }
+        };
+
+        window.openContactModal = function(manufacturerId, manufacturerName) {
+            selectedManufacturer = currentMatches.find(m => m.id === manufacturerId);
+            
+            if (!selectedManufacturer) return;
+
+            const contact = selectedManufacturer.contact || {};
+            const infoHtml = `
+                <h5>${manufacturerName}</h5>
+                <hr>
+                <p><strong>電話：</strong> ${contact.phone || '未提供'}</p>
+                <p><strong>Email：</strong> ${contact.email || '未提供'}</p>
+                ${contact.line_id ? `<p><strong>LINE ID：</strong> ${contact.line_id}</p>` : ''}
+                ${contact.website ? `<p><strong>網站：</strong> <a href="${contact.website}" target="_blank">${contact.website}</a></p>` : ''}
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <span data-i18n="customProductDetail.contactConfirmNote">確認後將記錄您的聯繫意願，並更新產品狀態</span>
+                </div>
+            `;
+
+            document.getElementById('contactInfo').innerHTML = infoHtml;
+            new bootstrap.Modal(document.getElementById('contactModal')).show();
+        };
+
+        window.confirmContact = async function() {
+            if (!selectedManufacturer || !currentProduct) return;
+
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+
+                const response = await fetch(`/api/custom-products/${currentProduct.id}/contact`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        manufacturer_id: selectedManufacturer.id
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '聯繫記錄失敗');
+                }
+
+                bootstrap.Modal.getInstance(document.getElementById('contactModal')).hide();
+                showAlert((window.i18n && window.i18n.t) ? window.i18n.t('customProductDetail.contactRecorded') : '已記錄聯繫狀態！', 'success');
+
+                // 更新產品狀態顯示
+                currentProduct.status = 'contacted';
+                const statusInfo = getStatusInfo('contacted');
+                const statusBadge = document.getElementById('productStatus');
+                statusBadge.textContent = statusInfo.text;
+                statusBadge.className = `badge ${statusInfo.class}`;
+
+            } catch (error) {
+                console.error('聯繫失敗:', error);
+                showAlert('聯繫記錄失敗: ' + error.message, 'danger');
+            }
+        };
+
+        window.toggleImageView = function() {
+            if (!currentProduct) return;
+
+            const img = document.getElementById('productImage');
+            
+            if (showingAiImage && currentProduct.reference_image_url) {
+                img.src = currentProduct.reference_image_url;
+                showingAiImage = false;
+            } else if (!showingAiImage && currentProduct.ai_generated_image_url) {
+                img.src = currentProduct.ai_generated_image_url;
+                showingAiImage = true;
+            }
+        };
+
+        function getStatusInfo(status) {
+            var t = window.i18n && window.i18n.t ? window.i18n.t.bind(window.i18n) : function (k) { return k; };
+            var statusMap = {
+                'draft': { text: t('myCustomProducts.statusDraft'), class: 'bg-secondary' },
+                'analyzing': { text: t('myCustomProducts.statusAnalyzing'), class: 'bg-info' },
+                'matched': { text: t('myCustomProducts.statusMatched'), class: 'bg-success' },
+                'contacted': { text: t('myCustomProducts.statusContacted'), class: 'bg-warning' },
+                'completed': { text: t('myCustomProducts.statusCompleted'), class: 'bg-primary' }
+            };
+            return statusMap[status] || { text: status, class: 'bg-secondary' };
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-TW', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+            alertDiv.style.zIndex = '9999';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+    </script>
+</body>
+</html>

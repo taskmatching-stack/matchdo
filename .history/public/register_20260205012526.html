@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>選擇角色 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="iStudio-1.0.0/img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .register-container {
+            max-width: 900px;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .register-card {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .register-card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .register-card .subtitle {
+            color: #666;
+            margin-bottom: 50px;
+            text-align: center;
+            font-size: 16px;
+        }
+
+        .role-card {
+            border: 3px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            height: 100%;
+            text-align: center;
+        }
+
+        .role-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .role-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e8ebff 100%);
+        }
+
+        .role-card .icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .role-card h4 {
+            color: #333;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .role-card p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .role-card ul {
+            text-align: left;
+            color: #666;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .role-card ul li {
+            margin-bottom: 8px;
+        }
+
+        .btn-continue {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 18px;
+            margin-top: 40px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-continue:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-continue:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .user-info {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-info img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+
+        .user-info .info {
+            flex: 1;
+        }
+
+        .user-info .name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .user-info .email {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="register-container">
+        <div class="register-card">
+            <h2>歡迎加入 MatchDO 合做！</h2>
+            <p class="subtitle">請選擇您的身份，我們將為您客製化專屬體驗</p>
+
+            <!-- 用戶資訊 -->
+            <div id="userInfo" class="user-info" style="display: none;">
+                <img id="userAvatar" src="" alt="Avatar">
+                <div class="info">
+                    <div class="name" id="userName"></div>
+                    <div class="email" id="userEmail"></div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <!-- 發案者 -->
+                <div class="col-md-6">
+                    <div class="role-card" data-role="client" onclick="selectRole('client')">
+                        <div class="icon">
+                            <i class="bi bi-person-circle"></i>
+                        </div>
+                        <h4>我是發案者</h4>
+                        <p>我有需求，想找專業的服務商或廠商協助</p>
+                        <ul>
+                            <li><i class="bi bi-check-circle text-success"></i> 上傳需求圖片或描述</li>
+                            <li><i class="bi bi-check-circle text-success"></i> AI 智能分析與推薦</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 快速媒合優質專家</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 直接聯繫洽談合作</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- 專家 -->
+                <div class="col-md-6">
+                    <div class="role-card" data-role="expert" onclick="selectRole('expert')">
+                        <div class="icon">
+                            <i class="bi bi-briefcase-fill"></i>
+                        </div>
+                        <h4>我是服務商/廠商</h4>
+                        <p>我提供專業服務或產品，想接更多案子</p>
+                        <ul>
+                            <li><i class="bi bi-check-circle text-success"></i> 上架服務與報價項目</li>
+                            <li><i class="bi bi-check-circle text-success"></i> AI 自動媒合適合專案</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 接收需求通知</li>
+                            <li><i class="bi bi-check-circle text-success"></i> 拓展業務機會</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button id="continueBtn" class="btn-continue" disabled onclick="continueRegistration()">
+                    繼續 <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>
+
+            <div class="text-center mt-4">
+                <small class="text-muted">已有帳號？ <a href="login.html" class="text-primary fw-bold">立即登入</a></small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Auth Config -->
+    <script src="config/auth-config.js"></script>
+
+    <script>
+        let selectedRole = null;
+        let currentUser = null;
+
+        // 選擇角色
+        function selectRole(role) {
+            selectedRole = role;
+            
+            // 移除所有選中狀態
+            document.querySelectorAll('.role-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // 添加選中狀態
+            document.querySelector(`[data-role="${role}"]`).classList.add('selected');
+            
+            // 啟用繼續按鈕
+            document.getElementById('continueBtn').disabled = false;
+        }
+
+        // 繼續註冊
+        async function continueRegistration() {
+            if (!selectedRole || !currentUser) {
+                alert('請選擇角色');
+                return;
+            }
+
+            try {
+                // 更新用戶角色
+                await AuthService.updateUserRole(currentUser.id, selectedRole, {
+                    email: currentUser.email,
+                    full_name: currentUser.user_metadata?.full_name || '',
+                    avatar_url: currentUser.user_metadata?.avatar_url || ''
+                });
+
+                // 如果是專家，建立專家檔案
+                if (selectedRole === 'expert') {
+                    await AuthService.createExpertProfile(currentUser.id, {
+                        specialty: '',
+                        experience_years: 0,
+                        rating: 5.0,
+                        verification_status: 'pending'
+                    });
+                }
+
+                // 導向對應的控制台
+                if (selectedRole === 'expert') {
+                    window.location.href = '/iStudio-1.0.0/expert/dashboard.html';
+                } else {
+                    window.location.href = '/iStudio-1.0.0/client/dashboard.html';
+                }
+            } catch (error) {
+                console.error('註冊失敗:', error);
+                alert('註冊失敗：' + error.message);
+            }
+        }
+
+        // 頁面載入時檢查用戶狀態
+        window.addEventListener('load', async () => {
+            currentUser = await AuthService.getCurrentUser();
+            
+            if (!currentUser) {
+                // 未登入，導向登入頁
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // 檢查是否已完成註冊
+            const profile = await AuthService.getUserProfile();
+            if (profile && profile.profile_completed) {
+                // 已完成註冊，導向對應控制台
+                if (profile.role === 'expert') {
+                    window.location.href = '/iStudio-1.0.0/expert/dashboard.html';
+                } else {
+                    window.location.href = '/iStudio-1.0.0/client/dashboard.html';
+                }
+                return;
+            }
+
+            // 顯示用戶資訊
+            document.getElementById('userInfo').style.display = 'flex';
+            document.getElementById('userName').textContent = currentUser.user_metadata?.full_name || '新用戶';
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userAvatar').src = currentUser.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(currentUser.email);
+        });
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

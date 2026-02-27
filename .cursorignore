@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.git/
+*.log
+uploads/
+
+
+public/iStudio-1.0.0/lib/
+\*.map

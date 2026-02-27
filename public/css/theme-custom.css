@@ -1,0 +1,54 @@
+/**
+ * 客製產品線主題：與全站一致
+ * 灰底 #F0F0F0、深灰文字 #333333、按鈕主色 #445D7E
+ * 僅在 <html data-theme="custom"> 時套用
+ */
+[data-theme="custom"] {
+    --bs-primary: #445D7E;
+    --bs-primary-rgb: 68, 93, 126;
+    --bs-primary-dark: #3a5169;
+    --bs-primary-light: #556d8e;
+}
+
+[data-theme="custom"] .btn-primary {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+[data-theme="custom"] .btn-primary:hover {
+    background-color: var(--bs-primary-dark);
+    border-color: var(--bs-primary-dark);
+}
+
+[data-theme="custom"] .navbar .navbar-nav .nav-link:hover,
+[data-theme="custom"] .navbar .navbar-nav .nav-link.active {
+    color: var(--bs-primary);
+}
+
+[data-theme="custom"] .navbar-brand .text-primary,
+[data-theme="custom"] .text-primary {
+    color: var(--bs-primary) !important;
+}
+
+[data-theme="custom"] .bg-primary {
+    background-color: var(--bs-primary) !important;
+}
+
+[data-theme="custom"] .dropdown-menu .dropdown-item:hover,
+[data-theme="custom"] .dropdown-menu .dropdown-item.active {
+    background-color: var(--bs-primary);
+    color: #fff;
+}
+
+[data-theme="custom"] .border-primary {
+    border-color: var(--bs-primary) !important;
+}
+
+[data-theme="custom"] .btn-outline-primary {
+    color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+[data-theme="custom"] .btn-outline-primary:hover {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    color: #fff;
+}

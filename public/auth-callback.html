@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <title>登入中… - MatchDO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f0f0f0; }
+    .box { text-align: center; padding: 2rem; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #ddd; border-top-color: #667eea; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 1rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="spinner"></div>
+    <p>登入成功，正在導向…</p>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script>
+    (function () {
+      var hash = window.location.hash || '';
+      var hasTokens = hash.indexOf('access_token') !== -1 || hash.indexOf('refresh_token') !== -1;
+
+      function go() {
+        var url = (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('auth_return_url')) || '/index.html';
+        try { if (sessionStorage) sessionStorage.removeItem('auth_return_url'); } catch (e) {}
+        if (!url || url === '/login.html' || url.indexOf('login') !== -1) url = '/index.html';
+        if (url.charAt(0) !== '/') url = '/' + url;
+        window.location.replace(url);
+      }
+
+      function tryGo() {
+        if (!window.AuthService) { go(); return; }
+        AuthService.getSession().then(function (session) {
+          if (session) go();
+          else window.location.replace('/index.html');
+        }).catch(function () { go(); });
+      }
+
+      if (hasTokens) {
+        setTimeout(tryGo, 900);
+      } else {
+        tryGo();
+      }
+    })();
+  </script>
+</body>
+</html>

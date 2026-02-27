@@ -1,0 +1,87 @@
+/**
+ * 全站配色：版面底色 #ffffff + 深灰文字 + 按鈕主色 #445D7E
+ */
+:root {
+    --bs-body-bg: #ffffff;
+    --bs-body-color: #333333;
+    --bs-primary: #445D7E;
+    --bs-primary-rgb: 68, 93, 126;
+    --bs-primary-dark: #3a5169;
+}
+
+body {
+    background-color: #ffffff !important;
+    color: #333333 !important;
+}
+
+/* 按鈕主色 */
+.btn-primary,
+.bg-primary.btn {
+    background-color: #445D7E !important;
+    border-color: #445D7E !important;
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.bg-primary.btn:hover {
+    background-color: #3a5169 !important;
+    border-color: #3a5169 !important;
+}
+
+.btn-outline-primary {
+    color: #445D7E;
+    border-color: #445D7E;
+}
+.btn-outline-primary:hover {
+    background-color: #445D7E;
+    border-color: #445D7E;
+    color: #fff;
+}
+
+/* 連結與導覽 */
+a:not(.btn) {
+    color: #445D7E;
+}
+a:not(.btn):hover {
+    color: #3a5169;
+}
+
+.text-primary {
+    color: #445D7E !important;
+}
+
+.border-primary {
+    border-color: #445D7E !important;
+}
+
+/* 頁面標題列、卡片底 */
+.page-title-bar {
+    background: #ffffff !important;
+    border-bottom-color: #d0dce5 !important;
+}
+.card,
+.bg-white {
+    background-color: #fff !important;
+}
+.bg-light {
+    background-color: #e8e8e8 !important;
+}
+
+/* 導覽與下拉 */
+.navbar .navbar-nav .nav-link:hover,
+.navbar .navbar-nav .nav-link.active {
+    color: #445D7E !important;
+}
+.navbar .dropdown-menu .dropdown-item:hover,
+.navbar .dropdown-menu .dropdown-item.active {
+    background-color: #445D7E !important;
+    color: #fff !important;
+}
+
+/* 輸入框在灰底上保持白底 */
+.form-control,
+.form-select,
+.input-group-text {
+    background-color: #fff;
+    color: #333;
+    border-color: #ced4da;
+}

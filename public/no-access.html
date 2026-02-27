@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>無權限 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="iStudio-1.0.0/img/favicon.ico" rel="icon">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="iStudio-1.0.0/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-lock fa-4x text-warning mb-4"></i>
+                        <h4 class="mb-3">無法存取此頁面</h4>
+                        <p class="text-muted mb-4" id="message">您的帳號沒有此頁面所需的身分權限。</p>
+                        <a href="/index.html" class="btn btn-primary">返回首頁</a>
+                        <a href="/login.html" class="btn btn-outline-secondary ms-2">重新登入</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            var p = new URLSearchParams(window.location.search);
+            var for_ = p.get('for');
+            var msg = document.getElementById('message');
+            if (for_ === 'admin') msg.textContent = '此頁面僅限管理員使用。';
+            else if (for_ === 'expert') msg.textContent = '此頁面僅限專家（承包商）使用。請使用具專家身分的帳號登入。';
+            else if (for_ === 'client') msg.textContent = '此頁面僅限發案者使用。請使用具發案者身分的帳號登入。';
+        })();
+    </script>
+</body>
+</html>

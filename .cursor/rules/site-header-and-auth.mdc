@@ -1,0 +1,33 @@
+---
+description: 選單與登入不可改壞：site-header.js、登入連結、變數不重複宣告
+globs: public/js/site-header.js, public/config/auth-config.js
+alwaysApply: false
+---
+
+# 選單與登入（修改時必守，否則全站選單／登入會壞）
+
+編輯 **site-header.js** 或 **auth-config.js** 時必須遵守以下幾點，已多次因違反而導致選單或登入失效。
+
+## 1. 禁止重複宣告同一變數
+
+在 **同一 function 內**（例如 `renderHeader`）**不可**對同一識別符號宣告兩次（例如已有 `const path = ...` 就不要再寫 `var path = ...`），否則會拋錯 `Identifier 'path' has already been declared`，整支腳本中斷，選單與登入一併失效。
+
+- 若需要「目前路徑」，只宣告一次（如 `const path = ...`），後面一律沿用該變數。
+
+## 2. 登入連結必須帶 returnUrl
+
+未登入時顯示的「登入」按鈕，連結必須能讓使用者登入後回到當前頁。
+
+- **正確**：`/login.html?returnUrl=` + 目前路徑（或使用 `AuthService.getLoginUrl(path)`）。
+- **錯誤**：僅 `'/login.html'` 且無 returnUrl。
+
+在 site-header.js 裡，`loginHref`（初次繪製與 renderHeader 內）都要帶 returnUrl 或呼叫 `AuthService.getLoginUrl(path)`。
+
+## 3. 修改後自檢
+
+改動後確認：① 同一 function 內沒有重複宣告；② 搜尋 `loginHref` 與 `getLoginUrl`，確認登入連結有 returnUrl；③ 存檔後在瀏覽器重新整理，點選單與登入按鈕是否正常。
+
+## 參考
+
+- 路徑變數：`renderHeader` 內已有 `const path = ...`，其餘用 `path` 即可，勿再宣告 `var path`。
+- 登入網址：`AuthService.getLoginUrl(returnPath)` 定義在 `public/config/auth-config.js`。

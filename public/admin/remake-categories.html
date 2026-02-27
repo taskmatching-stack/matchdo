@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>再製分類（改裝現有品）- MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-3">再製分類（改裝現有品服務）</h4>
+        <p class="text-muted small mb-3">建立並管理「再製／改裝現有品」服務使用的分類（如服裝改製、家具翻新、皮件保養等），供前台與廠商對齊。key 請用英文或數字（會自動轉小寫、空格改底線）。</p>
+        <p class="text-muted small mb-3">若要儲存「英文名」與其他語系欄位，請先在 Supabase SQL Editor 執行 <code>docs/add-remake-categories-multilang.sql</code>，執行後重新整理本頁即可。</p>
+
+        <!-- 登入狀態：讓使用者清楚知道是否已登入 -->
+        <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
+          <span class="me-2">目前狀態：</span>
+          <span id="loginStatusText">檢查中…</span>
+          <a id="loginStatusLink" href="/login.html" class="btn btn-sm btn-outline-primary" style="display:none;">前往登入（登入後會回到此頁）</a>
+          <button type="button" id="logoutBtn" class="btn btn-sm btn-outline-secondary" style="display:none;">登出</button>
+        </div>
+
+        <div id="authRequired" class="alert alert-warning mb-3" style="display:none;">
+          請先<a id="authRequiredLoginLink" href="/login.html" class="alert-link">登入</a>且帳號具管理員權限後再操作。
+        </div>
+
+        <div id="statusWrap" class="alert mb-3 py-2" style="display:none;" role="alert">
+          <span id="status"></span>
+        </div>
+
+        <!-- 新增一筆 -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h6 class="card-title">新增主分類</h6>
+            <p class="text-muted small mb-2">此區為新增「主分類」。子分類請在下方分類列表中，各主分類列表最下方有「新增子分類」欄位，填寫 key、顯示名稱、提示詞、排序後按「新增」。</p>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label small mb-0">key（英文）</label>
+                <input type="text" id="newKey" class="form-control form-control-sm" placeholder="例：apparel_remake" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">顯示名稱</label>
+                <input type="text" id="newName" class="form-control form-control-sm" placeholder="例：服裝改製" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">顯示名稱（英文）</label>
+                <input type="text" id="newNameEn" class="form-control form-control-sm" placeholder="例：Apparel Remake" title="選填，前台 lang=en 時顯示" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-0">其他語系（選填，預留）</label>
+                <div class="d-flex flex-wrap gap-1">
+                  <input type="text" id="newNameJa" class="form-control form-control-sm" style="width:72px;" placeholder="日文" title="日文" />
+                  <input type="text" id="newNameEs" class="form-control form-control-sm" style="width:72px;" placeholder="西文" title="西班牙文" />
+                  <input type="text" id="newNameDe" class="form-control form-control-sm" style="width:72px;" placeholder="德文" title="德文" />
+                  <input type="text" id="newNameFr" class="form-control form-control-sm" style="width:72px;" placeholder="法文" title="法文" />
+                </div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small mb-0">提示詞（AI 設計用，可含 {subcategory}）</label>
+                <textarea id="newPrompt" class="form-control form-control-sm" rows="2" placeholder="選填，供 AI 分析／估價用"></textarea>
+              </div>
+              <div class="col-md-1">
+                <label class="form-label small mb-0">排序</label>
+                <input type="number" id="newSortOrder" class="form-control form-control-sm" value="0" min="0" />
+              </div>
+              <div class="col-md-2">
+                <button type="button" id="btnAdd" class="btn btn-primary btn-sm w-100">新增</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列表 -->
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">分類列表</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered" id="catTable">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:14%;">key</th>
+                    <th style="width:12%;">顯示名稱</th>
+                    <th style="width:28%;">提示詞（AI 設計用）</th>
+                    <th style="width:60px;">排序</th>
+                    <th style="width:60px;">狀態</th>
+                    <th style="width:180px;">操作</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <p class="text-muted small mt-2">主分類與子分類皆由後端 API 讀取，可新增、編輯、停用、永久刪除。各主分類列表最下方有「新增子分類」欄位；刪除子分類請按該列的「刪除」。</p>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnReload">重新載入</button>
+            <p id="emptyList" class="text-muted small mb-0" style="display:none;">尚無分類，請先執行 <code>docs/remake-categories-schema.sql</code> 建立資料表與種子資料，或在上方新增。</p>
+          </div>
+        </div>
+
+        <!-- 編輯分類／子分類（含提示詞）Modal -->
+        <div class="modal fade" id="editCatModal" tabindex="-1">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="editCatModalTitle">編輯</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <input type="hidden" id="editCatType" value="" />
+                <input type="hidden" id="editCatKey" value="" />
+                <input type="hidden" id="editCatCategoryKey" value="" />
+                <div class="mb-3">
+                  <label class="form-label">key（英文，可編輯）</label>
+                  <input type="text" id="editCatKeyInput" class="form-control" placeholder="例：alter" />
+                  <div class="form-text">用於 API、資料庫與程式對應，請用英文或數字。</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">顯示名稱</label>
+                  <input type="text" id="editCatName" class="form-control" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">顯示名稱（英文）</label>
+                  <input type="text" id="editCatNameEn" class="form-control" placeholder="選填，前台英文語系時顯示" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">其他語系（選填，預留）</label>
+                  <div class="row g-2">
+                    <div class="col-6 col-md-3"><label class="form-label small text-muted">日文</label><input type="text" id="editCatNameJa" class="form-control form-control-sm" /></div>
+                    <div class="col-6 col-md-3"><label class="form-label small text-muted">西班牙文</label><input type="text" id="editCatNameEs" class="form-control form-control-sm" /></div>
+                    <div class="col-6 col-md-3"><label class="form-label small text-muted">德文</label><input type="text" id="editCatNameDe" class="form-control form-control-sm" /></div>
+                    <div class="col-6 col-md-3"><label class="form-label small text-muted">法文</label><input type="text" id="editCatNameFr" class="form-control form-control-sm" /></div>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">提示詞（AI 設計用，可含 <code>{subcategory}</code>）</label>
+                  <textarea id="editCatPrompt" class="form-control" rows="4" placeholder="供 AI 分析／估價用"></textarea>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">排序</label>
+                  <input type="number" id="editCatSortOrder" class="form-control" style="width:100px;" min="0" />
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="editCatSaveBtn">儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function() {
+  const API = '/api/admin/remake-categories';
+  const SUB_API = '/api/admin/remake-subcategories';
+  let categories = [];
+
+  function getAuthHeaders() {
+    return new Promise(async (resolve) => {
+      if (!window.AuthService) {
+        resolve({});
+        return;
+      }
+      try {
+        const session = await AuthService.getSession();
+        const accessToken = session?.access_token;
+        resolve(accessToken ? { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' } : {});
+      } catch (e) {
+        resolve({});
+      }
+    });
+  }
+
+  async function updateLoginStatus() {
+    const textEl = document.getElementById('loginStatusText');
+    const linkEl = document.getElementById('loginStatusLink');
+    const authLink = document.getElementById('authRequiredLoginLink');
+    const logoutBtn = document.getElementById('logoutBtn');
+    var loginUrl = (window.AuthService && typeof AuthService.getLoginUrl === 'function') ? AuthService.getLoginUrl() : '/login.html';
+    if (linkEl) linkEl.href = loginUrl;
+    if (authLink) authLink.href = loginUrl;
+    if (!textEl) return;
+    try {
+      if (!window.AuthService) {
+        textEl.textContent = '無法取得登入狀態（請重新整理）';
+        if (linkEl) linkEl.style.display = 'inline-block';
+        return;
+      }
+      const session = await AuthService.getSession();
+      if (session?.user) {
+        const email = session.user.email || session.user.user_metadata?.email || '已登入';
+        textEl.textContent = '已登入：' + email;
+        if (linkEl) linkEl.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+      } else {
+        textEl.textContent = '未登入';
+        if (linkEl) linkEl.style.display = 'inline-block';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+      }
+    } catch (e) {
+      textEl.textContent = '未登入';
+      if (linkEl) linkEl.style.display = 'inline-block';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    }
+  }
+
+  function showStatus(msg, type) {
+    const wrap = document.getElementById('statusWrap');
+    const el = document.getElementById('status');
+    wrap.style.display = 'block';
+    wrap.className = 'alert alert-' + (type || 'info') + ' mb-3 py-2';
+    el.textContent = msg;
+  }
+
+  function renderTable() {
+    const tbody = document.querySelector('#catTable tbody');
+    const empty = document.getElementById('emptyList');
+    tbody.innerHTML = '';
+    if (categories.length === 0) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    categories.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = c.key;
+      tr.className = 'main-cat-row';
+      if (!c.is_active) tr.classList.add('table-secondary');
+      const promptShort = (c.prompt || '').trim();
+      const promptDisplay = promptShort.length > 40 ? promptShort.slice(0, 40) + '…' : (promptShort || '—');
+      tr.innerHTML = `
+        <td><code>${escapeHtml(c.key)}</code></td>
+        <td><span class="cat-name">${escapeHtml(c.name)}</span></td>
+        <td class="small text-muted" title="${escapeHtml(promptShort)}">${escapeHtml(promptDisplay)}</td>
+        <td><span class="cat-sort">${Number(c.sort_order)}</span></td>
+        <td>${c.is_active ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
+        <td>
+          <button type="button" class="btn btn-sm btn-outline-primary edit-btn" data-key="${escapeHtml(c.key)}" title="編輯（含提示詞）">編輯</button>
+          ${c.is_active ? `<button type="button" class="btn btn-sm btn-outline-danger deactivate-btn" data-key="${escapeHtml(c.key)}" title="停用">停用</button>` : ''}
+          <button type="button" class="btn btn-sm btn-outline-danger delete-btn" data-key="${escapeHtml(c.key)}" title="永久刪除（含子分類）">刪除</button>
+        </td>`;
+      tbody.appendChild(tr);
+      const subs = c.subcategories || [];
+      subs.forEach(s => {
+        const subTr = document.createElement('tr');
+        subTr.className = 'sub-cat-row';
+        if (!s.is_active) subTr.classList.add('table-secondary');
+        const subPromptShort = (s.prompt || '').trim();
+        const subPromptDisplay = subPromptShort.length > 40 ? subPromptShort.slice(0, 40) + '…' : (subPromptShort || '—');
+        subTr.innerHTML = `
+          <td class="ps-4"><span class="text-muted">└</span> <code>${escapeHtml(s.key)}</code></td>
+          <td>${escapeHtml(s.name)}</td>
+          <td class="small text-muted" title="${escapeHtml(subPromptShort)}">${escapeHtml(subPromptDisplay)}</td>
+          <td>${Number(s.sort_order)}</td>
+          <td>${s.is_active !== false ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
+          <td>
+            <button type="button" class="btn btn-sm btn-outline-primary edit-sub-btn" data-category-key="${escapeHtml(c.key)}" data-key="${escapeHtml(s.key)}" title="編輯（含提示詞）">編輯</button>
+            ${s.is_active !== false ? `<button type="button" class="btn btn-sm btn-outline-danger deactivate-sub-btn" data-category-key="${escapeHtml(c.key)}" data-key="${escapeHtml(s.key)}" title="停用">停用</button>` : ''}
+            <button type="button" class="btn btn-sm btn-outline-danger delete-sub-btn" data-category-key="${escapeHtml(c.key)}" data-key="${escapeHtml(s.key)}" title="永久刪除">刪除</button>
+          </td>`;
+        tbody.appendChild(subTr);
+      });
+      const addSubTr = document.createElement('tr');
+      addSubTr.className = 'add-sub-row';
+      addSubTr.dataset.categoryKey = c.key;
+      addSubTr.innerHTML = `
+        <td colspan="6" class="ps-4 py-2 bg-light">
+          <div class="d-flex flex-wrap align-items-end gap-2 add-sub-form" data-category-key="${escapeHtml(c.key)}">
+            <span class="small text-muted align-self-center me-1">新增子分類：</span>
+            <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="key" data-field="sub-key" />
+            <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="顯示名稱" data-field="sub-name" />
+            <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="英文名" data-field="sub-name-en" title="選填" />
+            <textarea class="form-control form-control-sm" style="width:180px;" rows="1" placeholder="提示詞（選填）" data-field="sub-prompt"></textarea>
+            <input type="number" class="form-control form-control-sm" style="width:60px;" value="0" min="0" placeholder="排序" data-field="sub-sort" />
+            <button type="button" class="btn btn-sm btn-success sub-add-btn">新增</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary sub-cancel-btn">取消</button>
+          </div>
+        </td>`;
+      tbody.appendChild(addSubTr);
+    });
+  }
+
+  function handleTableClick(e) {
+    if (!e.target.closest('#catTable')) return;
+    const target = e.target;
+    const editSub = target.closest('.edit-sub-btn');
+    if (editSub) { e.preventDefault(); openEditSub(decodeAttrKey(editSub.dataset.categoryKey), decodeAttrKey(editSub.dataset.key)); return; }
+    const deactivateSubBtn = target.closest('.deactivate-sub-btn');
+    if (deactivateSubBtn) { e.preventDefault(); deactivateSub(decodeAttrKey(deactivateSubBtn.dataset.categoryKey), decodeAttrKey(deactivateSubBtn.dataset.key)); return; }
+    const deleteSubBtn = target.closest('.delete-sub-btn');
+    if (deleteSubBtn) { e.preventDefault(); deleteSub(decodeAttrKey(deleteSubBtn.dataset.categoryKey), decodeAttrKey(deleteSubBtn.dataset.key)); return; }
+    const editBtn = target.closest('.edit-btn');
+    if (editBtn) { e.preventDefault(); openEdit(decodeAttrKey(editBtn.dataset.key)); return; }
+    const deactivateBtn = target.closest('.deactivate-btn');
+    if (deactivateBtn) { e.preventDefault(); deactivate(decodeAttrKey(deactivateBtn.dataset.key)); return; }
+    const deleteBtn = target.closest('.delete-btn');
+    if (deleteBtn) { e.preventDefault(); deleteMain(decodeAttrKey(deleteBtn.dataset.key)); return; }
+    const subCancelBtn = target.closest('.sub-cancel-btn');
+    if (subCancelBtn) {
+      e.preventDefault();
+      const form = subCancelBtn.closest('.add-sub-form');
+      if (form) {
+        const k = form.querySelector('[data-field="sub-key"]'); if (k) k.value = '';
+        const n = form.querySelector('[data-field="sub-name"]'); if (n) n.value = '';
+        const p = form.querySelector('[data-field="sub-prompt"]'); if (p) p.value = '';
+        const s = form.querySelector('[data-field="sub-sort"]'); if (s) s.value = '0';
+      }
+      return;
+    }
+    const subAddBtn = target.closest('.sub-add-btn');
+    if (subAddBtn) {
+      e.preventDefault();
+      const form = subAddBtn.closest('.add-sub-form');
+      if (!form) return;
+      const categoryKey = decodeAttrKey(form.dataset.categoryKey);
+      const key = (form.querySelector('[data-field="sub-key"]')?.value || '').trim();
+      const name = (form.querySelector('[data-field="sub-name"]')?.value || '').trim();
+      const nameEn = (form.querySelector('[data-field="sub-name-en"]')?.value || '').trim();
+      const prompt = (form.querySelector('[data-field="sub-prompt"]')?.value || '').trim();
+      const sortOrder = parseInt(form.querySelector('[data-field="sub-sort"]')?.value, 10) || 0;
+      if (!key) { showStatus('請填寫子分類 key', 'warning'); return; }
+      addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, form);
+    }
+  }
+
+  async function addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, formEl) {
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    showStatus('新增子分類中...', 'secondary');
+    try {
+      const body = { category_key: categoryKey, key, name: name || key, prompt: prompt || '', sort_order: sortOrder };
+      if (nameEn !== undefined && nameEn !== '') body.name_en = nameEn;
+      const res = await fetch(SUB_API, { method: 'POST', headers, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '新增失敗');
+      showStatus('已新增子分類', 'success');
+      if (formEl) {
+        const k = formEl.querySelector('[data-field="sub-key"]'); if (k) k.value = '';
+        const n = formEl.querySelector('[data-field="sub-name"]'); if (n) n.value = '';
+        const ne = formEl.querySelector('[data-field="sub-name-en"]'); if (ne) ne.value = '';
+        const p = formEl.querySelector('[data-field="sub-prompt"]'); if (p) p.value = '';
+        const s = formEl.querySelector('[data-field="sub-sort"]'); if (s) s.value = '0';
+      }
+      loadList();
+    } catch (e) {
+      showStatus('子分類新增失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  function openEditSub(categoryKey, key) {
+    const c = categories.find(x => x.key === categoryKey);
+    const s = (c?.subcategories || []).find(x => x.key === key);
+    if (!s) return;
+    document.getElementById('editCatType').value = 'sub';
+    document.getElementById('editCatKey').value = key;
+    document.getElementById('editCatCategoryKey').value = categoryKey;
+    const keyInput = document.getElementById('editCatKeyInput');
+    if (keyInput) keyInput.value = key;
+    document.getElementById('editCatModalTitle').textContent = '編輯子分類：' + key;
+    document.getElementById('editCatName').value = s.name || '';
+    document.getElementById('editCatNameEn').value = s.name_en || '';
+    document.getElementById('editCatNameJa').value = s.name_ja || '';
+    document.getElementById('editCatNameEs').value = s.name_es || '';
+    document.getElementById('editCatNameDe').value = s.name_de || '';
+    document.getElementById('editCatNameFr').value = s.name_fr || '';
+    document.getElementById('editCatPrompt').value = s.prompt || '';
+    document.getElementById('editCatSortOrder').value = String(s.sort_order ?? 0);
+    new bootstrap.Modal(document.getElementById('editCatModal')).show();
+  }
+
+  async function updateSubcategory(categoryKey, key, body) {
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const res = await fetch(SUB_API + '/' + encodeURIComponent(categoryKey) + '/' + encodeURIComponent(key), {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '更新失敗');
+      showStatus('已更新子分類', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('editCatModal'))?.hide();
+      loadList();
+    } catch (e) {
+      showStatus('更新失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  async function deactivateSub(categoryKey, key) {
+    if (!confirm('確定要停用此子分類？')) return;
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const res = await fetch(SUB_API + '/' + encodeURIComponent(categoryKey) + '/' + encodeURIComponent(key), { method: 'DELETE', headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '停用失敗');
+      showStatus('已停用子分類', 'success');
+      loadList();
+    } catch (e) {
+      showStatus('停用失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    const div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+  /** 從 data 屬性讀出 key 時須還原 HTML 實體（例如 &amp; → &），否則會與後端 key 不一致 */
+  function decodeAttrKey(s) {
+    if (s == null || s === '') return s;
+    const div = document.createElement('div');
+    div.innerHTML = s;
+    return div.textContent || s;
+  }
+
+  async function loadList() {
+    const authReq = document.getElementById('authRequired');
+    const tbody = document.querySelector('#catTable tbody');
+    var loadingRow = null;
+    function showLoading() {
+      if (tbody) {
+        loadingRow = document.createElement('tr');
+        loadingRow.innerHTML = '<td colspan="6" class="text-center text-muted py-4">載入中…</td>';
+        tbody.innerHTML = '';
+        tbody.appendChild(loadingRow);
+      }
+    }
+    function hideLoading() {
+      if (loadingRow && loadingRow.parentNode) loadingRow.remove();
+      loadingRow = null;
+    }
+    showLoading();
+    var headers;
+    try {
+      headers = await getAuthHeaders();
+    } catch (e) {
+      hideLoading();
+      if (authReq) authReq.style.display = 'block';
+      showStatus('取得登入狀態失敗', 'danger');
+      return;
+    }
+    if (!headers || !headers.Authorization) {
+      hideLoading();
+      if (authReq) authReq.style.display = 'block';
+      return;
+    }
+    if (authReq) authReq.style.display = 'none';
+    try {
+      var controller = new AbortController();
+      var timeoutId = setTimeout(function () { controller.abort(); }, 15000);
+      const res = await fetch(API, { headers, cache: 'no-store', signal: controller.signal });
+      clearTimeout(timeoutId);
+      const data = await res.json().catch(function () { return {}; });
+      if (res.status === 401 || res.status === 403) {
+        if (authReq) authReq.style.display = 'block';
+        showStatus(data.error || '無權限（需管理員）', 'warning');
+        if (res.status === 401 && window.AuthService && typeof AuthService.clearLocalSession === 'function') {
+          AuthService.clearLocalSession();
+          updateLoginStatus();
+        }
+        hideLoading();
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || '載入失敗');
+      categories = data.categories || [];
+      hideLoading();
+      renderTable();
+    } catch (e) {
+      hideLoading();
+      if (e && e.name === 'AbortError') showStatus('載入逾時（超過 15 秒），請檢查網路或按「重新載入」再試', 'danger');
+      else showStatus('載入失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  document.getElementById('btnAdd').addEventListener('click', async () => {
+    const key = (document.getElementById('newKey').value || '').trim();
+    const name = (document.getElementById('newName').value || '').trim();
+    const prompt = (document.getElementById('newPrompt').value || '').trim();
+    const sortOrder = parseInt(document.getElementById('newSortOrder').value, 10) || 0;
+    if (!key) {
+      showStatus('請填寫 key', 'warning');
+      return;
+    }
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) {
+      showStatus('請先登入', 'warning');
+      return;
+    }
+    showStatus('新增中...', 'secondary');
+    try {
+      const body = {
+        key: key.toLowerCase().replace(/\s+/g, '_'),
+        name: name || key,
+        prompt: prompt || '',
+        sort_order: sortOrder
+      };
+      body.name_en = (document.getElementById('newNameEn')?.value || '').trim() || undefined;
+      body.name_ja = (document.getElementById('newNameJa')?.value || '').trim() || undefined;
+      body.name_es = (document.getElementById('newNameEs')?.value || '').trim() || undefined;
+      body.name_de = (document.getElementById('newNameDe')?.value || '').trim() || undefined;
+      body.name_fr = (document.getElementById('newNameFr')?.value || '').trim() || undefined;
+      const res = await fetch(API, { method: 'POST', headers, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '新增失敗');
+      showStatus('已新增', 'success');
+      document.getElementById('newKey').value = '';
+      document.getElementById('newName').value = '';
+      ['newNameEn','newNameJa','newNameEs','newNameDe','newNameFr'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      document.getElementById('newPrompt').value = '';
+      loadList();
+    } catch (e) {
+      showStatus('新增失敗：' + (e.message || String(e)), 'danger');
+    }
+  });
+
+  function openEdit(key) {
+    const c = categories.find(x => x.key === key);
+    if (!c) return;
+    document.getElementById('editCatType').value = 'main';
+    document.getElementById('editCatKey').value = key;
+    document.getElementById('editCatCategoryKey').value = '';
+    const keyInput = document.getElementById('editCatKeyInput');
+    if (keyInput) keyInput.value = key;
+    document.getElementById('editCatModalTitle').textContent = '編輯主分類：' + key;
+    document.getElementById('editCatName').value = c.name || '';
+    document.getElementById('editCatNameEn').value = c.name_en || '';
+    document.getElementById('editCatNameJa').value = c.name_ja || '';
+    document.getElementById('editCatNameEs').value = c.name_es || '';
+    document.getElementById('editCatNameDe').value = c.name_de || '';
+    document.getElementById('editCatNameFr').value = c.name_fr || '';
+    document.getElementById('editCatPrompt').value = c.prompt || '';
+    document.getElementById('editCatSortOrder').value = String(c.sort_order ?? 0);
+    new bootstrap.Modal(document.getElementById('editCatModal')).show();
+  }
+
+  async function updateCategory(key, body) {
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const res = await fetch(API + '/' + encodeURIComponent(key), {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.error || '更新失敗';
+        const details = data.details ? '：' + data.details : '';
+        throw new Error(msg + details);
+      }
+      showStatus('已更新', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('editCatModal'))?.hide();
+      loadList();
+    } catch (e) {
+      showStatus('更新失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  async function saveEditModal() {
+    const type = document.getElementById('editCatType').value;
+    const oldKey = document.getElementById('editCatKey').value;
+    const keyInput = document.getElementById('editCatKeyInput');
+    const newKey = (keyInput && keyInput.value ? keyInput.value.trim() : oldKey).toLowerCase().replace(/\s+/g, '_') || oldKey;
+    const name = (document.getElementById('editCatName').value || '').trim();
+    const nameEn = (document.getElementById('editCatNameEn')?.value || '').trim();
+    const nameJa = (document.getElementById('editCatNameJa')?.value || '').trim();
+    const nameEs = (document.getElementById('editCatNameEs')?.value || '').trim();
+    const nameDe = (document.getElementById('editCatNameDe')?.value || '').trim();
+    const nameFr = (document.getElementById('editCatNameFr')?.value || '').trim();
+    const prompt = (document.getElementById('editCatPrompt').value || '').trim();
+    const sortOrder = parseInt(document.getElementById('editCatSortOrder').value, 10) || 0;
+    const payload = { key: newKey, name: name || newKey, name_en: nameEn !== '' ? nameEn : undefined, prompt, sort_order: sortOrder };
+    payload.name_ja = nameJa !== '' ? nameJa : null;
+    payload.name_es = nameEs !== '' ? nameEs : null;
+    payload.name_de = nameDe !== '' ? nameDe : null;
+    payload.name_fr = nameFr !== '' ? nameFr : null;
+    if (type === 'main') {
+      await updateCategory(oldKey, payload);
+    } else {
+      const categoryKey = document.getElementById('editCatCategoryKey').value;
+      await updateSubcategory(categoryKey, oldKey, payload);
+    }
+  }
+
+  async function deactivate(key) {
+    if (!confirm('確定要停用「' + key + '」？停用後前台將不再顯示此分類。')) return;
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const res = await fetch(API + '/' + encodeURIComponent(key), { method: 'DELETE', headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '停用失敗');
+      showStatus('已停用', 'success');
+      loadList();
+    } catch (e) {
+      showStatus('停用失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  async function deleteMain(key) {
+    if (!confirm('確定要「永久刪除」主分類「' + key + '」？其下子分類也會一併刪除，且無法復原。')) return;
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const res = await fetch(API + '/' + encodeURIComponent(key) + '?permanent=1', { method: 'DELETE', headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '刪除失敗');
+      showStatus('已刪除', 'success');
+      loadList();
+    } catch (e) {
+      showStatus('刪除失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  async function deleteSub(categoryKey, key) {
+    if (!confirm('確定要「永久刪除」子分類「' + categoryKey + ' / ' + key + '」？無法復原。')) return;
+    const headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      const res = await fetch(SUB_API + '/' + encodeURIComponent(categoryKey) + '/' + encodeURIComponent(key) + '?permanent=1', { method: 'DELETE', headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '刪除失敗');
+      showStatus('已刪除', 'success');
+      loadList();
+    } catch (e) {
+      showStatus('刪除失敗：' + (e.message || String(e)), 'danger');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await updateLoginStatus();
+    document.addEventListener('click', handleTableClick, true);
+    document.getElementById('editCatSaveBtn')?.addEventListener('click', () => saveEditModal());
+    document.getElementById('btnReload')?.addEventListener('click', () => loadList());
+    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+      if (!window.AuthService?.signOut) return;
+      try {
+        await AuthService.signOut();
+        window.location.href = '/login.html';
+      } catch (e) {
+        window.location.href = '/login.html';
+      }
+    });
+    loadList();
+  });
+})();
+  </script>
+</body>
+</html>
