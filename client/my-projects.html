@@ -160,7 +160,7 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             // 檢查登入狀態
-            const isAuth = await AuthMiddleware.requireClient();
+            const isAuth = await AuthMiddleware.requireAuth();
             if (!isAuth) return;
 
             currentUser = await AuthService.getCurrentUser();

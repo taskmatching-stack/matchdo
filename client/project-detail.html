@@ -836,7 +836,7 @@
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // 1. 檢查登入與 role=client（發案者）
-                const ok = await AuthMiddleware.requireClient();
+                const ok = await AuthMiddleware.requireAuth();
                 if (!ok) return;
                 currentUser = await AuthService.getCurrentUser();
                 

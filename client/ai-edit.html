@@ -2326,7 +2326,7 @@
         document.title = t('aiEdit.title');
         var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
         if (document.documentElement) document.documentElement.lang = lang;
-        var isAuth = await AuthMiddleware.requireClient();
+        var isAuth = await AuthMiddleware.requireAuth();
         if (!isAuth) {
             loginRequired.style.display = 'block';
             return;

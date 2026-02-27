@@ -225,7 +225,7 @@
                 console.log('✅ AuthService 已載入');
                 
                 // 檢查登入且 role=client（發案者）
-                const ok = await AuthMiddleware.requireClient();
+                const ok = await AuthMiddleware.requireAuth();
                 if (!ok) return;
                 currentUser = await AuthService.getCurrentUser();
                 console.log('👤 當前用戶:', currentUser);

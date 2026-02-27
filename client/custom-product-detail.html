@@ -203,7 +203,7 @@
         let showingAiImage = true;
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const isAuth = await AuthMiddleware.requireClient();
+            const isAuth = await AuthMiddleware.requireAuth();
             if (!isAuth) return;
 
             currentUser = await AuthService.getCurrentUser();

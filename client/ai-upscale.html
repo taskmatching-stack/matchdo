@@ -192,7 +192,7 @@
             });
 
             document.addEventListener('DOMContentLoaded', async () => {
-                const isAuth = await AuthMiddleware.requireClient();
+                const isAuth = await AuthMiddleware.requireAuth();
                 if (!isAuth) {
                     loginRequired.style.display = 'block';
                     mainPanel.style.display = 'none';
