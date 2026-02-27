@@ -358,6 +358,11 @@
   "pricing.pointsRule3": "Find vendor: free tier uses points; per backend setting",
   "pricing.pointsRule4": "Maker project categories (free tier): 200 pts/mo per category",
   "pricing.pointsRule5": "In-chat cross-border translation: 1 pt/segment (Premium & Ultimate)",
+  "pricing.featureAiEditFree": "AI Edit area (upscale, erase, etc.): per-use points",
+  "pricing.featureAiEditPaid": "AI Edit area (upscale, erase, etc.): 40% off for subscribers",
+  "pricing.featureTranslation": "In-chat translation: 1 pt/segment",
+  "pricing.noPlans": "No plans available. Please try again later.",
+  "pricing.loadFail": "Failed to load plans. Please try again.",
   "pricing.footerNote": "Rules and amounts are subject to backend settings.",
 
   "messages.title": "My Messages",

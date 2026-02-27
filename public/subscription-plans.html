@@ -106,21 +106,47 @@
 (function(){
   var t = function(k){ return (window.i18n && window.i18n.t) ? window.i18n.t(k) : k; };
   var planKeys = ['free', 'tier2', 'tier3', 'tier4'];
+  // 方案名稱對應的 i18n key
+  var planNameKeys = ['pricing.planFree', 'pricing.planTier2', 'pricing.planTier3', 'pricing.planTier4'];
+  var planSubKeys  = ['pricing.planFreeSub', 'pricing.planTier2Sub', 'pricing.planTier3Sub', 'pricing.planTier4Sub'];
+  // 月付/年付價格顯示 key（已含幣別單位，由 locale 控制）
+  var priceMonthlyKeys = ['pricing.priceDisplayFree', 'pricing.priceDisplay2', 'pricing.priceDisplay3', 'pricing.priceDisplay4'];
+  var priceYearlyKeys  = ['pricing.priceDisplayFreeYear', 'pricing.priceDisplay2Year', 'pricing.priceDisplay3Year', 'pricing.priceDisplay4Year'];
 
   function getPlanFeatures(sortOrder) {
-    var aiEditRowFree = { text: '我的 AI 編輯區（放大、去背等）：依後台點數', type: 'dash' };
-    var aiEditRowPaid = { text: '我的 AI 編輯區（放大、去背等）：訂閱享 6 折', type: 'yes' };
-    var features = [
-      [{ text: '設計圖須開放至靈感牆', type: 'yes' }, { text: '製作方接案：200 點/月/分類', type: 'yes' }, { text: '首頁作品對照圖', type: 'dash' }, aiEditRowFree, { text: '接案顯示於多語系（跨境）', type: 'dash' }],
-      [{ text: '設計圖可隱藏，不上靈感牆', type: 'yes' }, { text: '製作方接案分類：3 個', type: 'yes' }, { text: '首頁作品對照圖', type: 'yes' }, aiEditRowPaid, { text: '接案顯示於多語系（跨境）', type: 'no' }],
-      [{ text: '設計圖可隱藏，不上靈感牆', type: 'yes' }, { text: '製作方接案分類：10 個', type: 'yes' }, { text: '首頁作品對照圖', type: 'yes' }, aiEditRowPaid, { text: '接案顯示於多語系（跨境）', type: 'yes' }, { text: '對話介面跨國翻譯 1 點/段', type: 'yes' }],
-      [{ text: '設計圖可隱藏，不上靈感牆', type: 'yes' }, { text: '製作方接案分類：30 個', type: 'yes' }, { text: '首頁作品對照圖', type: 'yes' }, aiEditRowPaid, { text: '接案顯示於多語系（跨境）', type: 'yes' }, { text: '對話介面跨國翻譯 1 點/段', type: 'yes' }]
+    var featureSets = [
+      // 免費方案
+      [{ key: 'pricing.featureMediaWall',        type: 'yes'  },
+       { key: 'pricing.featureCategoriesFree',   type: 'yes'  },
+       { key: 'pricing.featureHomeCompareDash',  type: 'dash' },
+       { key: 'pricing.featureAiEditFree',       type: 'dash' },
+       { key: 'pricing.featureMultilangDash',    type: 'dash' }],
+      // 方案二
+      [{ key: 'pricing.featureMediaWallOptional', type: 'yes' },
+       { key: 'pricing.featureCategories3',       type: 'yes' },
+       { key: 'pricing.featureHomeCompare',       type: 'yes' },
+       { key: 'pricing.featureAiEditPaid',        type: 'yes' },
+       { key: 'pricing.featureMultilangNo',       type: 'no'  }],
+      // 方案三
+      [{ key: 'pricing.featureMediaWallOptional', type: 'yes' },
+       { key: 'pricing.featureCategories10',      type: 'yes' },
+       { key: 'pricing.featureHomeCompare',       type: 'yes' },
+       { key: 'pricing.featureAiEditPaid',        type: 'yes' },
+       { key: 'pricing.featureMultilang',         type: 'yes' },
+       { key: 'pricing.featureTranslation',       type: 'yes' }],
+      // 方案四
+      [{ key: 'pricing.featureMediaWallOptional', type: 'yes' },
+       { key: 'pricing.featureCategories30',      type: 'yes' },
+       { key: 'pricing.featureHomeCompare',       type: 'yes' },
+       { key: 'pricing.featureAiEditPaid',        type: 'yes' },
+       { key: 'pricing.featureMultilang',         type: 'yes' },
+       { key: 'pricing.featureTranslation',       type: 'yes' }]
     ];
-    var list = features[sortOrder];
+    var list = featureSets[sortOrder];
     if (!list) return '';
     return list.map(function(f) {
       var icon = f.type === 'yes' ? 'bi-check-circle-fill yes' : (f.type === 'no' ? 'bi-x-circle-fill no' : 'bi-dash-circle dash');
-      return '<li><span class="icon ' + f.type + '"><i class="bi ' + icon + '"></i></span><span class="text">' + f.text + '</span></li>';
+      return '<li><span class="icon ' + f.type + '"><i class="bi ' + icon + '"></i></span><span class="text">' + t(f.key) + '</span></li>';
     }).join('');
   }
 
@@ -129,7 +155,7 @@
     if (!row) return;
     row.innerHTML = '';
     if (!plans || plans.length === 0) {
-      row.innerHTML = '<div class="col-12 text-muted text-center py-4">目前無方案，請稍後再試。</div>';
+      row.innerHTML = '<div class="col-12 text-muted text-center py-4">' + t('pricing.noPlans') + '</div>';
       return;
     }
     plans.forEach(function(plan, idx) {
@@ -145,14 +171,20 @@
       col.className = 'col-sm-6 col-lg-3';
       var badge = sortOrder === 2 ? '<span class="plan-badge">' + t('pricing.bestOffer') + '</span>' : '';
       var freeBtnAttrs = isFree ? ' data-free-plan="true"' : '';
+      // 方案名稱與副標題：優先用 i18n，找不到才 fallback 到 API 回傳的 name
+      var planName = t(planNameKeys[sortOrder] || '') || plan.name || '';
+      var planSub  = t(planSubKeys[sortOrder] || '') || '';
+      // 價格顯示：由 locale 決定幣別（en.json 是 $X/mo，zh-TW.json 是 X 元/月）
+      var priceMonthly = t(priceMonthlyKeys[sortOrder] || '') || (price + ' ' + t('pricing.perMonth'));
+      var priceYearly  = t(priceYearlyKeys[sortOrder] || '') || (yearlyPrice + ' ' + t('pricing.perMonth').replace('/月','').replace('/mo','') + '/yr');
       col.innerHTML =
         '<div class="pricing-card card h-100">' + badge +
         '<div class="card-body">' +
-        '<div class="plan-name">' + (plan.name || '') + '</div>' +
-        '<div class="plan-sub">' + (isFree ? t('pricing.planFreeSub') : '') + '</div>' +
+        '<div class="plan-name">' + planName + '</div>' +
+        '<div class="plan-sub">' + planSub + '</div>' +
         '<div class="price">' +
-        '<span class="price-monthly">' + price + ' 元/月</span>' +
-        '<span class="price-yearly d-none">' + yearlyPrice + ' 元/年</span>' +
+        '<span class="price-monthly">' + priceMonthly + '</span>' +
+        '<span class="price-yearly d-none">' + priceYearly + '</span>' +
         '</div>' +
         '<div class="points">' + credits + ' <span>' + t('pricing.pointsPerMonth') + '</span></div>' +
         (featureListHtml ? '<ul class="feature-list">' + featureListHtml + '</ul>' : '') +
@@ -245,7 +277,7 @@
       updateFreePlanButton();
     }).catch(function(){
       var row = document.getElementById('pricingCardsRow');
-      if (row) row.innerHTML = '<div class="col-12 text-muted text-center py-4">無法載入方案，請稍後再試。</div>';
+      if (row) row.innerHTML = '<div class="col-12 text-muted text-center py-4">' + t('pricing.loadFail') + '</div>';
     });
   });
 })();

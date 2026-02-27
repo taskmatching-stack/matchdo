@@ -344,6 +344,11 @@
   "pricing.pointsRule3": "找廠商：免費方案可用點數抵扣，單次消耗依後台設定",
   "pricing.pointsRule4": "製作方接案分類（免費方案）：200 點/月/分類",
   "pricing.pointsRule5": "對話介面跨國溝通翻譯：1 點/段（方案三、四）",
+  "pricing.featureAiEditFree": "我的 AI 編輯區（放大、去背等）：依後台點數",
+  "pricing.featureAiEditPaid": "我的 AI 編輯區（放大、去背等）：訂閱享 6 折",
+  "pricing.featureTranslation": "對話介面跨國翻譯 1 點/段",
+  "pricing.noPlans": "目前無方案，請稍後再試。",
+  "pricing.loadFail": "無法載入方案，請稍後再試。",
   "pricing.footerNote": "詳細規則與數字以系統後台設定為準。",
 
   "messages.title": "我的對話",
