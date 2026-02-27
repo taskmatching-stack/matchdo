@@ -393,9 +393,16 @@ app.use((req, res, next) => {
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
-// 首頁：/ 與 /index.html 直接顯示 iStudio 內容
+// 首頁：/ 與 /index.html 直接顯示 iStudio 內容（用 __dirname 避免 Cloud Run 等環境 cwd 不同）
+const indexPath = path.join(__dirname, 'public', 'iStudio-1.0.0', 'index.html');
 app.get(['/', '/index.html'], (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'iStudio-1.0.0', 'index.html'));
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            console.error('首頁 sendFile 失敗:', err.message, 'path:', indexPath);
+            res.status(err.status || 500).send(err.status === 404 ? 'File not found' : 'Server error');
+        }
+        // 成功時 sendFile 已送完，不需再 res.send
+    });
 });
 // 【不准修改】首頁網址 /iStudio-1.0.0/ 必須導向 / ；使用者已多次被改壞，勿刪勿改此段
 app.get(['/iStudio-1.0.0', '/iStudio-1.0.0/', '/iStudio-1.0.0/index.html'], (req, res) => {
@@ -2103,7 +2110,7 @@ app.post('/api/payment/paypal/capture', express.json(), async (req, res) => {
     }
 });
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 // 避免瀏覽器請求 /favicon.ico 時 404（若專案有 favicon 請放在 public/img/favicon.ico，並在頁面用 <link href="/img/favicon.ico" rel="icon">）
 app.get('/favicon.ico', (req, res) => {
     const faviconPath = path.join(__dirname, 'public', 'img', 'favicon.ico');
