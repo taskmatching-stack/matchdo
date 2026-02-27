@@ -3496,6 +3496,38 @@ app.post('/api/generate-product-image', express.json(), async (req, res) => {
         if (useRemake && !hasRefs) {
             return res.status(400).json({ success: false, error: '再製方案必須上傳至少一張參考圖，AI 依圖改裝' });
         }
+
+        // ── 步驟 1：取得使用者資訊，在生圖前先確認點數夠（避免 BFL 費用白花）──
+        let currentUser = null;
+        let isAdmin = false;
+        let pointsToDeduct = 0;
+        let currentBalance = 0;
+        const authHeader = req.headers.authorization;
+        if (authHeader) {
+            const token = authHeader.replace('Bearer ', '');
+            const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+            if (!authError && user) {
+                currentUser = user;
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                isAdmin = profile?.role === 'admin';
+                if (!isAdmin) {
+                    const basePoints = hasRefs ? await getPointsImageToImage() : await getPointsTextToImage();
+                    pointsToDeduct = await applyAnnualDiscount(user.id, basePoints);
+                    const { data: creditRow } = await supabase
+                        .from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+                    currentBalance = creditRow?.balance ?? 0;
+                    if (currentBalance < pointsToDeduct) {
+                        return res.status(402).json({
+                            success: false,
+                            error: `點數不足，本次生圖需要 ${pointsToDeduct} 點，目前餘額 ${currentBalance} 點`,
+                            required: pointsToDeduct,
+                            balance: currentBalance
+                        });
+                    }
+                }
+            }
+        }
+
         const fullPrompt = useRemake
             ? await buildPromptFromRemakeCategoryKeys(categoryKeys, prompt)
             : await buildPromptFromCategoryKeys(categoryKeys, prompt);
@@ -3506,21 +3538,15 @@ app.post('/api/generate-product-image', express.json(), async (req, res) => {
         let imageData = null;
         let usedFlux = false;
 
-        // 依 BFL 文件：有參考圖用 Image Editing，無參考圖用 Text-to-Image（皆為 FLUX 2.0 pro）；seed 可選
+        // ── 步驟 2：呼叫 BFL 生圖 ──
         if (process.env.BFL_API_KEY) {
             try {
                 if (hasRefs) {
                     const buffer = await generateImageWithFlux2Pro(fullPrompt, referenceImages, seedNum, outputFormat);
-                    if (buffer) {
-                        imageData = buffer.toString('base64');
-                        usedFlux = true;
-                    }
+                    if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 } else {
                     const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat);
-                    if (buffer) {
-                        imageData = buffer.toString('base64');
-                        usedFlux = true;
-                    }
+                    if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 }
             } catch (e) {
                 console.warn('FLUX 2.0 pro 失敗:', e.message);
@@ -3536,6 +3562,7 @@ app.post('/api/generate-product-image', express.json(), async (req, res) => {
             });
         }
 
+        // ── 步驟 3：生圖成功，上傳 Storage ──
         const buffer = Buffer.from(imageData, 'base64');
         const ext = outputFormat === 'png' ? 'png' : 'jpg';
         const mime = outputFormat === 'png' ? 'image/png' : 'image/jpeg';
@@ -3548,38 +3575,45 @@ app.post('/api/generate-product-image', express.json(), async (req, res) => {
         }
         if (!imageUrl) imageUrl = `data:${mime};base64,${imageData}`;
 
-        // 生成成功後由後端直接寫入 custom_products（同一請求），不依賴前端再送一次儲存
-        const authHeader = req.headers.authorization;
-        if (authHeader) {
-            const token = authHeader.replace('Bearer ', '');
-            const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-            if (!authError && user) {
-                const title = (prompt && String(prompt).trim()) ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '') : '產品草圖';
-                const description = (prompt && String(prompt).trim()) || '（無描述）';
-                const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
-                const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
-                const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
-                const insertPayload = {
-                    owner_id: user.id,
-                    title,
-                    description,
-                    category: mainCategoryKey,
-                    subcategory_key: subCategoryKey,
-                    reference_image_url: null,
-                    ai_generated_image_url: imageUrl,
-                    analysis_json: null,
-                    status: 'draft',
-                    generation_prompt: generationPromptVal,
-                    generation_seed: seedNum,
-                    show_on_homepage: true
-                };
-                const { error: insertErr } = await supabase.from('custom_products').insert(insertPayload).select('id').single();
-                if (insertErr) {
-                    console.error('生成後寫入 custom_products 失敗:', insertErr.message);
-                } else {
-                    console.log('生成後已寫入 custom_products owner_id=%s', user.id);
-                }
+        // ── 步驟 4：生圖成功後才扣點、寫入 custom_products ──
+        if (currentUser) {
+            if (!isAdmin && pointsToDeduct > 0) {
+                const newBalance = currentBalance - pointsToDeduct;
+                await supabase.from('user_credits')
+                    .update({ balance: newBalance, updated_at: new Date().toISOString() })
+                    .eq('user_id', currentUser.id);
+                await supabase.from('credit_transactions').insert({
+                    user_id: currentUser.id,
+                    type: 'consumed',
+                    amount: -pointsToDeduct,
+                    balance_after: newBalance,
+                    source: hasRefs ? 'image_to_image' : 'text_to_image',
+                    description: hasRefs ? `圖生圖（${pointsToDeduct} 點）` : `文生圖（${pointsToDeduct} 點）`
+                }).catch(e => console.warn('寫入 credit_transactions 失敗:', e.message));
+                console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
             }
+
+            // 寫入 custom_products
+            const title = (prompt && String(prompt).trim()) ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '') : '產品草圖';
+            const description = (prompt && String(prompt).trim()) || '（無描述）';
+            const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
+            const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
+            const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
+            const { error: insertErr } = await supabase.from('custom_products').insert({
+                owner_id: currentUser.id,
+                title, description,
+                category: mainCategoryKey,
+                subcategory_key: subCategoryKey,
+                reference_image_url: null,
+                ai_generated_image_url: imageUrl,
+                analysis_json: null,
+                status: 'draft',
+                generation_prompt: generationPromptVal,
+                generation_seed: seedNum,
+                show_on_homepage: true
+            }).select('id').single();
+            if (insertErr) console.error('生成後寫入 custom_products 失敗:', insertErr.message);
+            else console.log('生成後已寫入 custom_products owner_id=%s', currentUser.id);
         }
 
         res.json({
@@ -3658,7 +3692,7 @@ app.post('/api/admin/playground-generate', express.json(), async (req, res) => {
 });
 
 // ---------- AI 放大（Stability Fast Upscale） ----------
-// 是否為有效付費訂閱（用於「我的 AI 編輯區」點數 6 折）
+// 是否為有效付費訂閱（任意付費方案，保留給舊呼叫）
 async function hasActivePaidSubscription(userId) {
     if (!userId) return false;
     const now = new Date().toISOString();
@@ -3671,6 +3705,19 @@ async function hasActivePaidSubscription(userId) {
     if (!rows || rows.length === 0) return false;
     return rows.some(r => (r.subscription_plans && (r.subscription_plans.price || 0) > 0));
 }
+// 是否為有效年繳訂閱（duration_months >= 12，用於生圖 6 折）
+async function hasAnnualSubscription(userId) {
+    if (!userId) return false;
+    const now = new Date().toISOString();
+    const { data: rows } = await supabase
+        .from('user_subscriptions')
+        .select('id, subscription_plans(price, duration_months)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('end_date', now);
+    if (!rows || rows.length === 0) return false;
+    return rows.some(r => (r.subscription_plans && (r.subscription_plans.duration_months || 0) >= 12));
+}
 // 訂閱會員「我的 AI 編輯區」點數打 6 折（至少 1 點）
 async function applyAiEditDiscountForSubscriber(userId, points) {
     if (!userId || points <= 0) return points;
@@ -3678,7 +3725,26 @@ async function applyAiEditDiscountForSubscriber(userId, points) {
     if (!isPaid) return points;
     return Math.max(1, Math.round(points * 0.6));
 }
+// 年繳會員點數打 6 折（至少 1 點）
+async function applyAnnualDiscount(userId, points) {
+    if (!userId || points <= 0) return points;
+    const isAnnual = await hasAnnualSubscription(userId);
+    if (!isAnnual) return points;
+    return Math.max(1, Math.round(points * 0.6));
+}
 
+// 讀取 points_text_to_image（文生圖，預設 15）
+async function getPointsTextToImage() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_text_to_image');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 15);
+}
+// 讀取 points_image_to_image（圖生圖，預設 20）
+async function getPointsImageToImage() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_image_to_image');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 20);
+}
 // 讀取 points_ai_upscale（供扣點用）
 async function getPointsAIUpscale() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_ai_upscale');
