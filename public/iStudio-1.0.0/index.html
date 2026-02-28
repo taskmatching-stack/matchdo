@@ -55,16 +55,21 @@
     <!-- Template Stylesheet -->
     <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
 
-    <!-- Navbar Logo 桌機置中（手機版不變） -->
+    <!-- Navbar Logo 桌機版：獨立置中一行，選單在下方 -->
     <style>
       @media (min-width: 992px) {
-        #site-header .navbar { position: relative; }
+        #site-header .navbar { flex-wrap: wrap; }
         #site-header .navbar-brand {
-          position: absolute;
-          left: 50%;
-          transform: translateX(-50%);
-          border: none;
-          z-index: 0;
+          width: 100%;
+          display: flex !important;
+          justify-content: center;
+          border-right: none !important;
+          border-bottom: 1px solid #dee2e6;
+          padding: 0.5rem 0;
+        }
+        #site-header .navbar-collapse {
+          flex-grow: 1;
+          width: 100%;
         }
       }
     </style>
