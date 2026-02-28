@@ -395,6 +395,17 @@ $(document).ready(function () {
                 showGeneratedResult();
                 try { refreshPastGeneratedGallery(); } catch (e) { console.warn(e); }
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else if (response.status === 402) {
+                $('#generatedImagePreview').html(`
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-coins me-2"></i>點數不足</h6>
+                        <p class="mb-2">${result.error || '點數不足，無法生圖'}</p>
+                        <a href="/credits.html" class="btn btn-sm btn-warning me-2"><i class="fas fa-plus me-1"></i>購買點數</a>
+                        <a href="/subscription-plans.html" class="btn btn-sm btn-outline-secondary"><i class="fas fa-crown me-1"></i>升級方案</a>
+                    </div>
+                `);
+                showGeneratedResult();
+                document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
                 $('#generatedImagePreview').html(`
                     <div class="alert alert-danger">
