@@ -537,7 +537,6 @@ body {
         min-width: 160px;
         max-width: 160px;
         justify-content: flex-end;
-        overflow: hidden;
     }
 }
 
