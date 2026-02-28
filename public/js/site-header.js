@@ -11,6 +11,12 @@
         if (!path || path === '/login.html') path = '/index.html';
         var loginHref = '/login.html?returnUrl=' + encodeURIComponent(path);
         var brandUrl = '/index.html';
+        if (!document.getElementById('navbar-logo-center-style')) {
+            var _s = document.createElement('style');
+            _s.id = 'navbar-logo-center-style';
+            _s.textContent = '@media(min-width:992px){.navbar{position:relative;}.navbar-brand{position:absolute;left:50%;transform:translateX(-50%);}}';
+            document.head.appendChild(_s);
+        }
         el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">' +
             '<a href="' + brandUrl + '" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a>' +
             '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
@@ -95,6 +101,12 @@ function isRemakeSection() {
  * - loginHref 必須帶 returnUrl 或使用 AuthService.getLoginUrl(path)，不可只寫 '/login.html'。
  */
 async function renderHeader(headerContainer, user, config) {
+    if (!document.getElementById('navbar-logo-center-style')) {
+        var _s = document.createElement('style');
+        _s.id = 'navbar-logo-center-style';
+        _s.textContent = '@media(min-width:992px){.navbar{position:relative;}.navbar-brand{position:absolute;left:50%;transform:translateX(-50%);}}';
+        document.head.appendChild(_s);
+    }
     if (!config) config = { enableServiceMatching: true };
     const enableServiceMatching = config.enableServiceMatching !== false;
     let isAdmin = false;
