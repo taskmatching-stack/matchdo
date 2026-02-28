@@ -69,9 +69,8 @@
             font-size: 0.76rem; padding: 0.2rem 0.45rem;
             border-color: #8a96a6; color: #5c6470;
         }
-        .filter-tag.filter-sub:hover,
-        .filter-tag.filter-sub.active { border-color: #445D7E; color: #445D7E; }
-        .filter-tag.filter-sub.active { background: #e8ecf0; }
+        .filter-tag.filter-sub:hover { border-color: #445D7E; color: #445D7E; background: #f0f4f8; }
+        .filter-tag.filter-sub.active { border-color: #445D7E; color: #fff; background: #445D7E; }
 
         /* ── 廠商卡片 ── */
         .vendor-card {
@@ -169,21 +168,13 @@
                 <div id="filterSub" class="filter-row d-none"></div>
             </div>
 
-            <!-- 服務地區過濾 -->
-            <div class="filter-wrap mt-1" id="areaFilterWrap">
-                <div class="small text-muted mb-1" style="font-size:.75rem;"><i class="bi bi-geo-alt me-1"></i>服務地區</div>
-                <div class="filter-row" id="filterArea">
-                    <span class="filter-tag filter-sub active" role="button" tabindex="0" data-area="">全部地區</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="台北">台北</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="新北">新北</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="桃園">桃園</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="新竹">新竹</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="台中">台中</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="台南">台南</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="高雄">高雄</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="全台">全台</span>
-                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="海外">海外</span>
+            <!-- 服務地區過濾（多選） -->
+            <div class="filter-wrap mt-2" id="areaFilterWrap">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <span class="small text-muted" style="font-size:.75rem;" id="areaFilterLabel"><i class="bi bi-geo-alt me-1"></i>服務地區（可複選）</span>
+                    <span role="button" tabindex="0" id="areaClearBtn" class="small text-primary d-none" style="font-size:.75rem;cursor:pointer;">清除選擇</span>
                 </div>
+                <div id="filterAreaGroups"></div>
             </div>
         </div>
 
@@ -231,6 +222,25 @@
     (function () {
         'use strict';
 
+        /* ── 地區資料（中/英） ── */
+        var AREA_DATA = {
+            zh: [
+                { group: '北部', areas: ['臺北','新北','基隆','桃園','新竹縣','新竹市','宜蘭'] },
+                { group: '中部', areas: ['臺中','苗栗','彰化','南投','雲林'] },
+                { group: '南部', areas: ['高雄','臺南','嘉義縣','嘉義市','屏東','澎湖'] },
+                { group: '東部', areas: ['花蓮','臺東'] },
+                { group: '離島', areas: ['金門','連江'] },
+                { group: '海外', areas: ['海外'] }
+            ],
+            en: [
+                { group: 'Asia Pacific', areas: ['Japan','South Korea','Singapore','Hong Kong','Malaysia','Thailand','Vietnam','Australia','Other Asia'] },
+                { group: 'Americas',     areas: ['USA','Canada','Mexico','Brazil','Other Americas'] },
+                { group: 'Europe',       areas: ['UK','Germany','France','Netherlands','Spain','Italy','Other Europe'] },
+                { group: 'Middle East & Africa', areas: ['UAE','Saudi Arabia','Other Middle East','Africa'] },
+                { group: 'Taiwan',       areas: ['Taiwan (All)'] }
+            ]
+        };
+
         /* ── 狀態 ── */
         var state = {
             page: 1,
@@ -238,7 +248,7 @@
             keyword: '',
             categoryKey: '',
             subcategoryKey: '',
-            areaFilter: '',   // 服務地區過濾
+            selectedAreas: [],   // 服務地區多選
             loading: false,
             hasMore: true
         };
@@ -346,12 +356,14 @@
                     state.loading = false;
                     var list = data.manufacturers || data.vendors || data.items || [];
 
-                    // 服務地區前端過濾（contact.service_area 含所選地區）
-                    if (state.areaFilter) {
+                    // 服務地區前端多選過濾（OR 邏輯：符合任一選項即顯示）
+                    if (state.selectedAreas.length > 0) {
                         list = list.filter(function(v) {
                             var areas = (v.contact && v.contact.service_area) || [];
-                            if (typeof areas === 'string') areas = areas.split(/[,，、]+/).map(function(s){return s.trim();});
-                            return areas.some(function(a){ return a.includes(state.areaFilter) || state.areaFilter.includes(a); });
+                            if (typeof areas === 'string') areas = areas.split(/[,，、\s]+/).map(function(s){return s.trim();}).filter(Boolean);
+                            return state.selectedAreas.some(function(sel) {
+                                return areas.some(function(a){ return a.includes(sel) || sel.includes(a); });
+                            });
                         });
                     }
 
@@ -521,16 +533,60 @@
         /* ── 載入更多 ── */
         $loadMore.addEventListener('click', function() { loadVendors(true); });
 
-        /* ── 服務地區標籤 ── */
-        var $filterArea = document.getElementById('filterArea');
-        $filterArea.querySelectorAll('[data-area]').forEach(function(tag) {
-            tag.addEventListener('click', function() {
-                $filterArea.querySelectorAll('[data-area]').forEach(function(t){ t.classList.remove('active'); });
-                tag.classList.add('active');
-                state.areaFilter = tag.getAttribute('data-area');
-                loadVendors(false);
+        /* ── 服務地區多選標籤（依語言動態產生） ── */
+        function getCurrentLang() {
+            return (document.documentElement.lang || 'zh-TW').startsWith('en') ? 'en' : 'zh';
+        }
+
+        function renderAreaFilter() {
+            var lang = getCurrentLang();
+            var groups = AREA_DATA[lang] || AREA_DATA.zh;
+            var $wrap = document.getElementById('filterAreaGroups');
+            var $label = document.getElementById('areaFilterLabel');
+            var $clear = document.getElementById('areaClearBtn');
+            if ($label) $label.innerHTML = lang === 'en'
+                ? '<i class="bi bi-geo-alt me-1"></i>Service Area <span class="text-muted" style="font-size:.7rem;">(multi-select)</span>'
+                : '<i class="bi bi-geo-alt me-1"></i>服務地區 <span class="text-muted" style="font-size:.7rem;">（可複選）</span>';
+            if (!$wrap) return;
+            var html = '';
+            groups.forEach(function(g) {
+                html += '<div class="d-flex flex-wrap align-items-baseline gap-1 mb-1">';
+                html += '<span class="text-muted me-1" style="font-size:.7rem;white-space:nowrap;">' + g.group + '：</span>';
+                g.areas.forEach(function(a) {
+                    var active = state.selectedAreas.indexOf(a) >= 0 ? ' active' : '';
+                    html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + a + '">' + a + '</span>';
+                });
+                html += '</div>';
             });
+            $wrap.innerHTML = html;
+            $wrap.querySelectorAll('[data-area]').forEach(function(tag) {
+                tag.addEventListener('click', function() {
+                    var area = tag.getAttribute('data-area');
+                    var idx = state.selectedAreas.indexOf(area);
+                    if (idx >= 0) {
+                        state.selectedAreas.splice(idx, 1);
+                        tag.classList.remove('active');
+                    } else {
+                        state.selectedAreas.push(area);
+                        tag.classList.add('active');
+                    }
+                    if ($clear) $clear.classList.toggle('d-none', state.selectedAreas.length === 0);
+                    loadVendors(false);
+                });
+                tag.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tag.click(); } });
+            });
+        }
+
+        // 清除地區選擇
+        document.getElementById('areaClearBtn').addEventListener('click', function() {
+            state.selectedAreas = [];
+            document.getElementById('areaClearBtn').classList.add('d-none');
+            renderAreaFilter();
+            loadVendors(false);
         });
+
+        // 語言切換時重繪地區標籤
+        document.addEventListener('i18n:applied', renderAreaFilter);
 
         /* ── 初始化 ── */
         if (window.i18n && window.i18n.ready) {
@@ -538,6 +594,7 @@
                 if (window.i18n.applyPage) window.i18n.applyPage();
             });
         }
+        renderAreaFilter();
         loadCategories();
         loadVendors(false);
 

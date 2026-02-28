@@ -151,8 +151,8 @@
 
                 <!-- 服務地區 -->
                 <div class="card-section" id="sectionArea" style="display:none;">
-                    <div class="section-title"><i class="bi bi-geo-alt-fill me-1"></i>服務地區</div>
-                    <div id="vendorAreas" class="d-flex flex-wrap gap-2"></div>
+                    <div class="section-title"><i class="bi bi-geo-alt-fill me-1"></i><span data-i18n="vendor.serviceArea">服務地區</span></div>
+                    <div id="vendorAreas"></div>
                 </div>
 
                 <!-- 專業能力 -->
@@ -234,19 +234,42 @@
                 document.getElementById('sectionDesc').style.display = '';
             }
 
-            // 服務地區（contact.service_area 陣列 or 字串）
+            // 服務地區（contact.service_area 陣列 or 字串，分組顯示）
             var contact = v.contact || {};
             var areas = contact.service_area;
             if (areas) {
-                if (typeof areas === 'string') areas = areas.split(/[,，、]+/).map(function(s){return s.trim();}).filter(Boolean);
-                if (areas.length > 0) {
+                if (typeof areas === 'string') areas = areas.split(/[,，、\s]+/).map(function(s){return s.trim();}).filter(Boolean);
+                if (Array.isArray(areas) && areas.length > 0) {
+                    var AREA_GROUPS = [
+                        { group: '北部', zh: ['臺北','新北','基隆','桃園','新竹縣','新竹市','宜蘭'], en: 'North Taiwan' },
+                        { group: '中部', zh: ['臺中','苗栗','彰化','南投','雲林'], en: 'Central Taiwan' },
+                        { group: '南部', zh: ['高雄','臺南','嘉義縣','嘉義市','屏東','澎湖'], en: 'South Taiwan' },
+                        { group: '東部', zh: ['花蓮','臺東'], en: 'East Taiwan' },
+                        { group: '離島', zh: ['金門','連江'], en: 'Outlying Islands' },
+                        { group: '海外', zh: ['海外'], en: 'Overseas' }
+                    ];
                     var areaEl = document.getElementById('vendorAreas');
-                    areas.forEach(function (a) {
-                        var span = document.createElement('span');
-                        span.className = 'area-tag';
-                        span.textContent = a;
-                        areaEl.appendChild(span);
+                    var isEn = (document.documentElement.lang || '').startsWith('en');
+                    // 先歸組，再顯示
+                    var grouped = [], ungrouped = [];
+                    var usedAreas = {};
+                    AREA_GROUPS.forEach(function(g) {
+                        var matched = areas.filter(function(a){ return g.zh.some(function(z){ return z === a || a.includes(z) || z.includes(a); }); });
+                        if (matched.length > 0) {
+                            grouped.push({ label: isEn ? g.en : g.group, items: matched });
+                            matched.forEach(function(a){ usedAreas[a] = true; });
+                        }
                     });
+                    ungrouped = areas.filter(function(a){ return !usedAreas[a]; });
+                    var html = '';
+                    grouped.forEach(function(g) {
+                        html += '<div class="d-flex align-items-center flex-wrap gap-1 mb-1">';
+                        html += '<span class="text-muted me-1" style="font-size:.72rem;white-space:nowrap;">' + g.label + '：</span>';
+                        g.items.forEach(function(a){ html += '<span class="area-tag">' + a + '</span>'; });
+                        html += '</div>';
+                    });
+                    ungrouped.forEach(function(a){ html += '<span class="area-tag">' + a + '</span>'; });
+                    areaEl.innerHTML = html;
                     document.getElementById('sectionArea').style.display = '';
                 }
             }

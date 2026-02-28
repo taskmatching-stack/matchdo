@@ -479,5 +479,14 @@
   "aiEdit.promptOutpaintPlaceholder": "描述擴展區域要生成的內容，中英文皆可會自動翻譯",
   "aiEdit.promptReplaceBgPlaceholder": "例如：pastel landscape",
   "aiEdit.emptyStateTitle": "選擇左側工具",
-  "aiEdit.emptyStateSteps": "上傳或選擇圖片後，依工具說明操作並點擊生成。"
+  "aiEdit.emptyStateSteps": "上傳或選擇圖片後，依工具說明操作並點擊生成。",
+  "vendor.serviceArea": "服務地區",
+  "vendors.areaFilterLabel": "服務地區（可複選）",
+  "vendors.areaClear": "清除選擇",
+  "vendors.areaGroup.north": "北部",
+  "vendors.areaGroup.central": "中部",
+  "vendors.areaGroup.south": "南部",
+  "vendors.areaGroup.east": "東部",
+  "vendors.areaGroup.outlying": "離島",
+  "vendors.areaGroup.overseas": "海外"
 }

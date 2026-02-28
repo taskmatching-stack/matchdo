@@ -493,5 +493,14 @@
   "aiEdit.promptOutpaintPlaceholder": "Describe the extended area; EN/ZH auto-translated",
   "aiEdit.promptReplaceBgPlaceholder": "e.g. pastel landscape",
   "aiEdit.emptyStateTitle": "Choose a tool",
-  "aiEdit.emptyStateSteps": "Upload or select an image, then follow the tool steps and click Generate."
+  "aiEdit.emptyStateSteps": "Upload or select an image, then follow the tool steps and click Generate.",
+  "vendor.serviceArea": "Service Area",
+  "vendors.areaFilterLabel": "Service Area (multi-select)",
+  "vendors.areaClear": "Clear",
+  "vendors.areaGroup.north": "North Taiwan",
+  "vendors.areaGroup.central": "Central Taiwan",
+  "vendors.areaGroup.south": "South Taiwan",
+  "vendors.areaGroup.east": "East Taiwan",
+  "vendors.areaGroup.outlying": "Outlying Islands",
+  "vendors.areaGroup.overseas": "Overseas"
 }
