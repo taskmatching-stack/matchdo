@@ -530,6 +530,14 @@ body {
     border-right: none;
 }
 
+/* ===== Navbar：authSection 固定寬度，防止登入/登出切換時寬度跳動 ===== */
+@media (min-width: 992px) {
+    #site-header #authSection {
+        min-width: 140px;
+        justify-content: flex-end;
+    }
+}
+
 /* ===== Navbar：桌機 Logo 置中蓋住選單（全站共用） ===== */
 @media (min-width: 992px) {
     #site-header .navbar { flex-wrap: wrap; }
