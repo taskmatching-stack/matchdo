@@ -4,6 +4,13 @@
  * 修改時注意：勿在同一 function 重複宣告變數；登入連結須帶 returnUrl。詳見 .cursor/rules/site-header-and-auth.mdc
  */
 (function () {
+    // 桌機版 Logo 置中樣式：全站共用，只注入一次
+    if (!document.getElementById('navbar-logo-style')) {
+        var _st = document.createElement('style');
+        _st.id = 'navbar-logo-style';
+        _st.textContent = '@media(min-width:992px){#site-header .navbar{flex-wrap:wrap;}#site-header .navbar-collapse{order:1;width:100%;flex-grow:1;border-bottom:1px solid #dee2e6;}#site-header .navbar-brand{order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}#site-header .navbar-brand img{height:78px!important;background:#fff;padding:4px 12px;border-radius:4px;}}';
+        document.head.appendChild(_st);
+    }
     var el = document.getElementById('site-header');
     if (el && !el.innerHTML) {
         var t = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
