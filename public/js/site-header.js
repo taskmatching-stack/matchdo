@@ -7,7 +7,7 @@
     if (!document.getElementById('nb-css')) {
         var _c = document.createElement('style');
         _c.id = 'nb-css';
-        _c.textContent = '@media(min-width:992px){#site-header .navbar{position:relative;}#site-header .navbar-brand{position:absolute;left:50%;top:0;bottom:0;transform:translateX(-50%);display:flex!important;align-items:center;border-right:none!important;padding:0!important;margin:0;z-index:5;}#site-header .navbar-brand img{height:78px!important;background:#fff;padding:4px 12px;border-radius:4px;}#site-header #authSection{width:160px;min-width:160px;max-width:160px;justify-content:flex-end;}}';
+        _c.textContent = '@media(min-width:992px){#site-header .navbar{flex-wrap:wrap;}#site-header .navbar-collapse{order:1;width:100%;flex-grow:1;border-bottom:1px solid #dee2e6;}#site-header .navbar-brand{order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}#site-header .navbar-brand img{height:78px!important;background:#fff;padding:4px 12px;border-radius:4px;}#site-header #authSection{width:160px;min-width:160px;max-width:160px;justify-content:flex-end;}}';
         document.head.appendChild(_c);
     }
     var el = document.getElementById('site-header');
@@ -48,29 +48,29 @@ document.addEventListener('DOMContentLoaded', function () {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return;
     var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || null;
+    var user = session && session.user ? session.user : null;
     var whenReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
     whenReady.then(function () {
-        return loadSiteHeader(session);
+        return getPublicConfig();
+    }).then(function (config) {
+        return renderHeader(headerContainer, user, config);
     }).then(function () {
         if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
-            AuthService.onAuthStateChange(function (event, newSession) {
+            AuthService.onAuthStateChange(function (event, session) {
                 if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-                    loadSiteHeader(newSession);
+                    loadSiteHeader(session);
                 }
             });
         }
+        if (!user) loadSiteHeader(null);
     }).catch(function () {
-        loadSiteHeader(null);
+        getPublicConfig().then(function (config) {
+            renderHeader(headerContainer, user, config);
+        });
     });
 });
 
-var _lastRenderedUserId = (function () {
-    var s = window.getSessionFromStorage && window.getSessionFromStorage();
-    var u = s && s.user ? s.user : null;
-    return u ? (u.id || u.email || 'user') : null;
-})();
-var _navFullyRendered = false;
-
+var _lastRenderedUserId = undefined;
 function loadSiteHeader(sessionFromEvent) {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return Promise.resolve();
@@ -83,9 +83,8 @@ function loadSiteHeader(sessionFromEvent) {
             } catch (e) {}
         }
         var uid = user ? (user.id || user.email || 'user') : null;
-        if (_navFullyRendered && uid === _lastRenderedUserId) return; // 已完整渲染且 user 相同，跳過
+        if (uid === _lastRenderedUserId) return; // 同一 user 不重繪，防止跳動
         _lastRenderedUserId = uid;
-        _navFullyRendered = true;
         var config = await getPublicConfig();
         await renderHeader(headerContainer, user, config);
     })();
