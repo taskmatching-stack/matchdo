@@ -4,6 +4,12 @@
  * 修改時注意：勿在同一 function 重複宣告變數；登入連結須帶 returnUrl。詳見 .cursor/rules/site-header-and-auth.mdc
  */
 (function () {
+    if (!document.getElementById('nb-css')) {
+        var _c = document.createElement('style');
+        _c.id = 'nb-css';
+        _c.textContent = '@media(min-width:992px){#site-header .navbar{flex-wrap:wrap;}#site-header .navbar-collapse{order:1;width:100%;flex-grow:1;border-bottom:1px solid #dee2e6;}#site-header .navbar-brand{order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}#site-header .navbar-brand img{height:78px!important;background:#fff;padding:4px 12px;border-radius:4px;}#site-header #authSection{width:160px;min-width:160px;max-width:160px;justify-content:flex-end;}}';
+        document.head.appendChild(_c);
+    }
     var el = document.getElementById('site-header');
     if (el && !el.innerHTML) {
         var t = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
