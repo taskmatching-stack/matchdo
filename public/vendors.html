@@ -168,6 +168,23 @@
                 <!-- 子分類（選擇主分類後顯示） -->
                 <div id="filterSub" class="filter-row d-none"></div>
             </div>
+
+            <!-- 服務地區過濾 -->
+            <div class="filter-wrap mt-1" id="areaFilterWrap">
+                <div class="small text-muted mb-1" style="font-size:.75rem;"><i class="bi bi-geo-alt me-1"></i>服務地區</div>
+                <div class="filter-row" id="filterArea">
+                    <span class="filter-tag filter-sub active" role="button" tabindex="0" data-area="">全部地區</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="台北">台北</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="新北">新北</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="桃園">桃園</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="新竹">新竹</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="台中">台中</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="台南">台南</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="高雄">高雄</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="全台">全台</span>
+                    <span class="filter-tag filter-sub" role="button" tabindex="0" data-area="海外">海外</span>
+                </div>
+            </div>
         </div>
 
         <!-- 結果計數 -->
@@ -221,6 +238,7 @@
             keyword: '',
             categoryKey: '',
             subcategoryKey: '',
+            areaFilter: '',   // 服務地區過濾
             loading: false,
             hasMore: true
         };
@@ -327,6 +345,15 @@
                     $loading.style.display = 'none';
                     state.loading = false;
                     var list = data.manufacturers || data.vendors || data.items || [];
+
+                    // 服務地區前端過濾（contact.service_area 含所選地區）
+                    if (state.areaFilter) {
+                        list = list.filter(function(v) {
+                            var areas = (v.contact && v.contact.service_area) || [];
+                            if (typeof areas === 'string') areas = areas.split(/[,，、]+/).map(function(s){return s.trim();});
+                            return areas.some(function(a){ return a.includes(state.areaFilter) || state.areaFilter.includes(a); });
+                        });
+                    }
 
                     if (!append && list.length === 0) {
                         $empty.style.display = '';
@@ -493,6 +520,17 @@
 
         /* ── 載入更多 ── */
         $loadMore.addEventListener('click', function() { loadVendors(true); });
+
+        /* ── 服務地區標籤 ── */
+        var $filterArea = document.getElementById('filterArea');
+        $filterArea.querySelectorAll('[data-area]').forEach(function(tag) {
+            tag.addEventListener('click', function() {
+                $filterArea.querySelectorAll('[data-area]').forEach(function(t){ t.classList.remove('active'); });
+                tag.classList.add('active');
+                state.areaFilter = tag.getAttribute('data-area');
+                loadVendors(false);
+            });
+        });
 
         /* ── 初始化 ── */
         if (window.i18n && window.i18n.ready) {

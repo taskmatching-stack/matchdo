@@ -6528,6 +6528,43 @@ app.get('/api/manufacturers', async (req, res) => {
     }
 });
 
+// GET /api/manufacturers/:id — 單一廠商詳情（vendor-profile.html 用）
+app.get('/api/manufacturers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data: mfr, error } = await supabase
+            .from('manufacturers')
+            .select('id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id')
+            .eq('id', id)
+            .eq('is_active', true)
+            .maybeSingle();
+        if (error) return res.status(500).json({ error: '查詢失敗' });
+        if (!mfr) return res.status(404).json({ error: '廠商不存在' });
+
+        const { data: portfolio } = await supabase
+            .from('manufacturer_portfolio')
+            .select('id, title, description, image_url, image_url_before, design_highlight, tags, category_key, subcategory_key, sort_order')
+            .eq('manufacturer_id', id)
+            .order('sort_order', { ascending: true });
+
+        res.json({
+            id: mfr.id,
+            name: mfr.name,
+            specialty: mfr.description || '',
+            rating: mfr.rating,
+            location: mfr.location,
+            capabilities: mfr.capabilities,
+            contact: mfr.contact_json || {},
+            verified: mfr.verified,
+            categories: mfr.categories || [],
+            portfolio: portfolio || []
+        });
+    } catch (e) {
+        console.error('GET /api/manufacturers/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/manufacturer-portfolio — 廠商作品圖列表（圖庫找廠商、從圖庫選擇、純文字搜廠商圖）
 // Query: manufacturer_id（單一廠商）, category（依廠商分類篩選）, keyword / q（搜尋 title、tags）
 app.get('/api/manufacturer-portfolio', async (req, res) => {
