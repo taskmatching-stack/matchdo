@@ -135,12 +135,37 @@ CREATE INDEX IF NOT EXISTS idx_manufacturers_name_desc_trgm
 
 ---
 
-## 四、部署指令
+## 四、部署流程
+
+### 步驟 1：本機推上 GitHub（在 VS Code 終端機執行）
+
+每次改完程式碼，在本機專案目錄執行：
 
 ```bash
-# Cloud Shell
+git add .
+git commit -m "說明這次改了什麼"
+git push origin main
+```
+
+### 步驟 2：Cloud Run 更新（在 Google Cloud Shell 執行）
+
+> Cloud Shell 網址：https://shell.cloud.google.com/
+
+```bash
 cd ~/matchdo && git pull origin main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
 ```
+
+> **說明**：
+> - `cd ~/matchdo`：進入 Cloud Shell 裡的專案目錄
+> - `git pull origin main`：從 GitHub 拉最新程式碼
+> - `gcloud run deploy ...`：重新建置並部署到 Cloud Run
+> - 部署約 3–5 分鐘，完成後網站自動更新
+
+### ⚡ 若已設定 Cloud Build 自動觸發（push 即部署）
+
+如果 GCP Cloud Build 觸發條件已設好，**只需執行步驟 1** push 到 GitHub，Cloud Run 會自動部署，不需手動跑步驟 2。
+
+確認方式：GCP Console → Cloud Build → 觸發條件，若有 `main` 分支的觸發條件即代表已設好。
 
 ---
 
