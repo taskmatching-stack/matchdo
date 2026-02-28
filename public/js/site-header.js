@@ -10,12 +10,18 @@
         if (!path || path === '/login.html') path = '/index.html';
         var loginHref = '/login.html?returnUrl=' + encodeURIComponent(path);
         var isAdmin = path.indexOf('/admin/') !== -1;
+        // 桌機版 Logo 置中
+        if (!document.getElementById('navbar-logo-center-style')) {
+            var s = document.createElement('style');
+            s.id = 'navbar-logo-center-style';
+            s.textContent = '@media (min-width:992px){#site-header nav{position:relative}#site-header .navbar-brand{position:absolute;left:50%;transform:translateX(-50%);z-index:2;border:none!important;padding-left:.75rem;padding-right:.75rem}}';
+            document.head.appendChild(s);
+        }
         el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">' +
-            '<a href="/index.html" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a>' +
+            '<a href="/index.html" class="navbar-brand d-flex align-items-center px-4 px-lg-3"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a>' +
             '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
             '<div class="collapse navbar-collapse" id="navbarCollapse">' +
             '<div class="navbar-nav ms-auto p-4 p-lg-0">' +
-            '<a href="/index.html" class="nav-item nav-link">首頁</a>' +
             '<a href="/index.html#ai-estimate" class="nav-item nav-link">服務媒合</a>' +
             '<a href="/custom/" class="nav-item nav-link">客製產品</a>' +
             '<a href="/remake/" class="nav-item nav-link">再製方案</a>' +
@@ -210,6 +216,14 @@ async function renderHeader(headerContainer, user, config) {
             </div>
         </div>` : '';
 
+    // 確保桌機版 Logo 置中 CSS 已注入
+    if (!document.getElementById('navbar-logo-center-style')) {
+        var cs = document.createElement('style');
+        cs.id = 'navbar-logo-center-style';
+        cs.textContent = '@media (min-width:992px){#site-header nav{position:relative}#site-header .navbar-brand{position:absolute;left:50%;transform:translateX(-50%);z-index:2;border:none!important;padding-left:.75rem;padding-right:.75rem}}';
+        document.head.appendChild(cs);
+    }
+
     // ── navbar 已存在時，只更新 auth / myFeatures，不重建整個 navbar（消除閃爍）──
     if (headerContainer.querySelector('#navbarCollapse')) {
         const authSec = headerContainer.querySelector('#authSection');
@@ -232,7 +246,7 @@ async function renderHeader(headerContainer, user, config) {
     const navHTML = `
         <!-- Navbar Start -->
         <nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">
-            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5">
+            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4 px-lg-3">
                 <img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;">
             </a>
             <button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
@@ -240,7 +254,6 @@ async function renderHeader(headerContainer, user, config) {
             </button>
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <div class="navbar-nav ms-auto p-4 p-lg-0">
-                    <a href="/index.html" class="nav-item nav-link${homeActive}">` + t('nav.home') + `</a>
                     ${showServiceMatchingNav ? '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' : ''}
                     <a href="${customUrl}" class="nav-item nav-link${customActive}">` + t('nav.customProduct') + `</a>
                     <a href="${remakeUrl}" class="nav-item nav-link${remakeActive}">` + (t('nav.remake') || '再製方案') + `</a>
