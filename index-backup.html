@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<!-- ???耨?嫘??楝?梧?server.js ??/iStudio-1.0.0/ 撠? / ?身摰?芸?嫘迨瑼?寡楝敺???-->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>MATCHDO - ??</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta name="keywords" content="摰Ｚˊ?Ｗ?,AI閮剛?,撱?慦?,??,閮ˊ,MATCHDO">
+    <meta name="description" content="MATCHDO ?? ??AI 頛摰Ｚˊ?Ｗ?閮剛?嚗??唾身閮???摮?餈堆??芸?慦??芾釭撱?嚗?蝡?敺身閮???>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MATCHDO ??">
+    <meta property="og:title" content="MATCHDO ?? - AI 摰Ｚˊ?Ｗ?閮剛? ? 撱?慦?撟喳">
+    <meta property="og:description" content="AI 頛閮剛? ? 撱?慦? ? 摰Ｚˊ?嚗??唾身閮???摮?餈堆?霈??翰??啜?>
+    <meta property="og:image" content="https://matchdo.cc/img/og-home.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url" content="https://matchdo.cc/">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:locale:alternate" content="en_US">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="MATCHDO ?? - AI 摰Ｚˊ?Ｗ?閮剛? ? 撱?慦?撟喳">
+    <meta name="twitter:description" content="AI 頛閮剛? ? 撱?慦? ? 摰Ｚˊ?嚗??函??菜?敹恍?啜?>
+    <meta name="twitter:image" content="https://matchdo.cc/img/og-home.jpg">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://matchdo.cc/">
+    <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/">
+    <link rel="alternate" hreflang="en" href="https://matchdo.cc/?lang=en">
+    <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/">
+
+    <!-- Favicon -->
+    <link href="/img/favicon.ico" rel="icon">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="/iStudio-1.0.0/lib/animate/animate.min.css" rel="stylesheet">
+    <link href="/iStudio-1.0.0/lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "MATCHDO ??",
+      "alternateName": "MatchDO",
+      "url": "https://matchdo.cc",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://matchdo.cc/img/matchdo-logo.png"
+      },
+      "description": "AI 頛摰Ｚˊ?Ｗ?閮剛?撟喳嚗??鞈芸???銝蝡?敺身閮???,
+      "foundingDate": "2025",
+      "areaServed": "TW",
+      "availableLanguage": ["Chinese", "English"]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "MATCHDO ??",
+      "url": "https://matchdo.cc",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://matchdo.cc/custom/gallery.html?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+</head>
+
+<body>
+    <!-- 蝘駁?見?輯???Spinner嚗??陛瞏???-->
+
+
+    <!-- ?梁?撠汗嚗?蝡?怠?餃??嚗?蝑??刻?穿??踹? 10 蝘??箇嚗?-->
+    <div id="site-header"></div>
+    <script>
+(function(){
+  var el = document.getElementById('site-header');
+  if (el && !el.innerHTML) {
+    el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">' +
+      '<a href="/index.html" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5"><img src="/img/matchdo-logo.png" alt="MatchDO ??" style="height:52px;width:auto;"></a>' +
+      '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
+      '<div class="collapse navbar-collapse" id="navbarCollapse">' +
+      '<div class="navbar-nav ms-auto p-4 p-lg-0">' +
+      '<a href="/index.html" class="nav-item nav-link active">擐?</a>' +
+      '<a href="/index.html#ai-estimate" class="nav-item nav-link">??慦?</a>' +
+      '<a href="/custom/" class="nav-item nav-link">摰Ｚˊ?Ｗ?</a>' +
+      '<a href="/subscription-plans.html" class="nav-item nav-link">?寞?????/a>' +
+      '</div>' +
+      '<div class="d-none d-lg-flex align-items-center px-4"><a href="/login.html" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>?餃</a></div>' +
+      '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2"><a href="/login.html" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>?餃</a></div>' +
+      '</div></nav>';
+  }
+})();
+    </script>
+
+    <!-- 慦???Pinterest 憸????賢?????皛輻??ｇ?撌血?銝?氬葬?? 8 ?澆祝 -->
+    <div class="container-fluid px-0" id="media-wall-section">
+        <div class="container-fluid media-wall-inner py-3">
+            <style>
+                #media-wall-section { background-color: #ffffff !important; width: 100%; max-width: 100%; box-sizing: border-box; }
+                #media-wall-section .container-fluid { background-color: transparent !important; max-width: 100%; padding-left: 0.5rem; padding-right: 0.5rem; }
+                /* 蝮桀?撌血?嚗?蝬脫?⊿?鞎潮?閬?嚗之?Ｗ??葬銝暺???*/
+                #media-wall-section .media-wall-inner { padding-left: 0.5rem; padding-right: 0.5rem; }
+                @media (min-width: 576px) { #media-wall-section .media-wall-inner { padding-left: 0.75rem; padding-right: 0.75rem; } }
+                @media (min-width: 1200px) { #media-wall-section .media-wall-inner { padding-left: 0.5rem; padding-right: 0.5rem; } #media-wall-section .container-fluid { padding-left: 0.5rem; padding-right: 0.5rem; } }
+                #media-wall-section .d-flex.flex-wrap { margin-bottom: 0.5rem; }
+                /* 蝬脫憛急遛?舐撖砍漲嚗椰?喳?蝔晞hrome/Edge 銝?湛?銝身 max-width 霈祝?Ｗ?銋?皛?*/
+                #media-wall-grid-wrap { width: 100%; max-width: 100%; margin-left: 0; margin-right: 0; box-sizing: border-box; }
+                /* 甈 minmax(260px, 1fr) 霈?敺?甈?‵皛選??摰?摨衣雁?敶Ｘ? */
+                #media-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); grid-auto-rows: 260px; grid-auto-flow: dense; gap: 8px; }
+                #media-wall-grid .media-wall-item { min-height: 0; }
+                #media-wall-grid .media-wall-1x2 { grid-column: span 1; grid-row: span 2; min-height: 0; }
+                #media-wall-grid .card { border: none; border-radius: 8px; overflow: hidden; box-shadow: none; height: 100%; display: flex; flex-direction: column; background: transparent; }
+                #media-wall-grid .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+                #media-wall-grid .card .media-wall-card-link { display: flex; flex-direction: column; flex: 1; min-height: 0; text-decoration: none; color: inherit; }
+                #media-wall-grid .card .card-img-wrap { width: 100%; flex: 1; min-height: 0; background: #f0f0f0; position: relative; }
+                #media-wall-grid .card .card-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+                #media-wall-grid .card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.15); pointer-events: none; transition: opacity .2s ease; }
+                #media-wall-grid .card:hover .card-img-wrap::after { opacity: 0; }
+                #media-wall-grid .card .card-title-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff; font-size: 0.7rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                #media-wall-grid .card .card-img-wrap img[src*="placehold.co"] { filter: grayscale(1); }
+                #media-wall-grid .card .card-img-wrap .media-wall-placeholder { background: #e8e8e8 !important; color: #888 !important; font-size: 0.7rem; display: flex !important; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 80px; background-image: repeating-linear-gradient(0deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px), repeating-linear-gradient(90deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px) !important; }
+                #media-wall-grid .card .card-img-wrap .media-wall-placeholder span { color: #888; }
+                /* 1x2 鞈?憭橘??游??拇 */
+                #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; }
+                #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+                /* 撠??∴????批‵皛選?overlay 皛▼嚗??渡?+?耦??嚗?*/
+                .comparison-slider-wrap { position: absolute; inset: 0; width: 100%; height: 100%; }
+                .comparison-slider-wrap img.slider-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+                .comparison-slider-wrap img.slider-fg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+                .comparison-slider-wrap .slider-overlay { position: absolute; inset: 0; pointer-events: none; }
+                .comparison-slider-wrap .slider-overlay input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; pointer-events: auto; }
+                .comparison-slider-wrap .slider-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #445D7E; left: 50%; margin-left: -1px; pointer-events: none; box-shadow: 0 0 2px rgba(0,0,0,.25); }
+                .comparison-slider-wrap .slider-handle { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; background: #fff; border: 2px solid #445D7E; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 12px; color: #445D7E; }
+                .comparison-slider-wrap .slider-hint { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff; font-size: 0.6rem; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+                #media-wall-grid .media-wall-1x2 .card .card-img-wrap { aspect-ratio: unset; min-height: 0; }
+                #media-wall-grid .media-wall-1x2 .card { min-height: 0; }
+                /* 蝞∠??∴??券??????憿舐內 */
+                #media-wall-grid .card { position: relative; }
+                #media-wall-grid .media-wall-admin-hide { position: absolute; top: 4px; right: 4px; z-index: 10; padding: 2px 6px; font-size: 0.65rem; background: rgba(0,0,0,.7); color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 2px; }
+                #media-wall-grid .media-wall-admin-hide:hover { background: #445D7E; }
+                #media-wall-grid .media-wall-admin-delete { right: 4px; left: auto; top: 4px; margin-left: 0; background: rgba(180,60,60,.9); }
+                #media-wall-grid .media-wall-admin-delete:hover { background: #c0392b; }
+                #media-wall-grid .media-wall-admin-actions { position: absolute; top: 4px; right: 4px; z-index: 10; display: flex; gap: 2px; }
+                /* ??蝭拚嚗?蝐文耦撘?????*/
+                #media-wall-filter { margin-bottom: 0.75rem; }
+                #media-wall-filter .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem; }
+                #media-wall-filter .filter-row:last-child { margin-bottom: 0; }
+                #media-wall-filter .filter-tag { display: inline-block; padding: 0.25rem 0.5rem; font-size: 0.8rem; border-radius: 6px; border: 1px solid #445D7E; color: #445D7E; background: #fff; cursor: pointer; text-decoration: none; }
+                #media-wall-filter .filter-tag:hover { background: #f0f4f8; color: #3a5169; }
+                #media-wall-filter .filter-tag.active { background: #445D7E; color: #fff; border-color: #445D7E; }
+                #media-wall-filter .filter-tag.filter-sub { font-size: 0.75rem; padding: 0.2rem 0.4rem; border-color: #8a96a6; color: #5c6470; }
+                #media-wall-filter .filter-tag.filter-sub:hover, #media-wall-filter .filter-tag.filter-sub.active { border-color: #445D7E; color: #445D7E; }
+                #media-wall-filter .filter-tag.filter-sub.active { background: #e8ecf0; }
+            </style>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <input type="search" id="media-wall-search" class="form-control form-control-sm" data-i18n-placeholder="home.searchPlaceholder" placeholder="??雿?嚗?憿??內閰?" style="max-width: 220px;" autocomplete="off">
+                <button type="button" id="media-wall-search-btn" class="btn btn-sm btn-outline-primary" data-i18n="home.searchBtn">??</button>
+                <button type="button" id="media-wall-load-more" class="btn btn-sm btn-outline-secondary ms-auto d-none" data-i18n="home.loadMore">頛?游?</button>
+            </div>
+            <div id="media-wall-filter" class="mb-2 d-none">
+                <div id="media-wall-filter-main" class="filter-row"></div>
+                <div id="media-wall-filter-sub" class="filter-row d-none"></div>
+            </div>
+            <div id="media-wall-grid-wrap">
+                <div id="media-wall-grid">
+                    <!-- ??JS 頛 /api/media-wall -->
+                </div>
+            </div>
+            <div id="media-wall-empty" class="text-center text-muted py-5 d-none"><span data-i18n="home.emptyPrefix">?桀?撠雿?撅內嚗迭餈?</span> <a href="/custom/" data-i18n="home.emptyLink">摰Ｚˊ?Ｗ?</a> <span data-i18n="home.emptySuffix">?萎???/span></div>
+            <div id="media-wall-loading" class="text-center py-4" data-i18n="home.loading">頛銝?..</div>
+            <!-- 暺??∠??曉之嚗??嗡?頞閬??見撘絞銝嚗ightbox ?祇?撌脩宏??body 銝??踹????鋡急?憯? -->
+            <style>
+                html { scrollbar-gutter: stable; }
+                body.modal-open { overflow: hidden; padding-right: 0 !important; margin-right: 0 !important; }
+                #media-wall-lightbox .media-wall-modal-dialog { width: 100%; max-width: min(720px, 94vw); max-height: 90vh; margin: 1rem auto; box-sizing: border-box; }
+                #media-wall-lightbox .modal-content { width: 100%; max-width: 100%; max-height: 90vh; border-radius: 12px; border: 1px solid rgba(68,93,126,.25); box-shadow: 0 12px 40px rgba(68,93,126,.25); overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
+                #media-wall-lightbox .modal-header { padding: 0.75rem 1rem; background: #f0f4f8; border-bottom: 1px solid #445D7E; }
+                #media-wall-lightbox .modal-title { font-size: 1rem; font-weight: 600; color: #445D7E; }
+                #media-wall-lightbox .modal-body { padding: 0; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; background: #f5f7fa; text-align: center; position: relative; display: flex; align-items: stretch; max-width: 100%; box-sizing: border-box; }
+                #media-wall-lightbox #media-wall-lightbox-body { flex: 1; min-height: 200px; padding: 0.5rem; display: flex; align-items: center; justify-content: center; position: relative; max-width: 100%; overflow: hidden; box-sizing: border-box; }
+                #media-wall-lightbox #media-wall-lightbox-body-inner { width: 100%; max-width: 100%; height: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; box-sizing: border-box; }
+                #media-wall-lightbox #media-wall-lightbox-body-inner img { max-width: 100%; max-height: 78vh; width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 12px rgba(68,93,126,.2); }
+                /* 閰單?????剁??蜓?脣??脩頂 */
+                #media-wall-lightbox #media-wall-lightbox-detail { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.4rem 0.6rem 0.5rem; background: linear-gradient(transparent, rgba(45,64,89,.95)); color: #fff; text-align: left; font-size: 0.7rem; }
+                #media-wall-lightbox #media-wall-lightbox-detail .detail-label { color: rgba(255,255,255,.85); margin-bottom: 0; margin-right: 0.25rem; }
+                #media-wall-lightbox #media-wall-lightbox-detail .detail-value { color: #fff; margin-bottom: 0.15rem; word-break: break-word; display: inline; }
+                #media-wall-lightbox #media-wall-lightbox-detail .detail-row { margin-bottom: 0.15rem; }
+                #media-wall-lightbox #media-wall-lightbox-detail .detail-row:last-child { margin-bottom: 0; }
+                #media-wall-lightbox .modal-footer { padding: 0.6rem 1rem; background: #fff; border-top: 1px solid rgba(68,93,126,.2); }
+                /* lightbox ?箏?閬??游?蝒?銝???敺??Ｘ???*/
+                #media-wall-lightbox { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
+                #media-wall-lightbox .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
+            </style>
+        </div>
+    </div>
+
+    <!-- ?曉之?梯? lightbox嚗??body 銝??踹????鋡急?憯?-->
+    <div class="modal fade" id="media-wall-lightbox" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered media-wall-modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="media-wall-lightbox-title"></h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0 text-center">
+                    <div id="media-wall-lightbox-body" style="min-height:120px;">
+                        <div id="media-wall-lightbox-body-inner"></div>
+                        <div id="media-wall-lightbox-detail" class="d-none">
+                            <div class="detail-row" id="media-wall-lightbox-category-row" style="display:none;"><span class="detail-label" data-i18n="home.mainCategory">銝餃?憿?/span><span id="media-wall-lightbox-category" class="detail-value"></span></div>
+                            <div class="detail-row" id="media-wall-lightbox-subcategory-row" style="display:none;"><span class="detail-label" data-i18n="home.subcategory">摮?憿?/span><span id="media-wall-lightbox-subcategory" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.prompt">?內閰?/span><span id="media-wall-lightbox-prompt" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="media-wall-lightbox-seed" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.account">撣唾?</span><span id="media-wall-lightbox-owner" class="detail-value"></span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">撖血?璅⊥</button>
+                    <a id="media-wall-lightbox-link" href="#" class="btn btn-primary btn-sm" target="_blank" data-i18n="home.findVendor">?曉???鋆?/a>
+                    <button type="button" id="media-wall-lightbox-redesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">?身閮?/button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">??</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ?梁??嚗 site-common.js 頛嚗?-->
+    <div id="site-footer"></div>
+
+
+    <!-- Back to Top -->
+    <a href="#!" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+
+    <!-- JavaScript Libraries嚗ootstrap ???site-header ??靘?navbar 雿輻嚗?-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Supabase / ?餃嚗?偏嚗??餃?擐?嚗?交??歇?曹???inline ???-->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async function () {
+            if (window.AuthService) {
+                try {
+                    var hash = (window.location && window.location.hash) || '';
+                    var isOAuthReturn = hash.indexOf('access_token') !== -1 || hash.indexOf('refresh_token') !== -1;
+                    if (isOAuthReturn) await new Promise(function (r) { setTimeout(r, 500); });
+                    var session = await AuthService.getSession();
+                    var user = session && session.user;
+                    if (user) {
+                        var profile = await AuthService.getUserProfile();
+                        if (!profile && typeof AuthService.createOrUpdateUser === 'function') {
+                            await AuthService.createOrUpdateUser(user.id, {
+                                email: user.email,
+                                full_name: (user.user_metadata && user.user_metadata.full_name) || '',
+                                avatar_url: (user.user_metadata && user.user_metadata.avatar_url) || ''
+                            });
+                        }
+                        var returnUrl = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('auth_return_url');
+                        if (returnUrl && returnUrl !== '/login.html' && returnUrl.indexOf('login') === -1) {
+                            try { sessionStorage.removeItem('auth_return_url'); } catch (e) {}
+                            var go = (returnUrl.charAt(0) === '/') ? returnUrl : '/' + returnUrl;
+                            window.location.replace(go);
+                            return;
+                        }
+                    }
+                } catch (e) { console.warn('createOrUpdateUser:', e && e.message); }
+            }
+            if (window.i18n && window.i18n.ready) {
+                window.i18n.ready.then(function () {
+                    if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                });
+            }
+        });
+    </script>
+    <script src="/iStudio-1.0.0/lib/wow/wow.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/easing/easing.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/waypoints/waypoints.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="/js/ai-categories.js"></script>
+    <script src="/iStudio-1.0.0/js/site-common.js"></script>
+    <script src="/js/main.js"></script>
+    <script>
+        (function () {
+            var grid = document.getElementById('media-wall-grid');
+            var empty = document.getElementById('media-wall-empty');
+            var loading = document.getElementById('media-wall-loading');
+            var loadMoreBtn = document.getElementById('media-wall-load-more');
+            var searchInput = document.getElementById('media-wall-search');
+            var searchBtn = document.getElementById('media-wall-search-btn');
+            if (!grid) return;
+            var currentPage = 1;
+            var currentQ = '';
+            var perPage = 20;
+            function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+            function escAttr(s) { return (s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+            function renderOne(p, opts) {
+                    var wrap = document.createElement('div');
+                    var cls = 'media-wall-item';
+                    if (p.type === 'collection' || p.size === '1x2') cls += ' media-wall-1x2';
+                    if (p.type === 'comparison') cls += ' media-wall-comparison';
+                    wrap.className = cls;
+                    wrap.setAttribute('data-type', p.type || '');
+                    if (p.id) wrap.setAttribute('data-id', p.id);
+                    var link = escAttr(p.link || '/custom/gallery.html');
+                    var title = esc(p.title);
+                    var content = '';
+                    var wrapExtra = '';
+                    var placeholdAfter = 'https://placehold.co/400x300/555/aaa?text=%E5%AF%A6%E5%93%81';
+                    var placeholdBefore = 'https://placehold.co/400x300/888/ccc?text=%E6%A6%82%E5%BF%B5';
+                    if (p.type === 'user_design') {
+                        var img = (p.image_url || '').trim();
+                        content = (img ? '<img src="' + escAttr(img) + '" alt="">' : '<div class="media-wall-placeholder"><span>?∪?</span></div>');
+                    } else if (p.type === 'comparison') {
+                        var compAfter = (p.image_url || '').trim() || placeholdAfter;
+                        var compBefore = (p.image_url_before || '').trim() || placeholdBefore;
+                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(compAfter) + '" alt="撖血?"><img class="slider-fg" src="' + escAttr(compBefore) + '" alt="璁艙" style="clip-path:inset(0 50% 0 0)"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">??/div><span class="slider-hint">撌血蝘餃?皛▼?臬??扳???/span><input type="range" min="0" max="100" value="50"></div></div>';
+                    } else if (p.type === 'collection') {
+                        var cov = (p.cover_image_url || '').trim();
+                        var urls = p.image_urls && Array.isArray(p.image_urls) ? p.image_urls : (cov ? [cov, cov] : []);
+                        if (urls.length === 0) {
+                            content = '<div class="media-wall-placeholder"><span>蝟餃?</span></div>';
+                        } else {
+                            wrapExtra = ' collection-grid';
+                            var two = [urls[0], urls[1] || urls[0]];
+                            content = two.map(function (u) { return '<img src="' + escAttr(u) + '" alt="">'; }).join('');
+                        }
+                    } else {
+                        var img = (p.image_url || p.cover_image_url || '').trim();
+                        content = (img ? '<img src="' + escAttr(img) + '" alt="">' : '<div class="media-wall-placeholder"><span>??/span></div>');
+                    }
+                    var dataItem = { type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
+                    if (p.type === 'collection') dataItem.image_urls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length) ? p.image_urls : ((p.cover_image_url ? [p.cover_image_url, p.cover_image_url] : []));
+                    if (p.type === 'user_design') {
+                        var promptText = (p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '';
+                        var seedStr = (p.analysis_json && p.analysis_json.generation_seed != null) ? String(p.analysis_json.generation_seed) : (p.generation_seed != null ? String(p.generation_seed) : '');
+                        dataItem.generation_prompt = promptText || null;
+                        dataItem.generation_seed = seedStr !== '' ? seedStr : null;
+                        dataItem.owner_display = p.owner_display || null;
+                        dataItem.category_key = p.category_key || p.category || null;
+                        dataItem.subcategory_key = p.subcategory_key || null;
+                    }
+                    wrap.setAttribute('data-item', JSON.stringify(dataItem));
+                    wrap.innerHTML = '<div class="card"><a href="#" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + content + '<div class="card-title-overlay">' + title + '</div></div></a></div>';
+                    if (opts && opts.isAdmin && p.id && p.id !== 'demo-comparison') {
+                        var card = wrap.querySelector('.card');
+                        if (card) {
+                            var actions = document.createElement('div');
+                            actions.className = 'media-wall-admin-actions';
+                            var hideBtn = document.createElement('button');
+                            hideBtn.type = 'button';
+                            hideBtn.className = 'media-wall-admin-hide';
+                            hideBtn.textContent = '?梯?';
+                            hideBtn.title = '敺?????舫???;
+                            hideBtn.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                var type = wrap.getAttribute('data-type');
+                                var id = wrap.getAttribute('data-id');
+                                if (!type || !id) return;
+                                (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
+                                    if (!token) { alert('隢??餃'); return; }
+                                    fetch('/api/admin/media-wall-item', {
+                                        method: 'PATCH',
+                                        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ type: type, id: id, show: false })
+                                    }).then(function (r) { return r.json(); }).then(function (data) {
+                                        if (data.success) wrap.remove();
+                                        else alert(data.error || '?⊥???憿舐內');
+                                    }).catch(function () { alert('?⊥???憿舐內'); });
+                                });
+                            });
+                            var deleteBtn = document.createElement('button');
+                            deleteBtn.type = 'button';
+                            deleteBtn.className = 'media-wall-admin-hide media-wall-admin-delete';
+                            deleteBtn.textContent = '?芷';
+                            deleteBtn.title = '?冽閮剛??偶銋?歹?撠?/蝟餃???擐??梯?';
+                            deleteBtn.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                var type = wrap.getAttribute('data-type');
+                                var id = wrap.getAttribute('data-id');
+                                if (!type || !id) return;
+                                if (type === 'user_design' && !confirm('蝣箏?閬偶銋?日撐雿?嚗?文??⊥?敺拙???)) return;
+                                (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
+                                    if (!token) { alert('隢??餃'); return; }
+                                    fetch('/api/admin/media-wall-item', {
+                                        method: 'DELETE',
+                                        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ type: type, id: id })
+                                    }).then(function (r) { return r.json(); }).then(function (data) {
+                                        if (data.success) wrap.remove();
+                                        else alert(data.error || '?⊥??芷');
+                                    }).catch(function () { alert('?⊥??芷'); });
+                                });
+                            });
+                            actions.appendChild(hideBtn);
+                            actions.appendChild(deleteBtn);
+                            card.appendChild(actions);
+                        }
+                    }
+                    var compWrap = wrap.querySelector('.comparison-slider-wrap');
+                    if (compWrap) {
+                        var range = compWrap.querySelector('input[type="range"]');
+                        var fg = compWrap.querySelector('img.slider-fg');
+                        var line = compWrap.querySelector('.slider-line');
+                        var handle = compWrap.querySelector('.slider-handle');
+                        function setPos(v) {
+                            var val = Math.max(0, Math.min(100, Number(v)));
+                            if (range) range.value = val;
+                            if (fg) fg.style.clipPath = 'inset(0 ' + (100 - val) + '% 0 0)';
+                            if (line) { line.style.left = val + '%'; line.style.marginLeft = '-1px'; }
+                            if (handle) { handle.style.left = val + '%'; handle.style.marginLeft = '-14px'; }
+                        }
+                        function pctFromEvent(e) {
+                            var rect = compWrap.getBoundingClientRect();
+                            var x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) - rect.left;
+                            return Math.max(0, Math.min(100, (x / rect.width) * 100));
+                        }
+                        if (range) {
+                            range.addEventListener('input', function () { setPos(Number(this.value)); });
+                            range.addEventListener('mousedown', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setPos(pctFromEvent(e));
+                                var onMove = function (ev) { setPos(pctFromEvent(ev)); ev.preventDefault(); };
+                                var onUp = function () { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                                document.addEventListener('mousemove', onMove);
+                                document.addEventListener('mouseup', onUp);
+                            });
+                            range.addEventListener('click', function (e) { e.stopPropagation(); });
+                            compWrap.addEventListener('touchstart', function (e) {
+                                if (e.target !== range) return;
+                                setPos(pctFromEvent(e));
+                                var onMove = function (ev) { setPos(pctFromEvent(ev)); ev.preventDefault(); };
+                                var onEnd = function () { document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); };
+                                document.addEventListener('touchmove', onMove, { passive: false });
+                                document.addEventListener('touchend', onEnd);
+                            });
+                        }
+                    }
+                    return wrap;
+            }
+            var adminOpts = { isAdmin: false, getToken: function () { return Promise.resolve(null); } };
+            var currentCategoryKey = '';
+            var currentSubcategoryKey = '';
+            var categoriesData = { categories: [] };
+            var categoriesLang = '';
+            function buildMediaWallUrl(page, q) {
+                var url = '/api/media-wall?per_page=' + perPage + '&page=' + page + (q ? '&q=' + encodeURIComponent(q) : '');
+                if (currentCategoryKey) url += '&category_key=' + encodeURIComponent(currentCategoryKey);
+                if (currentSubcategoryKey) url += '&subcategory_key=' + encodeURIComponent(currentSubcategoryKey);
+                return url;
+            }
+            function loadMediaWall(page, q, append, opts) {
+                opts = opts || adminOpts;
+                if (!append) { grid.innerHTML = ''; loading.classList.remove('d-none'); empty.classList.add('d-none'); }
+                var url = buildMediaWallUrl(page, q);
+                fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+                    loading.classList.add('d-none');
+                    if (data.error) { if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '?⊥?頛雿???隢?敺?閰艾?; } return; }
+                    var items = data.items || [];
+                    if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
+                    empty.classList.add('d-none');
+                    items.sort(function (a, b) { return ((a.type === 'collection' || a.size === '1x2') ? 0 : 1) - ((b.type === 'collection' || b.size === '1x2') ? 0 : 1); });
+                    items.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
+                    currentPage = page;
+                    currentQ = q;
+                    if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', items.length < perPage);
+                }).catch(function () {
+                    loading.classList.add('d-none');
+                    if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '?⊥?頛雿???隢?敺?閰艾?; }
+                });
+            }
+            function runFilterMain(key) {
+                currentCategoryKey = key || '';
+                currentSubcategoryKey = '';
+                var subRowEl = document.getElementById('media-wall-filter-sub');
+                if (subRowEl) { subRowEl.classList.add('d-none'); subRowEl.innerHTML = ''; }
+                renderFilterTags();
+                loadMediaWall(1, currentQ, false, adminOpts);
+            }
+            function runFilterSub(subKey) {
+                currentSubcategoryKey = subKey || '';
+                renderFilterTags();
+                loadMediaWall(1, currentQ, false, adminOpts);
+            }
+            function renderFilterTags() {
+                var mainRow = document.getElementById('media-wall-filter-main');
+                var subRow = document.getElementById('media-wall-filter-sub');
+                var filterEl = document.getElementById('media-wall-filter');
+                if (!mainRow) return;
+                mainRow.innerHTML = '';
+                var isEn = categoriesLang && String(categoriesLang).toLowerCase().indexOf('zh') !== 0;
+                var allMain = document.createElement('span');
+                allMain.className = 'filter-tag' + (currentCategoryKey === '' ? ' active' : '');
+                allMain.textContent = isEn ? 'All' : '?券';
+                allMain.role = 'button';
+                allMain.tabIndex = 0;
+                allMain.addEventListener('click', function () { runFilterMain(''); });
+                allMain.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runFilterMain(''); } });
+                mainRow.appendChild(allMain);
+                (categoriesData.categories || []).forEach(function (c) {
+                    var tag = document.createElement('span');
+                    tag.className = 'filter-tag' + (currentCategoryKey === (c.key || '') ? ' active' : '');
+                    tag.textContent = c.name || c.key || '';
+                    tag.role = 'button';
+                    tag.tabIndex = 0;
+                    tag.dataset.categoryKey = c.key || '';
+                    var keyVal = tag.dataset.categoryKey;
+                    tag.addEventListener('click', function () { runFilterMain(keyVal); });
+                    tag.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runFilterMain(keyVal); } });
+                    mainRow.appendChild(tag);
+                });
+                if (currentCategoryKey && categoriesData.categories.length) {
+                    var cat = categoriesData.categories.find(function (x) { return (x.key || '') === currentCategoryKey; });
+                    if (cat && cat.subcategories && cat.subcategories.length) {
+                        subRow.classList.remove('d-none');
+                        subRow.innerHTML = '';
+                        var subLabel = document.createElement('span');
+                        subLabel.className = 'filter-sub-label';
+                        subLabel.textContent = isEn ? 'Subcategory: ' : '摮?憿?';
+                        subLabel.style.cssText = 'font-size:0.75rem;color:#5c6470;margin-right:0.25rem;align-self:center;';
+                        subRow.appendChild(subLabel);
+                        var backTag = document.createElement('span');
+                        backTag.className = 'filter-tag filter-sub';
+                        backTag.textContent = isEn ? '??Back' : '??銝?撅?;
+                        backTag.role = 'button';
+                        backTag.title = '?憭批?憿?;
+                        backTag.addEventListener('click', function () { runFilterMain(''); });
+                        backTag.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runFilterMain(''); } });
+                        subRow.appendChild(backTag);
+                        var allSub = document.createElement('span');
+                        allSub.className = 'filter-tag filter-sub' + (currentSubcategoryKey === '' ? ' active' : '');
+                        allSub.textContent = isEn ? 'All' : '?券';
+                        allSub.role = 'button';
+                        allSub.addEventListener('click', function () { runFilterSub(''); });
+                        allSub.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runFilterSub(''); } });
+                        subRow.appendChild(allSub);
+                        cat.subcategories.forEach(function (sub) {
+                            var st = document.createElement('span');
+                            st.className = 'filter-tag filter-sub' + (currentSubcategoryKey === (sub.key || '') ? ' active' : '');
+                            st.textContent = sub.name || sub.key || '';
+                            st.role = 'button';
+                            st.dataset.subKey = sub.key || '';
+                            var subKeyVal = st.dataset.subKey || '';
+                            st.addEventListener('click', function () { runFilterSub(subKeyVal); });
+                            st.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runFilterSub(subKeyVal); } });
+                            subRow.appendChild(st);
+                        });
+                    }
+                }
+                if (filterEl) filterEl.classList.remove('d-none');
+            }
+            (async function () {
+                if (window.AuthService && AuthService.getUserProfile && AuthService.getSession) {
+                    try {
+                        var profile = await AuthService.getUserProfile();
+                        var session = await AuthService.getSession();
+                        if (profile && profile.role === 'admin') adminOpts.isAdmin = true;
+                        var token = (session && session.access_token) || (session && session.session && session.session.access_token);
+                        if (token) {
+                            adminOpts.getToken = function () { return AuthService.getSession().then(function (s) { return (s && s.access_token) || (s && s.session && s.session.access_token) || null; }); };
+                        }
+                    } catch (e) {}
+                }
+                try {
+                    var lang = '';
+                    if (window.location && window.location.search) {
+                        var p = new URLSearchParams(window.location.search);
+                        lang = p.get('lang') || '';
+                    }
+                    if (!lang) try { lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || ''; } catch (e) {}
+                    if (!lang && window.i18n && typeof window.i18n.getLang === 'function') lang = window.i18n.getLang() || '';
+                    var catUrl = '/api/custom-product-categories';
+                    if (lang && String(lang).toLowerCase().indexOf('zh') !== 0) catUrl += '?lang=' + encodeURIComponent(String(lang).split('-')[0]);
+                    categoriesLang = lang || '';
+                    var catRes = await fetch(catUrl);
+                    var catJson = await catRes.json();
+                    if (catJson && catJson.categories && catJson.categories.length) categoriesData = catJson;
+                } catch (e) {}
+                renderFilterTags();
+                loadMediaWall(1, '', false, adminOpts);
+            })();
+            if (searchBtn && searchInput) {
+                searchBtn.addEventListener('click', function () { loadMediaWall(1, searchInput.value.trim(), false, adminOpts); });
+                searchInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); loadMediaWall(1, searchInput.value.trim(), false, adminOpts); } });
+            }
+            if (loadMoreBtn) loadMoreBtn.addEventListener('click', function () { loadMediaWall(currentPage + 1, currentQ, true, adminOpts); });
+            grid.addEventListener('click', function (e) {
+                var a = e.target.closest('a.media-wall-card-link');
+                if (!a) return;
+                e.preventDefault();
+                var wrap = a.closest('.media-wall-item');
+                var data = wrap && wrap.getAttribute('data-item');
+                if (!data) return;
+                var item = JSON.parse(data);
+                var titleEl = document.getElementById('media-wall-lightbox-title');
+                var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
+                var linkEl = document.getElementById('media-wall-lightbox-link');
+                if (titleEl) titleEl.textContent = item.title || '';
+                if (linkEl) { linkEl.href = item.link || '#'; linkEl.style.display = item.link ? 'inline-block' : 'none'; }
+                var rBtn = document.getElementById('media-wall-lightbox-redesign');
+                if (rBtn) {
+                    var imgForBtn = (item.type === 'comparison' && item.image_url_before) ? (item.image_url_before || '').trim() : (item.image_url || item.cover_image_url || '').trim();
+                    rBtn.dataset.imageUrl = imgForBtn;
+                    var mainKey = (item.category_key || item.category || '').trim();
+                    if (!mainKey && item.category_keys && Array.isArray(item.category_keys) && item.category_keys.length > 0) mainKey = String(item.category_keys[0] || '').trim();
+                    rBtn.dataset.categoryKey = mainKey;
+                    rBtn.dataset.subcategoryKey = (item.subcategory_key || '').trim();
+                    rBtn.style.display = rBtn.dataset.imageUrl ? 'inline-block' : 'none';
+                }
+                bodyEl.removeAttribute('data-design-image-url');
+                var placeholdAfter = 'https://placehold.co/400x300/555/aaa?text=%E5%AF%A6%E5%93%81';
+                var placeholdBefore = 'https://placehold.co/400x300/888/ccc?text=%E6%A6%82%E5%BF%B5';
+                if (item.type === 'comparison' && (item.image_url || item.image_url_before)) {
+                    var after = item.image_url || placeholdAfter;
+                    var before = item.image_url_before || placeholdBefore;
+                    bodyEl.dataset.designImageUrl = before;
+                    bodyEl.innerHTML = '<div class="comparison-slider-wrap" style="position:relative;width:100%;max-width:100%;height:78vh;min-height:320px;margin:0 auto;overflow:hidden;"><img class="slider-bg" src="' + after.replace(/"/g, '&quot;') + '" alt="撖血?" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center"><img class="slider-fg" src="' + before.replace(/"/g, '&quot;') + '" alt="璁艙" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;clip-path:inset(0 50% 0 0)"><div class="slider-overlay" style="position:absolute;inset:0"><div class="slider-line" style="position:absolute;top:0;bottom:0;width:2px;background:#445D7E;left:50%;margin-left:-1px"></div><div class="slider-handle" style="position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;background:#fff;border:2px solid #445D7E;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#445D7E">??/div><span class="slider-hint" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);padding:2px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:0.65rem;border-radius:4px;white-space:nowrap;">撌血蝘餃?皛▼?臬??扳???/span><input type="range" min="0" max="100" value="50" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize"></div></div>';
+                    var compWrap = bodyEl.querySelector('.comparison-slider-wrap');
+                    var range = compWrap && compWrap.querySelector('input[type="range"]');
+                    if (range && compWrap) {
+                        var fg = compWrap.querySelector('img.slider-fg');
+                        var line = compWrap.querySelector('.slider-line');
+                        var handle = compWrap.querySelector('.slider-handle');
+                        function setPos(v) {
+                            var val = Math.max(0, Math.min(100, Number(v)));
+                            if (range) range.value = val;
+                            if (fg) fg.style.clipPath = 'inset(0 ' + (100 - val) + '% 0 0)';
+                            if (line) { line.style.left = val + '%'; line.style.marginLeft = '-1px'; }
+                            if (handle) { handle.style.left = val + '%'; handle.style.marginLeft = '-14px'; }
+                        }
+                        function pctFromEvent(ev) {
+                            var r = compWrap.getBoundingClientRect();
+                            var x = (ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX) - r.left;
+                            return Math.max(0, Math.min(100, (x / r.width) * 100));
+                        }
+                        range.addEventListener('input', function () { setPos(Number(this.value)); });
+                        range.addEventListener('mousedown', function (ev) {
+                            ev.preventDefault();
+                            setPos(pctFromEvent(ev));
+                            var onMove = function (e) { setPos(pctFromEvent(e)); e.preventDefault(); };
+                            var onUp = function () { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                            document.addEventListener('mousemove', onMove);
+                            document.addEventListener('mouseup', onUp);
+                        });
+                        compWrap.addEventListener('touchstart', function (ev) {
+                            if (ev.target !== range) return;
+                            setPos(pctFromEvent(ev));
+                            var onMove = function (e) { setPos(pctFromEvent(e)); e.preventDefault(); };
+                            var onEnd = function () { document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); };
+                            document.addEventListener('touchmove', onMove, { passive: false });
+                            document.addEventListener('touchend', onEnd);
+                        });
+                    }
+                } else if (item.type === 'collection' && item.image_urls && item.image_urls.length > 0) {
+                    var imgs = item.image_urls.slice(0, 20).map(function (u) { return '<img src="' + (u || '').replace(/"/g, '&quot;') + '" alt="" style="max-width:100%;height:auto;object-fit:contain;">'; });
+                    bodyEl.innerHTML = '<div class="d-flex flex-wrap gap-2 justify-content-center align-items-start p-2" style="max-height:78vh;overflow-y:auto;">' + imgs.join('') + '</div>';
+                } else {
+                    var imgUrl = item.image_url || item.cover_image_url || '';
+                    var noImageText = (window.i18n && window.i18n.t) ? window.i18n.t('home.noImage') : '?∪?';
+                    bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g, '&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">' + noImageText + '</p>';
+                }
+                function setLightboxDetailAndShow(cats) {
+                    var detailWrap = document.getElementById('media-wall-lightbox-detail');
+                    var categoryRow = document.getElementById('media-wall-lightbox-category-row');
+                    var categoryEl = document.getElementById('media-wall-lightbox-category');
+                    var subcategoryRow = document.getElementById('media-wall-lightbox-subcategory-row');
+                    var subcategoryEl = document.getElementById('media-wall-lightbox-subcategory');
+                    var promptEl = document.getElementById('media-wall-lightbox-prompt');
+                    var seedEl = document.getElementById('media-wall-lightbox-seed');
+                    var ownerEl = document.getElementById('media-wall-lightbox-owner');
+                    if (item.type === 'user_design' && detailWrap) {
+                        detailWrap.classList.remove('d-none');
+                        var catKey = item.category_key || item.category || '';
+                        var subKey = item.subcategory_key || '';
+                        var catLabel = ''; var subLabel = '';
+                        if (cats && cats.length) {
+                            var cat = catKey ? cats.find(function (c) { return (c.key || '') === catKey; }) : null;
+                            if (cat) catLabel = cat.name || catKey;
+                            if (subKey && cat && cat.subcategories && cat.subcategories.length) {
+                                var sub = cat.subcategories.find(function (s) { return (s.key || '') === subKey; });
+                                subLabel = sub ? (sub.name || subKey) : subKey;
+                            } else if (subKey) subLabel = subKey;
+                        }
+                        if (categoryRow && categoryEl) { categoryEl.textContent = catLabel || catKey || '嚗嚗?; categoryRow.style.display = (catKey || catLabel) ? '' : 'none'; }
+                        if (subcategoryRow && subcategoryEl) { subcategoryEl.textContent = subLabel || '嚗嚗?; subcategoryRow.style.display = subLabel ? '' : 'none'; }
+                        if (promptEl) promptEl.textContent = item.generation_prompt || '嚗嚗?;
+                        if (seedEl) seedEl.textContent = (item.generation_seed != null && item.generation_seed !== '') ? String(item.generation_seed) : '嚗嚗?;
+                        if (ownerEl) ownerEl.textContent = item.owner_display || '嚗嚗?;
+                    } else if (detailWrap) {
+                        detailWrap.classList.add('d-none');
+                        if (categoryRow) categoryRow.style.display = 'none';
+                        if (subcategoryRow) subcategoryRow.style.display = 'none';
+                    }
+                    if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+                    var modal = new bootstrap.Modal(document.getElementById('media-wall-lightbox'));
+                    modal.show();
+                }
+                var currentLang = '';
+                if (window.location && window.location.search) { var lp = new URLSearchParams(window.location.search); currentLang = lp.get('lang') || ''; }
+                if (!currentLang) try { currentLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || ''; } catch (err) {}
+                if (!currentLang && window.i18n && typeof window.i18n.getLang === 'function') currentLang = window.i18n.getLang() || '';
+                var useEn = currentLang && String(currentLang).toLowerCase().indexOf('zh') !== 0;
+                if (item.type === 'user_design' && useEn && (item.category_key || item.category || item.subcategory_key)) {
+                    var url = '/api/custom-product-categories?lang=' + encodeURIComponent(String(currentLang).split('-')[0]);
+                    fetch(url).then(function (r) { return r.json(); }).then(function (json) {
+                        var cats = (json && json.categories && json.categories.length) ? json.categories : (categoriesData.categories || []);
+                        setLightboxDetailAndShow(cats);
+                    }).catch(function () { setLightboxDetailAndShow(categoriesData.categories || []); });
+                } else {
+                    setLightboxDetailAndShow(categoriesData.categories || []);
+                }
+            });
+            var redesignBtn = document.getElementById('media-wall-lightbox-redesign');
+            if (redesignBtn) {
+                redesignBtn.addEventListener('click', function () {
+                    var url = (this.dataset.imageUrl || '').trim();
+                    if (url) {
+                        try {
+                            sessionStorage.setItem('redesignImageUrl', url);
+                            sessionStorage.setItem('redesignCategoryKey', this.dataset.categoryKey || '');
+                            sessionStorage.setItem('redesignSubcategoryKey', this.dataset.subcategoryKey || '');
+                        } catch (e) {}
+                        window.location.href = '/custom-product.html';
+                    }
+                });
+            }
+            var sceneSimBtn = document.getElementById('media-wall-lightbox-scene-sim');
+            if (sceneSimBtn) {
+                sceneSimBtn.addEventListener('click', function () {
+                    var inner = document.getElementById('media-wall-lightbox-body-inner');
+                    var url = (inner && inner.dataset.designImageUrl) || (inner && inner.querySelector('img') && inner.querySelector('img').src) || (inner && inner.querySelector('.slider-fg') && inner.querySelector('.slider-fg').src) || (inner && inner.querySelector('.slider-bg') && inner.querySelector('.slider-bg').src);
+                    if (url) {
+                        try { sessionStorage.setItem('sceneSimImageUrl', url); } catch (e) {}
+                        window.location.href = '/custom-product.html?tab=scene-sim';
+                    }
+                });
+            }
+            var lightboxLink = document.getElementById('media-wall-lightbox-link');
+            if (lightboxLink) {
+                lightboxLink.addEventListener('click', function (e) {
+                    var href = (this.href || '').trim();
+                    if (href && href !== '#' && href.indexOf('javascript') !== 0) {
+                        e.preventDefault();
+                        try {
+                            var blob = new Blob([JSON.stringify({ action: 'find_vendor' })], { type: 'application/json' });
+                            if (navigator.sendBeacon) navigator.sendBeacon('/api/track-design-action', blob);
+                        } catch (err) {}
+                        window.open(href, '_blank', 'noopener');
+                    }
+                });
+            }
+            if (window.i18n && window.i18n.ready) window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); });
+        })();
+    </script>
+</body>
+
+</html>
