@@ -1,6 +1,5 @@
 /**
  * 網站共用導航系統
- * 載入當下就先畫出導覽+登入按鈕，不等 DOMContentLoaded
  * 修改時注意：勿在同一 function 重複宣告變數；登入連結須帶 returnUrl。詳見 .cursor/rules/site-header-and-auth.mdc
  */
 (function () {
@@ -24,6 +23,7 @@
         var _c = document.createElement('style');
         _c.id = 'nb-css';
         _c.textContent = [
+            '#site-header{min-height:60px;}',
             '.navbar{padding:15px 0;font-family:"Space Grotesk",sans-serif;font-size:18px;border-bottom:2px solid #445D7E;}',
             '.navbar .navbar-nav .nav-link{margin-left:30px;padding:0;outline:none;color:#333;}',
             '.navbar .navbar-nav .nav-link:hover,.navbar .navbar-nav .nav-link.active{color:#445D7E!important;}',
@@ -40,37 +40,8 @@
         ].join('');
         document.head.appendChild(_c);
     }
-    var el = document.getElementById('site-header');
-    if (el && !el.innerHTML) {
-        var t = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
-        var path = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
-        if (!path || path === '/login.html') path = '/index.html';
-        var loginHref = '/login.html?returnUrl=' + encodeURIComponent(path);
-        var brandUrl = '/index.html';
-        el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">' +
-            '<a href="' + brandUrl + '" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a>' +
-            '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
-            '<div class="collapse navbar-collapse" id="navbarCollapse">' +
-            '<div class="navbar-nav ms-auto p-4 p-lg-0">' +
-            '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' +
-            '<a href="/custom/" class="nav-item nav-link">' + t('nav.customProduct') + '</a>' +
-            '<a href="/remake/" class="nav-item nav-link">' + (t('nav.remake') || '再製方案') + '</a>' +
-            '<a href="/subscription-plans.html" class="nav-item nav-link">' + (t('nav.subscriptionPlans') || '方案與定價') + '</a>' +
-            '</div>' +
-            (function() {
-                var _s = window.getSessionFromStorage && window.getSessionFromStorage();
-                var _u = _s && _s.user ? _s.user : null;
-                if (!_u) return '<div class="d-none d-lg-flex align-items-center px-4" id="authSection"><a href="' + loginHref + '" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>' +
-                    '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><a href="' + loginHref + '" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>';
-                var _ci = null; try { _ci = JSON.parse(localStorage.getItem('nb_uinfo') || 'null'); } catch(e) {}
-                var _ok = _ci && _ci.id === _u.id;
-                var _nm = _ok ? _ci.name : (_u.user_metadata && (_u.user_metadata.full_name || (_u.email && _u.email.split('@')[0])) || '用戶');
-                var _av = _ok ? _ci.avatar : (_u.user_metadata && _u.user_metadata.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(_nm) + '&background=667eea&color=fff');
-                return '<div class="d-none d-lg-flex align-items-center px-4" id="authSection"><div class="dropdown"><a class="btn btn-primary py-2 px-4 d-flex align-items-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownDesktop"><img id="userAvatar" src="' + _av + '" alt="Avatar" style="width:30px;height:30px;border-radius:50%;margin-right:10px;"><span id="userName">' + _nm + '</span></a><ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdownDesktop"><li><a class="dropdown-item" href="/index.html"><i class="bi bi-house me-2"></i>首頁</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="/credits.html"><i class="bi bi-currency-exchange me-2"></i>我的點數</a></li><li><a class="dropdown-item" href="/profile/contact-info.html"><i class="bi bi-telephone me-2"></i>聯絡資訊設定</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="#" onclick="handleLogout(event)"><i class="bi bi-box-arrow-right me-2"></i>登出</a></li></ul></div></div>' +
-                    '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><div class="dropdown"><a class="btn btn-primary w-100 py-2 d-flex align-items-center justify-content-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownMobile"><img id="userAvatarMobile" src="' + _av + '" alt="" style="width:28px;height:28px;border-radius:50%;margin-right:8px;"><span id="userNameMobile">' + _nm + '</span></a><ul class="dropdown-menu dropdown-menu-end w-100"><li><a class="dropdown-item" href="/index.html"><i class="bi bi-house me-2"></i>首頁</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="/credits.html">我的點數</a></li><li><a class="dropdown-item" href="/profile/contact-info.html">聯絡資訊設定</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="#" onclick="handleLogout(event)"><i class="bi bi-box-arrow-right me-2"></i>登出</a></li></ul></div></div>';
-            })() +
-            '</div></nav>';
-    }
+    // 不在此渲染 navbar 內容，統一交由 DOMContentLoaded 的 loadSiteHeader 處理
+    // 原因：IIFE 執行時 i18n 未就緒，渲染出錯誤 key；且二次渲染會造成跳動
 })();
 
 function getPublicConfig() {
