@@ -1,9 +1,9 @@
 # SEO 實作進度摘要
 
 > **更新日期**：2026-02-25  
-> **GitHub 最新 commit**：`b2363d1`（已全部 push）  
 > **網域**：https://matchdo.cc  
-> **完整規劃**：`docs/SEO-PLAN.md`
+> **完整規劃**：`docs/SEO-PLAN.md`  
+> **推送／部署步驟**：見下方「四、部署流程」
 
 ---
 
@@ -43,9 +43,9 @@
 - 載入更多（每次 12 筆）
 - `server.js /api/manufacturers` 已擴充 `q` 關鍵字搜尋參數
 
-### ✅ 圖片資源（全部已 commit 推上 GitHub）
+### ✅ 圖片資源（路徑與清單已整理，尚未推上 GitHub）
 
-所有圖片放在 `public/img/`：
+所有圖片應放在 `public/img/`，請記得 **commit 並 push**（步驟見「四、部署流程」）：
 
 | 檔名 | 用途 |
 |------|------|
@@ -65,6 +65,16 @@
 ---
 
 ## 二、待完成項目
+
+### ❌ 將 `public/img/` 圖片推上 GitHub
+
+本機已放好 OG 圖、Logo、favicon 等檔案後，請依「四、部署流程」執行：
+
+```bash
+git add public/img/
+git commit -m "加入 OG 圖、Logo、favicon 至 public/img"
+git push origin main
+```
 
 ### ❌ Phase SEO-4：Core Web Vitals（尚未實作）
 
