@@ -84,19 +84,12 @@ git push origin main
 | 非關鍵 JS 加 `defer` | jQuery、Bootstrap 等評估後加入 |
 | 新增 `/sitemap-products.xml` | 動態產生已公開的 custom_products 詳情頁 URL |
 
-### ❌ Navbar Logo 圖片化（選擇性）
+### ✅ Navbar Logo 圖片化（已完成）
 
-目前 navbar 品牌名稱是純文字 `<h2>MatchDO 合做</h2>`（在 `public/js/site-header.js` 第 15 行）。
+`public/js/site-header.js` 已改為顯示 `matchdo-logo.png` 圖片（IIFE + renderHeader 兩處）。
+桌機版 Logo 置頂置中、移除「首頁」連結，CSS 由 site-header.js 全站統一注入。
 
-若要改成顯示 `matchdo-logo.png` 圖片，需修改 `site-header.js`：
-
-```javascript
-// 目前（第 15 行）
-'<a href="' + brandUrl + '" class="navbar-brand ..."><h2 class="m-0 text-primary">' + t('nav.brand') + '</h2></a>'
-
-// 改為
-'<a href="' + brandUrl + '" class="navbar-brand ..."><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:36px;width:auto;"></a>'
-```
+> ⚠️ **廢棄檔案**：`public/iStudio-1.0.0/js/site-header.js` 已刪除，只能使用 `public/js/site-header.js`。
 
 ### ❌ Favicon Apple Touch Icon（選擇性）
 
