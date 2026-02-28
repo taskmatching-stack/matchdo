@@ -55,6 +55,20 @@
     <!-- Template Stylesheet -->
     <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
 
+    <!-- Navbar Logo 桌機置中（手機版不變） -->
+    <style>
+      @media (min-width: 992px) {
+        #site-header .navbar { position: relative; }
+        #site-header .navbar-brand {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          border: none;
+          z-index: 0;
+        }
+      }
+    </style>
+
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
     {
