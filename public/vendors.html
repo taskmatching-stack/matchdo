@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="utf-8">
+    <title>廠商列表 - MATCHDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="瀏覽 MATCHDO 合作廠商，依產品分類篩選，找到最適合的客製生產夥伴。">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="MATCHDO 合做">
+    <meta property="og:title" content="廠商列表 - MATCHDO 合做">
+    <meta property="og:description" content="瀏覽 MATCHDO 合作廠商，依產品分類篩選，找到最適合的客製生產夥伴。">
+    <meta property="og:image" content="https://matchdo.cc/images/og-vendors.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url" content="https://matchdo.cc/vendors.html">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:locale:alternate" content="en_US">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="廠商列表 - MATCHDO 合做">
+    <meta name="twitter:description" content="瀏覽 MATCHDO 合作廠商，依產品分類篩選，找到最適合的客製生產夥伴。">
+    <meta name="twitter:image" content="https://matchdo.cc/images/og-vendors.jpg">
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://matchdo.cc/vendors.html">
+    <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/vendors.html">
+    <link rel="alternate" hreflang="en" href="https://matchdo.cc/vendors.html?lang=en">
+    <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/vendors.html">
+
+    <!-- JSON-LD -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": "廠商列表 - MATCHDO 合做",
+      "url": "https://matchdo.cc/vendors.html",
+      "description": "瀏覽 MATCHDO 合作廠商，依產品分類篩選，找到最適合的客製生產夥伴。",
+      "isPartOf": { "@type": "WebSite", "name": "MATCHDO 合做", "url": "https://matchdo.cc" }
+    }
+    </script>
+
+    <link href="/img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+
+    <style>
+        /* ── 過濾標籤（與首頁同色系） ── */
+        .filter-wrap { margin-bottom: 0.75rem; }
+        .filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem; }
+        .filter-row:last-child { margin-bottom: 0; }
+        .filter-tag {
+            display: inline-block; padding: 0.25rem 0.6rem; font-size: 0.82rem;
+            border-radius: 6px; border: 1px solid #445D7E; color: #445D7E;
+            background: #fff; cursor: pointer; text-decoration: none;
+            transition: background .12s, color .12s;
+        }
+        .filter-tag:hover { background: #f0f4f8; color: #3a5169; }
+        .filter-tag.active { background: #445D7E; color: #fff; border-color: #445D7E; }
+        .filter-tag.filter-sub {
+            font-size: 0.76rem; padding: 0.2rem 0.45rem;
+            border-color: #8a96a6; color: #5c6470;
+        }
+        .filter-tag.filter-sub:hover,
+        .filter-tag.filter-sub.active { border-color: #445D7E; color: #445D7E; }
+        .filter-tag.filter-sub.active { background: #e8ecf0; }
+
+        /* ── 廠商卡片 ── */
+        .vendor-card {
+            border: 1px solid rgba(68,93,126,.15);
+            border-radius: 12px; overflow: hidden;
+            background: #fff;
+            transition: transform .15s ease, box-shadow .15s ease;
+            cursor: pointer; text-decoration: none; color: inherit;
+            display: flex; flex-direction: column; height: 100%;
+        }
+        .vendor-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(68,93,126,.15); }
+        .vendor-card-cover {
+            width: 100%; aspect-ratio: 4/3; overflow: hidden;
+            background: #f0f4f8; position: relative;
+        }
+        .vendor-card-cover img {
+            width: 100%; height: 100%; object-fit: cover;
+            transition: transform .2s ease;
+        }
+        .vendor-card:hover .vendor-card-cover img { transform: scale(1.04); }
+        .vendor-card-cover .no-img {
+            width: 100%; height: 100%; display: flex;
+            align-items: center; justify-content: center;
+            color: #adb5bd; font-size: 2.5rem;
+        }
+        .vendor-card-body { padding: 0.9rem 1rem 0.75rem; flex: 1; display: flex; flex-direction: column; }
+        .vendor-name { font-size: 1rem; font-weight: 600; color: #2d4059; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .vendor-specialty { font-size: 0.82rem; color: #5c6470; margin-bottom: 0.5rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.45; }
+        .vendor-meta { display: flex; align-items: center; gap: 0.75rem; font-size: 0.78rem; color: #6c757d; margin-bottom: 0.5rem; }
+        .vendor-rating { color: #f5a623; letter-spacing: 0.02em; }
+        .vendor-location { display: flex; align-items: center; gap: 0.2rem; }
+        .vendor-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: auto; }
+        .vendor-tag {
+            font-size: 0.7rem; padding: 0.15rem 0.45rem;
+            background: #f0f4f8; border-radius: 4px; color: #445D7E;
+            white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* ── 廠商 verified 標記 ── */
+        .vendor-card-cover .verified-badge {
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(68,93,126,.85); color: #fff;
+            font-size: 0.65rem; padding: 2px 6px; border-radius: 4px;
+        }
+
+        /* ── 頁面整體 ── */
+        .page-hero { background: linear-gradient(135deg, #2d4059 0%, #445D7E 100%); color: #fff; padding: 2.5rem 0 2rem; }
+        .page-hero h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .page-hero p { opacity: .85; margin-bottom: 0; font-size: 0.95rem; }
+
+        /* ── 搜尋列 ── */
+        .search-bar { background: #fff; border-radius: 10px; padding: 1rem 1.25rem; box-shadow: 0 2px 8px rgba(68,93,126,.1); margin-bottom: 1.25rem; }
+
+        /* ── 載入/無資料 ── */
+        #vendorLoading { text-align: center; padding: 3rem 0; color: #6c757d; }
+        #vendorEmpty { text-align: center; padding: 3rem 0; display: none; }
+
+        /* ── 結果計數 ── */
+        .result-count { font-size: 0.82rem; color: #6c757d; margin-bottom: 0.75rem; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <!-- Hero -->
+    <div class="page-hero">
+        <div class="container">
+            <h1><i class="bi bi-building me-2"></i><span data-i18n="vendors.title">廠商列表</span></h1>
+            <p data-i18n="vendors.desc">依產品分類篩選合作廠商，找到最適合您需求的客製生產夥伴。</p>
+        </div>
+    </div>
+
+    <div class="container py-4">
+
+        <!-- 搜尋 + 篩選列 -->
+        <div class="search-bar">
+            <!-- 關鍵字搜尋 -->
+            <div class="d-flex gap-2 mb-3">
+                <div class="input-group" style="max-width:320px;">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="vendorKeyword" class="form-control border-start-0 ps-0"
+                        data-i18n-placeholder="vendors.searchPlaceholder"
+                        placeholder="搜尋廠商名稱或專長…" autocomplete="off">
+                </div>
+                <button type="button" id="vendorSearchBtn" class="btn btn-primary px-3" data-i18n="vendors.searchBtn">搜尋</button>
+                <button type="button" id="vendorClearBtn" class="btn btn-outline-secondary px-3 d-none" data-i18n="vendors.clearBtn">清除</button>
+            </div>
+
+            <!-- 主分類標籤 -->
+            <div class="filter-wrap">
+                <div id="filterMain" class="filter-row">
+                    <span class="filter-tag active" role="button" tabindex="0" data-key="" data-i18n="vendors.filterAll">全部</span>
+                </div>
+                <!-- 子分類（選擇主分類後顯示） -->
+                <div id="filterSub" class="filter-row d-none"></div>
+            </div>
+        </div>
+
+        <!-- 結果計數 -->
+        <div id="resultCount" class="result-count d-none"></div>
+
+        <!-- 載入中 -->
+        <div id="vendorLoading">
+            <div class="spinner-border text-primary mb-2" role="status" style="width:2rem;height:2rem;"></div>
+            <p class="mb-0" data-i18n="vendors.loading">載入廠商資料中…</p>
+        </div>
+
+        <!-- 無資料 -->
+        <div id="vendorEmpty">
+            <i class="bi bi-building display-4 text-muted"></i>
+            <p class="mt-3 text-muted" data-i18n="vendors.empty">此分類目前無廠商資料，請試試其他分類。</p>
+            <a href="/custom/" class="btn btn-outline-primary mt-1" data-i18n="vendors.goCustom">前往客製產品</a>
+        </div>
+
+        <!-- 廠商卡片網格 -->
+        <div id="vendorGrid" class="row g-4 d-none">
+            <!-- 由 JS 動態填入 -->
+        </div>
+
+        <!-- 載入更多 -->
+        <div class="text-center mt-4">
+            <button id="vendorLoadMore" type="button" class="btn btn-outline-primary px-4 d-none" data-i18n="vendors.loadMore">載入更多廠商</button>
+        </div>
+
+    </div>
+
+    <div id="site-footer"></div>
+
+    <!-- JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/iStudio-1.0.0/js/site-common.js"></script>
+
+    <script>
+    (function () {
+        'use strict';
+
+        /* ── 狀態 ── */
+        var state = {
+            page: 1,
+            perPage: 12,
+            keyword: '',
+            categoryKey: '',
+            subcategoryKey: '',
+            loading: false,
+            hasMore: true
+        };
+        var categoriesData = [];
+
+        /* ── DOM ── */
+        var $grid      = document.getElementById('vendorGrid');
+        var $loading   = document.getElementById('vendorLoading');
+        var $empty     = document.getElementById('vendorEmpty');
+        var $loadMore  = document.getElementById('vendorLoadMore');
+        var $keyword   = document.getElementById('vendorKeyword');
+        var $searchBtn = document.getElementById('vendorSearchBtn');
+        var $clearBtn  = document.getElementById('vendorClearBtn');
+        var $filterMain = document.getElementById('filterMain');
+        var $filterSub  = document.getElementById('filterSub');
+        var $count     = document.getElementById('resultCount');
+
+        /* ── 工具函式 ── */
+        function esc(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+        function stars(rating) {
+            var r = parseFloat(rating) || 0;
+            var full = Math.round(r);
+            var html = '';
+            for (var i = 1; i <= 5; i++) {
+                html += '<i class="bi bi-star' + (i <= full ? '-fill' : '') + '"></i>';
+            }
+            return html;
+        }
+        function getLang() {
+            var lang = '';
+            try { lang = new URLSearchParams(window.location.search).get('lang') || ''; } catch(e) {}
+            if (!lang) try { lang = localStorage.getItem('lang') || ''; } catch(e) {}
+            if (!lang && window.i18n && window.i18n.getLang) lang = window.i18n.getLang() || '';
+            return lang;
+        }
+
+        /* ── 建立廠商卡片 HTML ── */
+        function renderCard(v) {
+            var coverImg = '';
+            if (v.portfolio && v.portfolio.length && v.portfolio[0].image_url) {
+                coverImg = '<img src="' + esc(v.portfolio[0].image_url) + '" alt="' + esc(v.name) + '" loading="lazy">';
+            } else {
+                coverImg = '<div class="no-img"><i class="bi bi-building"></i></div>';
+            }
+            var verified = v.verified
+                ? '<span class="verified-badge"><i class="bi bi-patch-check-fill me-1"></i>認證</span>'
+                : '';
+
+            var ratingHtml = v.rating
+                ? '<span class="vendor-rating">' + stars(v.rating) + '</span><span class="ms-1">' + esc(Number(v.rating).toFixed(1)) + '</span>'
+                : '';
+            var locationHtml = v.location
+                ? '<span class="vendor-location"><i class="bi bi-geo-alt"></i>' + esc(v.location) + '</span>'
+                : '';
+
+            var caps = (v.capabilities || []).slice(0, 4).map(function(c) {
+                return '<span class="vendor-tag">' + esc(c) + '</span>';
+            }).join('');
+
+            var url = '/vendor-profile.html?id=' + encodeURIComponent(v.id);
+
+            return '<div class="col-sm-6 col-lg-4">' +
+                '<a href="' + esc(url) + '" class="vendor-card d-block">' +
+                    '<div class="vendor-card-cover">' + coverImg + verified + '</div>' +
+                    '<div class="vendor-card-body">' +
+                        '<div class="vendor-name" title="' + esc(v.name) + '">' + esc(v.name) + '</div>' +
+                        '<div class="vendor-specialty">' + esc(v.specialty || v.description || '') + '</div>' +
+                        (ratingHtml || locationHtml
+                            ? '<div class="vendor-meta">' + ratingHtml + locationHtml + '</div>'
+                            : '') +
+                        (caps ? '<div class="vendor-tags">' + caps + '</div>' : '') +
+                    '</div>' +
+                '</a>' +
+            '</div>';
+        }
+
+        /* ── 載入廠商 ── */
+        function loadVendors(append) {
+            if (state.loading) return;
+            state.loading = true;
+            if (!append) {
+                $grid.classList.add('d-none');
+                $grid.innerHTML = '';
+                $empty.style.display = 'none';
+                $loadMore.classList.add('d-none');
+                $count.classList.add('d-none');
+                $loading.style.display = '';
+                state.page = 1;
+            }
+
+            var params = new URLSearchParams({
+                page:     state.page,
+                per_page: state.perPage
+            });
+            if (state.keyword)      params.set('q', state.keyword);
+            if (state.categoryKey)  params.set('category_key', state.categoryKey);
+            if (state.subcategoryKey) params.set('subcategory_key', state.subcategoryKey);
+
+            fetch('/api/manufacturers?' + params.toString())
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    $loading.style.display = 'none';
+                    state.loading = false;
+                    var list = data.manufacturers || data.vendors || data.items || [];
+
+                    if (!append && list.length === 0) {
+                        $empty.style.display = '';
+                        $loadMore.classList.add('d-none');
+                        return;
+                    }
+
+                    $grid.classList.remove('d-none');
+                    $empty.style.display = 'none';
+
+                    var html = '';
+                    list.forEach(function(v) { html += renderCard(v); });
+                    if (append) {
+                        $grid.insertAdjacentHTML('beforeend', html);
+                    } else {
+                        $grid.innerHTML = html;
+                    }
+
+                    /* 結果計數（只在有篩選時顯示） */
+                    var total = data.total || null;
+                    if (state.keyword || state.categoryKey) {
+                        $count.textContent = total ? ('共 ' + total + ' 家廠商') : ('已顯示 ' + $grid.querySelectorAll('.col-sm-6').length + ' 家廠商');
+                        $count.classList.remove('d-none');
+                    }
+
+                    state.hasMore = list.length >= state.perPage;
+                    $loadMore.classList.toggle('d-none', !state.hasMore);
+                    state.page++;
+                })
+                .catch(function() {
+                    $loading.style.display = 'none';
+                    state.loading = false;
+                    if (!append) {
+                        $empty.style.display = '';
+                        $empty.querySelector('p').textContent = '載入失敗，請重新整理頁面。';
+                    }
+                });
+        }
+
+        /* ── 載入分類標籤 ── */
+        function loadCategories() {
+            var lang = getLang();
+            var url = '/api/custom-product-categories';
+            if (lang && lang.toLowerCase().indexOf('zh') !== 0) url += '?lang=' + encodeURIComponent(lang.split('-')[0]);
+
+            fetch(url)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    categoriesData = (data && data.categories) || [];
+                    renderMainTags();
+                })
+                .catch(function() {});
+        }
+
+        /* ── 渲染主分類標籤 ── */
+        function renderMainTags() {
+            $filterMain.innerHTML = '';
+
+            var allTag = document.createElement('span');
+            allTag.className = 'filter-tag' + (state.categoryKey === '' ? ' active' : '');
+            allTag.textContent = getLang().toLowerCase().indexOf('zh') !== 0 ? 'All' : '全部';
+            allTag.role = 'button';
+            allTag.tabIndex = 0;
+            allTag.addEventListener('click', function() { selectMain(''); });
+            allTag.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') selectMain(''); });
+            $filterMain.appendChild(allTag);
+
+            categoriesData.forEach(function(cat) {
+                var tag = document.createElement('span');
+                tag.className = 'filter-tag' + (state.categoryKey === cat.key ? ' active' : '');
+                tag.textContent = cat.name || cat.key || '';
+                tag.role = 'button';
+                tag.tabIndex = 0;
+                tag.addEventListener('click', function() { selectMain(cat.key || ''); });
+                tag.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') selectMain(cat.key || ''); });
+                $filterMain.appendChild(tag);
+            });
+        }
+
+        /* ── 渲染子分類標籤 ── */
+        function renderSubTags(cat) {
+            $filterSub.innerHTML = '';
+            if (!cat || !cat.subcategories || cat.subcategories.length === 0) {
+                $filterSub.classList.add('d-none');
+                return;
+            }
+
+            var isEn = getLang().toLowerCase().indexOf('zh') !== 0;
+
+            /* 返回按鈕 */
+            var backTag = document.createElement('span');
+            backTag.className = 'filter-tag filter-sub';
+            backTag.textContent = isEn ? '← Back' : '← 上一層';
+            backTag.role = 'button';
+            backTag.addEventListener('click', function() { selectMain(''); });
+            $filterSub.appendChild(backTag);
+
+            /* 全部子分類 */
+            var allSub = document.createElement('span');
+            allSub.className = 'filter-tag filter-sub' + (state.subcategoryKey === '' ? ' active' : '');
+            allSub.textContent = isEn ? 'All' : '全部';
+            allSub.role = 'button';
+            allSub.addEventListener('click', function() { selectSub(''); });
+            $filterSub.appendChild(allSub);
+
+            cat.subcategories.forEach(function(sub) {
+                var tag = document.createElement('span');
+                tag.className = 'filter-tag filter-sub' + (state.subcategoryKey === sub.key ? ' active' : '');
+                tag.textContent = sub.name || sub.key || '';
+                tag.role = 'button';
+                tag.addEventListener('click', function() { selectSub(sub.key || ''); });
+                $filterSub.appendChild(tag);
+            });
+
+            $filterSub.classList.remove('d-none');
+        }
+
+        /* ── 選擇主分類 ── */
+        function selectMain(key) {
+            state.categoryKey = key;
+            state.subcategoryKey = '';
+            renderMainTags();
+            if (key) {
+                var cat = categoriesData.find(function(c) { return c.key === key; });
+                renderSubTags(cat);
+            } else {
+                $filterSub.classList.add('d-none');
+                $filterSub.innerHTML = '';
+            }
+            loadVendors(false);
+        }
+
+        /* ── 選擇子分類 ── */
+        function selectSub(subKey) {
+            state.subcategoryKey = subKey;
+            /* 更新子分類 active 樣式 */
+            $filterSub.querySelectorAll('.filter-tag.filter-sub').forEach(function(tag) {
+                tag.classList.toggle('active', tag.textContent === (categoriesData
+                    .flatMap(function(c){ return c.subcategories||[]; })
+                    .find(function(s){ return s.key === subKey; })
+                    || {name: ''}).name || (subKey === '' && tag.textContent === '全部'));
+            });
+            /* 重新渲染子標籤 active */
+            var cat = categoriesData.find(function(c){ return c.key === state.categoryKey; });
+            if (cat) renderSubTags(cat);
+            loadVendors(false);
+        }
+
+        /* ── 搜尋 ── */
+        function doSearch() {
+            state.keyword = ($keyword.value || '').trim();
+            $clearBtn.classList.toggle('d-none', !state.keyword);
+            loadVendors(false);
+        }
+
+        $searchBtn.addEventListener('click', doSearch);
+        $keyword.addEventListener('keydown', function(e) { if (e.key === 'Enter') doSearch(); });
+        $clearBtn.addEventListener('click', function() {
+            $keyword.value = '';
+            state.keyword = '';
+            $clearBtn.classList.add('d-none');
+            loadVendors(false);
+        });
+
+        /* ── 載入更多 ── */
+        $loadMore.addEventListener('click', function() { loadVendors(true); });
+
+        /* ── 初始化 ── */
+        if (window.i18n && window.i18n.ready) {
+            window.i18n.ready.then(function() {
+                if (window.i18n.applyPage) window.i18n.applyPage();
+            });
+        }
+        loadCategories();
+        loadVendors(false);
+
+    })();
+    </script>
+</body>
+</html>

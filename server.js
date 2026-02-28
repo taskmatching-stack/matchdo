@@ -6417,6 +6417,7 @@ app.get('/api/manufacturers', async (req, res) => {
         const category = req.query.category;
         const category_key = req.query.category_key || req.query.categoryKey;
         const subcategory_key = req.query.subcategory_key || req.query.subcategoryKey;
+        const q = (req.query.q || '').trim();
         const per_page = Math.min(Math.max(parseInt(req.query.per_page || req.query.perPage, 10) || 12, 1), 50);
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
 
@@ -6444,6 +6445,14 @@ app.get('/api/manufacturers', async (req, res) => {
                 if (!eMain && mainList) fromMain = mainList.filter(m => !subIds.has(m.id));
             }
             manufacturers = [...fromSub, ...fromMain];
+            // 關鍵字過濾
+            if (q) {
+                const ql = q.toLowerCase();
+                manufacturers = manufacturers.filter(m =>
+                    (m.name || '').toLowerCase().includes(ql) ||
+                    (m.description || '').toLowerCase().includes(ql)
+                );
+            }
             const start = (page - 1) * per_page;
             manufacturers = manufacturers.slice(start, start + per_page);
         } else if (category && category !== 'default') {
@@ -6457,14 +6466,25 @@ app.get('/api/manufacturers', async (req, res) => {
                 return res.status(500).json({ error: '查詢廠商失敗' });
             }
             manufacturers = data || [];
+            if (q) {
+                const ql = q.toLowerCase();
+                manufacturers = manufacturers.filter(m =>
+                    (m.name || '').toLowerCase().includes(ql) ||
+                    (m.description || '').toLowerCase().includes(ql)
+                );
+            }
             const start = (page - 1) * per_page;
             manufacturers = manufacturers.slice(start, start + per_page);
         } else {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('manufacturers')
                 .select(baseSelect)
                 .eq('is_active', true)
                 .order('rating', { ascending: false });
+            if (q) {
+                query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
+            }
+            const { data, error } = await query;
             if (error) {
                 console.error('GET /api/manufacturers 查詢失敗:', error);
                 return res.status(500).json({ error: '查詢廠商失敗' });
