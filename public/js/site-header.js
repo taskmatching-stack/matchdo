@@ -83,7 +83,14 @@ function loadSiteHeader(sessionFromEvent) {
             } catch (e) {}
         }
         var config = await getPublicConfig();
-        await renderHeader(headerContainer, user, config);
+        try {
+            await renderHeader(headerContainer, user, config);
+        } catch (err) {
+            console.error('[site-header] renderHeader 失敗:', err);
+            // 備援：至少顯示基本登出狀態 navbar
+            var fallbackHref = '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname || '/');
+            headerContainer.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0"><a href="/index.html" class="navbar-brand d-flex align-items-center px-4"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a><div class="d-none d-lg-flex align-items-center px-4 ms-auto"><a href="' + fallbackHref + '" class="btn btn-primary py-2 px-4">登入</a></div></nav>';
+        }
     })();
 }
 
