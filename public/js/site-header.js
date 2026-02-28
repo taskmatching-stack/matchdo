@@ -224,8 +224,8 @@ async function renderHeader(headerContainer, user, config) {
         document.head.appendChild(cs);
     }
 
-    // ── navbar 已存在時，只更新 auth / myFeatures，不重建整個 navbar（消除閃爍）──
-    if (headerContainer.querySelector('#navbarCollapse')) {
+    // ── navbar 已存在且有正確 ID 結構時，只更新 auth / myFeatures（消除閃爍）──
+    if (headerContainer.querySelector('#navbarCollapse') && headerContainer.querySelector('#authSection')) {
         const authSec = headerContainer.querySelector('#authSection');
         const authSecMobile = headerContainer.querySelector('#authSectionMobile');
         const myFeatNav = headerContainer.querySelector('#myFeaturesNav');
