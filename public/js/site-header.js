@@ -4,12 +4,35 @@
  * 修改時注意：勿在同一 function 重複宣告變數；登入連結須帶 returnUrl。詳見 .cursor/rules/site-header-and-auth.mdc
  */
 (function () {
-    // Bootstrap JS 全站保底載入（針對未引入 bootstrap.bundle.js 的頁面）
+    // Bootstrap JS 全站保底載入
     if (typeof window.bootstrap === 'undefined' && !document.getElementById('bs-bundle-js')) {
         var _bs = document.createElement('script');
         _bs.id = 'bs-bundle-js';
         _bs.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js';
         document.head.appendChild(_bs);
+    }
+    // Space Grotesk 字型保底載入
+    if (!document.getElementById('nb-font')) {
+        var _f = document.createElement('link');
+        _f.id = 'nb-font';
+        _f.rel = 'stylesheet';
+        _f.href = 'https://fonts.googleapis.com/css2?family=Space+Grotesk&display=swap';
+        document.head.appendChild(_f);
+    }
+    // Navbar 全站統一樣式注入
+    if (!document.getElementById('nb-css')) {
+        var _c = document.createElement('style');
+        _c.id = 'nb-css';
+        _c.textContent = [
+            '.navbar{padding:15px 0;font-family:"Space Grotesk",sans-serif;font-size:18px;border-bottom:2px solid #445D7E;}',
+            '.navbar .navbar-nav .nav-link{margin-left:30px;padding:0;outline:none;color:#333;}',
+            '.navbar .navbar-nav .nav-link:hover,.navbar .navbar-nav .nav-link.active{color:#445D7E!important;}',
+            '.navbar .dropdown-toggle::after{border:none;content:"\\25BC";font-family:inherit;font-size:.6em;vertical-align:middle;margin-left:6px;}',
+            '.navbar .dropdown-menu .dropdown-item:hover,.navbar .dropdown-menu .dropdown-item.active{background:#445D7E!important;color:#fff!important;}',
+            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}}',
+            '@media(min-width:992px){#site-header #authSection{width:160px;min-width:160px;max-width:160px;justify-content:flex-end;}}'
+        ].join('');
+        document.head.appendChild(_c);
     }
     var el = document.getElementById('site-header');
     if (el && !el.innerHTML) {
