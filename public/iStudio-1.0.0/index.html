@@ -34,8 +34,7 @@
     <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/">
 
     <!-- Favicon -->
-    <link href="/img/favicon.ico" rel="icon">
-    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+    <link href="/iStudio-1.0.0/img/favicon.ico" rel="icon">
 
     <!-- Google Web Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -100,16 +99,10 @@
     <div id="site-header"></div>
     <script>
 (function(){
-  if (!document.getElementById('navbar-logo-center-style')) {
-    var s = document.createElement('style');
-    s.id = 'navbar-logo-center-style';
-    s.textContent = '@media(min-width:992px){.navbar-brand{position:absolute;left:50%;transform:translateX(-50%);border-right:none!important;border-left:none!important;padding-right:0!important;padding-left:0!important;}}';
-    document.head.appendChild(s);
-  }
+  if (!document.getElementById('navbar-logo-center-style')) { var s = document.createElement('style'); s.id = 'navbar-logo-center-style'; s.textContent = '@media(min-width:992px){.navbar-brand{position:absolute;left:50%;transform:translateX(-50%);}}'; document.head.appendChild(s); }
   var el = document.getElementById('site-header');
   if (el && !el.innerHTML) {
-    var path = window.location.pathname || '/index.html';
-    var loginHref = '/login.html?returnUrl=' + encodeURIComponent(path);
+    var loginHref = '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname || '/');
     el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0 position-relative">' +
       '<a href="/index.html" class="navbar-brand d-flex align-items-center px-4 px-lg-5"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a>' +
       '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
