@@ -55,31 +55,7 @@
     <!-- Template Stylesheet -->
     <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
 
-    <!-- Navbar 桌機：選單在上，Logo 置中往上蓋住選單 -->
-    <style>
-      @media (min-width: 992px) {
-        #site-header .navbar { flex-wrap: wrap; }
-        #site-header .navbar-collapse {
-          order: 1; width: 100%; flex-grow: 1;
-          border-bottom: 1px solid #dee2e6;
-        }
-        #site-header .navbar-brand {
-          order: 2;
-          display: flex !important;
-          border-right: none !important;
-          padding: 0;
-          margin: -39px auto 0;
-          position: relative;
-          z-index: 5;
-        }
-        #site-header .navbar-brand img {
-          height: 78px !important;
-          background: #fff;
-          padding: 4px 12px;
-          border-radius: 4px;
-        }
-      }
-    </style>
+    <!-- Navbar Logo 樣式已移至 /css/style.css，全站共用 -->
 
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
