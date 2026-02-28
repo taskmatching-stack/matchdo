@@ -68,20 +68,18 @@
           border-bottom: 1px solid #dee2e6;
         }
 
-        /* Logo 排第二行，往上蓋住選單 */
+        /* Logo 排第二行，只佔圖片寬度，往上蓋住選單 */
         #site-header .navbar-brand {
           order: 2;
-          width: 100%;
           display: flex !important;
-          justify-content: center;
           border-right: none !important;
           padding: 0;
-          margin-top: -39px; /* 往上蓋住選單一半 */
+          margin: -39px auto 0; /* auto 左右置中，負值往上蓋住選單 */
           position: relative;
-          z-index: 10;
+          z-index: 5;
         }
 
-        /* Logo 放大 1.5 倍 */
+        /* Logo 放大 1.5 倍，白底讓分隔線不穿透 */
         #site-header .navbar-brand img {
           height: 78px !important;
           background: #fff;
