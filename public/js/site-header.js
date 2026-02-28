@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+var _lastRenderedUserId = undefined;
 function loadSiteHeader(sessionFromEvent) {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return Promise.resolve();
@@ -75,6 +76,9 @@ function loadSiteHeader(sessionFromEvent) {
                 user = session && session.user ? session.user : null;
             } catch (e) {}
         }
+        var uid = user ? (user.id || user.email || 'user') : null;
+        if (uid === _lastRenderedUserId) return; // 同一 user 不重繪，防止跳動
+        _lastRenderedUserId = uid;
         var config = await getPublicConfig();
         await renderHeader(headerContainer, user, config);
     })();
