@@ -4,6 +4,13 @@
  * 修改時注意：勿在同一 function 重複宣告變數；登入連結須帶 returnUrl。詳見 .cursor/rules/site-header-and-auth.mdc
  */
 (function () {
+    // Bootstrap JS 全站保底載入（針對未引入 bootstrap.bundle.js 的頁面）
+    if (typeof window.bootstrap === 'undefined' && !document.getElementById('bs-bundle-js')) {
+        var _bs = document.createElement('script');
+        _bs.id = 'bs-bundle-js';
+        _bs.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js';
+        document.head.appendChild(_bs);
+    }
     var el = document.getElementById('site-header');
     if (el && !el.innerHTML) {
         var t = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
@@ -42,29 +49,24 @@ document.addEventListener('DOMContentLoaded', function () {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return;
     var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || null;
-    var user = session && session.user ? session.user : null;
     var whenReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
     whenReady.then(function () {
-        return getPublicConfig();
-    }).then(function (config) {
-        return renderHeader(headerContainer, user, config);
+        return loadSiteHeader(session);
     }).then(function () {
         if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
-            AuthService.onAuthStateChange(function (event, session) {
+            AuthService.onAuthStateChange(function (event, newSession) {
                 if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-                    loadSiteHeader(session);
+                    loadSiteHeader(newSession);
                 }
             });
         }
-        if (!user) loadSiteHeader(null);
     }).catch(function () {
-        getPublicConfig().then(function (config) {
-            renderHeader(headerContainer, user, config);
-        });
+        loadSiteHeader(null);
     });
 });
 
 var _lastRenderedUserId = undefined;
+var _navFullyRendered = false;
 function loadSiteHeader(sessionFromEvent) {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return Promise.resolve();
@@ -77,8 +79,10 @@ function loadSiteHeader(sessionFromEvent) {
             } catch (e) {}
         }
         var uid = user ? (user.id || user.email || 'user') : null;
-        if (uid === _lastRenderedUserId) return; // 同一 user 不重繪，防止跳動
+        // 已完整渲染且同一 user → 跳過，防止 onAuthStateChange 重複觸發
+        if (_navFullyRendered && uid === _lastRenderedUserId) return;
         _lastRenderedUserId = uid;
+        _navFullyRendered = true;
         var config = await getPublicConfig();
         await renderHeader(headerContainer, user, config);
     })();
