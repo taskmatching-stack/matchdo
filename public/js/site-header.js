@@ -21,8 +21,8 @@
             '<a href="/remake/" class="nav-item nav-link">' + (t('nav.remake') || '再製方案') + '</a>' +
             '<a href="/subscription-plans.html" class="nav-item nav-link">' + (t('nav.subscriptionPlans') || '方案與定價') + '</a>' +
             '</div>' +
-            '<div class="d-none d-lg-flex align-items-center px-4"><a href="' + loginHref + '" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>' +
-            '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2"><a href="' + loginHref + '" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>' +
+            '<div class="d-none d-lg-flex align-items-center px-4" id="authSection" style="min-width:140px;justify-content:flex-end;">' + (window.getSessionFromStorage && window.getSessionFromStorage() ? '<span class="btn btn-primary py-2 px-4 disabled" style="opacity:.7;pointer-events:none;"><i class="bi bi-person me-2"></i>...</span>' : '<a href="' + loginHref + '" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a>') + '</div>' +
+            '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><a href="' + loginHref + '" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>' +
             '</div></nav>';
     }
 })();
