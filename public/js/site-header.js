@@ -16,7 +16,6 @@
             '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
             '<div class="collapse navbar-collapse" id="navbarCollapse">' +
             '<div class="navbar-nav ms-auto p-4 p-lg-0">' +
-            '<a href="/index.html" class="nav-item nav-link">' + t('nav.home') + '</a>' +
             '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' +
             '<a href="/custom/" class="nav-item nav-link">' + t('nav.customProduct') + '</a>' +
             '<a href="/remake/" class="nav-item nav-link">' + (t('nav.remake') || '再製方案') + '</a>' +
@@ -147,7 +146,6 @@ async function renderHeader(headerContainer, user, config) {
             </button>
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <div class="navbar-nav ms-auto p-4 p-lg-0">
-                    <a href="/index.html" class="nav-item nav-link${homeActive}">` + t('nav.home') + `</a>
                     ${showServiceMatchingNav ? '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' : ''}
                     <a href="${customUrl}" class="nav-item nav-link${customActive}">` + t('nav.customProduct') + `</a>
                     <a href="${remakeUrl}" class="nav-item nav-link${remakeActive}">` + (t('nav.remake') || '再製方案') + `</a>
