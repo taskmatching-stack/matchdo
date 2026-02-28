@@ -11,12 +11,12 @@
         if (!path || path === '/login.html') path = '/index.html';
         var loginHref = '/login.html?returnUrl=' + encodeURIComponent(path);
         var brandUrl = '/index.html';
-        if (!document.getElementById('navbar-logo-center-style')) { var s = document.createElement('style'); s.id = 'navbar-logo-center-style'; s.textContent = '@media(min-width:992px){.navbar-brand{position:absolute;left:50%;transform:translateX(-50%);}}'; document.head.appendChild(s); }
-        el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0 position-relative">' +
-            '<a href="' + brandUrl + '" class="navbar-brand d-flex align-items-center px-4 px-lg-5"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a>' +
+        el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">' +
+            '<a href="' + brandUrl + '" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5"><h2 class="m-0 text-primary">' + t('nav.brand') + '</h2></a>' +
             '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
             '<div class="collapse navbar-collapse" id="navbarCollapse">' +
             '<div class="navbar-nav ms-auto p-4 p-lg-0">' +
+            '<a href="/index.html" class="nav-item nav-link">' + t('nav.home') + '</a>' +
             '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' +
             '<a href="/custom/" class="nav-item nav-link">' + t('nav.customProduct') + '</a>' +
             '<a href="/remake/" class="nav-item nav-link">' + (t('nav.remake') || '再製方案') + '</a>' +
@@ -138,15 +138,16 @@ async function renderHeader(headerContainer, user, config) {
     var showLangSwitch = path.indexOf('/admin/') === -1;
     const navHTML = `
         <!-- Navbar Start -->
-        <nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0 position-relative">
-            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4 px-lg-5">
-                <img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;">
+        <nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">
+            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5">
+                <h2 class="m-0 text-primary">` + t('nav.brand') + `</h2>
             </a>
             <button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <div class="navbar-nav ms-auto p-4 p-lg-0">
+                    <a href="/index.html" class="nav-item nav-link${homeActive}">` + t('nav.home') + `</a>
                     ${showServiceMatchingNav ? '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' : ''}
                     <a href="${customUrl}" class="nav-item nav-link${customActive}">` + t('nav.customProduct') + `</a>
                     <a href="${remakeUrl}" class="nav-item nav-link${remakeActive}">` + (t('nav.remake') || '再製方案') + `</a>

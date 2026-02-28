@@ -99,24 +99,20 @@
     <div id="site-header"></div>
     <script>
 (function(){
-  if (!document.getElementById('navbar-logo-center-style')) { var s = document.createElement('style'); s.id = 'navbar-logo-center-style'; s.textContent = '@media(min-width:992px){.navbar-brand{position:absolute;left:50%;transform:translateX(-50%);}}'; document.head.appendChild(s); }
   var el = document.getElementById('site-header');
   if (el && !el.innerHTML) {
-    var loginHref = '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname || '/');
-    el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0 position-relative">' +
-      '<a href="/index.html" class="navbar-brand d-flex align-items-center px-4 px-lg-5"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a>' +
+    el.innerHTML = '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">' +
+      '<a href="/index.html" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5"><h2 class="m-0 text-primary">MatchDO 合做</h2></a>' +
       '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse"><span class="navbar-toggler-icon"></span></button>' +
       '<div class="collapse navbar-collapse" id="navbarCollapse">' +
       '<div class="navbar-nav ms-auto p-4 p-lg-0">' +
+      '<a href="/index.html" class="nav-item nav-link active">首頁</a>' +
       '<a href="/index.html#ai-estimate" class="nav-item nav-link">服務媒合</a>' +
       '<a href="/custom/" class="nav-item nav-link">客製產品</a>' +
-      '<a href="/remake/" class="nav-item nav-link">再製方案</a>' +
       '<a href="/subscription-plans.html" class="nav-item nav-link">方案與定價</a>' +
-      '<span id="myFeaturesNav"></span>' +
       '</div>' +
-      '<div class="d-none d-lg-flex align-items-center px-2 border-end"><a href="#" class="lang-link small text-muted text-decoration-none me-1" data-lang="zh-TW">中文</a><span class="text-muted">|</span><a href="#" class="lang-link small text-muted text-decoration-none ms-1" data-lang="en">EN</a></div>' +
-      '<div class="d-none d-lg-flex align-items-center px-4" id="authSection"><a href="' + loginHref + '" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>登入</a></div>' +
-      '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><a href="' + loginHref + '" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>登入</a></div>' +
+      '<div class="d-none d-lg-flex align-items-center px-4"><a href="/login.html" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>登入</a></div>' +
+      '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2"><a href="/login.html" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>登入</a></div>' +
       '</div></nav>';
   }
 })();
