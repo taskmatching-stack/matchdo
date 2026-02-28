@@ -70,10 +70,6 @@
                     '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><div class="dropdown"><a class="btn btn-primary w-100 py-2 d-flex align-items-center justify-content-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownMobile"><img id="userAvatarMobile" src="' + _av + '" alt="" style="width:28px;height:28px;border-radius:50%;margin-right:8px;"><span id="userNameMobile">' + _nm + '</span></a><ul class="dropdown-menu dropdown-menu-end w-100"><li><a class="dropdown-item" href="/index.html"><i class="bi bi-house me-2"></i>首頁</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="/credits.html">我的點數</a></li><li><a class="dropdown-item" href="/profile/contact-info.html">聯絡資訊設定</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="#" onclick="handleLogout(event)"><i class="bi bi-box-arrow-right me-2"></i>登出</a></li></ul></div></div>';
             })() +
             '</div></nav>';
-        // IIFE 完成後記錄 user 狀態，讓 DOMContentLoaded 的 loadSiteHeader 可判斷是否跳過
-        var _iifeS2 = window.getSessionFromStorage && window.getSessionFromStorage();
-        var _iifeU2 = _iifeS2 && _iifeS2.user ? _iifeS2.user : null;
-        window.__nbIifeUid = _iifeU2 ? (_iifeU2.id || _iifeU2.email || 'user') : null;
     }
 })();
 
@@ -123,8 +119,6 @@ function loadSiteHeader(sessionFromEvent) {
             } catch (e) {}
         }
         var uid = user ? (user.id || user.email || 'user') : null;
-        // IIFE 已渲染相同 user（含未登入）→ 跳過首次重畫
-        if (!_navFullyRendered && uid === window.__nbIifeUid) { _navFullyRendered = true; _lastRenderedUserId = uid; return; }
         // 已完整渲染且同一 user → 跳過，防止重複觸發
         if (_navFullyRendered && uid === _lastRenderedUserId) return;
         _lastRenderedUserId = uid;
