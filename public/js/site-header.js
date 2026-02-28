@@ -310,20 +310,22 @@ function loadRenewalReminderBanner(headerContainer) {
 async function updateUserInfo(user) {
     let displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || '用戶';
     let avatarUrl = user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=667eea&color=fff`;
+    // 讀目前畫面上的值，只有真的不同才更新 DOM（避免跳動）
+    const curName = (document.getElementById('userName') || {}).textContent || '';
+    const curAvatar = (document.getElementById('userAvatar') || {}).src || '';
     try {
         const profile = await AuthService.getUserProfile();
         if (profile?.full_name) displayName = profile.full_name;
         if (profile?.avatar_url) avatarUrl = profile.avatar_url;
     } catch (e) {}
     try { localStorage.setItem('nb_uinfo', JSON.stringify({ id: user.id, name: displayName, avatar: avatarUrl })); } catch(e) {}
+    // 只有資料不同才更新 DOM
     const set = (id, val, isSrc) => {
         const el = document.getElementById(id);
         if (el) el[isSrc ? 'src' : 'textContent'] = val;
     };
-    set('userName', displayName, false);
-    set('userAvatar', avatarUrl, true);
-    set('userNameMobile', displayName, false);
-    set('userAvatarMobile', avatarUrl, true);
+    if (displayName !== curName) { set('userName', displayName, false); set('userNameMobile', displayName, false); }
+    if (avatarUrl && !curAvatar.includes(encodeURIComponent(displayName.split('')[0])) && curAvatar !== avatarUrl) { set('userAvatar', avatarUrl, true); set('userAvatarMobile', avatarUrl, true); }
 }
 
 async function handleLogout(event) {
