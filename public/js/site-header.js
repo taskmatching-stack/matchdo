@@ -51,8 +51,18 @@
             '<a href="/remake/" class="nav-item nav-link">' + (t('nav.remake') || '再製方案') + '</a>' +
             '<a href="/subscription-plans.html" class="nav-item nav-link">' + (t('nav.subscriptionPlans') || '方案與定價') + '</a>' +
             '</div>' +
-            '<div class="d-none d-lg-flex align-items-center px-4" id="authSection">' + (window.getSessionFromStorage && window.getSessionFromStorage() ? '<span class="btn btn-primary py-2 px-4 disabled" style="opacity:.7;pointer-events:none;"><i class="bi bi-person me-2"></i>...</span>' : '<a href="' + loginHref + '" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a>') + '</div>' +
-            '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><a href="' + loginHref + '" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>' +
+            (function() {
+                var _s = window.getSessionFromStorage && window.getSessionFromStorage();
+                var _u = _s && _s.user ? _s.user : null;
+                if (!_u) return '<div class="d-none d-lg-flex align-items-center px-4" id="authSection"><a href="' + loginHref + '" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>' +
+                    '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><a href="' + loginHref + '" class="btn btn-primary w-100 py-2"><i class="bi bi-person me-2"></i>' + t('nav.login') + '</a></div>';
+                var _ci = null; try { _ci = JSON.parse(localStorage.getItem('nb_uinfo') || 'null'); } catch(e) {}
+                var _ok = _ci && _ci.id === _u.id;
+                var _nm = _ok ? _ci.name : (_u.user_metadata && (_u.user_metadata.full_name || (_u.email && _u.email.split('@')[0])) || '用戶');
+                var _av = _ok ? _ci.avatar : (_u.user_metadata && _u.user_metadata.avatar_url || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(_nm) + '&background=667eea&color=fff');
+                return '<div class="d-none d-lg-flex align-items-center px-4" id="authSection"><div class="dropdown"><a class="btn btn-primary py-2 px-4 d-flex align-items-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownDesktop"><img id="userAvatar" src="' + _av + '" alt="Avatar" style="width:30px;height:30px;border-radius:50%;margin-right:10px;"><span id="userName">' + _nm + '</span></a><ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdownDesktop"><li><a class="dropdown-item" href="/index.html"><i class="bi bi-house me-2"></i>首頁</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="/credits.html"><i class="bi bi-currency-exchange me-2"></i>我的點數</a></li><li><a class="dropdown-item" href="/profile/contact-info.html"><i class="bi bi-telephone me-2"></i>聯絡資訊設定</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="#" onclick="handleLogout(event)"><i class="bi bi-box-arrow-right me-2"></i>登出</a></li></ul></div></div>' +
+                    '<div class="d-lg-none px-4 pb-3 pt-2 border-top mt-2" id="authSectionMobile"><div class="dropdown"><a class="btn btn-primary w-100 py-2 d-flex align-items-center justify-content-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownMobile"><img id="userAvatarMobile" src="' + _av + '" alt="" style="width:28px;height:28px;border-radius:50%;margin-right:8px;"><span id="userNameMobile">' + _nm + '</span></a><ul class="dropdown-menu dropdown-menu-end w-100"><li><a class="dropdown-item" href="/index.html"><i class="bi bi-house me-2"></i>首頁</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="/credits.html">我的點數</a></li><li><a class="dropdown-item" href="/profile/contact-info.html">聯絡資訊設定</a></li><li><hr class="dropdown-divider"></li><li><a class="dropdown-item" href="#" onclick="handleLogout(event)"><i class="bi bi-box-arrow-right me-2"></i>登出</a></li></ul></div></div>';
+            })() +
             '</div></nav>';
     }
 })();
@@ -128,6 +138,12 @@ function isRemakeSection() {
 async function renderHeader(headerContainer, user, config) {
     if (!config) config = { enableServiceMatching: true };
     const enableServiceMatching = config.enableServiceMatching !== false;
+    // 讀快取名字/頭像，避免顯示「載入中...」
+    var _nbCache = null;
+    try { _nbCache = JSON.parse(localStorage.getItem('nb_uinfo') || 'null'); } catch(e) {}
+    var _nbCacheOk = _nbCache && user && _nbCache.id === user.id;
+    var _initDisplayName = _nbCacheOk ? _nbCache.name : (user && (user.user_metadata?.full_name || user.email?.split('@')[0]) || '用戶');
+    var _initAvatarUrl = _nbCacheOk ? _nbCache.avatar : (user && (user.user_metadata?.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(_initDisplayName) + '&background=667eea&color=fff')) || '');
     let isAdmin = false;
     let isTesterOrAdmin = false;
     if (user && window.AuthService) {
@@ -214,8 +230,8 @@ async function renderHeader(headerContainer, user, config) {
                     ${user ? `
                         <div class="dropdown">
                             <a class="btn btn-primary py-2 px-4 d-flex align-items-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownDesktop" title="` + t('nav.accountSettings') + `">
-                                <img id="userAvatar" src="" alt="Avatar" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;">
-                                <span id="userName">` + t('nav.loading') + `</span>
+                                <img id="userAvatar" src="${_initAvatarUrl}" alt="Avatar" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;">
+                                <span id="userName">${_initDisplayName}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdownDesktop">
                                 <li class="dropdown-header text-muted small">` + t('nav.accountSettings') + `</li>
@@ -249,8 +265,8 @@ async function renderHeader(headerContainer, user, config) {
                     ${user ? `
                         <div class="dropdown">
                             <a class="btn btn-primary w-100 py-2 d-flex align-items-center justify-content-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownMobile">
-                                <img id="userAvatarMobile" src="" alt="" style="width: 28px; height: 28px; border-radius: 50%; margin-right: 8px;">
-                                <span id="userNameMobile">` + t('nav.loading') + `</span>
+                                <img id="userAvatarMobile" src="${_initAvatarUrl}" alt="" style="width: 28px; height: 28px; border-radius: 50%; margin-right: 8px;">
+                                <span id="userNameMobile">${_initDisplayName}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end w-100">
                                 <li class="dropdown-header text-muted small">` + t('nav.accountSettings') + `</li>
@@ -321,6 +337,7 @@ async function updateUserInfo(user) {
         if (profile?.full_name) displayName = profile.full_name;
         if (profile?.avatar_url) avatarUrl = profile.avatar_url;
     } catch (e) {}
+    try { localStorage.setItem('nb_uinfo', JSON.stringify({ id: user.id, name: displayName, avatar: avatarUrl })); } catch(e) {}
     const set = (id, val, isSrc) => {
         const el = document.getElementById(id);
         if (el) el[isSrc ? 'src' : 'textContent'] = val;
