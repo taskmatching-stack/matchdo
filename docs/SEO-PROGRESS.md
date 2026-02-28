@@ -1,6 +1,6 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-02-25  
+> **更新日期**：2026-03-01  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
 > **推送／部署步驟**：見下方「四、部署流程」
@@ -84,12 +84,27 @@ git push origin main
 | 非關鍵 JS 加 `defer` | jQuery、Bootstrap 等評估後加入 |
 | 新增 `/sitemap-products.xml` | 動態產生已公開的 custom_products 詳情頁 URL |
 
-### ✅ Navbar Logo 圖片化（已完成）
+### ✅ Navbar 全面整治（2026-03-01 完成）
 
-`public/js/site-header.js` 已改為顯示 `matchdo-logo.png` 圖片（IIFE + renderHeader 兩處）。
-桌機版 Logo 置頂置中、移除「首頁」連結，CSS 由 site-header.js 全站統一注入。
+| 項目 | 狀態 |
+|------|------|
+| Logo 圖片化（`matchdo-logo.png`） | ✅ |
+| 桌機版 Logo 置中（flex-wrap + order:2 由 site-header.js CSS 注入） | ✅ |
+| 移除「首頁」連結 | ✅ |
+| 廢棄 `public/iStudio-1.0.0/js/site-header.js`（已刪除） | ✅ |
+| 全站 Bootstrap JS 保底載入（site-header.js IIFE 動態注入） | ✅ |
+| 全站字型（Space Grotesk）+ Navbar 樣式由 site-header.js 統一注入 | ✅ |
+| `credits.html` 補 `/css/style.css` + 修正 script 載入順序 | ✅ |
+| IIFE 渲染移除，統一由 DOMContentLoaded 單次渲染（消除跳動 + i18n 錯誤 key） | ✅ |
+| `updateUserInfo` 只在資料真的不同時才更新 DOM（消除名字/頭像跳動） | ✅ |
+| `INITIAL_SESSION` 不再觸發重畫（只有 SIGNED_IN/OUT/TOKEN_REFRESHED 才重畫） | ✅ |
+| `_navFullyRendered` 旗標防止重複渲染 | ✅ |
+| `localStorage` 快取用戶名字/頭像（`nb_uinfo`） | ✅ |
+| 首頁搜尋框置中 | ✅ |
 
 > ⚠️ **廢棄檔案**：`public/iStudio-1.0.0/js/site-header.js` 已刪除，只能使用 `public/js/site-header.js`。
+> 
+> **最新 commit**：`8cfd778`
 
 ### ❌ Favicon Apple Touch Icon（選擇性）
 

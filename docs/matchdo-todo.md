@@ -1,6 +1,17 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-02-25
+更新日期：2026-03-01
+
+---
+
+## 近期完成（2026-03-01 Navbar 整治）
+
+| 項目 | 說明 |
+|------|------|
+| **Navbar 全站一致** | `site-header.js` IIFE 只注入 CSS/Bootstrap JS/字型，不再渲染 HTML；DOMContentLoaded 單次渲染，消除 i18n key 錯誤與跳動 |
+| **credits.html 修正** | 補 `/css/style.css`、修正 script 載入順序（bootstrap → auth-config → i18n → site-header） |
+| **個人選單跳動消除** | `updateUserInfo` 比對後只在資料真的不同時更新 DOM；`INITIAL_SESSION` 不再觸發重畫 |
+| **首頁搜尋框置中** | `justify-content-center`，搜尋框寬度調整至 280px |
 
 ---
 
