@@ -225,7 +225,8 @@
         }
 
         var _vendorUserId = null;
-        function contactVendor() {
+        // 全域暴露，供 onclick 呼叫
+        window.contactVendor = function() {
             if (!_vendorUserId) return;
             if (typeof AuthService !== 'undefined') {
                 AuthService.getSession().then(function(s) {
@@ -238,7 +239,7 @@
             } else {
                 window.location.href = '/login.html';
             }
-        }
+        };
 
         function renderProfile(v) {
             document.getElementById('pageLoading').classList.add('d-none');
