@@ -62,9 +62,13 @@
                                         <label class="form-label">公司/工作室名稱</label>
                                         <input type="text" class="form-control" id="companyName" placeholder="選填">
                                     </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">服務地區</label>
-                                        <input type="text" class="form-control" id="address" placeholder="例：台北市大安區">
+                                    <div class="col-12">
+                                        <label class="form-label">服務地區 <small class="text-muted">（可複選）</small></label>
+                                        <div id="serviceAreaSelector" class="border rounded p-2" style="background:#fafafa;">
+                                            <!-- 由 JS 渲染分組標籤 -->
+                                        </div>
+                                        <input type="hidden" id="selectedServiceAreas" value="">
+                                        <div class="mt-1 small text-muted" id="selectedAreaPreview"></div>
                                     </div>
                                     <div class="col-12">
                                         <label class="form-label">自我介紹</label>
@@ -291,7 +295,68 @@
     <script src="/js/i18n.js"></script>
     <script src="../js/site-header.js"></script>
 
+    <style>
+        .area-tag-btn { display:inline-block; padding:0.2rem 0.5rem; font-size:0.78rem; border-radius:5px; border:1px solid #8a96a6; color:#5c6470; background:#fff; cursor:pointer; transition:all .12s; margin:2px; }
+        .area-tag-btn:hover { border-color:#445D7E; color:#445D7E; background:#f0f4f8; }
+        .area-tag-btn.active { border-color:#445D7E; background:#445D7E; color:#fff; }
+        .area-group-label { font-size:0.72rem; color:#888; white-space:nowrap; }
+    </style>
     <script>
+        // ── 服務地區資料 ──
+        var AREA_GROUPS = [
+            { group: '北部', areas: ['臺北','新北','基隆','桃園','新竹縣','新竹市','宜蘭'] },
+            { group: '中部', areas: ['臺中','苗栗','彰化','南投','雲林'] },
+            { group: '南部', areas: ['高雄','臺南','嘉義縣','嘉義市','屏東','澎湖'] },
+            { group: '東部', areas: ['花蓮','臺東'] },
+            { group: '離島', areas: ['金門','連江'] },
+            { group: '海外', areas: ['海外'] }
+        ];
+        var selectedAreas = [];
+
+        function renderAreaSelector() {
+            var container = document.getElementById('serviceAreaSelector');
+            if (!container) return;
+            var html = '';
+            AREA_GROUPS.forEach(function(g) {
+                html += '<div class="d-flex flex-wrap align-items-center gap-1 mb-1">';
+                html += '<span class="area-group-label me-1">' + g.group + '：</span>';
+                g.areas.forEach(function(a) {
+                    var isActive = selectedAreas.indexOf(a) >= 0;
+                    html += '<span class="area-tag-btn' + (isActive ? ' active' : '') + '" data-area="' + a + '">' + a + '</span>';
+                });
+                html += '</div>';
+            });
+            container.innerHTML = html;
+            container.querySelectorAll('.area-tag-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var area = btn.getAttribute('data-area');
+                    var idx = selectedAreas.indexOf(area);
+                    if (idx >= 0) { selectedAreas.splice(idx, 1); btn.classList.remove('active'); }
+                    else { selectedAreas.push(area); btn.classList.add('active'); }
+                    syncAreaInput();
+                });
+            });
+            syncAreaInput();
+        }
+
+        function syncAreaInput() {
+            var hidden = document.getElementById('selectedServiceAreas');
+            var preview = document.getElementById('selectedAreaPreview');
+            if (hidden) hidden.value = selectedAreas.join(',');
+            if (preview) preview.textContent = selectedAreas.length > 0 ? '已選：' + selectedAreas.join('、') : '（尚未選擇）';
+        }
+
+        function loadAreas(areaStr) {
+            selectedAreas = [];
+            if (areaStr) {
+                areaStr.split(/[,，、\s]+/).forEach(function(a) {
+                    a = a.trim();
+                    if (a) selectedAreas.push(a);
+                });
+            }
+            renderAreaSelector();
+        }
+
         let currentUser = null;
 
         $(document).ready(async function () {
@@ -301,6 +366,7 @@
                 return;
             }
             currentUser = user;
+            renderAreaSelector();
             await loadContactInfo();
 
             $('#contactInfoForm').submit(async function (e) {
@@ -320,7 +386,7 @@
                 if (data) {
                     // 填充表單
                     $('#companyName').val(data.company_name || '');
-                    $('#address').val(data.company_address || '');
+                    loadAreas(data.company_address || '');
                     $('#bio').val(currentUser.user_metadata?.bio || '');
                     $('#phone').val(data.phone || '');
                     $('#phoneVisible').prop('checked', data.phone_visible || false);
@@ -379,7 +445,7 @@
                 const contactData = {
                     user_id: currentUser.id,
                     company_name: $('#companyName').val(),
-                    company_address: $('#address').val(),
+                    company_address: selectedAreas.join(','),
                     phone: $('#phone').val(),
                     phone_visible: $('#phoneVisible').is(':checked'),
                     mobile: $('#mobile').val(),
