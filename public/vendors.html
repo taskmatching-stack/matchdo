@@ -88,15 +88,12 @@
         .v-split-tag.open .v-split-arrow { background:#e8f0f8; color:#445D7E; }
 
         /* ── 廠商卡片 ── */
+        .vendor-card-wrap { border: 1px solid rgba(68,93,126,.15); border-radius: 12px; overflow: hidden; background: #fff; transition: transform .15s ease, box-shadow .15s ease; display: flex; flex-direction: column; height: 100%; }
+        .vendor-card-wrap:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(68,93,126,.15); }
         .vendor-card {
-            border: 1px solid rgba(68,93,126,.15);
-            border-radius: 12px; overflow: hidden;
-            background: #fff;
-            transition: transform .15s ease, box-shadow .15s ease;
-            cursor: pointer; text-decoration: none; color: inherit;
-            display: flex; flex-direction: column; height: 100%;
+            text-decoration: none; color: inherit;
+            display: flex; flex-direction: column; flex: 1;
         }
-        .vendor-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(68,93,126,.15); }
         .vendor-card-cover {
             width: 100%; aspect-ratio: 4/3; overflow: hidden;
             background: #f0f4f8; position: relative;
@@ -105,7 +102,7 @@
             width: 100%; height: 100%; object-fit: cover;
             transition: transform .2s ease;
         }
-        .vendor-card:hover .vendor-card-cover img { transform: scale(1.04); }
+        .vendor-card-wrap:hover .vendor-card-cover img { transform: scale(1.04); }
         .vendor-card-cover .no-img {
             width: 100%; height: 100%; display: flex;
             align-items: center; justify-content: center;
@@ -123,6 +120,8 @@
             background: #f0f4f8; border-radius: 4px; color: #445D7E;
             white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis;
         }
+        .vendor-card-actions { padding: 0 1rem 0.75rem; display: flex; gap: 0.5rem; }
+        .vendor-card-actions .btn { flex: 1; font-size: 0.82rem; }
 
         /* ── 廠商 verified 標記 ── */
         .vendor-card-cover .verified-badge {
@@ -308,32 +307,41 @@
             var verified = v.verified
                 ? '<span class="verified-badge"><i class="bi bi-patch-check-fill me-1"></i>認證</span>'
                 : '';
-
             var ratingHtml = v.rating
                 ? '<span class="vendor-rating">' + stars(v.rating) + '</span><span class="ms-1">' + esc(Number(v.rating).toFixed(1)) + '</span>'
                 : '';
             var locationHtml = v.location
                 ? '<span class="vendor-location"><i class="bi bi-geo-alt"></i>' + esc(v.location) + '</span>'
                 : '';
-
             var caps = (v.capabilities || []).slice(0, 4).map(function(c) {
                 return '<span class="vendor-tag">' + esc(c) + '</span>';
             }).join('');
-
             var url = '/vendor-profile.html?id=' + encodeURIComponent(v.id);
+            var userId = v.user_id || '';
+
+            // 聯絡按鈕：有 user_id → 站內聯絡；否則顯示廠商頁
+            var contactBtn = userId
+                ? '<button class="btn btn-success btn-contact-vendor" data-uid="' + esc(userId) + '"><i class="bi bi-chat-dots me-1"></i>聯絡廠商</button>'
+                : '<a href="' + esc(url) + '" class="btn btn-outline-secondary"><i class="bi bi-info-circle me-1"></i>查看詳情</a>';
 
             return '<div class="col-sm-6 col-lg-4">' +
-                '<a href="' + esc(url) + '" class="vendor-card d-block">' +
-                    '<div class="vendor-card-cover">' + coverImg + verified + '</div>' +
-                    '<div class="vendor-card-body">' +
-                        '<div class="vendor-name" title="' + esc(v.name) + '">' + esc(v.name) + '</div>' +
-                        '<div class="vendor-specialty">' + esc(v.specialty || v.description || '') + '</div>' +
-                        (ratingHtml || locationHtml
-                            ? '<div class="vendor-meta">' + ratingHtml + locationHtml + '</div>'
-                            : '') +
-                        (caps ? '<div class="vendor-tags">' + caps + '</div>' : '') +
+                '<div class="vendor-card-wrap">' +
+                    '<a href="' + esc(url) + '" class="vendor-card">' +
+                        '<div class="vendor-card-cover">' + coverImg + verified + '</div>' +
+                        '<div class="vendor-card-body">' +
+                            '<div class="vendor-name" title="' + esc(v.name) + '">' + esc(v.name) + '</div>' +
+                            '<div class="vendor-specialty">' + esc(v.specialty || v.description || '') + '</div>' +
+                            (ratingHtml || locationHtml
+                                ? '<div class="vendor-meta">' + ratingHtml + locationHtml + '</div>'
+                                : '') +
+                            (caps ? '<div class="vendor-tags">' + caps + '</div>' : '') +
+                        '</div>' +
+                    '</a>' +
+                    '<div class="vendor-card-actions">' +
+                        '<a href="' + esc(url) + '" class="btn btn-outline-primary"><i class="bi bi-person-badge me-1"></i>查看詳情</a>' +
+                        contactBtn +
                     '</div>' +
-                '</a>' +
+                '</div>' +
             '</div>';
         }
 
@@ -418,6 +426,22 @@
                     }
                 });
         }
+
+        /* ── 廠商聯絡（事件委派） ── */
+        async function contactVendorUser(uid) {
+            if (typeof AuthService !== 'undefined') {
+                try {
+                    var s = await AuthService.getSession();
+                    var t = s && (s.access_token || (s.session && s.session.access_token));
+                    if (!t) { window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.href); return; }
+                } catch(e) { window.location.href = '/login.html'; return; }
+            }
+            window.location.href = '/client/messages.html?open=' + encodeURIComponent(uid);
+        }
+        $grid.addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-contact-vendor');
+            if (btn) { e.preventDefault(); contactVendorUser(btn.getAttribute('data-uid')); }
+        });
 
         /* ── 載入分類標籤 ── */
         function loadCategories() {

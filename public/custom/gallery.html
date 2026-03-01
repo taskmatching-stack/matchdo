@@ -124,8 +124,9 @@
                             <div id="modalContact" class="small mb-3"></div>
                             <div id="modalTags" class="mb-3"></div>
                             <div class="d-flex flex-wrap gap-2">
-                                <a id="modalBtnContact" href="#" class="btn btn-primary btn-sm" target="_blank" rel="noopener">聯繫廠商</a>
-                                <a id="modalBtnRedesign" href="#" class="btn btn-outline-primary btn-sm">用此圖再設計</a>
+                                <button id="modalBtnContact" type="button" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</button>
+                                <a id="modalBtnVendorProfile" href="#" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>查看廠商</a>
+                                <a id="modalBtnRedesign" href="#" class="btn btn-outline-secondary btn-sm">用此圖再設計</a>
                             </div>
                         </div>
                     </div>
@@ -315,14 +316,25 @@
         document.getElementById('modalTags').innerHTML = tags ? tags : '';
 
         const contactBtn = document.getElementById('modalBtnContact');
+        const profileBtn = document.getElementById('modalBtnVendorProfile');
         const mfrUserId = p.manufacturer_user_id || null;
-        // 優先：站內訊息（需登入）
+        const mfrId = p.manufacturer_id || null;
+
+        // 查看廠商按鈕
+        if (profileBtn) {
+            if (mfrId) {
+                profileBtn.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+                profileBtn.style.display = '';
+            } else {
+                profileBtn.style.display = 'none';
+            }
+        }
+
+        // 站內聯絡按鈕（button 元素）
         if (mfrUserId) {
-            contactBtn.removeAttribute('href');
-            contactBtn.textContent = '站內聯絡廠商';
-            contactBtn.target = '_self';
-            contactBtn.onclick = async function(e) {
-                e.preventDefault();
+            contactBtn.style.display = '';
+            contactBtn.innerHTML = '<i class="bi bi-chat-dots me-1"></i>站內聯絡廠商';
+            contactBtn.onclick = async function() {
                 if (typeof AuthService !== 'undefined') {
                     const s = await AuthService.getSession().catch(() => null);
                     const token = s && (s.access_token || (s.session && s.session.access_token));
@@ -330,22 +342,20 @@
                 }
                 window.location.href = '/client/messages.html?open=' + encodeURIComponent(mfrUserId);
             };
-        } else if (contact.url) {
-            contactBtn.href = contact.url;
-            contactBtn.textContent = '前往賣場/官網';
-            contactBtn.target = '_blank';
-            contactBtn.onclick = null;
-        } else if (contact.email) {
-            contactBtn.href = 'mailto:' + contact.email;
-            contactBtn.textContent = '寫信聯繫';
-            contactBtn.target = '_blank';
-            contactBtn.onclick = null;
         } else {
-            const mfrId = p.manufacturer_id;
-            contactBtn.href = mfrId ? '/vendor-profile.html?id=' + encodeURIComponent(mfrId) : '/vendors.html';
-            contactBtn.textContent = '查看廠商資料';
-            contactBtn.target = '_self';
+            // 無站內帳號：降級顯示外部聯絡
             contactBtn.onclick = null;
+            if (contact.url) {
+                contactBtn.style.display = '';
+                contactBtn.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>前往賣場/官網';
+                contactBtn.onclick = function() { window.open(contact.url, '_blank'); };
+            } else if (contact.email) {
+                contactBtn.style.display = '';
+                contactBtn.innerHTML = '<i class="bi bi-envelope me-1"></i>寫信聯繫';
+                contactBtn.onclick = function() { window.location.href = 'mailto:' + contact.email; };
+            } else {
+                contactBtn.style.display = 'none';
+            }
         }
 
         const redesignUrl = '/custom-product.html?from_gallery=1&image_url=' + encodeURIComponent(p.image_url || '') + '&portfolio_id=' + encodeURIComponent(p.id || '');
