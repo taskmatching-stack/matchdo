@@ -8,7 +8,8 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <style>
     /* 層級視覺 */
-    tr.row-country td { background:#dce8f5; font-weight:600; }
+    tr.row-country td { background:#dce8f5; font-weight:600; cursor:pointer; user-select:none; }
+    tr.row-country td:hover { background:#c8ddf0; }
     tr.row-tw-city  td { background:#fff; }
     tr.row-tw-city  td:first-child { padding-left:2.2rem; }
     tr.row-state    td { background:#eef3fb; }
@@ -19,6 +20,8 @@
     tr.row-add      td { background:#f5f8fc; padding:.3rem .75rem; }
     tr.row-add.l1   td:first-child { padding-left:2.2rem; }
     tr.row-add.l2   td:first-child { padding-left:3.8rem; }
+    tr.child-row { display:none; }
+    tr.child-row.open { display:table-row; }
     code { font-size:.78rem; color:#c0392b; }
     .btn-xs { font-size:.72rem; padding:1px 7px; }
     .tbadge { font-size:.62rem; padding:1px 5px; border-radius:3px; font-weight:600; }
@@ -26,6 +29,8 @@
     .tb-tw-city { background:#27ae60; color:#fff; }
     .tb-state   { background:#7d3c98; color:#fff; }
     .tb-city    { background:#7f8c8d; color:#fff; }
+    .toggle-arrow { font-size:.8rem; margin-right:.4rem; display:inline-block; transition:transform .2s; }
+    .toggle-arrow.open { transform:rotate(90deg); }
   </style>
 </head>
 <body class="bg-light">
@@ -248,8 +253,23 @@
     let html = '';
 
     sorted(childMap['__root__'] || []).forEach(country => {
-      // ── 頂層：國家 ──
-      html += row('row-country', country, tbadge(country.area_type || 'country'));
+      const cid = 'c-' + country.code.replace(/[^A-Z0-9]/g,'_');
+      const childCount = (childMap[country.code] || []).length;
+      const childInfo  = childCount ? `<span class="text-muted ms-1" style="font-size:.7rem;font-weight:400;">(${childCount})</span>` : '';
+
+      // ── 頂層：國家（預設收折）──
+      html += `<tr class="row-country" data-toggle="${cid}">
+        <td><span class="toggle-arrow" id="arr-${cid}">▶</span><code>${esc(country.code)}</code> ${tbadge(country.area_type || 'country')}${childInfo}</td>
+        <td>${esc(country.name_zh)}</td>
+        <td>${esc(country.name_en)}</td>
+        <td class="text-muted small">${esc(i18nVal(country,'ja'))}</td>
+        <td class="text-muted small">${esc(i18nVal(country,'ko'))}</td>
+        <td>${country.sort_order}</td>
+        <td>${abadge(country.is_active)}</td>
+        <td>
+          <button class="btn btn-xs btn-outline-primary me-1 js-edit" data-code="${esc(country.code)}">編輯</button>
+          <button class="btn btn-xs btn-outline-danger js-del" data-code="${esc(country.code)}">刪除</button>
+        </td></tr>`;
 
       if (country.code === 'TW') {
         // 台灣縣市：按大區分組
@@ -262,28 +282,37 @@
         });
         TW_ORDER.forEach(gk => {
           if (!grouped[gk]) return;
-          html += `<tr class="row-group"><td colspan="8">　─ ${esc(TW_GROUPS[gk] || gk)}</td></tr>`;
+          html += `<tr class="row-group child-row" data-parent="${cid}"><td colspan="8">　─ ${esc(TW_GROUPS[gk] || gk)}</td></tr>`;
           grouped[gk].forEach(city => {
-            html += row('row-tw-city', city, tbadge('tw_city'));
+            html += childRow('row-tw-city', city, tbadge('tw_city'), cid);
           });
         });
-        // 台灣新增縣市
-        html += addRow('TW', country.group_code || 'OVERSEAS', 'tw_city', 'l1', '新增縣市');
+        html += childAddRow('TW', country.group_code || 'OVERSEAS', 'tw_city', 'l1', '新增縣市', cid);
 
       } else {
-        // 海外：州/地區
         sorted(childMap[country.code] || []).forEach(state => {
-          html += row('row-state', state, tbadge('state'));
+          const sid = cid + '_' + state.code.replace(/[^A-Z0-9]/g,'_');
+          const cityCount = (childMap[state.code] || []).length;
+          const cityInfo  = cityCount ? `<span class="text-muted ms-1" style="font-size:.7rem;font-weight:400;">(${cityCount})</span>` : '';
 
-          // 州下城市
+          // 州/地區行（可再展開城市）
+          html += `<tr class="row-state child-row" data-parent="${cid}" data-toggle="${sid}">
+            <td><span class="toggle-arrow" id="arr-${sid}">▶</span><code>${esc(state.code)}</code> ${tbadge('state')}${cityInfo}</td>
+            <td>${esc(state.name_zh)}</td><td>${esc(state.name_en)}</td>
+            <td class="text-muted small">${esc(i18nVal(state,'ja'))}</td>
+            <td class="text-muted small">${esc(i18nVal(state,'ko'))}</td>
+            <td>${state.sort_order}</td><td>${abadge(state.is_active)}</td>
+            <td>
+              <button class="btn btn-xs btn-outline-primary me-1 js-edit" data-code="${esc(state.code)}">編輯</button>
+              <button class="btn btn-xs btn-outline-danger js-del" data-code="${esc(state.code)}">刪除</button>
+            </td></tr>`;
+
           sorted(childMap[state.code] || []).forEach(city => {
-            html += row('row-city', city, tbadge('city'));
+            html += childRow('row-city', city, tbadge('city'), sid);
           });
-          // 新增城市
-          html += addRow(state.code, country.group_code || 'OVERSEAS', 'city', 'l2', '新增城市');
+          html += childAddRow(state.code, country.group_code || 'OVERSEAS', 'city', 'l2', '新增城市', sid);
         });
-        // 新增州/地區
-        html += addRow(country.code, country.group_code || 'OVERSEAS', 'state', 'l1', '新增州/地區');
+        html += childAddRow(country.code, country.group_code || 'OVERSEAS', 'state', 'l1', '新增州/地區', cid);
       }
     });
 
@@ -291,43 +320,41 @@
     bindEvents();
   }
 
-  /* ── 一行資料 ── */
-  function row(cls, a, badge) {
-    return `<tr class="${cls}">
+  /* ── 子層資料行（預設隱藏）── */
+  function childRow(cls, a, badge, parentId) {
+    return `<tr class="${cls} child-row" data-parent="${parentId}">
       <td><code>${esc(a.code)}</code> ${badge}</td>
-      <td>${esc(a.name_zh)}</td>
-      <td>${esc(a.name_en)}</td>
+      <td>${esc(a.name_zh)}</td><td>${esc(a.name_en)}</td>
       <td class="text-muted small">${esc(i18nVal(a,'ja'))}</td>
       <td class="text-muted small">${esc(i18nVal(a,'ko'))}</td>
-      <td>${a.sort_order}</td>
-      <td>${abadge(a.is_active)}</td>
+      <td>${a.sort_order}</td><td>${abadge(a.is_active)}</td>
       <td>
         <button class="btn btn-xs btn-outline-primary me-1 js-edit" data-code="${esc(a.code)}">編輯</button>
         <button class="btn btn-xs btn-outline-danger js-del" data-code="${esc(a.code)}">刪除</button>
       </td></tr>`;
   }
 
-  /* ── 新增子項表單 ── */
-  function addRow(parentCode, groupCode, areaType, lvl, label) {
-    return `<tr class="row-add ${lvl}">
+  /* ── 新增子項表單（預設隱藏）── */
+  function childAddRow(parentCode, groupCode, areaType, lvl, label, parentId) {
+    return `<tr class="row-add ${lvl} child-row" data-parent="${parentId}">
       <td colspan="8">
         <div class="d-flex flex-wrap align-items-end gap-2 py-1 js-add-form"
              data-parent="${esc(parentCode)}" data-group="${esc(groupCode)}" data-type="${esc(areaType)}">
           <span class="small text-muted">└ ${esc(label)}：</span>
           <div>
-            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">Code</div>
+            <div style="font-size:.63rem;color:#999">Code</div>
             <input class="form-control form-control-sm" style="width:88px" placeholder="code" data-f="code">
           </div>
           <div>
-            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">中文名</div>
+            <div style="font-size:.63rem;color:#999">中文名</div>
             <input class="form-control form-control-sm" style="width:88px" placeholder="中文名" data-f="zh">
           </div>
           <div>
-            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">English</div>
+            <div style="font-size:.63rem;color:#999">English</div>
             <input class="form-control form-control-sm" style="width:88px" placeholder="English" data-f="en">
           </div>
           <div>
-            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">排序</div>
+            <div style="font-size:.63rem;color:#999">排序</div>
             <input type="number" class="form-control form-control-sm" style="width:55px" value="0" data-f="sort">
           </div>
           <button class="btn btn-success btn-xs js-sub-add align-self-end">新增</button>
@@ -335,13 +362,45 @@
       </td></tr>`;
   }
 
+  /* ── 展開/收折 ── */
+  function toggleGroup(groupId) {
+    const tbody = document.getElementById('areaBody');
+    const arrow  = document.getElementById('arr-' + groupId);
+    const isOpen = arrow && arrow.classList.contains('open');
+    // 切換直接子行
+    tbody.querySelectorAll(`tr.child-row[data-parent="${groupId}"]`).forEach(tr => {
+      tr.classList.toggle('open', !isOpen);
+    });
+    // 收折時同時關閉子群組
+    if (isOpen) {
+      tbody.querySelectorAll(`tr[data-toggle]`).forEach(tr => {
+        const tid = tr.dataset.toggle;
+        if (tid !== groupId && tr.dataset.parent === groupId) {
+          tbody.querySelectorAll(`tr.child-row[data-parent="${tid}"]`).forEach(c => c.classList.remove('open'));
+          const a2 = document.getElementById('arr-' + tid);
+          if (a2) a2.classList.remove('open');
+        }
+      });
+    }
+    if (arrow) arrow.classList.toggle('open', !isOpen);
+  }
+
   /* ── 事件綁定 ── */
   function bindEvents() {
     const tbody = document.getElementById('areaBody');
+
+    // 展開/收折行（含國家行和州行）
+    tbody.querySelectorAll('tr[data-toggle]').forEach(tr => {
+      tr.addEventListener('click', function (e) {
+        if (e.target.closest('.js-edit, .js-del, button')) return; // 按鈕不觸發
+        toggleGroup(tr.dataset.toggle);
+      });
+    });
+
     tbody.querySelectorAll('.js-edit').forEach(btn =>
-      btn.addEventListener('click', () => openEdit(btn.dataset.code)));
+      btn.addEventListener('click', (e) => { e.stopPropagation(); openEdit(btn.dataset.code); }));
     tbody.querySelectorAll('.js-del').forEach(btn =>
-      btn.addEventListener('click', () => doDelete(btn.dataset.code)));
+      btn.addEventListener('click', (e) => { e.stopPropagation(); doDelete(btn.dataset.code); }));
     tbody.querySelectorAll('.js-sub-add').forEach(btn => {
       btn.addEventListener('click', async function () {
         const form = btn.closest('.js-add-form');
