@@ -174,13 +174,16 @@
         var token = null;
         var mfrId = null;
 
-        function getToken() {
-            if (typeof AuthService !== 'undefined' && AuthService.getToken) return AuthService.getToken();
-            try { var s = JSON.parse(localStorage.getItem('sb-' + (window.SUPABASE_URL || '').replace(/^https?:\/\//, '').split('.')[0] + '-auth-token')); return s && s.access_token; } catch (e) { return null; }
+        async function getToken() {
+            if (typeof AuthService === 'undefined') return null;
+            try {
+                var s = await AuthService.getSession();
+                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
+            } catch (e) { return null; }
         }
 
         async function loadMfr() {
-            token = getToken();
+            token = await getToken();
             if (!token) {
                 document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>以使用廠商控制台。</div>';
                 document.getElementById('mfr-name').textContent = '';
@@ -265,17 +268,21 @@
 
         function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-        if (typeof AuthService !== 'undefined') {
-            AuthService.onAuthStateChange(function (u) {
-                if (u) loadMfr();
-                else {
-                    document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>。</div>';
-                    document.getElementById('mfr-name').textContent = '';
-                }
-            });
-        } else {
-            document.addEventListener('DOMContentLoaded', loadMfr);
-        }
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof AuthService !== 'undefined') {
+                AuthService.onAuthStateChange(function (event, session) {
+                    if (session && session.user) loadMfr();
+                    else if (event === 'SIGNED_OUT') {
+                        document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>。</div>';
+                        document.getElementById('mfr-name').textContent = '';
+                    }
+                });
+                // 頁面載入時也主動嘗試（onAuthStateChange 有時在 INITIAL_SESSION 前觸發）
+                loadMfr();
+            } else {
+                loadMfr();
+            }
+        });
     })();
     </script>
 </body>

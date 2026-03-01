@@ -198,9 +198,12 @@
         var editModal = null;
         var deleteModal = null;
 
-        function getToken() {
-            if (typeof AuthService !== 'undefined' && AuthService.getToken) return AuthService.getToken();
-            return null;
+        async function getToken() {
+            if (typeof AuthService === 'undefined') return null;
+            try {
+                var s = await AuthService.getSession();
+                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
+            } catch (e) { return null; }
         }
 
         function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -214,7 +217,7 @@
         }
 
         async function init() {
-            token = getToken();
+            token = await getToken();
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
             try {
                 const r = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
@@ -404,11 +407,17 @@
             if (deleteModal) deleteModal.show();
         };
 
-        if (typeof AuthService !== 'undefined') {
-            AuthService.onAuthStateChange(function (u) { if (u) init(); else document.getElementById('auth-alert').classList.remove('d-none'); });
-        } else {
-            document.addEventListener('DOMContentLoaded', init);
-        }
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof AuthService !== 'undefined') {
+                AuthService.onAuthStateChange(function (event, session) {
+                    if (session && session.user) { if (!token) init(); }
+                    else if (event === 'SIGNED_OUT') document.getElementById('auth-alert').classList.remove('d-none');
+                });
+                init();
+            } else {
+                init();
+            }
+        });
     })();
     </script>
 </body>
