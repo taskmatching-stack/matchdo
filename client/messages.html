@@ -31,7 +31,7 @@
         .msg-bubble.img-only .msg-time { color: #6c757d !important; margin-top: 2px; display: block; text-align: right; font-size: .7rem; }
         .msg-bubble.img-only .btn-translate { color: #6c757d; }
         .msg-time { font-size: 0.75rem; color: #6c757d; }
-        .messages-form { flex-shrink: 0; padding: 0.75rem; border-top: 1px solid #dee2e6; background: #fff; }
+        .messages-form { flex-shrink: 0; padding: 0.75rem; border-top: 1px solid #dee2e6; background: #fff; position: sticky; bottom: 0; z-index: 10; }
         .img-preview-bar { display: flex; gap: 12px; margin-bottom: 6px; align-items: flex-end; padding-top: 4px; }
         .img-preview-item { position: relative; display: inline-block; padding-top: 10px; }
         .img-preview-item img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #dee2e6; display: block; }
@@ -381,17 +381,23 @@
             function fixLayoutHeight() {
                 var layout = document.querySelector('.messages-layout');
                 if (!layout) return;
-                // getBoundingClientRect().top 已是 viewport 相對值；body overflow:hidden 不捲動
                 var top = layout.getBoundingClientRect().top;
-                layout.style.height = Math.max(300, window.innerHeight - top) + 'px';
+                var h = Math.max(300, window.innerHeight - top);
+                layout.style.height = h + 'px';
+                layout.style.maxHeight = h + 'px';
             }
             window.addEventListener('resize', fixLayoutHeight);
-            // 用 ResizeObserver 監聽 site-header，每次高度改變立即重算
-            var siteHeader = document.getElementById('site-header');
-            if (siteHeader && window.ResizeObserver) {
-                new ResizeObserver(fixLayoutHeight).observe(siteHeader);
+            // 頁面捲動時也重算（防止 body 沒有 overflow:hidden 時被捲走）
+            window.addEventListener('scroll', fixLayoutHeight, { passive: true });
+            // ResizeObserver：site-header 和 page-title-bar 任何高度改變都重算
+            if (window.ResizeObserver) {
+                var ro = new ResizeObserver(fixLayoutHeight);
+                var siteHeader = document.getElementById('site-header');
+                if (siteHeader) ro.observe(siteHeader);
+                var titleBar = document.querySelector('.page-title-bar');
+                if (titleBar) ro.observe(titleBar);
             }
-            // 保底 fallback：100ms / 600ms / 1500ms
+            // 保底 fallback
             setTimeout(fixLayoutHeight, 100);
             setTimeout(fixLayoutHeight, 600);
             setTimeout(fixLayoutHeight, 1500);
