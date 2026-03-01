@@ -297,16 +297,26 @@
     <script src="../js/site-header.js"></script>
 
     <style>
-        .area-tag-btn { display:inline-block; padding:0.2rem 0.55rem; font-size:0.8rem; border-radius:5px; border:1px solid #8a96a6; color:#5c6470; background:#fff; cursor:pointer; transition:all .12s; margin:1px; }
+        /* 基本地區標籤 */
+        .area-tag-btn { display:inline-flex; align-items:center; padding:0.2rem 0.55rem; font-size:0.8rem; border-radius:5px; border:1px solid #8a96a6; color:#5c6470; background:#fff; cursor:pointer; transition:all .12s; margin:1px; user-select:none; }
         .area-tag-btn:hover { border-color:#445D7E; color:#445D7E; background:#f0f4f8; }
         .area-tag-btn.active { border-color:#445D7E; background:#445D7E; color:#fff; }
         .area-tag-btn.area-group-open { background:#f0f4f8; border-color:#445D7E; color:#445D7E; }
         .area-tag-btn.city-tag { font-size:0.76rem; padding:0.18rem 0.45rem; }
-        .area-tag-btn.country-tag { font-size:0.78rem; border-color:#7a9ac5; }
-        .area-tag-btn.country-tag.area-group-open { background:#e8f0f8; }
-        .area-tag-btn.subcity-tag { font-size:0.72rem; padding:0.15rem 0.4rem; background:#f5f8ff; }
+        .area-tag-btn.subcity-tag { font-size:0.72rem; padding:0.15rem 0.4rem; }
+        /* 可展開的分裂標籤（左=選取，右=展開） */
+        .area-split-tag { display:inline-flex; align-items:stretch; border-radius:5px; border:1px solid #7a9ac5; color:#445D7E; background:#fff; font-size:0.78rem; margin:1px; overflow:hidden; cursor:default; transition:border-color .12s; }
+        .area-split-tag.active { border-color:#445D7E; }
+        .area-split-tag.active .split-label { background:#445D7E; color:#fff; }
+        .area-split-tag .split-label { padding:0.2rem 0.45rem; cursor:pointer; transition:background .12s, color .12s; }
+        .area-split-tag .split-label:hover { background:#e8f0f8; }
+        .area-split-tag.active .split-label:hover { background:#3a5169; }
+        .area-split-tag .split-expand { padding:0.2rem 0.35rem; border-left:1px solid #b0c0d8; cursor:pointer; font-size:0.65rem; display:flex; align-items:center; color:#7a9ac5; transition:background .12s; }
+        .area-split-tag .split-expand:hover { background:#e8f0f8; color:#445D7E; }
+        .area-split-tag.open .split-expand { background:#e8f0f8; color:#445D7E; }
+        /* 面板 */
         .area-cities-panel { border-left:2px solid #445D7E; padding:0.3rem 0.5rem; background:#f8fafc; border-radius:0 4px 4px 0; margin-left:0.25rem; margin-bottom:0.25rem; }
-        .area-subcities-panel { border-left:2px dashed #7a9ac5; padding:0.2rem 0.4rem; background:#f0f5ff; border-radius:0 4px 4px 0; margin-left:0.5rem; margin-top:0.2rem; }
+        .area-subcities-panel { border-left:2px dashed #7a9ac5; padding:0.2rem 0.4rem; background:#f0f5ff; border-radius:0 4px 4px 0; margin-left:0.5rem; margin-top:0.25rem; }
     </style>
     <script>
         // ── 服務地區資料：從 area-codes.js 讀取，勿在此硬寫 ──
@@ -339,36 +349,36 @@
             // 第二層：展開大區後顯示縣市/國家
             groups.forEach(function(g) {
                 if (!_expandedGroups[g.code]) return;
-                html += '<div class="area-cities-panel mb-2">';
-                html += '<div class="d-flex flex-wrap gap-1">';
+                html += '<div class="area-cities-panel mb-2"><div class="d-flex flex-wrap gap-1">';
                 (g.cities || []).forEach(function(c) {
                     var hasSub = c.cities && c.cities.length > 0;
                     var isActive = selectedAreas.indexOf(c.code) >= 0;
                     var isOpen = !!_expandedCountry[c.code];
                     if (hasSub) {
-                        // 有子城市的國家：顯示可展開的標籤
+                        // 分裂標籤：左邊點擊 = 選取整個國家，右邊箭頭 = 展開子城市
                         var subSel = (c.cities||[]).filter(function(s){ return selectedAreas.indexOf(s.code) >= 0; }).length;
-                        var cls = 'area-tag-btn country-tag' + (isActive || subSel > 0 ? ' active' : '') + (isOpen ? ' area-group-open' : '');
-                        var lbl = c.zh + (subSel > 0 ? ' ('+subSel+')' : '') + ' <small style="font-size:.7em;">' + (isOpen ? '▲' : '▼') + '</small>';
-                        html += '<span class="' + cls + '" data-country="' + c.code + '">' + lbl + '</span>';
+                        var activeCls = (isActive || subSel > 0) ? ' active' : '';
+                        var openCls   = isOpen ? ' open' : '';
+                        var arrow     = isOpen ? '▲' : '▼';
+                        var lbl       = c.zh + (subSel > 0 ? ' <sup style="font-size:.65em;">+'+subSel+'</sup>' : '');
+                        html += '<span class="area-split-tag' + activeCls + openCls + '">'
+                              + '<span class="split-label" data-area="' + c.code + '">' + lbl + '</span>'
+                              + '<span class="split-expand" data-country="' + c.code + '">' + arrow + '</span>'
+                              + '</span>';
                     } else {
-                        // 無子城市：直接選取
                         html += '<span class="area-tag-btn city-tag' + (isActive ? ' active' : '') + '" data-area="' + c.code + '">' + c.zh + '</span>';
                     }
                 });
                 html += '</div>';
 
-                // 第三層：展開國家後顯示子城市
+                // 第三層：展開國家後顯示子城市（各自可獨立選取）
                 (g.cities || []).forEach(function(c) {
                     if (!c.cities || !c.cities.length || !_expandedCountry[c.code]) return;
                     html += '<div class="area-subcities-panel">';
-                    html += '<small class="text-muted me-1">' + c.zh + '：</small>';
-                    // 整個國家選項
-                    var isNationActive = selectedAreas.indexOf(c.code) >= 0;
-                    html += '<span class="area-tag-btn subcity-tag' + (isNationActive ? ' active' : '') + '" data-area="' + c.code + '">全國</span> ';
+                    html += '<small class="text-muted me-2">' + c.zh + '：</small>';
                     (c.cities || []).forEach(function(s) {
-                        var isActive = selectedAreas.indexOf(s.code) >= 0;
-                        html += '<span class="area-tag-btn subcity-tag' + (isActive ? ' active' : '') + '" data-area="' + s.code + '">' + s.zh + '</span>';
+                        var isAct = selectedAreas.indexOf(s.code) >= 0;
+                        html += '<span class="area-tag-btn subcity-tag' + (isAct ? ' active' : '') + '" data-area="' + s.code + '">' + s.zh + '</span>';
                     });
                     html += '</div>';
                 });
@@ -381,28 +391,28 @@
             // 大區點擊 → 展開/收合
             container.querySelectorAll('[data-group]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    var code = btn.getAttribute('data-group');
-                    _expandedGroups[code] = !_expandedGroups[code];
+                    _expandedGroups[btn.getAttribute('data-group')] ^= 1;
                     renderAreaSelector();
                 });
             });
 
-            // 國家點擊 → 展開子城市（不選取國家本身）
-            container.querySelectorAll('[data-country]').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var code = btn.getAttribute('data-country');
-                    _expandedCountry[code] = !_expandedCountry[code];
+            // 展開箭頭點擊 → 展開/收合子城市（不影響選取）
+            container.querySelectorAll('.split-expand[data-country]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _expandedCountry[btn.getAttribute('data-country')] ^= 1;
                     renderAreaSelector();
                 });
             });
 
-            // 地區/城市點擊 → 選取/取消
+            // 任意層級地區點擊 → 選取/取消（含整個國家或子城市）
             container.querySelectorAll('[data-area]').forEach(function(btn) {
-                btn.addEventListener('click', function() {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     var code = btn.getAttribute('data-area');
                     var idx = selectedAreas.indexOf(code);
-                    if (idx >= 0) { selectedAreas.splice(idx, 1); }
-                    else { selectedAreas.push(code); }
+                    if (idx >= 0) selectedAreas.splice(idx, 1);
+                    else selectedAreas.push(code);
                     syncAreaInput();
                     renderAreaSelector();
                 });
