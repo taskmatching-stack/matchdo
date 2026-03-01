@@ -48,37 +48,69 @@
             </div>
         </div>
     </div>
-    <div class="container py-5">
-        <div class="row mb-4">
-            <div class="col">
-                <p class="text-muted mb-0">管理您的所有客製化產品需求</p>
-            </div>
-            <div class="col-auto">
-                <a href="/custom-product.html" class="btn btn-primary">
-                    <i class="bi bi-plus-lg me-2"></i>建立新產品
+    <div class="container py-4">
+        <!-- Tab 切換 -->
+        <ul class="nav nav-tabs mb-4" id="assetTabs">
+            <li class="nav-item">
+                <a class="nav-link active" id="tab-designs" data-bs-toggle="tab" href="#pane-designs">
+                    <i class="bi bi-pencil-square me-1"></i>我的設計
+                    <span class="badge bg-secondary ms-1" id="badgeDesigns">…</span>
                 </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="tab-favs" data-bs-toggle="tab" href="#pane-favs">
+                    <i class="bi bi-heart-fill me-1 text-danger"></i>我的最愛
+                    <span class="badge bg-danger ms-1" id="badgeFavs">…</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- ── Tab 1：我的設計 ── -->
+            <div class="tab-pane fade show active" id="pane-designs">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="text-muted mb-0 small">管理您的設計，開啟開關讓廠商搜尋</p>
+                    <a href="/custom-product.html" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-lg me-1"></i>建立新設計
+                    </a>
+                </div>
+                <div id="loadingSpinner" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">載入中...</p>
+                </div>
+                <div id="productsList" class="row g-4" style="display:none;"></div>
+                <div id="emptyState" class="empty-state" style="display:none;">
+                    <i class="bi bi-inbox" style="font-size:4rem;color:#dee2e6;"></i>
+                    <h4 class="mt-3">尚無設計資產</h4>
+                    <p>建立您的第一個設計，或從 AI 工具生成</p>
+                    <a href="/custom-product.html" class="btn btn-primary mt-3">
+                        <i class="bi bi-plus-lg me-1"></i>開始建立
+                    </a>
+                </div>
             </div>
-        </div>
 
-        <!-- 載入中 -->
-        <div id="loadingSpinner" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">載入中...</span>
+            <!-- ── Tab 2：我的最愛 ── -->
+            <div class="tab-pane fade" id="pane-favs">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="text-muted mb-0 small">從媒體牆收藏的廠商作品，可直接聯絡廠商發案</p>
+                    <a href="/" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-grid me-1"></i>去媒體牆收藏
+                    </a>
+                </div>
+                <div id="favsLoading" class="text-center py-5">
+                    <div class="spinner-border text-danger" role="status"></div>
+                    <p class="mt-3 text-muted">載入收藏中...</p>
+                </div>
+                <div id="favsList" class="row g-4" style="display:none;"></div>
+                <div id="favsEmpty" class="empty-state" style="display:none;">
+                    <i class="bi bi-heart" style="font-size:4rem;color:#dee2e6;"></i>
+                    <h4 class="mt-3">尚無收藏</h4>
+                    <p>在媒體牆按愛心即可收藏廠商作品</p>
+                    <a href="/" class="btn btn-outline-danger mt-3">
+                        <i class="bi bi-grid me-1"></i>前往媒體牆
+                    </a>
+                </div>
             </div>
-            <p class="mt-3 text-muted">載入產品列表...</p>
-        </div>
-
-        <!-- 產品列表 -->
-        <div id="productsList" class="row g-4" style="display: none;"></div>
-
-        <!-- 空白狀態 -->
-        <div id="emptyState" class="empty-state" style="display: none;">
-            <i class="bi bi-inbox" style="font-size: 4rem; color: #dee2e6;"></i>
-            <h4 class="mt-3">尚無數位資產</h4>
-            <p>立即建立您的第一個客製化產品需求</p>
-            <a href="/custom-product.html" class="btn btn-primary mt-3">
-                <i class="bi bi-plus-lg me-2"></i>開始建立
-            </a>
         </div>
     </div>
 
@@ -93,16 +125,21 @@
     <script>
 
         let currentUser = null;
+        let authToken = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // 檢查登入狀態
             const isAuth = await AuthMiddleware.requireAuth();
             if (!isAuth) return;
-
             currentUser = await AuthService.getCurrentUser();
-            
-            // 載入產品列表
-            await loadProducts();
+            const session = await AuthService.getSession();
+            authToken = session?.access_token || null;
+
+            // 載入兩個 tab
+            loadProducts();
+            loadFavorites();
+
+            // 切換到最愛 tab 時若已載入不重複
+            document.getElementById('tab-favs').addEventListener('shown.bs.tab', () => {});
         });
 
         async function loadProducts() {
@@ -127,8 +164,9 @@
                 }
 
                 const products = data.products || [];
+                const badgeEl = document.getElementById('badgeDesigns');
+                if (badgeEl) badgeEl.textContent = products.length;
 
-                // 隱藏載入動畫
                 document.getElementById('loadingSpinner').style.display = 'none';
 
                 if (products.length === 0) {
@@ -341,6 +379,69 @@
                 showAlert('操作失敗', 'danger');
             }
         };
+
+        // ── 我的最愛 tab ──
+        async function loadFavorites() {
+            const loading = document.getElementById('favsLoading');
+            const list = document.getElementById('favsList');
+            const empty = document.getElementById('favsEmpty');
+            const badge = document.getElementById('badgeFavs');
+            if (!authToken) { if (loading) loading.style.display = 'none'; if (empty) empty.style.display = 'block'; return; }
+            try {
+                const r = await fetch('/api/me/favorites', { headers: { Authorization: 'Bearer ' + authToken } });
+                const d = await r.json();
+                const favs = d.favorites || [];
+                if (badge) badge.textContent = favs.length;
+                if (loading) loading.style.display = 'none';
+                if (!favs.length) { if (empty) empty.style.display = 'block'; return; }
+                if (list) {
+                    list.style.display = 'flex';
+                    list.innerHTML = favs.map(f => {
+                        const item = f.item || {};
+                        const img = item.image_url || item.cover_image_url || '';
+                        const title = item.title || '（未命名）';
+                        const link = item.link || '';
+                        const mfrName = item.owner_display || item.manufacturer_name || '';
+                        const isPortfolio = item.type === 'comparison' || !!item.manufacturer_id || !!mfrName;
+                        const mfrId = item.manufacturer_id || '';
+                        return `<div class="col-md-6 col-lg-4">
+                            <div class="card product-card h-100">
+                                ${img ? `<img src="${img}" class="card-img-top product-image" alt="${escapeHtml(title)}" onerror="this.style.display='none'">` : '<div class="product-image bg-light d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex align-items-start justify-content-between mb-1">
+                                        <h6 class="card-title mb-0 flex-grow-1">${escapeHtml(title)}</h6>
+                                        <span class="badge bg-danger ms-2 flex-shrink-0"><i class="bi bi-heart-fill"></i></span>
+                                    </div>
+                                    ${mfrName ? `<div class="text-muted small mb-2"><i class="bi bi-shop me-1"></i>${escapeHtml(mfrName)}</div>` : ''}
+                                    <div class="mt-auto d-grid gap-2 pt-2">
+                                        ${isPortfolio && mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>查看廠商</a>` : ''}
+                                        ${isPortfolio ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrId || '')}" class="btn btn-primary btn-sm"><i class="bi bi-chat-dots me-1"></i>聯絡廠商</a>` : ''}
+                                        ${link ? `<a href="${link}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>查看原始</a>` : ''}
+                                        <button class="btn btn-outline-danger btn-sm btn-unfav" data-fav-id="${escapeHtml(f.id)}"><i class="bi bi-heart me-1"></i>取消收藏</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                    // 取消收藏按鈕
+                    list.querySelectorAll('.btn-unfav').forEach(btn => {
+                        btn.addEventListener('click', async function() {
+                            const favId = this.getAttribute('data-fav-id');
+                            await fetch('/api/me/favorites', {
+                                method: 'POST',
+                                headers: { Authorization: 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ item_id: favId })
+                            });
+                            loadFavorites(); // 重新載入
+                        });
+                    });
+                }
+            } catch (e) {
+                console.warn('載入最愛失敗:', e);
+                if (loading) loading.style.display = 'none';
+                if (empty) empty.style.display = 'block';
+            }
+        }
 
         function showAlert(message, type = 'info') {
             const alertDiv = document.createElement('div');
