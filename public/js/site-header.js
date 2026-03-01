@@ -182,6 +182,7 @@ async function renderHeader(headerContainer, user, config) {
                             <div class="dropdown-menu bg-light m-0">
                                 <h6 class="dropdown-header text-muted small">` + t('nav.dropdownCustom') + `</h6>
                                 <h6 class="dropdown-header"><i class="bi bi-person me-2"></i>` + t('nav.dropdownCustomClient') + `</h6>
+                                <a href="/client/dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + (t('nav.clientDashboard') || '設計者控制台') + `</a>
                                 <a href="/custom/" class="dropdown-item"><i class="bi bi-house me-2"></i>` + t('nav.customHome') + `</a>
                                 <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-plus-circle me-2"></i>` + t('nav.createProduct') + `</a>
                                 <a href="/remake-product.html" class="dropdown-item"><i class="bi bi-tools me-2"></i>` + (t('nav.remakeDesign') || '再製設計') + `</a>
