@@ -374,7 +374,8 @@
 
     async function loadCategories() {
         try {
-            const r = await fetch(CATEGORIES_API);
+            const lang = (window.i18n && window.i18n.currentLang) || document.documentElement.lang || 'zh';
+            const r = await fetch(CATEGORIES_API + '?lang=' + encodeURIComponent(lang));
             const d = await r.json();
             // 全部分類從資料庫來，含子分類
             categoryList = (d.categories||[]).map(c => ({
