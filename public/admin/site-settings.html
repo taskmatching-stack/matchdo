@@ -68,6 +68,22 @@
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label d-flex align-items-center gap-2">
+                                        <i class="bi bi-threads"></i> Threads
+                                    </label>
+                                    <input type="url" class="form-control social-input" id="socialThreads"
+                                        placeholder="https://www.threads.net/@youraccount" autocomplete="off">
+                                    <div class="form-text">Threads 個人頁網址（@帳號）</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label d-flex align-items-center gap-2">
+                                        <i class="bi bi-twitter-x"></i> X（Twitter）
+                                    </label>
+                                    <input type="url" class="form-control social-input" id="socialTwitter"
+                                        placeholder="https://x.com/youraccount" autocomplete="off">
+                                    <div class="form-text">X / Twitter 個人頁網址</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label d-flex align-items-center gap-2">
                                         <i class="bi bi-chat-fill text-success"></i> LINE 官方帳號
                                     </label>
                                     <input type="url" class="form-control social-input" id="socialLine"
@@ -164,6 +180,8 @@ $(async function () {
         .done(function (r) {
             $('#socialFacebook').val(r.facebook || '');
             $('#socialInstagram').val(r.instagram || '');
+            $('#socialThreads').val(r.threads || '');
+            $('#socialTwitter').val(r.twitter || '');
             $('#socialLine').val(r.line || '');
             $('#socialYoutube').val(r.youtube || '');
             $('#socialPinterest').val(r.pinterest || '');
@@ -181,6 +199,8 @@ $(async function () {
             data: JSON.stringify({
                 facebook:  $('#socialFacebook').val().trim(),
                 instagram: $('#socialInstagram').val().trim(),
+                threads:   $('#socialThreads').val().trim(),
+                twitter:   $('#socialTwitter').val().trim(),
                 line:      $('#socialLine').val().trim(),
                 youtube:   $('#socialYoutube').val().trim(),
                 pinterest: $('#socialPinterest').val().trim()

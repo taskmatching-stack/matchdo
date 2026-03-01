@@ -247,6 +247,9 @@
                         </button>
                         <ul class="dropdown-menu dropdown-menu-start" aria-labelledby="mwShareDropdown">
                             <li><a class="dropdown-item mw-share-btn" data-platform="facebook" href="#"><i class="bi bi-facebook me-2 text-primary"></i>分享到 Facebook</a></li>
+                            <li><a class="dropdown-item mw-share-btn" data-platform="instagram" href="#"><i class="bi bi-instagram me-2" style="color:#C13584;"></i>分享到 Instagram</a></li>
+                            <li><a class="dropdown-item mw-share-btn" data-platform="threads" href="#"><i class="bi bi-threads me-2 text-dark"></i>分享到 Threads</a></li>
+                            <li><a class="dropdown-item mw-share-btn" data-platform="twitter" href="#"><i class="bi bi-twitter-x me-2 text-dark"></i>分享到 X</a></li>
                             <li><a class="dropdown-item mw-share-btn" data-platform="line" href="#"><i class="bi bi-chat-fill me-2 text-success"></i>分享到 LINE</a></li>
                             <li><a class="dropdown-item mw-share-btn" data-platform="pinterest" href="#"><i class="bi bi-pinterest me-2 text-danger"></i>儲存到 Pinterest</a></li>
                             <li><hr class="dropdown-divider"></li>
@@ -1195,6 +1198,22 @@
                 if (platform === 'facebook') {
                     actionKey = 'share_facebook';
                     window.open('https://www.facebook.com/sharer/sharer.php?u=' + encoded, '_blank', 'noopener,width=600,height=500');
+                } else if (platform === 'instagram') {
+                    actionKey = 'share_instagram';
+                    // Instagram 無網頁版分享 URL，手機版用 Web Share API 可直接傳到 IG；桌機開啟 IG 首頁
+                    if (navigator.share) {
+                        navigator.share({ url: shareUrl, title: document.title }).catch(function(){});
+                    } else {
+                        window.open('https://www.instagram.com/', '_blank', 'noopener');
+                    }
+                } else if (platform === 'threads') {
+                    actionKey = 'share_threads';
+                    var threadsText = encodeURIComponent((document.getElementById('media-wall-lightbox-title') && document.getElementById('media-wall-lightbox-title').textContent.trim() || '') + '\n' + shareUrl);
+                    window.open('https://www.threads.net/intent/post?text=' + threadsText, '_blank', 'noopener,width=600,height=600');
+                } else if (platform === 'twitter') {
+                    actionKey = 'share_twitter';
+                    var twTitle = encodeURIComponent(document.getElementById('media-wall-lightbox-title') && document.getElementById('media-wall-lightbox-title').textContent.trim() || '');
+                    window.open('https://twitter.com/intent/tweet?url=' + encoded + '&text=' + twTitle, '_blank', 'noopener,width=600,height=400');
                 } else if (platform === 'line') {
                     actionKey = 'share_line';
                     window.open('https://social-plugins.line.me/lineit/share?url=' + encoded, '_blank', 'noopener,width=600,height=500');

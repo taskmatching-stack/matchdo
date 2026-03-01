@@ -940,7 +940,7 @@ app.patch('/api/admin/payment-config', express.json(), async (req, res) => {
 });
 
 // ── 社群媒體帳號（公開讀取 + 後台管理）───────────────────────────────
-const SOCIAL_KEYS = ['facebook', 'instagram', 'line', 'youtube', 'pinterest'];
+const SOCIAL_KEYS = ['facebook', 'instagram', 'threads', 'twitter', 'line', 'youtube', 'pinterest'];
 // GET /api/config/social-links — 公開：回傳社群帳號（供前台分享列）
 app.get('/api/config/social-links', async (req, res) => {
     try {
