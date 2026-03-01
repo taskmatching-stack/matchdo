@@ -143,6 +143,18 @@
             <!-- 左欄：資訊 -->
             <div class="col-lg-4">
 
+                <!-- 聯絡行動區 -->
+                <div class="card-section" id="sectionContact">
+                    <div class="d-grid gap-2">
+                        <button id="btnContactVendor" class="btn btn-success d-none" onclick="contactVendor()">
+                            <i class="bi bi-chat-dots me-2"></i>站內聯絡廠商
+                        </button>
+                        <a id="btnViewPortfolio" href="/custom/gallery.html" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-images me-1"></i>瀏覽作品圖庫
+                        </a>
+                    </div>
+                </div>
+
                 <!-- 簡介 -->
                 <div class="card-section" id="sectionDesc" style="display:none;">
                     <div class="section-title"><i class="bi bi-person-lines-fill me-1"></i>廠商簡介</div>
@@ -212,6 +224,22 @@
             return s + ' <span style="color:#fff;opacity:.8;font-size:.85em;">' + rating.toFixed(1) + '</span>';
         }
 
+        var _vendorUserId = null;
+        function contactVendor() {
+            if (!_vendorUserId) return;
+            if (typeof AuthService !== 'undefined') {
+                AuthService.getSession().then(function(s) {
+                    var token = s && (s.access_token || (s.session && s.session.access_token));
+                    if (!token) { window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.href); return; }
+                    window.location.href = '/client/messages.html?open=' + encodeURIComponent(_vendorUserId);
+                }).catch(function() {
+                    window.location.href = '/login.html';
+                });
+            } else {
+                window.location.href = '/login.html';
+            }
+        }
+
         function renderProfile(v) {
             document.getElementById('pageLoading').classList.add('d-none');
             document.getElementById('profileBody').classList.remove('d-none');
@@ -219,6 +247,11 @@
 
             // 更新頁籤標題
             document.title = (v.name || '廠商詳情') + ' - MATCHDO 合做';
+
+            // 站內聯絡按鈕（需廠商有 user_id）
+            _vendorUserId = v.user_id || null;
+            var contactBtn = document.getElementById('btnContactVendor');
+            if (contactBtn && _vendorUserId) contactBtn.classList.remove('d-none');
 
             // Hero
             document.getElementById('heroName').textContent = v.name || '廠商';

@@ -232,10 +232,14 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer py-2">
+                <div class="modal-footer py-2 flex-wrap gap-1">
                     <!-- 愛心收藏按鈕，放最左，me-auto 將其他按鈕推右 -->
                     <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm me-auto" title="加入收藏">
                         <i class="bi bi-heart"></i> <span id="media-wall-lightbox-fav-label">收藏</span>
+                    </button>
+                    <!-- 廠商作品專用：站內聯絡按鈕（comparison 類型才顯示） -->
+                    <button type="button" id="media-wall-lightbox-contact" class="btn btn-success btn-sm d-none" title="聯絡廠商">
+                        <i class="bi bi-chat-dots me-1"></i>聯絡廠商
                     </button>
                     <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
                     <a id="media-wall-lightbox-link" href="#" class="btn btn-primary btn-sm" target="_blank" data-i18n="home.findVendor">找廠商訂製</a>
@@ -492,6 +496,7 @@
                 var titleEl = document.getElementById('media-wall-lightbox-title');
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
                 var linkEl = document.getElementById('media-wall-lightbox-link');
+                var contactBtn = document.getElementById('media-wall-lightbox-contact');
                 if (titleEl) titleEl.textContent = item.title || '';
                 if (linkEl) { linkEl.href = item.link || '#'; linkEl.style.display = item.link ? 'inline-block' : 'none'; }
                 var imgUrl = item.image_url || item.cover_image_url || '';
@@ -500,6 +505,20 @@
                 if (detailWrap) detailWrap.classList.add('d-none');
                 var favId = item.id || (item.title + item.type);
                 syncLightboxFavBtn(favId, item);
+                // 廠商聯絡按鈕：只對 comparison 且有 manufacturer_user_id 時顯示
+                if (contactBtn) {
+                    var mUserId = item.manufacturer_user_id || null;
+                    if (item.type === 'comparison' && mUserId) {
+                        contactBtn.classList.remove('d-none');
+                        contactBtn.onclick = function() {
+                            if (!favUserLoggedIn) { showLoginToast(); return; }
+                            window.location.href = '/client/messages.html?open=' + encodeURIComponent(mUserId);
+                        };
+                    } else {
+                        contactBtn.classList.add('d-none');
+                        contactBtn.onclick = null;
+                    }
+                }
                 if (window.bootstrap) { var m = new bootstrap.Modal(document.getElementById('media-wall-lightbox')); m.show(); }
             }
             /* ═══ 結束 我的最愛 ═══ */
@@ -544,6 +563,11 @@
                         content = (img ? '<img src="' + escAttr(img) + '" alt="">' : '<div class="media-wall-placeholder"><span>—</span></div>');
                     }
                     var dataItem = { id: String(p.id || (p.title + p.type)), type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
+                    if (p.type === 'comparison') {
+                        dataItem.manufacturer_id = p.manufacturer_id || null;
+                        dataItem.manufacturer_user_id = p.manufacturer_user_id || null;
+                        dataItem.manufacturer_name = p.manufacturer_name || null;
+                    }
                     if (p.type === 'collection') dataItem.image_urls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length) ? p.image_urls : ((p.cover_image_url ? [p.cover_image_url, p.cover_image_url] : []));
                     if (p.type === 'user_design') {
                         var promptText = (p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '';

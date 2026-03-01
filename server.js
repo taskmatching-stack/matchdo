@@ -435,7 +435,7 @@ async function getGalleryComparisonItems() {
         if (mfrIds.length) {
             const { data: mfrs } = await supabase
                 .from('manufacturers')
-                .select('id, name, location, contact_json, categories')
+                .select('id, name, location, contact_json, categories, user_id')
                 .in('id', mfrIds)
                 .eq('is_active', true);
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
@@ -457,7 +457,8 @@ async function getGalleryComparisonItems() {
                 manufacturer_name: mfr.name || '廠商作品',
                 manufacturer_location: mfr.location || '',
                 manufacturer_categories: mfr.categories || [],
-                manufacturer_contact: Object.keys(contact).length ? contact : null
+                manufacturer_contact: Object.keys(contact).length ? contact : null,
+                manufacturer_user_id: mfr.user_id || null
             };
         });
 
@@ -6870,6 +6871,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             contact: mfr.contact_json || {},
             verified: mfr.verified,
             categories: mfr.categories || [],
+            user_id: mfr.user_id || null,
             portfolio: portfolio || []
         });
     } catch (e) {

@@ -315,20 +315,37 @@
         document.getElementById('modalTags').innerHTML = tags ? tags : '';
 
         const contactBtn = document.getElementById('modalBtnContact');
-        if (contact.url) {
+        const mfrUserId = p.manufacturer_user_id || null;
+        // 優先：站內訊息（需登入）
+        if (mfrUserId) {
+            contactBtn.removeAttribute('href');
+            contactBtn.textContent = '站內聯絡廠商';
+            contactBtn.target = '_self';
+            contactBtn.onclick = async function(e) {
+                e.preventDefault();
+                if (typeof AuthService !== 'undefined') {
+                    const s = await AuthService.getSession().catch(() => null);
+                    const token = s && (s.access_token || (s.session && s.session.access_token));
+                    if (!token) { window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.href); return; }
+                }
+                window.location.href = '/client/messages.html?open=' + encodeURIComponent(mfrUserId);
+            };
+        } else if (contact.url) {
             contactBtn.href = contact.url;
             contactBtn.textContent = '前往賣場/官網';
             contactBtn.target = '_blank';
+            contactBtn.onclick = null;
         } else if (contact.email) {
             contactBtn.href = 'mailto:' + contact.email;
             contactBtn.textContent = '寫信聯繫';
             contactBtn.target = '_blank';
+            contactBtn.onclick = null;
         } else {
-            // 沒有聯絡方式 → 跳廠商詳情頁
             const mfrId = p.manufacturer_id;
             contactBtn.href = mfrId ? '/vendor-profile.html?id=' + encodeURIComponent(mfrId) : '/vendors.html';
             contactBtn.textContent = '查看廠商資料';
             contactBtn.target = '_self';
+            contactBtn.onclick = null;
         }
 
         const redesignUrl = '/custom-product.html?from_gallery=1&image_url=' + encodeURIComponent(p.image_url || '') + '&portfolio_id=' + encodeURIComponent(p.id || '');
