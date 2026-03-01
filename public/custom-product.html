@@ -107,6 +107,9 @@
             box-shadow: 0 2px 16px rgba(0,0,0,.06);
             border: 1px solid #e5e7eb;
         }
+        /* 手機按鈕 + Bottom Sheet：桌機預設隱藏 */
+        #catMobileBtn { display: none; }
+        .cat-bottom-sheet { display: none; }
         @media (max-width: 768px) {
             /* ── 手機版整體 ── */
             /* 外層容器 py-4 → 壓縮 */
@@ -150,6 +153,59 @@
                 border-color: #445D7E44;
             }
             #custom-product .create-panel-right.is-loading .placeholder-hint { display: none; }
+
+            /* 分類：桌機雙面板隱藏，改用按鈕 */
+            #custom-product .cat-tablet { display: none !important; }
+            #custom-product .cat-desktop-hint { display: none; }
+
+            /* 手機分類按鈕 */
+            #catMobileBtn {
+                display: flex; align-items: center; gap: 0.5rem; width: 100%;
+                padding: 0.65rem 0.875rem; margin-bottom: 0.5rem;
+                background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px;
+                color: #6b7280; font-size: 0.875rem; text-align: left; cursor: pointer;
+            }
+            #catMobileBtn.has-value { border-color: #445D7E; color: #445D7E; font-weight: 500; }
+
+            /* Bottom Sheet 容器 */
+            .cat-bottom-sheet {
+                display: flex; position: fixed; inset: 0; z-index: 1080;
+                flex-direction: column; justify-content: flex-end;
+                pointer-events: none; opacity: 0; transition: opacity 0.2s;
+            }
+            .cat-bottom-sheet.open { pointer-events: auto; opacity: 1; }
+            .cat-bs-backdrop {
+                position: absolute; inset: 0; background: rgba(0,0,0,0.45);
+            }
+            .cat-bs-panel {
+                position: relative; background: #fff;
+                border-radius: 16px 16px 0 0; max-height: 72vh;
+                display: flex; flex-direction: column;
+                transform: translateY(100%);
+                transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+            }
+            .cat-bottom-sheet.open .cat-bs-panel { transform: translateY(0); }
+            .cat-bs-header {
+                display: flex; align-items: center;
+                padding: 0.75rem 0.875rem; border-bottom: 1px solid #e5e7eb; gap: 0.25rem;
+            }
+            .cat-bs-title { flex: 1; font-weight: 600; font-size: 0.9375rem; text-align: center; color: #111; }
+            .cat-bs-nav-btn {
+                background: none; border: none; padding: 0.25rem 0.5rem;
+                font-size: 0.875rem; color: #6b7280; cursor: pointer; border-radius: 6px; min-width: 3rem;
+            }
+            .cat-bs-nav-btn:active { background: #f3f4f6; }
+            .cat-bs-list { overflow-y: auto; flex: 1; min-height: 0; }
+            .cat-bs-item {
+                display: flex; align-items: center; gap: 0.5rem;
+                padding: 0.875rem 1rem; font-size: 0.9375rem; color: #374151;
+                border-bottom: 1px solid #f3f4f6; cursor: pointer;
+            }
+            .cat-bs-item:active { background: #f1f5f9; }
+            .cat-bs-item.is-selected { color: #445D7E; font-weight: 600; }
+            .cat-bs-item .cat-bs-check { color: #445D7E; width: 1.1rem; flex-shrink: 0; }
+            .cat-bs-item .cat-bs-placeholder-icon { width: 1.1rem; flex-shrink: 0; }
+            .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #9ca3af; font-size: 0.75rem; }
 
             /* 4. 參考圖橫向滾動 */
             #custom-product .ref-slots {
@@ -376,6 +432,7 @@
                                 <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">可從下方參考圖的「從此圖產生描述」結果中，選取需要的句子貼到本框使用。</p>
                             </div>
 
+                            <!-- 桌機版：雙面板 -->
                             <div class="cat-tablet">
                                 <div class="cat-main-panel">
                                     <span class="cat-label cat-label-required" data-i18n="customProduct.categoryMainRequired">主分類（必選）</span>
@@ -388,7 +445,13 @@
                                     <input type="hidden" id="imageCategorySubSelect" name="imageCategorySub" value="">
                                 </div>
                             </div>
-                            <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
+                            <!-- 手機版：Bottom Sheet 觸發按鈕（JS 控制顯示） -->
+                            <button type="button" id="catMobileBtn" class="cat-mobile-btn" style="display:none;">
+                                <i class="bi bi-folder2-open"></i>
+                                <span id="catMobileBtnLabel">分類（必選）</span>
+                                <i class="bi bi-chevron-down ms-auto"></i>
+                            </button>
+                            <p class="form-text text-muted small mb-0 mt-1 cat-desktop-hint" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
 
                             <div class="form-row full">
                                 <span class="label" data-i18n="customProduct.refImages">參考圖</span>
@@ -525,6 +588,19 @@
 
     <!-- Back to Top -->
     <a href="#!" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <!-- 手機版分類 Bottom Sheet -->
+    <div id="catBottomSheet" class="cat-bottom-sheet" aria-hidden="true">
+        <div class="cat-bs-backdrop"></div>
+        <div class="cat-bs-panel">
+            <div class="cat-bs-header">
+                <button type="button" id="catBsBack" class="cat-bs-nav-btn" style="visibility:hidden;">‹ 返回</button>
+                <span id="catBsTitle" class="cat-bs-title">選擇主分類</span>
+                <button type="button" id="catBsClose" class="cat-bs-nav-btn">✕</button>
+            </div>
+            <div id="catBsList" class="cat-bs-list"></div>
+        </div>
+    </div>
 
     <!-- 歷史圖放大：點縮圖不開新分頁，改開此 modal，圖上疊加提示詞 / Seed / 帳號 -->
     <div id="pastItemLightbox" class="past-lightbox" aria-hidden="true" style="display: none;">

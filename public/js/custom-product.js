@@ -460,6 +460,132 @@ $(document).ready(function () {
         autoGrowPrompt();
     }
 
+    // ── 手機版分類 Bottom Sheet ──────────────────────────────────────
+    (function catBottomSheet() {
+        if (window.innerWidth > 768) return;
+
+        var $btn     = $('#catMobileBtn');
+        var $sheet   = $('#catBottomSheet');
+        var $list    = $('#catBsList');
+        var $title   = $('#catBsTitle');
+        var $back    = $('#catBsBack');
+        var $close   = $('#catBsClose');
+        var currentMainCat = null; // 目前在看哪個主分類的子分類
+
+        // 更新按鈕標籤（讀現有隱藏 input 對應的 .cat-option 文字）
+        function updateBtnLabel() {
+            var mainText = $('#imageCategoryMainList .cat-option.selected').text().trim();
+            var subText  = $('#imageCategorySubList  .cat-option.selected').text().trim();
+            if (mainText) {
+                $('#catMobileBtnLabel').text(mainText + (subText ? ' › ' + subText : ''));
+                $btn.addClass('has-value');
+            } else {
+                $('#catMobileBtnLabel').text('分類（必選）');
+                $btn.removeClass('has-value');
+            }
+        }
+
+        // 用 MutationObserver 監聽 subList 內容/class 變動，同步更新按鈕
+        function watchList(id) {
+            var el = document.getElementById(id);
+            if (el && window.MutationObserver) {
+                new MutationObserver(updateBtnLabel).observe(el, {
+                    childList: true, subtree: true, attributes: true, attributeFilter: ['class']
+                });
+            }
+        }
+        watchList('imageCategoryMainList');
+        watchList('imageCategorySubList');
+
+        // 顯示主分類列表
+        function showMainStep() {
+            currentMainCat = null;
+            $title.text('選擇主分類');
+            $back.css('visibility', 'hidden');
+            $list.empty();
+            var curMainKey = $('#imageCategoryMainSelect').val();
+            categoriesData.forEach(function(c) {
+                var key = c.key != null ? String(c.key) : '';
+                var name = $('#imageCategoryMainList .cat-option[data-key="' + key.replace(/"/g, '&quot;') + '"]').text().trim() || c.name || key;
+                var hasSub = c.subcategories && c.subcategories.length > 0;
+                var isSel  = curMainKey === key;
+                var $item  = $('<div class="cat-bs-item" role="button">');
+                $item.append(
+                    isSel
+                        ? $('<i class="bi bi-check2 cat-bs-check">').text('')
+                        : $('<span class="cat-bs-placeholder-icon">'),
+                    $('<span>').text(name)
+                );
+                if (hasSub) $item.append($('<i class="bi bi-chevron-right cat-bs-chevron">'));
+                if (isSel) $item.addClass('is-selected');
+                $item.on('click', function() {
+                    if (hasSub) {
+                        showSubStep(c);
+                    } else {
+                        // 無子分類：直接觸發現有 click 並關閉
+                        $('#imageCategoryMainList .cat-option[data-key="' + key.replace(/"/g, '&quot;') + '"]').trigger('click');
+                        closeSheet();
+                    }
+                });
+                $list.append($item);
+            });
+        }
+
+        // 顯示子分類列表
+        function showSubStep(mainCat) {
+            currentMainCat = mainCat;
+            var key = mainCat.key != null ? String(mainCat.key) : '';
+            var mainName = $('#imageCategoryMainList .cat-option[data-key="' + key.replace(/"/g, '&quot;') + '"]').text().trim() || mainCat.name || key;
+            $title.text(mainName);
+            $back.css('visibility', 'visible');
+            $list.empty();
+            // 先觸發主分類 click，同步填好 sub list（現有 JS 邏輯）
+            $('#imageCategoryMainList .cat-option[data-key="' + key.replace(/"/g, '&quot;') + '"]').trigger('click');
+            var curSubKey = $('#imageCategorySubSelect').val();
+            (mainCat.subcategories || []).forEach(function(sub) {
+                var subKey  = sub.key != null ? String(sub.key) : '';
+                var subName = $('#imageCategorySubList .cat-option[data-key="' + subKey.replace(/"/g, '&quot;') + '"]').text().trim() || sub.name || subKey;
+                var isSel   = curSubKey === subKey;
+                var $item   = $('<div class="cat-bs-item" role="button">');
+                $item.append(
+                    isSel
+                        ? $('<i class="bi bi-check2 cat-bs-check">').text('')
+                        : $('<span class="cat-bs-placeholder-icon">'),
+                    $('<span>').text(subName)
+                );
+                if (isSel) $item.addClass('is-selected');
+                $item.on('click', function() {
+                    $('#imageCategorySubList .cat-option[data-key="' + subKey.replace(/"/g, '&quot;') + '"]').trigger('click');
+                    closeSheet();
+                });
+                $list.append($item);
+            });
+        }
+
+        function openSheet() {
+            showMainStep();
+            $sheet.addClass('open').attr('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSheet() {
+            $sheet.removeClass('open').attr('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            updateBtnLabel();
+        }
+
+        $btn.on('click', openSheet);
+        $close.on('click', closeSheet);
+        $back.on('click', showMainStep);
+        $sheet.find('.cat-bs-backdrop').on('click', closeSheet);
+
+        // 顯示按鈕（JS 確認是手機才顯示）
+        $btn.show();
+
+        // loadCategories 是非同步，等它跑完再更新標籤
+        setTimeout(updateBtnLabel, 600);
+    })();
+
     // 儲存此生成結果為訂製產品（含前端輸入的提示詞 generation_prompt）
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
