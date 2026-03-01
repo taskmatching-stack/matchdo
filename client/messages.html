@@ -89,7 +89,7 @@
                 <div id="noConversation" class="d-flex align-items-center justify-content-center flex-grow-1 text-muted">
                     <div class="text-center"><i class="bi bi-chat-left-text" style="font-size:3rem;"></i><p class="mt-2" data-i18n="messages.selectConversation">從左側選擇對話或聯絡人</p></div>
                 </div>
-                <div id="conversationPanel" style="display: none;">
+                <div id="conversationPanel" class="d-none">
                     <div class="d-flex align-items-center border-bottom px-3 py-2">
                         <span id="conversationTitle" class="fw-bold"></span>
                         <div class="ms-auto">
@@ -224,7 +224,9 @@
             function selectConversation(conversationId, otherUserId, displayName) {
                 currentConversationId = conversationId;
                 currentOtherUserId = otherUserId;
-                document.getElementById('noConversation').style.display = 'none';
+                // d-flex 帶 !important，必須用 class 切換而非 style.display
+                document.getElementById('noConversation').classList.add('d-none');
+                document.getElementById('conversationPanel').classList.remove('d-none');
                 document.getElementById('conversationPanel').style.display = '';
                 document.getElementById('conversationTitle').textContent = displayName || otherUserId.slice(0, 8) + '…';
                 document.querySelectorAll('.conv-item, .contact-item').forEach(n => {
