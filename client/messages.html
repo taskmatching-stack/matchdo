@@ -9,22 +9,28 @@
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/theme-custom.css" rel="stylesheet">
     <style>
-        .messages-layout { display: flex; height: calc(100vh - 120px); min-height: 400px; }
-        .messages-side { width: 320px; min-width: 280px; border-right: 1px solid #dee2e6; overflow-y: auto; }
-        .messages-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        /* 整體佈局：撐滿視窗可見高度（減去 navbar + breadcrumb） */
+        .messages-layout { display: flex; height: calc(100vh - 130px); min-height: 400px; overflow: hidden; }
+        .messages-side { width: 320px; min-width: 240px; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; overflow: hidden; }
+        .messages-side .tab-content { flex: 1; overflow-y: auto; }
+        .messages-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
         .conv-item, .contact-item { padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid #eee; }
         .conv-item:hover, .contact-item:hover { background: #f8f9fa; }
         .conv-item.active, .contact-item.active { background: #e7f1ff; }
         .conv-item .last-msg { font-size: 0.85rem; color: #6c757d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .messages-panel { flex: 1; overflow-y: auto; padding: 1rem; }
+        /* noConversation 佔滿剩餘空間 */
+        #noConversation { flex: 1; }
+        /* 對話面板：flex column 充滿父容器高度，輸入框固定底部 */
+        #conversationPanel { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+        .messages-panel { flex: 1; overflow-y: auto; padding: 1rem; min-height: 0; }
         .msg-bubble { max-width: 80%; padding: 0.5rem 0.75rem; border-radius: 1rem; margin-bottom: 0.5rem; }
         .msg-bubble.mine { margin-left: auto; background: #0d6efd; color: #fff; }
         .msg-bubble.theirs { background: #e9ecef; }
         .msg-time { font-size: 0.75rem; color: #6c757d; }
-        .messages-form { padding: 0.75rem; border-top: 1px solid #dee2e6; }
+        .messages-form { flex-shrink: 0; padding: 0.75rem; border-top: 1px solid #dee2e6; background: #fff; }
         @media (max-width: 768px) {
-            .messages-layout { flex-direction: column; height: auto; min-height: 80vh; }
-            .messages-side { width: 100%; max-height: 200px; }
+            .messages-layout { flex-direction: column; height: calc(100vh - 130px); }
+            .messages-side { width: 100%; max-height: 180px; flex-shrink: 0; }
         }
     </style>
 </head>
@@ -152,35 +158,45 @@
                 updateContactButton();
             }
 
-            function openOrSelectConversation(otherUserId, displayName, productId) {
-                // 建立/取得對話，同時加入聯絡清單
-                const body = { other_user_id: otherUserId };
-                if (productId) body.product_id = productId;
-                Promise.all([
-                    fetch('/api/direct-conversations', {
+            async function openOrSelectConversation(otherUserId, displayName, productId) {
+                // 1. 建立/取得對話
+                const convBody = { other_user_id: otherUserId };
+                if (productId) convBody.product_id = productId;
+                let convData = {};
+                try {
+                    const convRes = await fetch('/api/direct-conversations', {
                         method: 'POST',
                         headers: headers(),
-                        body: JSON.stringify(body)
-                    }).then(r => r.json()),
-                    fetch('/api/contact-list', {
+                        body: JSON.stringify(convBody)
+                    });
+                    convData = await convRes.json();
+                } catch (e) { console.error('建立對話失敗:', e); }
+
+                // 2. 加入聯絡清單（無論對話是否已存在都執行）
+                try {
+                    const clRes = await fetch('/api/contact-list', {
                         method: 'POST',
                         headers: headers(),
                         body: JSON.stringify({ user_id: otherUserId })
-                    }).catch(() => {})
-                ]).then(([data]) => {
-                    if (data.conversation_id) {
-                        loadContacts();
-                        selectConversation(data.conversation_id, otherUserId, displayName);
+                    });
+                    if (!clRes.ok) {
+                        const clErr = await clRes.json().catch(() => ({}));
+                        console.warn('加入聯絡清單失敗:', clRes.status, clErr);
                     }
-                });
+                } catch (e) { console.warn('加入聯絡清單請求失敗:', e); }
+
+                // 3. 重新載入聯絡清單並開啟對話
+                await loadContacts();
+                if (convData.conversation_id) {
+                    selectConversation(convData.conversation_id, otherUserId, displayName);
+                }
             }
 
             function selectConversation(conversationId, otherUserId, displayName) {
                 currentConversationId = conversationId;
                 currentOtherUserId = otherUserId;
                 document.getElementById('noConversation').style.display = 'none';
-                document.getElementById('conversationPanel').style.display = 'flex';
-                document.getElementById('conversationPanel').style.flexDirection = 'column';
+                document.getElementById('conversationPanel').style.display = '';
                 document.getElementById('conversationTitle').textContent = displayName || otherUserId.slice(0, 8) + '…';
                 document.querySelectorAll('.conv-item, .contact-item').forEach(n => {
                     n.classList.toggle('active', (n.dataset.conversationId === conversationId) || (n.dataset.userId === otherUserId));
@@ -272,7 +288,7 @@
                     const list = document.querySelectorAll('.conv-item[data-conversation-id="' + convId + '"]');
                     if (list.length) list[0].click();
                 } else if (openUserId) {
-                    openOrSelectConversation(openUserId, '', openProductId);
+                    await openOrSelectConversation(openUserId, '', openProductId);
                     history.replaceState({}, '', window.location.pathname);
                 }
                 document.getElementById('btnSend').addEventListener('click', sendMessage);
