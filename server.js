@@ -8473,6 +8473,125 @@ app.delete('/api/admin/remake-subcategories/:category_key/:key', async (req, res
     }
 });
 
+// ─────────────────────────────────────────────────────────────
+// 後台：對話紀錄查詢（交易爭議調閱用）
+// ─────────────────────────────────────────────────────────────
+
+// GET /api/admin/conversations — 列出所有對話（可依關鍵字、日期篩選）
+app.get('/api/admin/conversations', async (req, res) => {
+    try {
+        const admin = await requireAdmin(req, res);
+        if (!admin) return;
+        const { q, from, to, page = 1, per = 30 } = req.query;
+        const offset = (Math.max(1, Number(page)) - 1) * Number(per);
+
+        // 查詢對話（含雙方 user_id）
+        let query = supabase.from('direct_conversations')
+            .select('id, user_a_id, user_b_id, updated_at, created_at', { count: 'exact' })
+            .order('updated_at', { ascending: false })
+            .range(offset, offset + Number(per) - 1);
+        if (from) query = query.gte('updated_at', from);
+        if (to)   query = query.lte('updated_at', to + 'T23:59:59Z');
+        const { data: convos, count, error } = await query;
+        if (error) return res.status(500).json({ error: '查詢失敗' });
+
+        // 蒐集所有 user_id
+        const allUids = [...new Set((convos || []).flatMap(c => [c.user_a_id, c.user_b_id]))];
+        // 從 manufacturers 取廠商名稱
+        const { data: mfrs } = await supabase.from('manufacturers').select('user_id, name').in('user_id', allUids);
+        const mfrMap = {};
+        (mfrs || []).forEach(m => { if (m.user_id) mfrMap[m.user_id] = m.name; });
+        // 從 auth.users 取 email/name（逐一查，僅查缺少的）
+        const nameMap = { ...mfrMap };
+        for (const uid of allUids) {
+            if (!nameMap[uid]) {
+                try {
+                    const { data: au } = await supabase.auth.admin.getUserById(uid);
+                    nameMap[uid] = au?.user?.user_metadata?.full_name || au?.user?.email || uid.slice(0, 8);
+                } catch (_) { nameMap[uid] = uid.slice(0, 8); }
+            }
+        }
+        // 最後一則訊息 + 訊息總數
+        const convIds = (convos || []).map(c => c.id);
+        const { data: allMsgs } = await supabase.from('direct_messages')
+            .select('conversation_id, body, image_url, created_at')
+            .in('conversation_id', convIds)
+            .order('created_at', { ascending: false });
+        const lastMsg = {}, msgCount = {};
+        (allMsgs || []).forEach(m => {
+            msgCount[m.conversation_id] = (msgCount[m.conversation_id] || 0) + 1;
+            if (!lastMsg[m.conversation_id]) lastMsg[m.conversation_id] = m;
+        });
+
+        // 若有關鍵字，以 user name 過濾
+        let result = (convos || []).map(c => ({
+            id: c.id,
+            user_a: { id: c.user_a_id, name: nameMap[c.user_a_id] || c.user_a_id },
+            user_b: { id: c.user_b_id, name: nameMap[c.user_b_id] || c.user_b_id },
+            message_count: msgCount[c.id] || 0,
+            last_message: lastMsg[c.id] ? { body: lastMsg[c.id].body || (lastMsg[c.id].image_url ? '（圖片）' : ''), created_at: lastMsg[c.id].created_at } : null,
+            updated_at: c.updated_at,
+            created_at: c.created_at
+        }));
+        if (q) {
+            const kw = q.toLowerCase();
+            result = result.filter(r =>
+                r.user_a.name.toLowerCase().includes(kw) ||
+                r.user_b.name.toLowerCase().includes(kw) ||
+                (r.last_message?.body || '').toLowerCase().includes(kw)
+            );
+        }
+        res.json({ conversations: result, total: count || result.length, page: Number(page), per: Number(per) });
+    } catch (e) {
+        console.error('GET /api/admin/conversations 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/conversations/:id/messages — 查看單一對話完整訊息紀錄
+app.get('/api/admin/conversations/:convId/messages', async (req, res) => {
+    try {
+        const admin = await requireAdmin(req, res);
+        if (!admin) return;
+        const { convId } = req.params;
+        const { data: conv } = await supabase.from('direct_conversations').select('id, user_a_id, user_b_id, created_at, updated_at').eq('id', convId).maybeSingle();
+        if (!conv) return res.status(404).json({ error: '找不到對話' });
+        // 取雙方名稱
+        const uids = [conv.user_a_id, conv.user_b_id];
+        const { data: mfrs } = await supabase.from('manufacturers').select('user_id, name').in('user_id', uids);
+        const nameMap = {};
+        (mfrs || []).forEach(m => { if (m.user_id) nameMap[m.user_id] = m.name; });
+        for (const uid of uids) {
+            if (!nameMap[uid]) {
+                try {
+                    const { data: au } = await supabase.auth.admin.getUserById(uid);
+                    nameMap[uid] = au?.user?.user_metadata?.full_name || au?.user?.email || uid.slice(0, 8);
+                } catch (_) { nameMap[uid] = uid.slice(0, 8); }
+            }
+        }
+        const { data: msgs } = await supabase.from('direct_messages')
+            .select('id, sender_id, body, image_url, created_at')
+            .eq('conversation_id', convId)
+            .order('created_at', { ascending: true });
+        res.json({
+            conversation: {
+                id: conv.id,
+                user_a: { id: conv.user_a_id, name: nameMap[conv.user_a_id] },
+                user_b: { id: conv.user_b_id, name: nameMap[conv.user_b_id] },
+                created_at: conv.created_at, updated_at: conv.updated_at
+            },
+            messages: (msgs || []).map(m => ({
+                id: m.id, sender_id: m.sender_id,
+                sender_name: nameMap[m.sender_id] || m.sender_id.slice(0, 8),
+                body: m.body, image_url: m.image_url || null, created_at: m.created_at
+            }))
+        });
+    } catch (e) {
+        console.error('GET /api/admin/conversations/:id/messages 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // 模擬廠商推薦（客製產品專用）
 // 依分類回傳對應的模擬廠商（西裝／服飾不應出現 3D 列印）
 function generateMockManufacturersForCustomProduct(category, analysis) {

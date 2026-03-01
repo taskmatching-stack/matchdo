@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>對話紀錄查詢 - 後台</title>
+    <link rel="icon" href="/img/favicon.ico">
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <style>
+        .msg-bubble { max-width: 70%; word-break: break-word; }
+        .mine .msg-bubble { background: #0d6efd; color: #fff; border-radius: 16px 16px 4px 16px; }
+        .theirs .msg-bubble { background: #f0f0f0; color: #333; border-radius: 16px 16px 16px 4px; }
+        .msg-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .msg-row.mine { justify-content: flex-end; }
+        .msg-row.theirs { justify-content: flex-start; }
+        .msg-meta { font-size: .72rem; color: #adb5bd; margin-top: 2px; }
+        .mine .msg-meta { text-align: right; }
+        .msg-image { max-width: 220px; border-radius: 10px; display: block; cursor: pointer; }
+        .conv-row { cursor: pointer; }
+        .conv-row:hover td { background: #f8f9fa; }
+        .badge-count { font-size: .72rem; }
+        #msgPanel { display: none; }
+    </style>
+</head>
+<body class="bg-light">
+<div id="site-header"></div>
+
+<div class="container-fluid py-4" style="max-width:1200px">
+    <div class="page-title-bar mb-4">
+        <h5 class="mb-0"><i class="bi bi-shield-check me-2 text-primary"></i>對話紀錄查詢</h5>
+        <small class="text-muted">用於交易爭議調閱，僅管理員可存取</small>
+    </div>
+
+    <!-- 搜尋列 -->
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small mb-1">關鍵字（用戶名稱 / 訊息內容）</label>
+                    <input type="text" class="form-control form-control-sm" id="filterQ" placeholder="搜尋…">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">起始日期</label>
+                    <input type="date" class="form-control form-control-sm" id="filterFrom">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">結束日期</label>
+                    <input type="date" class="form-control form-control-sm" id="filterTo">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button class="btn btn-primary btn-sm w-100" id="btnSearch"><i class="bi bi-search me-1"></i>查詢</button>
+                    <button class="btn btn-outline-secondary btn-sm" id="btnReset" title="清除篩選"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- 對話列表 -->
+        <div class="col-lg-5" id="listPanel">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                    <span class="fw-semibold small">對話列表</span>
+                    <span class="text-muted small" id="totalCount"></span>
+                </div>
+                <div class="card-body p-0">
+                    <div id="convTable">
+                        <div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-1"></div>載入中…</div>
+                    </div>
+                </div>
+                <!-- 分頁 -->
+                <div class="card-footer bg-white py-2 d-flex justify-content-between align-items-center">
+                    <button class="btn btn-outline-secondary btn-sm" id="btnPrev" disabled><i class="bi bi-chevron-left"></i></button>
+                    <span class="small text-muted" id="pageInfo">第 1 頁</span>
+                    <button class="btn btn-outline-secondary btn-sm" id="btnNext" disabled><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 訊息面板 -->
+        <div class="col-lg-7" id="msgPanel">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fw-semibold small" id="panelTitle">訊息紀錄</span>
+                        <small class="text-muted ms-2" id="panelSubtitle"></small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" id="btnExport" title="匯出為文字檔"><i class="bi bi-download me-1"></i>匯出</button>
+                        <button class="btn btn-outline-secondary btn-sm" id="btnClose"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+                <div class="card-body overflow-auto" id="msgContainer" style="max-height:580px;">
+                    <div class="text-center text-muted py-5"><i class="bi bi-chat-square-dots display-5"></i><br>點選左側對話查看內容</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 圖片燈箱 -->
+<div class="modal fade" id="imgModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-transparent border-0">
+            <img id="imgModalSrc" src="" class="img-fluid rounded" alt="">
+        </div>
+    </div>
+</div>
+
+<script src="/js/bootstrap.bundle.min.js"></script>
+<script src="/js/auth-config.js"></script>
+<script src="/js/site-header.js"></script>
+<script>
+(function () {
+    var token = null;
+    var currentPage = 1;
+    var totalCount = 0;
+    var PER = 30;
+    var currentConvData = null; // 用於匯出
+
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function fmtDT(iso) {
+        if (!iso) return '';
+        var d = new Date(iso);
+        return d.toLocaleDateString('zh-TW') + ' ' + d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    }
+    async function authFetch(url, opts) {
+        opts = opts || {};
+        opts.headers = opts.headers || {};
+        if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+        return fetch(url, opts);
+    }
+
+    async function loadConversations(page) {
+        var q = document.getElementById('filterQ').value.trim();
+        var from = document.getElementById('filterFrom').value;
+        var to = document.getElementById('filterTo').value;
+        var params = new URLSearchParams({ page, per: PER });
+        if (q) params.set('q', q);
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+
+        document.getElementById('convTable').innerHTML = '<div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm"></div></div>';
+        try {
+            var r = await authFetch('/api/admin/conversations?' + params.toString());
+            if (r.status === 401 || r.status === 403) { document.getElementById('convTable').innerHTML = '<div class="text-center text-danger py-4">存取被拒，請確認管理員身份</div>'; return; }
+            var data = await r.json();
+            var convos = data.conversations || [];
+            totalCount = data.total || convos.length;
+            currentPage = data.page || 1;
+
+            document.getElementById('totalCount').textContent = '共 ' + totalCount + ' 筆';
+            document.getElementById('pageInfo').textContent = '第 ' + currentPage + ' 頁 / ' + Math.ceil(totalCount / PER) + ' 頁';
+            document.getElementById('btnPrev').disabled = currentPage <= 1;
+            document.getElementById('btnNext').disabled = currentPage * PER >= totalCount;
+
+            if (!convos.length) {
+                document.getElementById('convTable').innerHTML = '<div class="text-center text-muted py-5">無符合條件的對話</div>';
+                return;
+            }
+            var html = '<table class="table table-hover table-sm mb-0"><thead class="table-light"><tr><th>雙方用戶</th><th>訊息數</th><th>最後訊息</th><th>最後時間</th></tr></thead><tbody>';
+            convos.forEach(function (c) {
+                var preview = c.last_message ? esc(c.last_message.body || '（圖片）').substring(0, 30) : '—';
+                html += '<tr class="conv-row" data-conv-id="' + esc(c.id) + '" data-a="' + esc(c.user_a.name) + '" data-b="' + esc(c.user_b.name) + '">' +
+                    '<td><div class="small fw-semibold">' + esc(c.user_a.name) + '</div><div class="small text-muted"><i class="bi bi-arrow-left-right"></i> ' + esc(c.user_b.name) + '</div></td>' +
+                    '<td><span class="badge bg-secondary badge-count">' + (c.message_count || 0) + '</span></td>' +
+                    '<td class="small text-muted">' + preview + '</td>' +
+                    '<td class="small text-muted text-nowrap">' + fmtDT(c.updated_at) + '</td>' +
+                '</tr>';
+            });
+            html += '</tbody></table>';
+            document.getElementById('convTable').innerHTML = html;
+
+            document.querySelectorAll('.conv-row').forEach(function (row) {
+                row.addEventListener('click', function () {
+                    document.querySelectorAll('.conv-row').forEach(function (r) { r.classList.remove('table-active'); });
+                    row.classList.add('table-active');
+                    loadMessages(row.dataset.convId, row.dataset.a + ' ↔ ' + row.dataset.b);
+                });
+            });
+        } catch (e) {
+            document.getElementById('convTable').innerHTML = '<div class="text-center text-danger py-4">載入失敗：' + esc(e.message) + '</div>';
+        }
+    }
+
+    async function loadMessages(convId, title) {
+        var panel = document.getElementById('msgPanel');
+        panel.style.display = 'block';
+        document.getElementById('panelTitle').textContent = '對話詳情';
+        document.getElementById('panelSubtitle').textContent = title || '';
+        document.getElementById('msgContainer').innerHTML = '<div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm"></div></div>';
+
+        try {
+            var r = await authFetch('/api/admin/conversations/' + convId + '/messages');
+            var data = await r.json();
+            if (!r.ok) { document.getElementById('msgContainer').innerHTML = '<div class="text-center text-danger py-4">' + esc(data.error) + '</div>'; return; }
+            currentConvData = data;
+
+            var conv = data.conversation;
+            var msgs = data.messages || [];
+            document.getElementById('panelSubtitle').textContent = conv.user_a.name + ' ↔ ' + conv.user_b.name + '（' + msgs.length + ' 則）';
+
+            // 對話資訊卡
+            var infoHtml = '<div class="alert alert-light border small mb-3">' +
+                '<div><strong>對話 ID：</strong><code>' + esc(conv.id) + '</code></div>' +
+                '<div><strong>建立時間：</strong>' + fmtDT(conv.created_at) + '</div>' +
+                '<div><strong>雙方：</strong>' + esc(conv.user_a.name) + '（ID: ' + esc(conv.user_a.id) + '）</div>' +
+                '<div class="ms-4">↕ ' + esc(conv.user_b.name) + '（ID: ' + esc(conv.user_b.id) + '）</div>' +
+            '</div>';
+
+            if (!msgs.length) {
+                document.getElementById('msgContainer').innerHTML = infoHtml + '<div class="text-center text-muted py-3">尚無訊息</div>';
+                return;
+            }
+
+            var msgsHtml = msgs.map(function (m) {
+                var isMine = m.sender_id === conv.user_a.id; // user_a 為左側（mine）
+                var cls = isMine ? 'mine' : 'theirs';
+                var bubble = '';
+                if (m.image_url) bubble += '<img src="' + esc(m.image_url) + '" class="msg-image mb-1" alt="圖片">';
+                if (m.body) bubble += '<div>' + esc(m.body).replace(/\n/g,'<br>') + '</div>';
+                return '<div class="msg-row ' + cls + '">' +
+                    '<div>' +
+                        '<div class="small text-muted mb-1">' + esc(m.sender_name) + '</div>' +
+                        '<div class="msg-bubble p-2 px-3">' + bubble + '</div>' +
+                        '<div class="msg-meta">' + fmtDT(m.created_at) + ' &#x2022; ID: ' + esc(m.id.slice(0,8)) + '</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+
+            document.getElementById('msgContainer').innerHTML = infoHtml + msgsHtml;
+            // 圖片點擊放大
+            document.querySelectorAll('.msg-image').forEach(function (img) {
+                img.addEventListener('click', function () {
+                    document.getElementById('imgModalSrc').src = img.src;
+                    new bootstrap.Modal(document.getElementById('imgModal')).show();
+                });
+            });
+        } catch (e) {
+            document.getElementById('msgContainer').innerHTML = '<div class="text-center text-danger py-4">載入失敗：' + esc(e.message) + '</div>';
+        }
+    }
+
+    // ── 匯出 ──────────────────────────────────────────────────────
+    document.getElementById('btnExport').addEventListener('click', function () {
+        if (!currentConvData) return;
+        var conv = currentConvData.conversation;
+        var msgs = currentConvData.messages || [];
+        var lines = [
+            '對話紀錄匯出',
+            '對話 ID: ' + conv.id,
+            '建立時間: ' + fmtDT(conv.created_at),
+            '參與者: ' + conv.user_a.name + ' / ' + conv.user_b.name,
+            '匯出時間: ' + new Date().toLocaleString('zh-TW'),
+            '================================',
+            ''
+        ];
+        msgs.forEach(function (m) {
+            lines.push('[' + fmtDT(m.created_at) + '] ' + m.sender_name + ':');
+            if (m.body) lines.push(m.body);
+            if (m.image_url) lines.push('（圖片）' + m.image_url);
+            lines.push('');
+        });
+        var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'conversation-' + conv.id.slice(0,8) + '.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    });
+
+    document.getElementById('btnClose').addEventListener('click', function () {
+        document.getElementById('msgPanel').style.display = 'none';
+        currentConvData = null;
+        document.querySelectorAll('.conv-row').forEach(function (r) { r.classList.remove('table-active'); });
+    });
+
+    document.getElementById('btnSearch').addEventListener('click', function () { currentPage = 1; loadConversations(1); });
+    document.getElementById('btnReset').addEventListener('click', function () {
+        document.getElementById('filterQ').value = '';
+        document.getElementById('filterFrom').value = '';
+        document.getElementById('filterTo').value = '';
+        currentPage = 1; loadConversations(1);
+    });
+    document.getElementById('btnPrev').addEventListener('click', function () { if (currentPage > 1) loadConversations(--currentPage); });
+    document.getElementById('btnNext').addEventListener('click', function () { if (currentPage * PER < totalCount) loadConversations(++currentPage); });
+    document.getElementById('filterQ').addEventListener('keydown', function (e) { if (e.key === 'Enter') { currentPage = 1; loadConversations(1); } });
+
+    // ── 初始化 ──────────────────────────────────────────────────
+    async function init() {
+        if (typeof AuthService === 'undefined') { setTimeout(init, 300); return; }
+        try {
+            var s = await AuthService.getSession();
+            token = s && (s.access_token || (s.session && s.session.access_token));
+        } catch (_) {}
+        if (!token) { window.location.href = '/login.html?return=' + encodeURIComponent(location.pathname); return; }
+        loadConversations(1);
+    }
+    document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
