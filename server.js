@@ -6457,7 +6457,23 @@ app.get('/api/me/favorites', async (req, res) => {
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
         if (error) return res.status(500).json({ error: '查詢失敗' });
-        res.json({ favorites: (data || []).map(r => ({ id: r.item_id, item: r.item_data, savedAt: new Date(r.created_at).getTime() })) });
+
+        // 補充最新的 manufacturer_user_id（item_data 可能是舊版沒有此欄位）
+        const rows = data || [];
+        const mfrIdsForFavs = [...new Set(rows.map(r => r.item_data?.manufacturer_id).filter(Boolean))];
+        let mfrUserIdMap = {};
+        if (mfrIdsForFavs.length > 0) {
+            const { data: mfrs } = await supabase.from('manufacturers').select('id, user_id').in('id', mfrIdsForFavs);
+            (mfrs || []).forEach(m => { mfrUserIdMap[m.id] = m.user_id || null; });
+        }
+
+        res.json({ favorites: rows.map(r => {
+            const item = r.item_data || {};
+            if (item.manufacturer_id && !item.manufacturer_user_id) {
+                item.manufacturer_user_id = mfrUserIdMap[item.manufacturer_id] || null;
+            }
+            return { id: r.item_id, item, savedAt: new Date(r.created_at).getTime() };
+        }) });
     } catch (e) {
         console.error('GET /api/me/favorites:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -6955,10 +6971,10 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
             });
         }
 
-        const mfrIds = [...new Set(list.map(p => p.manufacturer_id))];
+        const mfrIds = [...new Set(list.map(p => p.manufacturer_id).filter(Boolean))];
         let mfrMap = {};
         if (mfrIds.length > 0) {
-            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, location, categories, contact_json').in('id', mfrIds);
+            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, location, categories, contact_json, user_id').in('id', mfrIds);
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
         }
 
@@ -6968,6 +6984,7 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
             manufacturer_name: mfrMap[p.manufacturer_id]?.name || '',
             manufacturer_location: mfrMap[p.manufacturer_id]?.location || '',
             manufacturer_contact: mfrMap[p.manufacturer_id]?.contact_json || null,
+            manufacturer_user_id: mfrMap[p.manufacturer_id]?.user_id || null,
             categories: mfrMap[p.manufacturer_id]?.categories || [],
             title: p.title,
             description: p.description,

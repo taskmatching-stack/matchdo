@@ -402,8 +402,13 @@
                         const title = item.title || '（未命名）';
                         const link = item.link || '';
                         const mfrName = item.owner_display || item.manufacturer_name || '';
-                        const isPortfolio = item.type === 'comparison' || !!item.manufacturer_id || !!mfrName;
+                        const isPortfolio = item.type === 'comparison' || item.type === 'collection' || !!item.manufacturer_id || !!mfrName;
                         const mfrId = item.manufacturer_id || '';
+                        const mfrUserId = item.manufacturer_user_id || '';
+                        // 聯絡按鈕：有 user_id → 站內訊息；有 mfrId → 查看廠商頁；都沒有 → 隱藏
+                        const contactBtnHtml = mfrUserId
+                            ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrUserId)}" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</a>`
+                            : (mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>前往廠商頁聯絡</a>` : '');
                         return `<div class="col-md-6 col-lg-4">
                             <div class="card product-card h-100">
                                 ${img ? `<img src="${img}" class="card-img-top product-image" alt="${escapeHtml(title)}" onerror="this.style.display='none'">` : '<div class="product-image bg-light d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
@@ -415,7 +420,7 @@
                                     ${mfrName ? `<div class="text-muted small mb-2"><i class="bi bi-shop me-1"></i>${escapeHtml(mfrName)}</div>` : ''}
                                     <div class="mt-auto d-grid gap-2 pt-2">
                                         ${isPortfolio && mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>查看廠商</a>` : ''}
-                                        ${isPortfolio ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrId || '')}" class="btn btn-primary btn-sm"><i class="bi bi-chat-dots me-1"></i>聯絡廠商</a>` : ''}
+                                        ${isPortfolio && contactBtnHtml ? contactBtnHtml : ''}
                                         ${link ? `<a href="${link}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>查看原始</a>` : ''}
                                         <button class="btn btn-outline-danger btn-sm btn-unfav" data-fav-id="${escapeHtml(f.id)}"><i class="bi bi-heart me-1"></i>取消收藏</button>
                                     </div>

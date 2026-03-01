@@ -1816,8 +1816,11 @@
                                         <div class="progress-bar bg-success" role="progressbar" style="width: ${score}%">${score}%</div>
                                     </div>
                                     <button type="button" class="btn btn-primary w-100 mb-2" data-expert-id="${item.expert_id}" data-expert-name="${escapeHtml(item.expert_name || '廠商')}" onclick="contactExpert(this)">
-                                        <i class="fas fa-envelope me-2"></i>立即聯繫
+                                        <i class="fas fa-comments me-2"></i>站內對話（此頁）
                                     </button>
+                                    <a href="/client/messages.html?open=${encodeURIComponent(item.expert_id)}" class="btn btn-success w-100 mb-2">
+                                        <i class="fas fa-paper-plane me-2"></i>前往訊息頁
+                                    </a>
                                     <button class="btn btn-outline-danger btn-sm w-100" onclick="removeMatchedExpert('${item.match_id}', this)" title="從廠商列表移除此筆">
                                         <i class="fas fa-times me-1"></i>移除此廠商
                                     </button>
