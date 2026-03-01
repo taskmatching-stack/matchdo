@@ -9138,6 +9138,13 @@ app.get('/api/direct-conversations/:conversationId/messages', async (req, res) =
         const { data: messages, error: mErr } = await supabase.from('direct_messages').select('id, sender_id, body, image_url, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true });
         if (mErr) return res.status(500).json({ error: '讀取訊息失敗' });
         const list = (messages || []).map(m => ({ id: m.id, sender_id: m.sender_id, body: m.body, image_url: m.image_url || null, created_at: m.created_at, is_mine: m.sender_id === user.id }));
+        if (list.length > 0) {
+            const msgIds = list.map(m => m.id);
+            const { data: translations } = await supabase.from('direct_message_translations').select('message_id, translated_text, target_lang').in('message_id', msgIds).eq('user_id', user.id);
+            const trMap = {};
+            (translations || []).forEach(t => { trMap[t.message_id] = { translated_text: t.translated_text, target_lang: t.target_lang || '' }; });
+            list.forEach(m => { if (trMap[m.id]) m.translation = trMap[m.id]; });
+        }
         res.json({ messages: list });
     } catch (e) {
         console.error('GET /api/direct-conversations/:id/messages:', e);
@@ -9217,7 +9224,7 @@ app.post('/api/direct-conversations/:conversationId/messages/asset-url', express
     }
 });
 
-// POST /api/direct-messages/:msgId/translate — 翻譯單則訊息（扣 1 點）
+// POST /api/direct-messages/:msgId/translate — 翻譯單則訊息（扣 1 點；已有儲存則直接回傳不扣點）
 app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, res) => {
     try {
         const user = await getAuthUser(req);
@@ -9231,6 +9238,19 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
         if (!conv || (conv.user_a_id !== user.id && conv.user_b_id !== user.id)) return res.status(403).json({ error: '僅參與者可翻譯' });
         const originalText = (msg.body || '').trim();
         if (!originalText) return res.status(400).json({ error: '此訊息無文字可翻譯' });
+        // 已有儲存翻譯：直接回傳，不扣點
+        const { data: existing } = await supabase.from('direct_message_translations').select('translated_text, target_lang, source_lang').eq('message_id', msgId).eq('user_id', user.id).maybeSingle();
+        if (existing && (existing.translated_text || '').trim()) {
+            const { data: credits } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+            return res.json({
+                original_text: originalText,
+                translated_text: (existing.translated_text || '').trim(),
+                source_lang: existing.source_lang || '',
+                target_lang: existing.target_lang || '',
+                points_used: 0,
+                balance_after: credits?.balance ?? null
+            });
+        }
         // admin / tester 不扣點
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
         const isPrivileged = profile?.role === 'admin' || profile?.role === 'tester';
@@ -9269,6 +9289,11 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
         } else {
             return res.status(500).json({ error: '翻譯服務未設定' });
         }
+        // 儲存翻譯，之後同一則再按翻譯不重複扣點
+        await supabase.from('direct_message_translations').upsert(
+            { message_id: msgId, user_id: user.id, translated_text: translated, target_lang: targetLang || null, source_lang: sourceLang || null },
+            { onConflict: 'message_id,user_id' }
+        ).catch((e) => console.warn('direct_message_translations upsert:', e?.message));
         res.json({ original_text: originalText, translated_text: translated, source_lang: sourceLang, target_lang: targetLang, points_used: isPrivileged ? 0 : 1, balance_after: newBalance });
     } catch (e) {
         console.error('POST /api/direct-messages/:msgId/translate:', e);
