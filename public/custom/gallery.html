@@ -320,19 +320,26 @@
         const mfrUserId = p.manufacturer_user_id || null;
         const mfrId = p.manufacturer_id || null;
 
-        // 查看廠商按鈕
+        // ── 查看廠商按鈕 ──
         if (profileBtn) {
             if (mfrId) {
                 profileBtn.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+                profileBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商';
                 profileBtn.style.display = '';
             } else {
-                profileBtn.style.display = 'none';
+                // 沒有廠商資料：改為瀏覽廠商列表
+                profileBtn.href = '/vendors.html';
+                profileBtn.innerHTML = '<i class="bi bi-building me-1"></i>瀏覽廠商列表';
+                profileBtn.style.display = '';
             }
         }
 
-        // 站內聯絡按鈕（button 元素）
+        // ── 站內聯絡按鈕 ──
+        contactBtn.onclick = null;
         if (mfrUserId) {
+            // 有站內帳號 → 直接站內聯絡
             contactBtn.style.display = '';
+            contactBtn.className = 'btn btn-success btn-sm';
             contactBtn.innerHTML = '<i class="bi bi-chat-dots me-1"></i>站內聯絡廠商';
             contactBtn.onclick = async function() {
                 if (typeof AuthService !== 'undefined') {
@@ -342,20 +349,28 @@
                 }
                 window.location.href = '/client/messages.html?open=' + encodeURIComponent(mfrUserId);
             };
+        } else if (contact.url) {
+            contactBtn.style.display = '';
+            contactBtn.className = 'btn btn-outline-secondary btn-sm';
+            contactBtn.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>前往賣場/官網';
+            contactBtn.onclick = function() { window.open(contact.url, '_blank'); };
+        } else if (contact.email) {
+            contactBtn.style.display = '';
+            contactBtn.className = 'btn btn-outline-secondary btn-sm';
+            contactBtn.innerHTML = '<i class="bi bi-envelope me-1"></i>寫信聯繫';
+            contactBtn.onclick = function() { window.location.href = 'mailto:' + contact.email; };
+        } else if (mfrId) {
+            // 有廠商ID但沒有聯絡資訊 → 引導到廠商頁
+            contactBtn.style.display = '';
+            contactBtn.className = 'btn btn-outline-primary btn-sm';
+            contactBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>前往廠商頁';
+            contactBtn.onclick = function() { window.location.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId); };
         } else {
-            // 無站內帳號：降級顯示外部聯絡
-            contactBtn.onclick = null;
-            if (contact.url) {
-                contactBtn.style.display = '';
-                contactBtn.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>前往賣場/官網';
-                contactBtn.onclick = function() { window.open(contact.url, '_blank'); };
-            } else if (contact.email) {
-                contactBtn.style.display = '';
-                contactBtn.innerHTML = '<i class="bi bi-envelope me-1"></i>寫信聯繫';
-                contactBtn.onclick = function() { window.location.href = 'mailto:' + contact.email; };
-            } else {
-                contactBtn.style.display = 'none';
-            }
+            // 完全沒資料（demo 佔位）→ 引導到廠商列表
+            contactBtn.style.display = '';
+            contactBtn.className = 'btn btn-outline-secondary btn-sm';
+            contactBtn.innerHTML = '<i class="bi bi-search me-1"></i>找廠商';
+            contactBtn.onclick = function() { window.location.href = '/vendors.html'; };
         }
 
         const redesignUrl = '/custom-product.html?from_gallery=1&image_url=' + encodeURIComponent(p.image_url || '') + '&portfolio_id=' + encodeURIComponent(p.id || '');
