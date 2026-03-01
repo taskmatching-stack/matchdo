@@ -317,12 +317,12 @@
             var searchBtn = document.getElementById('media-wall-search-btn');
             if (!grid) return;
 
-            /* ═══ 我的最愛（含 DB 同步） ═══ */
-            var FAV_KEY = 'mw_favorites';
-            var favCache = null;          // 記憶體快取
+            /* ═══ 我的最愛（登入才可用，同步雲端） ═══ */
+            var favCache = null;          // 記憶體快取，null 表示尚未從 DB 載入
+            var favUserLoggedIn = false;  // 是否已登入
             var showingFavoritesOnly = false;
 
-            // 取 Auth token（登入時用）
+            // 取 Auth token
             async function getFavToken() {
                 if (typeof AuthService === 'undefined') return null;
                 try {
@@ -331,30 +331,39 @@
                 } catch(e) { return null; }
             }
 
-            // 讀本地快取（含 localStorage fallback）
-            function loadFavs() {
-                if (favCache !== null) return favCache;
-                try { return JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return []; }
+            // 顯示登入提示 toast
+            function showLoginToast() {
+                var existing = document.getElementById('mw-login-toast');
+                if (existing) existing.remove();
+                var t = document.createElement('div');
+                t.id = 'mw-login-toast';
+                t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#445D7E;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:0.9rem;box-shadow:0 4px 12px rgba(0,0,0,.25);display:flex;align-items:center;gap:10px;';
+                t.innerHTML = '<i class="bi bi-person-circle"></i> 請先登入才能使用收藏功能 <a href="/login.html" style="color:#ffd;text-decoration:underline;white-space:nowrap;">前往登入</a>';
+                document.body.appendChild(t);
+                setTimeout(function() { if (t.parentNode) t.remove(); }, 3500);
             }
 
-            // 寫本地快取 + localStorage
+            // 讀快取
+            function loadFavs() { return favCache || []; }
+
+            // 寫快取 + 更新過濾按鈕計數
             function saveFavs(arr) {
                 favCache = arr;
-                try { localStorage.setItem(FAV_KEY, JSON.stringify(arr)); } catch(e) {}
-                // 更新收藏過濾按鈕計數
                 var btn = document.getElementById('mw-fav-filter-btn');
                 if (btn) {
                     var n = arr.length;
-                    btn.querySelector('.fav-count') && (btn.querySelector('.fav-count').textContent = n ? ' (' + n + ')' : '');
+                    var countEl = btn.querySelector('.fav-count');
+                    if (countEl) countEl.textContent = n ? ' (' + n + ')' : '';
                 }
             }
 
             function isFavorite(id) { return loadFavs().some(function(f){ return f.id === String(id); }); }
 
-            // 從 DB 拉取並覆蓋本地（登入時呼叫）
+            // 從 DB 拉取（登入後呼叫）
             async function syncFavsFromDB() {
                 var token = await getFavToken();
-                if (!token) return;
+                if (!token) { favUserLoggedIn = false; return; }
+                favUserLoggedIn = true;
                 try {
                     var r = await fetch('/api/me/favorites', { headers: { Authorization: 'Bearer ' + token } });
                     if (!r.ok) return;
@@ -362,11 +371,10 @@
                     var dbFavs = (d.favorites || []).map(function(f){ return { id: f.id, item: f.item || {}, savedAt: f.savedAt || Date.now() }; });
                     saveFavs(dbFavs);
                     updateAllFavButtons();
-                    renderFavSection();
                 } catch(e) { console.warn('收藏 DB 同步失敗:', e); }
             }
 
-            // 重新同步格線上所有愛心按鈕狀態
+            // 重新同步格線所有愛心按鈕
             function updateAllFavButtons() {
                 grid.querySelectorAll('.mw-fav-btn').forEach(function(btn) {
                     var favId = btn.getAttribute('data-fav-id');
@@ -378,34 +386,34 @@
                 });
             }
 
-            // 切換收藏（本地即時 + DB 背景同步）
+            // 切換收藏（未登入 → 提示登入；登入 → 即時更新記憶體 + 背景寫 DB）
             async function toggleFavorite(id, item, btn) {
+                if (!favUserLoggedIn) { showLoginToast(); return; }
                 var favs = loadFavs();
                 var idx = favs.findIndex(function(f){ return f.id === String(id); });
                 var isNowFaved;
                 if (idx >= 0) {
                     favs.splice(idx, 1);
                     isNowFaved = false;
-                    if (btn) btn.classList.remove('active');
                 } else {
                     favs.push({ id: String(id), item: item || {}, savedAt: Date.now() });
                     isNowFaved = true;
-                    if (btn) btn.classList.add('active');
                 }
+                saveFavs(favs);
+                // 即時更新按鈕外觀
                 if (btn) {
+                    btn.classList.toggle('active', isNowFaved);
                     var icon = btn.querySelector('i');
                     if (icon) icon.className = isNowFaved ? 'bi bi-heart-fill' : 'bi bi-heart';
                     btn.title = isNowFaved ? '已加入收藏' : '加入收藏';
                 }
-                saveFavs(favs);
-                // 若正在顯示收藏模式，移除後即時更新
+                // 若正在顯示收藏模式且取消收藏，即時移除卡片
                 if (showingFavoritesOnly && !isNowFaved) {
                     var wrap = btn && btn.closest('.media-wall-item');
                     if (wrap) wrap.remove();
                     if (!grid.querySelector('.media-wall-item')) renderFavoritesEmptyState();
                 }
-                renderFavSection();
-                // 背景同步 DB
+                // 背景寫 DB
                 var token = await getFavToken();
                 if (token) {
                     try {
@@ -665,6 +673,7 @@
             var favFilterBtn = document.getElementById('mw-fav-filter-btn');
             if (favFilterBtn) {
                 favFilterBtn.addEventListener('click', function () {
+                    if (!favUserLoggedIn) { showLoginToast(); return; }
                     showingFavoritesOnly = !showingFavoritesOnly;
                     favFilterBtn.classList.toggle('btn-danger', showingFavoritesOnly);
                     favFilterBtn.classList.toggle('btn-outline-secondary', !showingFavoritesOnly);
@@ -678,17 +687,29 @@
                 });
             }
 
-            // 頁面載入後同步 DB 收藏（登入狀態下）
+            // 頁面載入後同步 DB 收藏（僅登入時）
             (function () {
-                // 先用 localStorage 渲染，再同步 DB
-                renderFavSection();
-                var countEl = favFilterBtn && favFilterBtn.querySelector('.fav-count');
-                if (countEl) { var n = loadFavs().length; countEl.textContent = n ? ' (' + n + ')' : ''; }
                 if (typeof AuthService !== 'undefined') {
                     AuthService.onAuthStateChange(function (event, session) {
-                        if (session && session.user) syncFavsFromDB();
+                        if (session && session.user) {
+                            syncFavsFromDB();
+                        } else {
+                            // 登出：清空快取、重設按鈕
+                            favUserLoggedIn = false;
+                            saveFavs([]);
+                            updateAllFavButtons();
+                            if (showingFavoritesOnly) {
+                                showingFavoritesOnly = false;
+                                if (favFilterBtn) {
+                                    favFilterBtn.classList.remove('btn-danger');
+                                    favFilterBtn.classList.add('btn-outline-secondary');
+                                    var icon = favFilterBtn.querySelector('i');
+                                    if (icon) icon.className = 'bi bi-heart me-1';
+                                }
+                                loadMediaWall(1, '', false, adminOpts);
+                            }
+                        }
                     });
-                    // 也主動嘗試一次
                     syncFavsFromDB();
                 }
             })();
