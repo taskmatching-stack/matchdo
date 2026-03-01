@@ -6410,53 +6410,48 @@ app.post('/api/me/manufacturer', express.json(), async (req, res) => {
     }
 });
 
-// GET /api/service-areas — 前台讀取服務地區列表（公開，無需登入）
+// GET /api/service-areas — 前台讀取服務地區列表（公開，含子地區）
 app.get('/api/service-areas', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('service_areas')
-            .select('code, name_zh, name_en, group_code, group_zh, group_en, sort_order')
+            .select('code, name_zh, name_en, group_code, group_zh, group_en, sort_order, parent_code')
             .eq('is_active', true)
-            .order('group_code', { ascending: true })
-            .order('sort_order', { ascending: true });
+            .order('group_code').order('sort_order').order('code');
         if (error) throw error;
-        // 轉換為 area-codes.js 相同的 groups 結構，前台可直接替換
+        const rows = data || [];
+        // 分離頂層（parent_code IS NULL）與子地區
+        const topLevel = rows.filter(r => !r.parent_code);
+        const children = rows.filter(r => r.parent_code);
+        // 建 children map
+        const childMap = {};
+        children.forEach(function(c) {
+            if (!childMap[c.parent_code]) childMap[c.parent_code] = [];
+            childMap[c.parent_code].push({ code: c.code, zh: c.name_zh, en: c.name_en });
+        });
+        // 建 groups 結構
         const groupMap = {};
-        (data || []).forEach(function(row) {
+        topLevel.forEach(function(row) {
             if (!groupMap[row.group_code]) {
-                groupMap[row.group_code] = {
-                    code: row.group_code,
-                    zh:   row.group_zh,
-                    en:   row.group_en,
-                    cities: []
-                };
+                groupMap[row.group_code] = { code: row.group_code, zh: row.group_zh, en: row.group_en, cities: [] };
             }
-            groupMap[row.group_code].cities.push({
-                code: row.code,
-                zh:   row.name_zh,
-                en:   row.name_en
-            });
+            const city = { code: row.code, zh: row.name_zh, en: row.name_en };
+            if (childMap[row.code] && childMap[row.code].length > 0) city.cities = childMap[row.code];
+            groupMap[row.group_code].cities.push(city);
         });
-        // 依大區固定順序排列（台灣北中南東離島 → 海外）
         const ORDER = ['TW-N','TW-C','TW-S','TW-E','TW-O','OVERSEAS'];
-        const groups = ORDER
-            .filter(function(k){ return groupMap[k]; })
-            .map(function(k){ return groupMap[k]; });
-        // 其餘未在 ORDER 的大區加到最後
-        Object.keys(groupMap).forEach(function(k){
-            if (ORDER.indexOf(k) === -1) groups.push(groupMap[k]);
-        });
+        const groups = ORDER.filter(k => groupMap[k]).map(k => groupMap[k]);
+        Object.keys(groupMap).forEach(function(k){ if (!ORDER.includes(k)) groups.push(groupMap[k]); });
         res.json({ groups });
     } catch (e) {
         console.error('GET /api/service-areas 異常:', e);
-        // 降級：回傳空陣列，前台會 fallback 到 area-codes.js
         res.status(500).json({ groups: [] });
     }
 });
 
 // ── Admin 服務地區 CRUD ────────────────────────────────────────
 
-// GET /api/admin/service-areas
+// GET /api/admin/service-areas — 回傳完整階層（group → top-level → sub-areas）
 app.get('/api/admin/service-areas', async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
@@ -6473,20 +6468,26 @@ app.get('/api/admin/service-areas', async (req, res) => {
     }
 });
 
-// POST /api/admin/service-areas — 新增一筆
+// POST /api/admin/service-areas — 新增（支援 parent_code 子地區）
 app.post('/api/admin/service-areas', express.json(), async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
-        const { code, name_zh, name_en, group_code, group_zh, group_en, sort_order } = req.body || {};
+        const { code, name_zh, name_en, group_code, group_zh, group_en, sort_order, parent_code } = req.body || {};
         if (!code || !name_zh || !name_en || !group_code) return res.status(400).json({ error: '請填寫 code、中文名、英文名、大區 code' });
-        const { data, error } = await supabase.from('service_areas')
-            .insert({ code: code.trim().toUpperCase(), name_zh: name_zh.trim(), name_en: name_en.trim(), group_code: group_code.trim().toUpperCase(), group_zh: (group_zh||'').trim(), group_en: (group_en||'').trim(), sort_order: parseInt(sort_order)||0 })
-            .select().single();
+        const row = {
+            code: code.trim().toUpperCase(),
+            name_zh: name_zh.trim(), name_en: name_en.trim(),
+            group_code: group_code.trim().toUpperCase(),
+            group_zh: (group_zh||'').trim(), group_en: (group_en||'').trim(),
+            sort_order: parseInt(sort_order)||0,
+            parent_code: parent_code ? parent_code.trim().toUpperCase() : null
+        };
+        const { data, error } = await supabase.from('service_areas').insert(row).select().single();
         if (error) throw error;
         res.json({ area: data });
     } catch (e) {
-        const msg = e.code === '23505' ? 'code 已存在，請使用不同的 code' : (e.message || '新增失敗');
+        const msg = (e.code === '23505') ? 'code 已存在' : (e.message || '新增失敗');
         res.status(400).json({ error: msg });
     }
 });

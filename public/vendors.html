@@ -72,7 +72,13 @@
         .filter-tag.filter-sub:hover { border-color: #445D7E; color: #445D7E; background: #f0f4f8; }
         .filter-tag.filter-sub.active { border-color: #445D7E; color: #fff; background: #445D7E; }
         .filter-tag.area-group-open { background: #f0f4f8; }
+        .filter-tag.country-tag { font-size:0.76rem; border-color:#7a9ac5; color:#445D7E; }
+        .filter-tag.country-tag.active { background:#445D7E; color:#fff; }
+        .filter-tag.country-tag.area-group-open { background:#e8f0f8; }
+        .filter-tag.subcity-tag { font-size:0.72rem; padding:0.15rem 0.4rem; border-color:#aab5c5; color:#5c6470; }
+        .filter-tag.subcity-tag.active { background:#445D7E; color:#fff; border-color:#445D7E; }
         .area-cities-row { border-left: 2px solid #445D7E; padding-left: 0.5rem; background: #f8fafc; border-radius: 0 4px 4px 0; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .area-subcities-row { border-left: 2px dashed #7a9ac5; padding-left: 0.4rem; background: #f0f5ff; border-radius: 0 4px 4px 0; padding-top: 0.2rem; padding-bottom: 0.2rem; margin-left: 0.5rem; }
 
         /* ── 廠商卡片 ── */
         .vendor-card {
@@ -539,7 +545,8 @@
             return (document.documentElement.lang || 'zh-TW').startsWith('en') ? 'en' : 'zh';
         }
 
-        var _expandedGroups = {}; // 記錄哪些大區已展開
+        var _expandedGroups = {};   // 記錄哪些大區已展開
+        var _expandedCountry = {};  // 記錄哪些國家已展開子城市
 
         function renderAreaFilter() {
             var lang = getCurrentLang();
@@ -555,7 +562,12 @@
             // 第一層：大區標籤列
             var html = '<div class="d-flex flex-wrap gap-1 mb-1">';
             groups.forEach(function(g) {
-                var selCount = (g.cities || []).filter(function(c){ return state.selectedAreas.indexOf(c.code) >= 0; }).length;
+                var allCodes = [];
+                (g.cities||[]).forEach(function(c){
+                    allCodes.push(c.code);
+                    (c.cities||[]).forEach(function(s){ allCodes.push(s.code); });
+                });
+                var selCount = allCodes.filter(function(c){ return state.selectedAreas.indexOf(c) >= 0; }).length;
                 var isExp = !!_expandedGroups[g.code];
                 var cls = 'filter-tag' + (selCount > 0 ? ' active' : '') + (isExp ? ' area-group-open' : '');
                 var label = lang === 'en' ? g.en : g.zh;
@@ -564,15 +576,38 @@
             });
             html += '</div>';
 
-            // 第二層：已展開大區的小區標籤
+            // 第二層：已展開大區的縣市/國家標籤
             groups.forEach(function(g) {
                 if (!_expandedGroups[g.code]) return;
-                html += '<div class="area-cities-row mb-1 ps-1" data-cities-for="' + g.code + '">';
+                html += '<div class="area-cities-row mb-1 ps-1">';
                 html += '<span class="text-muted me-1" style="font-size:.7rem;">' + (lang==='en'?g.en:g.zh) + '：</span>';
                 (g.cities || []).forEach(function(c) {
-                    var active = state.selectedAreas.indexOf(c.code) >= 0 ? ' active' : '';
+                    var hasSub = c.cities && c.cities.length > 0;
                     var lbl = lang === 'en' ? c.en : c.zh;
-                    html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + c.code + '">' + lbl + '</span> ';
+                    if (hasSub) {
+                        var subSel = (c.cities||[]).filter(function(s){ return state.selectedAreas.indexOf(s.code) >= 0; }).length;
+                        var selfSel = state.selectedAreas.indexOf(c.code) >= 0;
+                        var isOpen = !!_expandedCountry[c.code];
+                        var cls = 'filter-tag country-tag' + (selfSel || subSel > 0 ? ' active' : '') + (isOpen ? ' area-group-open' : '');
+                        var cnt = subSel > 0 ? ' <small style="font-size:.68em;">(' + subSel + ')</small>' : '';
+                        html += '<span class="' + cls + '" role="button" tabindex="0" data-country="' + c.code + '">' + lbl + cnt + '</span> ';
+                    } else {
+                        var active = state.selectedAreas.indexOf(c.code) >= 0 ? ' active' : '';
+                        html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + c.code + '">' + lbl + '</span> ';
+                    }
+                });
+                // 第三層：已展開國家的子城市
+                (g.cities || []).forEach(function(c) {
+                    if (!c.cities || !c.cities.length || !_expandedCountry[c.code]) return;
+                    html += '<div class="area-subcities-row mt-1">';
+                    html += '<small class="text-muted me-1">' + (lang==='en'?c.en:c.zh) + '：</small>';
+                    var selfActive = state.selectedAreas.indexOf(c.code) >= 0 ? ' active' : '';
+                    html += '<span class="filter-tag subcity-tag' + selfActive + '" role="button" tabindex="0" data-area="' + c.code + '">' + (lang==='en'?'All':'全國') + '</span> ';
+                    (c.cities||[]).forEach(function(s) {
+                        var sa = state.selectedAreas.indexOf(s.code) >= 0 ? ' active' : '';
+                        html += '<span class="filter-tag subcity-tag' + sa + '" role="button" tabindex="0" data-area="' + s.code + '">' + (lang==='en'?s.en:s.zh) + '</span> ';
+                    });
+                    html += '</div>';
                 });
                 html += '</div>';
             });
@@ -589,7 +624,17 @@
                 tag.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();tag.click();} });
             });
 
-            // 綁定小區點擊 → 選取/取消
+            // 綁定國家點擊 → 展開子城市
+            $wrap.querySelectorAll('[data-country]').forEach(function(tag) {
+                tag.addEventListener('click', function() {
+                    var code = tag.getAttribute('data-country');
+                    _expandedCountry[code] = !_expandedCountry[code];
+                    renderAreaFilter();
+                });
+                tag.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();tag.click();} });
+            });
+
+            // 綁定地區點擊 → 選取/取消
             $wrap.querySelectorAll('[data-area]').forEach(function(tag) {
                 tag.addEventListener('click', function() {
                     var code = tag.getAttribute('data-area');
