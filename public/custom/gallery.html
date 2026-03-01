@@ -369,45 +369,16 @@
         modal.show();
     }
 
-    // ── 舊格式 key 的中文對照（廠商資料不動，只在顯示時翻譯）
-    const LEGACY_CAT_NAMES = {
-        'apparel':        '服飾',
-        'furniture':      '傢俱',
-        'interior':       '室內設計',
-        'metalwork':      '金屬工藝',
-        'art':            '藝術/手作',
-        'textile':        '布藝/紡織',
-        '3d_printing':    '3D列印',
-        'prototype':      '原型製作',
-        'ceramic':        '陶藝',
-        'sofa_furniture': '沙發/傢俱',
-        'sports_goods':   '運動用品',
-        'bag':            '包袋',
-        'leather':        '皮革',
-        'jewelry':        '珠寶',
-        'shoes':          '鞋類',
-        'electronics':    '電子產品',
-        'toy':            '玩具/模型',
-        'food':           '食品/包裝',
-        'medical':        '醫療器材',
-        'outdoor':        '戶外用品',
-    };
-
-    // key → 中文名（新格式 key 從 API 取，舊格式 key 從 LEGACY_CAT_NAMES 取）
+    // key → 中文名（全部從資料庫 custom_product_categories 取）
     let catNameMap = {};
 
     async function loadCategories() {
-        // 從 custom_product_categories 取新格式 key 的中文名
         try {
             const r = await fetch(CATEGORIES_API);
             const d = await r.json();
             (d.categories||[]).forEach(c => { catNameMap[c.key] = c.name; });
         } catch(_) {}
-        // 舊格式 key 補充（不覆蓋已有的新格式對照）
-        Object.entries(LEGACY_CAT_NAMES).forEach(([k,v]) => {
-            if (!catNameMap[k]) catNameMap[k] = v;
-        });
-        // 分類從已載入的 _rawItems 動態產生
+        // 分類從已載入的 _rawItems 動態產生（名稱從 catNameMap 查，查不到顯示 key）
         buildCategoriesFromItems();
     }
 
