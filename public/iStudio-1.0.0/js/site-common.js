@@ -42,7 +42,7 @@
     }
   }
   document.addEventListener('DOMContentLoaded', async function(){
-    await inject('site-header', '/iStudio-1.0.0/partials/header.html');
+    // 導覽列改由全站 /js/site-header.js 渲染，不再注入舊 partial，避免錯誤引用
     await inject('site-footer', '/iStudio-1.0.0/partials/footer.html');
     await buildMenu();
     var ga4 = document.createElement('script');
