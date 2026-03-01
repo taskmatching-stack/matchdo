@@ -423,22 +423,44 @@ async function getGalleryComparisonItems() {
     try {
         const { data: compRows } = await supabase
             .from('manufacturer_portfolio')
-            .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight')
+            .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, category_key')
+            .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false })
-            .limit(50);
-        const out = (compRows || []).map(p => ({
-            id: p.id,
-            manufacturer_id: p.manufacturer_id,
-            title: p.title || '廠商作品',
-            image_url: p.image_url || null,
-            image_url_before: p.image_url_before || null,
-            design_highlight: p.design_highlight || null,
-            manufacturer_name: '廠商作品',
-            manufacturer_location: '',
-            manufacturer_contact: null,
-            tags: [],
-            description: null
-        }));
+            .limit(100);
+
+        const rows = compRows || [];
+        // Batch-fetch manufacturer info for joined display
+        const mfrIds = [...new Set(rows.map(r => r.manufacturer_id).filter(Boolean))];
+        let mfrMap = {};
+        if (mfrIds.length) {
+            const { data: mfrs } = await supabase
+                .from('manufacturers')
+                .select('id, name, location, contact_json, categories')
+                .in('id', mfrIds)
+                .eq('is_active', true);
+            (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
+        }
+
+        const out = rows.map(p => {
+            const mfr = mfrMap[p.manufacturer_id] || {};
+            const contact = mfr.contact_json || {};
+            return {
+                id: p.id,
+                manufacturer_id: p.manufacturer_id || null,
+                title: p.title || '廠商作品',
+                image_url: p.image_url || null,
+                image_url_before: p.image_url_before || null,
+                design_highlight: p.design_highlight || null,
+                description: p.description || null,
+                tags: p.tags || [],
+                category_key: p.category_key || null,
+                manufacturer_name: mfr.name || '廠商作品',
+                manufacturer_location: mfr.location || '',
+                manufacturer_categories: mfr.categories || [],
+                manufacturer_contact: Object.keys(contact).length ? contact : null
+            };
+        });
+
         if (out.length === 0) {
             out.push({
                 id: 'demo-comparison',
@@ -447,11 +469,13 @@ async function getGalleryComparisonItems() {
                 image_url: 'https://placehold.co/400x300/555/aaa?text=%E5%AF%A6%E5%93%81',
                 image_url_before: 'https://placehold.co/400x300/888/ccc?text=%E6%A6%82%E5%BF%B5',
                 design_highlight: null,
+                description: null,
+                tags: [],
+                category_key: null,
                 manufacturer_name: '廠商作品',
                 manufacturer_location: '',
-                manufacturer_contact: null,
-                tags: [],
-                description: null
+                manufacturer_categories: [],
+                manufacturer_contact: null
             });
         }
         return out;
@@ -464,6 +488,7 @@ async function getGalleryComparisonItems() {
             image_url_before: 'https://placehold.co/400x300/888/ccc?text=%E6%A6%82%E5%BF%B5',
             manufacturer_name: '廠商作品',
             manufacturer_location: '',
+            manufacturer_categories: [],
             manufacturer_contact: null,
             tags: [],
             description: null

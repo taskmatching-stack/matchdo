@@ -16,12 +16,21 @@
         body.modal-open { overflow: hidden; padding-right: 0 !important; margin-right: 0 !important; }
         #galleryModal { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
         #galleryModal .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
-        /* 圖庫卡片整齊：固定比例、圖片覆蓋、等高 */
         #galleryGrid .gallery-card { transition: transform .15s ease, box-shadow .15s ease; }
         #galleryGrid .gallery-card:hover { transform: translateY(-2px); box-shadow: 0 .25rem .5rem rgba(0,0,0,.1) !important; }
         #galleryGrid .ratio img { object-fit: cover; width: 100%; height: 100%; }
         #galleryGrid .card-body { min-height: 4rem; display: flex; flex-direction: column; justify-content: flex-start; }
         #galleryGrid .card-title { line-height: 1.3; }
+        /* 地區篩選 */
+        .filter-section { border: 1px solid #e9ecef; border-radius: 10px; padding: 12px 16px; background: #fafbfc; margin-bottom: 18px; }
+        .filter-section .filter-label { font-size: .8rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+        .area-btn { border-radius: 20px; font-size: .82rem; padding: 3px 12px; border: 1px solid #dee2e6; background: #fff; color: #495057; cursor: pointer; transition: all .12s; }
+        .area-btn:hover { border-color: #0d6efd; color: #0d6efd; }
+        .area-btn.active { background: #0d6efd; border-color: #0d6efd; color: #fff; }
+        .active-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .active-filter-tag { background: #e8f0fe; color: #1a56db; border-radius: 20px; font-size: .78rem; padding: 2px 10px; display: flex; align-items: center; gap: 4px; }
+        .active-filter-tag button { background: none; border: none; padding: 0; line-height: 1; color: inherit; font-size: .8rem; cursor: pointer; }
+        #filterResultCount { font-size: .85rem; color: #6c757d; }
     </style>
 </head>
 <body>
@@ -32,21 +41,41 @@
         <p class="text-muted mb-4" data-i18n="gallery.desc">瀏覽廠商作品，用關鍵字或分類篩選；點選作品可查看廠商資訊、聯繫廠商或加入再設計。</p>
 
         <!-- 篩選列 -->
-        <div class="row align-items-center mb-4 g-3">
-            <div class="col-md-5 col-lg-4">
-                <div class="input-group">
-                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                    <input type="text" id="galleryKeyword" class="form-control" data-i18n-placeholder="gallery.placeholder" placeholder="關鍵字搜尋標題、標籤" autocomplete="off">
-                </div>
-            </div>
-            <div class="col-md-7 col-lg-8">
-                <div class="d-flex flex-wrap align-items-center gap-2">
-                    <span class="text-muted small" data-i18n="gallery.categoryLabel">分類：</span>
-                    <div class="d-flex flex-wrap gap-2" id="galleryCategories">
-                        <button type="button" class="btn btn-primary btn-sm active" data-category="" data-i18n="gallery.all">全部</button>
-                        <!-- 動態填入 -->
+        <div class="filter-section">
+            <div class="row g-3 align-items-start">
+                <!-- 關鍵字 -->
+                <div class="col-md-4">
+                    <div class="filter-label">關鍵字</div>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                        <input type="text" id="galleryKeyword" class="form-control" placeholder="搜尋標題、標籤…" autocomplete="off">
                     </div>
                 </div>
+                <!-- 分類 -->
+                <div class="col-md-8">
+                    <div class="filter-label">分類</div>
+                    <div class="d-flex flex-wrap gap-1" id="galleryCategories">
+                        <button type="button" class="area-btn active" data-category-key="">全部</button>
+                    </div>
+                </div>
+                <!-- 地區 -->
+                <div class="col-12">
+                    <div class="filter-label">服務地區</div>
+                    <div class="d-flex flex-wrap gap-1" id="galleryAreaBtns">
+                        <button type="button" class="area-btn active" data-area="">全部地區</button>
+                        <button type="button" class="area-btn" data-area="north">北部</button>
+                        <button type="button" class="area-btn" data-area="central">中部</button>
+                        <button type="button" class="area-btn" data-area="south">南部</button>
+                        <button type="button" class="area-btn" data-area="east">東部</button>
+                        <button type="button" class="area-btn" data-area="island">離島</button>
+                        <button type="button" class="area-btn" data-area="overseas">海外</button>
+                    </div>
+                </div>
+            </div>
+            <!-- 已選篩選條件 + 結果數 -->
+            <div class="d-flex justify-content-between align-items-center mt-2" id="filterStatusRow" style="display:none!important">
+                <div class="active-filters" id="activeFilters"></div>
+                <div id="filterResultCount"></div>
             </div>
         </div>
 
@@ -119,7 +148,21 @@
     let allItems = [];
     let categoryList = [];
     let selectedCategoryKey = '';
+    let selectedArea = '';
     let keywordTimer = null;
+
+    // 地區關鍵字對應（用於比對 manufacturer_location 文字）
+    const AREA_KEYWORDS = {
+        north:    ['台北', '臺北', '新北', '基隆', '桃園', '新竹', '宜蘭'],
+        central:  ['台中', '臺中', '苗栗', '彰化', '南投', '雲林'],
+        south:    ['台南', '臺南', '高雄', '嘉義', '屏東'],
+        east:     ['花蓮', '台東', '臺東'],
+        island:   ['澎湖', '金門', '馬祖', '連江', '離島'],
+        overseas: []   // 不在以上任一組 = 海外
+    };
+    const TW_ALL_KEYWORDS = Object.entries(AREA_KEYWORDS)
+        .filter(([k]) => k !== 'overseas')
+        .flatMap(([, v]) => v);
 
     const $loading = document.getElementById('galleryLoading');
     const $empty = document.getElementById('galleryEmpty');
@@ -127,18 +170,23 @@
     const $categories = document.getElementById('galleryCategories');
     const $keyword = document.getElementById('galleryKeyword');
 
-    function showLoading(show) {
-        $loading.classList.toggle('d-none', !show);
-        $empty.classList.add('d-none');
-        $grid.classList.add('d-none');
+    function locationMatchesArea(loc, area) {
+        if (!area) return true;
+        var l = (loc || '').trim();
+        if (area === 'overseas') {
+            if (!l) return false;
+            return !TW_ALL_KEYWORDS.some(k => l.includes(k));
+        }
+        var kws = AREA_KEYWORDS[area] || [];
+        return kws.some(k => l.includes(k));
     }
 
     function renderCategoryButtons(currentKey) {
         const key = (currentKey || '') === '' ? '' : currentKey;
-        let html = `<button type="button" class="btn btn-outline-primary btn-sm${key === '' ? ' active' : ''}" data-category-key="">全部</button>`;
+        let html = `<button type="button" class="area-btn${key === '' ? ' active' : ''}" data-category-key="">全部</button>`;
         (categoryList || []).forEach(c => {
             const isActive = (c.key || '') === key ? ' active' : '';
-            html += `<button type="button" class="btn btn-outline-primary btn-sm${isActive}" data-category-key="${escapeHtml(c.key || '')}">${escapeHtml(c.name || c.key || '')}</button>`;
+            html += `<button type="button" class="area-btn${isActive}" data-category-key="${escapeHtml(c.key || '')}">${escapeHtml(c.name || c.key || '')}</button>`;
         });
         $categories.innerHTML = html;
         $categories.querySelectorAll('button').forEach(btn => {
@@ -148,6 +196,19 @@
                 $categories.querySelectorAll('button').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 loadPortfolio();
+            });
+        });
+    }
+
+    function bindAreaButtons() {
+        var container = document.getElementById('galleryAreaBtns');
+        if (!container) return;
+        container.querySelectorAll('.area-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                selectedArea = this.dataset.area || '';
+                container.querySelectorAll('.area-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                applyFilters();
             });
         });
     }
@@ -164,14 +225,29 @@
         var e = document.getElementById('galleryEmpty');
         var keyword = ($keyword && $keyword.value || '').trim().toLowerCase();
         var list = allItems || [];
+
+        // 地區過濾
+        if (selectedArea) {
+            list = list.filter(p => locationMatchesArea(p.manufacturer_location, selectedArea));
+        }
+        // 關鍵字過濾
         if (keyword) {
             list = list.filter(p => {
                 var titleMatch = (p.title || '').toLowerCase().includes(keyword);
                 var tagsMatch = (p.tags || []).some(t => String(t).toLowerCase().includes(keyword));
-                return titleMatch || tagsMatch;
+                var mfrMatch = (p.manufacturer_name || '').toLowerCase().includes(keyword);
+                var locMatch = (p.manufacturer_location || '').toLowerCase().includes(keyword);
+                return titleMatch || tagsMatch || mfrMatch || locMatch;
             });
         }
+
         renderGrid(list);
+        // 結果數提示
+        var countEl = document.getElementById('filterResultCount');
+        if (countEl) countEl.textContent = list.length < allItems.length ? '共 ' + list.length + ' 件符合' : '';
+        var statusRow = document.getElementById('filterStatusRow');
+        if (statusRow) statusRow.style.display = (selectedArea || keyword) ? 'flex' : 'none';
+
         if (g) g.classList.toggle('d-none', list.length === 0);
         if (e) e.classList.toggle('d-none', list.length > 0);
     }
@@ -182,6 +258,7 @@
         var html = (items || []).map(p => {
             const title = escapeHtml(p.title || '未命名作品');
             const mfr = escapeHtml(p.manufacturer_name || '');
+            const loc = escapeHtml(p.manufacturer_location || '');
             const img = p.image_url ? escapeHtml(p.image_url) : '';
             const tags = (p.tags || []).slice(0, 3).map(t => `<span class="badge bg-light text-dark me-1">${escapeHtml(t)}</span>`).join('');
             return `
@@ -192,7 +269,7 @@
                         </div>
                         <div class="card-body py-2">
                             <h6 class="card-title small text-truncate mb-0">${title}</h6>
-                            <p class="card-text small text-muted mb-0">${mfr}</p>
+                            <p class="card-text small text-muted mb-0">${mfr}${loc ? ' <span class="text-secondary">· ' + loc + '</span>' : ''}</p>
                             ${tags ? `<div class="mt-1">${tags}</div>` : ''}
                         </div>
                     </div>
@@ -365,6 +442,7 @@
         (async function init() {
             try {
                 if (!document.getElementById('galleryGrid')) return;
+                bindAreaButtons();
                 await loadPortfolio();
                 loadCategories();
             } catch (e) {
