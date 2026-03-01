@@ -30,6 +30,11 @@
         .msg-bubble.img-only { background: transparent !important; padding: 0 !important; border: 1px solid #cfe2ff; }
         .msg-bubble.img-only .msg-time { color: #6c757d !important; margin-top: 2px; display: block; text-align: right; font-size: .7rem; }
         .msg-bubble.img-only .btn-translate { color: #6c757d; }
+        /* 連續純圖片訊息橫排列 */
+        .img-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.5rem; align-items: flex-end; }
+        .img-row.mine { justify-content: flex-end; }
+        .img-row.theirs { justify-content: flex-start; }
+        .img-row .msg-bubble.img-only { margin-bottom: 0; }
         .msg-time { font-size: 0.75rem; color: #6c757d; }
         .messages-form { flex-shrink: 0; padding: 0.75rem; border-top: 1px solid #dee2e6; background: #fff; }
         .img-preview-bar { display: flex; gap: 12px; margin-bottom: 6px; align-items: flex-end; padding-top: 4px; }
@@ -331,9 +336,10 @@
             // ── 訊息泡泡渲染（含圖片、翻譯按鈕）────────────────────────
             function renderMessage(m) {
                 const panel = document.getElementById('messagesPanel');
-                const div = document.createElement('div');
                 var imgOnly = !!m.image_url && !m.body;
-                div.className = 'msg-bubble ' + (m.is_mine ? 'mine' : 'theirs') + (imgOnly ? ' img-only' : '');
+                var side = m.is_mine ? 'mine' : 'theirs';
+                const div = document.createElement('div');
+                div.className = 'msg-bubble ' + side + (imgOnly ? ' img-only' : '');
                 let html = '';
                 if (m.body) html += '<div>' + escapeHtml(m.body) + '</div>';
                 if (m.image_url) html += '<img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="圖片">';
@@ -348,7 +354,20 @@
                 if (m.id) {
                     div.querySelector('.btn-translate').addEventListener('click', function() { doTranslate(m.id, div); });
                 }
-                panel.appendChild(div);
+                // 純圖片訊息：同一發送方連續多張時橫排顯示
+                if (imgOnly) {
+                    var lastChild = panel.lastElementChild;
+                    if (lastChild && lastChild.classList.contains('img-row') && lastChild.classList.contains(side)) {
+                        lastChild.appendChild(div);
+                    } else {
+                        var row = document.createElement('div');
+                        row.className = 'img-row ' + side;
+                        row.appendChild(div);
+                        panel.appendChild(row);
+                    }
+                } else {
+                    panel.appendChild(div);
+                }
             }
 
             async function doTranslate(msgId, div) {
