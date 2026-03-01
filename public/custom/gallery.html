@@ -104,13 +104,13 @@
 
     <div id="site-footer"></div>
 
-    <!-- 作品詳情 Modal：放在 body 下、固定覆蓋視窗，避免背後版面被擠壓 -->
+    <!-- 作品詳情 Modal -->
     <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="galleryModalLabel">作品詳情</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+                    <h5 class="modal-title" id="galleryModalLabel" data-i18n="gallery.modal.title">作品詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row g-3">
@@ -121,18 +121,18 @@
                             <h6 id="modalTitle" class="mb-2"></h6>
                             <p id="modalDescription" class="text-muted small mb-2"></p>
                             <div id="modalDesignHighlightBlock" class="mb-3 d-none">
-                                <strong class="small text-secondary">作品重點</strong>
+                                <strong class="small text-secondary" id="modalHighlightLabel">作品重點</strong>
                                 <p id="modalDesignHighlight" class="small mb-0 mt-1"></p>
                             </div>
-                            <p class="mb-1"><strong>廠商</strong> <span id="modalMfrName"></span></p>
+                            <p class="mb-1"><strong id="modalVendorLabel">廠商</strong> <span id="modalMfrName"></span></p>
                             <p class="mb-1 small text-muted"><i class="bi bi-geo-alt me-1"></i><span id="modalMfrLocation"></span></p>
                             <div id="modalContact" class="small mb-3"></div>
                             <div id="modalTags" class="mb-3"></div>
                             <div class="d-flex flex-wrap gap-2">
-                                <button id="modalBtnContact" type="button" class="btn btn-success btn-sm d-none"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</button>
-                                <a id="modalBtnVendorProfile" href="#" class="btn btn-outline-primary btn-sm d-none"><i class="bi bi-person-badge me-1"></i>查看廠商</a>
-                                <a id="modalBtnBrowse" href="/vendors.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-building me-1"></i>瀏覽廠商列表</a>
-                                <a id="modalBtnRedesign" href="#" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil-square me-1"></i>用此圖再設計</a>
+                                <button id="modalBtnContact" type="button" class="btn btn-success btn-sm d-none"><i class="bi bi-chat-dots me-1"></i><span id="modalBtnContactText">站內聯絡廠商</span></button>
+                                <a id="modalBtnVendorProfile" href="#" class="btn btn-outline-primary btn-sm d-none"><i class="bi bi-person-badge me-1"></i><span id="modalBtnProfileText">查看廠商</span></a>
+                                <a id="modalBtnBrowse" href="/vendors.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-building me-1"></i><span id="modalBtnBrowseText">瀏覽廠商列表</span></a>
+                                <a id="modalBtnRedesign" href="#" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil-square me-1"></i><span id="modalBtnRedesignText">用此圖再設計</span></a>
                             </div>
                         </div>
                     </div>
@@ -151,6 +151,47 @@
     <script>
 (function() {
     const CATEGORIES_API = '/api/custom-product-categories';
+
+    // ── 語系偵測 ──────────────────────────────────────────────────────────
+    const _lang = (new URLSearchParams(window.location.search).get('lang') || '').toLowerCase().replace(/-.*$/,'') || 'zh';
+    const _isEn = _lang === 'en';
+
+    // ── 翻譯字典（只有非中文才需要，中文直接用 HTML 預設值）────────────────
+    const T = _isEn ? {
+        modalTitle:     'Work Details',
+        highlight:      'Design Highlights',
+        vendor:         'Vendor',
+        contact:        'Message Vendor',
+        viewVendor:     'View Vendor',
+        browseVendors:  'Browse Vendors',
+        browseCategory: 'Browse Category Vendors',
+        redesign:       'Use for Redesign',
+        noContact:      'No contact info provided',
+        filterAll:      'All',
+    } : {
+        modalTitle:     '作品詳情',
+        highlight:      '作品重點',
+        vendor:         '廠商',
+        contact:        '站內聯絡廠商',
+        viewVendor:     '查看廠商',
+        browseVendors:  '瀏覽廠商列表',
+        browseCategory: '瀏覽此分類廠商',
+        redesign:       '用此圖再設計',
+        noContact:      '未提供聯絡方式',
+        filterAll:      '全部',
+    };
+
+    // 套用 modal 靜態文字
+    function applyModalI18n() {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('galleryModalLabel',    T.modalTitle);
+        set('modalHighlightLabel',  T.highlight);
+        set('modalVendorLabel',     T.vendor);
+        set('modalBtnContactText',  T.contact);
+        set('modalBtnProfileText',  T.viewVendor);
+        set('modalBtnBrowseText',   T.browseVendors);
+        set('modalBtnRedesignText', T.redesign);
+    }
 
     // ── 狀態 ──────────────────────────────────────────────────────────────
     let _rawItems = [];          // 原始資料，永不修改
@@ -335,7 +376,7 @@
         if (contact.phone) ch += `<div><i class="bi bi-telephone me-1"></i><a href="tel:${esc(contact.phone)}">${esc(contact.phone)}</a></div>`;
         if (contact.line)  ch += `<div><i class="bi bi-chat me-1"></i>LINE: ${esc(contact.line)}</div>`;
         if (contact.url)   ch += `<div><i class="bi bi-link-45deg me-1"></i><a href="${esc(contact.url)}" target="_blank" rel="noopener">前往賣場/官網</a></div>`;
-        document.getElementById('modalContact').innerHTML = ch||'<span class="text-muted">未提供聯絡方式</span>';
+        document.getElementById('modalContact').innerHTML = ch||`<span class="text-muted">${T.noContact}</span>`;
         document.getElementById('modalTags').innerHTML = (p.tags||[]).map(t=>`<span class="badge bg-secondary me-1">${esc(t)}</span>`).join('');
 
         const contactBtn = document.getElementById('modalBtnContact');
@@ -362,7 +403,8 @@
         else profileBtn.classList.add('d-none');
 
         browseBtn.href = catKey ? '/vendors.html?category='+encodeURIComponent(catKey) : '/vendors.html';
-        browseBtn.innerHTML = catKey ? '<i class="bi bi-building me-1"></i>瀏覽此分類廠商' : '<i class="bi bi-building me-1"></i>瀏覽廠商列表';
+        const browseLabel = catKey ? T.browseCategory : T.browseVendors;
+        browseBtn.innerHTML = `<i class="bi bi-building me-1"></i>${browseLabel}`;
 
         document.getElementById('modalBtnRedesign').href =
             '/custom-product.html?from_gallery=1&image_url='+encodeURIComponent(p.image_url||'')+'&portfolio_id='+encodeURIComponent(p.id||'');
@@ -442,6 +484,7 @@
     // ── 初始化 ────────────────────────────────────────────────────────────
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
+        applyModalI18n();
         bindAreaButtons();
         await Promise.all([loadPortfolio(), loadCategories()]);
     }
