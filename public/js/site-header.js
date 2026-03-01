@@ -34,7 +34,7 @@
             '.nav-hover-menu{min-width:180px;padding:.5rem 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
             '.nav-hover-menu .dropdown-item{font-size:.9rem;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;color:#374151;}',
             '.nav-hover-menu .dropdown-item:hover{background:#445D7E!important;color:#fff!important;}',
-            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}.nav-hover-caret{display:none;}#navbarCollapse{max-height:calc(100vh - 70px);overflow-y:auto;-webkit-overflow-scrolling:touch;}}',
+            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}.nav-hover-caret{display:none;}}',
             '@media(min-width:992px){',
             '.nav-item.nav-has-hover:hover .nav-hover-caret{opacity:1;}',
             '.nav-item.nav-has-hover:hover>.nav-hover-menu{display:block;margin-top:2px;animation:nbDropIn .15s ease;}',
@@ -72,11 +72,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }).then(function () {
         if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
             AuthService.onAuthStateChange(function (event, newSession) {
+                // INITIAL_SESSION 只是初始確認，不是狀態變更，不重畫
                 if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-                    loadSiteHeader(newSession);
-                } else if (event === 'INITIAL_SESSION' && newSession && newSession.user && !_lastRenderedUserId) {
-                    // 手機上 getSession() 可能比 INITIAL_SESSION 早 resolve 成 null；
-                    // 若已以「未登入」渲染，收到 INITIAL_SESSION 帶有 user 就補渲染一次
                     loadSiteHeader(newSession);
                 }
             });
