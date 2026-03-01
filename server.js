@@ -6730,6 +6730,52 @@ app.post('/api/me/manufacturer', express.json(), async (req, res) => {
     }
 });
 
+// PATCH /api/me/manufacturer — 更新廠商資料（名稱、描述、地點、contact_json 含社群帳號）
+app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+        const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+        if (!token) return res.status(401).json({ error: '請先登入' });
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
+        const { data: mfr } = await supabase.from('manufacturers').select('id, contact_json').eq('user_id', user.id).maybeSingle();
+        if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料' });
+        const body = req.body || {};
+        const updates = {};
+        if (body.name !== undefined && body.name.trim()) updates.name = body.name.trim();
+        if (body.description !== undefined) updates.description = body.description.trim() || null;
+        if (body.location !== undefined) updates.location = body.location.trim() || null;
+        if (body.categories !== undefined) updates.categories = body.categories;
+        // 合併 contact_json（只更新帶進來的欄位）
+        const SOCIAL_KEYS = ['email','phone','line_id','url','facebook','instagram','threads','twitter','whatsapp','youtube','linkedin'];
+        const existing = mfr.contact_json || {};
+        let contactPatch = {};
+        if (body.contact_json && typeof body.contact_json === 'object') {
+            SOCIAL_KEYS.forEach(k => {
+                if (body.contact_json[k] !== undefined) contactPatch[k] = body.contact_json[k];
+            });
+        }
+        if (Object.keys(contactPatch).length > 0) {
+            updates.contact_json = Object.assign({}, existing, contactPatch);
+        }
+        if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
+        const { data: updated, error } = await supabase
+            .from('manufacturers')
+            .update(updates)
+            .eq('id', mfr.id)
+            .select('id, name, description, location, contact_json')
+            .single();
+        if (error) {
+            console.error('PATCH /api/me/manufacturer:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json(updated);
+    } catch (e) {
+        console.error('PATCH /api/me/manufacturer 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/service-areas — 前台讀取服務地區（公開）
 // 回傳新三層結構：
 //   countries[]  → 台灣 & 海外國家（頂層）

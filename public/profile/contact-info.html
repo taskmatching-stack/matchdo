@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/style.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -169,6 +169,26 @@
                                         <div class="form-check mt-2">
                                             <input class="form-check-input" type="checkbox" id="instagramVisible">
                                             <label class="form-check-label" for="instagramVisible">
+                                                <small>✅ 公開顯示（建議）</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="bi bi-threads me-1"></i>Threads</label>
+                                        <input type="url" class="form-control" id="threadsUrl" placeholder="https://www.threads.net/@youraccount">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="threadsVisible">
+                                            <label class="form-check-label" for="threadsVisible">
+                                                <small>✅ 公開顯示（建議）</small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label"><i class="bi bi-twitter-x me-1"></i>X（Twitter）</label>
+                                        <input type="url" class="form-control" id="twitterUrl" placeholder="https://x.com/youraccount">
+                                        <div class="form-check mt-2">
+                                            <input class="form-check-input" type="checkbox" id="twitterVisible">
+                                            <label class="form-check-label" for="twitterVisible">
                                                 <small>✅ 公開顯示（建議）</small>
                                             </label>
                                         </div>
@@ -534,6 +554,10 @@
                     $('#facebookVisible').prop('checked', data.facebook_visible || false);
                     $('#instagramUrl').val(data.instagram_url || '');
                     $('#instagramVisible').prop('checked', data.instagram_visible || false);
+                    $('#threadsUrl').val(data.threads_url || '');
+                    $('#threadsVisible').prop('checked', data.threads_visible || false);
+                    $('#twitterUrl').val(data.twitter_url || '');
+                    $('#twitterVisible').prop('checked', data.twitter_visible || false);
                     $('#youtubeUrl').val(data.youtube_url || '');
                     $('#youtubeVisible').prop('checked', data.youtube_visible || false);
                     $('#linkedinUrl').val(data.linkedin_url || '');
@@ -592,6 +616,10 @@
                     facebook_visible: $('#facebookVisible').is(':checked'),
                     instagram_url: $('#instagramUrl').val(),
                     instagram_visible: $('#instagramVisible').is(':checked'),
+                    threads_url: $('#threadsUrl').val(),
+                    threads_visible: $('#threadsVisible').is(':checked'),
+                    twitter_url: $('#twitterUrl').val(),
+                    twitter_visible: $('#twitterVisible').is(':checked'),
                     youtube_url: $('#youtubeUrl').val(),
                     youtube_visible: $('#youtubeVisible').is(':checked'),
                     linkedin_url: $('#linkedinUrl').val(),
