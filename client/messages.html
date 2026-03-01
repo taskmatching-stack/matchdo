@@ -26,13 +26,17 @@
         .msg-bubble { max-width: 80%; width: fit-content; padding: 0.5rem 0.75rem; border-radius: 1rem; margin-bottom: 0.5rem; }
         .msg-bubble.mine { margin-left: auto; background: #0d6efd; color: #fff; }
         .msg-bubble.theirs { background: #e9ecef; }
+        /* 純圖片訊息：移除厚底色，只留細邊框 */
+        .msg-bubble.img-only { background: transparent !important; padding: 0 !important; border: 1px solid #cfe2ff; }
+        .msg-bubble.img-only .msg-time { color: #6c757d !important; margin-top: 2px; display: block; text-align: right; font-size: .7rem; }
+        .msg-bubble.img-only .btn-translate { color: #6c757d; }
         .msg-time { font-size: 0.75rem; color: #6c757d; }
         .messages-form { flex-shrink: 0; padding: 0.75rem; border-top: 1px solid #dee2e6; background: #fff; }
         .img-preview-bar { display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start; }
         .img-preview-item { position: relative; display: inline-block; }
         .img-preview-item img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #dee2e6; display: block; }
         .img-preview-item .remove-img { position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #dc3545; border: none; color: #fff; font-size: 12px; line-height: 1; cursor: pointer; z-index: 5; display: flex; align-items: center; justify-content: center; }
-        .msg-image { max-width: 220px; border-radius: 8px; display: block; margin-top: 4px; cursor: pointer; }
+        .msg-image { max-width: 220px; border-radius: 8px; display: block; cursor: pointer; }
         .btn-translate { font-size: .7rem; color: #6c757d; background: none; border: none; padding: 1px 4px; cursor: pointer; }
         .btn-translate:hover { color: #0d6efd; }
         .msg-translation { margin-top: 4px; padding: 4px 8px; background: rgba(0,0,0,.05); border-radius: 6px; font-size: .8rem; color: #555; border-left: 3px solid #0d6efd; }
@@ -328,7 +332,8 @@
             function renderMessage(m) {
                 const panel = document.getElementById('messagesPanel');
                 const div = document.createElement('div');
-                div.className = 'msg-bubble ' + (m.is_mine ? 'mine' : 'theirs');
+                var imgOnly = !!m.image_url && !m.body;
+                div.className = 'msg-bubble ' + (m.is_mine ? 'mine' : 'theirs') + (imgOnly ? ' img-only' : '');
                 let html = '';
                 if (m.body) html += '<div>' + escapeHtml(m.body) + '</div>';
                 if (m.image_url) html += '<img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="圖片">';
