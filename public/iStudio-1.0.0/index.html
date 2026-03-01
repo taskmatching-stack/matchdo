@@ -498,17 +498,34 @@
                 var linkEl = document.getElementById('media-wall-lightbox-link');
                 var contactBtn = document.getElementById('media-wall-lightbox-contact');
                 if (titleEl) titleEl.textContent = item.title || '';
-                if (linkEl) { linkEl.href = item.link || '#'; linkEl.style.display = item.link ? 'inline-block' : 'none'; }
+
+                // 「找廠商訂製」vs「查看廠商頁」依類型調整
+                var isVendorItem = (item.type === 'comparison' || item.type === 'collection');
+                if (linkEl) {
+                    if (isVendorItem && item.link && item.link.indexOf('vendor-profile') !== -1) {
+                        linkEl.href = item.link;
+                        linkEl.textContent = '查看廠商頁';
+                        linkEl.style.display = 'inline-block';
+                    } else if (item.link) {
+                        linkEl.href = item.link;
+                        linkEl.textContent = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
+                        linkEl.style.display = 'inline-block';
+                    } else {
+                        linkEl.style.display = 'none';
+                    }
+                }
+
                 var imgUrl = item.image_url || item.cover_image_url || '';
                 if (bodyEl) bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g,'&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">無圖</p>';
                 var detailWrap = document.getElementById('media-wall-lightbox-detail');
                 if (detailWrap) detailWrap.classList.add('d-none');
                 var favId = item.id || (item.title + item.type);
                 syncLightboxFavBtn(favId, item);
-                // 廠商聯絡按鈕：只對 comparison 且有 manufacturer_user_id 時顯示
+
+                // 廠商聯絡按鈕：comparison 或 collection 且有 manufacturer_user_id 時顯示
                 if (contactBtn) {
                     var mUserId = item.manufacturer_user_id || null;
-                    if (item.type === 'comparison' && mUserId) {
+                    if (isVendorItem && mUserId) {
                         contactBtn.classList.remove('d-none');
                         contactBtn.onclick = function() {
                             if (!favUserLoggedIn) { showLoginToast(); return; }
@@ -563,7 +580,7 @@
                         content = (img ? '<img src="' + escAttr(img) + '" alt="">' : '<div class="media-wall-placeholder"><span>—</span></div>');
                     }
                     var dataItem = { id: String(p.id || (p.title + p.type)), type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
-                    if (p.type === 'comparison') {
+                    if (p.type === 'comparison' || p.type === 'collection') {
                         dataItem.manufacturer_id = p.manufacturer_id || null;
                         dataItem.manufacturer_user_id = p.manufacturer_user_id || null;
                         dataItem.manufacturer_name = p.manufacturer_name || null;

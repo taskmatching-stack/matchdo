@@ -5693,19 +5693,32 @@ app.get('/api/media-wall', async (req, res) => {
             }
         }
         if (compRows && compRows.length) {
+            // Batch-fetch manufacturer user_id so the lightbox can offer in-app contact
+            const compMfrIds = [...new Set(compRows.map(p => p.manufacturer_id).filter(Boolean))];
+            let compMfrMap = {};
+            if (compMfrIds.length) {
+                const { data: compMfrs } = await supabase
+                    .from('manufacturers')
+                    .select('id, user_id')
+                    .in('id', compMfrIds)
+                    .eq('is_active', true);
+                (compMfrs || []).forEach(m => { compMfrMap[m.id] = m.user_id || null; });
+            }
             compRows.forEach(p => {
+                const mfrUserId = compMfrMap[p.manufacturer_id] || null;
                 out.push({
                     type: 'comparison',
                     size: '1x1',
                     id: p.id,
                     manufacturer_id: p.manufacturer_id,
-                    title: p.title || '對比範例',
+                    manufacturer_user_id: mfrUserId,
+                    title: p.title || '廠商作品',
                     image_url: p.image_url || null,
                     image_url_before: p.image_url_before || null,
                     design_highlight: p.design_highlight || null,
                     category_key: p.category_key || null,
                     subcategory_key: p.subcategory_key || null,
-                    link: '/custom/gallery.html'
+                    link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html'
                 });
             });
         }
@@ -5717,7 +5730,7 @@ app.get('/api/media-wall', async (req, res) => {
         if (collLimit > 0) {
             const collRes = await supabase
                 .from('media_collections')
-                .select('id, title, slug, cover_image_url, description, category_keys')
+                .select('id, title, slug, cover_image_url, description, category_keys, manufacturer_id')
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true })
                 .order('created_at', { ascending: false })
@@ -5726,7 +5739,7 @@ app.get('/api/media-wall', async (req, res) => {
             let canFilterByCategory = true;
             if (collRes.error && /column|42703/i.test(String(collRes.error.message || collRes.error.code))) {
                 const simple = await supabase.from('media_collections').select('id, title, slug, cover_image_url, description').eq('is_active', true).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).range(offset, offset + collLimit - 1);
-                raw = simple.data || [];
+                raw = (simple.data || []).map(r => ({ ...r, manufacturer_id: null }));
                 canFilterByCategory = false;
             }
             if (hasCategoryFilter && filterCategoryKey) {
@@ -5744,9 +5757,22 @@ app.get('/api/media-wall', async (req, res) => {
                 collRows = raw.slice(0, nCollection);
             }
         }
+        // Batch-fetch manufacturer user_id for collections that have manufacturer_id
+        const collMfrIds = [...new Set(collRows.map(p => p.manufacturer_id).filter(Boolean))];
+        let collMfrMap = {};
+        if (collMfrIds.length) {
+            const { data: collMfrs } = await supabase
+                .from('manufacturers')
+                .select('id, user_id')
+                .in('id', collMfrIds)
+                .eq('is_active', true);
+            (collMfrs || []).forEach(m => { collMfrMap[m.id] = m.user_id || null; });
+        }
         collRows.forEach(p => {
             const cover = p.cover_image_url || null;
             const imageUrls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0) ? p.image_urls : (cover ? [cover, cover] : []);
+            const mfrId = p.manufacturer_id || null;
+            const mfrUserId = collMfrMap[mfrId] || null;
             out.push({
                 type: 'collection',
                 size: '1x2',
@@ -5756,7 +5782,10 @@ app.get('/api/media-wall', async (req, res) => {
                 cover_image_url: cover,
                 image_urls: imageUrls,
                 description: p.description || null,
-                link: p.slug ? '/custom/collection/' + p.slug : '/custom/gallery.html',
+                manufacturer_id: mfrId,
+                manufacturer_user_id: mfrUserId,
+                // 優先：廠商頁；其次：收藏頁；最後：圖庫
+                link: mfrId ? '/vendor-profile.html?id=' + encodeURIComponent(mfrId) : (p.slug ? '/custom/collection/' + p.slug : '/custom/gallery.html'),
                 category_keys: (p.category_keys && Array.isArray(p.category_keys)) ? p.category_keys : []
             });
         });
