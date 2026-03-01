@@ -152,13 +152,15 @@
                 updateContactButton();
             }
 
-            function openOrSelectConversation(otherUserId, displayName) {
+            function openOrSelectConversation(otherUserId, displayName, productId) {
                 // 建立/取得對話，同時加入聯絡清單
+                const body = { other_user_id: otherUserId };
+                if (productId) body.product_id = productId;
                 Promise.all([
                     fetch('/api/direct-conversations', {
                         method: 'POST',
                         headers: headers(),
-                        body: JSON.stringify({ other_user_id: otherUserId })
+                        body: JSON.stringify(body)
                     }).then(r => r.json()),
                     fetch('/api/contact-list', {
                         method: 'POST',
@@ -167,7 +169,7 @@
                     }).catch(() => {})
                 ]).then(([data]) => {
                     if (data.conversation_id) {
-                        loadContacts(); // 重新整理聯絡清單
+                        loadContacts();
                         selectConversation(data.conversation_id, otherUserId, displayName);
                     }
                 });
@@ -265,11 +267,12 @@
                 const params = new URLSearchParams(window.location.search);
                 const convId = params.get('conversation_id');
                 const openUserId = params.get('open');
+                const openProductId = params.get('product_id') || null;
                 if (convId) {
                     const list = document.querySelectorAll('.conv-item[data-conversation-id="' + convId + '"]');
                     if (list.length) list[0].click();
                 } else if (openUserId) {
-                    openOrSelectConversation(openUserId, '');
+                    openOrSelectConversation(openUserId, '', openProductId);
                     history.replaceState({}, '', window.location.pathname);
                 }
                 document.getElementById('btnSend').addEventListener('click', sendMessage);

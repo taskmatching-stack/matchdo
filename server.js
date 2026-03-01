@@ -8672,11 +8672,26 @@ app.post('/api/direct-conversations', express.json(), async (req, res) => {
         const otherId = req.body?.other_user_id || req.body?.user_id;
         if (!otherId) return res.status(400).json({ error: '請提供 other_user_id' });
         if (otherId === user.id) return res.status(400).json({ error: '無法與自己對話' });
+        const productId = req.body?.product_id || null;
         const [idA, idB] = [user.id, otherId].sort();
-        let { data: conv, error: findErr } = await supabase.from('direct_conversations').select('id').eq('user_a_id', idA).eq('user_b_id', idB).maybeSingle();
-        if (findErr) return res.status(500).json({ error: '查詢對話失敗' });
+        // 若有 product_id，優先找同產品的對話；否則找任意對話
+        let conv = null;
+        if (productId) {
+            const { data: existing } = await supabase.from('direct_conversations')
+                .select('id').eq('user_a_id', idA).eq('user_b_id', idB).eq('product_id', productId).maybeSingle();
+            conv = existing;
+        }
         if (!conv) {
-            const { data: inserted, error: insErr } = await supabase.from('direct_conversations').insert({ user_a_id: idA, user_b_id: idB }).select('id').single();
+            const { data: existing } = await supabase.from('direct_conversations')
+                .select('id').eq('user_a_id', idA).eq('user_b_id', idB)
+                .is('product_id', productId ? null : null) // 無 product_id 時找通用對話
+                .maybeSingle();
+            if (!productId) conv = existing;
+        }
+        if (!conv) {
+            const insert = { user_a_id: idA, user_b_id: idB };
+            if (productId) insert.product_id = productId;
+            const { data: inserted, error: insErr } = await supabase.from('direct_conversations').insert(insert).select('id').single();
             if (insErr) return res.status(500).json({ error: '建立對話失敗' });
             conv = inserted;
         }
@@ -8686,6 +8701,47 @@ app.post('/api/direct-conversations', express.json(), async (req, res) => {
         res.json({ conversation_id: conv.id, messages: msgList });
     } catch (e) {
         console.error('POST /api/direct-conversations:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/me/project-stats — 設計者專案統計（開啟數、聯絡數、完成率）
+app.get('/api/me/project-stats', async (req, res) => {
+    try {
+        const user = await getAuthUser(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const { data: rows, error } = await supabase
+            .from('custom_products')
+            .select('id, title, manufacturing_status, open_for_manufacturing, created_at')
+            .eq('owner_id', user.id)
+            .order('created_at', { ascending: false });
+        if (error) return res.status(500).json({ error: '查詢失敗' });
+        const ids = (rows || []).map(r => r.id);
+        let contactCounts = {};
+        if (ids.length > 0) {
+            const { data: convRows } = await supabase
+                .from('direct_conversations')
+                .select('product_id')
+                .in('product_id', ids);
+            (convRows || []).forEach(c => {
+                contactCounts[c.product_id] = (contactCounts[c.product_id] || 0) + 1;
+            });
+        }
+        const projects = (rows || []).map(r => ({
+            id: r.id, title: r.title,
+            status: r.manufacturing_status,
+            open: !!r.open_for_manufacturing,
+            contact_count: contactCounts[r.id] || 0,
+            created_at: r.created_at
+        }));
+        const total = projects.length;
+        const openCount = projects.filter(p => p.open).length;
+        const completedCount = projects.filter(p => p.status === 'completed').length;
+        const completionRate = total > 0 ? Math.round(completedCount / total * 100) : 0;
+        const totalContacts = projects.reduce((s, p) => s + p.contact_count, 0);
+        res.json({ projects, summary: { total, openCount, completedCount, completionRate, totalContacts } });
+    } catch (e) {
+        console.error('GET /api/me/project-stats:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

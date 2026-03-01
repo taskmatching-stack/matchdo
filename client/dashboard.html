@@ -66,65 +66,70 @@
                 </div>
             </div>
 
-            <!-- 統計卡片 -->
-            <!-- 統計卡片 -->
-            <div class="row g-3 mb-3">
+            <!-- 專案統計卡片 -->
+            <div class="row g-3 mb-3" id="statsCards">
                 <div class="col-lg-3 col-md-6">
                     <div class="card border-0 shadow-sm h-100">
                         <div class="card-body text-center p-4">
-                            <div class="bg-primary bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
-                                <i class="fas fa-folder fa-2x text-white"></i>
+                            <div class="bg-primary bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width:70px;height:70px;">
+                                <i class="fas fa-images fa-2x text-white"></i>
                             </div>
-                            <h2 class="mb-2" id="totalProjects">
-                                <span class="spinner-border spinner-border-sm"></span>
-                            </h2>
-                            <p class="text-muted mb-0">我的專案</p>
-                            <a href="my-projects.html" class="btn btn-sm btn-outline-primary mt-2">查看</a>
+                            <h2 class="mb-1" id="statTotal"><span class="spinner-border spinner-border-sm"></span></h2>
+                            <p class="text-muted mb-0 small">設計資產總數</p>
+                            <a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-primary mt-2">管理</a>
                         </div>
                     </div>
                 </div>
-
                 <div class="col-lg-3 col-md-6">
                     <div class="card border-0 shadow-sm h-100">
                         <div class="card-body text-center p-4">
-                            <div class="bg-success bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                            <div class="bg-warning bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width:70px;height:70px;">
+                                <i class="fas fa-search fa-2x text-white"></i>
+                            </div>
+                            <h2 class="mb-1" id="statOpen"><span class="spinner-border spinner-border-sm"></span></h2>
+                            <p class="text-muted mb-0 small">開放廠商搜尋中</p>
+                            <a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-warning mt-2">查看</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body text-center p-4">
+                            <div class="bg-info bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width:70px;height:70px;">
+                                <i class="fas fa-comments fa-2x text-white"></i>
+                            </div>
+                            <h2 class="mb-1" id="statContacts"><span class="spinner-border spinner-border-sm"></span></h2>
+                            <p class="text-muted mb-0 small">廠商已聯繫次數</p>
+                            <a href="/client/messages.html" class="btn btn-sm btn-outline-info mt-2">查看對話</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body text-center p-4">
+                            <div class="bg-success bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width:70px;height:70px;">
                                 <i class="fas fa-check-circle fa-2x text-white"></i>
                             </div>
-                            <h2 class="mb-2" id="publishedItems">
-                                <span class="spinner-border spinner-border-sm"></span>
-                            </h2>
-                            <p class="text-muted mb-0">已發包項目</p>
-                            <a href="my-projects.html" class="btn btn-sm btn-outline-success mt-2">查看</a>
+                            <h2 class="mb-1" id="statRate"><span class="spinner-border spinner-border-sm"></span></h2>
+                            <p class="text-muted mb-0 small">完成率</p>
+                            <small class="text-muted" id="statCompleted"></small>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="col-lg-3 col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center p-4">
-                            <div class="bg-warning bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
-                                <i class="fas fa-handshake fa-2x text-white"></i>
-                            </div>
-                            <h2 class="mb-2" id="totalMatches">
-                                <span class="spinner-border spinner-border-sm"></span>
-                            </h2>
-                            <p class="text-muted mb-0">媒合廠商</p>
-                            <a href="matched-experts.html" class="btn btn-sm btn-outline-warning mt-2">查看</a>
+            <!-- 開放中專案列表 -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold"><i class="bi bi-search me-2 text-warning"></i>開放廠商搜尋中的設計</span>
+                            <a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-primary">全部資產</a>
                         </div>
-                    </div>
-                </div>
-
-                <div class="col-lg-3 col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center p-4">
-                            <div class="bg-info bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
-                                <i class="fas fa-address-book fa-2x text-white"></i>
+                        <div class="card-body p-0">
+                            <div id="openProjectsList">
+                                <div class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm me-2"></span>載入中...</div>
                             </div>
-                            <h2 class="mb-2" id="totalUnlocks">
-                                <span class="spinner-border spinner-border-sm"></span>
-                            </h2>
-                            <p class="text-muted mb-0">聯絡紀錄</p>
-                            <a href="contact-unlocks.html" class="btn btn-sm btn-outline-info mt-2">查看</a>
                         </div>
                     </div>
                 </div>
@@ -232,10 +237,13 @@
 
                 console.log('✅ 用戶已登入，載入資料...');
                 
-                // 逐個載入，避免一個失敗全部卡住
-                loadStatistics().catch(err => console.error('❌ 統計載入失敗:', err));
-                loadRecentProjects().catch(err => console.error('❌ 專案載入失敗:', err));
-                loadRecentMatches().catch(err => console.error('❌ 媒合載入失敗:', err));
+                // 顯示用戶名
+                const displayName = (currentUser.user_metadata && currentUser.user_metadata.full_name) || currentUser.email || '';
+                const nameEl = document.getElementById('clientName');
+                if (nameEl) nameEl.textContent = displayName;
+
+                // 載入專案統計
+                loadProjectStats().catch(err => console.error('❌ 專案統計載入失敗:', err));
                 
                 console.log('=== Dashboard 初始化完成 ===');
             } catch (error) {
@@ -256,41 +264,56 @@
             window.location.href = '/index.html';
         });
 
-        // 載入統計數據
+        // 載入專案統計（設計者視角）
+        async function loadProjectStats() {
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) return;
+                const r = await fetch('/api/me/project-stats', { headers: { Authorization: 'Bearer ' + token } });
+                if (!r.ok) throw new Error('stats API failed');
+                const { summary, projects } = await r.json();
+
+                document.getElementById('statTotal').textContent = summary.total || 0;
+                document.getElementById('statOpen').textContent = summary.openCount || 0;
+                document.getElementById('statContacts').textContent = summary.totalContacts || 0;
+                document.getElementById('statRate').textContent = (summary.completionRate || 0) + '%';
+                const completedEl = document.getElementById('statCompleted');
+                if (completedEl) completedEl.textContent = summary.completedCount + ' / ' + summary.total + ' 已完成';
+
+                // 開放中設計列表
+                const openList = document.getElementById('openProjectsList');
+                const openProjects = (projects || []).filter(p => p.open);
+                if (!openProjects.length) {
+                    openList.innerHTML = '<div class="text-center py-4 text-muted small">目前沒有開放廠商搜尋的設計<br><a href="/client/my-custom-products.html">前往數位資產開啟</a></div>';
+                } else {
+                    openList.innerHTML = openProjects.map(p => `
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                            <div>
+                                <div class="fw-semibold small">${escHtml(p.title || '（未命名）')}</div>
+                                <div class="text-muted" style="font-size:.8rem;">已有 ${p.contact_count} 位廠商聯繫</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="/client/messages.html" class="btn btn-sm btn-outline-secondary py-0">對話</a>
+                                <a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-warning py-0">管理</a>
+                            </div>
+                        </div>`).join('');
+                }
+            } catch (e) {
+                console.warn('專案統計載入失敗:', e);
+                ['statTotal','statOpen','statContacts','statRate'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = '-';
+                });
+            }
+        }
+
+        function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        // 舊統計（保留空函數避免初始化報錯）
         async function loadStatistics() {
             try {
-                const { data: projects } = await AuthService.supabase.from('projects')
-                    .select('id')
-                    .eq('owner_id', currentUser.id);
-
-                document.getElementById('totalProjects').textContent = projects?.length || 0;
-
-                const projectIds = projects?.map(p => p.id) || [];
-
-                if (projectIds.length > 0) {
-                    const { count: itemsCount } = await AuthService.supabase.from('project_items')
-                        .select('*', { count: 'exact', head: true })
-                        .in('project_id', projectIds)
-                        .in('status', ['published', 'matched', 'assigned', 'in_progress', 'completed']);
-
-                    document.getElementById('publishedItems').textContent = itemsCount || 0;
-
-                    const { count: matchesCount } = await AuthService.supabase.from('matches')
-                        .select('*', { count: 'exact', head: true })
-                        .in('project_id', projectIds)
-                        .eq('status', 'active');
-
-                    document.getElementById('totalMatches').textContent = matchesCount || 0;
-
-                    const { count: unlocksCount } = await AuthService.supabase.from('contact_unlocks')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('requester_id', currentUser.id)
-                        .eq('status', 'accepted');
-
-                    document.getElementById('totalUnlocks').textContent = unlocksCount || 0;
-                } else {
-                    document.getElementById('publishedItems').textContent = 0;
-                    document.getElementById('totalMatches').textContent = 0;
+                if (false) {
                     document.getElementById('totalUnlocks').textContent = 0;
                 }
             } catch (error) {
@@ -298,15 +321,12 @@
             }
         }
 
-        // 載入最近專案
+        // 舊函數保留（不再使用）
         async function loadRecentProjects() {
             const container = document.getElementById('recentProjects');
+            if (container) container.innerHTML = '';
             try {
-                const { data: projects, error } = await AuthService.supabase.from('projects')
-                    .select('*')
-                    .eq('owner_id', currentUser.id)
-                    .order('created_at', { ascending: false })
-                    .limit(5);
+                const { data: projects, error } = await Promise.resolve({ data: [], error: null });
 
                 if (error) {
                     console.error('查詢專案錯誤:', error);
@@ -362,9 +382,10 @@
         // 載入最新媒合
         async function loadRecentMatches() {
             const container = document.getElementById('recentMatches');
+            if (container) container.innerHTML = '';
             try {
-                const { data: projects, error: projectError } = await AuthService.supabase.from('projects')
-                    .select('id')
+                const { data: projects, error: projectError } = await Promise.resolve({ data: [], error: null });
+                if (false) await AuthService.supabase.from('projects').select('id')
                     .eq('owner_id', currentUser.id);
 
                 if (projectError) {

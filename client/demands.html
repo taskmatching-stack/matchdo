@@ -117,19 +117,25 @@
                 container.innerHTML = items.map(d => {
                     const img = d.image_url || 'https://via.placeholder.com/300x160?text=No+Image';
                     const ownerId = d.owner_id ? encodeURIComponent(d.owner_id) : '';
+                    const productId = d.id ? encodeURIComponent(d.id) : '';
                     return '<div class="col-md-6 col-lg-4">' +
                         '<div class="card demand-card h-100">' +
                         '<img src="' + img + '" class="card-img-top demand-img" alt="">' +
                         '<div class="card-body">' +
                         '<h6 class="card-title">' + escapeHtml(d.title || '') + '</h6>' +
                         '<p class="card-text small text-muted">' + escapeHtml((d.description || '').substring(0, 80)) + '</p>' +
-                        (ownerId ? '<button class="btn btn-primary btn-sm w-100 btn-contact" data-owner-id="' + ownerId + '"><i class="bi bi-chat-dots me-1"></i>聯絡訂製者</button>' : '') +
+                        (ownerId ? '<button class="btn btn-primary btn-sm w-100 btn-contact" data-owner-id="' + ownerId + '" data-product-id="' + productId + '"><i class="bi bi-chat-dots me-1"></i>聯絡設計者</button>' : '') +
                         '</div></div></div>';
                 }).join('');
                 container.querySelectorAll('.btn-contact').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const uid = this.getAttribute('data-owner-id');
-                        if (uid) window.location.href = '/client/messages.html?open=' + uid;
+                        const pid = this.getAttribute('data-product-id');
+                        if (uid) {
+                            let url = '/client/messages.html?open=' + uid;
+                            if (pid) url += '&product_id=' + pid;
+                            window.location.href = url;
+                        }
                     });
                 });
             }
