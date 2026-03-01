@@ -192,9 +192,13 @@
         const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
         let list = _rawItems;
 
-        // 1. 大分類：廠商 categories 陣列必須含選中 key
+        // 1. 大分類：廠商 categories 陣列必須含選中 key 或對應名稱（相容兩種儲存格式）
         if (selCat) {
-            list = list.filter(p => (p.categories||[]).includes(selCat));
+            const catObj = categoryList.find(c => c.key === selCat);
+            const catName = catObj ? catObj.name : '';
+            list = list.filter(p =>
+                (p.categories||[]).some(c => c === selCat || (catName && c === catName))
+            );
         }
         // 2. 小分類：先比對 subcategory_key，再比對 tags
         if (selSub) {
