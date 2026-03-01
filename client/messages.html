@@ -9,8 +9,8 @@
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/theme-custom.css" rel="stylesheet">
     <style>
-        /* 整體佈局：撐滿視窗可見高度（減去 navbar + breadcrumb） */
-        .messages-layout { display: flex; height: calc(100vh - 130px); min-height: 400px; overflow: hidden; }
+        /* 整體佈局：由 JS 動態計算剩餘高度，確保輸入框永遠在最下方 */
+        .messages-layout { display: flex; min-height: 300px; overflow: hidden; }
         .messages-side { width: 320px; min-width: 240px; border-right: 1px solid #dee2e6; display: flex; flex-direction: column; overflow: hidden; }
         .messages-side .tab-content { flex: 1; overflow-y: auto; }
         .messages-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
@@ -369,7 +369,20 @@
                 finally { if (btn) btn.disabled = false; }
             }
 
+            // ── 動態設定 messages-layout 高度，讓輸入框永遠貼在底部 ──
+            function fixLayoutHeight() {
+                var layout = document.querySelector('.messages-layout');
+                if (!layout) return;
+                var top = layout.getBoundingClientRect().top + window.scrollY;
+                layout.style.height = Math.max(300, window.innerHeight - top) + 'px';
+            }
+            window.addEventListener('resize', fixLayoutHeight);
+            // navbar 非同步渲染，等一下再算一次
+            setTimeout(fixLayoutHeight, 100);
+            setTimeout(fixLayoutHeight, 600);
+
             document.addEventListener('DOMContentLoaded', async function() {
+                fixLayoutHeight();
                 const whenReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
                 whenReady.then(function() {
                     if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
