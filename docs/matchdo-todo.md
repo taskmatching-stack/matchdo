@@ -4,6 +4,21 @@
 
 ---
 
+## 近期完成（2026-03-01 站內對話介面修復）
+
+| 項目 | 說明 |
+|------|------|
+| **noConversation 兩格 bug** | `#noConversation` 有 `d-flex` class（`display:flex !important`），JS 的 `style.display='none'` 被蓋過，導致 noConversation 與 conversationPanel 同時顯示各佔一半；改用 `classList.add('d-none')` 切換解決 |
+| **conversationPanel 初始隱藏** | 改為 `class="d-none"` 取代 `style="display:none;"`，與 Bootstrap 類別機制一致 |
+| **輸入框貼底雙重保險** | CSS 加 `position:sticky; bottom:0; z-index:10`；JS `fixLayoutHeight()` 同時用 `ResizeObserver` 監聽 `#site-header` 與 `.page-title-bar`，加 `window.scroll` 監聽，`maxHeight` 同步設定；保底 timeout 延至 1500ms |
+| **圖片預覽 X 按鈕不被裁** | 原 `top:-8px` 超出祖先 `overflow:hidden` 被裁掉；改 `.img-preview-item` 加 `padding-top:10px`，按鈕改 `top:0` 停在容器範圍內 |
+| **訊息泡泡顏色** | 自己訊息泡泡由 `#0d6efd`（高彩度）改為 `#5b9cf6`（柔和淺藍）；時間戳與翻譯按鈕顏色改為 `rgba(255,255,255,0.78)` 可讀 |
+| **我的最愛按鈕文案** | `client/my-custom-products.html`：「查看原始」改為「前往廠商頁面」，語意更清楚 |
+| **數位資產庫傳圖** | 對話頁可從「我的作品」與「我的最愛」兩個分頁選取圖片直接傳送（`POST /api/direct-conversations/:id/messages/asset-url`） |
+| **圖片壓縮上傳** | 上傳前 Canvas 壓縮（PNG/JPG → JPEG，max 1200px，quality 0.82）；純圖片訊息無粗藍框（`img-only` class，透明背景＋細邊框） |
+
+---
+
 ## 近期完成（2026-03-01 社群分享 & 廠商社群帳號）
 
 | 項目 | 說明 |
