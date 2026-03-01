@@ -6981,7 +6981,7 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
 
         let portfolioQuery = supabase
             .from('manufacturer_portfolio')
-            .select('id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, category_key, subcategory_key, created_at');
+            .select('id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at');
 
         if (manufacturer_id) {
             portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
@@ -7040,8 +7040,8 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
             design_highlight: p.design_highlight || null,
             tags: p.tags || [],
             sort_order: p.sort_order,
-            category_key: p.category_key || null,
-            subcategory_key: p.subcategory_key || null
+            category_key: null,
+            subcategory_key: null
         }));
 
         if (result.length === 0) {
