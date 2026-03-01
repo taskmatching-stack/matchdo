@@ -405,6 +405,8 @@
             }
             currentUser = user;
             renderAreaSelector();
+            // API 資料更新後重繪（area-codes.js 非同步載入 DB 地區資料）
+            document.addEventListener('areacodes:updated', renderAreaSelector);
             await loadContactInfo();
 
             $('#contactInfoForm').submit(async function (e) {

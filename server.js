@@ -6410,6 +6410,50 @@ app.post('/api/me/manufacturer', express.json(), async (req, res) => {
     }
 });
 
+// GET /api/service-areas — 前台讀取服務地區列表（公開，無需登入）
+app.get('/api/service-areas', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('service_areas')
+            .select('code, name_zh, name_en, group_code, group_zh, group_en, sort_order')
+            .eq('is_active', true)
+            .order('group_code', { ascending: true })
+            .order('sort_order', { ascending: true });
+        if (error) throw error;
+        // 轉換為 area-codes.js 相同的 groups 結構，前台可直接替換
+        const groupMap = {};
+        (data || []).forEach(function(row) {
+            if (!groupMap[row.group_code]) {
+                groupMap[row.group_code] = {
+                    code: row.group_code,
+                    zh:   row.group_zh,
+                    en:   row.group_en,
+                    cities: []
+                };
+            }
+            groupMap[row.group_code].cities.push({
+                code: row.code,
+                zh:   row.name_zh,
+                en:   row.name_en
+            });
+        });
+        // 依大區固定順序排列（台灣北中南東離島 → 海外）
+        const ORDER = ['TW-N','TW-C','TW-S','TW-E','TW-O','OVERSEAS'];
+        const groups = ORDER
+            .filter(function(k){ return groupMap[k]; })
+            .map(function(k){ return groupMap[k]; });
+        // 其餘未在 ORDER 的大區加到最後
+        Object.keys(groupMap).forEach(function(k){
+            if (ORDER.indexOf(k) === -1) groups.push(groupMap[k]);
+        });
+        res.json({ groups });
+    } catch (e) {
+        console.error('GET /api/service-areas 異常:', e);
+        // 降級：回傳空陣列，前台會 fallback 到 area-codes.js
+        res.status(500).json({ groups: [] });
+    }
+});
+
 // GET /api/manufacturers — 依分類取得廠商清單（訂製品設計者「找製作方」用）
 // Query: category（單一分類，舊版相容） 或 category_key + subcategory_key（子分類優先，不足一頁用主分類填滿）
 // 當有 category_key 時：先查 subcategory_key 符合的製作方，不足 per_page 時用 category_key 補滿一頁（子分類排前、去重）

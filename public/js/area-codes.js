@@ -151,10 +151,36 @@
     }
 
     global.AreaCodes = {
-        groups: AREA_GROUPS,
+        groups: AREA_GROUPS,   // 預設用靜態資料，API 載入後自動更新
         getLabel: getLabel,
         getCodes: getCodes,
-        zhToCode: zhToCode
+        zhToCode: zhToCode,
+        /** 重建 _codeMap（API 資料更新後需呼叫） */
+        _rebuildMap: function() {
+            _codeMap = {};
+            AREA_GROUPS.forEach(function(g) {
+                _codeMap[g.code] = { zh: g.zh, en: g.en };
+                (g.cities || []).forEach(function(c) {
+                    _codeMap[c.code] = { zh: c.zh, en: c.en };
+                });
+            });
+        }
     };
+
+    // ── 從 API 載入最新地區資料（DB 版）；失敗時靜默降級到靜態資料 ──
+    if (typeof fetch !== 'undefined') {
+        fetch('/api/service-areas')
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(json) {
+                if (!json || !json.groups || json.groups.length === 0) return;
+                // 以 API 資料取代靜態資料
+                AREA_GROUPS = json.groups;
+                global.AreaCodes.groups = AREA_GROUPS;
+                global.AreaCodes._rebuildMap();
+                // 通知頁面重繪（vendors.html / contact-info.html 監聽此事件）
+                document.dispatchEvent(new CustomEvent('areacodes:updated'));
+            })
+            .catch(function() { /* 靜默降級，使用靜態資料 */ });
+    }
 
 })(window);

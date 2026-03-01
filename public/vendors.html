@@ -612,8 +612,9 @@
             loadVendors(false);
         });
 
-        // 語言切換時重繪地區標籤
+        // 語言切換或 API 資料更新時重繪
         document.addEventListener('i18n:applied', renderAreaFilter);
+        document.addEventListener('areacodes:updated', renderAreaFilter);
 
         /* ── 初始化 ── */
         if (window.i18n && window.i18n.ready) {
