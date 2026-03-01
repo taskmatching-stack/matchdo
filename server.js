@@ -8644,8 +8644,18 @@ app.get('/api/contact-list', async (req, res) => {
         const ids = (rows || []).map(r => r.saved_user_id).filter(Boolean);
         let display = {};
         if (ids.length > 0) {
-            const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', ids);
-            (profiles || []).forEach(p => { display[p.id] = { full_name: p.full_name, avatar_url: p.avatar_url }; });
+            // 先從 manufacturers 取名稱
+            const { data: mfrs } = await supabase.from('manufacturers').select('user_id, name').in('user_id', ids);
+            (mfrs || []).forEach(m => { if (m.user_id) display[m.user_id] = { full_name: m.name }; });
+            // 剩下的從 auth.users metadata 補
+            const missing = ids.filter(id => !display[id]);
+            for (const uid of missing) {
+                try {
+                    const { data: au } = await supabase.auth.admin.getUserById(uid);
+                    const name = au?.user?.user_metadata?.full_name || au?.user?.email?.split('@')[0] || '';
+                    if (name) display[uid] = { full_name: name };
+                } catch (_) {}
+            }
         }
         const list = (rows || []).map(r => ({ saved_user_id: r.saved_user_id, created_at: r.created_at, display: display[r.saved_user_id] || {} }));
         res.json({ contacts: list });
@@ -8698,8 +8708,19 @@ app.get('/api/direct-conversations', async (req, res) => {
         const otherIds = list.map(l => l.other_user_id);
         let display = {};
         if (otherIds.length > 0) {
-            const { data: profiles } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', otherIds);
-            (profiles || []).forEach(p => { display[p.id] = { full_name: p.full_name, avatar_url: p.avatar_url }; });
+            // 1. 從 manufacturers 抓廠商名稱（多數聯絡對象是廠商）
+            const { data: mfrs } = await supabase.from('manufacturers').select('user_id, name').in('user_id', otherIds);
+            (mfrs || []).forEach(m => { if (m.user_id) display[m.user_id] = { full_name: m.name }; });
+            // 2. 沒有名稱的 → 嘗試 auth.users metadata
+            const missing = otherIds.filter(id => !display[id]);
+            for (const uid of missing) {
+                try {
+                    const { data: au } = await supabase.auth.admin.getUserById(uid);
+                    const name = au?.user?.user_metadata?.full_name || au?.user?.email?.split('@')[0] || '';
+                    if (name) display[uid] = { full_name: name };
+                } catch (_) {}
+            }
+            // 3. 最後一則訊息
             const convIds = list.map(l => l.id);
             const { data: allMsgs } = await supabase.from('direct_messages').select('conversation_id, body, created_at').in('conversation_id', convIds);
             const byConv = {};
@@ -8720,33 +8741,41 @@ app.post('/api/direct-conversations', express.json(), async (req, res) => {
         const otherId = req.body?.other_user_id || req.body?.user_id;
         if (!otherId) return res.status(400).json({ error: '請提供 other_user_id' });
         if (otherId === user.id) return res.status(400).json({ error: '無法與自己對話' });
-        const productId = req.body?.product_id || null;
         const [idA, idB] = [user.id, otherId].sort();
-        // 若有 product_id，優先找同產品的對話；否則找任意對話
+
+        // 找現有對話（unique on user_a_id + user_b_id）
         let conv = null;
-        if (productId) {
-            const { data: existing } = await supabase.from('direct_conversations')
-                .select('id').eq('user_a_id', idA).eq('user_b_id', idB).eq('product_id', productId).maybeSingle();
-            conv = existing;
-        }
+        const { data: existing } = await supabase.from('direct_conversations')
+            .select('id').eq('user_a_id', idA).eq('user_b_id', idB).maybeSingle();
+        conv = existing;
+
+        // 沒有就建立
         if (!conv) {
-            const { data: existing } = await supabase.from('direct_conversations')
-                .select('id').eq('user_a_id', idA).eq('user_b_id', idB)
-                .is('product_id', productId ? null : null) // 無 product_id 時找通用對話
-                .maybeSingle();
-            if (!productId) conv = existing;
-        }
-        if (!conv) {
-            const insert = { user_a_id: idA, user_b_id: idB };
-            if (productId) insert.product_id = productId;
-            const { data: inserted, error: insErr } = await supabase.from('direct_conversations').insert(insert).select('id').single();
-            if (insErr) return res.status(500).json({ error: '建立對話失敗' });
+            const { data: inserted, error: insErr } = await supabase
+                .from('direct_conversations').insert({ user_a_id: idA, user_b_id: idB }).select('id').single();
+            if (insErr) {
+                console.error('建立對話失敗:', insErr);
+                return res.status(500).json({ error: '建立對話失敗: ' + insErr.message });
+            }
             conv = inserted;
         }
-        const { data: messages, error: msgErr } = await supabase.from('direct_messages').select('id, sender_id, body, created_at').eq('conversation_id', conv.id).order('created_at', { ascending: true });
+
+        // 取得對方顯示名稱（優先 manufacturers 表，其次 auth.users metadata）
+        let displayName = '';
+        try {
+            const { data: mfr } = await supabase.from('manufacturers').select('name').eq('user_id', otherId).maybeSingle();
+            if (mfr?.name) displayName = mfr.name;
+            else {
+                const { data: au } = await supabase.auth.admin.getUserById(otherId);
+                displayName = au?.user?.user_metadata?.full_name || au?.user?.email?.split('@')[0] || '';
+            }
+        } catch (_) {}
+
+        const { data: messages, error: msgErr } = await supabase.from('direct_messages')
+            .select('id, sender_id, body, created_at').eq('conversation_id', conv.id).order('created_at', { ascending: true });
         if (msgErr) return res.status(500).json({ error: '讀取訊息失敗' });
         const msgList = (messages || []).map(m => ({ id: m.id, sender_id: m.sender_id, body: m.body, created_at: m.created_at, is_mine: m.sender_id === user.id }));
-        res.json({ conversation_id: conv.id, messages: msgList });
+        res.json({ conversation_id: conv.id, display_name: displayName, messages: msgList });
     } catch (e) {
         console.error('POST /api/direct-conversations:', e);
         res.status(500).json({ error: '系統錯誤' });

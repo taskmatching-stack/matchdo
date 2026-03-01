@@ -160,35 +160,38 @@
 
             async function openOrSelectConversation(otherUserId, displayName, productId) {
                 // 1. 建立/取得對話
-                const convBody = { other_user_id: otherUserId };
-                if (productId) convBody.product_id = productId;
                 let convData = {};
                 try {
                     const convRes = await fetch('/api/direct-conversations', {
                         method: 'POST',
                         headers: headers(),
-                        body: JSON.stringify(convBody)
+                        body: JSON.stringify({ other_user_id: otherUserId })
                     });
+                    if (!convRes.ok) {
+                        const errBody = await convRes.json().catch(() => ({}));
+                        console.error('建立對話失敗:', convRes.status, errBody);
+                        alert('無法開啟對話：' + (errBody.error || convRes.status));
+                        return;
+                    }
                     convData = await convRes.json();
-                } catch (e) { console.error('建立對話失敗:', e); }
+                } catch (e) { console.error('建立對話請求失敗:', e); alert('網路錯誤，請稍後再試'); return; }
 
-                // 2. 加入聯絡清單（無論對話是否已存在都執行）
+                // 優先用 API 回傳的顯示名稱
+                const resolvedName = displayName || convData.display_name || otherUserId.slice(0, 8) + '…';
+
+                // 2. 加入聯絡清單
                 try {
-                    const clRes = await fetch('/api/contact-list', {
+                    await fetch('/api/contact-list', {
                         method: 'POST',
                         headers: headers(),
                         body: JSON.stringify({ user_id: otherUserId })
                     });
-                    if (!clRes.ok) {
-                        const clErr = await clRes.json().catch(() => ({}));
-                        console.warn('加入聯絡清單失敗:', clRes.status, clErr);
-                    }
-                } catch (e) { console.warn('加入聯絡清單請求失敗:', e); }
+                } catch (e) { console.warn('加入聯絡清單失敗:', e); }
 
-                // 3. 重新載入聯絡清單並開啟對話
+                // 3. 重新載入清單並開啟對話
                 await loadContacts();
                 if (convData.conversation_id) {
-                    selectConversation(convData.conversation_id, otherUserId, displayName);
+                    selectConversation(convData.conversation_id, otherUserId, resolvedName);
                 }
             }
 
