@@ -552,89 +552,120 @@
             return (document.documentElement.lang || 'zh-TW').startsWith('en') ? 'en' : 'zh';
         }
 
-        var _expandedGroups = {};   // 記錄哪些大區已展開
-        var _expandedCountry = {};  // 記錄哪些國家已展開子城市
+        var _expandedCountry = {};   // 第一層：台灣/國家展開
+        var _expandedState   = {};   // 第二層：海外州展開
+
+        var TW_GROUP_NAMES_V = { 'TW-N':'北部','TW-C':'中部','TW-S':'南部','TW-E':'東部','TW-O':'離島' };
+        var TW_GROUP_NAMES_EN = { 'TW-N':'North','TW-C':'Central','TW-S':'South','TW-E':'East','TW-O':'Islands' };
+        var TW_GROUP_ORDER_V = ['TW-N','TW-C','TW-S','TW-E','TW-O'];
+
+        function countSelV(node) {
+            var n = state.selectedAreas.indexOf(node.code) >= 0 ? 1 : 0;
+            (node.children || []).forEach(function(c){ n += countSelV(c); });
+            return n;
+        }
 
         function renderAreaFilter() {
             var lang = getCurrentLang();
             var $wrap = document.getElementById('filterAreaGroups');
             var $label = document.getElementById('areaFilterLabel');
             var $clear = document.getElementById('areaClearBtn');
-            var groups = (window.AreaCodes && window.AreaCodes.groups) || [];
+            var countries = (window.AreaCodes && window.AreaCodes.countries) || [];
             if ($label) $label.innerHTML = lang === 'en'
                 ? '<i class="bi bi-geo-alt me-1"></i>Service Area'
                 : '<i class="bi bi-geo-alt me-1"></i>服務地區';
             if (!$wrap) return;
 
-            // 第一層：大區標籤列
+            // 第一層：台灣 + 海外國家同級
             var html = '<div class="d-flex flex-wrap gap-1 mb-1">';
-            groups.forEach(function(g) {
-                var allCodes = [];
-                (g.cities||[]).forEach(function(c){
-                    allCodes.push(c.code);
-                    (c.cities||[]).forEach(function(s){ allCodes.push(s.code); });
-                });
-                var selCount = allCodes.filter(function(c){ return state.selectedAreas.indexOf(c) >= 0; }).length;
-                var isExp = !!_expandedGroups[g.code];
-                var cls = 'filter-tag' + (selCount > 0 ? ' active' : '') + (isExp ? ' area-group-open' : '');
-                var label = lang === 'en' ? g.en : g.zh;
-                if (selCount > 0) label += ' <small style="font-size:.68em;opacity:.85;">(' + selCount + ')</small>';
-                html += '<span class="' + cls + '" role="button" tabindex="0" data-group="' + g.code + '">' + label + '</span>';
+            countries.forEach(function(c) {
+                var selN  = countSelV(c);
+                var isOpen = !!_expandedCountry[c.code];
+                var lbl = (lang==='en' ? c.en : c.zh) + (selN > 0 ? ' <small style="font-size:.68em;opacity:.85;">('+selN+')</small>' : '');
+                var cls = 'filter-tag' + (selN > 0 ? ' active' : '') + (isOpen ? ' area-group-open' : '');
+                html += '<span class="' + cls + '" role="button" tabindex="0" data-country="' + c.code + '">' + lbl + '</span>';
             });
             html += '</div>';
 
-            // 第二層：已展開大區的縣市/國家標籤
-            groups.forEach(function(g) {
-                if (!_expandedGroups[g.code]) return;
-                html += '<div class="area-cities-row mb-1 ps-1"><span class="text-muted me-1" style="font-size:.7rem;">' + (lang==='en'?g.en:g.zh) + '：</span>';
-                (g.cities || []).forEach(function(c) {
-                    var hasSub = c.cities && c.cities.length > 0;
-                    var lbl = lang === 'en' ? c.en : c.zh;
-                    if (hasSub) {
-                        // 分裂標籤：左邊選取整個國家，右邊展開子城市
-                        var subSel  = (c.cities||[]).filter(function(s){ return state.selectedAreas.indexOf(s.code) >= 0; }).length;
-                        var selfSel = state.selectedAreas.indexOf(c.code) >= 0;
-                        var isOpen  = !!_expandedCountry[c.code];
-                        var activeCls = (selfSel || subSel > 0) ? ' active' : '';
-                        var openCls   = isOpen ? ' open' : '';
-                        var cnt = subSel > 0 ? ' <sup style="font-size:.65em;">+'+subSel+'</sup>' : '';
-                        html += '<span class="v-split-tag' + activeCls + openCls + '">'
-                              + '<span class="v-split-label" role="button" tabindex="0" data-area="' + c.code + '">' + lbl + cnt + '</span>'
-                              + '<span class="v-split-arrow" role="button" tabindex="0" data-country="' + c.code + '">' + (isOpen?'▲':'▼') + '</span>'
-                              + '</span>';
-                    } else {
-                        var active = state.selectedAreas.indexOf(c.code) >= 0 ? ' active' : '';
-                        html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + c.code + '">' + lbl + '</span> ';
-                    }
-                });
-                // 第三層：已展開國家的子城市（各自獨立選取）
-                (g.cities || []).forEach(function(c) {
-                    if (!c.cities || !c.cities.length || !_expandedCountry[c.code]) return;
-                    html += '<div class="area-subcities-row mt-1"><small class="text-muted me-2">' + (lang==='en'?c.en:c.zh) + '：</small>';
-                    (c.cities||[]).forEach(function(s) {
-                        var sa = state.selectedAreas.indexOf(s.code) >= 0 ? ' active' : '';
-                        html += '<span class="filter-tag subcity-tag' + sa + '" role="button" tabindex="0" data-area="' + s.code + '">' + (lang==='en'?s.en:s.zh) + '</span> ';
+            // 第二層：展開的國家/台灣
+            countries.forEach(function(country) {
+                if (!_expandedCountry[country.code]) return;
+
+                if (country.code === 'TW') {
+                    // 台灣：縣市按大區分組
+                    html += '<div class="area-cities-row mb-1">';
+                    var grouped = {};
+                    (country.children || []).forEach(function(city) {
+                        var gk = city.group_code || 'TW-N';
+                        if (!grouped[gk]) grouped[gk] = [];
+                        grouped[gk].push(city);
+                    });
+                    TW_GROUP_ORDER_V.forEach(function(gk) {
+                        if (!grouped[gk]) return;
+                        var gName = lang==='en' ? (TW_GROUP_NAMES_EN[gk]||gk) : (TW_GROUP_NAMES_V[gk]||gk);
+                        html += '<span class="text-muted me-1" style="font-size:.7rem;">' + gName + '：</span>';
+                        grouped[gk].forEach(function(city) {
+                            var isAct = state.selectedAreas.indexOf(city.code) >= 0;
+                            var lbl = lang==='en' ? city.en : city.zh;
+                            html += '<span class="filter-tag filter-sub' + (isAct?' active':'') + '" role="button" tabindex="0" data-area="' + city.code + '">' + lbl + '</span> ';
+                        });
+                        html += '<br>';
                     });
                     html += '</div>';
-                });
-                html += '</div>';
+                } else {
+                    // 海外國家
+                    html += '<div class="area-cities-row mb-1">';
+                    var countryLbl = lang==='en' ? country.en : country.zh;
+                    var states = country.children || [];
+                    if (!states.length) {
+                        var isAct = state.selectedAreas.indexOf(country.code) >= 0;
+                        html += '<span class="filter-tag filter-sub' + (isAct?' active':'') + '" role="button" tabindex="0" data-area="' + country.code + '">'
+                              + countryLbl + (lang==='en'?' (All)':'（全國）') + '</span>';
+                    } else {
+                        states.forEach(function(st) {
+                            var hasCities = st.children && st.children.length > 0;
+                            var stLbl = lang==='en' ? st.en : st.zh;
+                            var isStAct = state.selectedAreas.indexOf(st.code) >= 0;
+                            var isOpen = !!_expandedState[st.code];
+                            var subSel = 0;
+                            (st.children||[]).forEach(function(ct){ if(state.selectedAreas.indexOf(ct.code)>=0) subSel++; });
+                            var activeCls = (isStAct||subSel>0) ? ' active' : '';
+                            var cnt = subSel > 0 ? ' <sup style="font-size:.65em;">+'+subSel+'</sup>' : '';
+                            if (hasCities) {
+                                html += '<span class="v-split-tag' + activeCls + (isOpen?' open':'') + '">'
+                                      + '<span class="v-split-label" role="button" tabindex="0" data-area="' + st.code + '">' + stLbl + cnt + '</span>'
+                                      + '<span class="v-split-arrow" role="button" tabindex="0" data-state="' + st.code + '">' + (isOpen?'▲':'▼') + '</span>'
+                                      + '</span>';
+                                if (isOpen) {
+                                    html += '<div class="area-subcities-row mt-1 mb-1"><small class="text-muted me-1">' + stLbl + '：</small>';
+                                    (st.children||[]).forEach(function(ct) {
+                                        var isCtAct = state.selectedAreas.indexOf(ct.code) >= 0;
+                                        html += '<span class="filter-tag subcity-tag' + (isCtAct?' active':'') + '" role="button" tabindex="0" data-area="' + ct.code + '">' + (lang==='en'?ct.en:ct.zh) + '</span> ';
+                                    });
+                                    html += '</div>';
+                                }
+                            } else {
+                                html += '<span class="filter-tag filter-sub' + (isStAct?' active':'') + '" role="button" tabindex="0" data-area="' + st.code + '">' + stLbl + '</span> ';
+                            }
+                        });
+                    }
+                    html += '</div>';
+                }
             });
 
             $wrap.innerHTML = html;
 
-            // 大區點擊 → 展開/收合
-            $wrap.querySelectorAll('[data-group]').forEach(function(tag) {
-                tag.addEventListener('click', function() { _expandedGroups[tag.getAttribute('data-group')] ^= 1; renderAreaFilter(); });
+            // 第一層國家/台灣展開
+            $wrap.querySelectorAll('[data-country]').forEach(function(tag) {
+                tag.addEventListener('click', function() { _expandedCountry[tag.getAttribute('data-country')] ^= 1; renderAreaFilter(); });
                 tag.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();tag.click();} });
             });
-
-            // 展開箭頭點擊 → 展開/收合子城市
-            $wrap.querySelectorAll('.v-split-arrow[data-country]').forEach(function(tag) {
-                tag.addEventListener('click', function(e) { e.stopPropagation(); _expandedCountry[tag.getAttribute('data-country')] ^= 1; renderAreaFilter(); });
+            // 州展開箭頭
+            $wrap.querySelectorAll('.v-split-arrow[data-state]').forEach(function(tag) {
+                tag.addEventListener('click', function(e){ e.stopPropagation(); _expandedState[tag.getAttribute('data-state')] ^= 1; renderAreaFilter(); });
                 tag.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();tag.click();} });
             });
-
-            // 地區選取（任意層級）
+            // 地區選取
             $wrap.querySelectorAll('[data-area]').forEach(function(tag) {
                 tag.addEventListener('click', function(e) {
                     e.stopPropagation();

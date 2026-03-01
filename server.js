@@ -6410,42 +6410,99 @@ app.post('/api/me/manufacturer', express.json(), async (req, res) => {
     }
 });
 
-// GET /api/service-areas — 前台讀取服務地區列表（公開，含子地區）
+// GET /api/service-areas — 前台讀取服務地區（公開）
+// 回傳新三層結構：
+//   countries[]  → 台灣 & 海外國家（頂層）
+//     .children  → 台灣縣市（葉） or 海外州/地區
+//       .children → 海外城市（葉）
+//   taiwan_groups → 台灣縣市按北/中/南/東/離島分組（供前台分組顯示用）
 app.get('/api/service-areas', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('service_areas')
-            .select('code, name_zh, name_en, group_code, group_zh, group_en, sort_order, parent_code')
+            .select('code, name_zh, name_en, group_code, group_zh, group_en, sort_order, parent_code, area_type')
             .eq('is_active', true)
-            .order('group_code').order('sort_order').order('code');
+            .order('sort_order').order('code');
         if (error) throw error;
         const rows = data || [];
-        // 分離頂層（parent_code IS NULL）與子地區
-        const topLevel = rows.filter(r => !r.parent_code);
-        const children = rows.filter(r => r.parent_code);
-        // 建 children map
+
+        // 建立 parent→children map
         const childMap = {};
-        children.forEach(function(c) {
-            if (!childMap[c.parent_code]) childMap[c.parent_code] = [];
-            childMap[c.parent_code].push({ code: c.code, zh: c.name_zh, en: c.name_en });
+        rows.forEach(r => {
+            const p = r.parent_code || '__root__';
+            if (!childMap[p]) childMap[p] = [];
+            childMap[p].push(r);
         });
-        // 建 groups 結構
-        const groupMap = {};
-        topLevel.forEach(function(row) {
-            if (!groupMap[row.group_code]) {
-                groupMap[row.group_code] = { code: row.group_code, zh: row.group_zh, en: row.group_en, cities: [] };
+
+        function mapNode(r) {
+            const node = { code: r.code, zh: r.name_zh, en: r.name_en, type: r.area_type || 'country' };
+            const kids = childMap[r.code] || [];
+            if (kids.length) node.children = kids.map(mapNode);
+            return node;
+        }
+
+        // 頂層國家列表（parent_code IS NULL）
+        const topRows = childMap['__root__'] || [];
+
+        // 台灣：抓取並加 group_code 分組資訊（供前台按北中南東離島顯示）
+        const twRow = topRows.find(r => r.code === 'TW');
+        const twNode = twRow ? mapNode(twRow) : null;
+        if (twNode) {
+            // 在台灣的 children 中加上 group_code，前台可用來分組
+            const twCities = childMap['TW'] || [];
+            twNode.children = twCities.map(c => ({
+                code: c.code, zh: c.name_zh, en: c.name_en,
+                type: 'tw_city', group_code: c.group_code
+            }));
+        }
+
+        // 海外國家
+        const overseasNodes = topRows
+            .filter(r => r.code !== 'TW')
+            .map(mapNode);
+
+        // 同時保留舊版 groups 格式（兼容 area-codes.js fallback）
+        const TW_GROUP_META = {
+            'TW-N': { zh:'北部', en:'North Taiwan' },
+            'TW-C': { zh:'中部', en:'Central Taiwan' },
+            'TW-S': { zh:'南部', en:'South Taiwan' },
+            'TW-E': { zh:'東部', en:'East Taiwan' },
+            'TW-O': { zh:'離島', en:'Outlying Islands' }
+        };
+        const twGrouped = {};
+        (childMap['TW'] || []).forEach(c => {
+            const gk = c.group_code;
+            if (!twGrouped[gk]) {
+                const m = TW_GROUP_META[gk] || { zh: gk, en: gk };
+                twGrouped[gk] = { code: gk, zh: m.zh, en: m.en, cities: [] };
             }
-            const city = { code: row.code, zh: row.name_zh, en: row.name_en };
-            if (childMap[row.code] && childMap[row.code].length > 0) city.cities = childMap[row.code];
-            groupMap[row.group_code].cities.push(city);
+            twGrouped[gk].cities.push({ code: c.code, zh: c.name_zh, en: c.name_en });
         });
-        const ORDER = ['TW-N','TW-C','TW-S','TW-E','TW-O','OVERSEAS'];
-        const groups = ORDER.filter(k => groupMap[k]).map(k => groupMap[k]);
-        Object.keys(groupMap).forEach(function(k){ if (!ORDER.includes(k)) groups.push(groupMap[k]); });
-        res.json({ groups });
+        const TW_ORDER = ['TW-N','TW-C','TW-S','TW-E','TW-O'];
+        const taiwanGroups = TW_ORDER.filter(k => twGrouped[k]).map(k => twGrouped[k]);
+
+        const overseasGroup = {
+            code: 'OVERSEAS', zh: '海外', en: 'Overseas',
+            cities: overseasNodes.map(n => {
+                const c = { code: n.code, zh: n.zh, en: n.en };
+                if (n.children && n.children.length) c.cities = n.children.map(s => {
+                    const sc = { code: s.code, zh: s.zh, en: s.en };
+                    if (s.children && s.children.length) sc.cities = s.children.map(ct => ({ code: ct.code, zh: ct.zh, en: ct.en }));
+                    return sc;
+                });
+                return c;
+            })
+        };
+
+        res.json({
+            countries: twNode ? [twNode, ...overseasNodes] : overseasNodes,
+            taiwan_groups: taiwanGroups,
+            // groups：舊版相容格式，area-codes.js 繼續可用
+            groups: [...taiwanGroups, ...(overseasGroup.cities.length ? [overseasGroup] : [])]
+        });
     } catch (e) {
         console.error('GET /api/service-areas 異常:', e);
-        res.status(500).json({ groups: [] });
+        res.status(500).json({ countries: [], taiwan_groups: [], groups: [] });
     }
 });
 
@@ -6468,20 +6525,21 @@ app.get('/api/admin/service-areas', async (req, res) => {
     }
 });
 
-// POST /api/admin/service-areas — 新增（支援 parent_code 子地區）
+// POST /api/admin/service-areas — 新增（支援 parent_code + area_type）
 app.post('/api/admin/service-areas', express.json(), async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
-        const { code, name_zh, name_en, group_code, group_zh, group_en, sort_order, parent_code } = req.body || {};
-        if (!code || !name_zh || !name_en || !group_code) return res.status(400).json({ error: '請填寫 code、中文名、英文名、大區 code' });
+        const { code, name_zh, name_en, group_code, group_zh, group_en, sort_order, parent_code, area_type } = req.body || {};
+        if (!code || !name_zh || !name_en) return res.status(400).json({ error: '請填寫 code、中文名、英文名' });
         const row = {
             code: code.trim().toUpperCase(),
             name_zh: name_zh.trim(), name_en: name_en.trim(),
-            group_code: group_code.trim().toUpperCase(),
+            group_code: (group_code||'OVERSEAS').trim().toUpperCase(),
             group_zh: (group_zh||'').trim(), group_en: (group_en||'').trim(),
             sort_order: parseInt(sort_order)||0,
-            parent_code: parent_code ? parent_code.trim().toUpperCase() : null
+            parent_code: parent_code ? parent_code.trim().toUpperCase() : null,
+            area_type: area_type || 'country'
         };
         const { data, error } = await supabase.from('service_areas').insert(row).select().single();
         if (error) throw error;
@@ -6498,13 +6556,10 @@ app.put('/api/admin/service-areas/:code', express.json(), async (req, res) => {
         const user = await requireAdmin(req, res);
         if (!user) return;
         const orig = decodeURIComponent(req.params.code);
-        const { name_zh, name_en, group_code, group_zh, group_en, sort_order, is_active } = req.body || {};
+        const { name_zh, name_en, sort_order, is_active } = req.body || {};
         const update = {};
         if (name_zh !== undefined) update.name_zh = name_zh.trim();
         if (name_en !== undefined) update.name_en = name_en.trim();
-        if (group_code !== undefined) update.group_code = group_code.trim().toUpperCase();
-        if (group_zh !== undefined) update.group_zh = group_zh.trim();
-        if (group_en !== undefined) update.group_en = group_en.trim();
         if (sort_order !== undefined) update.sort_order = parseInt(sort_order)||0;
         if (is_active !== undefined) update.is_active = Boolean(is_active);
         const { error } = await supabase.from('service_areas').update(update).eq('code', orig);
