@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="utf-8">
+    <title>作品系列 - MATCHDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/img/favicon.ico">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+    <style>
+        .hero-banner { background: linear-gradient(135deg, #2d4059 0%, #445D7E 100%); color:#fff; padding:2.5rem 0 2rem; }
+        .hero-banner h1 { font-size:1.8rem; font-weight:700; }
+        .hero-banner .desc { opacity:.85; font-size:.95rem; }
+        .contact-bar { background:#fff; border-bottom:1px solid #dee2e6; padding:0.75rem 0; position:sticky; top:0; z-index:100; }
+        .img-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1rem; }
+        .img-card { border-radius:12px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.08); cursor:pointer; transition:transform .15s; }
+        .img-card:hover { transform:translateY(-3px); }
+        .img-card img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; }
+        .img-card .img-info { padding:.6rem .75rem; font-size:.85rem; color:#444; }
+        .img-card .img-info strong { display:block; margin-bottom:.2rem; }
+        .img-lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:2000; align-items:center; justify-content:center; }
+        .img-lightbox.show { display:flex; }
+        .img-lightbox img { max-width:90vw; max-height:85vh; border-radius:8px; object-fit:contain; }
+        .img-lightbox .lb-close { position:absolute; top:1rem; right:1.25rem; color:#fff; font-size:2rem; cursor:pointer; line-height:1; }
+        .empty-state { text-align:center; padding:5rem 1rem; color:#6c757d; }
+        .empty-state i { font-size:3.5rem; display:block; margin-bottom:1rem; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div id="pageLoading" class="text-center py-5 text-muted">
+        <div class="spinner-border mb-2" role="status"></div>
+        <p>載入中…</p>
+    </div>
+
+    <div id="pageContent" style="display:none;">
+        <!-- Hero -->
+        <div class="hero-banner">
+            <div class="container">
+                <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                    <div>
+                        <a href="/custom/gallery.html" class="btn btn-sm btn-outline-light mb-3">
+                            <i class="bi bi-arrow-left me-1"></i>返回圖庫
+                        </a>
+                        <h1 id="colTitle">系列作品</h1>
+                        <p id="colDesc" class="desc mb-0"></p>
+                    </div>
+                    <div id="mfrInfo" class="text-end" style="display:none!important;">
+                        <div id="mfrName" class="fw-bold fs-5"></div>
+                        <div id="mfrLocation" class="small opacity-75"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聯絡廠商 sticky bar -->
+        <div class="contact-bar" id="contactBar" style="display:none;">
+            <div class="container d-flex align-items-center gap-3 flex-wrap">
+                <span id="barMfrName" class="fw-semibold"></span>
+                <button id="btnContactInApp" class="btn btn-success btn-sm d-none" onclick="contactVendor()">
+                    <i class="bi bi-chat-dots me-1"></i>站內聯絡廠商
+                </button>
+                <a id="btnViewProfile" href="#" class="btn btn-outline-primary btn-sm d-none">
+                    <i class="bi bi-person-badge me-1"></i>查看廠商頁
+                </a>
+            </div>
+        </div>
+
+        <!-- 圖片網格 -->
+        <div class="container py-4">
+            <div id="imgGrid" class="img-grid"></div>
+            <div id="emptyState" class="empty-state d-none">
+                <i class="bi bi-images"></i>
+                <p>此系列尚無圖片</p>
+                <a href="/custom/gallery.html" class="btn btn-outline-primary">返回圖庫</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="pageError" style="display:none;" class="text-center py-5">
+        <i class="bi bi-exclamation-triangle text-warning" style="font-size:3rem;"></i>
+        <p class="mt-3 text-muted">找不到此系列資料</p>
+        <a href="/custom/gallery.html" class="btn btn-outline-primary">返回圖庫</a>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="imgLightbox" class="img-lightbox" onclick="closeLightbox(event)">
+        <span class="lb-close" onclick="document.getElementById('imgLightbox').classList.remove('show')">&times;</span>
+        <img id="lbImg" src="" alt="">
+    </div>
+
+    <div id="site-footer"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/site-footer.js"></script>
+    <script>
+    (function () {
+        var _mfrUserId = null;
+
+        window.contactVendor = function () {
+            if (!_mfrUserId) return;
+            if (typeof AuthService !== 'undefined') {
+                AuthService.getSession().then(function (s) {
+                    var token = s && (s.access_token || (s.session && s.session.access_token));
+                    if (!token) { window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.href); return; }
+                    window.location.href = '/client/messages.html?open=' + encodeURIComponent(_mfrUserId);
+                }).catch(function () { window.location.href = '/login.html'; });
+            } else { window.location.href = '/login.html'; }
+        };
+
+        window.closeLightbox = function (e) {
+            if (e.target === document.getElementById('imgLightbox')) {
+                document.getElementById('imgLightbox').classList.remove('show');
+            }
+        };
+
+        function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+        function openLightbox(url) {
+            document.getElementById('lbImg').src = url;
+            document.getElementById('imgLightbox').classList.add('show');
+        }
+
+        function renderImages(collection, manufacturer, portfolioItems) {
+            document.getElementById('pageLoading').style.display = 'none';
+            document.getElementById('pageContent').style.display = '';
+
+            // Hero
+            document.getElementById('colTitle').textContent = collection.title || '系列作品';
+            document.title = (collection.title || '系列作品') + ' - MATCHDO';
+            if (collection.description) {
+                document.getElementById('colDesc').textContent = collection.description;
+            }
+
+            // 廠商資訊
+            if (manufacturer) {
+                _mfrUserId = manufacturer.user_id || null;
+                document.getElementById('mfrInfo').style.removeProperty('display');
+                document.getElementById('mfrName').textContent = manufacturer.name || '';
+                if (manufacturer.location) document.getElementById('mfrLocation').textContent = manufacturer.location;
+
+                // 聯絡 bar
+                var bar = document.getElementById('contactBar');
+                bar.style.display = '';
+                document.getElementById('barMfrName').textContent = manufacturer.name || '';
+
+                if (_mfrUserId) {
+                    document.getElementById('btnContactInApp').classList.remove('d-none');
+                }
+                if (manufacturer.id) {
+                    var profileBtn = document.getElementById('btnViewProfile');
+                    profileBtn.href = '/vendor-profile.html?id=' + encodeURIComponent(manufacturer.id);
+                    profileBtn.classList.remove('d-none');
+                }
+            }
+
+            // 圖片：優先顯示 portfolioItems，其次 collection.image_urls
+            var grid = document.getElementById('imgGrid');
+            var imgs = [];
+
+            if (portfolioItems && portfolioItems.length > 0) {
+                portfolioItems.forEach(function (item) {
+                    if (item.image_url) imgs.push({ url: item.image_url, title: item.title || '', desc: item.design_highlight || item.description || '' });
+                });
+            }
+
+            if (imgs.length === 0 && collection.image_urls && collection.image_urls.length > 0) {
+                collection.image_urls.forEach(function (url) { imgs.push({ url: url, title: '', desc: '' }); });
+            }
+
+            if (imgs.length === 0) {
+                document.getElementById('emptyState').classList.remove('d-none');
+                return;
+            }
+
+            grid.innerHTML = imgs.map(function (img) {
+                return '<div class="img-card" onclick="openLightbox(\'' + img.url.replace(/'/g, "\\'") + '\')">' +
+                    '<img src="' + esc(img.url) + '" alt="' + esc(img.title) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'">' +
+                    (img.title || img.desc
+                        ? '<div class="img-info">' + (img.title ? '<strong>' + esc(img.title) + '</strong>' : '') + (img.desc ? esc(img.desc) : '') + '</div>'
+                        : '') +
+                    '</div>';
+            }).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var slug = new URLSearchParams(location.search).get('slug');
+            if (!slug) {
+                document.getElementById('pageLoading').style.display = 'none';
+                document.getElementById('pageError').style.display = '';
+                return;
+            }
+            fetch('/api/collections/' + encodeURIComponent(slug))
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+                .then(function (data) {
+                    renderImages(data.collection, data.manufacturer, data.portfolioItems);
+                })
+                .catch(function () {
+                    document.getElementById('pageLoading').style.display = 'none';
+                    document.getElementById('pageError').style.display = '';
+                });
+        });
+    })();
+    </script>
+</body>
+</html>

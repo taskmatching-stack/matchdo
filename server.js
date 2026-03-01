@@ -610,6 +610,53 @@ app.get('/api/gallery-items', async (req, res) => {
     }
 });
 
+// GET /api/collections/:slug — 資料夾詳情（collection.html 用）
+app.get('/api/collections/:slug', async (req, res) => {
+    try {
+        const { slug } = req.params;
+        const { data: col, error } = await supabase
+            .from('media_collections')
+            .select('id, title, slug, cover_image_url, image_urls, description, manufacturer_id, category_keys')
+            .eq('slug', slug)
+            .eq('is_active', true)
+            .maybeSingle();
+        if (error || !col) return res.status(404).json({ error: '找不到此資料夾' });
+
+        // 補充廠商資訊
+        let manufacturer = null;
+        if (col.manufacturer_id) {
+            const { data: mfr } = await supabase
+                .from('manufacturers')
+                .select('id, name, location, user_id, contact_json')
+                .eq('id', col.manufacturer_id)
+                .maybeSingle();
+            if (mfr) manufacturer = { id: mfr.id, name: mfr.name, location: mfr.location, user_id: mfr.user_id || null, contact: mfr.contact_json || {} };
+        }
+
+        // 取資料夾內的作品圖（從 manufacturer_portfolio）
+        let portfolioItems = [];
+        if (col.manufacturer_id) {
+            const { data: items } = await supabase
+                .from('manufacturer_portfolio')
+                .select('id, title, image_url, description, tags, design_highlight')
+                .eq('manufacturer_id', col.manufacturer_id)
+                .order('sort_order', { ascending: true })
+                .limit(50);
+            portfolioItems = items || [];
+        }
+
+        // 資料夾自身的 image_urls
+        const imageUrls = Array.isArray(col.image_urls) && col.image_urls.length > 0
+            ? col.image_urls
+            : (col.cover_image_url ? [col.cover_image_url] : []);
+
+        res.json({ collection: { ...col, image_urls: imageUrls }, manufacturer, portfolioItems });
+    } catch (e) {
+        console.error('GET /api/collections/:slug:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // 後台：管理員驗證（供 /api/admin/users 等使用）
 async function requireAdmin(req, res) {
     const authHeader = req.headers.authorization;
@@ -5785,7 +5832,7 @@ app.get('/api/media-wall', async (req, res) => {
                 manufacturer_id: mfrId,
                 manufacturer_user_id: mfrUserId,
                 // 優先：廠商頁；其次：收藏頁；最後：圖庫
-                link: mfrId ? '/vendor-profile.html?id=' + encodeURIComponent(mfrId) : (p.slug ? '/custom/collection/' + p.slug : '/custom/gallery.html'),
+                link: mfrId ? '/vendor-profile.html?id=' + encodeURIComponent(mfrId) : (p.slug ? '/custom/collection.html?slug=' + encodeURIComponent(p.slug) : '/custom/gallery.html'),
                 category_keys: (p.category_keys && Array.isArray(p.category_keys)) ? p.category_keys : []
             });
         });

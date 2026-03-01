@@ -515,6 +515,11 @@
                         linkEl.href = '/vendors.html';
                         linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
                         linkEl.style.display = 'inline-block';
+                    } else if (isVendorItem && item.link && item.link.indexOf('collection.html') !== -1) {
+                        // 資料夾作品 → 查看系列
+                        linkEl.href = item.link;
+                        linkEl.innerHTML = '<i class="bi bi-images me-1"></i>查看系列圖片';
+                        linkEl.style.display = 'inline-block';
                     } else if (item.link) {
                         linkEl.href = item.link;
                         linkEl.textContent = '找廠商訂製';
