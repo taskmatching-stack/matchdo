@@ -542,22 +542,36 @@
                         linkEl.onclick = function() { window.location.href = collUrl; };
                         linkEl.style.display = 'inline-block';
                     } else if (item.type === 'user_design') {
-                        // 用戶設計 → 小分類優先、大分類次之
-                        var catFilter = item.subcategory_key || item.category_key || '';
-                        var vendorUrl = catFilter
-                            ? '/vendors.html?category=' + encodeURIComponent(catFilter)
-                            : '/vendors.html';
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找此分類廠商';
-                        linkEl.onclick = (function(u){ return function(){ window.location.href = u; }; })(vendorUrl);
+                        // 用戶設計 → 帶入主分類、子分類到圖庫找廠商
+                        var mainKey = (item.category_key || item.category || '').trim();
+                        var subKey = (item.subcategory_key || '').trim();
+                        var q = [];
+                        if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
+                        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+                        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
+                        linkEl.onclick = (function(u){ return function(){ window.location.href = u; }; })(galleryUrl);
                         linkEl.style.display = 'inline-block';
                     } else if (item.link) {
-                        var fallUrl = item.link;
+                        var base = (item.link.indexOf('gallery') !== -1) ? item.link.split('?')[0] : '/custom/gallery.html';
+                        var mainKey = (item.category_key || item.category || '').trim();
+                        var subKey = (item.subcategory_key || '').trim();
+                        var q = [];
+                        if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
+                        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+                        var fallUrl = base + (q.length ? '?' + q.join('&') : '');
                         linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
                         linkEl.onclick = function() { window.location.href = fallUrl; };
                         linkEl.style.display = 'inline-block';
                     } else {
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商';
-                        linkEl.onclick = function() { window.location.href = '/vendors.html'; };
+                        var mainKey = (item.category_key || item.category || '').trim();
+                        var subKey = (item.subcategory_key || '').trim();
+                        var q = [];
+                        if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
+                        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+                        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
+                        linkEl.onclick = function() { window.location.href = galleryUrl; };
                         linkEl.style.display = 'inline-block';
                     }
                 }
@@ -972,9 +986,21 @@
                 if (titleEl) titleEl.textContent = item.title || '';
                 if (linkEl) {
                     linkEl.onclick = null;
-                    var _dest = item.manufacturer_id
-                        ? '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id)
-                        : (item.link || '/vendors.html');
+                    var _dest;
+                    if (item.manufacturer_id) {
+                        _dest = '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id);
+                    } else {
+                        var mainKey = (item.category_key || item.category || '').trim();
+                        var subKey = (item.subcategory_key || '').trim();
+                        if (mainKey || subKey) {
+                            var q = [];
+                            if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
+                            if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+                            _dest = '/custom/gallery.html?' + q.join('&');
+                        } else {
+                            _dest = item.link || '/custom/gallery.html';
+                        }
+                    }
                     var _label = item.manufacturer_id ? '<i class="bi bi-person-badge me-1"></i>查看廠商詳情'
                         : '<i class="bi bi-building me-1"></i>找廠商訂製';
                     linkEl.innerHTML = _label;

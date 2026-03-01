@@ -367,11 +367,11 @@
                     if (!res.ok) { alert(data.error || '翻譯失敗'); return; }
                     let trDiv = div.querySelector('.msg-translation');
                     if (!trDiv) { trDiv = document.createElement('div'); trDiv.className = 'msg-translation'; div.appendChild(trDiv); }
-                    trDiv.innerHTML = '<small style="opacity:.65">' + escapeHtml(data.target_lang || '') + '</small><div>' + escapeHtml(data.translated || '') + '</div>';
+                    trDiv.innerHTML = '<small style="opacity:.65">' + escapeHtml(data.target_lang || '') + '</small><div>' + escapeHtml(data.translated_text || data.translated || '') + '</div>';
                     if (data.points_used) {
                         var toast = document.createElement('div');
                         toast.style.cssText = 'position:fixed;bottom:80px;right:20px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;font-size:.82rem;z-index:9999;';
-                        toast.textContent = '扣除 ' + data.points_used + ' 點，餘額 ' + data.new_balance + ' 點';
+                        toast.textContent = '扣除 ' + data.points_used + ' 點，餘額 ' + (data.balance_after != null ? data.balance_after : data.new_balance) + ' 點';
                         document.body.appendChild(toast);
                         setTimeout(function() { toast.remove(); }, 2500);
                     }

@@ -586,13 +586,17 @@ $(document).ready(function () {
                     var ownerDisplay = (p.owner_display != null && String(p.owner_display).trim()) ? String(p.owner_display).trim() : (p.owner_email || '');
                     var tip = promptText.substring(0, 120) + (seedStr ? ' · Seed: ' + seedStr : '');
                     var showOnHomepage = p.show_on_homepage === true;
+                    var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
+                    var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
                     var $cell = $('<div class="past-item-wrap"></div>').attr({
                         'data-image-url': url,
                         'data-prompt': promptText,
                         'data-seed': seedStr,
                         'data-owner-display': ownerDisplay,
                         'data-product-id': p.id || '',
-                        'data-show-on-homepage': showOnHomepage ? '1' : '0'
+                        'data-show-on-homepage': showOnHomepage ? '1' : '0',
+                        'data-category-key': catKey,
+                        'data-subcategory-key': subKey
                     });
                     $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
                     var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
@@ -701,23 +705,24 @@ $(document).ready(function () {
         $('#pastItemModalOwner').text(ownerDisplay || '（本次生成）');
         var $showSection = $('#pastItemModalShowSection');
         var $checkbox = $('#pastItemModalShowOnHomepage');
+        var catKey = (wrap.attr('data-category-key') || '').trim();
+        var subKey = (wrap.attr('data-subcategory-key') || '').trim();
+        var q = [];
+        if (catKey) q.push('category_key=' + encodeURIComponent(catKey));
+        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+        var linkEl = document.getElementById('pastItemModalLink');
+        if (linkEl) {
+            linkEl.href = galleryUrl;
+            linkEl.classList.remove('d-none');
+        }
         if (productId) {
             $showSection.removeClass('d-none');
             $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
             $('#pastItemModalShowOnHomepageHint').text('免費用戶預設展示在首頁，無法取消').css('color', '');
-            var linkEl = document.getElementById('pastItemModalLink');
-            if (linkEl) {
-                linkEl.href = '/iStudio-1.0.0/client/custom-product-detail.html?id=' + encodeURIComponent(productId);
-                linkEl.classList.remove('d-none');
-            }
         } else {
             $showSection.addClass('d-none');
             $checkbox.removeData('product-id').removeData('source-wrap');
-            var linkEl = document.getElementById('pastItemModalLink');
-            if (linkEl) {
-                linkEl.href = '#';
-                linkEl.classList.add('d-none');
-            }
         }
         var modalEl = document.getElementById('pastItemModal');
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {

@@ -883,23 +883,24 @@ $(document).ready(function () {
         $('#pastItemModalOwner').text(ownerDisplay || ('（' + t('customProduct.thisGeneration') + '）'));
         var $showSection = $('#pastItemModalShowSection');
         var $checkbox = $('#pastItemModalShowOnHomepage');
+        var catKey = (wrap.attr('data-category-key') || '').trim();
+        var subKey = (wrap.attr('data-subcategory-key') || '').trim();
+        var q = [];
+        if (catKey) q.push('category_key=' + encodeURIComponent(catKey));
+        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+        var linkEl = document.getElementById('pastItemModalLink');
+        if (linkEl) {
+            linkEl.href = galleryUrl;
+            linkEl.classList.remove('d-none');
+        }
         if (productId) {
             $showSection.removeClass('d-none');
             $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
             $('#pastItemModalShowOnHomepageHint').text(t('customProduct.freeUserShowHint')).css('color', '');
-            var linkEl = document.getElementById('pastItemModalLink');
-            if (linkEl) {
-                linkEl.href = '/iStudio-1.0.0/client/custom-product-detail.html?id=' + encodeURIComponent(productId);
-                linkEl.classList.remove('d-none');
-            }
         } else {
             $showSection.addClass('d-none');
             $checkbox.removeData('product-id').removeData('source-wrap');
-            var linkEl = document.getElementById('pastItemModalLink');
-            if (linkEl) {
-                linkEl.href = '#';
-                linkEl.classList.add('d-none');
-            }
         }
         var modalEl = document.getElementById('pastItemModal');
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {

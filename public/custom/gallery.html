@@ -615,11 +615,21 @@
     // ── 鍵盤輸入 ──────────────────────────────────────────────────────────
     if ($keyword) $keyword.addEventListener('input', ()=>{ clearTimeout(kwTimer); kwTimer=setTimeout(applyFilters,300); });
 
-    // ── 初始化 ────────────────────────────────────────────────────────────
+    // ── 初始化（支援 URL ?category_key= & subcategory_key= 預選主/子分類）──
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
         applyModalI18n();
         await Promise.all([loadPortfolio(), loadCategories(), loadAndBindAreaButtons()]);
+        const params = new URLSearchParams(window.location.search);
+        const urlCat = params.get('category_key') || '';
+        const urlSub = params.get('subcategory_key') || '';
+        if (urlCat || urlSub) {
+            selCat = urlCat;
+            selSub = urlSub;
+            renderCategoryButtons();
+            renderSubcategoryRow();
+            applyFilters();
+        }
     }
 
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
