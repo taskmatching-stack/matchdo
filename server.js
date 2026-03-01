@@ -9015,9 +9015,9 @@ app.get('/api/direct-conversations/:conversationId/messages', async (req, res) =
         const { data: conv, error: cErr } = await supabase.from('direct_conversations').select('id, user_a_id, user_b_id').eq('id', conversationId).single();
         if (cErr || !conv) return res.status(404).json({ error: '找不到對話' });
         if (conv.user_a_id !== user.id && conv.user_b_id !== user.id) return res.status(403).json({ error: '僅參與者可查看' });
-        const { data: messages, error: mErr } = await supabase.from('direct_messages').select('id, sender_id, body, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true });
+        const { data: messages, error: mErr } = await supabase.from('direct_messages').select('id, sender_id, body, image_url, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true });
         if (mErr) return res.status(500).json({ error: '讀取訊息失敗' });
-        const list = (messages || []).map(m => ({ id: m.id, sender_id: m.sender_id, body: m.body, created_at: m.created_at, is_mine: m.sender_id === user.id }));
+        const list = (messages || []).map(m => ({ id: m.id, sender_id: m.sender_id, body: m.body, image_url: m.image_url || null, created_at: m.created_at, is_mine: m.sender_id === user.id }));
         res.json({ messages: list });
     } catch (e) {
         console.error('GET /api/direct-conversations/:id/messages:', e);
@@ -9041,6 +9041,89 @@ app.post('/api/direct-conversations/:conversationId/messages', express.json(), a
         res.status(201).json({ message: { id: msg.id, sender_id: msg.sender_id, body: msg.body, created_at: msg.created_at, is_mine: true } });
     } catch (e) {
         console.error('POST /api/direct-conversations/:id/messages:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/direct-conversations/:convId/messages/image — 傳送圖片訊息（multipart）
+app.post('/api/direct-conversations/:conversationId/messages/image', upload.single('image'), async (req, res) => {
+    try {
+        const user = await getAuthUser(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const { conversationId } = req.params;
+        const { data: conv } = await supabase.from('direct_conversations').select('user_a_id, user_b_id').eq('id', conversationId).single();
+        if (!conv) return res.status(404).json({ error: '找不到對話' });
+        if (conv.user_a_id !== user.id && conv.user_b_id !== user.id) return res.status(403).json({ error: '僅參與者可發送' });
+        if (!req.file) return res.status(400).json({ error: '請選擇圖片' });
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedTypes.includes(req.file.mimetype)) return res.status(400).json({ error: '僅支援 JPG / PNG / WebP / GIF' });
+        const maxBytes = 10 * 1024 * 1024; // 前端已壓縮，後端允許 10 MB
+        if (req.file.size > maxBytes) return res.status(400).json({ error: '圖片超過 10 MB' });
+        const ext = req.file.mimetype.split('/')[1] || 'jpg';
+        const { publicUrl } = await uploadToSupabaseStorage('custom-products', `messages/${conversationId}`, req.file, { ext, contentType: req.file.mimetype });
+        const { data: msg, error: insErr } = await supabase.from('direct_messages')
+            .insert({ conversation_id: conversationId, sender_id: user.id, body: '', image_url: publicUrl })
+            .select('id, sender_id, body, image_url, created_at').single();
+        if (insErr) { console.error('INSERT image message:', insErr); return res.status(500).json({ error: '發送失敗' }); }
+        // 更新 conversation updated_at
+        await supabase.from('direct_conversations').update({ updated_at: new Date().toISOString() }).eq('id', conversationId);
+        res.status(201).json({ message: { id: msg.id, sender_id: msg.sender_id, body: msg.body, image_url: msg.image_url, created_at: msg.created_at, is_mine: true } });
+    } catch (e) {
+        console.error('POST /api/direct-conversations/:id/messages/image:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/direct-messages/:msgId/translate — 翻譯單則訊息（扣 1 點）
+app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, res) => {
+    try {
+        const user = await getAuthUser(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const { msgId } = req.params;
+        // 取訊息 & 驗證參與者
+        const { data: msg } = await supabase.from('direct_messages').select('id, body, image_url, conversation_id').eq('id', msgId).maybeSingle();
+        if (!msg) return res.status(404).json({ error: '找不到訊息' });
+        if (!msg.body && !msg.image_url) return res.status(400).json({ error: '此訊息無文字可翻譯' });
+        const { data: conv } = await supabase.from('direct_conversations').select('user_a_id, user_b_id').eq('id', msg.conversation_id).single();
+        if (!conv || (conv.user_a_id !== user.id && conv.user_b_id !== user.id)) return res.status(403).json({ error: '僅參與者可翻譯' });
+        const originalText = (msg.body || '').trim();
+        if (!originalText) return res.status(400).json({ error: '此訊息無文字可翻譯' });
+        // 扣 1 點
+        const { data: credits } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+        const balance = credits?.balance ?? 0;
+        if (balance < 1) return res.status(402).json({ error: '點數不足，翻譯需要 1 點' });
+        const newBalance = balance - 1;
+        await supabase.from('user_credits').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+        await supabase.from('credit_transactions').insert({
+            user_id: user.id, type: 'consumed', amount: -1,
+            balance_after: newBalance, source: 'message_translate', description: '訊息翻譯（1 點）'
+        }).catch(() => {});
+        // 呼叫 Gemini 翻譯：自動偵測語言、翻譯成對立語言
+        const apiKey = process.env.GEMINI_API_KEY;
+        let translated = '', sourceLang = '', targetLang = '';
+        if (apiKey) {
+            const model = await getTranslationModelName();
+            const promptText = `Detect the language of the text below. If it is Chinese (any variant), translate it to English. Otherwise, translate it to Traditional Chinese (繁體中文). Return only valid JSON with keys: detected_lang (ISO 639-1 code), target_lang, translated_text. No markdown.\n\nText: ${originalText}`;
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) });
+                const data = await resp.json();
+                const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const jsonStr = raw.replace(/```json\n?|```/g, '').trim();
+                const parsed = JSON.parse(jsonStr);
+                translated = parsed.translated_text || '';
+                sourceLang = parsed.detected_lang || '';
+                targetLang = parsed.target_lang || '';
+            } catch (e) {
+                console.error('翻譯 Gemini 解析失敗:', e.message);
+                return res.status(500).json({ error: '翻譯失敗，點數已扣除' });
+            }
+        } else {
+            return res.status(500).json({ error: '翻譯服務未設定' });
+        }
+        res.json({ original_text: originalText, translated_text: translated, source_lang: sourceLang, target_lang: targetLang, points_used: 1, balance_after: newBalance });
+    } catch (e) {
+        console.error('POST /api/direct-messages/:msgId/translate:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
