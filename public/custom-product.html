@@ -117,13 +117,14 @@
             #custom-product #designTabs { margin-bottom: 0.5rem !important; }
             #custom-product .create-panel { grid-template-columns: 1fr; padding: 0.75rem; gap: 0.75rem; }
 
-            /* 1. 結果畫布置頂：固定高度，不跟著內容撐高 */
+            /* 1. 結果畫布置頂：1:1 正方形，寬度限制讓高度不會過高 */
             #custom-product .create-panel-right {
                 order: -1;
-                height: min(56vw, 240px);
+                width: min(55vw, 240px);
+                aspect-ratio: 1;
                 min-height: unset;
-                aspect-ratio: unset;
-                width: 100%;
+                height: unset;
+                margin: 0 auto;
                 overflow: hidden;
             }
             /* 畫布內的資產庫在手機版隱藏（避免撐高），改由下方獨立顯示 */
@@ -139,11 +140,8 @@
                 margin-bottom: 0.4rem;
             }
 
-            /* Textarea 手機初始高度壓短（蓋過 rows="3"） */
-            #custom-product .prompt-hero {
-                height: 2.6rem;
-                min-height: 2.6rem;
-            }
+            /* 手機 textarea：min-height 讓 rows="1" 維持單行初始高度 */
+            #custom-product .prompt-hero { min-height: unset; }
 
             /* 生成中：脈衝光波 */
             #custom-product .create-panel-right.is-loading {
@@ -242,7 +240,7 @@
         #custom-product .form-row .label { font-size: 0.875rem; color: #374151; font-weight: 500; }
         #custom-product .form-row .label span { color: #6b7280; font-weight: 400; }
         #custom-product .prompt-hero {
-            width: 100%; min-height: 2.8rem; padding: 0.875rem 1rem;
+            width: 100%; min-height: 90px; padding: 0.875rem 1rem;
             border-radius: 10px; border: 1px solid #e5e7eb;
             font-size: 0.9375rem; line-height: 1.5; resize: none;
             overflow: hidden; transition: height 0.1s ease;
@@ -377,7 +375,7 @@
                         <div class="create-panel-left">
                             <div class="form-row full">
                                 <label class="label" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
-                                <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="請輸入風格、材質、結構與顏色"></textarea>
+                                <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="1" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="請輸入風格、材質、結構與顏色"></textarea>
                                 <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">可從下方參考圖的「從此圖產生描述」結果中，選取需要的句子貼到本框使用。</p>
                             </div>
 
