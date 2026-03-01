@@ -4,6 +4,30 @@
 
 ---
 
+## 近期完成（2026-03-01 頂部選單 Hover 下拉 + 手機版 UI）
+
+| 項目 | 說明 |
+|------|------|
+| **Navbar hover 下拉** | 「客製產品」與「再製方案」選單項改為 `.nav-has-hover` dropdown；桌機滑鼠懸停時以 CSS `:hover` 展開 4 個子連結（建立產品／找製作方／圖庫找廠商／我的數位資產），點擊標題本身仍導向首頁不受影響；手機版 ▾ 箭頭隱藏，維持原收合行為 |
+| **再製方案手機版 UI** | `remake-product.html` + `remake-product.js` 套用與客製產品頁相同的手機版調整：結果畫布置頂 1:1、頁面標題隱藏、上下 padding 壓縮、Textarea auto-grow（手機專用）、Seed 收納在 `<details>` 裡、分類 Bottom Sheet（主→子兩步驟）、參考圖橫向滾動、生成按鈕固定頁底；生成中加 `is-loading` 脈衝動畫 |
+
+---
+
+## 近期完成（2026-03-01 客製產品手機版 UI 第一波 + 選單）
+
+| 項目 | 說明 |
+|------|------|
+| **結果畫布置頂** | 手機版 `.create-panel-right` 改為 `order:-1`，寬度 `min(55vw, 240px)`，`aspect-ratio:1`，歷史縮圖在手機隱藏；生成中加 `is-loading` CSS 脈衝動畫 |
+| **頁面標題/副標/提示字隱藏** | `.page-title`、`.page-sub`、`#promptHint` 在 `@media(max-width:768px)` 下 `display:none` |
+| **上下間距壓縮** | `.container-fluid.py-4` 與 `#custom-product.py-2` 在手機均清零 padding |
+| **Textarea auto-grow** | JS 手機條件（`window.innerWidth<=768`）才設 `rows=1`、`resize:none`、auto-grow；桌機維持 `rows=3`、`resize:vertical` |
+| **Seed 收納** | Seed 欄位包進 `<details id="seedDetails">` 手機預設折疊；桌機 `<summary>` 樣式保持 |
+| **分類 Bottom Sheet** | 手機隱藏 `.cat-tablet` 雙面板；改為 `#catMobileBtn` 按鈕觸發由下滑出的 `.cat-bottom-sheet`，分主分類→子分類兩步驟，用 `MutationObserver` 同步按鈕標籤 |
+| **參考圖橫向滾動** | `.ref-slots` 在手機改 `display:flex; overflow-x:auto; scroll-snap-type:x mandatory`，每格固定 80×80px |
+| **生成按鈕固定頁底** | `.btn-generate` 手機版 `position:fixed; bottom:0`；左側加 `padding-bottom:4.5rem` 防遮擋 |
+
+---
+
 ## 近期完成（2026-03-01 站內對話介面修復）
 
 | 項目 | 說明 |
