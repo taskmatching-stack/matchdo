@@ -214,6 +214,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
+    <script src="/js/area-codes.js"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
@@ -222,24 +223,18 @@
     (function () {
         'use strict';
 
-        /* ── 地區資料（中/英） ── */
-        var AREA_DATA = {
-            zh: [
-                { group: '北部', areas: ['臺北','新北','基隆','桃園','新竹縣','新竹市','宜蘭'] },
-                { group: '中部', areas: ['臺中','苗栗','彰化','南投','雲林'] },
-                { group: '南部', areas: ['高雄','臺南','嘉義縣','嘉義市','屏東','澎湖'] },
-                { group: '東部', areas: ['花蓮','臺東'] },
-                { group: '離島', areas: ['金門','連江'] },
-                { group: '海外', areas: ['海外'] }
-            ],
-            en: [
-                { group: 'Asia Pacific', areas: ['Japan','South Korea','Singapore','Hong Kong','Malaysia','Thailand','Vietnam','Australia','Other Asia'] },
-                { group: 'Americas',     areas: ['USA','Canada','Mexico','Brazil','Other Americas'] },
-                { group: 'Europe',       areas: ['UK','Germany','France','Netherlands','Spain','Italy','Other Europe'] },
-                { group: 'Middle East & Africa', areas: ['UAE','Saudi Arabia','Other Middle East','Africa'] },
-                { group: 'Taiwan',       areas: ['Taiwan (All)'] }
-            ]
-        };
+        /* ── 地區資料：從 area-codes.js 讀取，勿在此硬寫 ── */
+        function getAreaData(lang) {
+            var groups = (window.AreaCodes && window.AreaCodes.groups) || [];
+            return groups.map(function(g) {
+                return {
+                    group: lang === 'en' ? g.en : g.zh,
+                    areas: (g.cities || []).map(function(c) { return c.code; }),
+                    // 顯示用 label（tag 上顯示文字）
+                    labels: (g.cities || []).map(function(c) { return lang === 'en' ? c.en : c.zh; })
+                };
+            });
+        }
 
         /* ── 狀態 ── */
         var state = {
@@ -356,13 +351,17 @@
                     state.loading = false;
                     var list = data.manufacturers || data.vendors || data.items || [];
 
-                    // 服務地區前端多選過濾（OR 邏輯：符合任一選項即顯示）
+                    // 服務地區前端多選過濾（OR 邏輯，code 精確比對；舊版中文字串自動轉 code 相容）
                     if (state.selectedAreas.length > 0) {
                         list = list.filter(function(v) {
                             var areas = (v.contact && v.contact.service_area) || [];
                             if (typeof areas === 'string') areas = areas.split(/[,，、\s]+/).map(function(s){return s.trim();}).filter(Boolean);
+                            // 將 DB 中的值都嘗試轉成 code（相容新舊資料）
+                            var codes = areas.map(function(a) {
+                                return (window.AreaCodes && window.AreaCodes.zhToCode) ? window.AreaCodes.zhToCode(a) : a;
+                            });
                             return state.selectedAreas.some(function(sel) {
-                                return areas.some(function(a){ return a.includes(sel) || sel.includes(a); });
+                                return codes.indexOf(sel) >= 0;
                             });
                         });
                     }
@@ -540,7 +539,7 @@
 
         function renderAreaFilter() {
             var lang = getCurrentLang();
-            var groups = AREA_DATA[lang] || AREA_DATA.zh;
+            var groups = getAreaData(lang);
             var $wrap = document.getElementById('filterAreaGroups');
             var $label = document.getElementById('areaFilterLabel');
             var $clear = document.getElementById('areaClearBtn');
@@ -552,22 +551,24 @@
             groups.forEach(function(g) {
                 html += '<div class="d-flex flex-wrap align-items-baseline gap-1 mb-1">';
                 html += '<span class="text-muted me-1" style="font-size:.7rem;white-space:nowrap;">' + g.group + '：</span>';
-                g.areas.forEach(function(a) {
-                    var active = state.selectedAreas.indexOf(a) >= 0 ? ' active' : '';
-                    html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + a + '">' + a + '</span>';
+                g.areas.forEach(function(code, i) {
+                    var label = (g.labels && g.labels[i]) || code;
+                    var active = state.selectedAreas.indexOf(code) >= 0 ? ' active' : '';
+                    // data-area 存 code，顯示 label
+                    html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + code + '">' + label + '</span>';
                 });
                 html += '</div>';
             });
             $wrap.innerHTML = html;
             $wrap.querySelectorAll('[data-area]').forEach(function(tag) {
                 tag.addEventListener('click', function() {
-                    var area = tag.getAttribute('data-area');
-                    var idx = state.selectedAreas.indexOf(area);
+                    var code = tag.getAttribute('data-area');
+                    var idx = state.selectedAreas.indexOf(code);
                     if (idx >= 0) {
                         state.selectedAreas.splice(idx, 1);
                         tag.classList.remove('active');
                     } else {
-                        state.selectedAreas.push(area);
+                        state.selectedAreas.push(code);
                         tag.classList.add('active');
                     }
                     if ($clear) $clear.classList.toggle('d-none', state.selectedAreas.length === 0);
