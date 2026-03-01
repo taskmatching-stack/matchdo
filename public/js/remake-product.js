@@ -296,6 +296,7 @@ $(document).ready(function () {
         const btn = $(this);
         const originalText = btn.html();
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>AI 生成中...');
+        document.getElementById('generatedImagePreviewWrap')?.classList.add('is-loading');
 
         var referenceImages = refDataUrls.filter(Boolean);
         var seedVal = $('#generationSeed').val();
@@ -405,6 +406,7 @@ $(document).ready(function () {
             document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } finally {
             btn.prop('disabled', false).html(originalText);
+            document.getElementById('generatedImagePreviewWrap')?.classList.remove('is-loading');
         }
     });
 
@@ -913,3 +915,126 @@ function switchToUpload() {
     $('#imageUpload').prop('checked', true).trigger('change');
     $('#generatedImagePreview').empty();
 }
+
+/* ── 手機版專屬：textarea auto-grow ── */
+(function () {
+    if (window.innerWidth > 768) return;
+    var ta = document.getElementById('productPrompt');
+    if (!ta) return;
+    ta.rows = 1;
+    ta.style.resize = 'none';
+    ta.style.overflow = 'hidden';
+    ta.style.minHeight = 'unset';
+    function autoGrow() {
+        ta.style.height = 'auto';
+        ta.style.height = ta.scrollHeight + 'px';
+    }
+    ta.addEventListener('input', autoGrow);
+    autoGrow();
+})();
+
+/* ── 手機版專屬：分類 Bottom Sheet ── */
+(function catBottomSheet() {
+    if (window.innerWidth > 768) return;
+
+    var sheet = document.getElementById('catBottomSheet');
+    var mobileBtn = document.getElementById('catMobileBtn');
+    if (!sheet || !mobileBtn) return;
+
+    var bsList = document.getElementById('catBsList');
+    var bsTitle = document.getElementById('catBsTitle');
+    var bsBack = document.getElementById('catBsBack');
+    var bsClose = document.getElementById('catBsClose');
+    var backdrop = document.getElementById('catBsBackdrop');
+    var step = 'main';
+
+    function updateBtnLabel() {
+        var mainEl = document.querySelector('#imageCategoryMainList .cat-option.selected');
+        var subEl = document.querySelector('#imageCategorySubList .cat-option.selected');
+        var label = '';
+        if (mainEl) label = mainEl.textContent.trim();
+        if (subEl) label += ' › ' + subEl.textContent.trim();
+        if (label) {
+            document.getElementById('catMobileBtnLabel').textContent = label;
+            mobileBtn.classList.add('has-value');
+        } else {
+            document.getElementById('catMobileBtnLabel').textContent = '選擇分類';
+            mobileBtn.classList.remove('has-value');
+        }
+    }
+
+    function watchList() {
+        var obs = new MutationObserver(updateBtnLabel);
+        ['#imageCategoryMainList', '#imageCategorySubList'].forEach(function (sel) {
+            var el = document.querySelector(sel);
+            if (el) obs.observe(el, { subtree: true, attributes: true, attributeFilter: ['class'] });
+        });
+    }
+    watchList();
+    setTimeout(updateBtnLabel, 600);
+
+    function openSheet() {
+        sheet.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        showMainStep();
+    }
+    function closeSheet() {
+        sheet.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    function showMainStep() {
+        step = 'main';
+        bsTitle.textContent = '選擇主分類';
+        bsBack.style.visibility = 'hidden';
+        bsList.innerHTML = '';
+        var opts = document.querySelectorAll('#imageCategoryMainList .cat-option');
+        opts.forEach(function (opt) {
+            var item = document.createElement('div');
+            item.className = 'cat-bs-item' + (opt.classList.contains('selected') ? ' is-selected' : '');
+            item.innerHTML = '<span class="cat-bs-check">' + (opt.classList.contains('selected') ? '✓' : '') + '</span>'
+                + '<span>' + opt.textContent.trim() + '</span>'
+                + '<span class="cat-bs-chevron">›</span>';
+            item.addEventListener('click', function () {
+                opt.click();
+                setTimeout(function () { showSubStep(); }, 100);
+            });
+            bsList.appendChild(item);
+        });
+    }
+
+    function showSubStep() {
+        step = 'sub';
+        var mainEl = document.querySelector('#imageCategoryMainList .cat-option.selected');
+        bsTitle.textContent = mainEl ? mainEl.textContent.trim() : '選擇子分類';
+        bsBack.style.visibility = 'visible';
+        bsList.innerHTML = '';
+        var opts = document.querySelectorAll('#imageCategorySubList .cat-option');
+        if (!opts.length) {
+            var empty = document.createElement('div');
+            empty.className = 'cat-bs-item';
+            empty.style.color = '#94a3b8';
+            empty.textContent = '此分類無子分類';
+            bsList.appendChild(empty);
+            return;
+        }
+        opts.forEach(function (opt) {
+            var item = document.createElement('div');
+            item.className = 'cat-bs-item' + (opt.classList.contains('selected') ? ' is-selected' : '');
+            item.innerHTML = '<span class="cat-bs-check">' + (opt.classList.contains('selected') ? '✓' : '') + '</span>'
+                + '<span>' + opt.textContent.trim() + '</span>';
+            item.addEventListener('click', function () {
+                opt.click();
+                updateBtnLabel();
+                setTimeout(closeSheet, 180);
+            });
+            bsList.appendChild(item);
+        });
+    }
+
+    mobileBtn.style.display = 'flex';
+    mobileBtn.addEventListener('click', openSheet);
+    bsBack.addEventListener('click', showMainStep);
+    bsClose.addEventListener('click', closeSheet);
+    backdrop.addEventListener('click', closeSheet);
+})();

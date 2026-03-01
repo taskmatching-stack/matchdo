@@ -63,9 +63,9 @@
             box-shadow: 0 2px 16px rgba(0,0,0,.06);
             border: 1px solid #e5e7eb;
         }
-        @media (max-width: 768px) {
-            #custom-product .create-panel { grid-template-columns: 1fr; }
-        }
+        /* 手機按鈕 + Bottom Sheet：桌機預設隱藏 */
+        #catMobileBtn { display: none; }
+        .cat-bottom-sheet { display: none; }
         #custom-product .create-panel-left { min-width: 0; }
         #custom-product .create-panel-right {
             min-height: 320px;
@@ -157,14 +157,14 @@
         #custom-product .cat-tablet .cat-option:hover { background: #f1f5f9; }
         #custom-product .cat-tablet .cat-option.selected { background: #e2e8f0; color: #0f172a; }
         #custom-product .cat-sub-panel .cat-list.empty { background: #f8fafc; color: #94a3b8; padding: 0.5rem; display: flex; align-items: center; }
-        /* 捲軸：60px 寬 */
-        #custom-product .cat-tablet .cat-list::-webkit-scrollbar { width: 60px; }
+        /* 捲軸 */
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar { width: 6px; }
         #custom-product .cat-tablet .cat-list::-webkit-scrollbar-track { background: #f1f5f9; }
         #custom-product .cat-tablet .cat-list::-webkit-scrollbar-thumb { background: #94a3b8; }
         #custom-product .cat-tablet .cat-list::-webkit-scrollbar-thumb:hover { background: #64748b; }
         #custom-product .cat-tablet .cat-list::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
         #custom-product .cat-tablet .cat-list { scrollbar-width: auto; scrollbar-color: #94a3b8 #f1f5f9; }
-        #custom-product .ref-cards-wrap::-webkit-scrollbar { width: 60px; }
+        #custom-product .ref-cards-wrap::-webkit-scrollbar { width: 6px; }
         #custom-product .ref-cards-wrap::-webkit-scrollbar-track {
             background: #f1f5f9; margin: 4px 0;
             border-radius: 0 !important; -webkit-border-radius: 0 !important;
@@ -211,6 +211,71 @@
         #custom-product #generatedImagePreview { width: 100%; max-width: 100%; }
         #custom-product #generatedImagePreview .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
         #custom-product #generatedImagePreview img { max-width: 100%; height: auto; display: block; }
+        @media (max-width: 768px) {
+            .container-fluid.py-4 { padding-top: 0.6rem !important; padding-bottom: 0.6rem !important; }
+            #custom-product.py-2 { padding-top: 0 !important; padding-bottom: 0 !important; }
+            #custom-product .page-title { display: none; }
+            #custom-product .page-sub { display: none; }
+            #custom-product .create-panel { grid-template-columns: 1fr; padding: 0.75rem; gap: 0.75rem; }
+            /* 結果畫布置頂 */
+            #custom-product .create-panel-right {
+                order: -1 !important; width: min(55vw, 240px) !important;
+                aspect-ratio: 1 !important; min-height: unset !important;
+                height: unset !important; margin: 0 auto !important; overflow: hidden !important;
+            }
+            #custom-product .create-panel-right #pastGeneratedGallery { display: none !important; }
+            /* 生成中脈衝 */
+            #custom-product .create-panel-right.is-loading {
+                background: linear-gradient(90deg, #e8edf3 25%, #cfd8e6 50%, #e8edf3 75%);
+                background-size: 300% 100%; animation: canvas-pulse 1.5s ease-in-out infinite;
+                border-style: solid; border-color: #445D7E44;
+            }
+            #custom-product .create-panel-right.is-loading .placeholder-hint { display: none; }
+            /* 分類：桌機雙面板隱藏 */
+            #custom-product .cat-tablet { display: none !important; }
+            /* 手機分類按鈕 */
+            #catMobileBtn {
+                display: flex; align-items: center; gap: 0.5rem; width: 100%;
+                padding: 0.65rem 0.875rem; margin-bottom: 0.5rem;
+                background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px;
+                color: #6b7280; font-size: 0.875rem; text-align: left; cursor: pointer;
+            }
+            #catMobileBtn.has-value { border-color: #445D7E; color: #445D7E; font-weight: 500; }
+            /* Bottom Sheet */
+            .cat-bottom-sheet {
+                display: flex; position: fixed; inset: 0; z-index: 1080;
+                flex-direction: column; justify-content: flex-end;
+                pointer-events: none; opacity: 0; transition: opacity 0.2s;
+            }
+            .cat-bottom-sheet.open { pointer-events: auto; opacity: 1; }
+            .cat-bs-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.45); }
+            .cat-bs-panel {
+                position: relative; background: #fff; border-radius: 16px 16px 0 0; max-height: 72vh;
+                display: flex; flex-direction: column;
+                transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+            }
+            .cat-bottom-sheet.open .cat-bs-panel { transform: translateY(0); }
+            .cat-bs-header { display: flex; align-items: center; padding: 0.75rem 0.875rem; border-bottom: 1px solid #e5e7eb; gap: 0.25rem; }
+            .cat-bs-title { flex: 1; font-weight: 600; font-size: 0.9375rem; text-align: center; color: #111; }
+            .cat-bs-nav-btn { background: none; border: none; padding: 0.25rem 0.5rem; font-size: 0.875rem; color: #6b7280; cursor: pointer; border-radius: 6px; min-width: 3rem; }
+            .cat-bs-nav-btn:active { background: #f3f4f6; }
+            .cat-bs-list { overflow-y: auto; flex: 1; min-height: 0; }
+            .cat-bs-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.875rem 1rem; font-size: 0.9375rem; color: #374151; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+            .cat-bs-item:active { background: #f1f5f9; }
+            .cat-bs-item.is-selected { color: #445D7E; font-weight: 600; }
+            .cat-bs-item .cat-bs-check { color: #445D7E; width: 1.1rem; flex-shrink: 0; }
+            .cat-bs-item .cat-bs-placeholder-icon { width: 1.1rem; flex-shrink: 0; }
+            .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #9ca3af; font-size: 0.75rem; }
+            /* 參考圖橫向滾動 */
+            #custom-product .ref-slots { display: flex !important; overflow-x: auto; scroll-snap-type: x mandatory; gap: 0.5rem; padding-bottom: 0.35rem; grid-template-columns: unset; }
+            #custom-product .ref-slot { flex: 0 0 80px !important; width: 80px !important; height: 80px !important; aspect-ratio: unset !important; scroll-snap-align: start; }
+            /* 生成按鈕固定頁底 */
+            #custom-product .btn-generate { position: fixed; bottom: 0; left: 0; right: 0; margin: 0; border-radius: 0; z-index: 200; padding: 0.95rem; box-shadow: 0 -2px 12px rgba(0,0,0,0.10); }
+            #custom-product .create-panel-left { padding-bottom: 4.5rem; }
+            /* Seed 收納 */
+            #custom-product details > summary { font-size: 0.8125rem; color: #6b7280; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.35rem; }
+        }
+        @keyframes canvas-pulse { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
     </style>
     <div class="container-fluid py-4" style="background: #f1f5f9;">
         <div class="container">
@@ -238,6 +303,12 @@
                                     <input type="hidden" id="imageCategorySubSelect" name="imageCategorySub" value="">
                                 </div>
                             </div>
+                            <!-- 手機版分類按鈕 -->
+                            <button type="button" id="catMobileBtn" class="cat-mobile-btn" style="display:none;">
+                                <i class="bi bi-folder2-open"></i>
+                                <span id="catMobileBtnLabel">分類</span>
+                                <i class="bi bi-chevron-down ms-auto"></i>
+                            </button>
 
                             <div class="form-row full">
                                 <span class="label">參考圖 <span class="text-danger">（再製必填）</span></span>
@@ -249,10 +320,13 @@
                                 <button type="button" class="btn btn-outline-secondary btn-sm btn-merge-desc" id="mergeDescriptionsBtn" style="display: none;">將以上描述合併至上方描述框</button>
                             </div>
 
-                            <div class="form-row full">
-                                <label class="label" for="generationSeed" data-i18n="customProduct.seedLabel">Seed（選填）</label>
-                                <input type="number" id="generationSeed" name="generationSeed" class="form-control" data-i18n-placeholder="customProduct.seedPlaceholder" placeholder="留空＝隨機，整數可重現相同風格" min="-2147483648" max="2147483647" step="1" style="max-width: 12rem;">
-                            </div>
+                            <details id="seedDetails">
+                                <summary>進階 Seed 設定</summary>
+                                <div class="form-row full mt-2">
+                                    <label class="label" for="generationSeed" data-i18n="customProduct.seedLabel">Seed（選填）</label>
+                                    <input type="number" id="generationSeed" name="generationSeed" class="form-control" data-i18n-placeholder="customProduct.seedPlaceholder" placeholder="留空＝隨機，整數可重現相同風格" min="-2147483648" max="2147483647" step="1" style="max-width: 12rem;">
+                                </div>
+                            </details>
                             <button type="button" class="btn btn-primary btn-generate" id="generateImageBtn">
                                 <i class="fas fa-wand-magic-sparkles me-2"></i><span data-i18n="customProduct.generate">生成圖片</span>
                             </button>
@@ -269,6 +343,19 @@
     </div>
 
 
+
+    <!-- 手機分類 Bottom Sheet -->
+    <div class="cat-bottom-sheet" id="catBottomSheet" aria-modal="true" role="dialog" aria-label="選擇分類">
+        <div class="cat-bs-backdrop" id="catBsBackdrop"></div>
+        <div class="cat-bs-panel">
+            <div class="cat-bs-header">
+                <button type="button" class="cat-bs-nav-btn" id="catBsBack" style="visibility:hidden;">&#8592; 返回</button>
+                <span class="cat-bs-title" id="catBsTitle">選擇分類</span>
+                <button type="button" class="cat-bs-nav-btn" id="catBsClose">關閉</button>
+            </div>
+            <div class="cat-bs-list" id="catBsList"></div>
+        </div>
+    </div>
 
     <!-- 共用前台頁腳（由 site-common.js 載入） -->
     <div id="site-footer"></div>
