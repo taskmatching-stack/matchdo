@@ -6369,6 +6369,76 @@ app.get('/api/me/profile', async (req, res) => {
     }
 });
 
+// ─────────────────────────────────────────────────────────────
+// 媒體牆收藏 API  /api/me/favorites
+// ─────────────────────────────────────────────────────────────
+
+// GET /api/me/favorites — 取得登入用戶的媒體牆收藏清單
+app.get('/api/me/favorites', async (req, res) => {
+    try {
+        const token = (req.headers.authorization || '').replace(/^\s*Bearer\s+/i, '') || req.headers['x-auth-token'];
+        if (!token) return res.status(401).json({ error: '請先登入' });
+        const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+        if (authErr || !user) return res.status(401).json({ error: '登入已過期或無效' });
+        const { data, error } = await supabase
+            .from('media_wall_favorites')
+            .select('item_id, item_data, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+        if (error) return res.status(500).json({ error: '查詢失敗' });
+        res.json({ favorites: (data || []).map(r => ({ id: r.item_id, item: r.item_data, savedAt: new Date(r.created_at).getTime() })) });
+    } catch (e) {
+        console.error('GET /api/me/favorites:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/favorites — 加入/移除收藏（toggle）
+app.post('/api/me/favorites', express.json(), async (req, res) => {
+    try {
+        const token = (req.headers.authorization || '').replace(/^\s*Bearer\s+/i, '') || req.headers['x-auth-token'];
+        if (!token) return res.status(401).json({ error: '請先登入' });
+        const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+        if (authErr || !user) return res.status(401).json({ error: '登入已過期或無效' });
+        const { item_id, item_data } = req.body || {};
+        if (!item_id) return res.status(400).json({ error: '缺少 item_id' });
+        // 檢查是否已存在
+        const { data: existing } = await supabase
+            .from('media_wall_favorites')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('item_id', String(item_id))
+            .maybeSingle();
+        if (existing) {
+            // 已存在 → 移除
+            await supabase.from('media_wall_favorites').delete().eq('user_id', user.id).eq('item_id', String(item_id));
+            return res.json({ action: 'removed', item_id });
+        } else {
+            // 不存在 → 新增
+            await supabase.from('media_wall_favorites').insert({ user_id: user.id, item_id: String(item_id), item_data: item_data || {} });
+            return res.json({ action: 'added', item_id });
+        }
+    } catch (e) {
+        console.error('POST /api/me/favorites:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/me/favorites/:item_id — 直接移除指定收藏
+app.delete('/api/me/favorites/:item_id', async (req, res) => {
+    try {
+        const token = (req.headers.authorization || '').replace(/^\s*Bearer\s+/i, '') || req.headers['x-auth-token'];
+        if (!token) return res.status(401).json({ error: '請先登入' });
+        const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+        if (authErr || !user) return res.status(401).json({ error: '登入已過期或無效' });
+        await supabase.from('media_wall_favorites').delete().eq('user_id', user.id).eq('item_id', req.params.item_id);
+        res.json({ ok: true });
+    } catch (e) {
+        console.error('DELETE /api/me/favorites:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/me/manufacturer — 登入後取得「我的廠商」（同一帳號即為廠商，自動對應一筆廠商資料）
 app.get('/api/me/manufacturer', async (req, res) => {
     try {
