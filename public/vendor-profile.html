@@ -5,6 +5,21 @@
     <title>廠商詳情 - MATCHDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="index, follow">
+    <meta name="description" content="在 MATCHDO 合做找到適合的製造廠商，瀏覽廠商作品、服務地區與聯繫方式。">
+    <meta property="og:type" content="profile">
+    <meta property="og:site_name" content="MATCHDO 合做">
+    <meta property="og:title" content="廠商詳情 - MATCHDO 合做">
+    <meta property="og:description" content="在 MATCHDO 合做找到適合的製造廠商，瀏覽廠商作品、服務地區與聯繫方式。">
+    <meta property="og:image" content="https://matchdo.cc/img/og-vendors.jpg">
+    <meta property="og:url" content="https://matchdo.cc/vendor-profile.html">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="廠商詳情 - MATCHDO 合做">
+    <meta name="twitter:description" content="在 MATCHDO 合做找到適合的製造廠商，瀏覽廠商作品、服務地區與聯繫方式。">
+    <meta name="twitter:image" content="https://matchdo.cc/img/og-vendors.jpg">
+    <link rel="canonical" href="https://matchdo.cc/vendor-profile.html" id="canonicalTag">
+    <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/vendor-profile.html" id="hreflangZh">
+    <link rel="alternate" hreflang="en" href="https://matchdo.cc/vendor-profile.html?lang=en" id="hreflangEn">
+    <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/vendor-profile.html">
     <link rel="icon" href="/img/favicon.ico">
     <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -247,7 +262,63 @@
             document.getElementById('profileHero').style.display = '';
 
             // 更新頁籤標題
-            document.title = (v.name || '廠商詳情') + ' - MATCHDO 合做';
+            var pageTitle = (v.name || '廠商詳情') + ' - MATCHDO 合做';
+            document.title = pageTitle;
+
+            // 動態更新 SEO meta
+            var canonicalUrl = 'https://matchdo.cc/vendor-profile.html?id=' + encodeURIComponent(v.id || id);
+            var ogImg = v.cover_image || v.avatar_url || 'https://matchdo.cc/img/og-vendors.jpg';
+            var desc = v.specialty
+                ? (v.name || '') + '：' + String(v.specialty).slice(0, 100) + '。在 MATCHDO 合做聯繫廠商。'
+                : '在 MATCHDO 合做找到 ' + (v.name || '') + '，瀏覽廠商作品、服務地區與聯繫方式。';
+            function setMeta(sel, attr, val) {
+                var el = document.querySelector(sel);
+                if (el) el.setAttribute(attr, val);
+            }
+            setMeta('meta[name="description"]', 'content', desc);
+            setMeta('meta[property="og:title"]', 'content', pageTitle);
+            setMeta('meta[property="og:description"]', 'content', desc);
+            setMeta('meta[property="og:image"]', 'content', ogImg);
+            setMeta('meta[property="og:url"]', 'content', canonicalUrl);
+            setMeta('meta[name="twitter:title"]', 'content', pageTitle);
+            setMeta('meta[name="twitter:description"]', 'content', desc);
+            setMeta('meta[name="twitter:image"]', 'content', ogImg);
+            var canEl = document.getElementById('canonicalTag');
+            if (canEl) canEl.href = canonicalUrl;
+            var hzEl = document.getElementById('hreflangZh');
+            if (hzEl) hzEl.href = canonicalUrl;
+            var heEl = document.getElementById('hreflangEn');
+            if (heEl) heEl.href = canonicalUrl + '&lang=en';
+
+            // LocalBusiness JSON-LD
+            var contact = v.contact || {};
+            var ld = {
+                '@context': 'https://schema.org',
+                '@type': 'LocalBusiness',
+                'name': v.name || '',
+                'description': v.specialty || v.description || '',
+                'url': canonicalUrl,
+                'image': ogImg !== 'https://matchdo.cc/img/og-vendors.jpg' ? ogImg : undefined,
+                'address': {
+                    '@type': 'PostalAddress',
+                    'addressCountry': 'TW',
+                    'addressRegion': v.location || v.manufacturer_location || ''
+                }
+            };
+            if (contact.phone) ld.telephone = contact.phone;
+            if (contact.email) ld.email = contact.email;
+            if (contact.url) ld.sameAs = contact.url;
+            if (v.rating) {
+                ld.aggregateRating = { '@type': 'AggregateRating', 'ratingValue': v.rating, 'bestRating': 5, 'ratingCount': 1 };
+            }
+            var ldEl = document.getElementById('vendorJsonLd');
+            if (!ldEl) {
+                ldEl = document.createElement('script');
+                ldEl.type = 'application/ld+json';
+                ldEl.id = 'vendorJsonLd';
+                document.head.appendChild(ldEl);
+            }
+            ldEl.textContent = JSON.stringify(ld);
 
             // 頂部聯絡按鈕：僅有站內帳號（user_id）才顯示「站內聯絡廠商」
             // 沒有 user_id → 按鈕保持隱藏（聯絡資訊已在下方「聯繫 & 社群」區塊顯示）

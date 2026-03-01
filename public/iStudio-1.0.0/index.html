@@ -34,7 +34,10 @@
     <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/">
 
     <!-- Favicon -->
-    <link href="/iStudio-1.0.0/img/favicon.ico" rel="icon">
+    <link rel="icon" href="/img/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 
     <!-- Google Web Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -233,10 +236,25 @@
                     </div>
                 </div>
                 <div class="modal-footer py-2 flex-wrap gap-1">
-                    <!-- 愛心收藏按鈕，放最左，me-auto 將其他按鈕推右 -->
-                    <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm me-auto" title="加入收藏">
+                    <!-- 愛心收藏按鈕，放最左 -->
+                    <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm" title="加入收藏">
                         <i class="bi bi-heart"></i> <span id="media-wall-lightbox-fav-label">收藏</span>
                     </button>
+                    <!-- 分享下拉（分享圖片連結到社群）-->
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" id="mwShareDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="分享">
+                            <i class="bi bi-share"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-start" aria-labelledby="mwShareDropdown">
+                            <li><a class="dropdown-item mw-share-btn" data-platform="facebook" href="#"><i class="bi bi-facebook me-2 text-primary"></i>分享到 Facebook</a></li>
+                            <li><a class="dropdown-item mw-share-btn" data-platform="line" href="#"><i class="bi bi-chat-fill me-2 text-success"></i>分享到 LINE</a></li>
+                            <li><a class="dropdown-item mw-share-btn" data-platform="pinterest" href="#"><i class="bi bi-pinterest me-2 text-danger"></i>儲存到 Pinterest</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item mw-share-btn" data-platform="copy" href="#"><i class="bi bi-link-45deg me-2"></i>複製連結</a></li>
+                        </ul>
+                    </div>
+                    <!-- me-auto 分隔：左側：收藏+分享；右側：功能按鈕 -->
+                    <span class="me-auto"></span>
                     <!-- 廠商作品專用：站內聯絡按鈕（comparison 類型才顯示） -->
                     <button type="button" id="media-wall-lightbox-contact" class="btn btn-success btn-sm d-none" title="聯絡廠商">
                         <i class="bi bi-chat-dots me-1"></i>聯絡廠商
@@ -597,11 +615,11 @@
                     var placeholdBefore = 'https://placehold.co/400x300/888/ccc?text=%E6%A6%82%E5%BF%B5';
                     if (p.type === 'user_design') {
                         var img = (p.image_url || '').trim();
-                        content = (img ? '<img src="' + escAttr(img) + '" alt="">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
+                        content = (img ? '<img src="' + escAttr(img) + '" alt="" loading="lazy">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
                     } else if (p.type === 'comparison') {
                         var compAfter = (p.image_url || '').trim() || placeholdAfter;
                         var compBefore = (p.image_url_before || '').trim() || placeholdBefore;
-                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(compAfter) + '" alt="實品"><img class="slider-fg" src="' + escAttr(compBefore) + '" alt="概念" style="clip-path:inset(0 50% 0 0)"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左右移動滑桿可對照效果</span><input type="range" min="0" max="100" value="50"></div></div>';
+                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(compAfter) + '" alt="實品" loading="lazy"><img class="slider-fg" src="' + escAttr(compBefore) + '" alt="概念" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左右移動滑桿可對照效果</span><input type="range" min="0" max="100" value="50"></div></div>';
                     } else if (p.type === 'collection') {
                         var cov = (p.cover_image_url || '').trim();
                         var urls = p.image_urls && Array.isArray(p.image_urls) ? p.image_urls : (cov ? [cov, cov] : []);
@@ -610,11 +628,11 @@
                         } else {
                             wrapExtra = ' collection-grid';
                             var two = [urls[0], urls[1] || urls[0]];
-                            content = two.map(function (u) { return '<img src="' + escAttr(u) + '" alt="">'; }).join('');
+                            content = two.map(function (u) { return '<img src="' + escAttr(u) + '" alt="" loading="lazy">'; }).join('');
                         }
                     } else {
                         var img = (p.image_url || p.cover_image_url || '').trim();
-                        content = (img ? '<img src="' + escAttr(img) + '" alt="">' : '<div class="media-wall-placeholder"><span>—</span></div>');
+                        content = (img ? '<img src="' + escAttr(img) + '" alt="" loading="lazy">' : '<div class="media-wall-placeholder"><span>—</span></div>');
                     }
                     var dataItem = { id: String(p.id || (p.title + p.type)), type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
                     if (p.type === 'comparison' || p.type === 'collection') {
@@ -1024,6 +1042,21 @@
                 var lbFavId = item.id || (item.title + item.type);
                 syncLightboxFavBtn(lbFavId, item);
 
+                // ── 分享按鈕：依 item 類型決定分享 URL ────────────────
+                (function() {
+                    var origin = window.location.origin;
+                    var shareUrl = origin; // fallback
+                    if (item.type === 'user_design' && item.id) {
+                        shareUrl = origin + '/custom-product-detail.html?id=' + encodeURIComponent(item.id);
+                    } else if (item.manufacturer_id) {
+                        shareUrl = origin + '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id);
+                    } else if (item.type === 'collection' && item.slug) {
+                        shareUrl = origin + '/custom/collection.html?slug=' + encodeURIComponent(item.slug);
+                    }
+                    document.getElementById('media-wall-lightbox').dataset.shareUrl = shareUrl;
+                    document.getElementById('media-wall-lightbox').dataset.shareImg = item.image_url || item.cover_image_url || '';
+                })();
+
                 function setLightboxDetailAndShow(cats) {
                     var detailWrap = document.getElementById('media-wall-lightbox-detail');
                     var categoryRow = document.getElementById('media-wall-lightbox-category-row');
@@ -1130,6 +1163,63 @@
                 });
             }
             if (window.i18n && window.i18n.ready) window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); });
+
+            // ── 社群分享按鈕 ─────────────────────────────────────────────
+            // 1. 預載社群帳號（僅用於 Pinterest 分享時帶出 pin 來源；可選）
+            var _socialLinks = {};
+            fetch('/api/config/social-links').then(function(r){ return r.json(); }).then(function(d){ _socialLinks = d || {}; }).catch(function(){});
+
+            // 2. 複製成功 Toast
+            var _copyToast = (function() {
+                var el = document.createElement('div');
+                el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:7px 18px;border-radius:20px;font-size:.85rem;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;';
+                el.textContent = '連結已複製！';
+                document.body.appendChild(el);
+                return function() {
+                    el.style.opacity = '1';
+                    setTimeout(function(){ el.style.opacity = '0'; }, 2000);
+                };
+            })();
+
+            // 3. 分享按鈕事件
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest('.mw-share-btn');
+                if (!btn) return;
+                e.preventDefault();
+                var lb = document.getElementById('media-wall-lightbox');
+                var shareUrl = (lb && lb.dataset.shareUrl) || window.location.href;
+                var shareImg = (lb && lb.dataset.shareImg) || '';
+                var platform = btn.dataset.platform;
+                var encoded = encodeURIComponent(shareUrl);
+                var actionKey = '';
+                if (platform === 'facebook') {
+                    actionKey = 'share_facebook';
+                    window.open('https://www.facebook.com/sharer/sharer.php?u=' + encoded, '_blank', 'noopener,width=600,height=500');
+                } else if (platform === 'line') {
+                    actionKey = 'share_line';
+                    window.open('https://social-plugins.line.me/lineit/share?url=' + encoded, '_blank', 'noopener,width=600,height=500');
+                } else if (platform === 'pinterest') {
+                    actionKey = 'share_pinterest';
+                    var pinUrl = 'https://pinterest.com/pin/create/button/?url=' + encoded + (shareImg ? '&media=' + encodeURIComponent(shareImg) : '');
+                    window.open(pinUrl, '_blank', 'noopener,width=750,height=600');
+                } else if (platform === 'copy') {
+                    actionKey = 'share_copy_link';
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(shareUrl).then(_copyToast).catch(function(){
+                            _copyToast(); // fallback：仍顯示提示（舊瀏覽器可能失敗）
+                        });
+                    } else {
+                        _copyToast();
+                    }
+                }
+                // 記錄分享行為
+                if (actionKey) {
+                    try {
+                        var blob = new Blob([JSON.stringify({ action: actionKey })], { type: 'application/json' });
+                        if (navigator.sendBeacon) navigator.sendBeacon('/api/track-design-action', blob);
+                    } catch (err) {}
+                }
+            });
         })();
     </script>
 </body>

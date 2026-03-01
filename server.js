@@ -517,23 +517,19 @@ app.get('/custom/gallery.html', async (req, res) => {
 
 // GET /sitemap.xml — SEO 用網站地圖「索引」；子 sitemap 持續由 DB/靜態清單更新（見 docs/sitemap.md）
 const SITEMAP_PAGES = [
-    { path: '/', priority: '1.0', changefreq: 'weekly' },
-    { path: '/subscription-plans.html', priority: '0.9', changefreq: 'monthly' },
-    { path: '/credits.html', priority: '0.8', changefreq: 'monthly' },
-    { path: '/custom/', priority: '0.9', changefreq: 'weekly' },
-    { path: '/custom/gallery.html', priority: '0.9', changefreq: 'weekly' },
-    { path: '/custom-product.html', priority: '0.8', changefreq: 'monthly' },
-    { path: '/remake/', priority: '0.9', changefreq: 'weekly' },
-    { path: '/remake-product.html', priority: '0.8', changefreq: 'monthly' },
-    { path: '/about.html', priority: '0.6', changefreq: 'yearly' },
-    { path: '/contact.html', priority: '0.7', changefreq: 'monthly' },
-    { path: '/service.html', priority: '0.7', changefreq: 'monthly' },
-    { path: '/feature.html', priority: '0.6', changefreq: 'monthly' },
-    { path: '/project.html', priority: '0.6', changefreq: 'monthly' },
-    { path: '/testimonial.html', priority: '0.6', changefreq: 'monthly' },
-    { path: '/team.html', priority: '0.6', changefreq: 'monthly' },
-    { path: '/login.html', priority: '0.4', changefreq: 'monthly' },
-    { path: '/register.html', priority: '0.4', changefreq: 'monthly' }
+    { path: '/',                        priority: '1.0', changefreq: 'weekly' },
+    { path: '/custom/',                 priority: '0.9', changefreq: 'weekly' },
+    { path: '/custom/gallery.html',     priority: '0.9', changefreq: 'weekly' },
+    { path: '/remake/',                 priority: '0.9', changefreq: 'weekly' },
+    { path: '/subscription-plans.html', priority: '0.8', changefreq: 'monthly' },
+    { path: '/custom-product.html',     priority: '0.8', changefreq: 'monthly' },
+    { path: '/remake-product.html',     priority: '0.8', changefreq: 'monthly' },
+    { path: '/about.html',              priority: '0.6', changefreq: 'yearly' },
+    { path: '/contact.html',            priority: '0.6', changefreq: 'yearly' },
+    { path: '/login.html',              priority: '0.3', changefreq: 'yearly' },
+    { path: '/register.html',           priority: '0.3', changefreq: 'yearly' }
+    // 移除無實際內容的 iStudio 範本殼頁：service / feature / project / testimonial / team
+    // credits.html 為登入後才有意義的頁面，不列入公開索引
 ];
 function escapeXml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -544,7 +540,9 @@ app.get('/sitemap.xml', (req, res) => {
     const now = new Date().toISOString().slice(0, 10);
     const entries = [
         '<sitemap><loc>' + escapeXml(base + '/sitemap-pages.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
-        '<sitemap><loc>' + escapeXml(base + '/sitemap-vendors.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>'
+        '<sitemap><loc>' + escapeXml(base + '/sitemap-vendors.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
+        '<sitemap><loc>' + escapeXml(base + '/sitemap-products.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
+        '<sitemap><loc>' + escapeXml(base + '/sitemap-collections.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>'
     ];
     const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  ' + entries.join('\n  ') + '\n</sitemapindex>';
     res.set('Content-Type', 'application/xml; charset=utf-8');
@@ -582,6 +580,53 @@ app.get('/sitemap-vendors.xml', async (req, res) => {
         }
     } catch (e) {
         console.error('sitemap-vendors:', e);
+    }
+    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>';
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=1800');
+    res.send(xml);
+});
+
+// 動態：公開客製作品詳情頁（custom_products 表，visibility = 'public'）
+app.get('/sitemap-products.xml', async (req, res) => {
+    const base = (BASE_URL || '').replace(/\/$/, '');
+    const today = new Date().toISOString().slice(0, 10);
+    const urls = [];
+    try {
+        const { data: rows } = await supabase
+            .from('custom_products')
+            .select('id, updated_at, created_at')
+            .eq('visibility', 'public');
+        for (const r of (rows || [])) {
+            const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
+            urls.push('  <url><loc>' + escapeXml(base + '/custom-product-detail.html?id=' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
+        }
+    } catch (e) {
+        console.error('sitemap-products:', e);
+    }
+    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>';
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=1800');
+    res.send(xml);
+});
+
+// 動態：作品資料夾系列頁（media_collections，is_active=true，以 slug 為 URL 參數）
+app.get('/sitemap-collections.xml', async (req, res) => {
+    const base = (BASE_URL || '').replace(/\/$/, '');
+    const today = new Date().toISOString().slice(0, 10);
+    const urls = [];
+    try {
+        const { data: rows } = await supabase
+            .from('media_collections')
+            .select('slug, updated_at, created_at')
+            .eq('is_active', true);
+        for (const r of (rows || [])) {
+            if (!r.slug) continue;
+            const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
+            urls.push('  <url><loc>' + escapeXml(base + '/custom/collection.html?slug=' + encodeURIComponent(r.slug)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>');
+        }
+    } catch (e) {
+        console.error('sitemap-collections:', e);
     }
     const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>';
     res.set('Content-Type', 'application/xml; charset=utf-8');
@@ -891,6 +936,52 @@ app.patch('/api/admin/payment-config', express.json(), async (req, res) => {
     } catch (e) {
         console.error('PATCH /api/admin/payment-config:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// ── 社群媒體帳號（公開讀取 + 後台管理）───────────────────────────────
+const SOCIAL_KEYS = ['facebook', 'instagram', 'line', 'youtube', 'pinterest'];
+// GET /api/config/social-links — 公開：回傳社群帳號（供前台分享列）
+app.get('/api/config/social-links', async (req, res) => {
+    try {
+        const dbKeys = SOCIAL_KEYS.map(k => 'social_' + k);
+        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', dbKeys);
+        const out = {};
+        (rows || []).forEach(r => { out[r.key.replace('social_', '')] = r.value || ''; });
+        res.json(out);
+    } catch (e) {
+        res.json({});
+    }
+});
+// GET /api/admin/social-links — 後台：取得社群帳號（管理員）
+app.get('/api/admin/social-links', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res); if (!user) return;
+        const dbKeys = SOCIAL_KEYS.map(k => 'social_' + k);
+        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', dbKeys);
+        const out = {};
+        (rows || []).forEach(r => { out[r.key.replace('social_', '')] = r.value || ''; });
+        res.json(out);
+    } catch (e) {
+        console.error('GET /api/admin/social-links:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+// PATCH /api/admin/social-links — 後台：儲存社群帳號（管理員）
+app.patch('/api/admin/social-links', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res); if (!user) return;
+        const now = new Date().toISOString();
+        const upserts = SOCIAL_KEYS
+            .filter(k => req.body && req.body[k] !== undefined)
+            .map(k => ({ key: 'social_' + k, value: (req.body[k] || '').trim(), updated_at: now }));
+        if (upserts.length === 0) return res.json({ ok: true });
+        const { error } = await supabase.from('payment_config').upsert(upserts, { onConflict: 'key' });
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ ok: true });
+    } catch (e) {
+        console.error('PATCH /api/admin/social-links:', e);
+        res.status(500).json({ error: e.message });
     }
 });
 
