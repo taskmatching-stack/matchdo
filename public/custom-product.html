@@ -157,6 +157,18 @@
             /* 隱藏手機版不需要的提示文字 */
             #custom-product [data-i18n="customProduct.promptHint"] { display: none; }
 
+            /* 生成按鈕固定頁底 */
+            #custom-product .btn-generate {
+                position: fixed;
+                bottom: 0; left: 0; right: 0;
+                margin: 0; border-radius: 0;
+                z-index: 200;
+                padding: 0.95rem;
+                box-shadow: 0 -2px 12px rgba(0,0,0,0.10);
+            }
+            /* 避免按鈕蓋住最後的輸入內容 */
+            #custom-product .create-panel-left { padding-bottom: 4.5rem; }
+
             /* 分類：桌機雙面板隱藏，改用按鈕 */
             #custom-product .cat-tablet { display: none !important; }
             #custom-product .cat-desktop-hint { display: none; }
