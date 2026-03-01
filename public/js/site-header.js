@@ -72,8 +72,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }).then(function () {
         if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
             AuthService.onAuthStateChange(function (event, newSession) {
-                // INITIAL_SESSION 只是初始確認，不是狀態變更，不重畫
                 if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+                    loadSiteHeader(newSession);
+                } else if (event === 'INITIAL_SESSION' && newSession && newSession.user && !_lastRenderedUserId) {
+                    // 手機上 getSession() 可能比 INITIAL_SESSION 早 resolve 成 null；
+                    // 若已以「未登入」渲染，收到 INITIAL_SESSION 帶有 user 就補渲染一次
                     loadSiteHeader(newSession);
                 }
             });
