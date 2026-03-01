@@ -251,6 +251,10 @@
                     </div>
                 </div>
                 <div class="modal-footer py-2">
+                    <!-- 愛心收藏按鈕，放最左，me-auto 將其他按鈕推右 -->
+                    <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm me-auto" title="加入收藏">
+                        <i class="bi bi-heart"></i> <span id="media-wall-lightbox-fav-label">收藏</span>
+                    </button>
                     <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
                     <a id="media-wall-lightbox-link" href="#" class="btn btn-primary btn-sm" target="_blank" data-i18n="home.findVendor">找廠商訂製</a>
                     <button type="button" id="media-wall-lightbox-redesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
@@ -411,6 +415,25 @@
                 });
             }
             // 開 lightbox（從最愛縮圖點擊用）
+            function syncLightboxFavBtn(favId, item) {
+                var btn = document.getElementById('media-wall-lightbox-fav');
+                var label = document.getElementById('media-wall-lightbox-fav-label');
+                if (!btn) return;
+                var faved = isFavorite(favId);
+                btn.dataset.favId = favId;
+                try { btn.dataset.favItem = JSON.stringify(item); } catch(e) {}
+                if (faved) {
+                    btn.className = 'btn btn-danger btn-sm me-auto';
+                    var ic = btn.querySelector('i'); if (ic) ic.className = 'bi bi-heart-fill';
+                    btn.title = '已加入收藏';
+                    if (label) label.textContent = '已收藏';
+                } else {
+                    btn.className = 'btn btn-outline-secondary btn-sm me-auto';
+                    var ic = btn.querySelector('i'); if (ic) ic.className = 'bi bi-heart';
+                    btn.title = '加入收藏';
+                    if (label) label.textContent = '收藏';
+                }
+            }
             function openLightboxForItem(item) {
                 var titleEl = document.getElementById('media-wall-lightbox-title');
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
@@ -421,6 +444,8 @@
                 if (bodyEl) bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g,'&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">無圖</p>';
                 var detailWrap = document.getElementById('media-wall-lightbox-detail');
                 if (detailWrap) detailWrap.classList.add('d-none');
+                var favId = item.id || (item.title + item.type);
+                syncLightboxFavBtn(favId, item);
                 if (window.bootstrap) { var m = new bootstrap.Modal(document.getElementById('media-wall-lightbox')); m.show(); }
             }
             /* ═══ 結束 我的最愛 ═══ */
@@ -464,7 +489,7 @@
                         var img = (p.image_url || p.cover_image_url || '').trim();
                         content = (img ? '<img src="' + escAttr(img) + '" alt="">' : '<div class="media-wall-placeholder"><span>—</span></div>');
                     }
-                    var dataItem = { type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
+                    var dataItem = { id: String(p.id || (p.title + p.type)), type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
                     if (p.type === 'collection') dataItem.image_urls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length) ? p.image_urls : ((p.cover_image_url ? [p.cover_image_url, p.cover_image_url] : []));
                     if (p.type === 'user_design') {
                         var promptText = (p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '';
@@ -808,6 +833,10 @@
                     var noImageText = (window.i18n && window.i18n.t) ? window.i18n.t('home.noImage') : '無圖';
                     bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g, '&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">' + noImageText + '</p>';
                 }
+                // 同步 lightbox 愛心按鈕狀態
+                var lbFavId = item.id || (item.title + item.type);
+                syncLightboxFavBtn(lbFavId, item);
+
                 function setLightboxDetailAndShow(cats) {
                     var detailWrap = document.getElementById('media-wall-lightbox-detail');
                     var categoryRow = document.getElementById('media-wall-lightbox-category-row');
@@ -859,6 +888,21 @@
                     setLightboxDetailAndShow(categoriesData.categories || []);
                 }
             });
+            // ── lightbox 愛心按鈕 ──
+            var lbFavBtn = document.getElementById('media-wall-lightbox-fav');
+            if (lbFavBtn) {
+                lbFavBtn.addEventListener('click', function () {
+                    var favId = this.dataset.favId;
+                    var item = {};
+                    try { item = JSON.parse(this.dataset.favItem || '{}'); } catch (e) {}
+                    // 同步格線上對應的縮圖愛心按鈕
+                    var gridCardBtn = grid ? grid.querySelector('.mw-fav-btn[data-fav-id="' + (favId || '').replace(/"/g, '&quot;') + '"]') : null;
+                    toggleFavorite(favId, item, gridCardBtn);
+                    // 更新 lightbox 愛心按鈕本身
+                    syncLightboxFavBtn(favId, item);
+                });
+            }
+
             var redesignBtn = document.getElementById('media-wall-lightbox-redesign');
             if (redesignBtn) {
                 redesignBtn.addEventListener('click', function () {
