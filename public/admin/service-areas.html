@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>服務地區管理 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">服務地區管理</h4>
+        <p class="text-muted small mb-3">
+          管理廠商可選擇的服務地區。<br>
+          <strong>code</strong> 規則：台灣城市用 <code>TW-XXX</code>（ISO 3166-2:TW），海外國家用 <code>XX</code>（ISO 3166-1 alpha-2），自訂大區用全大寫英文。<br>
+          ⚠ 修改後前台（vendors 過濾 / 廠商填資料）會在下次載入時自動更新。
+        </p>
+
+        <div id="statusWrap" class="alert mb-3 py-2 d-none" role="alert"><span id="status"></span></div>
+
+        <!-- 新增表單 -->
+        <div class="card mb-4">
+          <div class="card-header fw-semibold">新增地區</div>
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-6 col-md-2">
+                <label class="form-label small mb-0">code <span class="text-danger">*</span></label>
+                <input id="newCode" class="form-control form-control-sm text-uppercase" placeholder="例：GB / TW-TPE">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small mb-0">中文名 <span class="text-danger">*</span></label>
+                <input id="newZh" class="form-control form-control-sm" placeholder="例：英國">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small mb-0">英文名 <span class="text-danger">*</span></label>
+                <input id="newEn" class="form-control form-control-sm" placeholder="例：UK">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small mb-0">大區 code <span class="text-danger">*</span></label>
+                <input id="newGroupCode" class="form-control form-control-sm text-uppercase" placeholder="例：OVERSEAS">
+                <div class="form-text" style="font-size:.68rem;">現有大區：TW-N/TW-C/TW-S/TW-E/TW-O/OVERSEAS</div>
+              </div>
+              <div class="col-6 col-md-1">
+                <label class="form-label small mb-0">大區中文</label>
+                <input id="newGroupZh" class="form-control form-control-sm" placeholder="海外">
+              </div>
+              <div class="col-6 col-md-1">
+                <label class="form-label small mb-0">大區英文</label>
+                <input id="newGroupEn" class="form-control form-control-sm" placeholder="Overseas">
+              </div>
+              <div class="col-4 col-md-1">
+                <label class="form-label small mb-0">排序</label>
+                <input id="newSort" type="number" class="form-control form-control-sm" value="0" min="0">
+              </div>
+              <div class="col-8 col-md-1">
+                <button id="btnAdd" class="btn btn-primary btn-sm w-100">新增</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 地區列表（依大區分組顯示） -->
+        <div class="card">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <span class="fw-semibold">地區列表</span>
+            <button id="btnReload" class="btn btn-sm btn-outline-secondary">重新載入</button>
+          </div>
+          <div class="card-body p-0">
+            <div id="areaList"><div class="text-center text-muted py-4">載入中…</div></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 編輯 Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">編輯地區</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editCode">
+          <div class="mb-2">
+            <label class="form-label small">code（唯讀）</label>
+            <input id="editCodeDisplay" class="form-control form-control-sm" readonly>
+          </div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small">中文名</label>
+              <input id="editZh" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">英文名</label>
+              <input id="editEn" class="form-control form-control-sm">
+            </div>
+            <div class="col-6">
+              <label class="form-label small">大區 code</label>
+              <input id="editGroupCode" class="form-control form-control-sm text-uppercase">
+            </div>
+            <div class="col-3">
+              <label class="form-label small">大區中文</label>
+              <input id="editGroupZh" class="form-control form-control-sm">
+            </div>
+            <div class="col-3">
+              <label class="form-label small">大區英文</label>
+              <input id="editGroupEn" class="form-control form-control-sm">
+            </div>
+            <div class="col-4">
+              <label class="form-label small">排序</label>
+              <input id="editSort" type="number" class="form-control form-control-sm" min="0">
+            </div>
+            <div class="col-8 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="editActive">
+                <label class="form-check-label small" for="editActive">啟用</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+          <button class="btn btn-primary btn-sm" id="editSaveBtn">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  const API = '/api/admin/service-areas';
+
+  async function getHeaders() {
+    if (!window.AuthService) return {};
+    const s = await AuthService.getSession().catch(() => null);
+    const t = s?.access_token || s?.session?.access_token;
+    return t ? { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' } : {};
+  }
+
+  function esc(s) {
+    const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML;
+  }
+
+  function showStatus(msg, type) {
+    const w = document.getElementById('statusWrap');
+    const s = document.getElementById('status');
+    w.className = 'alert alert-' + (type || 'info') + ' mb-3 py-2';
+    s.textContent = msg;
+    w.classList.remove('d-none');
+  }
+
+  let allAreas = [];
+
+  async function loadList() {
+    document.getElementById('areaList').innerHTML = '<div class="text-center text-muted py-4">載入中…</div>';
+    const h = await getHeaders();
+    try {
+      const r = await fetch(API, { headers: h });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || '載入失敗');
+      allAreas = d.areas || [];
+      renderList();
+    } catch (e) {
+      document.getElementById('areaList').innerHTML = '<div class="text-danger p-3">' + esc(e.message) + '</div>';
+    }
+  }
+
+  function renderList() {
+    const wrap = document.getElementById('areaList');
+    if (allAreas.length === 0) {
+      wrap.innerHTML = '<p class="text-muted p-3">尚無資料，請先執行 <code>docs/service-areas-schema.sql</code> 並新增地區。</p>';
+      return;
+    }
+    // 依大區分組
+    const groupOrder = ['TW-N','TW-C','TW-S','TW-E','TW-O','OVERSEAS'];
+    const groupMap = {};
+    allAreas.forEach(function(a) {
+      if (!groupMap[a.group_code]) groupMap[a.group_code] = { zh: a.group_zh, en: a.group_en, items: [] };
+      groupMap[a.group_code].items.push(a);
+    });
+    const keys = groupOrder.filter(k => groupMap[k]).concat(Object.keys(groupMap).filter(k => !groupOrder.includes(k)));
+
+    let html = '<table class="table table-sm table-bordered mb-0"><thead class="table-light"><tr><th>code</th><th>中文</th><th>英文</th><th>大區</th><th>排序</th><th>狀態</th><th>操作</th></tr></thead><tbody>';
+    keys.forEach(function(gk) {
+      const g = groupMap[gk];
+      html += '<tr class="table-secondary"><td colspan="7" class="small fw-semibold py-1 px-2">' + esc(g.zh) + ' / ' + esc(g.en) + ' <code class="ms-1">' + esc(gk) + '</code></td></tr>';
+      g.items.forEach(function(a) {
+        const badge = a.is_active ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>';
+        html += '<tr>'
+          + '<td><code>' + esc(a.code) + '</code></td>'
+          + '<td>' + esc(a.name_zh) + '</td>'
+          + '<td>' + esc(a.name_en) + '</td>'
+          + '<td><code>' + esc(a.group_code) + '</code></td>'
+          + '<td>' + a.sort_order + '</td>'
+          + '<td>' + badge + '</td>'
+          + '<td>'
+          + '<button class="btn btn-xs btn-outline-primary me-1 edit-btn" style="font-size:.75rem;padding:1px 6px;" data-code="' + esc(a.code) + '">編輯</button>'
+          + '<button class="btn btn-xs btn-outline-danger delete-btn" style="font-size:.75rem;padding:1px 6px;" data-code="' + esc(a.code) + '">刪除</button>'
+          + '</td></tr>';
+      });
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('.edit-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { openEdit(btn.dataset.code); });
+    });
+    wrap.querySelectorAll('.delete-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { deleteArea(btn.dataset.code); });
+    });
+  }
+
+  function openEdit(code) {
+    const a = allAreas.find(x => x.code === code);
+    if (!a) return;
+    document.getElementById('editCode').value = a.code;
+    document.getElementById('editCodeDisplay').value = a.code;
+    document.getElementById('editZh').value = a.name_zh;
+    document.getElementById('editEn').value = a.name_en;
+    document.getElementById('editGroupCode').value = a.group_code;
+    document.getElementById('editGroupZh').value = a.group_zh;
+    document.getElementById('editGroupEn').value = a.group_en;
+    document.getElementById('editSort').value = a.sort_order;
+    document.getElementById('editActive').checked = a.is_active;
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+  }
+
+  document.getElementById('editSaveBtn').addEventListener('click', async function() {
+    const code = document.getElementById('editCode').value;
+    const body = {
+      name_zh: document.getElementById('editZh').value.trim(),
+      name_en: document.getElementById('editEn').value.trim(),
+      group_code: document.getElementById('editGroupCode').value.trim().toUpperCase(),
+      group_zh: document.getElementById('editGroupZh').value.trim(),
+      group_en: document.getElementById('editGroupEn').value.trim(),
+      sort_order: parseInt(document.getElementById('editSort').value) || 0,
+      is_active: document.getElementById('editActive').checked
+    };
+    const h = await getHeaders();
+    try {
+      const r = await fetch(API + '/' + encodeURIComponent(code), { method: 'PUT', headers: h, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      bootstrap.Modal.getInstance(document.getElementById('editModal'))?.hide();
+      showStatus('已更新', 'success');
+      loadList();
+    } catch (e) { showStatus('更新失敗：' + e.message, 'danger'); }
+  });
+
+  async function deleteArea(code) {
+    if (!confirm('確定刪除「' + code + '」？已選此地區的廠商資料不受影響，但前台選單將不再顯示。')) return;
+    const h = await getHeaders();
+    try {
+      const r = await fetch(API + '/' + encodeURIComponent(code), { method: 'DELETE', headers: h });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      showStatus('已刪除 ' + code, 'success');
+      loadList();
+    } catch (e) { showStatus('刪除失敗：' + e.message, 'danger'); }
+  }
+
+  document.getElementById('btnAdd').addEventListener('click', async function() {
+    const code     = (document.getElementById('newCode').value || '').trim().toUpperCase();
+    const name_zh  = (document.getElementById('newZh').value || '').trim();
+    const name_en  = (document.getElementById('newEn').value || '').trim();
+    const group_code = (document.getElementById('newGroupCode').value || '').trim().toUpperCase();
+    const group_zh = (document.getElementById('newGroupZh').value || '').trim();
+    const group_en = (document.getElementById('newGroupEn').value || '').trim();
+    const sort_order = parseInt(document.getElementById('newSort').value) || 0;
+    if (!code || !name_zh || !name_en || !group_code) { showStatus('請填寫 code、中文名、英文名、大區 code', 'warning'); return; }
+    const h = await getHeaders();
+    try {
+      const r = await fetch(API, { method: 'POST', headers: h, body: JSON.stringify({ code, name_zh, name_en, group_code, group_zh, group_en, sort_order }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      showStatus('已新增 ' + code, 'success');
+      ['newCode','newZh','newEn','newGroupCode','newGroupZh','newGroupEn'].forEach(function(id){ document.getElementById(id).value=''; });
+      document.getElementById('newSort').value = '0';
+      loadList();
+    } catch (e) { showStatus('新增失敗：' + e.message, 'danger'); }
+  });
+
+  document.getElementById('btnReload').addEventListener('click', loadList);
+
+  // Enter 快捷鍵（新增表單）
+  ['newCode','newZh','newEn','newGroupCode','newGroupZh','newGroupEn','newSort'].forEach(function(id){
+    document.getElementById(id).addEventListener('keydown', function(e){ if(e.key==='Enter') document.getElementById('btnAdd').click(); });
+  });
+
+  document.addEventListener('DOMContentLoaded', loadList);
+})();
+  </script>
+</body>
+</html>

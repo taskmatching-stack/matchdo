@@ -654,8 +654,8 @@ app.get('/api/admin/can-access', async (req, res) => {
     const role = profile?.role !== undefined && profile?.role !== null ? profile.role : null;
     if (role !== 'admin' && role !== 'tester') {
         const hint = profile == null
-            ? "INSERT INTO public.profiles (id, email, role) VALUES ('" + user.id + "', '" + (user.email || '').replace(/'/g, "''") + "', 'tester') ON CONFLICT (id) DO UPDATE SET role = 'tester';"
-            : "UPDATE public.profiles SET role = 'tester' WHERE id = '" + user.id + "';";
+            ? "INSERT INTO public.profiles (id, email, role) VALUES ('" + user.id + "', '" + (user.email || '').replace(/'/g, "''") + "', 'admin') ON CONFLICT (id) DO UPDATE SET role = 'admin';"
+            : "UPDATE public.profiles SET role = 'admin' WHERE id = '" + user.id + "';";
         res.status(403).json({ error: '僅管理員或測試員可進入後台', role: role, hint: hint });
         return;
     }
@@ -6453,6 +6453,82 @@ app.get('/api/service-areas', async (req, res) => {
         res.status(500).json({ groups: [] });
     }
 });
+
+// ── Admin 服務地區 CRUD ────────────────────────────────────────
+
+// GET /api/admin/service-areas
+app.get('/api/admin/service-areas', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('service_areas')
+            .select('*')
+            .order('group_code').order('sort_order').order('code');
+        if (error) throw error;
+        res.json({ areas: data || [] });
+    } catch (e) {
+        console.error('GET /api/admin/service-areas:', e);
+        res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// POST /api/admin/service-areas — 新增一筆
+app.post('/api/admin/service-areas', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const { code, name_zh, name_en, group_code, group_zh, group_en, sort_order } = req.body || {};
+        if (!code || !name_zh || !name_en || !group_code) return res.status(400).json({ error: '請填寫 code、中文名、英文名、大區 code' });
+        const { data, error } = await supabase.from('service_areas')
+            .insert({ code: code.trim().toUpperCase(), name_zh: name_zh.trim(), name_en: name_en.trim(), group_code: group_code.trim().toUpperCase(), group_zh: (group_zh||'').trim(), group_en: (group_en||'').trim(), sort_order: parseInt(sort_order)||0 })
+            .select().single();
+        if (error) throw error;
+        res.json({ area: data });
+    } catch (e) {
+        const msg = e.code === '23505' ? 'code 已存在，請使用不同的 code' : (e.message || '新增失敗');
+        res.status(400).json({ error: msg });
+    }
+});
+
+// PUT /api/admin/service-areas/:code — 更新
+app.put('/api/admin/service-areas/:code', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const orig = decodeURIComponent(req.params.code);
+        const { name_zh, name_en, group_code, group_zh, group_en, sort_order, is_active } = req.body || {};
+        const update = {};
+        if (name_zh !== undefined) update.name_zh = name_zh.trim();
+        if (name_en !== undefined) update.name_en = name_en.trim();
+        if (group_code !== undefined) update.group_code = group_code.trim().toUpperCase();
+        if (group_zh !== undefined) update.group_zh = group_zh.trim();
+        if (group_en !== undefined) update.group_en = group_en.trim();
+        if (sort_order !== undefined) update.sort_order = parseInt(sort_order)||0;
+        if (is_active !== undefined) update.is_active = Boolean(is_active);
+        const { error } = await supabase.from('service_areas').update(update).eq('code', orig);
+        if (error) throw error;
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(400).json({ error: e.message || '更新失敗' });
+    }
+});
+
+// DELETE /api/admin/service-areas/:code — 刪除
+app.delete('/api/admin/service-areas/:code', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const orig = decodeURIComponent(req.params.code);
+        const { error } = await supabase.from('service_areas').delete().eq('code', orig);
+        if (error) throw error;
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(400).json({ error: e.message || '刪除失敗' });
+    }
+});
+
+// ── 結束 Admin 服務地區 CRUD ───────────────────────────────────
 
 // GET /api/manufacturers — 依分類取得廠商清單（訂製品設計者「找製作方」用）
 // Query: category（單一分類，舊版相容） 或 category_key + subcategory_key（子分類優先，不足一頁用主分類填滿）
