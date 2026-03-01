@@ -3277,7 +3277,8 @@ app.get('/api/health', async (req, res) => {
 
 // 前台用公開設定（導航是否顯示服務媒合等，由 ENV 控制）
 app.get('/api/public-config', (req, res) => {
-    const enableServiceMatching = process.env.ENABLE_SERVICE_MATCHING !== 'false';
+    // 文件：服務媒合開關預設關閉，僅 ENABLE_SERVICE_MATCHING=true 時顯示
+    const enableServiceMatching = process.env.ENABLE_SERVICE_MATCHING === 'true';
     res.set('Cache-Control', 'public, max-age=60');
     res.json({ enableServiceMatching });
 });

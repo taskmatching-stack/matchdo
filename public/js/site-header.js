@@ -57,7 +57,7 @@ function getPublicConfig() {
         window.__PUBLIC_CONFIG__ = j;
         return j;
     }).catch(function () {
-        window.__PUBLIC_CONFIG__ = { enableServiceMatching: true };
+        window.__PUBLIC_CONFIG__ = { enableServiceMatching: false };
         return window.__PUBLIC_CONFIG__;
     });
 }
@@ -121,8 +121,8 @@ function isRemakeSection() {
  * - loginHref 必須帶 returnUrl 或使用 AuthService.getLoginUrl(path)，不可只寫 '/login.html'。
  */
 async function renderHeader(headerContainer, user, config) {
-    if (!config) config = { enableServiceMatching: true };
-    const enableServiceMatching = config.enableServiceMatching !== false;
+    if (!config) config = { enableServiceMatching: false };
+    // 服務媒合選單已廢除，不再顯示（不依 config，避免誤觸或快取導致再次出現）
     // 讀快取名字/頭像，避免顯示「載入中...」
     var _nbCache = null;
     try { _nbCache = JSON.parse(localStorage.getItem('nb_uinfo') || 'null'); } catch(e) {}
@@ -160,7 +160,6 @@ async function renderHeader(headerContainer, user, config) {
             document.head.appendChild(link);
         }
     }
-    const showServiceMatchingNav = enableServiceMatching;
     // 登入即顯示「我的功能」。一律只顯示訂製品（訂製者+製作方），每頁選單相同。
     const showMyFeaturesDropdown = !!user;
     var rawT = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
@@ -178,7 +177,6 @@ async function renderHeader(headerContainer, user, config) {
             </button>
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <div class="navbar-nav ms-auto p-4 p-lg-0">
-                    ${showServiceMatchingNav ? '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' : ''}
                     <div class="nav-item dropdown nav-has-hover">
                         <a href="${customUrl}" class="nav-link${customActive}" style="display:inline-flex;align-items:center;">` + t('nav.customProduct') + `<span class="nav-hover-caret">▾</span></a>
                         <div class="dropdown-menu nav-hover-menu">
