@@ -417,24 +417,36 @@
             if (window.__GALLERY_ITEMS__ && Array.isArray(window.__GALLERY_ITEMS__) && window.__GALLERY_ITEMS__.length > 0) {
                 allItems = window.__GALLERY_ITEMS__;
             } else {
+                // 1. 優先抓 comparison 對比型作品
                 var apiRes = await fetch(apiUrl('/api/gallery-items'));
                 var apiData = {};
                 try { apiData = await apiRes.json(); } catch (_) { apiData = {}; }
-                if (apiRes.ok && Array.isArray(apiData.items) && apiData.items.length > 0) {
-                    allItems = apiData.items;
-                } else {
+                var compItems = (apiRes.ok && Array.isArray(apiData.items)) ? apiData.items.filter(function(x){ return x.manufacturer_id; }) : [];
+
+                // 2. 同步抓一般廠商作品集（全部 portfolio 項目）
+                var portRes = await fetch(apiUrl('/api/manufacturer-portfolio'));
+                var portData = {};
+                try { portData = await portRes.json(); } catch (_) { portData = {}; }
+                var portItems = Array.isArray(portData.items) ? portData.items.filter(function(x){ return x.manufacturer_id; }) : [];
+
+                // 3. 合併（comparison 優先，避免重複）
+                var seen = {};
+                compItems.forEach(function(x){ seen[x.id] = true; });
+                var merged = compItems.concat(portItems.filter(function(x){ return !seen[x.id]; }));
+                allItems = merged;
+
+                // 4. 都沒真實資料才 fallback media-wall
+                if (allItems.length === 0) {
                     var mwRes = await fetch(apiUrl('/api/media-wall?per_page=50'));
                     var mwData = {};
                     try { mwData = await mwRes.json(); } catch (_) { mwData = {}; }
                     var rawItems = Array.isArray(mwData.items) ? mwData.items : [];
-                    allItems = mapMediaWallComparisonToGallery(rawItems);
-                    if (allItems.length === 0 && rawItems.length > 0) {
-                        allItems = rawItems.filter(function (x) { return x.type === 'comparison'; }).map(function (p) {
-                            return { id: p.id, manufacturer_id: p.manufacturer_id, title: p.title || '廠商作品', image_url: p.image_url, image_url_before: p.image_url_before, design_highlight: p.design_highlight, manufacturer_name: '廠商作品', manufacturer_location: '', manufacturer_contact: null, tags: [], description: null };
-                        });
-                    }
+                    allItems = rawItems.filter(function(x){ return x.manufacturer_id; }).map(function(p){
+                        return { id: p.id, manufacturer_id: p.manufacturer_id, manufacturer_user_id: p.manufacturer_user_id, title: p.title || '廠商作品', image_url: p.image_url || p.cover_image_url, image_url_before: p.image_url_before, design_highlight: null, manufacturer_name: p.manufacturer_name || '廠商', manufacturer_location: '', manufacturer_contact: null, manufacturer_user_id: p.manufacturer_user_id, tags: [], description: null };
+                    });
                 }
             }
+            // 只有完全沒廠商資料時才顯示 DEMO_ITEM
             if (!allItems || allItems.length === 0) allItems = [DEMO_ITEM];
             var isAll = selectedCategoryKey === '' || selectedCategoryKey == null || String(selectedCategoryKey).trim() === '';
             if (!isAll && allItems.length > 0) {
