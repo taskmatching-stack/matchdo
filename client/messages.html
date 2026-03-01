@@ -410,40 +410,78 @@
                 }
                 document.getElementById('btnSend').addEventListener('click', sendMessage);
                 document.getElementById('messageInput').addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-                // 資產庫 Modal：開啟時載入，點選即傳
-                document.getElementById('assetPickerModal').addEventListener('show.bs.modal', async function() {
+                // 資產庫 Modal：分頁切換 + 點選傳送
+                var _assetTab = 'products';
+                async function loadAssetGrid(tab) {
                     if (!currentConversationId) {
                         document.getElementById('assetGrid').innerHTML = '<div class="col-12 text-center text-muted py-4">請先選擇一個對話</div>';
                         return;
                     }
-                    const grid = document.getElementById('assetGrid');
+                    _assetTab = tab;
+                    var grid = document.getElementById('assetGrid');
                     grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-1"></div>載入中…</div>';
+
+                    var items = [];
                     try {
-                        const res = await fetch('/api/custom-products', { headers: { 'Authorization': 'Bearer ' + token } });
-                        const data = await res.json();
-                        const products = (data.products || []);
-                        if (!products.length) { grid.innerHTML = '<div class="col-12 text-center text-muted py-4">數位資產庫尚無作品</div>'; return; }
-                        grid.innerHTML = products.map(function(p) {
-                            var imgUrl = (p.image_urls && p.image_urls[0]) ? p.image_urls[0] : (p.ai_generated_image_url || p.reference_image_url || '');
-                            if (!imgUrl) return '';
-                            return '<div class="col-4 col-md-3">'
-                                + '<div class="card h-100 asset-card" style="cursor:pointer;" data-url="' + escapeHtml(imgUrl) + '" data-title="' + escapeHtml(p.title || '') + '">'
-                                + '<img src="' + escapeHtml(imgUrl) + '" class="card-img-top" style="height:100px;object-fit:cover;" onerror="this.parentElement.parentElement.style.display=\'none\'">'
-                                + '<div class="card-body p-1"><small class="text-muted" style="font-size:.72rem;display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + escapeHtml(p.title || '未命名') + '</small></div>'
-                                + '</div></div>';
-                        }).join('');
-                        grid.querySelectorAll('.asset-card').forEach(function(card) {
-                            card.addEventListener('click', async function() {
-                                var imgUrl = this.dataset.url;
-                                bootstrap.Modal.getInstance(document.getElementById('assetPickerModal')).hide();
-                                const r = await fetch('/api/direct-conversations/' + currentConversationId + '/messages/asset-url', {
-                                    method: 'POST', headers: Object.assign({}, headers(), { 'Content-Type': 'application/json' }),
-                                    body: JSON.stringify({ image_url: imgUrl })
-                                }).then(function(r) { return r.json(); });
-                                if (r.message) { renderMessage(Object.assign({}, r.message, { is_mine: true })); document.getElementById('messagesPanel').scrollTop = 99999; loadConversations(); }
-                            });
+                        if (tab === 'products') {
+                            var res = await fetch('/api/custom-products', { headers: { 'Authorization': 'Bearer ' + token } });
+                            var data = await res.json();
+                            items = (data.products || []).map(function(p) {
+                                var url = (p.image_urls && p.image_urls[0]) || p.ai_generated_image_url || p.reference_image_url || '';
+                                return { url: url, title: p.title || '未命名' };
+                            }).filter(function(i) { return !!i.url; });
+                        } else {
+                            var res2 = await fetch('/api/me/favorites', { headers: { 'Authorization': 'Bearer ' + token } });
+                            var data2 = await res2.json();
+                            items = (data2.favorites || []).map(function(f) {
+                                var item = f.item || {};
+                                var url = item.image_url || item.cover_image_url || (item.image_urls && item.image_urls[0]) || '';
+                                return { url: url, title: item.title || item.name || '已收藏' };
+                            }).filter(function(i) { return !!i.url; });
+                        }
+                    } catch(e) {
+                        grid.innerHTML = '<div class="col-12 text-center text-muted py-4">載入失敗</div>';
+                        return;
+                    }
+
+                    if (!items.length) {
+                        grid.innerHTML = '<div class="col-12 text-center text-muted py-4">' + (tab === 'products' ? '數位資產庫尚無作品' : '尚無收藏作品') + '</div>';
+                        return;
+                    }
+
+                    grid.innerHTML = items.map(function(it) {
+                        return '<div class="col-4 col-md-3">'
+                            + '<div class="card h-100 asset-card" style="cursor:pointer;" data-url="' + escapeHtml(it.url) + '">'
+                            + '<img src="' + escapeHtml(it.url) + '" class="card-img-top" style="height:90px;object-fit:cover;" onerror="this.closest(\'.asset-card\').style.display=\'none\'">'
+                            + '<div class="card-body p-1"><small class="text-muted" style="font-size:.7rem;display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + escapeHtml(it.title) + '</small></div>'
+                            + '</div></div>';
+                    }).join('');
+
+                    grid.querySelectorAll('.asset-card').forEach(function(card) {
+                        card.addEventListener('click', async function() {
+                            var imgUrl = this.dataset.url;
+                            bootstrap.Modal.getInstance(document.getElementById('assetPickerModal')).hide();
+                            var r = await fetch('/api/direct-conversations/' + currentConversationId + '/messages/asset-url', {
+                                method: 'POST',
+                                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ image_url: imgUrl })
+                            }).then(function(r) { return r.json(); });
+                            if (r.message) { renderMessage(Object.assign({}, r.message, { is_mine: true })); document.getElementById('messagesPanel').scrollTop = 99999; loadConversations(); }
                         });
-                    } catch(e) { grid.innerHTML = '<div class="col-12 text-center text-muted py-4">載入失敗</div>'; }
+                    });
+                }
+
+                document.getElementById('assetPickerModal').addEventListener('show.bs.modal', function() {
+                    document.querySelectorAll('#assetPickerTabs .nav-link').forEach(function(a) { a.classList.toggle('active', a.dataset.tab === _assetTab); });
+                    loadAssetGrid(_assetTab);
+                });
+                document.getElementById('assetPickerTabs').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var a = e.target.closest('[data-tab]');
+                    if (!a) return;
+                    document.querySelectorAll('#assetPickerTabs .nav-link').forEach(function(l) { l.classList.remove('active'); });
+                    a.classList.add('active');
+                    loadAssetGrid(a.dataset.tab);
                 });
 
                 document.getElementById('imgFileInput').addEventListener('change', async function() {
@@ -464,9 +502,15 @@
     <div class="modal fade" id="assetPickerModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-images me-2"></i>從數位資產庫選取圖片</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <div class="modal-header pb-0">
+                    <div class="w-100">
+                        <h5 class="modal-title mb-2"><i class="bi bi-images me-2"></i>選取圖片傳送</h5>
+                        <ul class="nav nav-tabs" id="assetPickerTabs">
+                            <li class="nav-item"><a class="nav-link active" href="#" data-tab="products">我的作品</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#" data-tab="favorites">我的最愛</a></li>
+                        </ul>
+                    </div>
+                    <button type="button" class="btn-close ms-2 align-self-start mt-1" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div id="assetGrid" class="row g-2">
