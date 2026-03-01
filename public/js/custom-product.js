@@ -328,6 +328,8 @@ $(document).ready(function () {
         const btn = $(this);
         const originalText = btn.html();
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>AI 生成中...');
+        // 手機版畫布：顯示 loading 脈衝
+        $('#generatedImagePreviewWrap').addClass('is-loading');
 
         var referenceImages = refDataUrls.filter(Boolean);
         var seedVal = $('#generationSeed').val();
@@ -440,8 +442,18 @@ $(document).ready(function () {
             document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } finally {
             btn.prop('disabled', false).html(originalText);
+            // 手機版畫布：移除 loading 脈衝
+            $('#generatedImagePreviewWrap').removeClass('is-loading');
         }
     });
+
+    // 2. Textarea 自動長高（手機體驗優化）
+    var $prompt = $('#productPrompt');
+    function autoGrowPrompt() {
+        $prompt[0].style.height = 'auto';
+        $prompt[0].style.height = ($prompt[0].scrollHeight) + 'px';
+    }
+    $prompt.on('input', autoGrowPrompt);
 
     // 儲存此生成結果為訂製產品（含前端輸入的提示詞 generation_prompt）
     $(document).on('click', '#saveGeneratedProductBtn', function () {
