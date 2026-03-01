@@ -320,20 +320,10 @@
             var userId = v.user_id || '';
             var ct = v.contact || {};
 
-            // 聯絡按鈕：有 user_id → 站內聯絡；否則找外部聯絡方式
-            var contactBtn = '';
-            if (userId) {
-                contactBtn = '<button class="btn btn-success btn-contact-vendor" data-uid="' + esc(userId) + '"><i class="bi bi-chat-dots me-1"></i>聯絡廠商</button>';
-            } else if (ct.line_id || ct.line) {
-                var lineVal = ct.line_id || ct.line;
-                contactBtn = '<a href="https://line.me/ti/p/~' + esc(lineVal) + '" class="btn btn-success" target="_blank" rel="noopener"><i class="bi bi-line me-1"></i>LINE 聯絡</a>';
-            } else if (ct.email) {
-                contactBtn = '<a href="mailto:' + esc(ct.email) + '" class="btn btn-outline-success"><i class="bi bi-envelope me-1"></i>Email 聯絡</a>';
-            } else if (ct.phone) {
-                contactBtn = '<a href="tel:' + esc(ct.phone) + '" class="btn btn-outline-success"><i class="bi bi-telephone me-1"></i>電話聯絡</a>';
-            } else if (ct.url) {
-                contactBtn = '<a href="' + esc(ct.url) + '" class="btn btn-outline-secondary" target="_blank" rel="noopener"><i class="bi bi-globe me-1"></i>官網</a>';
-            }
+            // 聯絡按鈕：有站內帳號（user_id）才顯示「站內聯絡廠商」，否則不顯示
+            var contactBtn = userId
+                ? '<button class="btn btn-success btn-contact-vendor" data-uid="' + esc(userId) + '"><i class="bi bi-chat-dots me-1"></i>聯絡廠商</button>'
+                : '';
 
             return '<div class="col-sm-6 col-lg-4">' +
                 '<div class="vendor-card-wrap">' +

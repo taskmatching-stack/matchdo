@@ -248,42 +248,12 @@
             // 更新頁籤標題
             document.title = (v.name || '廠商詳情') + ' - MATCHDO 合做';
 
-            // 聯絡按鈕：有 user_id → 站內訊息；否則用外部聯絡（LINE / email / phone / 官網）
+            // 頂部聯絡按鈕：僅有站內帳號（user_id）才顯示「站內聯絡廠商」
+            // 沒有 user_id → 按鈕保持隱藏（聯絡資訊已在下方「聯繫 & 社群」區塊顯示）
             _vendorUserId = v.user_id || null;
             var contactBtn = document.getElementById('btnContactVendor');
-            if (contactBtn) {
-                if (_vendorUserId) {
-                    contactBtn.classList.remove('d-none');
-                } else {
-                    // 找最佳外部聯絡方式
-                    var ct2 = v.contact || {};
-                    var extHref = '', extLabel = '', extIcon = '';
-                    if (ct2.line_id || ct2.line) {
-                        var lv = ct2.line_id || ct2.line;
-                        extHref = 'https://line.me/ti/p/~' + encodeURIComponent(lv);
-                        extLabel = 'LINE 聯絡廠商'; extIcon = 'bi-line';
-                    } else if (ct2.email) {
-                        extHref = 'mailto:' + ct2.email;
-                        extLabel = 'Email 聯絡廠商'; extIcon = 'bi-envelope-fill';
-                    } else if (ct2.phone) {
-                        extHref = 'tel:' + ct2.phone;
-                        extLabel = '電話聯絡廠商'; extIcon = 'bi-telephone-fill';
-                    } else if (ct2.url) {
-                        extHref = ct2.url;
-                        extLabel = '前往廠商官網'; extIcon = 'bi-globe2';
-                    }
-                    if (extHref) {
-                        // 把 button 換成 <a> 外部連結
-                        var extA = document.createElement('a');
-                        extA.href = extHref;
-                        extA.className = 'btn btn-success';
-                        extA.target = (extHref.startsWith('http')) ? '_blank' : '_self';
-                        extA.rel = 'noopener noreferrer';
-                        extA.innerHTML = '<i class="bi ' + extIcon + ' me-2"></i>' + extLabel;
-                        contactBtn.parentNode.replaceChild(extA, contactBtn);
-                    }
-                    // 若完全沒有聯絡資訊，按鈕保持隱藏
-                }
+            if (contactBtn && _vendorUserId) {
+                contactBtn.classList.remove('d-none');
             }
 
             // Hero
