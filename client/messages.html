@@ -153,12 +153,23 @@
             }
 
             function openOrSelectConversation(otherUserId, displayName) {
-                fetch('/api/direct-conversations', {
-                    method: 'POST',
-                    headers: headers(),
-                    body: JSON.stringify({ other_user_id: otherUserId })
-                }).then(r => r.json()).then(data => {
-                    if (data.conversation_id) selectConversation(data.conversation_id, otherUserId, displayName);
+                // 建立/取得對話，同時加入聯絡清單
+                Promise.all([
+                    fetch('/api/direct-conversations', {
+                        method: 'POST',
+                        headers: headers(),
+                        body: JSON.stringify({ other_user_id: otherUserId })
+                    }).then(r => r.json()),
+                    fetch('/api/contact-list', {
+                        method: 'POST',
+                        headers: headers(),
+                        body: JSON.stringify({ user_id: otherUserId })
+                    }).catch(() => {})
+                ]).then(([data]) => {
+                    if (data.conversation_id) {
+                        loadContacts(); // 重新整理聯絡清單
+                        selectConversation(data.conversation_id, otherUserId, displayName);
+                    }
                 });
             }
 
