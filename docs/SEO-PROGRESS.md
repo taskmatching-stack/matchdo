@@ -161,7 +161,7 @@
 
 其餘主要頁面（`gallery.html`、`vendor-profile.html`、`vendors.html` 等）已含 `apple-touch-icon` 連結。
 
-### ❌ 選擇性：資料庫搜尋效能索引（待人工在 Supabase 執行）
+### ✅ 選擇性：資料庫搜尋效能索引（2026-03-01 已在 Supabase 執行）
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
