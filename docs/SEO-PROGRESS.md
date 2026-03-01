@@ -141,9 +141,11 @@
 | **後台平台帳號設定** | `admin/site-settings.html` 新增平台官方社群帳號管理（FB/IG/Threads/X/LINE/YouTube/Pinterest） |
 | **contact_info 欄位** | `docs/add-threads-twitter-to-contact-info.sql`：為 `contact_info` 資料表補 `threads_url`、`twitter_url` 欄位（需在 Supabase 執行） |
 
-### ❌ 優先 4：Google Search Console 提交 Sitemap
+### ⏸ 優先 4：Google Search Console 提交 Sitemap（暫緩）
 
-部署後需執行：
+> **暫緩原因**：站上仍有大量測試 / 假資料，現在提交會讓 Google 抓到無效內容，等正式內容充實後再執行。
+
+待執行（真實內容上線後）：
 1. 前往 https://search.google.com/search-console
 2. 資源已驗證（matchdo.cc）
 3. 左側「Sitemap」→ 新增 `https://matchdo.cc/sitemap.xml`
