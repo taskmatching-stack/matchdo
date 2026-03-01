@@ -143,10 +143,11 @@
                 #media-wall-grid .media-wall-1x2 .card .card-img-wrap { aspect-ratio: unset; min-height: 0; }
                 #media-wall-grid .media-wall-1x2 .card { min-height: 0; }
                 /* ── 愛心按鈕 ── */
-                .mw-fav-btn { position:absolute; top:6px; left:6px; z-index:12; width:28px; height:28px; border:none; background:rgba(255,255,255,.85); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; line-height:1; box-shadow:0 1px 4px rgba(0,0,0,.18); transition:transform .15s,background .12s; }
+                .mw-fav-btn { position:absolute; top:6px; left:6px; z-index:12; width:30px; height:30px; border:none; background:rgba(255,255,255,.9); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px; line-height:1; box-shadow:0 1px 6px rgba(0,0,0,.25); transition:transform .15s,background .12s; }
                 .mw-fav-btn:hover { transform:scale(1.18); background:#fff; }
                 .mw-fav-btn.active { color:#e74c3c; }
-                .mw-fav-btn:not(.active) { color:#ccc; }
+                .mw-fav-btn:not(.active) { color:#aaa; }
+                .mw-fav-btn:not(.active):hover { color:#e74c3c; }
                 /* ── 我的最愛區塊 ── */
                 #mw-favorites-section { border-bottom:1px solid #e8edf2; margin-bottom:0.75rem; padding-bottom:0.75rem; }
                 #mw-favorites-section .fav-section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem; }
@@ -338,12 +339,21 @@
             function toggleFavorite(id, item, btn) {
                 var favs = loadFavs();
                 var idx = favs.findIndex(function(f){ return f.id === String(id); });
+                var isNowFaved;
                 if (idx >= 0) {
                     favs.splice(idx, 1);
+                    isNowFaved = false;
                     if (btn) btn.classList.remove('active');
                 } else {
                     favs.push({ id: String(id), item: item, savedAt: Date.now() });
+                    isNowFaved = true;
                     if (btn) btn.classList.add('active');
+                }
+                // 同步更新圖示（bi-heart ↔ bi-heart-fill）
+                if (btn) {
+                    var icon = btn.querySelector('i');
+                    if (icon) { icon.className = isNowFaved ? 'bi bi-heart-fill' : 'bi bi-heart'; }
+                    btn.title = isNowFaved ? '已加入收藏' : '加入收藏';
                 }
                 saveFavs(favs);
                 renderFavSection();
@@ -374,9 +384,14 @@
                     thumb.querySelector('.fav-remove').addEventListener('click', function(e) {
                         e.stopPropagation();
                         toggleFavorite(f.id, item, null);
-                        // 更新格線上對應卡片的愛心狀態
+                        // 更新格線上對應卡片的愛心狀態 + 圖示
                         var btn = grid.querySelector('.mw-fav-btn[data-fav-id="' + f.id.replace(/"/g,'&quot;') + '"]');
-                        if (btn) btn.classList.remove('active');
+                        if (btn) {
+                            btn.classList.remove('active');
+                            var icon = btn.querySelector('i');
+                            if (icon) icon.className = 'bi bi-heart';
+                            btn.title = '加入收藏';
+                        }
                     });
                     favGrid.appendChild(thumb);
                 });
@@ -386,7 +401,12 @@
             if (favClearAll) {
                 favClearAll.addEventListener('click', function() {
                     saveFavs([]);
-                    grid.querySelectorAll('.mw-fav-btn.active').forEach(function(b){ b.classList.remove('active'); });
+                    grid.querySelectorAll('.mw-fav-btn.active').forEach(function(b){
+                        b.classList.remove('active');
+                        var icon = b.querySelector('i');
+                        if (icon) icon.className = 'bi bi-heart';
+                        b.title = '加入收藏';
+                    });
                     renderFavSection();
                 });
             }
@@ -457,7 +477,7 @@
                     }
                     wrap.setAttribute('data-item', JSON.stringify(dataItem));
                     var isFaved = isFavorite(p.id || (p.title + p.type));
-                    wrap.innerHTML = '<div class="card"><a href="#" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + content + '<div class="card-title-overlay">' + title + '</div></div></a><button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="加入我的最愛" data-fav-id="' + escAttr(String(p.id || (p.title + p.type))) + '">♥</button></div>';
+                    wrap.innerHTML = '<div class="card"><a href="#" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + content + '<div class="card-title-overlay">' + title + '</div></div></a><button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(String(p.id || (p.title + p.type))) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></div>';
                     // 愛心按鈕事件
                     var favBtn = wrap.querySelector('.mw-fav-btn');
                     if (favBtn) {
