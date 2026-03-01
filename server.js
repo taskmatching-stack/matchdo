@@ -9230,16 +9230,21 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
         if (!conv || (conv.user_a_id !== user.id && conv.user_b_id !== user.id)) return res.status(403).json({ error: '僅參與者可翻譯' });
         const originalText = (msg.body || '').trim();
         if (!originalText) return res.status(400).json({ error: '此訊息無文字可翻譯' });
-        // 扣 1 點
-        const { data: credits } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
-        const balance = credits?.balance ?? 0;
-        if (balance < 1) return res.status(402).json({ error: '點數不足，翻譯需要 1 點' });
-        const newBalance = balance - 1;
-        await supabase.from('user_credits').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', user.id);
-        await supabase.from('credit_transactions').insert({
-            user_id: user.id, type: 'consumed', amount: -1,
-            balance_after: newBalance, source: 'message_translate', description: '訊息翻譯（1 點）'
-        }).catch(() => {});
+        // admin / tester 不扣點
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        const isPrivileged = profile?.role === 'admin' || profile?.role === 'tester';
+        let newBalance = null;
+        if (!isPrivileged) {
+            const { data: credits } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+            const balance = credits?.balance ?? 0;
+            if (balance < 1) return res.status(402).json({ error: '點數不足，翻譯需要 1 點' });
+            newBalance = balance - 1;
+            await supabase.from('user_credits').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+            await supabase.from('credit_transactions').insert({
+                user_id: user.id, type: 'consumed', amount: -1,
+                balance_after: newBalance, source: 'message_translate', description: '訊息翻譯（1 點）'
+            }).catch(() => {});
+        }
         // 呼叫 Gemini 翻譯：自動偵測語言、翻譯成對立語言
         const apiKey = process.env.GEMINI_API_KEY;
         let translated = '', sourceLang = '', targetLang = '';
@@ -9263,7 +9268,7 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
         } else {
             return res.status(500).json({ error: '翻譯服務未設定' });
         }
-        res.json({ original_text: originalText, translated_text: translated, source_lang: sourceLang, target_lang: targetLang, points_used: 1, balance_after: newBalance });
+        res.json({ original_text: originalText, translated_text: translated, source_lang: sourceLang, target_lang: targetLang, points_used: isPrivileged ? 0 : 1, balance_after: newBalance });
     } catch (e) {
         console.error('POST /api/direct-messages/:msgId/translate:', e);
         res.status(500).json({ error: '系統錯誤' });
