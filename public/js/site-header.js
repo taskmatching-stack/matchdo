@@ -29,8 +29,15 @@
             '.navbar .navbar-nav .nav-link:hover,.navbar .navbar-nav .nav-link.active{color:#445D7E!important;}',
             '.navbar .dropdown-toggle::after{border:none;content:"\\25BC";font-family:inherit;font-size:.6em;vertical-align:middle;margin-left:6px;}',
             '.navbar .dropdown-menu .dropdown-item:hover,.navbar .dropdown-menu .dropdown-item.active{background:#445D7E!important;color:#fff!important;}',
-            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}}',
+            '@keyframes nbDropIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}',
+            '.nav-hover-caret{font-size:.6em;vertical-align:middle;margin-left:4px;opacity:.6;transition:opacity .15s;}',
+            '.nav-hover-menu{min-width:180px;padding:.5rem 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
+            '.nav-hover-menu .dropdown-item{font-size:.9rem;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;color:#374151;}',
+            '.nav-hover-menu .dropdown-item:hover{background:#445D7E!important;color:#fff!important;}',
+            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}.nav-hover-caret{display:none;}}',
             '@media(min-width:992px){',
+            '.nav-item.nav-has-hover:hover .nav-hover-caret{opacity:1;}',
+            '.nav-item.nav-has-hover:hover>.nav-hover-menu{display:block;margin-top:2px;animation:nbDropIn .15s ease;}',
             '#site-header .navbar{flex-wrap:wrap;}',
             '#site-header .navbar-collapse{order:1;width:100%;flex-grow:1;border-bottom:1px solid #dee2e6;}',
             '#site-header .navbar-brand{order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}',
@@ -172,8 +179,24 @@ async function renderHeader(headerContainer, user, config) {
             <div class="collapse navbar-collapse" id="navbarCollapse">
                 <div class="navbar-nav ms-auto p-4 p-lg-0">
                     ${showServiceMatchingNav ? '<a href="/index.html#ai-estimate" class="nav-item nav-link">' + t('nav.serviceMatching') + '</a>' : ''}
-                    <a href="${customUrl}" class="nav-item nav-link${customActive}">` + t('nav.customProduct') + `</a>
-                    <a href="${remakeUrl}" class="nav-item nav-link${remakeActive}">` + (t('nav.remake') || '再製方案') + `</a>
+                    <div class="nav-item dropdown nav-has-hover">
+                        <a href="${customUrl}" class="nav-link${customActive}" style="display:inline-flex;align-items:center;">` + t('nav.customProduct') + `<span class="nav-hover-caret">▾</span></a>
+                        <div class="dropdown-menu nav-hover-menu">
+                            <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-plus-circle"></i>建立客製產品</a>
+                            <a href="/client/find-makers.html" class="dropdown-item"><i class="bi bi-shop"></i>找製作方</a>
+                            <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images"></i>圖庫找廠商</a>
+                            <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam"></i>我的數位資產</a>
+                        </div>
+                    </div>
+                    <div class="nav-item dropdown nav-has-hover">
+                        <a href="${remakeUrl}" class="nav-link${remakeActive}" style="display:inline-flex;align-items:center;">` + (t('nav.remake') || '再製方案') + `<span class="nav-hover-caret">▾</span></a>
+                        <div class="dropdown-menu nav-hover-menu">
+                            <a href="/remake-product.html" class="dropdown-item"><i class="bi bi-tools"></i>建立再製設計</a>
+                            <a href="/client/find-makers.html" class="dropdown-item"><i class="bi bi-shop"></i>找製作方</a>
+                            <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images"></i>圖庫找廠商</a>
+                            <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam"></i>我的產品</a>
+                        </div>
+                    </div>
                     <a href="/subscription-plans.html" class="nav-item nav-link">` + (t('nav.subscriptionPlans') || '方案與定價') + `</a>
                     
                     ${showMyFeaturesDropdown ? `
