@@ -237,10 +237,22 @@
         const tags = (p.tags || []).map(t => `<span class="badge bg-secondary me-1">${escapeHtml(t)}</span>`).join('');
         document.getElementById('modalTags').innerHTML = tags ? tags : '';
 
-        const contactUrl = contact.url || (contact.email ? 'mailto:' + contact.email : '#');
         const contactBtn = document.getElementById('modalBtnContact');
-        contactBtn.href = contactUrl;
-        contactBtn.textContent = contact.url ? '前往賣場/官網' : (contact.email ? '寫信聯繫' : '聯繫廠商');
+        if (contact.url) {
+            contactBtn.href = contact.url;
+            contactBtn.textContent = '前往賣場/官網';
+            contactBtn.target = '_blank';
+        } else if (contact.email) {
+            contactBtn.href = 'mailto:' + contact.email;
+            contactBtn.textContent = '寫信聯繫';
+            contactBtn.target = '_blank';
+        } else {
+            // 沒有聯絡方式 → 跳廠商詳情頁
+            const mfrId = p.manufacturer_id;
+            contactBtn.href = mfrId ? '/vendor-profile.html?id=' + encodeURIComponent(mfrId) : '/vendors.html';
+            contactBtn.textContent = '查看廠商資料';
+            contactBtn.target = '_self';
+        }
 
         const redesignUrl = '/custom-product.html?from_gallery=1&image_url=' + encodeURIComponent(p.image_url || '') + '&portfolio_id=' + encodeURIComponent(p.id || '');
         document.getElementById('modalBtnRedesign').href = redesignUrl;

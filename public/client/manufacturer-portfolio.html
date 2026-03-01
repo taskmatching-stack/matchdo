@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>我的廠商作品 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <style>
+        .portfolio-card { border-radius: 12px; border: 1px solid #e9ecef; overflow: hidden; transition: box-shadow .15s; }
+        .portfolio-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); }
+        .portfolio-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #f0f0f0; display: block; }
+        .portfolio-img-placeholder { width: 100%; aspect-ratio: 4/3; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 2rem; }
+        .add-card { border: 2px dashed #cdd4dc; border-radius: 12px; cursor: pointer; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9ab0; transition: border-color .15s, color .15s, background .15s; }
+        .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
+        .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 14px; border-left: 3px solid #0d6efd; padding-left: 10px; }
+        .img-preview { max-height: 180px; object-fit: contain; border-radius: 8px; border: 1px solid #dee2e6; background: #f8f9fa; }
+        #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h4 class="mb-0 fw-bold">我的廠商作品</h4>
+                    <small class="text-muted">管理對外展示的作品圖庫</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回控制台</a>
+                    <button class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i>新增作品</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4">
+        <div id="auth-alert" class="alert alert-warning d-none">請先<a href="/index.html" class="alert-link">登入</a>。</div>
+        <div id="no-mfr-alert" class="alert alert-warning d-none">
+            <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料。
+            <a href="/profile/contact-info.html" class="alert-link">前往建立廠商資料</a>
+        </div>
+
+        <div id="main-content" class="d-none">
+            <!-- 新增作品表單 (折疊式) -->
+            <div id="add-form-panel" class="card border-0 shadow-sm mb-4 d-none">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>新增作品</span>
+                    <button class="btn-close" id="btn-add-close"></button>
+                </div>
+                <div class="card-body">
+                    <form id="add-form" enctype="multipart/form-data">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">作品主圖 <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control" id="add-image" accept="image/*">
+                                <div class="text-muted small mt-1">建議比例 4:3，JPEG/PNG/WEBP，不超過 5MB</div>
+                                <div id="add-image-preview" class="mt-2"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">對比圖（前/後，可選）</label>
+                                <input type="file" class="form-control" id="add-image-before" accept="image/*">
+                                <div id="add-image-before-preview" class="mt-2"></div>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">作品名稱</label>
+                                <input type="text" class="form-control" id="add-title" placeholder="例：精品牛皮手提包 A 款">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">分類</label>
+                                <select class="form-select" id="add-category">
+                                    <option value="">— 選擇分類 —</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">作品亮點</label>
+                                <input type="text" class="form-control" id="add-highlight" placeholder="例：手工縫線、義大利皮革、防水處理">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">作品描述</label>
+                                <textarea class="form-control" id="add-desc" rows="2" placeholder="作品背景、製作方式等說明…"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">標籤（用逗號或空格分隔）</label>
+                                <input type="text" class="form-control" id="add-tags" placeholder="例：皮革, 手工, 訂製">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end gap-2 mt-3">
+                            <button type="button" class="btn btn-outline-secondary" id="btn-add-cancel">取消</button>
+                            <button type="submit" class="btn btn-primary" id="btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>儲存作品</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 作品列表 -->
+            <div id="portfolio-grid" class="row g-3"></div>
+        </div>
+    </div>
+
+    <!-- 編輯 Modal -->
+    <div class="modal fade" id="edit-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">編輯作品</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="edit-form" enctype="multipart/form-data">
+                        <input type="hidden" id="edit-id">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">更換主圖（留空保持原圖）</label>
+                                <input type="file" class="form-control" id="edit-image" accept="image/*">
+                                <div id="edit-image-preview" class="mt-2"></div>
+                                <img id="edit-current-img" src="" class="img-preview mt-2 d-none" alt="目前主圖">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">更換對比圖（留空保持原圖）</label>
+                                <input type="file" class="form-control" id="edit-image-before" accept="image/*">
+                                <div id="edit-image-before-preview" class="mt-2"></div>
+                                <img id="edit-current-before-img" src="" class="img-preview mt-2 d-none" alt="目前對比圖">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold">作品名稱</label>
+                                <input type="text" class="form-control" id="edit-title">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">分類</label>
+                                <select class="form-select" id="edit-category">
+                                    <option value="">— 選擇分類 —</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">作品亮點</label>
+                                <input type="text" class="form-control" id="edit-highlight">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">作品描述</label>
+                                <textarea class="form-control" id="edit-desc" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">標籤（用逗號或空格分隔）</label>
+                                <input type="text" class="form-control" id="edit-tags">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="btn-edit-save"><i class="bi bi-cloud-upload me-1"></i>儲存修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 刪除確認 Modal -->
+    <div class="modal fade" id="delete-modal" tabindex="-1">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header border-0">
+                    <h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i>刪除作品</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body pt-0">確定要刪除「<span id="delete-title">此作品</span>」？此操作無法還原。</div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="btn-delete-confirm">刪除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast-area"></div>
+
+    <script src="../js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+    (function () {
+        var token = null;
+        var mfrId = null;
+        var categories = [];
+        var portfolioItems = [];
+        var deleteTargetId = null;
+        var editModal = null;
+        var deleteModal = null;
+
+        function getToken() {
+            if (typeof AuthService !== 'undefined' && AuthService.getToken) return AuthService.getToken();
+            return null;
+        }
+
+        function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        function showToast(msg, type) {
+            type = type || 'success';
+            var area = document.getElementById('toast-area');
+            var id = 't' + Date.now();
+            area.insertAdjacentHTML('beforeend', '<div id="' + id + '" class="toast align-items-center text-white bg-' + type + ' border-0 show mb-2" role="alert"><div class="d-flex"><div class="toast-body">' + esc(msg) + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>');
+            setTimeout(function () { var el = document.getElementById(id); if (el) el.remove(); }, 3500);
+        }
+
+        async function init() {
+            token = getToken();
+            if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
+            try {
+                const r = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
+                if (r.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
+                if (!r.ok) throw new Error('載入廠商資料失敗');
+                const mfr = await r.json();
+                mfrId = mfr.id;
+                document.getElementById('main-content').classList.remove('d-none');
+                await loadCategories();
+                await loadPortfolio();
+                bindEvents();
+            } catch (e) {
+                showToast(e.message, 'danger');
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const r = await fetch('/api/custom-categories');
+                const d = await r.json();
+                categories = d.categories || [];
+                ['add-category', 'edit-category'].forEach(function (id) {
+                    var sel = document.getElementById(id);
+                    categories.forEach(function (c) {
+                        var opt = document.createElement('option');
+                        opt.value = c.key;
+                        opt.textContent = c.name;
+                        sel.appendChild(opt);
+                    });
+                });
+            } catch (e) { /* ignore */ }
+        }
+
+        async function loadPortfolio() {
+            var grid = document.getElementById('portfolio-grid');
+            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>';
+            try {
+                const r = await fetch('/api/manufacturer-portfolio?manufacturer_id=' + mfrId);
+                const d = await r.json();
+                portfolioItems = d.items || [];
+                renderGrid();
+            } catch (e) {
+                document.getElementById('portfolio-grid').innerHTML = '<div class="col-12"><div class="alert alert-danger">載入失敗：' + esc(e.message) + '</div></div>';
+            }
+        }
+
+        function renderGrid() {
+            var grid = document.getElementById('portfolio-grid');
+            if (!portfolioItems.length) {
+                grid.innerHTML = '<div class="col-12"><div class="add-card p-4" id="add-card-empty"><i class="bi bi-images fs-1 mb-2"></i><div class="fw-semibold">尚無作品</div><div class="small mt-1">點此新增第一件作品</div></div></div>';
+                document.getElementById('add-card-empty').addEventListener('click', openAddForm);
+                return;
+            }
+            grid.innerHTML = portfolioItems.map(function (p) {
+                return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="portfolio-card h-100">' +
+                    (p.image_url ? '<img src="' + esc(p.image_url) + '" class="portfolio-img" loading="lazy" alt="' + esc(p.title || '') + '">' : '<div class="portfolio-img-placeholder"><i class="bi bi-image"></i></div>') +
+                    '<div class="p-3">' +
+                    '<div class="fw-semibold text-truncate mb-1">' + esc(p.title || '未命名') + '</div>' +
+                    (p.design_highlight ? '<div class="text-muted small text-truncate mb-2">' + esc(p.design_highlight) + '</div>' : '') +
+                    ((p.tags || []).length ? '<div class="mb-2">' + p.tags.slice(0,3).map(function(t){ return '<span class="badge bg-light text-secondary border me-1">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+                    '<div class="d-flex gap-2 mt-2">' +
+                    '<button class="btn btn-outline-primary btn-sm flex-fill" onclick="window._editPortfolio(\'' + p.id + '\')"><i class="bi bi-pencil me-1"></i>編輯</button>' +
+                    '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || '未命名') + '\')"><i class="bi bi-trash"></i></button>' +
+                    '</div></div></div></div>';
+            }).join('');
+        }
+
+        function openAddForm() {
+            document.getElementById('add-form-panel').classList.remove('d-none');
+            document.getElementById('add-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function bindEvents() {
+            editModal = new bootstrap.Modal(document.getElementById('edit-modal'));
+            deleteModal = new bootstrap.Modal(document.getElementById('delete-modal'));
+
+            document.getElementById('btn-add-open').addEventListener('click', openAddForm);
+            document.getElementById('btn-add-close').addEventListener('click', function () { document.getElementById('add-form-panel').classList.add('d-none'); });
+            document.getElementById('btn-add-cancel').addEventListener('click', function () { document.getElementById('add-form-panel').classList.add('d-none'); });
+
+            // Image preview helpers
+            function makePreview(inputId, previewId) {
+                document.getElementById(inputId).addEventListener('change', function () {
+                    var file = this.files[0];
+                    var el = document.getElementById(previewId);
+                    if (!file) { el.innerHTML = ''; return; }
+                    var url = URL.createObjectURL(file);
+                    el.innerHTML = '<img src="' + url + '" class="img-preview">';
+                });
+            }
+            makePreview('add-image', 'add-image-preview');
+            makePreview('add-image-before', 'add-image-before-preview');
+            makePreview('edit-image', 'edit-image-preview');
+            makePreview('edit-image-before', 'edit-image-before-preview');
+
+            document.getElementById('add-form').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var btn = document.getElementById('btn-add-submit');
+                btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>儲存中…';
+                try {
+                    var fd = new FormData();
+                    var imgFile = document.getElementById('add-image').files[0];
+                    if (!imgFile) { showToast('請選擇作品主圖', 'warning'); return; }
+                    fd.append('image', imgFile);
+                    var beforeFile = document.getElementById('add-image-before').files[0];
+                    if (beforeFile) fd.append('image_before', beforeFile);
+                    fd.append('title', document.getElementById('add-title').value.trim());
+                    fd.append('design_highlight', document.getElementById('add-highlight').value.trim());
+                    fd.append('description', document.getElementById('add-desc').value.trim());
+                    fd.append('tags', document.getElementById('add-tags').value.trim());
+                    fd.append('category_key', document.getElementById('add-category').value);
+                    const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error || '新增失敗');
+                    showToast('作品已新增！');
+                    document.getElementById('add-form').reset();
+                    document.getElementById('add-image-preview').innerHTML = '';
+                    document.getElementById('add-image-before-preview').innerHTML = '';
+                    document.getElementById('add-form-panel').classList.add('d-none');
+                    await loadPortfolio();
+                } catch (e) { showToast(e.message, 'danger'); }
+                finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>儲存作品'; }
+            });
+
+            document.getElementById('btn-edit-save').addEventListener('click', async function () {
+                var btn = this;
+                btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>儲存中…';
+                try {
+                    var pid = document.getElementById('edit-id').value;
+                    var fd = new FormData();
+                    var imgFile = document.getElementById('edit-image').files[0];
+                    if (imgFile) fd.append('image', imgFile);
+                    var beforeFile = document.getElementById('edit-image-before').files[0];
+                    if (beforeFile) fd.append('image_before', beforeFile);
+                    fd.append('title', document.getElementById('edit-title').value.trim());
+                    fd.append('design_highlight', document.getElementById('edit-highlight').value.trim());
+                    fd.append('description', document.getElementById('edit-desc').value.trim());
+                    fd.append('tags', document.getElementById('edit-tags').value.trim());
+                    fd.append('category_key', document.getElementById('edit-category').value);
+                    const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error || '更新失敗');
+                    showToast('修改已儲存！');
+                    editModal.hide();
+                    await loadPortfolio();
+                } catch (e) { showToast(e.message, 'danger'); }
+                finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>儲存修改'; }
+            });
+
+            document.getElementById('btn-delete-confirm').addEventListener('click', async function () {
+                var btn = this;
+                btn.disabled = true; btn.textContent = '刪除中…';
+                try {
+                    const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + deleteTargetId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+                    if (!r.ok) { var d = await r.json(); throw new Error(d.error || '刪除失敗'); }
+                    showToast('作品已刪除');
+                    deleteModal.hide();
+                    await loadPortfolio();
+                } catch (e) { showToast(e.message, 'danger'); }
+                finally { btn.disabled = false; btn.textContent = '刪除'; }
+            });
+        }
+
+        window._editPortfolio = function (pid) {
+            var p = portfolioItems.find(function (x) { return x.id == pid; });
+            if (!p) return;
+            document.getElementById('edit-id').value = p.id;
+            document.getElementById('edit-title').value = p.title || '';
+            document.getElementById('edit-highlight').value = p.design_highlight || '';
+            document.getElementById('edit-desc').value = p.description || '';
+            document.getElementById('edit-tags').value = (p.tags || []).join(', ');
+            document.getElementById('edit-category').value = p.category_key || '';
+            document.getElementById('edit-image-preview').innerHTML = '';
+            document.getElementById('edit-image-before-preview').innerHTML = '';
+            var ci = document.getElementById('edit-current-img');
+            if (p.image_url) { ci.src = p.image_url; ci.classList.remove('d-none'); } else { ci.classList.add('d-none'); }
+            var cb = document.getElementById('edit-current-before-img');
+            if (p.image_url_before) { cb.src = p.image_url_before; cb.classList.remove('d-none'); } else { cb.classList.add('d-none'); }
+            document.getElementById('edit-image').value = '';
+            document.getElementById('edit-image-before').value = '';
+            if (editModal) editModal.show();
+        };
+
+        window._deletePortfolio = function (pid, title) {
+            deleteTargetId = pid;
+            document.getElementById('delete-title').textContent = title;
+            if (deleteModal) deleteModal.show();
+        };
+
+        if (typeof AuthService !== 'undefined') {
+            AuthService.onAuthStateChange(function (u) { if (u) init(); else document.getElementById('auth-alert').classList.remove('d-none'); });
+        } else {
+            document.addEventListener('DOMContentLoaded', init);
+        }
+    })();
+    </script>
+</body>
+</html>

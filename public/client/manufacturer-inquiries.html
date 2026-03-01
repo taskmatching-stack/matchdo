@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>訂製詢價列表 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <style>
+        .inquiry-card { border-radius: 12px; border: 1px solid #e9ecef; transition: box-shadow .15s; }
+        .inquiry-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.09); }
+        .inquiry-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; background: #f0f0f0; flex-shrink: 0; }
+        .inquiry-img-placeholder { width: 80px; height: 80px; border-radius: 8px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: 1.6rem; flex-shrink: 0; }
+        .cat-badge { font-size: .75rem; padding: 3px 9px; border-radius: 20px; }
+        .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 14px; border-left: 3px solid #0d6efd; padding-left: 10px; }
+        .filter-btn { border-radius: 20px; font-size: .85rem; padding: 4px 14px; }
+        .filter-btn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; }
+        #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h4 class="mb-0 fw-bold">訂製詢價列表</h4>
+                    <small class="text-muted">來自市場的客製化需求，符合您廠商分類的詢單</small>
+                </div>
+                <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回控制台</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4">
+        <div id="auth-alert" class="alert alert-warning d-none">請先<a href="/index.html" class="alert-link">登入</a>。</div>
+        <div id="no-mfr-alert" class="alert alert-warning d-none">
+            <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料或尚未設定廠商分類。
+            <a href="/profile/contact-info.html" class="alert-link">前往設定廠商資料</a>
+        </div>
+        <div id="no-cats-alert" class="alert alert-info d-none">
+            <i class="bi bi-info-circle me-2"></i>您的廠商資料尚未設定分類，無法顯示對應詢價單。
+            <a href="/profile/contact-info.html" class="alert-link">前往設定分類</a>
+        </div>
+
+        <div id="main-content" class="d-none">
+            <!-- 分類篩選 -->
+            <div class="mb-3 d-flex flex-wrap gap-2 align-items-center" id="cat-filters">
+                <span class="text-muted small">篩選分類：</span>
+            </div>
+
+            <!-- 列表 -->
+            <div id="inquiry-list"></div>
+
+            <!-- 分頁 -->
+            <div class="d-flex justify-content-center gap-2 mt-4" id="pagination"></div>
+        </div>
+    </div>
+
+    <!-- 詳情 Modal -->
+    <div class="modal fade" id="detail-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detail-title">詢價詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detail-body">
+                    <div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">關閉</button>
+                    <a href="#" id="detail-contact-btn" class="btn btn-primary" target="_blank">聯繫客戶</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-area"></div>
+
+    <script src="../js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+    (function () {
+        var token = null;
+        var mfrId = null;
+        var mfrCats = [];
+        var activeCat = null;
+        var currentPage = 1;
+        var perPage = 12;
+        var totalCount = 0;
+        var detailModal = null;
+
+        function getToken() {
+            if (typeof AuthService !== 'undefined' && AuthService.getToken) return AuthService.getToken();
+            return null;
+        }
+
+        function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        function showToast(msg, type) {
+            type = type || 'success';
+            var area = document.getElementById('toast-area');
+            var id = 't' + Date.now();
+            area.insertAdjacentHTML('beforeend', '<div id="' + id + '" class="toast align-items-center text-white bg-' + type + ' border-0 show mb-2" role="alert"><div class="d-flex"><div class="toast-body">' + esc(msg) + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>');
+            setTimeout(function () { var el = document.getElementById(id); if (el) el.remove(); }, 3500);
+        }
+
+        function timeAgo(dateStr) {
+            if (!dateStr) return '';
+            var d = new Date(dateStr);
+            var diff = (Date.now() - d.getTime()) / 1000;
+            if (diff < 60) return '剛剛';
+            if (diff < 3600) return Math.floor(diff / 60) + ' 分鐘前';
+            if (diff < 86400) return Math.floor(diff / 3600) + ' 小時前';
+            if (diff < 2592000) return Math.floor(diff / 86400) + ' 天前';
+            return d.toLocaleDateString('zh-TW');
+        }
+
+        async function init() {
+            token = getToken();
+            if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
+            try {
+                const r = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
+                if (r.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
+                if (!r.ok) throw new Error('載入廠商資料失敗');
+                const mfr = await r.json();
+                mfrId = mfr.id;
+                mfrCats = mfr.categories || [];
+                if (!mfrCats.length) { document.getElementById('no-cats-alert').classList.remove('d-none'); return; }
+                activeCat = mfrCats[0];
+                document.getElementById('main-content').classList.remove('d-none');
+                detailModal = new bootstrap.Modal(document.getElementById('detail-modal'));
+                buildCatFilters();
+                await loadInquiries();
+            } catch (e) {
+                showToast(e.message, 'danger');
+            }
+        }
+
+        function buildCatFilters() {
+            var el = document.getElementById('cat-filters');
+            var html = '<span class="text-muted small me-1">篩選分類：</span>';
+            mfrCats.forEach(function (c) {
+                html += '<button class="btn btn-outline-secondary filter-btn' + (c === activeCat ? ' active' : '') + '" data-cat="' + esc(c) + '">' + esc(c) + '</button>';
+            });
+            el.innerHTML = html;
+            el.querySelectorAll('.filter-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    activeCat = this.dataset.cat;
+                    currentPage = 1;
+                    el.querySelectorAll('.filter-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.cat === activeCat); });
+                    loadInquiries();
+                });
+            });
+        }
+
+        async function loadInquiries() {
+            var list = document.getElementById('inquiry-list');
+            list.innerHTML = '<div class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>';
+            try {
+                var url = '/api/custom-products/for-makers?category_key=' + encodeURIComponent(activeCat) + '&page=' + currentPage + '&per_page=' + perPage;
+                const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+                if (!r.ok) { var d = await r.json(); throw new Error(d.error || '載入失敗'); }
+                const data = await r.json();
+                totalCount = data.total_count != null ? data.total_count : (data.items || []).length;
+                renderList(data.items || []);
+                renderPagination();
+            } catch (e) {
+                list.innerHTML = '<div class="alert alert-danger">' + esc(e.message) + '</div>';
+            }
+        }
+
+        function renderList(items) {
+            var list = document.getElementById('inquiry-list');
+            if (!items.length) {
+                list.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-inbox fs-1 d-block mb-3"></i><div class="fw-semibold">目前此分類尚無詢價需求</div><div class="small mt-1">客戶建立客製化產品後即會顯示於此</div></div>';
+                return;
+            }
+            list.innerHTML = items.map(function (p) {
+                var imgHtml = p.image_url
+                    ? '<img src="' + esc(p.image_url) + '" class="inquiry-img" loading="lazy" alt="">'
+                    : '<div class="inquiry-img-placeholder"><i class="bi bi-image"></i></div>';
+                return '<div class="inquiry-card p-3 mb-3">' +
+                    '<div class="d-flex gap-3 align-items-start">' + imgHtml +
+                    '<div class="flex-fill min-w-0">' +
+                    '<div class="d-flex align-items-center gap-2 flex-wrap mb-1">' +
+                    '<span class="fw-semibold">' + esc(p.title || '未命名需求') + '</span>' +
+                    '<span class="badge bg-primary bg-opacity-10 text-primary cat-badge">' + esc(p.category || activeCat) + '</span>' +
+                    (p.subcategory_key ? '<span class="badge bg-light text-secondary cat-badge border">' + esc(p.subcategory_key) + '</span>' : '') +
+                    '</div>' +
+                    (p.description ? '<div class="text-muted small mb-2">' + esc(p.description).substring(0, 100) + (p.description.length > 100 ? '…' : '') + '</div>' : '') +
+                    '<div class="d-flex align-items-center gap-3 flex-wrap">' +
+                    '<span class="text-muted small"><i class="bi bi-clock me-1"></i>' + timeAgo(p.created_at) + '</span>' +
+                    '<button class="btn btn-primary btn-sm ms-auto" onclick="window._showDetail(\'' + p.id + '\')"><i class="bi bi-eye me-1"></i>查看詳情</button>' +
+                    '</div></div></div></div>';
+            }).join('');
+        }
+
+        function renderPagination() {
+            var el = document.getElementById('pagination');
+            var totalPages = Math.ceil(totalCount / perPage);
+            if (totalPages <= 1) { el.innerHTML = ''; return; }
+            var html = '';
+            if (currentPage > 1) html += '<button class="btn btn-outline-secondary btn-sm" onclick="window._goPage(' + (currentPage - 1) + ')">上一頁</button>';
+            html += '<span class="text-muted small align-self-center">第 ' + currentPage + ' / ' + totalPages + ' 頁，共 ' + totalCount + ' 筆</span>';
+            if (currentPage < totalPages) html += '<button class="btn btn-outline-secondary btn-sm" onclick="window._goPage(' + (currentPage + 1) + ')">下一頁</button>';
+            el.innerHTML = html;
+        }
+
+        window._goPage = function (p) { currentPage = p; loadInquiries(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+        window._showDetail = async function (pid) {
+            var titleEl = document.getElementById('detail-title');
+            var bodyEl = document.getElementById('detail-body');
+            var contactBtn = document.getElementById('detail-contact-btn');
+            titleEl.textContent = '詢價詳情';
+            bodyEl.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>';
+            contactBtn.classList.add('d-none');
+            detailModal.show();
+            try {
+                const r = await fetch('/api/custom-products/' + pid);
+                if (!r.ok) throw new Error('載入失敗');
+                const p = await r.json();
+                titleEl.textContent = p.title || '未命名需求';
+                var img = p.ai_generated_image_url || p.reference_image_url;
+                bodyEl.innerHTML = '<div class="row g-3">' +
+                    (img ? '<div class="col-md-5"><img src="' + esc(img) + '" class="img-fluid rounded" alt=""></div>' : '') +
+                    '<div class="col-md-' + (img ? '7' : '12') + '">' +
+                    '<dl class="mb-0">' +
+                    '<dt class="text-muted small">分類</dt><dd class="mb-2"><span class="badge bg-primary">' + esc(p.category || '—') + '</span>' + (p.subcategory_key ? ' <span class="badge bg-secondary">' + esc(p.subcategory_key) + '</span>' : '') + '</dd>' +
+                    (p.description ? '<dt class="text-muted small">需求描述</dt><dd class="mb-2">' + esc(p.description) + '</dd>' : '') +
+                    (p.quantity ? '<dt class="text-muted small">預估數量</dt><dd class="mb-2">' + esc(p.quantity) + '</dd>' : '') +
+                    (p.budget ? '<dt class="text-muted small">預算</dt><dd class="mb-2">' + esc(p.budget) + '</dd>' : '') +
+                    (p.deadline ? '<dt class="text-muted small">截止日期</dt><dd class="mb-2">' + esc(p.deadline) + '</dd>' : '') +
+                    '<dt class="text-muted small">建立時間</dt><dd>' + timeAgo(p.created_at) + '</dd>' +
+                    '</dl></div></div>';
+                // 聯繫按鈕 - 導到客戶個人頁或郵件，目前先跳廠商圖庫（可後續補充）
+                contactBtn.href = '/custom/gallery.html';
+                contactBtn.textContent = '查看相關廠商作品';
+                contactBtn.classList.remove('d-none');
+            } catch (e) {
+                bodyEl.innerHTML = '<div class="alert alert-danger">' + esc(e.message) + '</div>';
+            }
+        };
+
+        if (typeof AuthService !== 'undefined') {
+            AuthService.onAuthStateChange(function (u) { if (u) init(); else document.getElementById('auth-alert').classList.remove('d-none'); });
+        } else {
+            document.addEventListener('DOMContentLoaded', init);
+        }
+    })();
+    </script>
+</body>
+</html>

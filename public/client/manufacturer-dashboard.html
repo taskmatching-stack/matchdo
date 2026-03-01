@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>廠商控制台 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <style>
+        .stat-card { border-radius: 12px; border: none; box-shadow: 0 2px 12px rgba(0,0,0,.07); transition: transform .15s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-icon { width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+        .quick-link { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 10px; background: #f8f9fa; border: 1px solid #e9ecef; text-decoration: none; color: inherit; transition: background .15s, border-color .15s; }
+        .quick-link:hover { background: #e8f4fd; border-color: #0d6efd44; color: inherit; }
+        .quick-link .icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+        .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 14px; border-left: 3px solid #0d6efd; padding-left: 10px; }
+        #mfr-name { font-weight: 700; }
+        .badge-type { font-size: .72rem; padding: 3px 8px; border-radius: 20px; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0 fw-bold">廠商控制台</h4>
+                    <small class="text-muted" id="mfr-name">載入中…</small>
+                </div>
+                <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-pencil me-1"></i>編輯廠商資料
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4">
+        <!-- 未建立廠商資料提示 -->
+        <div id="no-mfr-alert" class="alert alert-warning d-none" role="alert">
+            <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料。
+            <a href="/profile/contact-info.html" class="alert-link">前往建立廠商資料</a>
+        </div>
+
+        <!-- 統計卡 -->
+        <div class="row g-3 mb-4" id="stats-row">
+            <div class="col-6 col-md-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-images"></i></div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="stat-portfolio">—</div>
+                            <div class="text-muted small">廠商作品數</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-collection"></i></div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="stat-collections">—</div>
+                            <div class="text-muted small">作品集數</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-chat-quote"></i></div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="stat-inquiries">—</div>
+                            <div class="text-muted small">市場詢價單</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card stat-card h-100 p-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-geo-alt"></i></div>
+                        <div>
+                            <div class="fs-4 fw-bold" id="stat-location">—</div>
+                            <div class="text-muted small">服務地區</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- 快速入口 -->
+            <div class="col-md-5">
+                <div class="section-title">快速入口</div>
+                <div class="d-flex flex-column gap-2">
+                    <a href="/client/manufacturer-portfolio.html" class="quick-link">
+                        <div class="icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-images"></i></div>
+                        <div>
+                            <div class="fw-semibold">我的廠商作品</div>
+                            <div class="text-muted small">新增、管理、刪除作品圖</div>
+                        </div>
+                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
+                    </a>
+                    <a href="/client/manufacturer-inquiries.html" class="quick-link">
+                        <div class="icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-chat-quote"></i></div>
+                        <div>
+                            <div class="fw-semibold">訂製詢價列表</div>
+                            <div class="text-muted small">查看市場上的客製化需求</div>
+                        </div>
+                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
+                    </a>
+                    <a href="/profile/contact-info.html" class="quick-link">
+                        <div class="icon bg-success bg-opacity-10 text-success"><i class="bi bi-person-vcard"></i></div>
+                        <div>
+                            <div class="fw-semibold">廠商資料設定</div>
+                            <div class="text-muted small">更新名稱、描述、聯絡方式、服務地區</div>
+                        </div>
+                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
+                    </a>
+                    <a href="/vendor-profile.html?preview=1" id="link-preview" class="quick-link">
+                        <div class="icon bg-info bg-opacity-10 text-info"><i class="bi bi-eye"></i></div>
+                        <div>
+                            <div class="fw-semibold">預覽廠商頁面</div>
+                            <div class="text-muted small">查看公開呈現的廠商資料</div>
+                        </div>
+                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
+                    </a>
+                    <a href="/vendors.html" class="quick-link">
+                        <div class="icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-grid"></i></div>
+                        <div>
+                            <div class="fw-semibold">瀏覽所有廠商</div>
+                            <div class="text-muted small">查看平台上的其他廠商</div>
+                        </div>
+                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 廠商資料摘要 -->
+            <div class="col-md-7">
+                <div class="section-title">廠商資料摘要</div>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body" id="mfr-summary">
+                        <div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+                    </div>
+                </div>
+
+                <div class="section-title mt-4">最新廠商作品</div>
+                <div class="row g-2" id="recent-portfolio">
+                    <div class="col-12 text-center py-3 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+                </div>
+                <div class="mt-2 text-end">
+                    <a href="/client/manufacturer-portfolio.html" class="btn btn-sm btn-outline-primary">查看全部作品 <i class="bi bi-arrow-right ms-1"></i></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+    (function () {
+        var token = null;
+        var mfrId = null;
+
+        function getToken() {
+            if (typeof AuthService !== 'undefined' && AuthService.getToken) return AuthService.getToken();
+            try { var s = JSON.parse(localStorage.getItem('sb-' + (window.SUPABASE_URL || '').replace(/^https?:\/\//, '').split('.')[0] + '-auth-token')); return s && s.access_token; } catch (e) { return null; }
+        }
+
+        async function loadMfr() {
+            token = getToken();
+            if (!token) {
+                document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>以使用廠商控制台。</div>';
+                document.getElementById('mfr-name').textContent = '';
+                return;
+            }
+            try {
+                const res = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
+                if (res.status === 404) {
+                    document.getElementById('no-mfr-alert').classList.remove('d-none');
+                    document.getElementById('mfr-summary').innerHTML = '<div class="text-muted">尚未建立廠商資料。</div>';
+                    document.getElementById('mfr-name').textContent = '（尚未建立廠商資料）';
+                    return;
+                }
+                const mfr = await res.json();
+                mfrId = mfr.id;
+                document.getElementById('mfr-name').textContent = mfr.name || '廠商';
+                document.getElementById('link-preview').href = '/vendor-profile.html?id=' + mfrId;
+
+                // 摘要卡
+                const contact = mfr.contact_json || {};
+                document.getElementById('mfr-summary').innerHTML = [
+                    '<div class="row g-2">',
+                    '<div class="col-12"><div class="fw-semibold fs-5">' + esc(mfr.name || '—') + '</div></div>',
+                    mfr.description ? '<div class="col-12 text-muted small">' + esc(mfr.description).substring(0, 120) + (mfr.description.length > 120 ? '…' : '') + '</div>' : '',
+                    '<div class="col-sm-6"><span class="text-muted small">分類：</span>' + ((mfr.categories || []).map(c => '<span class="badge bg-secondary me-1">' + esc(c) + '</span>').join('') || '<span class="text-muted">—</span>') + '</div>',
+                    '<div class="col-sm-6"><span class="text-muted small">地點：</span>' + esc(mfr.location || '—') + '</div>',
+                    contact.email ? '<div class="col-sm-6"><i class="bi bi-envelope me-1 text-muted"></i>' + esc(contact.email) + '</div>' : '',
+                    contact.phone ? '<div class="col-sm-6"><i class="bi bi-telephone me-1 text-muted"></i>' + esc(contact.phone) + '</div>' : '',
+                    contact.url ? '<div class="col-sm-6"><i class="bi bi-link-45deg me-1 text-muted"></i><a href="' + esc(contact.url) + '" target="_blank">' + esc(contact.url) + '</a></div>' : '',
+                    '</div>'
+                ].join('');
+
+                await loadStats(mfr);
+                await loadRecentPortfolio();
+            } catch (e) {
+                document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-danger mb-0">載入失敗：' + esc(e.message) + '</div>';
+            }
+        }
+
+        async function loadStats(mfr) {
+            document.getElementById('stat-location').textContent = mfr.location || '—';
+
+            // Portfolio count
+            try {
+                const r = await fetch('/api/manufacturer-portfolio?manufacturer_id=' + mfrId);
+                const d = await r.json();
+                document.getElementById('stat-portfolio').textContent = (d.items || []).length;
+            } catch (e) { document.getElementById('stat-portfolio').textContent = '?'; }
+
+            // Collections count
+            try {
+                const r = await fetch('/api/manufacturers/' + mfrId + '/collections');
+                const d = await r.json();
+                document.getElementById('stat-collections').textContent = (d || []).length;
+            } catch (e) { document.getElementById('stat-collections').textContent = '?'; }
+
+            // Inquiries: custom products in matching category
+            const cats = mfr.categories || [];
+            if (cats.length) {
+                try {
+                    const r = await fetch('/api/custom-products/for-makers?category_key=' + encodeURIComponent(cats[0]) + '&per_page=1', { headers: { Authorization: 'Bearer ' + token } });
+                    if (r.ok) {
+                        const d = await r.json();
+                        document.getElementById('stat-inquiries').textContent = d.total_count != null ? d.total_count : (d.items || []).length;
+                    } else { document.getElementById('stat-inquiries').textContent = '—'; }
+                } catch (e) { document.getElementById('stat-inquiries').textContent = '—'; }
+            } else {
+                document.getElementById('stat-inquiries').textContent = '—';
+            }
+        }
+
+        async function loadRecentPortfolio() {
+            const el = document.getElementById('recent-portfolio');
+            try {
+                const r = await fetch('/api/manufacturer-portfolio?manufacturer_id=' + mfrId);
+                const d = await r.json();
+                const items = (d.items || []).slice(0, 4);
+                if (!items.length) { el.innerHTML = '<div class="col-12 text-muted small py-2">尚無作品，<a href="/client/manufacturer-portfolio.html">立即新增</a>。</div>'; return; }
+                el.innerHTML = items.map(p => '<div class="col-6 col-md-3"><div class="ratio ratio-1x1 rounded overflow-hidden border bg-light"><img src="' + esc(p.image_url) + '" class="object-fit-cover w-100 h-100" loading="lazy" alt="' + esc(p.title || '') + '"></div><div class="small mt-1 text-truncate">' + esc(p.title || '作品') + '</div></div>').join('');
+            } catch (e) { el.innerHTML = '<div class="col-12 text-muted small">載入失敗。</div>'; }
+        }
+
+        function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        if (typeof AuthService !== 'undefined') {
+            AuthService.onAuthStateChange(function (u) {
+                if (u) loadMfr();
+                else {
+                    document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>。</div>';
+                    document.getElementById('mfr-name').textContent = '';
+                }
+            });
+        } else {
+            document.addEventListener('DOMContentLoaded', loadMfr);
+        }
+    })();
+    </script>
+</body>
+</html>
