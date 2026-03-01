@@ -718,14 +718,20 @@
         document.addEventListener('i18n:applied', renderAreaFilter);
         document.addEventListener('areacodes:updated', renderAreaFilter);
 
-        /* ── 初始化 ── */
+        /* ── 初始化：讀取 URL 參數預設過濾 ── */
+        (function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            var catParam = urlParams.get('category') || urlParams.get('category_key') || '';
+            if (catParam) state.categoryKey = catParam;
+        })();
+
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(function() {
                 if (window.i18n.applyPage) window.i18n.applyPage();
             });
         }
         renderAreaFilter();
-        loadCategories();
+        loadCategories();   // loadCategories 結束後會呼叫 renderCategoryTags，再根據 state.categoryKey 標記 active
         loadVendors(false);
 
     })();

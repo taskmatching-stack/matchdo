@@ -124,9 +124,10 @@
                             <div id="modalContact" class="small mb-3"></div>
                             <div id="modalTags" class="mb-3"></div>
                             <div class="d-flex flex-wrap gap-2">
-                                <button id="modalBtnContact" type="button" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</button>
-                                <a id="modalBtnVendorProfile" href="#" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>查看廠商</a>
-                                <a id="modalBtnRedesign" href="#" class="btn btn-outline-secondary btn-sm">用此圖再設計</a>
+                                <button id="modalBtnContact" type="button" class="btn btn-success btn-sm d-none"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</button>
+                                <a id="modalBtnVendorProfile" href="#" class="btn btn-outline-primary btn-sm d-none"><i class="bi bi-person-badge me-1"></i>查看廠商</a>
+                                <a id="modalBtnBrowse" href="/vendors.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-building me-1"></i>瀏覽廠商列表</a>
+                                <a id="modalBtnRedesign" href="#" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil-square me-1"></i>用此圖再設計</a>
                             </div>
                         </div>
                     </div>
@@ -317,30 +318,16 @@
 
         const contactBtn = document.getElementById('modalBtnContact');
         const profileBtn = document.getElementById('modalBtnVendorProfile');
-        const mfrUserId = p.manufacturer_user_id || null;
-        const mfrId = p.manufacturer_id || null;
+        const browseBtn  = document.getElementById('modalBtnBrowse');
+        const mfrUserId  = p.manufacturer_user_id || null;
+        const mfrId      = p.manufacturer_id || null;
+        const catKey     = p.category_key || null;
 
-        // ── 查看廠商按鈕 ──
-        if (profileBtn) {
-            if (mfrId) {
-                profileBtn.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                profileBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商';
-                profileBtn.style.display = '';
-            } else {
-                // 沒有廠商資料：改為瀏覽廠商列表
-                profileBtn.href = '/vendors.html';
-                profileBtn.innerHTML = '<i class="bi bi-building me-1"></i>瀏覽廠商列表';
-                profileBtn.style.display = '';
-            }
-        }
-
-        // ── 站內聯絡按鈕 ──
+        // ── 1. 站內聯絡廠商（綠色）：有 user_id 才顯示 ──
+        contactBtn.classList.add('d-none');
         contactBtn.onclick = null;
         if (mfrUserId) {
-            // 有站內帳號 → 直接站內聯絡
-            contactBtn.style.display = '';
-            contactBtn.className = 'btn btn-success btn-sm';
-            contactBtn.innerHTML = '<i class="bi bi-chat-dots me-1"></i>站內聯絡廠商';
+            contactBtn.classList.remove('d-none');
             contactBtn.onclick = async function() {
                 if (typeof AuthService !== 'undefined') {
                     const s = await AuthService.getSession().catch(() => null);
@@ -349,29 +336,24 @@
                 }
                 window.location.href = '/client/messages.html?open=' + encodeURIComponent(mfrUserId);
             };
-        } else if (contact.url) {
-            contactBtn.style.display = '';
-            contactBtn.className = 'btn btn-outline-secondary btn-sm';
-            contactBtn.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>前往賣場/官網';
-            contactBtn.onclick = function() { window.open(contact.url, '_blank'); };
-        } else if (contact.email) {
-            contactBtn.style.display = '';
-            contactBtn.className = 'btn btn-outline-secondary btn-sm';
-            contactBtn.innerHTML = '<i class="bi bi-envelope me-1"></i>寫信聯繫';
-            contactBtn.onclick = function() { window.location.href = 'mailto:' + contact.email; };
-        } else if (mfrId) {
-            // 有廠商ID但沒有聯絡資訊 → 引導到廠商頁
-            contactBtn.style.display = '';
-            contactBtn.className = 'btn btn-outline-primary btn-sm';
-            contactBtn.innerHTML = '<i class="bi bi-person-badge me-1"></i>前往廠商頁';
-            contactBtn.onclick = function() { window.location.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId); };
-        } else {
-            // 完全沒資料（demo 佔位）→ 引導到廠商列表
-            contactBtn.style.display = '';
-            contactBtn.className = 'btn btn-outline-secondary btn-sm';
-            contactBtn.innerHTML = '<i class="bi bi-search me-1"></i>找廠商';
-            contactBtn.onclick = function() { window.location.href = '/vendors.html'; };
         }
+
+        // ── 2. 查看廠商詳情（藍色）：有 manufacturer_id 才顯示 ──
+        if (mfrId) {
+            profileBtn.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+            profileBtn.classList.remove('d-none');
+        } else {
+            profileBtn.classList.add('d-none');
+        }
+
+        // ── 3. 瀏覽廠商列表（灰色）：永遠顯示，依分類過濾 ──
+        const browseUrl = catKey
+            ? '/vendors.html?category=' + encodeURIComponent(catKey)
+            : '/vendors.html';
+        browseBtn.href = browseUrl;
+        browseBtn.innerHTML = catKey
+            ? '<i class="bi bi-building me-1"></i>瀏覽此分類廠商'
+            : '<i class="bi bi-building me-1"></i>瀏覽廠商列表';
 
         const redesignUrl = '/custom-product.html?from_gallery=1&image_url=' + encodeURIComponent(p.image_url || '') + '&portfolio_id=' + encodeURIComponent(p.id || '');
         document.getElementById('modalBtnRedesign').href = redesignUrl;
