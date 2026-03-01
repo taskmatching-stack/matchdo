@@ -235,32 +235,32 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer py-2 flex-wrap gap-1">
-                    <!-- 愛心收藏按鈕，放最左 -->
-                    <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm" title="加入收藏">
-                        <i class="bi bi-heart"></i> <span id="media-wall-lightbox-fav-label">收藏</span>
-                    </button>
-                    <!-- 分享下拉（分享圖片連結到社群）-->
-                    <div class="dropdown">
-                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" id="mwShareDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="分享圖片">
-                            <i class="bi bi-share me-1"></i>分享
+                <div class="modal-footer py-2 flex-wrap gap-2">
+                    <!-- 左側群組：收藏 + 分享（me-auto 推右側按鈕到最右） -->
+                    <div class="d-flex align-items-center gap-1 me-auto">
+                        <button type="button" id="media-wall-lightbox-fav" class="btn btn-outline-secondary btn-sm" title="加入收藏">
+                            <i class="bi bi-heart"></i> <span id="media-wall-lightbox-fav-label" data-i18n="home.fav">收藏</span>
                         </button>
-                        <ul class="dropdown-menu dropdown-menu-start" aria-labelledby="mwShareDropdown">
-                            <li><a class="dropdown-item mw-share-btn" data-platform="facebook" href="#"><i class="bi bi-facebook me-2 text-primary"></i>分享到 Facebook</a></li>
-                            <li><a class="dropdown-item mw-share-btn" data-platform="instagram" href="#"><i class="bi bi-instagram me-2" style="color:#C13584;"></i>分享到 Instagram</a></li>
-                            <li><a class="dropdown-item mw-share-btn" data-platform="threads" href="#"><i class="bi bi-threads me-2 text-dark"></i>分享到 Threads</a></li>
-                            <li><a class="dropdown-item mw-share-btn" data-platform="twitter" href="#"><i class="bi bi-twitter-x me-2 text-dark"></i>分享到 X</a></li>
-                            <li><a class="dropdown-item mw-share-btn" data-platform="line" href="#"><i class="bi bi-chat-fill me-2 text-success"></i>分享到 LINE</a></li>
-                            <li><a class="dropdown-item mw-share-btn" data-platform="pinterest" href="#"><i class="bi bi-pinterest me-2 text-danger"></i>儲存到 Pinterest</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item mw-share-btn" data-platform="copy" href="#"><i class="bi bi-link-45deg me-2"></i>複製連結</a></li>
-                        </ul>
+                        <!-- 分享下拉（分享圖片連結到社群）-->
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" id="mwShareDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="分享圖片">
+                                <i class="bi bi-share me-1"></i><span data-i18n="home.share">分享</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-start" aria-labelledby="mwShareDropdown">
+                                <li><a class="dropdown-item mw-share-btn" data-platform="facebook" href="#"><i class="bi bi-facebook me-2 text-primary"></i><span data-i18n="home.shareFacebook">分享到 Facebook</span></a></li>
+                                <li><a class="dropdown-item mw-share-btn" data-platform="instagram" href="#"><i class="bi bi-instagram me-2" style="color:#C13584;"></i><span data-i18n="home.shareInstagram">分享到 Instagram</span></a></li>
+                                <li><a class="dropdown-item mw-share-btn" data-platform="threads" href="#"><i class="bi bi-threads me-2 text-dark"></i><span data-i18n="home.shareThreads">分享到 Threads</span></a></li>
+                                <li><a class="dropdown-item mw-share-btn" data-platform="twitter" href="#"><i class="bi bi-twitter-x me-2 text-dark"></i><span data-i18n="home.shareX">分享到 X</span></a></li>
+                                <li><a class="dropdown-item mw-share-btn" data-platform="line" href="#"><i class="bi bi-chat-fill me-2 text-success"></i><span data-i18n="home.shareLine">分享到 LINE</span></a></li>
+                                <li><a class="dropdown-item mw-share-btn" data-platform="pinterest" href="#"><i class="bi bi-pinterest me-2 text-danger"></i><span data-i18n="home.sharePinterest">儲存到 Pinterest</span></a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item mw-share-btn" data-platform="copy" href="#"><i class="bi bi-link-45deg me-2"></i><span data-i18n="home.shareCopy">複製連結</span></a></li>
+                            </ul>
+                        </div>
                     </div>
-                    <!-- me-auto 分隔：左側：收藏+分享；右側：功能按鈕 -->
-                    <span class="me-auto"></span>
                     <!-- 廠商作品專用：站內聯絡按鈕（comparison 類型才顯示） -->
                     <button type="button" id="media-wall-lightbox-contact" class="btn btn-success btn-sm d-none" title="聯絡廠商">
-                        <i class="bi bi-chat-dots me-1"></i>聯絡廠商
+                        <i class="bi bi-chat-dots me-1"></i><span data-i18n="home.contactVendor">聯絡廠商</span>
                     </button>
                     <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
                     <button type="button" id="media-wall-lightbox-link" class="btn btn-primary btn-sm" data-i18n="home.findVendor">找廠商訂製</button>
@@ -501,16 +501,18 @@
                 var faved = isFavorite(favId);
                 btn.dataset.favId = favId;
                 try { btn.dataset.favItem = JSON.stringify(item); } catch(e) {}
+                var tFav     = (window.i18n && window.i18n.t) ? window.i18n.t('home.fav')     : '收藏';
+                var tFavDone = (window.i18n && window.i18n.t) ? window.i18n.t('home.favAdded') : '已收藏';
                 if (faved) {
-                    btn.className = 'btn btn-danger btn-sm me-auto';
+                    btn.className = 'btn btn-danger btn-sm';
                     var ic = btn.querySelector('i'); if (ic) ic.className = 'bi bi-heart-fill';
-                    btn.title = '已加入收藏';
-                    if (label) label.textContent = '已收藏';
+                    btn.title = tFavDone;
+                    if (label) label.textContent = tFavDone;
                 } else {
-                    btn.className = 'btn btn-outline-secondary btn-sm me-auto';
+                    btn.className = 'btn btn-outline-secondary btn-sm';
                     var ic = btn.querySelector('i'); if (ic) ic.className = 'bi bi-heart';
-                    btn.title = '加入收藏';
-                    if (label) label.textContent = '收藏';
+                    btn.title = tFav;
+                    if (label) label.textContent = tFav;
                 }
             }
             function openLightboxForItem(item) {
