@@ -130,6 +130,17 @@
 | 新增 `/sitemap-products.xml` | 動態回傳 `visibility='public'` 的 custom_products 詳情頁 URL | ✅ |
 | sitemap.xml 索引更新 | 已將 `sitemap-products.xml` 加入 sitemap 索引 | ✅ |
 
+### ✅ 社群分享與廠商社群帳號（2026-03-01 完成）
+
+| 項目 | 說明 |
+|------|------|
+| **Lightbox 分享按鈕** | 首頁媒體牆 lightbox 新增「分享▼」下拉（FB / IG / Threads / X / LINE / Pinterest / 複製連結），收藏+分享並排於左側 |
+| **分享按鈕 i18n** | 所有分享文字加入 `data-i18n`，英文頁（`?lang=en`）自動切換至英文標籤（Share / Save to Pinterest / Copy link…） |
+| **廠商個人社群帳號** | 廠商控制台新增「社群帳號」卡片（FB/IG/Threads/X/LINE/官網），可直接編輯並儲存至 `manufacturers.contact_json` |
+| **後端 PATCH API** | `PATCH /api/me/manufacturer` 新增，廠商可更新 `contact_json`（含社群連結），`vendor-profile.html` 即時顯示 |
+| **後台平台帳號設定** | `admin/site-settings.html` 新增平台官方社群帳號管理（FB/IG/Threads/X/LINE/YouTube/Pinterest） |
+| **contact_info 欄位** | `docs/add-threads-twitter-to-contact-info.sql`：為 `contact_info` 資料表補 `threads_url`、`twitter_url` 欄位（需在 Supabase 執行） |
+
 ### ❌ 優先 4：Google Search Console 提交 Sitemap
 
 部署後需執行：

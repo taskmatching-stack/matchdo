@@ -4,6 +4,19 @@
 
 ---
 
+## 近期完成（2026-03-01 社群分享 & 廠商社群帳號）
+
+| 項目 | 說明 |
+|------|------|
+| **首頁 lightbox 分享按鈕** | 「分享▼」下拉選單（FB/IG/Threads/X/LINE/Pinterest/複製連結）；收藏+分享改為 `d-flex me-auto` 包裝，確保兩者緊鄰左側 |
+| **分享 i18n** | 所有分享文字改用 `data-i18n`，英文頁自動顯示英文 |
+| **廠商社群帳號設定** | 廠商控制台新增「社群帳號」卡片（FB/IG/Threads/X/LINE/官網）；`PATCH /api/me/manufacturer` API 新增；`vendor-profile.html` 可顯示 |
+| **後台平台社群帳號** | `admin/site-settings.html` + `GET/PATCH /api/admin/social-links` |
+| **contact_info 補欄位** | `docs/add-threads-twitter-to-contact-info.sql`（需在 Supabase 手動執行） |
+| **Bootstrap Icons 升版** | 廠商控制台、聯絡設定頁升至 v1.11.3（`bi-threads`、`bi-twitter-x` 正常顯示） |
+
+---
+
 ## 近期完成（2026-03-01 服務地區系統 v2）
 
 | 項目 | 說明 |
