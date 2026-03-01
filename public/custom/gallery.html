@@ -45,7 +45,7 @@
             <div class="row g-3 align-items-start">
                 <!-- 關鍵字 -->
                 <div class="col-md-4">
-                    <div class="filter-label">關鍵字</div>
+                    <div class="filter-label" id="labelKeyword">關鍵字</div>
                     <div class="input-group input-group-sm">
                         <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                         <input type="text" id="galleryKeyword" class="form-control" placeholder="搜尋標題、標籤…" autocomplete="off">
@@ -53,19 +53,19 @@
                 </div>
                 <!-- 分類 -->
                 <div class="col-md-8">
-                    <div class="filter-label">分類</div>
+                    <div class="filter-label" id="labelCategory">分類</div>
                     <div class="d-flex flex-wrap gap-1" id="galleryCategories">
-                        <button type="button" class="area-btn active" data-category-key="">全部</button>
+                        <button type="button" class="area-btn active" data-cat-key="">全部</button>
                     </div>
                 </div>
                 <!-- 小分類（大分類選中後自動出現）-->
                 <div class="col-12 d-none" id="gallerySubcategoryRow">
-                    <div class="filter-label">小分類</div>
+                    <div class="filter-label" id="labelSubcategory">小分類</div>
                     <div class="d-flex flex-wrap gap-1" id="gallerySubcategories"></div>
                 </div>
                 <!-- 地區 -->
                 <div class="col-12">
-                    <div class="filter-label">服務地區</div>
+                    <div class="filter-label" id="labelArea">服務地區</div>
                     <div class="d-flex flex-wrap gap-1" id="galleryAreaBtns">
                         <button type="button" class="area-btn active" data-area="">全部地區</button>
                         <button type="button" class="area-btn" data-area="north">北部</button>
@@ -167,7 +167,19 @@
         browseCategory: 'Browse Category Vendors',
         redesign:       'Use for Redesign',
         noContact:      'No contact info provided',
+        labelKeyword:   'Keyword',
+        labelCategory:  'Category',
+        labelSubcat:    'Subcategory',
+        labelArea:      'Service Region',
         filterAll:      'All',
+        areaAll:        'All Regions',
+        areaNorth:      'North',
+        areaCentral:    'Central',
+        areaSouth:      'South',
+        areaEast:       'East',
+        areaIsland:     'Islands',
+        areaOverseas:   'Overseas',
+        kwPlaceholder:  'Search title, tags…',
     } : {
         modalTitle:     '作品詳情',
         highlight:      '作品重點',
@@ -178,12 +190,26 @@
         browseCategory: '瀏覽此分類廠商',
         redesign:       '用此圖再設計',
         noContact:      '未提供聯絡方式',
+        labelKeyword:   '關鍵字',
+        labelCategory:  '分類',
+        labelSubcat:    '小分類',
+        labelArea:      '服務地區',
         filterAll:      '全部',
+        areaAll:        '全部地區',
+        areaNorth:      '北部',
+        areaCentral:    '中部',
+        areaSouth:      '南部',
+        areaEast:       '東部',
+        areaIsland:     '離島',
+        areaOverseas:   '海外',
+        kwPlaceholder:  '搜尋標題、標籤…',
     };
 
-    // 套用 modal 靜態文字
+    // 套用所有靜態文字（filter 區 + modal）
     function applyModalI18n() {
-        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.textContent = v; };
+        const setAttr = (id, attr, v) => { const el = document.getElementById(id); if (el && v != null) el.setAttribute(attr, v); };
+        // modal
         set('galleryModalLabel',    T.modalTitle);
         set('modalHighlightLabel',  T.highlight);
         set('modalVendorLabel',     T.vendor);
@@ -191,6 +217,22 @@
         set('modalBtnProfileText',  T.viewVendor);
         set('modalBtnBrowseText',   T.browseVendors);
         set('modalBtnRedesignText', T.redesign);
+        // filter labels
+        set('labelKeyword',         T.labelKeyword);
+        set('labelCategory',        T.labelCategory);
+        set('labelSubcategory',     T.labelSubcat);
+        set('labelArea',            T.labelArea);
+        setAttr('galleryKeyword',   'placeholder', T.kwPlaceholder);
+        // area buttons
+        const areaBtns = document.getElementById('galleryAreaBtns');
+        if (areaBtns) {
+            const map = { '': T.areaAll, north: T.areaNorth, central: T.areaCentral,
+                          south: T.areaSouth, east: T.areaEast, island: T.areaIsland, overseas: T.areaOverseas };
+            areaBtns.querySelectorAll('.area-btn').forEach(btn => {
+                const v = map[btn.dataset.area ?? ''];
+                if (v) btn.textContent = v;
+            });
+        }
     }
 
     // ── 狀態 ──────────────────────────────────────────────────────────────
@@ -270,7 +312,7 @@
 
     // ── 大分類按鈕 ────────────────────────────────────────────────────────
     function renderCategoryButtons() {
-        let html = `<button type="button" class="area-btn${selCat==='' ? ' active':''}" data-cat-key="">全部</button>`;
+        let html = `<button type="button" class="area-btn${selCat==='' ? ' active':''}" data-cat-key="">${T.filterAll}</button>`;
         categoryList.forEach(c => {
             html += `<button type="button" class="area-btn${selCat===c.key?' active':''}" data-cat-key="${esc(c.key)}">${esc(c.name)}</button>`;
         });
@@ -297,7 +339,7 @@
         if (!subs.length) { wrapper.classList.add('d-none'); container.innerHTML=''; return; }
 
         wrapper.classList.remove('d-none');
-        let html = `<button type="button" class="area-btn${selSub===''?' active':''}" data-sub-key="">全部</button>`;
+        let html = `<button type="button" class="area-btn${selSub===''?' active':''}" data-sub-key="">${T.filterAll}</button>`;
         subs.forEach(s => {
             html += `<button type="button" class="area-btn${selSub===s.key?' active':''}" data-sub-key="${esc(s.key)}">${esc(s.name)}</button>`;
         });
