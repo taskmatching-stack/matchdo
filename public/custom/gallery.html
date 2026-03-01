@@ -192,13 +192,9 @@
         const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
         let list = _rawItems;
 
-        // 1. 大分類：廠商 categories 陣列必須含選中 key 或對應名稱（相容兩種儲存格式）
+        // 1. 大分類：直接比對廠商 categories 陣列（key 就是廠商自己存的值）
         if (selCat) {
-            const catObj = categoryList.find(c => c.key === selCat);
-            const catName = catObj ? catObj.name : '';
-            list = list.filter(p =>
-                (p.categories||[]).some(c => c === selCat || (catName && c === catName))
-            );
+            list = list.filter(p => (p.categories||[]).includes(selCat));
         }
         // 2. 小分類：先比對 subcategory_key，再比對 tags
         if (selSub) {
@@ -373,22 +369,38 @@
         modal.show();
     }
 
-    // ── 載入分類（含小分類）──────────────────────────────────────────────
+    // ── 載入分類：從廠商作品資料動態產生（不依賴 custom_product_categories 的 key 格式）
+    // 同時嘗試從 custom_product_categories 補充中文名稱
+    let catNameMap = {};  // key → 中文名
+
     async function loadCategories() {
+        // 先嘗試拿 custom_product_categories 的 key→name 對照
         try {
-            const res = await fetch(CATEGORIES_API);
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error||'載入分類失敗');
-            categoryList = (data.categories||[]).map(c=>({
-                key: c.key, name: c.name,
-                subcategories: (c.subcategories||[]).map(s=>({key:s.key, name:s.name}))
+            const r = await fetch(CATEGORIES_API);
+            const d = await r.json();
+            (d.categories||[]).forEach(c => { catNameMap[c.key] = c.name; });
+        } catch(_) {}
+        // 分類從已載入的 _rawItems 動態產生
+        buildCategoriesFromItems();
+    }
+
+    function buildCategoriesFromItems() {
+        // 統計廠商作品中實際存在的分類 key
+        const countMap = {};
+        _rawItems.forEach(p => {
+            (p.categories||[]).forEach(k => {
+                if (k) countMap[k] = (countMap[k]||0) + 1;
+            });
+        });
+        // 依作品數排序，產生分類清單
+        categoryList = Object.entries(countMap)
+            .sort((a,b) => b[1]-a[1])
+            .map(([key]) => ({
+                key,
+                name: catNameMap[key] || key,  // 有對照就用中文，否則顯示 key
+                subcategories: []
             }));
-            renderCategoryButtons();
-        } catch(err) {
-            console.error(err);
-            categoryList = [];
-            renderCategoryButtons();
-        }
+        renderCategoryButtons();
     }
 
     // ── 載入所有作品（只做一次，applyFilters 做所有篩選）────────────────
@@ -436,11 +448,12 @@
     // ── 鍵盤輸入 ──────────────────────────────────────────────────────────
     if ($keyword) $keyword.addEventListener('input', ()=>{ clearTimeout(kwTimer); kwTimer=setTimeout(applyFilters,300); });
 
-    // ── 初始化 ────────────────────────────────────────────────────────────
+    // ── 初始化：先載入作品，再從作品資料動態建分類按鈕 ──────────────────
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
         bindAreaButtons();
-        await Promise.all([loadPortfolio(), loadCategories()]);
+        await loadPortfolio();   // 先有資料
+        await loadCategories();  // 再建分類（從已載入的 _rawItems 產生）
     }
 
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
