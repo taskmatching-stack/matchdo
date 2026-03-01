@@ -242,7 +242,7 @@
                         <i class="bi bi-chat-dots me-1"></i>聯絡廠商
                     </button>
                     <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
-                    <a id="media-wall-lightbox-link" href="#" class="btn btn-primary btn-sm" target="_blank" data-i18n="home.findVendor">找廠商訂製</a>
+                    <button type="button" id="media-wall-lightbox-link" class="btn btn-primary btn-sm" data-i18n="home.findVendor">找廠商訂製</button>
                     <button type="button" id="media-wall-lightbox-redesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
                 </div>
@@ -505,28 +505,32 @@
                 var mfrId = item.manufacturer_id || null;
 
                 if (linkEl) {
-                    if (isVendorItem && item.link && item.link.indexOf('vendor-profile') !== -1) {
-                        // 廠商上傳的作品 → 查看廠商頁
-                        linkEl.href = item.link;
-                        linkEl.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商頁';
-                        linkEl.style.display = 'inline-block';
-                    } else if (item.type === 'user_design') {
-                        // 用戶設計 → 找廠商（廠商列表）
-                        linkEl.href = '/vendors.html';
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
+                    linkEl.onclick = null;
+                    if (isVendorItem && mfrId) {
+                        // 廠商作品（comparison / collection）→ 直接跳廠商詳情頁
+                        var destUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+                        linkEl.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商詳情';
+                        linkEl.onclick = function() { window.location.href = destUrl; };
                         linkEl.style.display = 'inline-block';
                     } else if (isVendorItem && item.link && item.link.indexOf('collection.html') !== -1) {
-                        // 資料夾作品 → 查看系列
-                        linkEl.href = item.link;
+                        // 有 slug 的資料夾但無廠商 ID → 查看系列
+                        var collUrl = item.link;
                         linkEl.innerHTML = '<i class="bi bi-images me-1"></i>查看系列圖片';
+                        linkEl.onclick = function() { window.location.href = collUrl; };
+                        linkEl.style.display = 'inline-block';
+                    } else if (item.type === 'user_design') {
+                        // 用戶設計 → 瀏覽廠商列表找人接單
+                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
+                        linkEl.onclick = function() { window.location.href = '/vendors.html'; };
                         linkEl.style.display = 'inline-block';
                     } else if (item.link) {
-                        linkEl.href = item.link;
-                        linkEl.textContent = '找廠商訂製';
+                        var fallUrl = item.link;
+                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
+                        linkEl.onclick = function() { window.location.href = fallUrl; };
                         linkEl.style.display = 'inline-block';
                     } else {
-                        linkEl.href = '/vendors.html';
-                        linkEl.textContent = '找廠商';
+                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商';
+                        linkEl.onclick = function() { window.location.href = '/vendors.html'; };
                         linkEl.style.display = 'inline-block';
                     }
                 }
@@ -939,7 +943,17 @@
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
                 var linkEl = document.getElementById('media-wall-lightbox-link');
                 if (titleEl) titleEl.textContent = item.title || '';
-                if (linkEl) { linkEl.href = item.link || '#'; linkEl.style.display = item.link ? 'inline-block' : 'none'; }
+                if (linkEl) {
+                    linkEl.onclick = null;
+                    var _dest = item.manufacturer_id
+                        ? '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id)
+                        : (item.link || '/vendors.html');
+                    var _label = item.manufacturer_id ? '<i class="bi bi-person-badge me-1"></i>查看廠商詳情'
+                        : '<i class="bi bi-building me-1"></i>找廠商訂製';
+                    linkEl.innerHTML = _label;
+                    linkEl.onclick = (function(d){ return function(){ window.location.href = d; }; })(_dest);
+                    linkEl.style.display = 'inline-block';
+                }
                 var rBtn = document.getElementById('media-wall-lightbox-redesign');
                 if (rBtn) {
                     var imgForBtn = (item.type === 'comparison' && item.image_url_before) ? (item.image_url_before || '').trim() : (item.image_url || item.cover_image_url || '').trim();
