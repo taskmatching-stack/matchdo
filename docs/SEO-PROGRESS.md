@@ -104,7 +104,18 @@ git push origin main
 
 > ⚠️ **廢棄檔案**：`public/iStudio-1.0.0/js/site-header.js` 已刪除，只能使用 `public/js/site-header.js`。
 > 
-> **最新 commit**：`8cfd778`
+> **最新 commit**：`6c76488`
+
+### ✅ 服務地區系統 v2（2026-03-01 完成）
+
+| 項目 | 說明 |
+|------|------|
+| **DB schema** | `service_areas` 表新增 `parent_code`、`area_type` 欄位；台灣 (TW) 為頂層節點，縣市為子節點（葉）；海外國家可多層展開（國家→州→城市） |
+| **Admin UI 重寫** | `admin/service-areas.html`：台灣縣市不顯示「新增子地區」；海外國家顯示「新增州/地區」，州下顯示「新增城市」；型別標籤（country / tw_city / state / city）清晰區分 |
+| **前台選擇器 v2** | 台灣＋海外國家第一層同級；台灣展開按北/中/南/東/離島分組顯示縣市；海外國家→州→城市三層（各層均可複選，分裂標籤設計） |
+| **area-codes.js** | 改用 `countries[]` 結構，`groups` 屬性為舊版相容 getter；API 回傳 `countries` / `taiwan_groups` / `groups` |
+| **美英澳三國地區** | 在 `docs/service-areas-v2-seed.sql` 補上 US（50州主要城市）、GB（4地區主要城市）、AU（8州/領地主要城市） |
+| **SQL 執行** | `docs/service-areas-complete.sql`（一次執行：schema + TW 層級修正 + 美英澳資料）|
 
 ### ❌ Favicon Apple Touch Icon（選擇性）
 
