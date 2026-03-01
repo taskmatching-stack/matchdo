@@ -454,6 +454,7 @@ $(document).ready(function () {
         $prompt[0].style.height = ($prompt[0].scrollHeight) + 'px';
     }
     $prompt.on('input', autoGrowPrompt);
+    autoGrowPrompt(); // 初始化：讓 CSS height 生效（蓋過 rows 屬性）
 
     // 儲存此生成結果為訂製產品（含前端輸入的提示詞 generation_prompt）
     $(document).on('click', '#saveGeneratedProductBtn', function () {

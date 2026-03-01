@@ -111,12 +111,18 @@
             /* ── 手機版整體 ── */
             #custom-product .create-panel { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
 
-            /* 1. 結果畫布置頂 */
+            /* 1. 結果畫布置頂：固定高度，不跟著內容撐高 */
             #custom-product .create-panel-right {
                 order: -1;
-                aspect-ratio: 1;
+                height: min(56vw, 240px);
                 min-height: unset;
+                aspect-ratio: unset;
                 width: 100%;
+                overflow: hidden;
+            }
+            /* 畫布內的資產庫在手機版隱藏（避免撐高），改由下方獨立顯示 */
+            #custom-product .create-panel-right #pastGeneratedGallery {
+                display: none !important;
             }
 
             /* 初始狀態文字更新為手機引導語 */
@@ -125,6 +131,12 @@
                 display: block;
                 font-size: 1rem;
                 margin-bottom: 0.4rem;
+            }
+
+            /* Textarea 手機初始高度壓短（蓋過 rows="3"） */
+            #custom-product .prompt-hero {
+                height: 2.6rem;
+                min-height: 2.6rem;
             }
 
             /* 生成中：脈衝光波 */
