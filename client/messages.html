@@ -28,15 +28,15 @@
         .msg-bubble.theirs { background: #e9ecef; }
         .msg-time { font-size: 0.75rem; color: #6c757d; }
         .messages-form { flex-shrink: 0; padding: 0.75rem; border-top: 1px solid #dee2e6; background: #fff; }
-        .img-preview-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-        .img-preview-item { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6; }
+        .img-preview-bar { display: flex; gap: 8px; margin-bottom: 6px; }
+        .img-preview-item { position: relative; width: 60px; height: 60px; border-radius: 8px; overflow: hidden; border: 1px solid #dee2e6; }
         .img-preview-item img { width: 100%; height: 100%; object-fit: cover; }
-        .img-preview-item .remove-img { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.55); border: none; color: #fff; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .msg-bubble img.msg-image { max-width: 240px; border-radius: 8px; display: block; margin-top: 4px; cursor: pointer; }
-        .btn-translate { font-size: .72rem; color: #6c757d; background: none; border: none; padding: 2px 4px; cursor: pointer; }
+        .img-preview-item .remove-img { position: absolute; top: 1px; right: 1px; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,0,0,.55); border: none; color: #fff; font-size: 9px; cursor: pointer; }
+        .msg-image { max-width: 220px; border-radius: 8px; display: block; margin-top: 4px; cursor: pointer; }
+        .btn-translate { font-size: .7rem; color: #6c757d; background: none; border: none; padding: 1px 4px; cursor: pointer; }
         .btn-translate:hover { color: #0d6efd; }
-        .msg-translation { margin-top: 5px; padding: 5px 8px; background: rgba(0,0,0,.05); border-radius: 6px; font-size: .8rem; color: #555; border-left: 3px solid #0d6efd; }
-        .msg-bubble.mine .msg-translation { border-left-color: rgba(255,255,255,.5); background: rgba(255,255,255,.15); color: rgba(255,255,255,.9); }
+        .msg-translation { margin-top: 4px; padding: 4px 8px; background: rgba(0,0,0,.05); border-radius: 6px; font-size: .8rem; color: #555; border-left: 3px solid #0d6efd; }
+        .msg-bubble.mine .msg-translation { border-left-color: rgba(255,255,255,.4); background: rgba(255,255,255,.12); color: rgba(255,255,255,.85); }
         @media (max-width: 768px) {
             .messages-layout { flex-direction: column; height: calc(100vh - 130px); }
             .messages-side { width: 100%; max-height: 180px; flex-shrink: 0; }
@@ -91,7 +91,7 @@
                     <div class="messages-form">
                         <div id="imgPreviewBar" class="img-preview-bar" style="display:none;"></div>
                         <div class="input-group">
-                            <label class="btn btn-outline-secondary" title="上傳圖片" style="cursor:pointer;">
+                            <label class="btn btn-outline-secondary" style="cursor:pointer;" title="上傳圖片">
                                 <i class="bi bi-image"></i>
                                 <input type="file" id="imgFileInput" accept="image/*" style="display:none;">
                             </label>
@@ -240,7 +240,51 @@
                 fetch(url, opts).then(r => { if (r.ok) loadContacts(); });
             }
 
-            // ── 圖片壓縮 ────────────────────────────────────────────────
+            function loadMessages() {
+                if (!currentConversationId) return;
+                const panel = document.getElementById('messagesPanel');
+                panel.innerHTML = '<div class="text-center py-3 text-muted">' + t('messages.loading') + '</div>';
+                fetch('/api/direct-conversations/' + currentConversationId + '/messages', { headers: { 'Authorization': 'Bearer ' + token } })
+                    .then(r => r.json())
+                    .then(data => {
+                        panel.innerHTML = '';
+                        (data.messages || []).forEach(m => renderMessage(m));
+                        panel.scrollTop = panel.scrollHeight;
+                    });
+            }
+
+            async function sendMessage() {
+                const input = document.getElementById('messageInput');
+                const body = (input.value || '').trim();
+                if (!body && !pendingImageBlob) return;
+                if (!currentConversationId) return;
+                const panel = document.getElementById('messagesPanel');
+
+                if (body) {
+                    input.value = '';
+                    const data = await fetch('/api/direct-conversations/' + currentConversationId + '/messages', {
+                        method: 'POST', headers: headers(), body: JSON.stringify({ body })
+                    }).then(r => r.json());
+                    if (data.message) renderMessage(Object.assign({}, data.message, { is_mine: true }));
+                }
+
+                if (pendingImageBlob) {
+                    const fd = new FormData();
+                    fd.append('image', pendingImageBlob, 'image.jpg');
+                    clearImagePreview();
+                    const data2 = await fetch('/api/direct-conversations/' + currentConversationId + '/messages/image', {
+                        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd
+                    }).then(r => r.json());
+                    if (data2.message) renderMessage(Object.assign({}, data2.message, { is_mine: true }));
+                }
+
+                panel.scrollTop = panel.scrollHeight;
+                loadConversations();
+            }
+
+            function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+            // ── 圖片壓縮（Canvas，PNG/JPG 轉 JPEG 輸出）─────────────────
             let pendingImageBlob = null;
             function compressImage(file) {
                 return new Promise(function(resolve, reject) {
@@ -260,7 +304,7 @@
                                     if (!blob) return reject(new Error('壓縮失敗'));
                                     if (blob.size > TARGET_KB * 1024 && q > 0.45) { q -= 0.08; tryBlob(); }
                                     else resolve(blob);
-                                }, 'image/jpeg', q);
+                                }, 'image/jpeg', q);  // PNG 也轉成 JPEG 輸出
                             })();
                         };
                         img.onerror = reject;
@@ -270,103 +314,57 @@
                     reader.readAsDataURL(file);
                 });
             }
-
-            function loadMessages() {
-                if (!currentConversationId) return;
-                const panel = document.getElementById('messagesPanel');
-                panel.innerHTML = '<div class="text-center py-3 text-muted">' + t('messages.loading') + '</div>';
-                fetch('/api/direct-conversations/' + currentConversationId + '/messages', { headers: { 'Authorization': 'Bearer ' + token } })
-                    .then(r => r.json())
-                    .then(data => {
-                        panel.innerHTML = '';
-                        (data.messages || []).forEach(m => appendMessage(m));
-                        panel.scrollTop = panel.scrollHeight;
-                    });
-            }
-
-            function appendMessage(m) {
-                const panel = document.getElementById('messagesPanel');
-                const div = document.createElement('div');
-                div.className = 'msg-bubble ' + (m.is_mine ? 'mine' : 'theirs');
-                div.dataset.msgId = m.id;
-                let inner = '';
-                if (m.body) inner += '<div>' + escapeHtml(m.body) + '</div>';
-                if (m.image_url) inner += '<img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="圖片">';
-                inner += '<div class="d-flex align-items-center gap-1 mt-1">'
-                    + '<span class="msg-time">' + (m.created_at ? new Date(m.created_at).toLocaleString('zh-TW') : '') + '</span>'
-                    + (m.id ? '<button class="btn-translate" data-msg-id="' + escapeHtml(m.id) + '"><i class="bi bi-translate"></i> 翻譯</button>' : '')
-                    + '</div>';
-                div.innerHTML = inner;
-                // 圖片點擊放大
-                const imgs = div.querySelectorAll('.msg-image');
-                imgs.forEach(img => img.addEventListener('click', () => window.open(img.src, '_blank')));
-                // 翻譯按鈕
-                const btnTr = div.querySelector('.btn-translate');
-                if (btnTr) btnTr.addEventListener('click', function() { translateMsg(m.id, div); });
-                panel.appendChild(div);
-            }
-
-            async function translateMsg(msgId, div) {
-                const btn = div.querySelector('.btn-translate');
-                if (btn) btn.disabled = true;
-                try {
-                    const res = await fetch('/api/direct-messages/' + msgId + '/translate', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
-                    const data = await res.json();
-                    if (!res.ok) { alert(data.error || '翻譯失敗'); return; }
-                    let trDiv = div.querySelector('.msg-translation');
-                    if (!trDiv) { trDiv = document.createElement('div'); trDiv.className = 'msg-translation'; div.appendChild(trDiv); }
-                    trDiv.innerHTML = '<small style="opacity:.7">' + escapeHtml(data.target_lang || '') + '</small><div>' + escapeHtml(data.translated) + '</div>';
-                    if (data.points_used) showToast('扣除 ' + data.points_used + ' 點，餘額 ' + data.new_balance + ' 點');
-                } catch(e) { alert('翻譯失敗'); }
-                finally { if (btn) btn.disabled = false; }
-            }
-
-            function showToast(msg) {
-                const t = document.createElement('div');
-                t.style.cssText = 'position:fixed;bottom:80px;right:20px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;font-size:.82rem;z-index:9999;';
-                t.textContent = msg;
-                document.body.appendChild(t);
-                setTimeout(() => t.remove(), 2500);
-            }
-
-            async function sendMessage() {
-                const input = document.getElementById('messageInput');
-                const body = (input.value || '').trim();
-                if (!body && !pendingImageBlob || !currentConversationId) return;
-
-                // 先傳文字
-                if (body) {
-                    input.value = '';
-                    const res = await fetch('/api/direct-conversations/' + currentConversationId + '/messages', {
-                        method: 'POST', headers: headers(), body: JSON.stringify({ body })
-                    }).then(r => r.json());
-                    if (res.message) appendMessage(Object.assign({}, res.message, { is_mine: true }));
-                }
-
-                // 再傳圖片
-                if (pendingImageBlob) {
-                    const fd = new FormData();
-                    fd.append('image', pendingImageBlob, 'image.jpg');
-                    clearImagePreview();
-                    const res2 = await fetch('/api/direct-conversations/' + currentConversationId + '/messages/image', {
-                        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd
-                    }).then(r => r.json());
-                    if (res2.message) appendMessage(Object.assign({}, res2.message, { is_mine: true }));
-                }
-
-                const panel = document.getElementById('messagesPanel');
-                panel.scrollTop = panel.scrollHeight;
-                loadConversations();
-            }
-
             window.clearImagePreview = function() {
                 pendingImageBlob = null;
-                const bar = document.getElementById('imgPreviewBar');
+                var bar = document.getElementById('imgPreviewBar');
                 bar.innerHTML = ''; bar.style.display = 'none';
                 document.getElementById('imgFileInput').value = '';
             };
 
-            function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+            // ── 訊息泡泡渲染（含圖片、翻譯按鈕）────────────────────────
+            function renderMessage(m) {
+                const panel = document.getElementById('messagesPanel');
+                const div = document.createElement('div');
+                div.className = 'msg-bubble ' + (m.is_mine ? 'mine' : 'theirs');
+                let html = '';
+                if (m.body) html += '<div>' + escapeHtml(m.body) + '</div>';
+                if (m.image_url) html += '<img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="圖片">';
+                html += '<div style="display:flex;align-items:center;gap:6px;margin-top:2px;">'
+                    + '<span class="msg-time">' + (m.created_at ? new Date(m.created_at).toLocaleString('zh-TW') : '') + '</span>'
+                    + (m.id ? '<button class="btn-translate" data-mid="' + escapeHtml(m.id) + '"><i class="bi bi-translate"></i> 翻譯(-1點)</button>' : '')
+                    + '</div>';
+                div.innerHTML = html;
+                if (m.image_url) {
+                    div.querySelector('.msg-image').addEventListener('click', function() { window.open(this.src, '_blank'); });
+                }
+                if (m.id) {
+                    div.querySelector('.btn-translate').addEventListener('click', function() { doTranslate(m.id, div); });
+                }
+                panel.appendChild(div);
+            }
+
+            async function doTranslate(msgId, div) {
+                const btn = div.querySelector('.btn-translate');
+                if (btn) btn.disabled = true;
+                try {
+                    const res = await fetch('/api/direct-messages/' + msgId + '/translate', {
+                        method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { alert(data.error || '翻譯失敗'); return; }
+                    let trDiv = div.querySelector('.msg-translation');
+                    if (!trDiv) { trDiv = document.createElement('div'); trDiv.className = 'msg-translation'; div.appendChild(trDiv); }
+                    trDiv.innerHTML = '<small style="opacity:.65">' + escapeHtml(data.target_lang || '') + '</small><div>' + escapeHtml(data.translated || '') + '</div>';
+                    if (data.points_used) {
+                        var toast = document.createElement('div');
+                        toast.style.cssText = 'position:fixed;bottom:80px;right:20px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;font-size:.82rem;z-index:9999;';
+                        toast.textContent = '扣除 ' + data.points_used + ' 點，餘額 ' + data.new_balance + ' 點';
+                        document.body.appendChild(toast);
+                        setTimeout(function() { toast.remove(); }, 2500);
+                    }
+                } catch(e) { alert('翻譯失敗'); }
+                finally { if (btn) btn.disabled = false; }
+            }
 
             document.addEventListener('DOMContentLoaded', async function() {
                 const whenReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
@@ -397,12 +395,12 @@
                 document.getElementById('btnSend').addEventListener('click', sendMessage);
                 document.getElementById('messageInput').addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
                 document.getElementById('imgFileInput').addEventListener('change', async function() {
-                    const file = this.files[0];
+                    var file = this.files[0];
                     if (!file) return;
                     try {
                         pendingImageBlob = await compressImage(file);
-                        const url = URL.createObjectURL(pendingImageBlob);
-                        const bar = document.getElementById('imgPreviewBar');
+                        var url = URL.createObjectURL(pendingImageBlob);
+                        var bar = document.getElementById('imgPreviewBar');
                         bar.style.display = 'flex';
                         bar.innerHTML = '<div class="img-preview-item"><img src="' + url + '"><button class="remove-img" onclick="clearImagePreview()">✕</button></div>';
                     } catch(e) { alert('圖片處理失敗'); }
