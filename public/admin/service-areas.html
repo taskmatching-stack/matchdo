@@ -7,24 +7,25 @@
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
   <style>
-    /* 三層結構顏色 */
-    tr.row-country td { background:#e8f0fb; font-weight:600; }
-    tr.row-tw-city td { background:#fff; }
-    tr.row-tw-city td:first-child { padding-left:2rem; }
-    tr.row-state  td { background:#f5f8ff; }
-    tr.row-state  td:first-child { padding-left:2rem; }
-    tr.row-city   td { background:#fafcff; }
-    tr.row-city   td:first-child { padding-left:3.5rem; }
-    tr.row-add    td { background:#f0f5ff; padding:0.3rem 0.75rem; }
-    tr.row-add.indent-1 td:first-child { padding-left:2rem; }
-    tr.row-add.indent-2 td:first-child { padding-left:3.5rem; }
+    /* 層級視覺 */
+    tr.row-country td { background:#dce8f5; font-weight:600; }
+    tr.row-tw-city  td { background:#fff; }
+    tr.row-tw-city  td:first-child { padding-left:2.2rem; }
+    tr.row-state    td { background:#eef3fb; }
+    tr.row-state    td:first-child { padding-left:2.2rem; }
+    tr.row-city     td { background:#f7faff; }
+    tr.row-city     td:first-child { padding-left:3.8rem; }
+    tr.row-group    td { background:#f0f5f0; font-size:.73rem; color:#555; padding:2px 12px; }
+    tr.row-add      td { background:#f5f8fc; padding:.3rem .75rem; }
+    tr.row-add.l1   td:first-child { padding-left:2.2rem; }
+    tr.row-add.l2   td:first-child { padding-left:3.8rem; }
     code { font-size:.78rem; color:#c0392b; }
     .btn-xs { font-size:.72rem; padding:1px 7px; }
-    .type-badge { font-size:.65rem; padding:1px 5px; border-radius:3px; }
-    .badge-country { background:#2c5f9e; color:#fff; }
-    .badge-tw-city { background:#27ae60; color:#fff; }
-    .badge-state   { background:#8e44ad; color:#fff; }
-    .badge-city    { background:#7f8c8d; color:#fff; }
+    .tbadge { font-size:.62rem; padding:1px 5px; border-radius:3px; font-weight:600; }
+    .tb-country { background:#2c5f9e; color:#fff; }
+    .tb-tw-city { background:#27ae60; color:#fff; }
+    .tb-state   { background:#7d3c98; color:#fff; }
+    .tb-city    { background:#7f8c8d; color:#fff; }
   </style>
 </head>
 <body class="bg-light">
@@ -33,28 +34,26 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
+
         <h4 class="mb-1">服務地區管理</h4>
-        <div class="alert alert-info small mb-3 py-2">
-          <strong>結構說明：</strong><br>
-          🌏 <span class="type-badge badge-country">country</span> 台灣 / 海外國家（第一層）<br>
-          🏙 <span class="type-badge badge-tw-city">tw_city</span> 台灣縣市（葉節點，不可再細分）<br>
-          🗺 <span class="type-badge badge-state">state</span> 海外州／地區（第二層，可新增子城市）<br>
-          📍 <span class="type-badge badge-city">city</span> 海外城市（葉節點）<br>
-          ⚠ 請先在 Supabase SQL Editor 執行 <code>docs/service-areas-v2.sql</code>
+        <div class="alert alert-info small py-2 mb-3">
+          <strong>層級說明：</strong>
+          <span class="tbadge tb-country">國家</span> 台灣 / 海外頂層 →
+          <span class="tbadge tb-tw-city">台灣縣市</span> 葉節點 →
+          <span class="tbadge tb-state">州/地區</span> 海外第二層 →
+          <span class="tbadge tb-city">城市</span> 葉節點<br>
+          ⚠ 若後台層級混亂，請先在 Supabase 執行 <code>docs/service-areas-complete.sql</code>，再執行 <code>docs/service-areas-i18n.sql</code>。
         </div>
 
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
         <!-- 新增頂層國家 -->
         <div class="card mb-3">
-          <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
-            <span>新增頂層國家／地區</span>
-            <small class="text-muted">台灣縣市請在「台灣」列下方新增；海外城市請在對應州下方新增</small>
-          </div>
+          <div class="card-header fw-semibold">新增頂層國家</div>
           <div class="card-body py-2">
             <div class="row g-2 align-items-end">
               <div class="col-6 col-md-2">
-                <label class="form-label small mb-0">code <span class="text-danger">*</span></label>
+                <label class="form-label small mb-0">Code <span class="text-danger">*</span></label>
                 <input id="newCode" class="form-control form-control-sm text-uppercase" placeholder="GB / US / JP">
               </div>
               <div class="col-6 col-md-2">
@@ -81,7 +80,7 @@
         <!-- 地區列表 -->
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-semibold">地區列表（依層級）</span>
+            <span class="fw-semibold">地區列表</span>
             <button id="btnReload" class="btn btn-sm btn-outline-secondary">
               <i class="bi bi-arrow-clockwise"></i> 重新載入
             </button>
@@ -91,28 +90,31 @@
               <table class="table table-sm table-bordered mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th style="width:16%">code / 層級</th>
+                    <th style="width:18%">code / 類型</th>
                     <th style="width:13%">中文名</th>
                     <th style="width:13%">英文名</th>
-                    <th style="width:7%">排序</th>
-                    <th style="width:6%">狀態</th>
+                    <th style="width:8%">日文</th>
+                    <th style="width:8%">韓文</th>
+                    <th style="width:5%">排序</th>
+                    <th style="width:5%">狀態</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody id="areaBody">
-                  <tr><td colspan="6" class="text-center text-muted py-4">載入中…</td></tr>
+                  <tr><td colspan="8" class="text-center text-muted py-4">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
+
       </main>
     </div>
   </div>
 
   <!-- 編輯 Modal -->
   <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header py-2">
           <h6 class="modal-title mb-0" id="editModalTitle">編輯地區</h6>
@@ -122,22 +124,47 @@
           <input type="hidden" id="editCode">
           <div class="row g-2">
             <div class="col-12">
-              <label class="form-label small">code（唯讀）</label>
+              <label class="form-label small">Code（唯讀）</label>
               <input id="editCodeDisp" class="form-control form-control-sm bg-light" readonly>
             </div>
             <div class="col-6">
-              <label class="form-label small">中文名</label>
+              <label class="form-label small">中文名 <span class="text-danger">*</span></label>
               <input id="editZh" class="form-control form-control-sm">
             </div>
             <div class="col-6">
-              <label class="form-label small">英文名</label>
+              <label class="form-label small">英文名 <span class="text-danger">*</span></label>
               <input id="editEn" class="form-control form-control-sm">
             </div>
-            <div class="col-6">
+          </div>
+
+          <hr class="my-2">
+          <p class="small text-muted mb-2">其他語系（選填，預留）</p>
+          <div class="row g-2">
+            <div class="col-6 col-md-3">
+              <label class="form-label small">日文</label>
+              <input id="editJa" class="form-control form-control-sm" placeholder="東京都">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small">韓文</label>
+              <input id="editKo" class="form-control form-control-sm" placeholder="도쿄">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small">法文</label>
+              <input id="editFr" class="form-control form-control-sm" placeholder="Tokyo">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label small">德文</label>
+              <input id="editDe" class="form-control form-control-sm" placeholder="Tokio">
+            </div>
+          </div>
+
+          <hr class="my-2">
+          <div class="row g-2 align-items-center">
+            <div class="col-4">
               <label class="form-label small">排序</label>
               <input id="editSort" type="number" class="form-control form-control-sm" min="0">
             </div>
-            <div class="col-6 d-flex align-items-end pb-1">
+            <div class="col-8 d-flex align-items-end pb-1">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="editActive">
                 <label class="form-check-label small" for="editActive">啟用</label>
@@ -160,6 +187,8 @@
   <script>
 (function () {
   const API = '/api/admin/service-areas';
+  const TW_GROUPS = { 'TW-N':'北部', 'TW-C':'中部', 'TW-S':'南部', 'TW-E':'東部', 'TW-O':'離島' };
+  const TW_ORDER  = ['TW-N','TW-C','TW-S','TW-E','TW-O'];
   let allAreas = [];
 
   /* ── 工具 ── */
@@ -175,16 +204,19 @@
     s.textContent = msg; w.classList.remove('d-none');
     if (type === 'success') setTimeout(() => w.classList.add('d-none'), 3000);
   }
-  function typeBadge(t) {
-    const map = { country:'badge-country', tw_city:'badge-tw-city', state:'badge-state', city:'badge-city' };
-    const lbl = { country:'國家', tw_city:'台灣縣市', state:'州/地區', city:'城市' };
-    return `<span class="type-badge ${map[t]||''}">${esc(lbl[t]||t)}</span>`;
+  function tbadge(t) {
+    const m = { country:'tb-country 國家', tw_city:'tb-tw-city 台灣縣市', state:'tb-state 州/地區', city:'tb-city 城市' };
+    const [cls, lbl] = (m[t] || 'tb-country 國家').split(' ');
+    return `<span class="tbadge ${cls}">${lbl}</span>`;
   }
-  function activeBadge(a) { return a ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'; }
+  function abadge(a) { return a ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'; }
+  function i18nVal(area, lang) { return (area.name_i18n && area.name_i18n[lang]) || ''; }
+  function sorted(arr) { return (arr||[]).sort((a,b) => (a.sort_order-b.sort_order)||a.code.localeCompare(b.code)); }
 
   /* ── 載入 ── */
   async function loadList() {
-    document.getElementById('areaBody').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">載入中…</td></tr>';
+    document.getElementById('areaBody').innerHTML =
+      '<tr><td colspan="8" class="text-center text-muted py-3">載入中…</td></tr>';
     const h = await getHeaders();
     try {
       const r = await fetch(API, { headers: h });
@@ -194,105 +226,64 @@
       renderTable();
     } catch (e) {
       document.getElementById('areaBody').innerHTML =
-        '<tr><td colspan="6" class="text-danger p-3">' + esc(e.message) + '</td></tr>';
+        '<tr><td colspan="8" class="text-danger p-3">' + esc(e.message) + '</td></tr>';
     }
   }
 
-  /* ── 渲染三層結構 ── */
+  /* ── 渲染 ── */
   function renderTable() {
     const tbody = document.getElementById('areaBody');
     if (!allAreas.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-muted p-3">尚無資料，請先執行 docs/service-areas-v2.sql</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="text-muted p-3">尚無資料，請執行 docs/service-areas-complete.sql</td></tr>';
       return;
     }
 
-    // 依 parent_code 建立 children map
     const childMap = {};
     allAreas.forEach(a => {
-      const p = a.parent_code || '__ROOT__';
+      const p = a.parent_code || '__root__';
       if (!childMap[p]) childMap[p] = [];
       childMap[p].push(a);
     });
 
-    // 排序輔助
-    function sorted(arr) { return (arr || []).sort((a, b) => (a.sort_order - b.sort_order) || a.code.localeCompare(b.code)); }
-
     let html = '';
 
-    // 頂層：countries（parent_code 為 null）
-    sorted(childMap['__ROOT__'] || []).forEach(country => {
-      const isTW = country.code === 'TW';
-      html += `<tr class="row-country">
-        <td><code>${esc(country.code)}</code> ${typeBadge(country.area_type || 'country')}</td>
-        <td>${esc(country.name_zh)}</td>
-        <td>${esc(country.name_en)}</td>
-        <td>${country.sort_order}</td>
-        <td>${activeBadge(country.is_active)}</td>
-        <td>
-          <button class="btn btn-xs btn-outline-primary me-1 edit-btn" data-code="${esc(country.code)}">編輯</button>
-          <button class="btn btn-xs btn-outline-danger delete-btn" data-code="${esc(country.code)}">刪除</button>
-        </td></tr>`;
+    sorted(childMap['__root__'] || []).forEach(country => {
+      // ── 頂層：國家 ──
+      html += row('row-country', country, tbadge(country.area_type || 'country'));
 
-      if (isTW) {
-        // 台灣 → 縣市（葉節點，依 group_code 分組顯示）
-        const TW_GROUPS = {
-          'TW-N': '北部', 'TW-C': '中部', 'TW-S': '南部',
-          'TW-E': '東部', 'TW-O': '離島'
-        };
+      if (country.code === 'TW') {
+        // 台灣縣市：按大區分組
+        const twCities = sorted(childMap['TW'] || []);
         const grouped = {};
-        sorted(childMap['TW'] || []).forEach(c => {
-          const g = c.group_code || 'OTHER';
+        twCities.forEach(c => {
+          const g = c.group_code || 'TW-N';
           if (!grouped[g]) grouped[g] = [];
           grouped[g].push(c);
         });
-        Object.entries(TW_GROUPS).forEach(([gk, gName]) => {
+        TW_ORDER.forEach(gk => {
           if (!grouped[gk]) return;
-          // 小標題行
-          html += `<tr><td colspan="6" class="py-0 ps-4 pe-2" style="background:#f0f5f0;font-size:.75rem;color:#666;">
-            ─ ${esc(gName)}</td></tr>`;
+          html += `<tr class="row-group"><td colspan="8">　─ ${esc(TW_GROUPS[gk] || gk)}</td></tr>`;
           grouped[gk].forEach(city => {
-            html += `<tr class="row-tw-city">
-              <td><code>${esc(city.code)}</code> ${typeBadge('tw_city')}</td>
-              <td>${esc(city.name_zh)}</td><td>${esc(city.name_en)}</td>
-              <td>${city.sort_order}</td><td>${activeBadge(city.is_active)}</td>
-              <td>
-                <button class="btn btn-xs btn-outline-primary me-1 edit-btn" data-code="${esc(city.code)}">編輯</button>
-                <button class="btn btn-xs btn-outline-danger delete-btn" data-code="${esc(city.code)}">刪除</button>
-              </td></tr>`;
+            html += row('row-tw-city', city, tbadge('tw_city'));
           });
         });
-        // 新增台灣縣市（第二層葉節點）
-        html += addRowHtml('TW', 'TW', 'tw_city', 'indent-1', '新增縣市');
+        // 台灣新增縣市
+        html += addRow('TW', country.group_code || 'OVERSEAS', 'tw_city', 'l1', '新增縣市');
 
       } else {
-        // 海外國家 → 州/地區（第二層）
+        // 海外：州/地區
         sorted(childMap[country.code] || []).forEach(state => {
-          html += `<tr class="row-state">
-            <td><code>${esc(state.code)}</code> ${typeBadge('state')}</td>
-            <td>${esc(state.name_zh)}</td><td>${esc(state.name_en)}</td>
-            <td>${state.sort_order}</td><td>${activeBadge(state.is_active)}</td>
-            <td>
-              <button class="btn btn-xs btn-outline-primary me-1 edit-btn" data-code="${esc(state.code)}">編輯</button>
-              <button class="btn btn-xs btn-outline-danger delete-btn" data-code="${esc(state.code)}">刪除</button>
-            </td></tr>`;
+          html += row('row-state', state, tbadge('state'));
 
-          // 州 → 城市（第三層葉節點）
+          // 州下城市
           sorted(childMap[state.code] || []).forEach(city => {
-            html += `<tr class="row-city">
-              <td><code>${esc(city.code)}</code> ${typeBadge('city')}</td>
-              <td>${esc(city.name_zh)}</td><td>${esc(city.name_en)}</td>
-              <td>${city.sort_order}</td><td>${activeBadge(city.is_active)}</td>
-              <td>
-                <button class="btn btn-xs btn-outline-primary me-1 edit-btn" data-code="${esc(city.code)}">編輯</button>
-                <button class="btn btn-xs btn-outline-danger delete-btn" data-code="${esc(city.code)}">刪除</button>
-              </td></tr>`;
+            html += row('row-city', city, tbadge('city'));
           });
-          // 新增城市表單（掛在 state 下）
-          html += addRowHtml(state.code, country.group_code || 'OVERSEAS', 'city', 'indent-2', '新增城市');
+          // 新增城市
+          html += addRow(state.code, country.group_code || 'OVERSEAS', 'city', 'l2', '新增城市');
         });
-
-        // 新增州/地區表單（掛在 country 下）
-        html += addRowHtml(country.code, country.group_code || 'OVERSEAS', 'state', 'indent-1', '新增州/地區');
+        // 新增州/地區
+        html += addRow(country.code, country.group_code || 'OVERSEAS', 'state', 'l1', '新增州/地區');
       }
     });
 
@@ -300,18 +291,46 @@
     bindEvents();
   }
 
-  /* ── 新增子項表單列 ── */
-  function addRowHtml(parentCode, groupCode, areaType, indentCls, label) {
-    return `<tr class="row-add ${indentCls}">
-      <td colspan="6">
-        <div class="d-flex flex-wrap align-items-end gap-2 py-1"
+  /* ── 一行資料 ── */
+  function row(cls, a, badge) {
+    return `<tr class="${cls}">
+      <td><code>${esc(a.code)}</code> ${badge}</td>
+      <td>${esc(a.name_zh)}</td>
+      <td>${esc(a.name_en)}</td>
+      <td class="text-muted small">${esc(i18nVal(a,'ja'))}</td>
+      <td class="text-muted small">${esc(i18nVal(a,'ko'))}</td>
+      <td>${a.sort_order}</td>
+      <td>${abadge(a.is_active)}</td>
+      <td>
+        <button class="btn btn-xs btn-outline-primary me-1 js-edit" data-code="${esc(a.code)}">編輯</button>
+        <button class="btn btn-xs btn-outline-danger js-del" data-code="${esc(a.code)}">刪除</button>
+      </td></tr>`;
+  }
+
+  /* ── 新增子項表單 ── */
+  function addRow(parentCode, groupCode, areaType, lvl, label) {
+    return `<tr class="row-add ${lvl}">
+      <td colspan="8">
+        <div class="d-flex flex-wrap align-items-end gap-2 py-1 js-add-form"
              data-parent="${esc(parentCode)}" data-group="${esc(groupCode)}" data-type="${esc(areaType)}">
           <span class="small text-muted">└ ${esc(label)}：</span>
-          <input class="form-control form-control-sm" style="width:90px" placeholder="code" data-f="code">
-          <input class="form-control form-control-sm" style="width:90px" placeholder="中文名" data-f="zh">
-          <input class="form-control form-control-sm" style="width:90px" placeholder="English" data-f="en">
-          <input type="number" class="form-control form-control-sm" style="width:60px" value="0" placeholder="排序" data-f="sort">
-          <button class="btn btn-success btn-xs sub-add-btn">新增</button>
+          <div>
+            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">Code</div>
+            <input class="form-control form-control-sm" style="width:88px" placeholder="code" data-f="code">
+          </div>
+          <div>
+            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">中文名</div>
+            <input class="form-control form-control-sm" style="width:88px" placeholder="中文名" data-f="zh">
+          </div>
+          <div>
+            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">English</div>
+            <input class="form-control form-control-sm" style="width:88px" placeholder="English" data-f="en">
+          </div>
+          <div>
+            <div class="form-label small mb-0" style="font-size:.65rem;color:#999">排序</div>
+            <input type="number" class="form-control form-control-sm" style="width:55px" value="0" data-f="sort">
+          </div>
+          <button class="btn btn-success btn-xs js-sub-add align-self-end">新增</button>
         </div>
       </td></tr>`;
   }
@@ -319,16 +338,13 @@
   /* ── 事件綁定 ── */
   function bindEvents() {
     const tbody = document.getElementById('areaBody');
-
-    tbody.querySelectorAll('.edit-btn').forEach(btn =>
+    tbody.querySelectorAll('.js-edit').forEach(btn =>
       btn.addEventListener('click', () => openEdit(btn.dataset.code)));
-
-    tbody.querySelectorAll('.delete-btn').forEach(btn =>
-      btn.addEventListener('click', () => deleteArea(btn.dataset.code)));
-
-    tbody.querySelectorAll('.sub-add-btn').forEach(btn => {
+    tbody.querySelectorAll('.js-del').forEach(btn =>
+      btn.addEventListener('click', () => doDelete(btn.dataset.code)));
+    tbody.querySelectorAll('.js-sub-add').forEach(btn => {
       btn.addEventListener('click', async function () {
-        const form      = btn.closest('[data-parent]');
+        const form = btn.closest('.js-add-form');
         const parentCode = form.dataset.parent;
         const groupCode  = form.dataset.group;
         const areaType   = form.dataset.type;
@@ -337,29 +353,27 @@
         const en   = (form.querySelector('[data-f="en"]').value || '').trim();
         const sort = parseInt(form.querySelector('[data-f="sort"]').value) || 0;
         if (!code || !zh || !en) { showStatus('請填寫 code、中文名、英文名', 'warning'); return; }
-
-        // group_zh / group_en 從現有資料取
-        const parentArea  = allAreas.find(a => a.code === parentCode) || {};
-        const countryArea = allAreas.find(a => a.code === (parentArea.parent_code || parentCode)) || parentArea;
-        const gZh = countryArea.group_zh || parentArea.group_zh || '';
-        const gEn = countryArea.group_en || parentArea.group_en || '';
-
-        await addArea({ code, name_zh: zh, name_en: en, group_code: groupCode,
-          group_zh: gZh, group_en: gEn, sort_order: sort,
-          parent_code: parentCode, area_type: areaType });
+        // 繼承 group_zh / group_en
+        const parent = allAreas.find(a => a.code === parentCode) || {};
+        const gZh = parent.group_zh || '海外';
+        const gEn = parent.group_en || 'Overseas';
+        btn.disabled = true;
+        await doAdd({ code, name_zh: zh, name_en: en, group_code: groupCode,
+          group_zh: gZh, group_en: gEn, sort_order: sort, parent_code: parentCode, area_type: areaType });
+        btn.disabled = false;
         form.querySelectorAll('input').forEach(i => { i.value = i.type === 'number' ? '0' : ''; });
       });
     });
   }
 
   /* ── CRUD ── */
-  async function addArea(body) {
+  async function doAdd(body) {
     const h = await getHeaders();
     try {
       const r = await fetch(API, { method: 'POST', headers: h, body: JSON.stringify(body) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      showStatus('已新增 ' + body.code, 'success');
+      showStatus('✓ 已新增 ' + body.code, 'success');
       loadList();
     } catch (e) { showStatus('新增失敗：' + e.message, 'danger'); }
   }
@@ -367,23 +381,34 @@
   function openEdit(code) {
     const a = allAreas.find(x => x.code === code);
     if (!a) return;
+    const i18n = a.name_i18n || {};
     document.getElementById('editCode').value    = a.code;
     document.getElementById('editCodeDisp').value = a.code;
     document.getElementById('editModalTitle').textContent = '編輯：' + a.name_zh + ' (' + a.code + ')';
-    document.getElementById('editZh').value      = a.name_zh;
-    document.getElementById('editEn').value      = a.name_en;
-    document.getElementById('editSort').value    = a.sort_order;
+    document.getElementById('editZh').value   = a.name_zh;
+    document.getElementById('editEn').value   = a.name_en;
+    document.getElementById('editJa').value   = i18n.ja || '';
+    document.getElementById('editKo').value   = i18n.ko || '';
+    document.getElementById('editFr').value   = i18n.fr || '';
+    document.getElementById('editDe').value   = i18n.de || '';
+    document.getElementById('editSort').value  = a.sort_order;
     document.getElementById('editActive').checked = a.is_active;
     new bootstrap.Modal(document.getElementById('editModal')).show();
   }
 
   document.getElementById('editSaveBtn').addEventListener('click', async function () {
     const code = document.getElementById('editCode').value;
+    const i18n = {};
+    ['ja','ko','fr','de'].forEach(lang => {
+      const v = (document.getElementById('edit' + lang.charAt(0).toUpperCase() + lang.slice(1)).value || '').trim();
+      if (v) i18n[lang] = v;
+    });
     const body = {
-      name_zh: document.getElementById('editZh').value.trim(),
-      name_en: document.getElementById('editEn').value.trim(),
+      name_zh:    document.getElementById('editZh').value.trim(),
+      name_en:    document.getElementById('editEn').value.trim(),
       sort_order: parseInt(document.getElementById('editSort').value) || 0,
-      is_active: document.getElementById('editActive').checked
+      is_active:  document.getElementById('editActive').checked,
+      name_i18n:  i18n
     };
     const h = await getHeaders();
     try {
@@ -391,33 +416,32 @@
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
       bootstrap.Modal.getInstance(document.getElementById('editModal'))?.hide();
-      showStatus('已更新', 'success'); loadList();
+      showStatus('✓ 已更新', 'success'); loadList();
     } catch (e) { showStatus('更新失敗：' + e.message, 'danger'); }
   });
 
-  async function deleteArea(code) {
+  async function doDelete(code) {
     const hasChildren = allAreas.some(a => a.parent_code === code);
-    const msg = hasChildren
-      ? `「${code}」下還有子地區，刪除後子地區也會一併刪除。確定？`
-      : `確定刪除「${code}」？`;
-    if (!confirm(msg)) return;
+    if (!confirm(hasChildren
+      ? `「${code}」底下還有子地區，刪除後子地區也會一併移除。確定？`
+      : `確定刪除「${code}」？`)) return;
     const h = await getHeaders();
     try {
       const r = await fetch(API + '/' + encodeURIComponent(code), { method: 'DELETE', headers: h });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      showStatus('已刪除 ' + code, 'success'); loadList();
+      showStatus('✓ 已刪除 ' + code, 'success'); loadList();
     } catch (e) { showStatus('刪除失敗：' + e.message, 'danger'); }
   }
 
-  /* ── 頂層新增國家 ── */
+  /* ── 頂層新增 ── */
   document.getElementById('btnAdd').addEventListener('click', async function () {
     const code = (document.getElementById('newCode').value || '').trim().toUpperCase();
     const zh   = (document.getElementById('newZh').value || '').trim();
     const en   = (document.getElementById('newEn').value || '').trim();
     const sort = parseInt(document.getElementById('newSort').value) || 0;
     if (!code || !zh || !en) { showStatus('請填寫所有必填欄位', 'warning'); return; }
-    await addArea({ code, name_zh: zh, name_en: en,
+    await doAdd({ code, name_zh: zh, name_en: en,
       group_code: 'OVERSEAS', group_zh: '海外', group_en: 'Overseas',
       sort_order: sort, parent_code: null, area_type: 'country' });
     ['newCode','newZh','newEn'].forEach(id => document.getElementById(id).value = '');

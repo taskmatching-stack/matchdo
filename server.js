@@ -6508,15 +6508,15 @@ app.get('/api/service-areas', async (req, res) => {
 
 // ── Admin 服務地區 CRUD ────────────────────────────────────────
 
-// GET /api/admin/service-areas — 回傳完整階層（group → top-level → sub-areas）
+// GET /api/admin/service-areas — 回傳完整階層（含 name_i18n）
 app.get('/api/admin/service-areas', async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
         const { data, error } = await supabase
             .from('service_areas')
-            .select('*')
-            .order('group_code').order('sort_order').order('code');
+            .select('id, code, name_zh, name_en, name_i18n, group_code, group_zh, group_en, sort_order, is_active, parent_code, area_type')
+            .order('sort_order').order('code');
         if (error) throw error;
         res.json({ areas: data || [] });
     } catch (e) {
@@ -6550,18 +6550,19 @@ app.post('/api/admin/service-areas', express.json(), async (req, res) => {
     }
 });
 
-// PUT /api/admin/service-areas/:code — 更新
+// PUT /api/admin/service-areas/:code — 更新（含 name_i18n 多語系）
 app.put('/api/admin/service-areas/:code', express.json(), async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
         const orig = decodeURIComponent(req.params.code);
-        const { name_zh, name_en, sort_order, is_active } = req.body || {};
+        const { name_zh, name_en, sort_order, is_active, name_i18n } = req.body || {};
         const update = {};
         if (name_zh !== undefined) update.name_zh = name_zh.trim();
         if (name_en !== undefined) update.name_en = name_en.trim();
         if (sort_order !== undefined) update.sort_order = parseInt(sort_order)||0;
         if (is_active !== undefined) update.is_active = Boolean(is_active);
+        if (name_i18n !== undefined && typeof name_i18n === 'object') update.name_i18n = name_i18n;
         const { error } = await supabase.from('service_areas').update(update).eq('code', orig);
         if (error) throw error;
         res.json({ ok: true });
