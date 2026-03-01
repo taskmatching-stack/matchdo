@@ -321,7 +321,7 @@
         const browseBtn  = document.getElementById('modalBtnBrowse');
         const mfrUserId  = p.manufacturer_user_id || null;
         const mfrId      = p.manufacturer_id || null;
-        const catKey     = p.category_key || null;
+        const catKey     = p.subcategory_key || p.category_key || null;
 
         // ── 1. 站內聯絡廠商（綠色）：有 user_id 才顯示 ──
         contactBtn.classList.add('d-none');

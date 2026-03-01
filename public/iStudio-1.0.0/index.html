@@ -519,9 +519,13 @@
                         linkEl.onclick = function() { window.location.href = collUrl; };
                         linkEl.style.display = 'inline-block';
                     } else if (item.type === 'user_design') {
-                        // 用戶設計 → 瀏覽廠商列表找人接單
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
-                        linkEl.onclick = function() { window.location.href = '/vendors.html'; };
+                        // 用戶設計 → 小分類優先、大分類次之
+                        var catFilter = item.subcategory_key || item.category_key || '';
+                        var vendorUrl = catFilter
+                            ? '/vendors.html?category=' + encodeURIComponent(catFilter)
+                            : '/vendors.html';
+                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找此分類廠商';
+                        linkEl.onclick = (function(u){ return function(){ window.location.href = u; }; })(vendorUrl);
                         linkEl.style.display = 'inline-block';
                     } else if (item.link) {
                         var fallUrl = item.link;
