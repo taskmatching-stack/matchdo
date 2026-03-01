@@ -71,6 +71,8 @@
         }
         .filter-tag.filter-sub:hover { border-color: #445D7E; color: #445D7E; background: #f0f4f8; }
         .filter-tag.filter-sub.active { border-color: #445D7E; color: #fff; background: #445D7E; }
+        .filter-tag.area-group-open { background: #f0f4f8; }
+        .area-cities-row { border-left: 2px solid #445D7E; padding-left: 0.5rem; background: #f8fafc; border-radius: 0 4px 4px 0; padding-top: 0.25rem; padding-bottom: 0.25rem; }
 
         /* ── 廠商卡片 ── */
         .vendor-card {
@@ -537,44 +539,68 @@
             return (document.documentElement.lang || 'zh-TW').startsWith('en') ? 'en' : 'zh';
         }
 
+        var _expandedGroups = {}; // 記錄哪些大區已展開
+
         function renderAreaFilter() {
             var lang = getCurrentLang();
-            var groups = getAreaData(lang);
             var $wrap = document.getElementById('filterAreaGroups');
             var $label = document.getElementById('areaFilterLabel');
             var $clear = document.getElementById('areaClearBtn');
+            var groups = (window.AreaCodes && window.AreaCodes.groups) || [];
             if ($label) $label.innerHTML = lang === 'en'
-                ? '<i class="bi bi-geo-alt me-1"></i>Service Area <span class="text-muted" style="font-size:.7rem;">(multi-select)</span>'
-                : '<i class="bi bi-geo-alt me-1"></i>服務地區 <span class="text-muted" style="font-size:.7rem;">（可複選）</span>';
+                ? '<i class="bi bi-geo-alt me-1"></i>Service Area'
+                : '<i class="bi bi-geo-alt me-1"></i>服務地區';
             if (!$wrap) return;
-            var html = '';
+
+            // 第一層：大區標籤列
+            var html = '<div class="d-flex flex-wrap gap-1 mb-1">';
             groups.forEach(function(g) {
-                html += '<div class="d-flex flex-wrap align-items-baseline gap-1 mb-1">';
-                html += '<span class="text-muted me-1" style="font-size:.7rem;white-space:nowrap;">' + g.group + '：</span>';
-                g.areas.forEach(function(code, i) {
-                    var label = (g.labels && g.labels[i]) || code;
-                    var active = state.selectedAreas.indexOf(code) >= 0 ? ' active' : '';
-                    // data-area 存 code，顯示 label
-                    html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + code + '">' + label + '</span>';
+                var selCount = (g.cities || []).filter(function(c){ return state.selectedAreas.indexOf(c.code) >= 0; }).length;
+                var isExp = !!_expandedGroups[g.code];
+                var cls = 'filter-tag' + (selCount > 0 ? ' active' : '') + (isExp ? ' area-group-open' : '');
+                var label = lang === 'en' ? g.en : g.zh;
+                if (selCount > 0) label += ' <small style="font-size:.68em;opacity:.85;">(' + selCount + ')</small>';
+                html += '<span class="' + cls + '" role="button" tabindex="0" data-group="' + g.code + '">' + label + '</span>';
+            });
+            html += '</div>';
+
+            // 第二層：已展開大區的小區標籤
+            groups.forEach(function(g) {
+                if (!_expandedGroups[g.code]) return;
+                html += '<div class="area-cities-row mb-1 ps-1" data-cities-for="' + g.code + '">';
+                html += '<span class="text-muted me-1" style="font-size:.7rem;">' + (lang==='en'?g.en:g.zh) + '：</span>';
+                (g.cities || []).forEach(function(c) {
+                    var active = state.selectedAreas.indexOf(c.code) >= 0 ? ' active' : '';
+                    var lbl = lang === 'en' ? c.en : c.zh;
+                    html += '<span class="filter-tag filter-sub' + active + '" role="button" tabindex="0" data-area="' + c.code + '">' + lbl + '</span> ';
                 });
                 html += '</div>';
             });
+
             $wrap.innerHTML = html;
+
+            // 綁定大區點擊 → 展開/收合
+            $wrap.querySelectorAll('[data-group]').forEach(function(tag) {
+                tag.addEventListener('click', function() {
+                    var code = tag.getAttribute('data-group');
+                    _expandedGroups[code] = !_expandedGroups[code];
+                    renderAreaFilter();
+                });
+                tag.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();tag.click();} });
+            });
+
+            // 綁定小區點擊 → 選取/取消
             $wrap.querySelectorAll('[data-area]').forEach(function(tag) {
                 tag.addEventListener('click', function() {
                     var code = tag.getAttribute('data-area');
                     var idx = state.selectedAreas.indexOf(code);
-                    if (idx >= 0) {
-                        state.selectedAreas.splice(idx, 1);
-                        tag.classList.remove('active');
-                    } else {
-                        state.selectedAreas.push(code);
-                        tag.classList.add('active');
-                    }
+                    if (idx >= 0) { state.selectedAreas.splice(idx, 1); }
+                    else { state.selectedAreas.push(code); }
                     if ($clear) $clear.classList.toggle('d-none', state.selectedAreas.length === 0);
+                    renderAreaFilter();
                     loadVendors(false);
                 });
-                tag.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tag.click(); } });
+                tag.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();tag.click();} });
             });
         }
 

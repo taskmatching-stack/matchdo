@@ -297,40 +297,71 @@
     <script src="../js/site-header.js"></script>
 
     <style>
-        .area-tag-btn { display:inline-block; padding:0.2rem 0.5rem; font-size:0.78rem; border-radius:5px; border:1px solid #8a96a6; color:#5c6470; background:#fff; cursor:pointer; transition:all .12s; margin:2px; }
+        .area-tag-btn { display:inline-block; padding:0.2rem 0.55rem; font-size:0.8rem; border-radius:5px; border:1px solid #8a96a6; color:#5c6470; background:#fff; cursor:pointer; transition:all .12s; margin:1px; }
         .area-tag-btn:hover { border-color:#445D7E; color:#445D7E; background:#f0f4f8; }
         .area-tag-btn.active { border-color:#445D7E; background:#445D7E; color:#fff; }
-        .area-group-label { font-size:0.72rem; color:#888; white-space:nowrap; }
+        .area-tag-btn.area-group-open { background:#f0f4f8; border-color:#445D7E; color:#445D7E; }
+        .area-tag-btn.city-tag { font-size:0.76rem; padding:0.18rem 0.45rem; }
+        .area-cities-panel { border-left:2px solid #445D7E; padding:0.3rem 0.5rem; background:#f8fafc; border-radius:0 4px 4px 0; margin-left:0.25rem; }
     </style>
     <script>
         // ── 服務地區資料：從 area-codes.js 讀取，勿在此硬寫 ──
         var selectedAreas = []; // 存 code，例如 ["TW-TPE","JP"]
+        var _expandedGroups = {}; // 記錄已展開的大區
 
         function renderAreaSelector() {
             var container = document.getElementById('serviceAreaSelector');
             if (!container) return;
             var groups = (window.AreaCodes && window.AreaCodes.groups) || [];
             var html = '';
+
+            // 第一層：大區選擇鈕
+            html += '<div class="d-flex flex-wrap gap-1 mb-2">';
             groups.forEach(function(g) {
-                html += '<div class="d-flex flex-wrap align-items-center gap-1 mb-1">';
-                html += '<span class="area-group-label me-1">' + g.zh + '：</span>';
+                var selCount = (g.cities || []).filter(function(c){ return selectedAreas.indexOf(c.code) >= 0; }).length;
+                var isExp = !!_expandedGroups[g.code];
+                var cls = 'area-tag-btn' + (selCount > 0 ? ' active' : '') + (isExp ? ' area-group-open' : '');
+                var label = g.zh;
+                if (selCount > 0) label += ' (' + selCount + ')';
+                html += '<span class="' + cls + '" data-group="' + g.code + '">' + label + ' <small style="font-size:.72em;">' + (isExp ? '▲' : '▼') + '</small></span>';
+            });
+            html += '</div>';
+
+            // 第二層：展開的大區城市列表
+            groups.forEach(function(g) {
+                if (!_expandedGroups[g.code]) return;
+                html += '<div class="area-cities-panel mb-2">';
+                html += '<div class="d-flex flex-wrap gap-1">';
                 (g.cities || []).forEach(function(c) {
                     var isActive = selectedAreas.indexOf(c.code) >= 0;
-                    // data-area 存 code，顯示中文 label
-                    html += '<span class="area-tag-btn' + (isActive ? ' active' : '') + '" data-area="' + c.code + '">' + c.zh + '</span>';
+                    html += '<span class="area-tag-btn city-tag' + (isActive ? ' active' : '') + '" data-area="' + c.code + '">' + c.zh + '</span>';
                 });
-                html += '</div>';
+                html += '</div></div>';
             });
+
             container.innerHTML = html;
-            container.querySelectorAll('.area-tag-btn').forEach(function(btn) {
+
+            // 大區點擊 → 展開/收合
+            container.querySelectorAll('[data-group]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var code = btn.getAttribute('data-group');
+                    _expandedGroups[code] = !_expandedGroups[code];
+                    renderAreaSelector();
+                });
+            });
+
+            // 小區點擊 → 選取/取消
+            container.querySelectorAll('[data-area]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     var code = btn.getAttribute('data-area');
                     var idx = selectedAreas.indexOf(code);
-                    if (idx >= 0) { selectedAreas.splice(idx, 1); btn.classList.remove('active'); }
-                    else { selectedAreas.push(code); btn.classList.add('active'); }
+                    if (idx >= 0) { selectedAreas.splice(idx, 1); }
+                    else { selectedAreas.push(code); }
                     syncAreaInput();
+                    renderAreaSelector();
                 });
             });
+
             syncAreaInput();
         }
 
@@ -338,7 +369,6 @@
             var hidden = document.getElementById('selectedServiceAreas');
             var preview = document.getElementById('selectedAreaPreview');
             if (hidden) hidden.value = selectedAreas.join(',');
-            // 預覽顯示中文名稱
             var ac = window.AreaCodes;
             var labels = selectedAreas.map(function(c){ return (ac && ac.getLabel) ? ac.getLabel(c, 'zh') : c; });
             if (preview) preview.textContent = labels.length > 0 ? '已選：' + labels.join('、') : '（尚未選擇）';
@@ -346,13 +376,20 @@
 
         function loadAreas(areaStr) {
             selectedAreas = [];
+            _expandedGroups = {};
             if (areaStr) {
                 areaStr.split(/[,，、\s]+/).forEach(function(a) {
                     a = a.trim();
                     if (!a) return;
-                    // 相容舊版中文字串，自動轉 code
                     var code = (window.AreaCodes && window.AreaCodes.zhToCode) ? window.AreaCodes.zhToCode(a) : a;
                     selectedAreas.push(code);
+                    // 自動展開已選地區所屬的大區
+                    var groups = (window.AreaCodes && window.AreaCodes.groups) || [];
+                    groups.forEach(function(g) {
+                        if ((g.cities||[]).some(function(c){ return c.code === code; })) {
+                            _expandedGroups[g.code] = true;
+                        }
+                    });
                 });
             }
             renderAreaSelector();
