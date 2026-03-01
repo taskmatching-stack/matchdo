@@ -140,9 +140,6 @@
                 margin-bottom: 0.4rem;
             }
 
-            /* 手機 textarea：min-height 讓 rows="1" 維持單行初始高度 */
-            #custom-product .prompt-hero { min-height: unset; }
-
             /* 生成中：脈衝光波 */
             #custom-product .create-panel-right.is-loading {
                 background: linear-gradient(90deg, #e8edf3 25%, #cfd8e6 50%, #e8edf3 75%);
@@ -242,8 +239,7 @@
         #custom-product .prompt-hero {
             width: 100%; min-height: 90px; padding: 0.875rem 1rem;
             border-radius: 10px; border: 1px solid #e5e7eb;
-            font-size: 0.9375rem; line-height: 1.5; resize: none;
-            overflow: hidden; transition: height 0.1s ease;
+            font-size: 0.9375rem; line-height: 1.5; resize: vertical;
         }
         #custom-product .prompt-hero:focus { border-color: var(--bs-primary); outline: none; box-shadow: 0 0 0 3px rgba(13,148,136,.12); }
         /* 分類：單一區塊、固定高度，不因選項多寡變換大小 */
@@ -375,7 +371,7 @@
                         <div class="create-panel-left">
                             <div class="form-row full">
                                 <label class="label" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
-                                <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="1" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="請輸入風格、材質、結構與顏色"></textarea>
+                                <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="請輸入風格、材質、結構與顏色"></textarea>
                                 <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">可從下方參考圖的「從此圖產生描述」結果中，選取需要的句子貼到本框使用。</p>
                             </div>
 

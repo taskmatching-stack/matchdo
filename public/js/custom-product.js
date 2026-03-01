@@ -447,14 +447,18 @@ $(document).ready(function () {
         }
     });
 
-    // 2. Textarea 自動長高（手機體驗優化）
+    // 2. Textarea 自動長高（僅手機）
     var $prompt = $('#productPrompt');
-    function autoGrowPrompt() {
-        $prompt[0].style.height = 'auto';
-        $prompt[0].style.height = ($prompt[0].scrollHeight) + 'px';
+    if (window.innerWidth <= 768) {
+        $prompt.attr('rows', 1);
+        $prompt.css({ 'resize': 'none', 'overflow': 'hidden', 'transition': 'height 0.1s ease', 'min-height': 'unset' });
+        function autoGrowPrompt() {
+            $prompt[0].style.height = 'auto';
+            $prompt[0].style.height = ($prompt[0].scrollHeight) + 'px';
+        }
+        $prompt.on('input', autoGrowPrompt);
+        autoGrowPrompt();
     }
-    $prompt.on('input', autoGrowPrompt);
-    autoGrowPrompt(); // 初始化：讓 CSS height 生效（蓋過 rows 屬性）
 
     // 儲存此生成結果為訂製產品（含前端輸入的提示詞 generation_prompt）
     $(document).on('click', '#saveGeneratedProductBtn', function () {
