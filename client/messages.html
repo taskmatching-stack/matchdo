@@ -32,10 +32,10 @@
         .msg-bubble.img-only .btn-translate { color: #6c757d; }
         .msg-time { font-size: 0.75rem; color: #6c757d; }
         .messages-form { flex-shrink: 0; padding: 0.75rem; border-top: 1px solid #dee2e6; background: #fff; }
-        .img-preview-bar { display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start; }
-        .img-preview-item { position: relative; display: inline-block; }
+        .img-preview-bar { display: flex; gap: 12px; margin-bottom: 6px; align-items: flex-end; padding-top: 4px; }
+        .img-preview-item { position: relative; display: inline-block; padding-top: 10px; }
         .img-preview-item img { width: 64px; height: 64px; border-radius: 8px; object-fit: cover; border: 1px solid #dee2e6; display: block; }
-        .img-preview-item .remove-img { position: absolute; top: -8px; right: -8px; width: 20px; height: 20px; border-radius: 50%; background: #dc3545; border: none; color: #fff; font-size: 12px; line-height: 1; cursor: pointer; z-index: 5; display: flex; align-items: center; justify-content: center; }
+        .img-preview-item .remove-img { position: absolute; top: 0; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: #dc3545; border: none; color: #fff; font-size: 13px; line-height: 20px; text-align: center; cursor: pointer; z-index: 5; }
         .msg-image { max-width: 220px; border-radius: 8px; display: block; cursor: pointer; }
         .btn-translate { font-size: .7rem; color: #6c757d; background: none; border: none; padding: 1px 4px; cursor: pointer; }
         .btn-translate:hover { color: #0d6efd; }
@@ -378,13 +378,20 @@
             function fixLayoutHeight() {
                 var layout = document.querySelector('.messages-layout');
                 if (!layout) return;
-                var top = layout.getBoundingClientRect().top + window.scrollY;
+                // getBoundingClientRect().top 已是 viewport 相對值；body overflow:hidden 不捲動
+                var top = layout.getBoundingClientRect().top;
                 layout.style.height = Math.max(300, window.innerHeight - top) + 'px';
             }
             window.addEventListener('resize', fixLayoutHeight);
-            // navbar 非同步渲染，等一下再算一次
+            // 用 ResizeObserver 監聽 site-header，每次高度改變立即重算
+            var siteHeader = document.getElementById('site-header');
+            if (siteHeader && window.ResizeObserver) {
+                new ResizeObserver(fixLayoutHeight).observe(siteHeader);
+            }
+            // 保底 fallback：100ms / 600ms / 1500ms
             setTimeout(fixLayoutHeight, 100);
             setTimeout(fixLayoutHeight, 600);
+            setTimeout(fixLayoutHeight, 1500);
 
             document.addEventListener('DOMContentLoaded', async function() {
                 fixLayoutHeight();
