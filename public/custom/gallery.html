@@ -332,36 +332,111 @@
         });
     }
 
-    // ── 地區按鈕：從 /api/service-areas 動態載入 ─────────────────────────
+    // ── 時區 → 國家 code 對照（主要時區）────────────────────────────────
+    const TZ_TO_COUNTRY = {
+        'Asia/Taipei':'TW','Asia/Tokyo':'JP','Asia/Seoul':'KR',
+        'Asia/Shanghai':'CN','Asia/Hong_Kong':'HK','Asia/Macau':'MO',
+        'Asia/Singapore':'SG','Asia/Kuala_Lumpur':'MY','Asia/Bangkok':'TH',
+        'Asia/Jakarta':'ID','Asia/Manila':'PH','Asia/Ho_Chi_Minh':'VN',
+        'Asia/Kolkata':'IN','Asia/Dubai':'AE',
+        'Europe/London':'GB','Europe/Paris':'FR','Europe/Berlin':'DE',
+        'America/New_York':'US','America/Los_Angeles':'US','America/Chicago':'US',
+        'America/Toronto':'CA','America/Sao_Paulo':'BR',
+        'Australia/Sydney':'AU','Pacific/Auckland':'NZ',
+    };
+    // 語系 → 優先國家 code 順序
+    const LANG_PRIORITY = {
+        'zh': ['TW','HK','MO','SG','MY'],
+        'ja': ['JP','TW','KR'],
+        'ko': ['KR','JP','TW'],
+        'en': ['US','GB','SG','AU','CA'],
+        'de': ['DE','AT','CH'],
+        'fr': ['FR','BE','CH'],
+        'th': ['TH'],
+        'vi': ['VN'],
+        'id': ['ID'],
+        'ms': ['MY','SG'],
+    };
+
+    function detectUserCountry() {
+        // 1. 時區推斷
+        try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (TZ_TO_COUNTRY[tz]) return TZ_TO_COUNTRY[tz];
+        } catch(_){}
+        // 2. 瀏覽器語系推斷
+        const bl = (navigator.language||'').toLowerCase().replace(/-.*$/,'');
+        const prio = LANG_PRIORITY[bl] || LANG_PRIORITY[_lang] || [];
+        if (prio.length) return prio[0];
+        return null;
+    }
+
+    function getLangPriorityCountries() {
+        const bl = (navigator.language||'').toLowerCase().replace(/-.*$/,'');
+        return LANG_PRIORITY[bl] || LANG_PRIORITY[_lang] || [];
+    }
+
+    // ── 地區按鈕：從 /api/service-areas 動態載入，依連線區域優先排序 ───
     async function loadAndBindAreaButtons() {
         const container = document.getElementById('galleryAreaBtns');
         if (!container) return;
         try {
             const r = await fetch('/api/service-areas');
             const d = await r.json();
-            // groups = 台灣北中南東離島 + 海外
-            const groups = d.groups || [];
-            _areaGroups = groups.map(g => ({
+
+            const userCountry   = detectUserCountry();           // 'TW' / 'JP' / …
+            const langPriority  = getLangPriorityCountries();    // ['TW','HK','SG',…]
+            const lastArea      = localStorage.getItem('gallery_area_pref') || '';
+
+            // 台灣群組：北中南東離島
+            const twGroups = (d.taiwan_groups || []).map(g => ({
                 code: g.code,
                 label: _isEn ? (g.en||g.zh) : (g.zh||g.en),
-                // 城市 code 和中文名都加入比對池
+                countryCode: 'TW',
                 cityCodes: (g.cities||[]).flatMap(c => [c.code, c.zh, c.en].filter(Boolean))
             }));
-            // 重建按鈕
-            let html = `<button type="button" class="area-btn active" data-area-codes="">${T.areaAll}</button>`;
-            _areaGroups.forEach(g => {
-                html += `<button type="button" class="area-btn" data-area-codes="${g.code}">${g.label}</button>`;
+
+            // 海外國家（從 countries 裡過濾非 TW）
+            const overseasGroups = (d.countries||[])
+                .filter(c => c.code !== 'TW')
+                .map(c => ({
+                    code: c.code,
+                    label: _isEn ? (c.en||c.zh) : (c.zh||c.en),
+                    countryCode: c.code,
+                    cityCodes: [c.code, c.zh, c.en, ...((c.children||[]).flatMap(x=>[x.code,x.zh,x.en]))].filter(Boolean)
+                }));
+
+            // 所有群組 = 台灣子群組 + 海外國家
+            const allGroups = [...twGroups, ...overseasGroups];
+
+            // ── 排序：連線國 > 語言相近 > 其餘 ──
+            function groupScore(g) {
+                if (g.code === lastArea) return -3;              // 上次選擇最優先
+                if (g.countryCode === userCountry) return -2;    // 連線所在國
+                const li = langPriority.indexOf(g.countryCode);
+                if (li >= 0) return -1 + li * 0.01;             // 語言相近（依序）
+                return 1;                                        // 其餘
+            }
+            allGroups.sort((a, b) => groupScore(a) - groupScore(b));
+            _areaGroups = allGroups;
+
+            // 渲染按鈕
+            let html = `<button type="button" class="area-btn active" data-area-code="">${T.areaAll}</button>`;
+            allGroups.forEach(g => {
+                html += `<button type="button" class="area-btn" data-area-code="${esc(g.code)}">${esc(g.label)}</button>`;
             });
             container.innerHTML = html;
         } catch(_) {
-            // fallback：保留預設的「全部地區」按鈕
+            // fallback：保留「全部地區」按鈕
         }
+
         // 綁定點擊
         container.querySelectorAll('.area-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const gc = this.dataset.areaCodes || '';
+                const gc = this.dataset.areaCode || '';
                 const grp = _areaGroups.find(g => g.code === gc);
                 selAreaCodes = grp ? grp.cityCodes : [];
+                if (gc) localStorage.setItem('gallery_area_pref', gc);
                 container.querySelectorAll('.area-btn').forEach(b=>b.classList.remove('active'));
                 this.classList.add('active');
                 applyFilters();
