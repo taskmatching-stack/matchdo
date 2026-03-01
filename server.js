@@ -5491,6 +5491,8 @@ app.get('/api/custom-products/for-makers', async (req, res) => {
             .from('custom_products')
             .select('id, title, description, category, subcategory_key, ai_generated_image_url, reference_image_url, owner_id, created_at', { count: 'exact' })
             .not('ai_generated_image_url', 'is', null)
+            .eq('open_for_manufacturing', true)
+            .eq('manufacturing_status', 'open')
             .eq('category', category_key);
 
         if (subcategory_key) {
@@ -5517,6 +5519,45 @@ app.get('/api/custom-products/for-makers', async (req, res) => {
         res.json({ items: list, total: count ?? list.length, page, per_page });
     } catch (e) {
         console.error('GET /api/custom-products/for-makers 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/custom-products/:id/manufacturing — 設計者切換開放廠商搜尋 / 標記已完成
+// body: { open_for_manufacturing?: bool, manufacturing_status?: 'open'|'completed'|'closed' }
+app.patch('/api/custom-products/:id/manufacturing', express.json(), async (req, res) => {
+    try {
+        const token = (req.headers.authorization || '').replace(/^\s*Bearer\s+/i, '');
+        if (!token) return res.status(401).json({ error: '請先登入' });
+        const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+        if (authErr || !user) return res.status(401).json({ error: '登入已過期' });
+
+        const { id } = req.params;
+        // 確認是本人的資產
+        const { data: item, error: findErr } = await supabase
+            .from('custom_products').select('id, owner_id').eq('id', id).maybeSingle();
+        if (findErr || !item) return res.status(404).json({ error: '找不到資產' });
+        if (item.owner_id !== user.id) return res.status(403).json({ error: '無權限' });
+
+        const patch = {};
+        if (req.body.open_for_manufacturing !== undefined)
+            patch.open_for_manufacturing = !!req.body.open_for_manufacturing;
+        if (['open', 'completed', 'closed'].includes(req.body.manufacturing_status))
+            patch.manufacturing_status = req.body.manufacturing_status;
+        // 標記已完成時同步關閉搜尋
+        if (patch.manufacturing_status === 'completed' || patch.manufacturing_status === 'closed')
+            patch.open_for_manufacturing = false;
+
+        if (Object.keys(patch).length === 0)
+            return res.status(400).json({ error: '無有效欄位' });
+
+        const { data: updated, error: upErr } = await supabase
+            .from('custom_products').update(patch).eq('id', id)
+            .select('id, open_for_manufacturing, manufacturing_status').single();
+        if (upErr) return res.status(500).json({ error: '更新失敗' });
+        res.json({ ok: true, ...updated });
+    } catch (e) {
+        console.error('PATCH /api/custom-products/:id/manufacturing:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

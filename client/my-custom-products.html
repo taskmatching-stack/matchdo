@@ -158,23 +158,48 @@
         function createProductCard(product) {
             const col = document.createElement('div');
             col.className = 'col-md-6 col-lg-4';
+            col.dataset.productId = product.id;
 
             const statusInfo = getStatusInfo(product.status);
+            const mfgStatus = product.manufacturing_status || 'open';
+            const isOpen = !!product.open_for_manufacturing && mfgStatus === 'open';
+            const isCompleted = mfgStatus === 'completed';
+
             function toAbs(u) { if (!u || typeof u !== 'string') return ''; if (u.startsWith('http')) return u; return (window.location.origin || '') + (u.startsWith('/') ? '' : '/') + u; }
             const imageUrl = (product.image_urls && product.image_urls[0]) ? toAbs(product.image_urls[0]) : toAbs(product.ai_generated_image_url || product.reference_image_url) || 'https://via.placeholder.com/400x300?text=No+Image';
 
+            const mfgBadge = isCompleted
+                ? '<span class="badge bg-success ms-1">已完成訂製</span>'
+                : isOpen
+                    ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-search me-1"></i>開放搜尋中</span>'
+                    : '';
+
             col.innerHTML = `
                 <div class="card product-card h-100">
-                    <img src="${imageUrl}" class="card-img-top product-image" alt="${product.title}" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
+                    <img src="${imageUrl}" class="card-img-top product-image" alt="${escapeHtml(product.title)}" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
                             <h5 class="card-title mb-0">${escapeHtml(product.title)}</h5>
                             <span class="badge ${statusInfo.class} status-badge">${statusInfo.text}</span>
                         </div>
-                        <p class="card-text text-muted small">${escapeHtml(product.description.substring(0, 100))}${product.description.length > 100 ? '...' : ''}</p>
+                        ${mfgBadge ? `<div class="mb-2">${mfgBadge}</div>` : ''}
+                        <p class="card-text text-muted small flex-grow-1">${escapeHtml((product.description||'').substring(0, 100))}${(product.description||'').length > 100 ? '...' : ''}</p>
                         <div class="text-muted small mb-3">
                             <i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}
                         </div>
+
+                        <!-- 開放廠商搜尋開關 -->
+                        ${!isCompleted ? `
+                        <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2 bg-light">
+                            <span class="small fw-semibold"><i class="bi bi-toggle-on me-1 text-success"></i>開放廠商搜尋</span>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input mfg-toggle" type="checkbox" role="switch"
+                                    id="mfg-toggle-${product.id}" data-id="${product.id}"
+                                    ${isOpen ? 'checked' : ''}>
+                            </div>
+                        </div>
+                        ` : ''}
+
                         <div class="d-grid gap-2">
                             <button class="btn btn-primary btn-sm" onclick="viewProduct('${product.id}')">
                                 <i class="bi bi-eye me-1"></i>查看詳情
@@ -182,20 +207,26 @@
                             <a href="/client/find-makers.html${(product.category || product.category_key) ? '?category_key=' + encodeURIComponent(product.category || product.category_key) + (product.subcategory_key ? '&subcategory_key=' + encodeURIComponent(product.subcategory_key) : '') : ''}" class="btn btn-outline-primary btn-sm">
                                 <i class="bi bi-shop me-1"></i>找製作方
                             </a>
-                            ${product.status === 'draft' ? `
-                                <button class="btn btn-outline-success btn-sm" onclick="matchProduct('${product.id}')">
-                                    <i class="bi bi-search me-1"></i>開始媒合
-                                </button>
-                            ` : ''}
-                            ${product.status === 'matched' ? `
-                                <button class="btn btn-success btn-sm" onclick="viewMatches('${product.id}')">
-                                    <i class="bi bi-people me-1"></i>查看廠商
-                                </button>
+                            ${!isCompleted ? `
+                            <button class="btn btn-outline-success btn-sm btn-mark-done" data-id="${product.id}">
+                                <i class="bi bi-check-circle me-1"></i>標記為已完成訂製
+                            </button>
                             ` : ''}
                         </div>
                     </div>
                 </div>
             `;
+
+            // 開關事件
+            const toggle = col.querySelector('.mfg-toggle');
+            if (toggle) {
+                toggle.addEventListener('change', () => toggleManufacturing(product.id, toggle.checked));
+            }
+            // 已完成按鈕
+            const doneBtn = col.querySelector('.btn-mark-done');
+            if (doneBtn) {
+                doneBtn.addEventListener('click', () => markCompleted(product.id));
+            }
 
             return col;
         }
@@ -264,6 +295,51 @@
 
         window.viewMatches = function(productId) {
             window.location.href = `/client/custom-product-detail.html?id=${productId}`;
+        };
+
+        async function patchManufacturing(productId, patch) {
+            const session = await AuthService.getSession();
+            const token = session?.access_token;
+            const r = await fetch(`/api/custom-products/${productId}/manufacturing`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(patch)
+            });
+            return r.json();
+        }
+
+        window.toggleManufacturing = async function(productId, isOpen) {
+            try {
+                const result = await patchManufacturing(productId, {
+                    open_for_manufacturing: isOpen,
+                    manufacturing_status: isOpen ? 'open' : 'closed'
+                });
+                if (result.ok) {
+                    showAlert(isOpen ? '已開放廠商搜尋' : '已關閉廠商搜尋', 'success');
+                    loadProducts(); // 重新渲染
+                } else {
+                    showAlert(result.error || '操作失敗', 'danger');
+                    loadProducts();
+                }
+            } catch (e) {
+                showAlert('操作失敗', 'danger');
+                loadProducts();
+            }
+        };
+
+        window.markCompleted = async function(productId) {
+            if (!confirm('確認標記為「已完成訂製」？標記後將自動關閉廠商搜尋，且無法復原。')) return;
+            try {
+                const result = await patchManufacturing(productId, { manufacturing_status: 'completed' });
+                if (result.ok) {
+                    showAlert('已標記為完成訂製', 'success');
+                    loadProducts();
+                } else {
+                    showAlert(result.error || '操作失敗', 'danger');
+                }
+            } catch (e) {
+                showAlert('操作失敗', 'danger');
+            }
         };
 
         function showAlert(message, type = 'info') {
