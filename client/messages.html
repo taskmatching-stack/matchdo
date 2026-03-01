@@ -95,6 +95,9 @@
                                 <i class="bi bi-image"></i>
                                 <input type="file" id="imgFileInput" accept="image/*" style="display:none;">
                             </label>
+                            <button type="button" class="btn btn-outline-secondary" id="btnAssetPicker" title="從數位資產庫選取" data-bs-toggle="modal" data-bs-target="#assetPickerModal">
+                                <i class="bi bi-collection"></i>
+                            </button>
                             <input type="text" class="form-control" id="messageInput" data-i18n-placeholder="messages.inputPlaceholder" placeholder="輸入訊息..." maxlength="2000">
                             <button class="btn btn-primary" type="button" id="btnSend" data-i18n="messages.send">送出</button>
                         </div>
@@ -394,6 +397,42 @@
                 }
                 document.getElementById('btnSend').addEventListener('click', sendMessage);
                 document.getElementById('messageInput').addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+                // 資產庫 Modal：開啟時載入，點選即傳
+                document.getElementById('assetPickerModal').addEventListener('show.bs.modal', async function() {
+                    if (!currentConversationId) {
+                        document.getElementById('assetGrid').innerHTML = '<div class="col-12 text-center text-muted py-4">請先選擇一個對話</div>';
+                        return;
+                    }
+                    const grid = document.getElementById('assetGrid');
+                    grid.innerHTML = '<div class="col-12 text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-1"></div>載入中…</div>';
+                    try {
+                        const res = await fetch('/api/custom-products', { headers: { 'Authorization': 'Bearer ' + token } });
+                        const data = await res.json();
+                        const products = (data.products || []);
+                        if (!products.length) { grid.innerHTML = '<div class="col-12 text-center text-muted py-4">數位資產庫尚無作品</div>'; return; }
+                        grid.innerHTML = products.map(function(p) {
+                            var imgUrl = (p.image_urls && p.image_urls[0]) ? p.image_urls[0] : (p.ai_generated_image_url || p.reference_image_url || '');
+                            if (!imgUrl) return '';
+                            return '<div class="col-4 col-md-3">'
+                                + '<div class="card h-100 asset-card" style="cursor:pointer;" data-url="' + escapeHtml(imgUrl) + '" data-title="' + escapeHtml(p.title || '') + '">'
+                                + '<img src="' + escapeHtml(imgUrl) + '" class="card-img-top" style="height:100px;object-fit:cover;" onerror="this.parentElement.parentElement.style.display=\'none\'">'
+                                + '<div class="card-body p-1"><small class="text-muted" style="font-size:.72rem;display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">' + escapeHtml(p.title || '未命名') + '</small></div>'
+                                + '</div></div>';
+                        }).join('');
+                        grid.querySelectorAll('.asset-card').forEach(function(card) {
+                            card.addEventListener('click', async function() {
+                                var imgUrl = this.dataset.url;
+                                bootstrap.Modal.getInstance(document.getElementById('assetPickerModal')).hide();
+                                const r = await fetch('/api/direct-conversations/' + currentConversationId + '/messages/asset-url', {
+                                    method: 'POST', headers: Object.assign({}, headers(), { 'Content-Type': 'application/json' }),
+                                    body: JSON.stringify({ image_url: imgUrl })
+                                }).then(function(r) { return r.json(); });
+                                if (r.message) { renderMessage(Object.assign({}, r.message, { is_mine: true })); document.getElementById('messagesPanel').scrollTop = 99999; loadConversations(); }
+                            });
+                        });
+                    } catch(e) { grid.innerHTML = '<div class="col-12 text-center text-muted py-4">載入失敗</div>'; }
+                });
+
                 document.getElementById('imgFileInput').addEventListener('change', async function() {
                     var file = this.files[0];
                     if (!file) return;
@@ -408,6 +447,27 @@
             });
         })();
     </script>
+    <!-- 數位資產庫選取 Modal -->
+    <div class="modal fade" id="assetPickerModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-images me-2"></i>從數位資產庫選取圖片</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="assetGrid" class="row g-2">
+                        <div class="col-12 text-center text-muted py-4"><div class="spinner-border spinner-border-sm me-1"></div>載入中…</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <small class="text-muted me-auto">點選圖片即可傳送</small>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="site-footer"></div>
     <script src="/js/site-footer.js"></script>
 </body>

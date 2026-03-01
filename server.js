@@ -9193,6 +9193,29 @@ app.post('/api/direct-conversations/:conversationId/messages/image', upload.sing
     }
 });
 
+// POST /api/direct-conversations/:convId/messages/asset-url — 以資產庫圖片 URL 傳送圖片訊息（不重新上傳）
+app.post('/api/direct-conversations/:conversationId/messages/asset-url', express.json(), async (req, res) => {
+    try {
+        const user = await getAuthUser(req);
+        if (!user) return res.status(401).json({ error: '請先登入' });
+        const { conversationId } = req.params;
+        const imageUrl = (req.body?.image_url || '').toString().trim();
+        if (!imageUrl) return res.status(400).json({ error: '缺少 image_url' });
+        const { data: conv } = await supabase.from('direct_conversations').select('user_a_id, user_b_id').eq('id', conversationId).single();
+        if (!conv) return res.status(404).json({ error: '找不到對話' });
+        if (conv.user_a_id !== user.id && conv.user_b_id !== user.id) return res.status(403).json({ error: '僅參與者可發送' });
+        const { data: msg, error: insErr } = await supabase.from('direct_messages')
+            .insert({ conversation_id: conversationId, sender_id: user.id, body: '', image_url: imageUrl })
+            .select('id, sender_id, body, image_url, created_at').single();
+        if (insErr) return res.status(500).json({ error: '發送失敗' });
+        await supabase.from('direct_conversations').update({ updated_at: new Date().toISOString() }).eq('id', conversationId);
+        res.status(201).json({ message: { id: msg.id, sender_id: msg.sender_id, body: msg.body, image_url: msg.image_url, created_at: msg.created_at, is_mine: true } });
+    } catch (e) {
+        console.error('POST /api/direct-conversations/:id/messages/asset-url:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // POST /api/direct-messages/:msgId/translate — 翻譯單則訊息（扣 1 點）
 app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, res) => {
     try {
