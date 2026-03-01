@@ -376,28 +376,17 @@
         try {
             const r = await fetch(CATEGORIES_API);
             const d = await r.json();
-            (d.categories||[]).forEach(c => { catNameMap[c.key] = c.name; });
-        } catch(_) {}
-        // 分類從已載入的 _rawItems 動態產生（名稱從 catNameMap 查，查不到顯示 key）
-        buildCategoriesFromItems();
-    }
-
-    function buildCategoriesFromItems() {
-        // 統計廠商作品中實際存在的分類 key
-        const countMap = {};
-        _rawItems.forEach(p => {
-            (p.categories||[]).forEach(k => {
-                if (k) countMap[k] = (countMap[k]||0) + 1;
-            });
-        });
-        // 依作品數排序，產生分類清單
-        categoryList = Object.entries(countMap)
-            .sort((a,b) => b[1]-a[1])
-            .map(([key]) => ({
-                key,
-                name: catNameMap[key] || key,  // 有對照就用中文，否則顯示 key
-                subcategories: []
+            // 全部分類從資料庫來，含子分類
+            categoryList = (d.categories||[]).map(c => ({
+                key: c.key,
+                name: c.name,
+                subcategories: (c.subcategories||[]).map(s => ({ key: s.key, name: s.name }))
             }));
+            // 同時建 key→name 對照供 applyFilters 用
+            categoryList.forEach(c => { catNameMap[c.key] = c.name; });
+        } catch(_) {
+            categoryList = [];
+        }
         renderCategoryButtons();
     }
 
@@ -446,12 +435,11 @@
     // ── 鍵盤輸入 ──────────────────────────────────────────────────────────
     if ($keyword) $keyword.addEventListener('input', ()=>{ clearTimeout(kwTimer); kwTimer=setTimeout(applyFilters,300); });
 
-    // ── 初始化：先載入作品，再從作品資料動態建分類按鈕 ──────────────────
+    // ── 初始化 ────────────────────────────────────────────────────────────
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
         bindAreaButtons();
-        await loadPortfolio();   // 先有資料
-        await loadCategories();  // 再建分類（從已載入的 _rawItems 產生）
+        await Promise.all([loadPortfolio(), loadCategories()]);
     }
 
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
