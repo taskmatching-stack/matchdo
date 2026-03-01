@@ -278,7 +278,7 @@
   "profile.breadcrumbContact": "聯絡資訊",
   "profile.privacyTitle": "隱私保護說明",
   "profile.privacyItem1": "您的聯絡資訊預設是隱藏的",
-  "profile.privacyItem2": "只有當媒合成功後，對方才能看到您勾選公開的資訊",
+  "profile.privacyItem2": "勾選「公開顯示」的欄位，會在廠商頁面對所有訪客顯示",
   "profile.privacyItem3": "您可以隨時調整哪些資訊要公開、哪些要保密",
   "profile.privacyItem4": "官網和作品集建議公開，有助於提升媒合率",
   "profile.myContact": "我的聯絡資訊",
