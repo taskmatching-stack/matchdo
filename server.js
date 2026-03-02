@@ -3647,7 +3647,7 @@ app.post('/api/scene-simulate', express.json(), async (req, res) => {
 
 // API: 生成產品示意圖（categoryKeys 必填，後端組合基礎提示詞 + 使用者描述）
 // categorySource: 'remake' 時使用 remake_categories 的 prompt，否則使用訂製分類
-app.post('/api/generate-product-image', express.json(), async (req, res) => {
+app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (req, res) => {
     try {
         const { prompt, categoryKeys, aspectRatio = '1:1', resolution = '2K', referenceImages, seed, categorySource, output_format } = req.body;
         const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';

@@ -351,11 +351,29 @@ $(document).ready(function () {
                 var session = (typeof window.AuthService !== 'undefined' && window.AuthService.getSession) ? await window.AuthService.getSession() : null;
                 if (session && session.access_token) headers['Authorization'] = 'Bearer ' + session.access_token;
             } catch (e) {}
-            const response = await fetch('/api/generate-product-image', {
-                method: 'POST',
-                headers: headers,
-                body: JSON.stringify(payload)
-            });
+            var controller = new AbortController();
+            var timeoutId = setTimeout(function () { controller.abort(); }, 120000);
+            var response;
+            try {
+                response = await fetch('/api/generate-product-image', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+            } catch (fetchErr) {
+                clearTimeout(timeoutId);
+                if (fetchErr && fetchErr.name === 'AbortError') {
+                    $('#generatedImagePreview').html(
+                        '<div class="alert alert-warning"><h6><i class="fas fa-clock me-2"></i>請求逾時</h6><p class="mb-2">生圖時間較長，請在較穩定的網路下重試或稍後再試。</p><button type="button" class="btn btn-sm btn-warning" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>重試</button></div>'
+                    );
+                    showGeneratedResult();
+                    document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    return;
+                }
+                throw fetchErr;
+            }
+            clearTimeout(timeoutId);
 
             var text = await response.text();
             var result = null;
