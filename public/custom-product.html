@@ -65,10 +65,6 @@
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/theme-custom.css" rel="stylesheet">
 
-    <!-- jQuery + Bootstrap JS 提前載入，避免 site-header.js IIFE 重複注入造成 dropdown 雙觸發 -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
-    <script id="bs-bundle-js" src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
-
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
     {
@@ -87,6 +83,60 @@
 </head>
 
 <body>
+    <!-- 放大 modal：與首頁一致，放在 body 最前、Bootstrap 之前，Bootstrap 載入時 modal 已在 DOM -->
+    <div class="modal fade" id="pastItemModal" tabindex="-1" aria-labelledby="pastItemModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered past-item-modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="pastItemModalLabel" data-i18n="customProduct.pastItemModalTitle">生成草圖</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0 text-center">
+                    <div id="pastItemModalBody" style="min-height:120px;">
+                        <div id="pastItemModalBodyInner"></div>
+                        <div id="pastItemModalDetail">
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.prompt">提示詞</span><span id="pastItemModalPrompt" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="pastItemModalSeed" class="detail-value"></span></div>
+                            <div class="detail-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="pastItemModalOwner" class="detail-value"></span></div>
+                        </div>
+                    </div>
+                    <div id="pastItemModalShowSection" class="d-none">
+                        <label class="d-flex align-items-center gap-2 mb-0">
+                            <input type="checkbox" id="pastItemModalShowOnHomepage" class="form-check-input" disabled>
+                            <span class="small" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</span>
+                        </label>
+                        <p id="pastItemModalShowOnHomepageHint" class="text-muted small mb-0 mt-1" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" id="pastItemModalSceneSim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
+                    <a id="pastItemModalLink" href="#" class="btn btn-primary btn-sm d-none" target="_blank" rel="noopener" data-i18n="home.findVendor">找廠商訂製</a>
+                    <button type="button" id="pastItemModalRedesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="sceneSimAssetPickerModal" tabindex="-1" aria-labelledby="sceneSimAssetPickerLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="sceneSimAssetPickerLabel" data-i18n="customProduct.selectFromDigitalAssets">從數位資產選擇圖片</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <div id="sceneSimAssetList" class="row g-2"></div>
+                    <p id="sceneSimAssetEmpty" class="text-muted small mb-0 d-none" data-i18n="customProduct.noDigitalAssetsHint">尚無數位資產，請先在產品設計中生成並儲存。</p>
+                    <p id="sceneSimAssetLoading" class="text-muted small mb-0" data-i18n="home.loading">載入中…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery + Bootstrap：與首頁一致，在 body、在 modal 之後載入，供 navbar 與 modal 使用 -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    <script id="bs-bundle-js" src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <!-- 共用前台導覽（由 site-header.js 載入） -->
     <div id="site-header"></div>
 
@@ -553,58 +603,6 @@
     <!-- 共用前台頁腳（由 site-common.js 載入） -->
     <div id="site-footer"></div>
 
-    <!-- 歷史縮圖點擊：與首頁媒體牆一致 — 大圖、底部疊加提示詞/SEED/帳號、前往連結+關閉 -->
-    <div class="modal fade" id="pastItemModal" tabindex="-1" aria-labelledby="pastItemModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered past-item-modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header py-2">
-                    <h6 class="modal-title" id="pastItemModalLabel" data-i18n="customProduct.pastItemModalTitle">生成草圖</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-0 text-center">
-                    <div id="pastItemModalBody" style="min-height:120px;">
-                        <div id="pastItemModalBodyInner"></div>
-                        <div id="pastItemModalDetail">
-                            <div class="detail-row"><span class="detail-label" data-i18n="home.prompt">提示詞</span><span id="pastItemModalPrompt" class="detail-value"></span></div>
-                            <div class="detail-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="pastItemModalSeed" class="detail-value"></span></div>
-                            <div class="detail-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="pastItemModalOwner" class="detail-value"></span></div>
-                        </div>
-                    </div>
-                    <div id="pastItemModalShowSection" class="d-none">
-                        <label class="d-flex align-items-center gap-2 mb-0">
-                            <input type="checkbox" id="pastItemModalShowOnHomepage" class="form-check-input" disabled>
-                            <span class="small" data-i18n="customProduct.showOnHomepage">展示在首頁媒體牆</span>
-                        </label>
-                        <p id="pastItemModalShowOnHomepageHint" class="text-muted small mb-0 mt-1" data-i18n="customProduct.freeUserShowHint">免費用戶預設展示在首頁，無法取消</p>
-                    </div>
-                </div>
-                <div class="modal-footer py-2">
-                    <button type="button" id="pastItemModalSceneSim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
-                    <a id="pastItemModalLink" href="#" class="btn btn-primary btn-sm d-none" target="_blank" rel="noopener" data-i18n="home.findVendor">找廠商訂製</a>
-                    <button type="button" id="pastItemModalRedesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 實境模擬：從數位資產選擇圖片 -->
-    <div class="modal fade" id="sceneSimAssetPickerModal" tabindex="-1" aria-labelledby="sceneSimAssetPickerLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-lg">
-            <div class="modal-content">
-                <div class="modal-header py-2">
-                    <h6 class="modal-title" id="sceneSimAssetPickerLabel" data-i18n="customProduct.selectFromDigitalAssets">從數位資產選擇圖片</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body py-2">
-                    <div id="sceneSimAssetList" class="row g-2"></div>
-                    <p id="sceneSimAssetEmpty" class="text-muted small mb-0 d-none" data-i18n="customProduct.noDigitalAssetsHint">尚無數位資產，請先在產品設計中生成並儲存。</p>
-                    <p id="sceneSimAssetLoading" class="text-muted small mb-0" data-i18n="home.loading">載入中…</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Back to Top -->
     <a href="#!" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
 
@@ -644,7 +642,7 @@
 
     <!-- Template Javascript -->
     <script src="js/site-common.js"></script>
-    <script src="js/custom-product.js?v=2"></script>
+    <script src="js/custom-product.js?v=5"></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 

@@ -1,0 +1,22 @@
+# custom-product 數位資產庫與 Modal（不准亂動）
+
+## 禁止
+
+- ❌ 不准把 `#pastItemModal`、`#sceneSimAssetPickerModal` 移出 body 最前面，或改到 Bootstrap 之後才出現
+- ❌ 不准把 jQuery / Bootstrap 改回 head 載入（會導致 modal 放大失敗、BACKDROP rootElement 錯誤）
+- ❌ 不准改數位資產庫放大介面（必須維持現有 modal：大圖、提示詞/SEED/帳號、實境模擬/找廠商/再設計/關閉）
+- ❌ 不准改用自訂 lightbox 取代 Bootstrap Modal 做放大
+
+## 原因
+
+首頁能成功是因為：**Bootstrap 在 body 裡、在 modal HTML 之後才載入**，所以執行時 modal 已在 DOM。custom-product 已對齊此順序，勿改。
+
+## 正確結構（public/custom-product.html）
+
+1. `<body>` 後緊接：`#pastItemModal` → `#sceneSimAssetPickerModal`
+2. 接著：jQuery → Bootstrap（`id="bs-bundle-js"`）
+3. 再才是：`#site-header`、其餘內容
+
+## 正確開 modal（public/js/custom-product.js）
+
+點擊 `.past-item` 時：`(new bootstrap.Modal(modalEl)).show();` 即可，勿加 rootElement / getOrCreateInstance / appendChild。
