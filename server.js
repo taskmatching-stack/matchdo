@@ -3741,48 +3741,7 @@ app.post('/api/generate-product-image', express.json(), async (req, res) => {
         }
         if (!imageUrl) imageUrl = `data:${mime};base64,${imageData}`;
 
-        // ── 步驟 4：生圖成功後才扣點、寫入 custom_products ──
-        if (currentUser) {
-            if (!isAdmin && pointsToDeduct > 0) {
-                const newBalance = currentBalance - pointsToDeduct;
-                await supabase.from('user_credits')
-                    .update({ balance: newBalance, updated_at: new Date().toISOString() })
-                    .eq('user_id', currentUser.id);
-                await supabase.from('credit_transactions').insert({
-                    user_id: currentUser.id,
-                    type: 'consumed',
-                    amount: -pointsToDeduct,
-                    balance_after: newBalance,
-                    source: hasRefs ? 'image_to_image' : 'text_to_image',
-                    description: hasRefs ? `圖生圖（${pointsToDeduct} 點）` : `文生圖（${pointsToDeduct} 點）`
-                }).catch(e => console.warn('寫入 credit_transactions 失敗:', e.message));
-                console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
-            }
-
-            // 寫入 custom_products
-            const title = (prompt && String(prompt).trim()) ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '') : '產品草圖';
-            const description = (prompt && String(prompt).trim()) || '（無描述）';
-            const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
-            const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
-            const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
-            const { error: insertErr } = await supabase.from('custom_products').insert({
-                owner_id: currentUser.id,
-                title, description,
-                category: mainCategoryKey,
-                subcategory_key: subCategoryKey,
-                reference_image_url: null,
-                ai_generated_image_url: imageUrl,
-                analysis_json: null,
-                status: 'draft',
-                generation_prompt: generationPromptVal,
-                generation_seed: seedNum,
-                // 付費會員預設不公開到靈感牆（可自行開放）；免費會員預設公開
-                show_on_homepage: !(await hasActivePaidSubscription(currentUser.id))
-            }).select('id').single();
-            if (insertErr) console.error('生成後寫入 custom_products 失敗:', insertErr.message);
-            else console.log('生成後已寫入 custom_products owner_id=%s', currentUser.id);
-        }
-
+        // ── 先回傳生成成功，不與扣點／寫入綁在一起 ──
         res.json({
             success: true,
             imageUrl,
@@ -3794,6 +3753,54 @@ app.post('/api/generate-product-image', express.json(), async (req, res) => {
             seedUsed: seedNum,
             mode: hasRefs ? 'image-to-image' : 'text-to-image'
         });
+
+        // ── 扣點與寫入 custom_products 在回傳之後執行，失敗只 log 不影響前端 ──
+        if (currentUser) {
+            (async () => {
+                try {
+                    if (!isAdmin && pointsToDeduct > 0) {
+                        const newBalance = currentBalance - pointsToDeduct;
+                        const { error: updErr } = await supabase.from('user_credits')
+                            .update({ balance: newBalance, updated_at: new Date().toISOString() })
+                            .eq('user_id', currentUser.id);
+                        if (updErr) { console.warn('扣點更新 user_credits 失敗:', updErr.message); return; }
+                        const { error: creditErr } = await supabase.from('credit_transactions').insert({
+                            user_id: currentUser.id,
+                            type: 'consumed',
+                            amount: -pointsToDeduct,
+                            balance_after: newBalance,
+                            source: hasRefs ? 'image_to_image' : 'text_to_image',
+                            description: hasRefs ? `圖生圖（${pointsToDeduct} 點）` : `文生圖（${pointsToDeduct} 點）`
+                        });
+                        if (creditErr) console.warn('寫入 credit_transactions 失敗:', creditErr.message);
+                        else console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
+                    }
+                    const title = (prompt && String(prompt).trim()) ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '') : '產品草圖';
+                    const description = (prompt && String(prompt).trim()) || '（無描述）';
+                    const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
+                    const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
+                    const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
+                    const showOnHomepage = !(await hasActivePaidSubscription(currentUser.id));
+                    const { error: insertErr } = await supabase.from('custom_products').insert({
+                        owner_id: currentUser.id,
+                        title, description,
+                        category: mainCategoryKey,
+                        subcategory_key: subCategoryKey,
+                        reference_image_url: null,
+                        ai_generated_image_url: imageUrl,
+                        analysis_json: null,
+                        status: 'draft',
+                        generation_prompt: generationPromptVal,
+                        generation_seed: seedNum,
+                        show_on_homepage: showOnHomepage
+                    }).select('id').single();
+                    if (insertErr) console.error('寫入 custom_products 失敗:', insertErr.message);
+                    else console.log('已寫入 custom_products owner_id=%s', currentUser.id);
+                } catch (e) {
+                    console.error('扣點或寫入 custom_products 異常:', e.message);
+                }
+            })();
+        }
     } catch (error) {
         console.error('生成圖片錯誤:', error);
         res.status(500).json({

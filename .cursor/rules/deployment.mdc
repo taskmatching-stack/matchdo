@@ -8,10 +8,11 @@ alwaysApply: true
 ## 正確指令：Google Cloud Shell
 
 ```bash
-cd ~/matchdo && git pull origin main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
 ```
 
-在瀏覽器開 **Google Cloud Shell** 貼上執行，一行搞定。
+在瀏覽器開 **Google Cloud Shell** 貼上執行，一行搞定。  
+（用 `fetch + reset --hard` 避免本地與 origin 分叉時 pull 失敗。）
 
 ## 絕對禁止
 
