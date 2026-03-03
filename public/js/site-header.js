@@ -27,14 +27,14 @@
             '.navbar{padding:15px 0;font-family:"Space Grotesk",sans-serif;font-size:18px;border-bottom:2px solid #445D7E;}',
             '.navbar .navbar-nav .nav-link{margin-left:30px;padding:0;outline:none;color:#333;}',
             '.navbar .navbar-nav .nav-link:hover,.navbar .navbar-nav .nav-link.active{color:#445D7E!important;}',
-            '.navbar .dropdown-toggle::after{border:none;content:"\\25BC";font-family:inherit;font-size:.6em;vertical-align:middle;margin-left:6px;}',
+            '.navbar .dropdown-toggle::after{border:none;content:"\\25BC";font-family:inherit;font-size:.9rem;vertical-align:middle;margin-left:6px;color:#445D7E!important;border-top-color:#445D7E!important;}',
             '.navbar .dropdown-menu .dropdown-item:hover,.navbar .dropdown-menu .dropdown-item.active{background:#445D7E!important;color:#fff!important;}',
             '@keyframes nbDropIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}',
-            '.nav-hover-caret{font-size:.6em;vertical-align:middle;margin-left:4px;opacity:.6;transition:opacity .15s;}',
+            '.nav-hover-caret{font-size:.65rem;vertical-align:middle;margin-left:4px;opacity:.6;transition:opacity .15s;color:#445D7E!important;}',
             '.nav-hover-menu{min-width:180px;padding:.5rem 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
             '.nav-hover-menu .dropdown-item{font-size:.9rem;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;color:#374151;}',
             '.nav-hover-menu .dropdown-item:hover{background:#445D7E!important;color:#fff!important;}',
-            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}.nav-hover-caret{display:none;}}',
+            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}#site-header .navbar .nav-item.nav-has-hover .nav-hover-caret,#site-header .navbar .nav-item.dropdown .nav-link .nav-hover-caret{display:inline-block!important;font-size:.9rem!important;vertical-align:middle;color:#445D7E!important;}#site-header .navbar .nav-item.dropdown .nav-link.dropdown-toggle::after{color:#445D7E!important;border-top-color:#445D7E!important;font-size:.9rem!important;}}',
             '@media(min-width:992px){',
             '.nav-item.nav-has-hover:hover .nav-hover-caret{opacity:1;}',
             '.nav-item.nav-has-hover:hover>.nav-hover-menu{display:block;margin-top:2px;animation:nbDropIn .15s ease;}',
@@ -199,7 +199,7 @@ async function renderHeader(headerContainer, user, config) {
                             <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam"></i>我的產品</a>
                         </div>
                     </div>
-                    <a href="/subscription-plans.html" class="nav-item nav-link">` + (t('nav.subscriptionPlans') || '方案與定價') + `</a>
+                    <a href="/subscription-plans.html" class="nav-item nav-link nav-link-subscription">` + (t('nav.subscriptionPlans') || '方案與定價') + `</a>
                     
                     ${showMyFeaturesDropdown ? `
                         <div class="nav-item dropdown">
@@ -287,9 +287,21 @@ async function renderHeader(headerContainer, user, config) {
                 </div>
             </div>
         </nav>
+        <div id="nav-mobile-drawer" class="nav-mobile-drawer" aria-hidden="true">
+            <div class="nav-mobile-drawer-backdrop"></div>
+            <div class="nav-mobile-drawer-panel">
+                <div class="nav-mobile-drawer-header">
+                    <button type="button" class="nav-mobile-drawer-back" aria-label="返回">&#8592; 返回</button>
+                    <span class="nav-mobile-drawer-title"></span>
+                </div>
+                <div class="nav-mobile-drawer-body"></div>
+            </div>
+        </div>
     `;
     
     headerContainer.innerHTML = navHTML;
+
+    initMobileNavDrawer(headerContainer);
 
     if (user && typeof AuthService !== 'undefined' && AuthService.getSession) {
         loadRenewalReminderBanner(headerContainer);
@@ -306,6 +318,50 @@ async function renderHeader(headerContainer, user, config) {
     
     if (user && window.AuthService) {
         updateUserInfo(user);
+    }
+}
+
+function initMobileNavDrawer(headerContainer) {
+    var drawer = document.getElementById('nav-mobile-drawer');
+    if (!drawer) return;
+    var panel = drawer.querySelector('.nav-mobile-drawer-panel');
+    var body = drawer.querySelector('.nav-mobile-drawer-body');
+    var titleEl = drawer.querySelector('.nav-mobile-drawer-title');
+    var backBtn = drawer.querySelector('.nav-mobile-drawer-back');
+    var backdrop = drawer.querySelector('.nav-mobile-drawer-backdrop');
+    function closeDrawer() {
+        drawer.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+    }
+    function openDrawer(menuTitle, menuHtml) {
+        titleEl.textContent = menuTitle;
+        body.innerHTML = menuHtml;
+        drawer.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+    }
+    if (backBtn) backBtn.addEventListener('click', closeDrawer);
+    if (backdrop) backdrop.addEventListener('click', closeDrawer);
+    var nav = headerContainer.querySelector('.navbar-collapse .navbar-nav');
+    if (!nav) return;
+    var triggerLinks = nav.querySelectorAll('.nav-item.dropdown > .nav-link, .nav-item.nav-has-hover > .nav-link');
+    for (var i = 0; i < triggerLinks.length; i++) {
+        (function (link) {
+            link.addEventListener('click', function (e) {
+                if (window.innerWidth > 991.98) return;
+                var item = link.closest('.nav-item');
+                var menu = item.querySelector('.dropdown-menu, .nav-hover-menu');
+                if (!menu) return;
+                e.preventDefault();
+                e.stopPropagation();
+                var title = link.textContent.replace(/\s*▾\s*$/, '').trim();
+                var menuClone = menu.cloneNode(true);
+                var links = menuClone.querySelectorAll('a');
+                for (var j = 0; j < links.length; j++) {
+                    links[j].addEventListener('click', function () { closeDrawer(); });
+                }
+                openDrawer(title, menuClone.innerHTML);
+            });
+        })(triggerLinks[i]);
     }
 }
 

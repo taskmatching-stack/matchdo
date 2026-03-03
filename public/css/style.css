@@ -143,14 +143,21 @@ body {
     color: var(--bs-primary)
 }
 
-/* 下拉箭頭用 Unicode，不依賴 Font Awesome，避免未載入時出現方塊 */
+/* 下拉箭頭：Unicode ▾，三個箭頭同大、版面藍 #445D7E（0.9rem 與選單字同高、清楚可見） */
 .navbar .dropdown-toggle::after {
     border: none;
     content: "\25BC";
     font-family: inherit;
-    font-size: 0.6em;
+    font-size: 0.9rem;
     vertical-align: middle;
     margin-left: 6px;
+}
+#site-header .navbar .nav-item.nav-has-hover .nav-hover-caret,
+#site-header .navbar .nav-item.dropdown .nav-link.dropdown-toggle::after {
+    font-size: 0.9rem !important;
+    vertical-align: middle;
+    color: #445D7E !important;
+    border-top-color: #445D7E !important;
 }
 
 .navbar .dropdown-menu .dropdown-item:hover,
@@ -163,6 +170,115 @@ body {
     .navbar .navbar-nav .nav-link  {
         margin-left: 0;
         padding: 10px 0;
+    }
+    /* 我的功能：左側不展開，只保留右方滑出選單 */
+    #site-header .navbar-collapse .nav-item.dropdown .dropdown-menu {
+        display: none !important;
+    }
+    /* 客製產品、再製方案、我的功能：箭頭同大 0.9rem、版面藍 */
+    #site-header .navbar-collapse .nav-item.nav-has-hover .nav-hover-caret,
+    #site-header .navbar-collapse .nav-item.dropdown .nav-link.dropdown-toggle::after {
+        font-size: 0.9rem !important;
+        vertical-align: middle;
+        color: #445D7E !important;
+        border-top-color: #445D7E !important;
+    }
+}
+
+/* 手機版：次選單滑出層（與桌機相同內容） */
+.nav-mobile-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    pointer-events: none;
+    visibility: hidden;
+}
+.nav-mobile-drawer.is-open {
+    pointer-events: auto;
+    visibility: visible;
+}
+.nav-mobile-drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.nav-mobile-drawer.is-open .nav-mobile-drawer-backdrop {
+    opacity: 1;
+}
+.nav-mobile-drawer-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 85%;
+    max-width: 320px;
+    height: 100%;
+    background: #fff;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+.nav-mobile-drawer.is-open .nav-mobile-drawer-panel {
+    transform: translateX(0);
+}
+.nav-mobile-drawer-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #dee2e6;
+    background: #fff;
+}
+.nav-mobile-drawer-back {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    color: #445D7E;
+    cursor: pointer;
+    padding: 0.25rem 0;
+}
+.nav-mobile-drawer-title {
+    font-weight: 600;
+    color: #333;
+}
+.nav-mobile-drawer-body {
+    flex: 1;
+    padding: 0.5rem 0;
+    overflow-y: auto;
+}
+.nav-mobile-drawer-body .dropdown-item,
+.nav-mobile-drawer-body .dropdown-header {
+    display: block;
+    padding: 0.6rem 1.25rem;
+    color: #333;
+    text-decoration: none;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-size: 1rem;
+}
+.nav-mobile-drawer-body .dropdown-header {
+    color: #6c757d;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.nav-mobile-drawer-body .dropdown-item:hover {
+    background: #f0f0f0;
+    color: #445D7E;
+}
+.nav-mobile-drawer-body .dropdown-divider {
+    margin: 0.5rem 0;
+    border-top: 1px solid #dee2e6;
+}
+@media (min-width: 992px) {
+    .nav-mobile-drawer {
+        display: none !important;
     }
 }
 
@@ -547,12 +663,15 @@ body {
     }
 }
 
-/* ===== Navbar：桌機 Logo 置中蓋住選單（全站共用） ===== */
+/* ===== Navbar：桌機 Logo 置中蓋住選單（全站共用）；選單列左右保留 Logo 半寬，永遠不擋 ===== */
 @media (min-width: 992px) {
     #site-header .navbar { flex-wrap: wrap; }
     #site-header .navbar-collapse {
         order: 1; width: 100%; flex-grow: 1;
         border-bottom: 1px solid #dee2e6;
+        /* 左側留約半個 Logo 寬度，選單不進入中央區；右邊不留 */
+        padding-left: 110px;
+        box-sizing: border-box;
     }
     #site-header .navbar-brand {
         order: 2;
@@ -568,5 +687,51 @@ body {
         background: #fff;
         padding: 4px 12px;
         border-radius: 4px;
+    }
+}
+
+/* ===== 解析度變小時縮短選單列、縮小選單間距，避免 Logo 蓋住選單 ===== */
+@media (max-width: 1509px) and (min-width: 992px) {
+    #site-header .navbar .navbar-nav .nav-link {
+        margin-left: 16px;
+    }
+    #site-header .navbar-collapse .navbar-nav {
+        margin-right: 0.25rem;
+    }
+}
+@media (max-width: 1460px) and (min-width: 992px) {
+    #site-header .navbar .navbar-nav .nav-link {
+        margin-left: 12px;
+    }
+    #site-header .navbar {
+        font-size: 17px;
+    }
+}
+@media (max-width: 1400px) and (min-width: 992px) {
+    #site-header .navbar .navbar-nav .nav-link {
+        margin-left: 10px;
+    }
+}
+@media (max-width: 1300px) and (min-width: 992px) {
+    #site-header .navbar .navbar-nav .nav-link {
+        margin-left: 8px;
+    }
+    #site-header .navbar {
+        font-size: 16px;
+    }
+}
+@media (max-width: 1200px) and (min-width: 992px) {
+    #site-header .navbar .navbar-nav .nav-link {
+        margin-left: 6px;
+    }
+    #site-header .navbar {
+        font-size: 15px;
+    }
+}
+
+/* 1350 以下不顯示「方案與定價」 */
+@media (max-width: 1350px) and (min-width: 992px) {
+    #site-header .nav-link-subscription {
+        display: none !important;
     }
 }
