@@ -120,6 +120,7 @@
                 #media-wall-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); grid-auto-rows: 260px; grid-auto-flow: dense; gap: 8px; }
                 #media-wall-grid .media-wall-item { min-height: 0; }
                 #media-wall-grid .media-wall-1x2 { grid-column: span 1; grid-row: span 2; min-height: 0; }
+                #media-wall-grid .media-wall-1x2-last { grid-column: -1; grid-row: 3 / 5; }
                 #media-wall-grid .card { border: none; border-radius: 8px; overflow: hidden; box-shadow: none; height: 100%; display: flex; flex-direction: column; background: transparent; }
                 #media-wall-grid .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
                 #media-wall-grid .card .media-wall-card-link { display: flex; flex-direction: column; flex: 1; min-height: 0; text-decoration: none; color: inherit; }
@@ -850,8 +851,16 @@
                     var items = data.items || [];
                     if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
                     empty.classList.add('d-none');
-                    items.sort(function (a, b) { return ((a.type === 'collection' || a.size === '1x2') ? 0 : 1) - ((b.type === 'collection' || b.size === '1x2') ? 0 : 1); });
-                    items.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
+                    var is1x2 = function (p) { return p.type === 'collection' || p.size === '1x2'; };
+                    var collections = items.filter(is1x2);
+                    var ones = items.filter(function (p) { return !is1x2(p); });
+                    var displayOrder = [];
+                    if (collections.length >= 1) displayOrder.push(collections[0]);
+                    ones.forEach(function (p) { displayOrder.push(p); });
+                    if (collections.length >= 2) displayOrder.push(collections[collections.length - 1]);
+                    displayOrder.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
+                    var last1x2 = grid.querySelectorAll('.media-wall-1x2');
+                    if (last1x2.length >= 2) last1x2[last1x2.length - 1].classList.add('media-wall-1x2-last');
                     currentPage = page;
                     currentQ = q;
                     renderFavSection();
