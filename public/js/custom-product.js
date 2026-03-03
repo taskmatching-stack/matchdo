@@ -351,29 +351,11 @@ $(document).ready(function () {
                 var session = (typeof window.AuthService !== 'undefined' && window.AuthService.getSession) ? await window.AuthService.getSession() : null;
                 if (session && session.access_token) headers['Authorization'] = 'Bearer ' + session.access_token;
             } catch (e) {}
-            var controller = new AbortController();
-            var timeoutId = setTimeout(function () { controller.abort(); }, 120000);
-            var response;
-            try {
-                response = await fetch('/api/generate-product-image', {
-                    method: 'POST',
-                    headers: headers,
-                    body: JSON.stringify(payload),
-                    signal: controller.signal
-                });
-            } catch (fetchErr) {
-                clearTimeout(timeoutId);
-                if (fetchErr && fetchErr.name === 'AbortError') {
-                    $('#generatedImagePreview').html(
-                        '<div class="alert alert-warning"><h6><i class="fas fa-clock me-2"></i>請求逾時</h6><p class="mb-2">生圖時間較長，請在較穩定的網路下重試或稍後再試。</p><button type="button" class="btn btn-sm btn-warning" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>重試</button></div>'
-                    );
-                    showGeneratedResult();
-                    document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    return;
-                }
-                throw fetchErr;
-            }
-            clearTimeout(timeoutId);
+            const response = await fetch('/api/generate-product-image', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(payload)
+            });
 
             var text = await response.text();
             var result = null;
@@ -408,10 +390,14 @@ $(document).ready(function () {
                 lastGeneratedSeed = (result.seedUsed != null && result.seedUsed !== '') ? result.seedUsed : null;
                 if (lastGeneratedSeed != null) $('#generationSeed').val(lastGeneratedSeed);
                 addGeneratedThumbnailToGallery(result.imageData, prompt, lastGeneratedSeed);
-                $('#generatedImagePreview').html(
-                    '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>已生成並儲存，重整後仍會保留在右側歷史</p>' +
-                    '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>重新生成</button>'
-                );
+                var imgSrc = result.imageUrl || result.imageData || '';
+                var previewHtml = '';
+                if (imgSrc) {
+                    previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="Generated" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="點擊放大" /></div>';
+                }
+                previewHtml += '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>已生成並儲存，重整後仍會保留在右側歷史</p>' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>重新生成</button>';
+                $('#generatedImagePreview').html(previewHtml);
                 showGeneratedResult();
                 try { refreshPastGeneratedGallery(); } catch (e) { console.warn(e); }
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -876,6 +862,34 @@ $(document).ready(function () {
         var wrap = $('#pastGeneratedGallery');
         if (wrap.length) wrap.find('.past-gallery-inner').html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>載入中…</p>');
         refreshPastGeneratedGallery();
+    });
+
+    // 點擊預覽區的生成圖：開同一 modal 放大顯示（與數位資產一致）
+    $(document).on('click', '#generatedImagePreview img', function (e) {
+        e.preventDefault();
+        var url = $(this).attr('src');
+        if (!url) return;
+        var prompt = (typeof lastGeneratedPrompt !== 'undefined') ? lastGeneratedPrompt : '';
+        var seed = (typeof lastGeneratedSeed !== 'undefined' && lastGeneratedSeed != null && lastGeneratedSeed !== '') ? String(lastGeneratedSeed) : '';
+        var ck = ($('#imageCategoryMainSelect').val() || '').trim();
+        var sk = ($('#imageCategorySubSelect').val() || '').trim();
+        $('#pastItemModal').data('redesignCategoryKey', ck).data('redesignSubcategoryKey', sk);
+        if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : t('customProduct.pastItemModalTitle'));
+        var inner = document.getElementById('pastItemModalBodyInner');
+        if (inner) inner.innerHTML = '<img src="' + String(url).replace(/"/g, '&quot;') + '" alt="">';
+        $('#pastItemModalPrompt').text(prompt || '（無）');
+        $('#pastItemModalSeed').text(seed || '（無）');
+        $('#pastItemModalOwner').text(t('customProduct.thisGeneration'));
+        $('#pastItemModalShowSection').addClass('d-none');
+        var q = [];
+        if (ck) q.push('category_key=' + encodeURIComponent(ck));
+        if (sk) q.push('subcategory_key=' + encodeURIComponent(sk));
+        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+        var linkEl = document.getElementById('pastItemModalLink');
+        if (linkEl) { linkEl.href = galleryUrl; linkEl.classList.remove('d-none'); }
+        var modalEl = document.getElementById('pastItemModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) (new bootstrap.Modal(modalEl)).show();
     });
 
     // 點擊歷史縮圖：與首頁一致 — 大圖、底部疊加提示詞/SEED/帳號、前往連結+關閉
