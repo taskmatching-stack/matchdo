@@ -42,7 +42,11 @@
             '#site-header .navbar-collapse{order:1;width:100%;flex-grow:1;border-bottom:1px solid #dee2e6;}',
             '#site-header .navbar-brand{order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}',
             '#site-header .navbar-brand img{height:78px!important;background:#fff;padding:4px 12px;border-radius:4px;}',
-            '#site-header #authSection{width:160px;min-width:160px;max-width:160px;justify-content:flex-end;}',
+            '#site-header #authSection{width:auto;min-width:auto;max-width:none;justify-content:flex-end;padding-left:0.5rem;padding-right:0;}',
+            '#site-header .nav-avatar-toggle{flex-direction:column;background:transparent!important;border:none;}',
+            '#site-header .nav-avatar-toggle .nav-avatar-ring{flex-shrink:0;background:var(--bs-primary);}',
+            '#site-header .nav-avatar-toggle:hover .nav-avatar-ring{filter:brightness(1.1);}',
+            '#site-header .nav-avatar-toggle::after{display:block!important;margin-left:0;margin-top:2px;color:#445D7E!important;border-top-color:#445D7E!important;}',
             '}'
         ].join('');
         document.head.appendChild(_c);
@@ -229,9 +233,8 @@ async function renderHeader(headerContainer, user, config) {
                 <div class="d-none d-lg-flex align-items-center px-4" id="authSection">
                     ${user ? `
                         <div class="dropdown">
-                            <a class="btn btn-primary py-2 px-4 d-flex align-items-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownDesktop" title="` + t('nav.accountSettings') + `">
-                                <img id="userAvatar" src="${_initAvatarUrl}" alt="Avatar" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;">
-                                <span id="userName">${_initDisplayName}</span>
+                            <a class="btn btn-primary p-0 d-flex align-items-center justify-content-center dropdown-toggle nav-avatar-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownDesktop" title="${_initDisplayName}">
+                                <span class="nav-avatar-ring d-flex align-items-center justify-content-center" style="width:42px;height:42px;border-radius:50%;overflow:hidden;"><img id="userAvatar" src="${_initAvatarUrl}" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;display:block;"></span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdownDesktop">
                                 <li class="dropdown-header text-muted small">` + t('nav.accountSettings') + `</li>
@@ -264,9 +267,8 @@ async function renderHeader(headerContainer, user, config) {
                     ${showLangSwitch ? '<div class="mb-2"><a href="#" class="lang-link small text-muted me-2" data-lang="zh-TW">' + t('nav.langZh') + '</a><a href="#" class="lang-link small text-muted" data-lang="en">' + t('nav.langEn') + '</a></div>' : ''}
                     ${user ? `
                         <div class="dropdown">
-                            <a class="btn btn-primary w-100 py-2 d-flex align-items-center justify-content-center dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownMobile">
-                                <img id="userAvatarMobile" src="${_initAvatarUrl}" alt="" style="width: 28px; height: 28px; border-radius: 50%; margin-right: 8px;">
-                                <span id="userNameMobile">${_initDisplayName}</span>
+                            <a class="btn btn-primary p-0 d-flex align-items-center justify-content-center dropdown-toggle nav-avatar-toggle" href="#" role="button" data-bs-toggle="dropdown" id="userDropdownMobile" title="${_initDisplayName}">
+                                <span class="nav-avatar-ring d-flex align-items-center justify-content-center" style="width:42px;height:42px;border-radius:50%;overflow:hidden;"><img id="userAvatarMobile" src="${_initAvatarUrl}" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;display:block;"></span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end w-100">
                                 <li class="dropdown-header text-muted small">` + t('nav.accountSettings') + `</li>
@@ -333,7 +335,9 @@ async function updateUserInfo(user) {
     let displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || '用戶';
     let avatarUrl = user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=667eea&color=fff`;
     // 讀目前畫面上的值，只有真的不同才更新 DOM（避免跳動）
-    const curName = (document.getElementById('userName') || {}).textContent || '';
+    const desktopBtn = document.getElementById('userDropdownDesktop');
+    const mobileBtn = document.getElementById('userDropdownMobile');
+    const curName = (desktopBtn && desktopBtn.title) || '';
     const curAvatar = (document.getElementById('userAvatar') || {}).src || '';
     try {
         const profile = await AuthService.getUserProfile();
@@ -341,13 +345,16 @@ async function updateUserInfo(user) {
         if (profile?.avatar_url) avatarUrl = profile.avatar_url;
     } catch (e) {}
     try { localStorage.setItem('nb_uinfo', JSON.stringify({ id: user.id, name: displayName, avatar: avatarUrl })); } catch(e) {}
-    // 只有資料不同才更新 DOM
-    const set = (id, val, isSrc) => {
-        const el = document.getElementById(id);
-        if (el) el[isSrc ? 'src' : 'textContent'] = val;
-    };
-    if (displayName !== curName) { set('userName', displayName, false); set('userNameMobile', displayName, false); }
-    if (avatarUrl && !curAvatar.includes(encodeURIComponent(displayName.split('')[0])) && curAvatar !== avatarUrl) { set('userAvatar', avatarUrl, true); set('userAvatarMobile', avatarUrl, true); }
+    if (displayName !== curName) {
+        if (desktopBtn) desktopBtn.title = displayName;
+        if (mobileBtn) mobileBtn.title = displayName;
+    }
+    if (avatarUrl && !curAvatar.includes(encodeURIComponent(displayName.split('')[0])) && curAvatar !== avatarUrl) {
+        var av = document.getElementById('userAvatar');
+        var avM = document.getElementById('userAvatarMobile');
+        if (av) av.src = avatarUrl;
+        if (avM) avM.src = avatarUrl;
+    }
 }
 
 async function handleLogout(event) {

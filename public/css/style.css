@@ -530,13 +530,20 @@ body {
     border-right: none;
 }
 
-/* ===== Navbar：authSection 固定寬度，防止任何狀態切換時跳動 ===== */
+/* ===== Navbar：authSection 緊貼頭像，減少右側空白 ===== */
 @media (min-width: 992px) {
     #site-header #authSection {
-        width: 160px;
-        min-width: 160px;
-        max-width: 160px;
+        width: auto;
+        min-width: auto;
+        max-width: none;
         justify-content: flex-end;
+        padding-left: 0.5rem;
+        padding-right: 0;
+    }
+    /* 個人選單右緣對齊頭像 */
+    #site-header #authSection .dropdown-menu {
+        left: auto;
+        right: 0;
     }
 }
 
