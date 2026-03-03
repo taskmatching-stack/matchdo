@@ -187,7 +187,7 @@ async function renderHeader(headerContainer, user, config) {
                         </div>
                     </div>
                     <div class="nav-item dropdown nav-has-hover">
-                        <a href="${remakeUrl}" class="nav-link${remakeActive}" style="display:inline-flex;align-items:center;">` + (t('nav.remake') || '再製方案') + `<span class="nav-hover-caret">▾</span></a>
+                        <a href="${remakeUrl}" class="nav-link${remakeActive}" style="display:inline-flex;align-items:center;">` + (t('nav.remake') || '再製方案') + `<span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem;font-weight:500;" title="` + (t('remake.badgeTesting') || '測試中') + `">` + (t('remake.badgeTesting') || '測試中') + `</span><span class="nav-hover-caret">▾</span></a>
                         <div class="dropdown-menu nav-hover-menu">
                             <a href="/remake-product.html" class="dropdown-item"><i class="bi bi-tools"></i>建立再製設計</a>
                             <a href="/client/find-makers.html" class="dropdown-item"><i class="bi bi-shop"></i>找製作方</a>
