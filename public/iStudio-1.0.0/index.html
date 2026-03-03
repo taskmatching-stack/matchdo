@@ -186,6 +186,7 @@
                 <div id="media-wall-grid">
                     <!-- 由 JS 載入 /api/media-wall -->
                 </div>
+                <div id="media-wall-sentinel" style="height:1px;pointer-events:none;" aria-hidden="true"></div>
             </div>
             <div id="media-wall-empty" class="text-center text-muted py-5 d-none"><span data-i18n="home.emptyPrefix">目前尚無作品展示，歡迎來</span> <a href="/custom/" data-i18n="home.emptyLink">客製產品</a> <span data-i18n="home.emptySuffix">創作。</span></div>
             <div id="media-wall-loading" class="text-center py-4" data-i18n="home.loading">載入中...</div>
@@ -615,7 +616,8 @@
             /* ═══ 結束 我的最愛 ═══ */
             var currentPage = 1;
             var currentQ = '';
-            var perPage = 20;
+            var perPage = 48;
+            var isLoading = false;
             function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
             function escAttr(s) { return (s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
             function renderOne(p, opts) {
@@ -838,6 +840,8 @@
             }
             function loadMediaWall(page, q, append, opts) {
                 opts = opts || adminOpts;
+                if (isLoading) return;
+                isLoading = true;
                 if (!append) { grid.innerHTML = ''; loading.classList.remove('d-none'); empty.classList.add('d-none'); }
                 var url = buildMediaWallUrl(page, q);
                 fetch(url).then(function (r) { return r.json(); }).then(function (data) {
@@ -851,11 +855,11 @@
                     currentPage = page;
                     currentQ = q;
                     renderFavSection();
-                    if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', items.length < perPage);
+                    if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', page < 2 || items.length < perPage);
                 }).catch(function () {
                     loading.classList.add('d-none');
                     if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '無法載入作品牆，請稍後再試。'; }
-                });
+                }).finally(function () { isLoading = false; });
             }
             function runFilterMain(key) {
                 currentCategoryKey = key || '';
@@ -972,6 +976,15 @@
                 searchInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); loadMediaWall(1, searchInput.value.trim(), false, adminOpts); } });
             }
             if (loadMoreBtn) loadMoreBtn.addEventListener('click', function () { loadMediaWall(currentPage + 1, currentQ, true, adminOpts); });
+            var sentinel = document.getElementById('media-wall-sentinel');
+            if (sentinel && typeof IntersectionObserver !== 'undefined') {
+                var io = new IntersectionObserver(function (entries) {
+                    if (!entries[0] || !entries[0].isIntersecting) return;
+                    if (showingFavoritesOnly || isLoading || currentPage !== 1) return;
+                    loadMediaWall(2, currentQ, true, adminOpts);
+                }, { root: null, rootMargin: '0px', threshold: 0 });
+                io.observe(sentinel);
+            }
             grid.addEventListener('click', function (e) {
                 var a = e.target.closest('a.media-wall-card-link');
                 if (!a) return;
