@@ -158,13 +158,7 @@
         </div>
     </div>
 
-    <!-- 連結主站服務媒合（ENABLE_SERVICE_MATCHING=false 時由 JS 隱藏） -->
-    <div class="container pb-5" id="service-matching-cta">
-        <div class="text-center">
-            <p class="text-muted mb-2" data-i18n="customHome.ctaText">需要發包工程、找施工專家？</p>
-            <a href="/index.html#ai-estimate" class="btn btn-outline-secondary" data-i18n="customHome.ctaBtn">前往服務媒合首頁</a>
-        </div>
-    </div>
+    <!-- 服務媒合已停用，不再顯示 CTA（見 matchdo-todo.md §1 暫時停用服務媒合） -->
 
     <div id="site-footer"></div>
     <a href="#!" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
@@ -179,12 +173,6 @@
     <script>
         (function () {
             if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }
-            fetch('/api/public-config').then(function (r) { return r.json(); }).then(function (c) {
-                if (c.enableServiceMatching === false) {
-                    var el = document.getElementById('service-matching-cta');
-                    if (el) el.classList.add('d-none');
-                }
-            }).catch(function () {});
         })();
     </script>
 </body>
