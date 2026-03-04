@@ -5854,7 +5854,7 @@ app.get('/api/media-wall', async (req, res) => {
         // 廠商對比：有分類篩選時只回傳該分類的對比圖，無篩選時回傳 show_on_media_wall 的項目（需 category_key 欄位請執行 docs/add-manufacturer-portfolio-category-fields.sql）
         let compRows = [];
         if (!layoutOnly || layoutOnly === 'comparison') {
-        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until';
+        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until, series_image_urls';
         if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
             let compQuery = supabase
                 .from('manufacturer_portfolio')
@@ -5879,7 +5879,7 @@ app.get('/api/media-wall', async (req, res) => {
             if (compRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(compRes.error.message || compRes.error.code)) {
                 const fallback = await supabase
                     .from('manufacturer_portfolio')
-                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, series_image_valid_until, before_image_valid_until')
+                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, series_image_valid_until, before_image_valid_until, series_image_urls')
                     .order('created_at', { ascending: false })
                     .range(offset, offset + nComparisonLimit - 1);
                 compRows = fallback.data || [];
@@ -5904,23 +5904,28 @@ app.get('/api/media-wall', async (req, res) => {
                 const beforeExpired = p.before_image_valid_until && p.before_image_valid_until < nowIso;
                 const imageUrl = seriesExpired ? null : (p.image_url || null);
                 const imageUrlBefore = beforeExpired ? null : (p.image_url_before || null);
+                const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
+                // 有 image_url_before 才是對照圖（設計圖+作品圖）；否則為系列圖（多張或單張）
+                const itemType = imageUrlBefore ? 'comparison' : 'series';
                 const mfrUserId = compMfrMap[p.manufacturer_id] || null;
-                out.push({
-                    type: 'comparison',
+                const payload = {
+                    type: itemType,
                     size: '1x1',
                     id: p.id,
                     manufacturer_id: p.manufacturer_id,
                     manufacturer_user_id: mfrUserId,
                     title: p.title || '廠商作品',
                     image_url: imageUrl,
-                    image_url_before: imageUrlBefore,
                     design_highlight: p.design_highlight || null,
                     tags: Array.isArray(p.tags) ? p.tags : [],
                     description: p.description || null,
                     category_key: p.category_key || null,
                     subcategory_key: p.subcategory_key || null,
                     link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html'
-                });
+                };
+                if (itemType === 'comparison') payload.image_url_before = imageUrlBefore;
+                if (itemType === 'series' && seriesUrls.length) payload.series_image_urls = seriesUrls;
+                out.push(payload);
             });
         }
         // 沒有對比圖時不顯示對比（不塞 demo），每種類型都要有分類
@@ -6019,7 +6024,7 @@ app.patch('/api/admin/media-wall-item', express.json(), async (req, res) => {
                 if (/column.*show_on_homepage/i.test(error.message)) return res.status(503).json({ error: '請先執行 docs/add-custom-products-show-on-homepage.sql' });
                 return res.status(500).json({ error: error.message });
             }
-        } else if (tid === 'comparison') {
+        } else if (tid === 'comparison' || tid === 'series') {
             const { error } = await supabase.from('manufacturer_portfolio').update({ show_on_media_wall: show }).eq('id', id);
             if (error) {
                 if (/column.*show_on_media_wall/i.test(error.message)) return res.status(503).json({ error: '請先執行媒體牆說明文件中 manufacturer_portfolio.show_on_media_wall 的 SQL' });
@@ -6029,7 +6034,7 @@ app.patch('/api/admin/media-wall-item', express.json(), async (req, res) => {
             const { error } = await supabase.from('media_collections').update({ is_active: show }).eq('id', id);
             if (error) return res.status(500).json({ error: error.message });
         } else {
-            return res.status(400).json({ error: 'type 須為 user_design、comparison 或 collection' });
+            return res.status(400).json({ error: 'type 須為 user_design、comparison、series 或 collection' });
         }
         res.json({ success: true, show });
     } catch (e) {
@@ -6046,7 +6051,7 @@ app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
         const type = (req.body && req.body.type) || req.query.type;
         const id = (req.body && req.body.id) || req.query.id;
         if (!type || !id) {
-            return res.status(400).json({ error: '請提供 type（user_design|comparison|collection）與 id' });
+            return res.status(400).json({ error: '請提供 type（user_design|comparison|series|collection）與 id' });
         }
         const tid = String(type).toLowerCase();
         if (tid === 'user_design') {
@@ -6054,7 +6059,7 @@ app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
             if (error) return res.status(500).json({ error: error.message });
             return res.json({ success: true, deleted: true });
         }
-        if (tid === 'comparison') {
+        if (tid === 'comparison' || tid === 'series') {
             const { error } = await supabase.from('manufacturer_portfolio').update({ show_on_media_wall: false }).eq('id', id);
             if (error) return res.status(500).json({ error: error.message });
             return res.json({ success: true, deleted: false, hidden: true });
@@ -6064,7 +6069,7 @@ app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
             if (error) return res.status(500).json({ error: error.message });
             return res.json({ success: true, deleted: false, hidden: true });
         }
-        return res.status(400).json({ error: 'type 須為 user_design、comparison 或 collection' });
+        return res.status(400).json({ error: 'type 須為 user_design、comparison、series 或 collection' });
     } catch (e) {
         console.error('DELETE /api/admin/media-wall-item 異常:', e);
         if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
@@ -7368,7 +7373,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
 
 // GET /api/manufacturer-portfolio — 廠商作品圖列表（圖庫找廠商、從圖庫選擇、純文字搜廠商圖）
 // Query: manufacturer_id（單一廠商）, category（依廠商分類篩選）, keyword / q（搜尋 title、tags）
-const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls';
+const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall';
 const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at';
 
 app.get('/api/manufacturer-portfolio', async (req, res) => {
@@ -7450,7 +7455,8 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
                 sort_order: p.sort_order,
                 category_key: p.category_key || null,
                 subcategory_key: p.subcategory_key || null,
-                category_type: p.category_type || null
+                category_type: p.category_type || null,
+                show_on_media_wall: p.show_on_media_wall !== false
             };
         });
 
@@ -7471,7 +7477,7 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         if (!user) return;
         const manufacturerId = req.params.id;
         const body = req.body || {};
-        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType } = body;
+        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall } = body;
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
         const categoryKey = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
         const subcategoryKey = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
@@ -7552,7 +7558,7 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
             category_key: categoryKey,
             subcategory_key: subcategoryKey,
             category_type: categoryType,
-            show_on_media_wall: true
+            show_on_media_wall: bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0
         };
         if (mainFiles.length > 0 && !canUploadSeriesFree) insertPayload.series_image_valid_until = oneMonthFromNow;
         if (seriesImageUrls.length > 0) insertPayload.series_image_urls = seriesImageUrls;
@@ -7582,7 +7588,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (!user) return;
         const { manufacturerId, portfolioId } = req.params;
         const body = req.body || {};
-        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType } = body;
+        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall } = body;
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
 
         const files = req.files || {};
@@ -7629,6 +7635,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (bodyCategoryKey !== undefined) updates.category_key = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
         if (bodySubcategoryKey !== undefined) updates.subcategory_key = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
         if (bodyCategoryType !== undefined) updates.category_type = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
+        if (bodyShowOnMediaWall !== undefined) updates.show_on_media_wall = (bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0);
 
         if (mainFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, mainFile);

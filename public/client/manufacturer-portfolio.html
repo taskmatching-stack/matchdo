@@ -64,28 +64,46 @@
                 <div class="card-body">
                     <form id="add-form" enctype="multipart/form-data">
                         <div class="row g-3">
-                            <div class="col-12"><div class="section-title" data-i18n="portfolio.seriesSection">系列圖</div></div>
-                            <div class="col-md-6" id="add-series-block">
-                                <label class="form-label fw-semibold" for="add-image" data-i18n="portfolio.seriesImages">系列圖（可多張）</label>
-                                <input type="file" class="form-control" id="add-image" accept="image/*" multiple>
-                                <div class="text-muted small mt-1" id="add-series-hint">建議比例 1:1，JPEG/PNG/WEBP，總容量 5MB。1800／測試員或付 600 點可上傳（付點數可顯示一個月）。</div>
-                                <div id="add-image-preview" class="mt-2 d-flex flex-wrap gap-2"></div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.uploadTypeLabel">上傳類型</label>
+                                <div class="d-flex gap-4 flex-wrap">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="add-upload-mode" id="add-mode-series" value="series" checked>
+                                        <label class="form-check-label" for="add-mode-series" data-i18n="portfolio.uploadTypeSeries">系列圖（可多張）</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="add-upload-mode" id="add-mode-comparison" value="comparison">
+                                        <label class="form-check-label" for="add-mode-comparison" data-i18n="portfolio.uploadTypeComparison">對照圖（設計圖＋作品圖）</label>
+                                    </div>
+                                </div>
+                                <p class="text-muted small mt-1 mb-0" data-i18n="portfolio.uploadTypeHint">一次只能上傳一種類型，請先選擇上方類型再選檔案。</p>
                             </div>
-                            <div class="col-12"><hr class="my-2"><div class="section-title" data-i18n="portfolio.comparisonImages">對照圖（設計圖／作品圖）</div></div>
-                            <div class="col-12"><p class="text-muted small mb-2" data-i18n="portfolio.comparisonOneEach">設計圖、作品圖各一張。</p></div>
-                            <!-- 設計圖：固定顯示 -->
-                            <div class="col-md-6" id="add-before-block">
-                                <label class="form-label fw-semibold" id="add-before-label" data-i18n="portfolio.beforeOptional">設計圖（可選）</label>
-                                <input type="file" class="form-control" id="add-image-before" accept="image/*">
-                                <div class="text-muted small mt-1" id="add-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
-                                <div id="add-image-before-preview" class="mt-2"></div>
+                            <div id="add-mode-series-block" class="col-12">
+                                <div class="section-title" data-i18n="portfolio.seriesSection">系列圖</div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold" for="add-image" data-i18n="portfolio.seriesImages">系列圖（可多張）</label>
+                                    <input type="file" class="form-control" id="add-image" accept="image/*" multiple>
+                                    <div class="text-muted small mt-1" id="add-series-hint">建議比例 1:1，JPEG/PNG/WEBP，總容量 5MB。1800／測試員或付 600 點可上傳（付點數可顯示一個月）。</div>
+                                    <div id="add-image-preview" class="mt-2 d-flex flex-wrap gap-2"></div>
+                                </div>
                             </div>
-                            <!-- 作品圖：獨立一欄，絕不隱藏 -->
-                            <div class="col-md-6 d-block" id="add-after-block" style="display: block !important;">
-                                <label class="form-label fw-semibold" id="add-after-label" for="add-image-after"><span id="add-after-label-text" data-i18n="portfolio.afterLabel">作品圖</span><span id="add-after-marker" class="text-danger">*</span></label>
-                                <input type="file" class="form-control" id="add-image-after" accept="image/*" aria-describedby="add-after-hint">
-                                <div class="text-muted small mt-1" id="add-after-hint" data-i18n="portfolio.afterHint">對照圖的「作品圖」（完成／實品）。</div>
-                                <div id="add-image-after-preview" class="mt-2"></div>
+                            <div id="add-mode-comparison-block" class="col-12 d-none">
+                                <div class="section-title" data-i18n="portfolio.comparisonImages">對照圖（設計圖／作品圖）</div>
+                                <p class="text-muted small mb-2" data-i18n="portfolio.comparisonOneEach">設計圖、作品圖各一張。</p>
+                                <div class="row g-3">
+                                    <div class="col-md-6" id="add-before-block">
+                                        <label class="form-label fw-semibold" id="add-before-label" data-i18n="portfolio.beforeOptional">設計圖（可選）</label>
+                                        <input type="file" class="form-control" id="add-image-before" accept="image/*">
+                                        <div class="text-muted small mt-1" id="add-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
+                                        <div id="add-image-before-preview" class="mt-2"></div>
+                                    </div>
+                                    <div class="col-md-6" id="add-after-block">
+                                        <label class="form-label fw-semibold" id="add-after-label" for="add-image-after"><span id="add-after-label-text" data-i18n="portfolio.afterLabel">作品圖</span><span id="add-after-marker" class="text-danger">*</span></label>
+                                        <input type="file" class="form-control" id="add-image-after" accept="image/*" aria-describedby="add-after-hint">
+                                        <div class="text-muted small mt-1" id="add-after-hint" data-i18n="portfolio.afterHint">對照圖的「作品圖」（完成／實品）。</div>
+                                        <div id="add-image-after-preview" class="mt-2"></div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.workName">作品名稱</label>
@@ -127,6 +145,13 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="add-tags" data-i18n-placeholder="portfolio.tagsPlaceholder" placeholder="例：皮革, 手工, 訂製">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="add-show-on-media-wall" checked>
+                                    <label class="form-check-label" for="add-show-on-media-wall" data-i18n="portfolio.publicLabel">公開</label>
+                                </div>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.publicHint">不勾選則僅自己與廠商頁可見，訪客靈感牆不顯示。</p>
                             </div>
                         </div>
                         <div class="d-flex justify-content-end gap-2 mt-3">
@@ -214,6 +239,13 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="edit-tags">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="edit-show-on-media-wall">
+                                    <label class="form-check-label" for="edit-show-on-media-wall" data-i18n="portfolio.publicLabel">公開</label>
+                                </div>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.publicHint">不勾選則僅自己與廠商頁可見，訪客靈感牆不顯示。</p>
                             </div>
                         </div>
                     </form>
@@ -467,11 +499,14 @@
             }
             var unnamed = tr('portfolio.unnamed');
             var editLabel = tr('portfolio.edit');
+            var publicLabel = tr('portfolio.publicBadge');
+            var privateLabel = tr('portfolio.privateBadge');
             grid.innerHTML = portfolioItems.map(function (p) {
+                var pubBadge = (p.show_on_media_wall !== false) ? ('<span class="badge bg-success me-1">' + publicLabel + '</span>') : ('<span class="badge bg-secondary me-1">' + privateLabel + '</span>');
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="portfolio-card h-100">' +
                     (p.image_url ? '<img src="' + esc(p.image_url) + '" class="portfolio-img" loading="lazy" alt="' + esc(p.title || '') + '">' : '<div class="portfolio-img-placeholder"><i class="bi bi-image"></i></div>') +
                     '<div class="p-3">' +
-                    '<div class="fw-semibold text-truncate mb-1">' + esc(p.title || unnamed) + '</div>' +
+                    '<div class="fw-semibold text-truncate mb-1">' + pubBadge + esc(p.title || unnamed) + '</div>' +
                     (p.design_highlight ? '<div class="text-muted small text-truncate mb-2">' + esc(p.design_highlight) + '</div>' : '') +
                     ((p.tags || []).length ? '<div class="mb-2">' + p.tags.slice(0,3).map(function(t){ return '<span class="badge bg-light text-secondary border me-1">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
                     '<div class="d-flex gap-2 mt-2">' +
@@ -534,6 +569,32 @@
                 });
             });
 
+            // 上傳類型切換：一次只能一種，切換時隱藏另一區並清空其檔案
+            function addUploadMode() {
+                var r = document.querySelector('input[name="add-upload-mode"]:checked');
+                return (r && r.value) || 'series';
+            }
+            function setAddUploadModeBlocks() {
+                var mode = addUploadMode();
+                var seriesBlock = document.getElementById('add-mode-series-block');
+                var comparisonBlock = document.getElementById('add-mode-comparison-block');
+                if (seriesBlock) seriesBlock.classList.toggle('d-none', mode !== 'series');
+                if (comparisonBlock) comparisonBlock.classList.toggle('d-none', mode !== 'comparison');
+                if (mode === 'series') {
+                    document.getElementById('add-image-before').value = '';
+                    document.getElementById('add-image-after').value = '';
+                    document.getElementById('add-image-before-preview').innerHTML = '';
+                    document.getElementById('add-image-after-preview').innerHTML = '';
+                } else {
+                    document.getElementById('add-image').value = '';
+                    document.getElementById('add-image-preview').innerHTML = '';
+                }
+            }
+            document.querySelectorAll('input[name="add-upload-mode"]').forEach(function (radio) {
+                radio.addEventListener('change', setAddUploadModeBlocks);
+            });
+            setAddUploadModeBlocks();
+
             // Image preview helpers
             function makePreview(inputId, previewId) {
                 document.getElementById(inputId).addEventListener('change', function () {
@@ -563,23 +624,24 @@
                 var btn = document.getElementById('btn-add-submit');
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
+                    var mode = addUploadMode();
                     var fd = new FormData();
-                    var mainFile, beforeFile;
                     var addImageInput = document.getElementById('add-image');
                     var afterFile = document.getElementById('add-image-after').files[0];
-                    beforeFile = document.getElementById('add-image-before').files[0];
-                    var hasSeries = addImageInput.files.length > 0;
-                    var hasBeforeAfter = !!(beforeFile && afterFile);
-                    if (hasSeries) {
+                    var beforeFile = document.getElementById('add-image-before').files[0];
+                    if (mode === 'series') {
+                        if (!addImageInput.files.length) {
+                            showToast(tr('portfolio.addSeriesRequired'), 'warning');
+                            btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
+                        }
                         for (var i = 0; i < addImageInput.files.length; i++) fd.append('image', addImageInput.files[i]);
-                        if (beforeFile) fd.append('image_before', beforeFile);
-                    } else if (hasBeforeAfter) {
-                        // 對照圖＝一筆：設計圖、作品圖一起送，後端存成同一筆（image_url=作品圖, image_url_before=設計圖）
+                    } else {
+                        if (!beforeFile || !afterFile) {
+                            showToast(tr('portfolio.addBeforeAfterRequired'), 'warning');
+                            btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
+                        }
                         fd.append('image', afterFile);
                         fd.append('image_before', beforeFile);
-                    } else {
-                        showToast(tr('portfolio.addSeriesOrBeforeAfterRequired'), 'warning');
-                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
                     }
                     fd.append('title', document.getElementById('add-title').value.trim());
                     fd.append('design_highlight', document.getElementById('add-highlight').value.trim());
@@ -589,11 +651,14 @@
                     fd.append('subcategory_key', document.getElementById('add-subcategory').value);
                     var addType = addCategoryType();
                     fd.append('category_type', (addType && addType.value) || 'custom');
+                    fd.append('show_on_media_wall', document.getElementById('add-show-on-media-wall').checked ? 'true' : 'false');
                     const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.addFailed'));
                     showToast(tr('portfolio.added'));
                     document.getElementById('add-form').reset();
+                    document.getElementById('add-mode-series').checked = true;
+                    setAddUploadModeBlocks();
                     document.getElementById('add-type-custom').checked = true;
                     document.getElementById('add-type-remake').checked = false;
                     fillMainCategorySelect('add-category', 'custom');
@@ -628,6 +693,7 @@
                     fd.append('subcategory_key', document.getElementById('edit-subcategory').value);
                     var editType = editCategoryType();
                     fd.append('category_type', (editType && editType.value) || 'custom');
+                    fd.append('show_on_media_wall', document.getElementById('edit-show-on-media-wall').checked ? 'true' : 'false');
                     const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.updateFailed'));
@@ -659,6 +725,7 @@
             document.getElementById('edit-title').value = p.title || '';
             document.getElementById('edit-highlight').value = p.design_highlight || '';
             document.getElementById('edit-desc').value = p.description || '';
+            document.getElementById('edit-show-on-media-wall').checked = p.show_on_media_wall !== false;
             document.getElementById('edit-tags').value = (p.tags || []).join(', ');
             var catType = (p.category_type === 'remake') ? 'remake' : 'custom';
             document.getElementById('edit-type-custom').checked = (catType === 'custom');
