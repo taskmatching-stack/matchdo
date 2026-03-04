@@ -264,6 +264,8 @@
         var deleteTargetId = null;
         var editModal = null;
         var deleteModal = null;
+        var initDone = false;
+        var initInProgress = false;
 
         function tr(key) {
             if (window.i18n && typeof window.i18n.t === 'function') {
@@ -292,6 +294,10 @@
         }
 
         async function init() {
+            if (initDone) return;
+            if (initInProgress) return;
+            initInProgress = true;
+            try {
             // 先等 i18n 載入再套用頁面語系，確保 data-i18n 與 t() 都用到正確語系
             await (window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve());
             if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
@@ -329,8 +335,12 @@
                 await loadCategories();
                 await loadPortfolio();
                 bindEvents();
+                initDone = true;
             } catch (e) {
                 showToast(e.message, 'danger');
+            }
+            } finally {
+                initInProgress = false;
             }
         }
 
