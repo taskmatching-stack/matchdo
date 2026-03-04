@@ -5773,16 +5773,14 @@ app.patch('/api/custom-products/:id/manufacturing', express.json(), async (req, 
     }
 });
 
-// GET /api/media-wall - 首頁媒體牆三類型混合（50% 用戶設計 : 30% 廠商對比 : 20% 資料夾）
+// GET /api/media-wall - 首頁媒體牆三類型混合（不設比例，每類型各取 perPage）
+// 「一頁」= 一次請求回傳的筆數：由 query per_page（預設 48，上限 100）與 page（第 1 頁為最新）決定；前端「載入更多」即請求 page=2,3…
 // 回傳單一陣列，每筆含 type('user_design'|'comparison'|'collection'), size('1x1'|'2x2'), 與對應欄位
-// ?per_page=20&page=1&q=關鍵字&category_key=主分類&subcategory_key=子分類（篩選用戶設計）
+// ?per_page=48&page=1&q=關鍵字&category_key=主分類&subcategory_key=子分類（篩選用戶設計）
 app.get('/api/media-wall', async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const perPage = Math.min(50, Math.max(10, parseInt(req.query.per_page, 10) || 20));
+    const perPage = Math.min(100, Math.max(10, parseInt(req.query.per_page, 10) || 48));
     const offset = (page - 1) * perPage;
-    const nUser = Math.round(perPage * 0.5);
-    const nComparison = Math.round(perPage * 0.3);
-    const nCollection = Math.max(0, Math.floor((perPage - nUser - nComparison) / 2)); // 每張資料夾佔 2 格(1x2)
     const searchQ = (req.query.q && String(req.query.q).trim()) || '';
     const filterCategoryKey = (req.query.category_key && String(req.query.category_key).trim()) || '';
     const filterSubcategoryKey = (req.query.subcategory_key && String(req.query.subcategory_key).trim()) || '';
@@ -5791,10 +5789,11 @@ app.get('/api/media-wall', async (req, res) => {
 
     const out = [];
     const hasCategoryFilter = !!(filterCategoryKey || filterSubcategoryKey);
-    const nUserLimit = layoutOnly === 'user_design' ? perPage : nUser;
-    const nComparisonLimit = layoutOnly === 'comparison' ? perPage : (layoutOnly === null ? Math.min(perPage, Math.max(nComparison * 2, 20)) : nComparison);
+    const nUserLimit = (layoutOnly === 'user_design' || layoutOnly === null) ? perPage : 0;
+    const nComparisonLimit = (layoutOnly === 'comparison' || layoutOnly === null) ? perPage : 0;
     const nSeriesLimit = (layoutOnly === 'series' || layoutOnly === 'collection') ? perPage : 0;
-    const nCollectionLimit = (layoutOnly === 'series' || layoutOnly === 'collection') ? Math.min(perPage, Math.max(1, Math.floor(perPage / 2))) : (layoutOnly === null ? nCollection : 0);
+    // 混合模式時 1x2 只取少數，避免壓過 1x1；篩選「系列／資料夾」時才取滿一頁
+    const nCollectionLimit = (layoutOnly === 'series' || layoutOnly === 'collection') ? Math.max(1, Math.floor(perPage / 2)) : (layoutOnly === null ? 6 : 0);
 
     try {
         {
@@ -5934,9 +5933,9 @@ app.get('/api/media-wall', async (req, res) => {
             const nowIso = new Date().toISOString();
             compRows.forEach(p => {
                 const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
-                const beforeExpired = p.before_image_valid_until && p.before_image_valid_until < nowIso;
                 const imageUrl = seriesExpired ? null : (p.image_url || null);
-                const imageUrlBefore = beforeExpired ? null : (p.image_url_before || null);
+                // 舊圖（設計圖）一律回傳，不因 before_image_valid_until 過期而隱藏，否則首頁對照圖左半不顯示
+                const imageUrlBefore = (p.image_url_before || null);
                 const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
                 // 有 image_url_before 才是對照圖（設計圖+作品圖）；否則為系列圖（多張或單張）
                 const itemType = imageUrlBefore ? 'comparison' : 'series';
@@ -6032,7 +6031,6 @@ app.get('/api/media-wall', async (req, res) => {
                 const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
                 const imageUrl = seriesExpired ? null : (p.image_url || null);
                 const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
-                if (!seriesUrls.length) return;
                 const mfrUserId = seriesMfrMap[p.manufacturer_id] || null;
                 out.push({
                     type: 'series',
@@ -6099,11 +6097,10 @@ app.get('/api/media-wall', async (req, res) => {
                 .eq('is_active', true);
             (collMfrs || []).forEach(m => { collMfrMap[m.id] = m.user_id || null; });
         }
-        // 資料夾與系列圖整合為同一種：皆以 type=series、series_image_urls 回傳，前端同一套顯示；無圖的資料夾不顯示
+        // 資料夾與系列圖整合為同一種：皆以 type=series、series_image_urls 回傳，前端同一套顯示（無圖時前端顯示佔位）
         collRows.forEach(p => {
             const cover = p.cover_image_url || null;
             const imageUrls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0) ? p.image_urls : (cover ? [cover] : []);
-            if (!imageUrls.length) return;
             const mfrId = p.manufacturer_id || null;
             const mfrUserId = collMfrMap[mfrId] || null;
             out.push({

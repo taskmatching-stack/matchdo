@@ -138,6 +138,8 @@
                     #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
                 }
                 #media-wall-grid .card { border: none; border-radius: 8px; overflow: hidden; box-shadow: none; height: 100%; display: flex; flex-direction: column; background: transparent; }
+                #media-wall-grid .media-wall-1x2 .card,
+                #media-wall-grid .media-wall-comparison .card { border: 2px solid #445D7E; box-shadow: 0 2px 8px rgba(68,93,126,.35); }
                 #media-wall-grid .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
                 #media-wall-grid .card .media-wall-card-link { display: flex; flex-direction: column; flex: 1; min-height: 0; text-decoration: none; color: inherit; }
                 #media-wall-grid .card .card-img-wrap { width: 100%; flex: 1; min-height: 0; background: #f0f0f0; position: relative; }
@@ -981,12 +983,29 @@
                     var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
                     var collections = items.filter(is1x2);
                     var ones = items.filter(function (p) { return !is1x2(p); });
-                    var displayOrder = collections.concat(ones);
+                    var comparisons = ones.filter(function (p) { return (p.type || '') === 'comparison'; });
+                    var designs = ones.filter(function (p) { return (p.type || '') === 'user_design'; });
+                    var max1x2Total = 8;
+                    collections = collections.slice(0, max1x2Total);
+                    var maxDesignPerBlock = 11;
+                    var displayOrder = [];
+                    var i1x2 = 0, iComp = 0, iDesign = 0;
+                    while (i1x2 < collections.length || iComp < comparisons.length || iDesign < designs.length) {
+                        if (i1x2 < collections.length) displayOrder.push(collections[i1x2++]);
+                        if (iComp < comparisons.length) displayOrder.push(comparisons[iComp++]);
+                        for (var k = 0; k < maxDesignPerBlock && iDesign < designs.length; k++) displayOrder.push(designs[iDesign++]);
+                    }
                     displayOrder.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
                     if (!currentLayoutType) {
                         var twoRows = grid.querySelectorAll('.media-wall-1x2');
                         for (var i = 0; i < twoRows.length; i++) {
-                            if (i <= 5) twoRows[i].classList.add('media-wall-1x2-pos' + i);
+                            if (i <= 5) {
+                                twoRows[i].classList.add('media-wall-1x2-pos' + i);
+                            } else {
+                                var rowStart = 13 + Math.floor((i - 6) / 2) * 2;
+                                twoRows[i].style.gridColumn = (i - 6) % 2 === 0 ? '1' : '-2 / -1';
+                                twoRows[i].style.gridRow = rowStart + ' / ' + (rowStart + 2);
+                            }
                         }
                         var comps = grid.querySelectorAll('.media-wall-comparison');
                         for (var i = 0; i < comps.length; i++) {
