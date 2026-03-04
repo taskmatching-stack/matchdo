@@ -646,6 +646,24 @@ body {
     background: #ffffff;
     box-sizing: border-box;
 }
+/* 第二排：只放點數；Logo 用負 margin 疊在選單圖層上，不佔第二排高度（照第一排寫法） */
+#site-header .nav-second-row-wrap {
+    background: #fff;
+    box-sizing: border-box;
+    min-height: 0;
+}
+/* Logo 疊在選單圖層上：負 margin 往上，置中，不推擠第一排 */
+#site-header .nav-second-row-wrap .navbar-brand {
+    order: 0 !important;
+    margin: -39px auto 0 !important;
+    border: none !important;
+}
+#site-header .nav-second-row-wrap .navbar-brand img {
+    height: 78px !important;
+    background: #fff;
+    padding: 4px 12px;
+    border-radius: 4px;
+}
 #site-header .nav-points-desktop {
     font-size: 0.95rem;
     color: #6c757d;
@@ -699,10 +717,14 @@ body {
 /* ===== Navbar：桌機 Logo 置中蓋住選單（全站共用）；選單列左右保留 Logo 半寬，永遠不擋 ===== */
 @media (min-width: 992px) {
     #site-header .navbar { flex-wrap: wrap; }
+    /* 已登入時第一排的 Logo 隱藏，只顯示第二排置中的那一個 */
+    #site-header .navbar > .navbar-brand.d-lg-none {
+        display: none !important;
+    }
+    /* 第一排：照原本寫法，不另加高度／padding */
     #site-header .navbar-collapse {
         order: 1; width: 100%; flex-grow: 1;
         border-bottom: 1px solid #dee2e6;
-        /* 左側留約半個 Logo 寬度，選單不進入中央區；右邊不留 */
         padding-left: 110px;
         box-sizing: border-box;
     }

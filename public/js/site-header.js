@@ -42,6 +42,7 @@
             '#site-header .navbar{flex-wrap:wrap;}',
             '#site-header .navbar-collapse{order:1;width:100%;flex-grow:1;border-bottom:1px solid #dee2e6;}',
             '#site-header .navbar-brand{order:2;display:flex!important;border-right:none!important;padding:0;margin:-39px auto 0;position:relative;z-index:5;}',
+            '#site-header .nav-second-row-wrap .navbar-brand{order:0!important;margin:-39px auto 0!important;}',
             '#site-header .navbar-brand img{height:78px!important;background:#fff;padding:4px 12px;border-radius:4px;}',
             '#site-header #authSection{width:auto;min-width:auto;max-width:none;justify-content:flex-end;padding-left:0.5rem;padding-right:0;}',
             '#site-header .nav-avatar-toggle{flex-direction:column;background:transparent!important;border:none;}',
@@ -174,7 +175,7 @@ async function renderHeader(headerContainer, user, config) {
     const navHTML = `
         <!-- Navbar Start -->
         <nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">
-            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5">
+            <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5 ${user ? 'd-lg-none' : ''}">
                 <img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;">
             </a>
             ${user ? `<div id="navPointsMobile" class="d-lg-none nav-points-mobile align-self-center ms-auto me-2"><a href="/credits.html" class="nav-points-link text-decoration-none"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsMobileValue">—</span> 點</a></div>` : ''}
@@ -288,7 +289,7 @@ async function renderHeader(headerContainer, user, config) {
                     `}
                 </div>
             </div>
-            ${user ? `<div class="nav-points-desktop-row d-none d-lg-flex align-items-center justify-content-end px-4 py-1"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits') || '我的點數'}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> 點</a></div>` : ''}
+            ${user ? `<div class="nav-second-row-wrap d-none d-lg-flex align-items-center px-0 py-1" style="order:2;flex:0 0 100%;width:100%;"><div class="nav-second-row-left" style="flex:1;min-width:0;"></div><a href="${brandUrl}" class="navbar-brand d-flex align-items-center px-4" style="flex:0 0 auto;border:none !important;"><img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;"></a><div class="nav-second-row-right d-flex align-items-center justify-content-end px-4" style="flex:1;min-width:0;"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits') || '我的點數'}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> 點</a></div></div>` : ''}
         </nav>
         <div id="nav-mobile-drawer" class="nav-mobile-drawer" aria-hidden="true">
             <div class="nav-mobile-drawer-backdrop"></div>
