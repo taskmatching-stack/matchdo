@@ -96,6 +96,12 @@ const upload = multer({ storage: multer.memoryStorage() });
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 const supabase = createClient(process.env.SUPABASE_URL, SUPABASE_KEY);
 
+// Cloud Run：必須在時限內 listen，故在載入後續路由前先綁定 port
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log('Server running on port', PORT);
+});
+
 async function getTranslationModelName() {
     try {
         const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model').maybeSingle();
@@ -5764,6 +5770,7 @@ app.get('/api/media-wall', async (req, res) => {
     const nCollectionLimit = layoutOnly === 'collection' ? Math.min(perPage, Math.max(1, Math.floor(perPage / 2))) : nCollection;
 
     try {
+        {
         // 主分類篩選時：custom_products.category 可能存「主分類 key」或「子分類 key」（表單只送一個欄位），故需包含該主分類下所有子分類 key
         let categoryKeysToMatch = filterCategoryKey ? [filterCategoryKey] : null;
         if (filterCategoryKey) {
@@ -11312,22 +11319,7 @@ app.post('/api/match/run-split', async (req, res) => {
     }
 });
 
-// 先監聽 PORT（Cloud Run 要求容器在時限內 listen，否則判定啟動失敗）
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log('Server running on port', PORT);
-    const hasStability = !!getStabilityApiKey();
-    console.log('STABILITY_API_KEY loaded:', hasStability ? 'yes' : 'no (erase/upscale/控制區 會回 503)');
-    if (process.env.GEMINI_API_KEY) console.log('Gemini 翻譯模型: 後台可設，預設', GEMINI_MODEL_TRANSLATION_DEFAULT, '| 讀圖/分析:', GEMINI_MODEL_READ_DEFAULT);
-    if (!hasStability) {
-        const stabilityKeys = Object.keys(process.env).filter(k => k.toUpperCase().includes('STABILITY'));
-        console.log('.env 需包含 STABILITY_API_KEY 或 STABILITY_AI_API_KEY。目前含 STABILITY 的變數:', stabilityKeys.length ? stabilityKeys.join(', ') : '(無)');
-        console.log('.env 路徑:', envPath, '存在:', require('fs').existsSync(envPath));
-        console.log('stability-key.txt 會讀取:', path.join(__dirname, 'stability-key.txt'));
-        console.log('>>> 解法：1) 建立 stability-key.txt（只放一行 sk- 開頭金鑰） 2) 或執行: node server.js --stability-key=您的金鑰 <<<');
-    }
-});
-// 背景執行分類／DB 初始化，不阻塞 listen（避免 Cloud Run 啟動逾時）
+// 背景執行分類／DB 初始化（listen 已於檔案前段執行）
 bootstrapCategories().finally(() => {
     ensureAiCategoriesTableAndSeed().catch(err => console.warn('ensureAiCategoriesTableAndSeed:', err && err.message));
 });
