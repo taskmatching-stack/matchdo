@@ -816,6 +816,33 @@
             var currentSubcategoryKey = '';
             var currentLayoutType = '';
 
+            // ── 網址與篩選狀態綁定（SEO／分享／返回） ──
+            function applyStateFromURL() {
+                var p = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
+                var layout = (p.get('layout_type') || '').trim();
+                currentLayoutType = ['user_design', 'comparison', 'collection'].indexOf(layout) >= 0 ? layout : '';
+                currentCategoryKey = (p.get('category_key') || '').trim();
+                currentSubcategoryKey = (p.get('subcategory_key') || '').trim();
+                currentQ = (p.get('q') || '').trim();
+                if (searchInput) searchInput.value = currentQ;
+            }
+            function updateMediaWallURL(overrides) {
+                overrides = overrides || {};
+                var p = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
+                var layout = overrides.layout_type !== undefined ? overrides.layout_type : currentLayoutType;
+                var cat = overrides.category_key !== undefined ? overrides.category_key : currentCategoryKey;
+                var sub = overrides.subcategory_key !== undefined ? overrides.subcategory_key : currentSubcategoryKey;
+                var q = overrides.q !== undefined ? overrides.q : currentQ;
+                if (layout) p.set('layout_type', layout); else p.delete('layout_type');
+                if (cat) p.set('category_key', cat); else p.delete('category_key');
+                if (sub) p.set('subcategory_key', sub); else p.delete('subcategory_key');
+                if (q) p.set('q', q); else p.delete('q');
+                var search = p.toString();
+                var url = (window.location.pathname || '/') + (search ? '?' + search : '') + (window.location.hash || '');
+                if (window.history && window.history.pushState) window.history.pushState(null, '', url);
+            }
+            applyStateFromURL();
+
             // ── 我的收藏 過濾按鈕 ──
             var favFilterBtn = document.getElementById('mw-fav-filter-btn');
             if (favFilterBtn) {
@@ -834,12 +861,13 @@
                 });
             }
 
-            // ── 設計圖 / 對照圖 / 系列圖 過濾（與分類疊加，API 用 layout_type 篩選）
+            // ── 設計圖 / 對照圖 / 系列圖 過濾（與分類疊加，API 用 layout_type 篩選；同步網址）
             document.querySelectorAll('.mw-layout-filter').forEach(function (el) {
                 var type = (el.getAttribute('data-layout-type') || '').trim();
                 el.addEventListener('click', function () {
                     currentLayoutType = type;
                     document.querySelectorAll('.mw-layout-filter').forEach(function (t) { t.classList.toggle('active', (t.getAttribute('data-layout-type') || '').trim() === currentLayoutType); });
+                    updateMediaWallURL();
                     applyLayoutFilterAndReload();
                 });
                 el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
@@ -933,6 +961,7 @@
             function runFilterMain(key) {
                 currentCategoryKey = key || '';
                 currentSubcategoryKey = '';
+                updateMediaWallURL();
                 var subRowEl = document.getElementById('media-wall-filter-sub');
                 if (subRowEl) { subRowEl.classList.add('d-none'); subRowEl.innerHTML = ''; }
                 renderFilterTags();
@@ -940,6 +969,7 @@
             }
             function runFilterSub(subKey) {
                 currentSubcategoryKey = subKey || '';
+                updateMediaWallURL();
                 renderFilterTags();
                 loadMediaWall(1, currentQ, false, adminOpts);
             }
@@ -1038,12 +1068,29 @@
                     if (catJson && catJson.categories && catJson.categories.length) categoriesData = catJson;
                 } catch (e) {}
                 renderFilterTags();
-                loadMediaWall(1, '', false, adminOpts);
+                loadMediaWall(1, currentQ, false, adminOpts);
             })();
             if (searchBtn && searchInput) {
-                searchBtn.addEventListener('click', function () { loadMediaWall(1, searchInput.value.trim(), false, adminOpts); });
-                searchInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); loadMediaWall(1, searchInput.value.trim(), false, adminOpts); } });
+                searchBtn.addEventListener('click', function () {
+                    var q = searchInput.value.trim();
+                    updateMediaWallURL({ q: q });
+                    loadMediaWall(1, q, false, adminOpts);
+                });
+                searchInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        var q = searchInput.value.trim();
+                        updateMediaWallURL({ q: q });
+                        loadMediaWall(1, q, false, adminOpts);
+                    }
+                });
             }
+            window.addEventListener('popstate', function () {
+                applyStateFromURL();
+                document.querySelectorAll('.mw-layout-filter').forEach(function (t) { t.classList.toggle('active', (t.getAttribute('data-layout-type') || '').trim() === currentLayoutType); });
+                renderFilterTags();
+                loadMediaWall(1, currentQ, false, adminOpts);
+            });
             if (loadMoreBtn) loadMoreBtn.addEventListener('click', function () { loadMediaWall(currentPage + 1, currentQ, true, adminOpts); });
             var sentinel = document.getElementById('media-wall-sentinel');
             if (sentinel && typeof IntersectionObserver !== 'undefined') {
