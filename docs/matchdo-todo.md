@@ -4,6 +4,18 @@
 
 ---
 
+## 本次檢查與修復（2026-03-04）
+
+| 項目 | 說明 |
+|------|------|
+| **對照圖篩選 API** | 靈感牆篩選「對照圖」時，`GET /api/media-wall?layout_type=comparison` 改為**查詢時**即過濾：僅查 `image_url_before` 非 null 的廠商作品，沒傳對照圖的項目不會出現在對照圖區（`server.js` 兩處 compQuery + fallback 皆加 `.not('image_url_before', 'is', null)`）。 |
+| **工作進度文件** | 系列圖／對照圖分離與聯絡資訊的**目前進度總覽**已寫入 **`docs/series-vs-comparison-progress.md`**（含規格、已完成項、聯絡資訊 FK 修正方式、待確認項目與關鍵檔案）。 |
+| **系列圖／資料夾整合** | 後端：media_collections 回傳 `type=series`、`series_image_urls`；篩選「系列圖」或「資料夾」皆查廠商 series＋資料夾，並 filter 為 `type===series`。前端：`renderOne` 以 `series`／`collection` 同一分支；`is1x2` 含 series；按鈕「系列圖」`data-layout-type="series"`，`applyStateFromURL` 含 `series`。 |
+| **設計圖僅 AI 生成** | API 回傳前：有 manufacturer_id 且 type 為 user_design 的改為 comparison／series；`layout_type=user_design` 時再 filter 為 `type===user_design` 且無 manufacturer_id。 |
+| **聯絡資訊儲存失敗** | 在 Supabase SQL Editor 執行 **`docs/fix-contact-info-fk-to-auth-users.sql`** 後即可正常儲存。 |
+
+---
+
 ## 近期完成（2026-03-04 Cloud Run 部署 + 首頁篩選）
 
 | 項目 | 說明 |
@@ -12,6 +24,7 @@
 | **首頁篩選與網址** | 首頁三種 layout_type（設計圖／對照圖／系列圖）按鈕、篩選狀態與 URL 綁定（`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`）；載入時從 URL 還原、popstate 支援返回。 |
 | **Sitemap** | 首頁「全部 + 三種類型 + 中英文」與動態 `sitemap-categories.xml` 已加入；見 `docs/SEO-PROGRESS.md`、`docs/sitemap.md`。 |
 | **部署方式** | 僅 **Google Cloud Shell**（見 `.cursor/rules/deployment.mdc`）；指令用 `git fetch + reset --hard` 再 `gcloud run deploy`。 |
+| **系列圖／對照圖分離** | 廠商作品：系列圖（多張 `series_image_urls`、無 `image_url_before`）與對照圖（設計圖＋作品圖）完全分開；上傳類型單選、編輯依類型顯示區塊、靈感牆篩選「對照圖」時 API 只回傳有設計圖的項目；防呆不把廠商作品當 user_design。詳見 **`docs/series-vs-comparison-progress.md`**。聯絡資訊儲存失敗可執行 `docs/fix-contact-info-fk-to-auth-users.sql`。 |
 
 ---
 

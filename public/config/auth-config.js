@@ -106,6 +106,26 @@ const AuthService = {
     },
 
     /**
+     * 發送密碼重設信（會寄到該 email，含重設連結）
+     * 若連線逾時會拋錯，避免按鈕一直轉圈。
+     */
+    async resetPasswordForEmail(email) {
+        var redirectTo = window.location.origin + '/login.html';
+        try {
+            var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('連線逾時，請檢查網路或稍後再試')); }, 15000); });
+            var result = await Promise.race([
+                supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: redirectTo }),
+                timeout
+            ]);
+            if (result && result.error) throw result.error;
+            return result;
+        } catch (e) {
+            console.error('重設密碼發送失敗:', e);
+            throw e;
+        }
+    },
+
+    /**
      * 僅清除本地 session（不導向）。用於 token 無效時讓畫面與狀態一致，避免顯示「已登入」卻 API 回 401。
      */
     clearLocalSession() {

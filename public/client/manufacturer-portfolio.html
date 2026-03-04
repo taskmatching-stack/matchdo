@@ -184,9 +184,9 @@
                                 <input type="file" class="form-control" id="edit-image" accept="image/*">
                                 <div class="text-muted small mt-1" id="edit-series-hint">僅 1800 方案可更換。</div>
                                 <div id="edit-image-preview" class="mt-2"></div>
-                                <img id="edit-current-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentSeriesImg" alt="目前系列圖">
+                                <div id="edit-current-series-wrap" class="mt-2 d-flex flex-wrap gap-2 d-none"><!-- 目前系列圖：多張縮圖由 JS 填入 --></div>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-6" id="edit-before-block">
                                 <label class="form-label fw-semibold" id="edit-before-label" data-i18n="portfolio.editBeforeLabel">對照圖 - 設計圖（留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image-before" accept="image/*">
                                 <div class="text-muted small mt-1" id="edit-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
@@ -678,13 +678,19 @@
                 try {
                     var pid = document.getElementById('edit-id').value;
                     var fd = new FormData();
-                    // 有選就送：對照圖－後有選就送（有系列權限的就有對照權限）；兩者都選時優先送對照後
+                    var editSeriesBlock = document.getElementById('edit-series-block');
+                    var seriesVisible = editSeriesBlock && !editSeriesBlock.classList.contains('d-none');
                     var seriesFile = document.getElementById('edit-image').files[0];
                     var afterFile = document.getElementById('edit-image-after').files[0];
-                    var imgFile = afterFile || seriesFile;
-                    if (imgFile) fd.append('image', imgFile);
                     var beforeFile = document.getElementById('edit-image-before').files[0];
-                    if (beforeFile) fd.append('image_before', beforeFile);
+                    if (seriesVisible) {
+                        if (seriesFile) fd.append('image', seriesFile);
+                        fd.append('upload_type', 'series');
+                    } else {
+                        if (afterFile) fd.append('image', afterFile);
+                        if (beforeFile) fd.append('image_before', beforeFile);
+                        fd.append('upload_type', 'comparison');
+                    }
                     fd.append('title', document.getElementById('edit-title').value.trim());
                     fd.append('design_highlight', document.getElementById('edit-highlight').value.trim());
                     fd.append('description', document.getElementById('edit-desc').value.trim());
@@ -737,12 +743,44 @@
             document.getElementById('edit-image-preview').innerHTML = '';
             document.getElementById('edit-image-before-preview').innerHTML = '';
             document.getElementById('edit-image-after-preview').innerHTML = '';
-            var ci = document.getElementById('edit-current-img');
-            if (p.image_url) { ci.src = p.image_url; ci.classList.remove('d-none'); } else { ci.classList.add('d-none'); }
+            var isComparison = !!(p.image_url_before);
+            var seriesWrap = document.getElementById('edit-current-series-wrap');
             var cb = document.getElementById('edit-current-before-img');
-            if (p.image_url_before) { cb.src = p.image_url_before; cb.classList.remove('d-none'); } else { cb.classList.add('d-none'); }
             var ca = document.getElementById('edit-current-after-img');
-            if (p.image_url && ca) { ca.src = p.image_url; ca.classList.remove('d-none'); } else if (ca) { ca.classList.add('d-none'); }
+            var editSeriesBlock = document.getElementById('edit-series-block');
+            var editBeforeBlock = document.getElementById('edit-before-block');
+            var editAfterBlock = document.getElementById('edit-after-block');
+            if (isComparison) {
+                if (editSeriesBlock) editSeriesBlock.classList.add('d-none');
+                if (editBeforeBlock) editBeforeBlock.classList.remove('d-none');
+                if (editAfterBlock) editAfterBlock.classList.remove('d-none');
+                if (seriesWrap) { seriesWrap.innerHTML = ''; seriesWrap.classList.add('d-none'); }
+                if (p.image_url_before && cb) { cb.src = p.image_url_before; cb.classList.remove('d-none'); } else if (cb) cb.classList.add('d-none');
+                if (p.image_url && ca) { ca.src = p.image_url; ca.classList.remove('d-none'); } else if (ca) ca.classList.add('d-none');
+            } else {
+                if (editSeriesBlock) editSeriesBlock.classList.remove('d-none');
+                if (editBeforeBlock) editBeforeBlock.classList.add('d-none');
+                if (editAfterBlock) editAfterBlock.classList.add('d-none');
+                var seriesUrls = (p.series_image_urls && Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls : (p.image_url ? [p.image_url] : []);
+                if (seriesWrap) {
+                    seriesWrap.innerHTML = '';
+                    if (seriesUrls.length) {
+                        seriesUrls.forEach(function (u) {
+                            var img = document.createElement('img');
+                            img.src = u;
+                            img.alt = '目前系列圖';
+                            img.className = 'img-preview';
+                            img.style.maxHeight = '120px';
+                            seriesWrap.appendChild(img);
+                        });
+                        seriesWrap.classList.remove('d-none');
+                    } else {
+                        seriesWrap.classList.add('d-none');
+                    }
+                }
+                if (cb) cb.classList.add('d-none');
+                if (ca) ca.classList.add('d-none');
+            }
             document.getElementById('edit-image').value = '';
             document.getElementById('edit-image-before').value = '';
             document.getElementById('edit-image-after').value = '';
