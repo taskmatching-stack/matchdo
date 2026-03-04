@@ -267,7 +267,7 @@
 
             // 動態更新 SEO meta
             var canonicalUrl = 'https://matchdo.cc/vendor-profile.html?id=' + encodeURIComponent(v.id || id);
-            var ogImg = v.cover_image || v.avatar_url || 'https://matchdo.cc/img/og-vendors.jpg';
+            var ogImg = v.logo_url || v.cover_image || v.avatar_url || 'https://matchdo.cc/img/og-vendors.jpg';
             var desc = v.specialty
                 ? (v.name || '') + '：' + String(v.specialty).slice(0, 100) + '。在 MATCHDO 合做聯繫廠商。'
                 : '在 MATCHDO 合做找到 ' + (v.name || '') + '，瀏覽廠商作品、服務地區與聯繫方式。';
@@ -328,7 +328,21 @@
                 contactBtn.classList.remove('d-none');
             }
 
-            // Hero
+            // Hero（頭像：有 logo_url 顯示圖片，否則顯示預設圖示）
+            var heroAvatar = document.getElementById('heroAvatar');
+            if (heroAvatar) {
+                var logoUrl = (v.logo_url || '').trim();
+                if (logoUrl && /^https?:\/\//i.test(logoUrl)) {
+                    var img = document.createElement('img');
+                    img.src = logoUrl;
+                    img.alt = '';
+                    img.loading = 'lazy';
+                    heroAvatar.innerHTML = '';
+                    heroAvatar.appendChild(img);
+                } else {
+                    heroAvatar.innerHTML = '<i class="bi bi-building"></i>';
+                }
+            }
             document.getElementById('heroName').textContent = v.name || '廠商';
             if (v.verified) document.getElementById('heroBadge').classList.remove('d-none');
             if (v.rating) document.getElementById('heroRating').innerHTML = starsHTML(v.rating);

@@ -156,6 +156,28 @@
                     </div>
                 </div>
 
+                <!-- 廠商 LOGO -->
+                <div class="section-title mt-4">廠商 LOGO <small class="text-muted fw-normal fs-6">（顯示於廠商頁面頭像與分享預覽）</small></div>
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start gap-3 flex-wrap">
+                            <div class="flex-shrink-0">
+                                <div id="logo-preview" class="rounded overflow-hidden bg-light border" style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
+                                    <i class="bi bi-building text-muted" style="font-size:2rem;"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 min-w-0">
+                                <label class="form-label small mb-1">LOGO 圖片網址</label>
+                                <input type="url" class="form-control form-control-sm" id="logo-url" placeholder="https://...">
+                                <div class="d-flex align-items-center gap-2 mt-2">
+                                    <button class="btn btn-sm btn-primary" id="btnSaveLogo">儲存 LOGO</button>
+                                    <span id="logoSaveMsg" class="small"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 社群帳號 -->
                 <div class="section-title mt-4">社群帳號 <small class="text-muted fw-normal fs-6">（顯示於廠商頁面）</small></div>
                 <div class="card border-0 shadow-sm mb-3">
@@ -265,6 +287,23 @@
                     if (el) el.value = soc[k] || '';
                 });
 
+                // 廠商 LOGO
+                var logoUrlInput = document.getElementById('logo-url');
+                var logoPreview = document.getElementById('logo-preview');
+                if (logoUrlInput) logoUrlInput.value = mfr.logo_url || '';
+                if (logoPreview) {
+                    if (mfr.logo_url && /^https?:\/\//i.test(mfr.logo_url)) {
+                        logoPreview.innerHTML = '';
+                        var img = document.createElement('img');
+                        img.src = mfr.logo_url;
+                        img.alt = '';
+                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                        logoPreview.appendChild(img);
+                    } else {
+                        logoPreview.innerHTML = '<i class="bi bi-building text-muted" style="font-size:2rem;"></i>';
+                    }
+                }
+
                 await loadStats(mfr);
                 await loadRecentPortfolio();
             } catch (e) {
@@ -348,6 +387,46 @@
                     } catch (e) {
                         msg.textContent = '❌ ' + e.message;
                         msg.className = 'small text-danger';
+                    }
+                });
+            }
+
+            // 廠商 LOGO 儲存
+            var btnSaveLogo = document.getElementById('btnSaveLogo');
+            var logoSaveMsg = document.getElementById('logoSaveMsg');
+            if (btnSaveLogo && logoSaveMsg) {
+                btnSaveLogo.addEventListener('click', async function () {
+                    logoSaveMsg.textContent = '儲存中…';
+                    logoSaveMsg.className = 'small text-muted';
+                    var t = await getToken();
+                    if (!t) { logoSaveMsg.textContent = '請先登入'; logoSaveMsg.className = 'small text-danger'; return; }
+                    var url = (document.getElementById('logo-url').value || '').trim();
+                    try {
+                        var r = await fetch('/api/me/manufacturer', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                            body: JSON.stringify({ logo_url: url || null })
+                        });
+                        if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
+                        logoSaveMsg.textContent = '✅ 已儲存';
+                        logoSaveMsg.className = 'small text-success';
+                        var logoPreview = document.getElementById('logo-preview');
+                        if (logoPreview) {
+                            logoPreview.innerHTML = '';
+                            if (url && /^https?:\/\//i.test(url)) {
+                                var img = document.createElement('img');
+                                img.src = url;
+                                img.alt = '';
+                                img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                                logoPreview.appendChild(img);
+                            } else {
+                                logoPreview.innerHTML = '<i class="bi bi-building text-muted" style="font-size:2rem;"></i>';
+                            }
+                        }
+                        setTimeout(function () { logoSaveMsg.textContent = ''; }, 3000);
+                    } catch (e) {
+                        logoSaveMsg.textContent = '❌ ' + e.message;
+                        logoSaveMsg.className = 'small text-danger';
                     }
                 });
             }

@@ -258,6 +258,11 @@
                             <div class="detail-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="media-wall-lightbox-seed" class="detail-value"></span></div>
                             <div class="detail-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="media-wall-lightbox-owner" class="detail-value"></span></div>
                         </div>
+                        <div id="media-wall-lightbox-detail-portfolio" class="d-none" style="position:absolute;left:0;right:0;bottom:0;padding:0.4rem 0.6rem 0.5rem;background:linear-gradient(transparent, rgba(45,64,89,.95));color:#fff;text-align:left;font-size:0.7rem;">
+                            <div class="detail-row" id="media-wall-lightbox-highlight-row" style="display:none;"><span class="detail-label">作品亮點</span><span id="media-wall-lightbox-highlight" class="detail-value"></span></div>
+                            <div class="detail-row" id="media-wall-lightbox-tags-row" style="display:none;"><span class="detail-label">標籤</span><span id="media-wall-lightbox-tags" class="detail-value"></span></div>
+                            <div class="detail-row" id="media-wall-lightbox-description-row" style="display:none;"><span class="detail-label">描述</span><span id="media-wall-lightbox-description" class="detail-value"></span></div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer py-2 flex-wrap gap-2">
@@ -691,6 +696,12 @@
                         dataItem.manufacturer_user_id = p.manufacturer_user_id || null;
                         dataItem.manufacturer_name = p.manufacturer_name || null;
                     }
+                    if (p.type === 'comparison') {
+                        dataItem.design_highlight = p.design_highlight || null;
+                        dataItem.tags = Array.isArray(p.tags) ? p.tags : [];
+                        dataItem.description = p.description || null;
+                    }
+                    if (p.type === 'collection') dataItem.description = p.description || null;
                     if (p.type === 'collection') dataItem.image_urls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length) ? p.image_urls : ((p.cover_image_url ? [p.cover_image_url, p.cover_image_url] : []));
                     if (p.type === 'user_design') {
                         var promptText = (p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '';
@@ -1220,6 +1231,7 @@
 
                 function setLightboxDetailAndShow(cats) {
                     var detailWrap = document.getElementById('media-wall-lightbox-detail');
+                    var portfolioDetailWrap = document.getElementById('media-wall-lightbox-detail-portfolio');
                     var categoryRow = document.getElementById('media-wall-lightbox-category-row');
                     var categoryEl = document.getElementById('media-wall-lightbox-category');
                     var subcategoryRow = document.getElementById('media-wall-lightbox-subcategory-row');
@@ -1227,8 +1239,15 @@
                     var promptEl = document.getElementById('media-wall-lightbox-prompt');
                     var seedEl = document.getElementById('media-wall-lightbox-seed');
                     var ownerEl = document.getElementById('media-wall-lightbox-owner');
+                    var highlightRow = document.getElementById('media-wall-lightbox-highlight-row');
+                    var highlightEl = document.getElementById('media-wall-lightbox-highlight');
+                    var tagsRow = document.getElementById('media-wall-lightbox-tags-row');
+                    var tagsEl = document.getElementById('media-wall-lightbox-tags');
+                    var descriptionRow = document.getElementById('media-wall-lightbox-description-row');
+                    var descriptionEl = document.getElementById('media-wall-lightbox-description');
                     if (item.type === 'user_design' && detailWrap) {
                         detailWrap.classList.remove('d-none');
+                        if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
                         var catKey = item.category_key || item.category || '';
                         var subKey = item.subcategory_key || '';
                         var catLabel = ''; var subLabel = '';
@@ -1245,8 +1264,27 @@
                         if (promptEl) promptEl.textContent = item.generation_prompt || '（無）';
                         if (seedEl) seedEl.textContent = (item.generation_seed != null && item.generation_seed !== '') ? String(item.generation_seed) : '（無）';
                         if (ownerEl) ownerEl.textContent = item.owner_display || '（無）';
-                    } else if (detailWrap) {
-                        detailWrap.classList.add('d-none');
+                    } else if (item.type === 'comparison' || item.type === 'collection') {
+                        if (detailWrap) detailWrap.classList.add('d-none');
+                        if (portfolioDetailWrap) portfolioDetailWrap.classList.remove('d-none');
+                        var hi = (item.design_highlight || '').trim();
+                        if (highlightRow && highlightEl) {
+                            highlightEl.textContent = hi || '';
+                            highlightRow.style.display = (item.type === 'comparison' && hi) ? '' : 'none';
+                        }
+                        var tagList = item.type === 'comparison' && Array.isArray(item.tags) ? item.tags : [];
+                        if (tagsRow && tagsEl) {
+                            tagsEl.textContent = tagList.length ? tagList.join('、') : '';
+                            tagsRow.style.display = (item.type === 'comparison' && tagList.length) ? '' : 'none';
+                        }
+                        var desc = (item.description || '').trim();
+                        if (descriptionRow && descriptionEl) {
+                            descriptionEl.textContent = desc || '';
+                            descriptionRow.style.display = desc ? '' : 'none';
+                        }
+                    } else {
+                        if (detailWrap) detailWrap.classList.add('d-none');
+                        if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
                         if (categoryRow) categoryRow.style.display = 'none';
                         if (subcategoryRow) subcategoryRow.style.display = 'none';
                     }

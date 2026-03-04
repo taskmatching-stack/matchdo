@@ -82,6 +82,10 @@
             var key = el.getAttribute('data-i18n-title');
             if (m[key]) el.title = m[key];
         });
+        document.querySelectorAll('[data-i18n-alt]').forEach(function (el) {
+            var key = el.getAttribute('data-i18n-alt');
+            if (m[key]) el.alt = m[key];
+        });
     }
 
     window.i18n = {

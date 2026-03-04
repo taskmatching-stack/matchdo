@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- 此頁為 /client/manufacturer-portfolio.html 實際來源：public/client/manufacturer-portfolio.html（對照圖＝前＋後兩欄） -->
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
@@ -15,6 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
     <style>
         .portfolio-card { border-radius: 12px; border: 1px solid #e9ecef; overflow: hidden; transition: box-shadow .15s; }
         .portfolio-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); }
@@ -34,98 +36,101 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold">我的廠商作品</h4>
-                    <small class="text-muted">管理對外展示的作品圖庫</small>
+                    <h4 class="mb-0 fw-bold" data-i18n="portfolio.pageTitle">我的廠商作品</h4>
+                    <small class="text-muted" data-i18n="portfolio.pageSubtitle">管理對外展示的作品圖庫</small>
                 </div>
                 <div class="d-flex gap-2">
-                    <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回控制台</a>
-                    <button class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i>新增作品</button>
+                    <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="portfolio.backToDashboard">返回控制台</span></a>
+                    <button class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i><span data-i18n="portfolio.addWork">新增作品</span></button>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="container py-4">
-        <div id="auth-alert" class="alert alert-warning d-none">請先<a href="/index.html" class="alert-link">登入</a>。</div>
+        <div id="auth-alert" class="alert alert-warning d-none"><span data-i18n="portfolio.authRequired">請先</span><a href="/index.html" class="alert-link" data-i18n="portfolio.login">登入</a><span data-i18n="portfolio.authSuffix">。</span></div>
         <div id="no-mfr-alert" class="alert alert-warning d-none">
-            <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料。
-            <a href="/profile/contact-info.html" class="alert-link">前往建立廠商資料</a>
+            <i class="bi bi-exclamation-triangle me-2"></i><span data-i18n="portfolio.noMfrYet">您尚未建立廠商資料。</span>
+            <a href="/profile/contact-info.html" class="alert-link" data-i18n="portfolio.goToMfrSetup">前往建立廠商資料</a>
         </div>
 
         <div id="main-content" class="d-none">
             <!-- 新增作品表單 (折疊式) -->
             <div id="add-form-panel" class="card border-0 shadow-sm mb-4 d-none">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>新增作品</span>
+                    <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i><span data-i18n="portfolio.addWorkTitle">新增作品</span></span>
                     <button class="btn-close" id="btn-add-close"></button>
                 </div>
                 <div class="card-body">
                     <form id="add-form" enctype="multipart/form-data">
                         <div class="row g-3">
                             <div class="col-md-6" id="add-series-block">
-                                <label class="form-label fw-semibold">系列圖（可多張）</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.seriesImages">系列圖（可多張）</label>
                                 <input type="file" class="form-control" id="add-image" accept="image/*" multiple>
                                 <div class="text-muted small mt-1" id="add-series-hint">建議比例 1:1，JPEG/PNG/WEBP，總容量 5MB。1800／測試員或付 600 點可上傳（付點數可顯示一個月）。</div>
                                 <div id="add-image-preview" class="mt-2 d-flex flex-wrap gap-2"></div>
                             </div>
-                            <div class="col-12"><hr class="my-2"><div class="section-title">對照圖（前/後對比）</div></div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold" id="add-before-label">前（before）</label>
+                            <div class="col-12"><hr class="my-2"><div class="section-title" data-i18n="portfolio.comparisonImages">對照圖（前/後對比）</div></div>
+                            <div class="col-12"><p class="text-muted small mb-2" data-i18n="portfolio.comparisonOneEach">前、後各一張。</p></div>
+                            <!-- 前：固定顯示，不依 JS 控制顯示/隱藏 -->
+                            <div class="col-md-6" id="add-before-block">
+                                <label class="form-label fw-semibold" id="add-before-label">前（before，可選）</label>
                                 <input type="file" class="form-control" id="add-image-before" accept="image/*">
                                 <div class="text-muted small mt-1" id="add-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
                                 <div id="add-image-before-preview" class="mt-2"></div>
                             </div>
-                            <div class="col-md-6" id="add-after-block">
-                                <label class="form-label fw-semibold" id="add-after-label">後（after）<span class="text-danger">*</span></label>
-                                <input type="file" class="form-control" id="add-image-after" accept="image/*">
-                                <div class="text-muted small mt-1">若不上傳系列圖，請改上傳「前」「後」兩張圖作為對照（作品圖）。</div>
+                            <!-- 後（after）：獨立一欄，結構與「前」對稱，絕不隱藏 -->
+                            <div class="col-md-6 d-block" id="add-after-block" style="display: block !important;">
+                                <label class="form-label fw-semibold" id="add-after-label" for="add-image-after"><span id="add-after-label-text">後（after）</span><span id="add-after-marker" class="text-danger">*</span></label>
+                                <input type="file" class="form-control" id="add-image-after" accept="image/*" aria-describedby="add-after-hint">
+                                <div class="text-muted small mt-1" id="add-after-hint">若不上傳系列圖，請改上傳「前」「後」兩張圖作為對照（作品圖）。</div>
                                 <div id="add-image-after-preview" class="mt-2"></div>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">作品名稱</label>
-                                <input type="text" class="form-control" id="add-title" placeholder="例：精品牛皮手提包 A 款">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.workName">作品名稱</label>
+                                <input type="text" class="form-control" id="add-title" data-i18n-placeholder="portfolio.addTitlePlaceholder" placeholder="例：精品牛皮手提包 A 款">
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">分類類型</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.categoryType">分類類型</label>
                                 <div class="d-flex gap-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="add-category-type" id="add-type-custom" value="custom" checked>
-                                        <label class="form-check-label" for="add-type-custom">訂製</label>
+                                        <label class="form-check-label" for="add-type-custom" data-i18n="portfolio.categoryTypeCustom">訂製</label>
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="add-category-type" id="add-type-remake" value="remake">
-                                        <label class="form-check-label" for="add-type-remake">再製</label>
+                                        <label class="form-check-label" for="add-type-remake" data-i18n="portfolio.categoryTypeRemake">再製</label>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label fw-semibold">主分類</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.mainCategory">主分類</label>
                                 <select class="form-select" id="add-category">
-                                    <option value="">— 選擇主分類 —</option>
+                                    <option value="" data-i18n="portfolio.selectMainCategory">— 選擇主分類 —</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label fw-semibold">子分類</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategory">子分類</label>
                                 <select class="form-select" id="add-subcategory">
-                                    <option value="">— 選擇子分類 —</option>
+                                    <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">作品亮點</label>
-                                <input type="text" class="form-control" id="add-highlight" placeholder="例：手工縫線、義大利皮革、防水處理">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品亮點</label>
+                                <input type="text" class="form-control" id="add-highlight" data-i18n-placeholder="portfolio.highlightPlaceholder" placeholder="例：手工縫線、義大利皮革、防水處理">
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">作品描述</label>
-                                <textarea class="form-control" id="add-desc" rows="2" placeholder="作品背景、製作方式等說明…"></textarea>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.description">作品描述</label>
+                                <textarea class="form-control" id="add-desc" rows="2" data-i18n-placeholder="portfolio.descPlaceholder" placeholder="作品背景、製作方式等說明…"></textarea>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">標籤（用逗號或空格分隔）</label>
-                                <input type="text" class="form-control" id="add-tags" placeholder="例：皮革, 手工, 訂製">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
+                                <input type="text" class="form-control" id="add-tags" data-i18n-placeholder="portfolio.tagsPlaceholder" placeholder="例：皮革, 手工, 訂製">
                             </div>
                         </div>
                         <div class="d-flex justify-content-end gap-2 mt-3">
-                            <button type="button" class="btn btn-outline-secondary" id="btn-add-cancel">取消</button>
-                            <button type="submit" class="btn btn-primary" id="btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>儲存作品</button>
+                            <button type="button" class="btn btn-outline-secondary" id="btn-add-cancel" data-i18n="portfolio.cancel">取消</button>
+                            <button type="submit" class="btn btn-primary" id="btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="portfolio.saveWork">儲存作品</span></button>
                         </div>
                     </form>
                 </div>
@@ -141,7 +146,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">編輯作品</h5>
+                    <h5 class="modal-title" data-i18n="portfolio.editWork">編輯作品</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -149,72 +154,72 @@
                         <input type="hidden" id="edit-id">
                         <div class="row g-3">
                             <div class="col-md-6" id="edit-series-block">
-                                <label class="form-label fw-semibold">系列圖（主圖，留空保持原圖）</label>
+                                <label class="form-label fw-semibold" id="edit-series-label" data-i18n="portfolio.editSeriesLabel">系列圖（主圖，留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image" accept="image/*">
                                 <div class="text-muted small mt-1" id="edit-series-hint">僅 1800 方案可更換。</div>
                                 <div id="edit-image-preview" class="mt-2"></div>
-                                <img id="edit-current-img" src="" class="img-preview mt-2 d-none" alt="目前系列圖">
+                                <img id="edit-current-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentSeriesImg" alt="目前系列圖">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" id="edit-before-label">對照圖 - 前（留空保持原圖）</label>
+                                <label class="form-label fw-semibold" id="edit-before-label" data-i18n="portfolio.editBeforeLabel">對照圖 - 前（留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image-before" accept="image/*">
                                 <div class="text-muted small mt-1" id="edit-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
                                 <div id="edit-image-before-preview" class="mt-2"></div>
-                                <img id="edit-current-before-img" src="" class="img-preview mt-2 d-none" alt="目前對照圖-前">
+                                <img id="edit-current-before-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentBeforeImg" alt="目前對照圖-前">
                             </div>
                             <div class="col-md-6" id="edit-after-block">
-                                <label class="form-label fw-semibold" id="edit-after-label">對照圖 - 後（留空保持原圖）</label>
+                                <label class="form-label fw-semibold" id="edit-after-label" data-i18n="portfolio.editAfterLabel">對照圖 - 後（留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image-after" accept="image/*">
                                 <div id="edit-image-after-preview" class="mt-2"></div>
-                                <img id="edit-current-after-img" src="" class="img-preview mt-2 d-none" alt="目前對照圖-後">
+                                <img id="edit-current-after-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentAfterImg" alt="目前對照圖-後">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">作品名稱</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.workName">作品名稱</label>
                                 <input type="text" class="form-control" id="edit-title">
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">分類類型</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.categoryType">分類類型</label>
                                 <div class="d-flex gap-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="edit-category-type" id="edit-type-custom" value="custom">
-                                        <label class="form-check-label" for="edit-type-custom">訂製</label>
+                                        <label class="form-check-label" for="edit-type-custom" data-i18n="portfolio.categoryTypeCustom">訂製</label>
                                     </div>
                                     <div class="form-check">
                                         <input class="form-check-input" type="radio" name="edit-category-type" id="edit-type-remake" value="remake">
-                                        <label class="form-check-label" for="edit-type-remake">再製</label>
+                                        <label class="form-check-label" for="edit-type-remake" data-i18n="portfolio.categoryTypeRemake">再製</label>
                                     </div>
                                 </div>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label fw-semibold">主分類</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.mainCategory">主分類</label>
                                 <select class="form-select" id="edit-category">
-                                    <option value="">— 選擇主分類 —</option>
+                                    <option value="" data-i18n="portfolio.selectMainCategory">— 選擇主分類 —</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label fw-semibold">子分類</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategory">子分類</label>
                                 <select class="form-select" id="edit-subcategory">
-                                    <option value="">— 選擇子分類 —</option>
+                                    <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">作品亮點</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品亮點</label>
                                 <input type="text" class="form-control" id="edit-highlight">
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">作品描述</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.description">作品描述</label>
                                 <textarea class="form-control" id="edit-desc" rows="2"></textarea>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold">標籤（用逗號或空格分隔）</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="edit-tags">
                             </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="btn-edit-save"><i class="bi bi-cloud-upload me-1"></i>儲存修改</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="portfolio.cancel">取消</button>
+                    <button type="button" class="btn btn-primary" id="btn-edit-save"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="portfolio.saveChanges">儲存修改</span></button>
                 </div>
             </div>
         </div>
@@ -225,13 +230,13 @@
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header border-0">
-                    <h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i>刪除作品</h6>
+                    <h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i><span data-i18n="portfolio.deleteWork">刪除作品</span></h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body pt-0">確定要刪除「<span id="delete-title">此作品</span>」？此操作無法還原。</div>
+                <div class="modal-body pt-0" id="delete-confirm-text"></div>
                 <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-danger btn-sm" id="btn-delete-confirm">刪除</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="portfolio.cancel">取消</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="btn-delete-confirm" data-i18n="portfolio.delete">刪除</button>
                 </div>
             </div>
         </div>
@@ -259,6 +264,14 @@
         var editModal = null;
         var deleteModal = null;
 
+        function tr(key) {
+            if (window.i18n && typeof window.i18n.t === 'function') {
+                var v = window.i18n.t(key);
+                if (v && v !== key) return v;
+            }
+            return key;
+        }
+
         async function getToken() {
             if (typeof AuthService === 'undefined') return null;
             try {
@@ -278,15 +291,24 @@
         }
 
         async function init() {
+            // 先等 i18n 載入再套用頁面語系，確保 data-i18n 與 t() 都用到正確語系
+            await (window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve());
+            if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+            var isEn = getPageLang() === 'en';
+            if (isEn) document.documentElement.lang = 'en';
             token = await getToken();
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
             try {
                 const r = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
                 if (r.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
-                if (!r.ok) throw new Error('載入廠商資料失敗');
+                if (!r.ok) {
+                    var errBody = await r.json().catch(function () { return {}; });
+                    throw new Error(errBody.error || (isEn ? 'Failed to load manufacturer' : '載入廠商資料失敗'));
+                }
                 const mfr = await r.json();
                 mfrId = mfr.id;
                 document.getElementById('main-content').classList.remove('d-none');
+                document.title = tr('portfolio.pageTitle') + (isEn ? ' - MatchDO' : ' - MatchDO 合做');
                 try {
                     var cr = await fetch('/api/me/can-upload-portfolio-series', { headers: { Authorization: 'Bearer ' + token } });
                     var cd = await cr.json();
@@ -311,11 +333,24 @@
             }
         }
 
+        // 與全站一致：語系來自 i18n（URL ?lang= 或 localStorage），分類 API 與選單都用同一語系
+        function getPageLang() {
+            if (window.i18n && typeof window.i18n.getLang === 'function') {
+                var lang = window.i18n.getLang();
+                return (lang === 'en' || (lang && lang.toLowerCase().indexOf('en') === 0)) ? 'en' : 'zh';
+            }
+            var q = (new URLSearchParams(window.location.search)).get('lang');
+            if (q) return q.toLowerCase().split('-')[0];
+            var doc = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+            return (doc.indexOf('en') === 0) ? 'en' : 'zh';
+        }
+
         async function loadCategories() {
             try {
+                var lang = getPageLang();
                 var [customRes, remakeRes] = await Promise.all([
-                    fetch('/api/custom-product-categories'),
-                    fetch('/api/remake-categories')
+                    fetch('/api/custom-product-categories?lang=' + (lang === 'en' ? 'en' : '')),
+                    fetch('/api/remake-categories?lang=' + (lang === 'en' ? 'en' : ''))
                 ]);
                 var customD = await customRes.json();
                 var remakeD = await remakeRes.json();
@@ -333,7 +368,7 @@
         function fillMainCategorySelect(selectId, type) {
             var sel = document.getElementById(selectId);
             var list = getCategoriesByType(type);
-            sel.innerHTML = '<option value="">— 選擇主分類 —</option>';
+            sel.innerHTML = '<option value="">' + tr('portfolio.selectMainCategory') + '</option>';
             list.forEach(function (c) {
                 var opt = document.createElement('option');
                 opt.value = c.key;
@@ -343,29 +378,32 @@
         }
 
         function applySeriesRestriction() {
-            var addAfterBlock = document.getElementById('add-after-block');
-            var editAfterBlock = document.getElementById('edit-after-block');
             var addBeforeLabel = document.getElementById('add-before-label');
-            var addAfterLabel = document.getElementById('add-after-label');
+            var addAfterLabelText = document.getElementById('add-after-label-text');
+            var addAfterMarker = document.getElementById('add-after-marker');
+            var addAfterHint = document.getElementById('add-after-hint');
             var addSeriesHint = document.getElementById('add-series-hint');
             var editSeriesHint = document.getElementById('edit-series-hint');
+            var ratio = tr('portfolio.seriesHintRatio');
+            var hint600 = tr('portfolio.seriesHint600');
+            var hint1800 = tr('portfolio.seriesHint1800');
+            var hintNoSeries = tr('portfolio.seriesHintNoSeries');
+            var editNo = tr('portfolio.editSeriesHintNo');
+            var editPlan = tr('portfolio.editSeriesHintPlan');
+            if (addAfterHint) addAfterHint.textContent = tr('portfolio.addAfterHint');
             if (canUploadSeries) {
-                if (addAfterBlock) addAfterBlock.classList.add('d-none');
-                if (editAfterBlock) editAfterBlock.classList.add('d-none');
-                if (addBeforeLabel) addBeforeLabel.textContent = '前（before，可選）';
-                if (addAfterLabel) addAfterLabel.innerHTML = '後（after）';
-                var seriesHintText = seriesPayPoints === 600
-                    ? '付 600 點可上傳／更換，可顯示一個月。'
-                    : '1800 方案或測試員可上傳／更換。';
-                if (addSeriesHint) addSeriesHint.textContent = '建議比例 1:1，JPEG/PNG/WEBP，總容量 5MB。' + seriesHintText;
-                if (editSeriesHint) editSeriesHint.textContent = seriesHintText;
+                if (addBeforeLabel) addBeforeLabel.textContent = tr('portfolio.beforeOptional');
+                if (addAfterLabelText) addAfterLabelText.textContent = tr('portfolio.afterLabel');
+                if (addAfterMarker) { addAfterMarker.textContent = (document.documentElement.lang === 'en' ? ' (optional)' : '（可選）'); addAfterMarker.className = 'text-muted'; }
+                var seriesHintText = seriesPayPoints === 600 ? hint600 : hint1800;
+                if (addSeriesHint) addSeriesHint.textContent = ratio + ' ' + seriesHintText;
+                if (editSeriesHint) editSeriesHint.textContent = seriesPayPoints === 600 ? hint600 : hint1800;
             } else {
-                if (addAfterBlock) addAfterBlock.classList.remove('d-none');
-                if (editAfterBlock) editAfterBlock.classList.remove('d-none');
-                if (addBeforeLabel) addBeforeLabel.innerHTML = '前（before）<span class="text-danger">*</span>';
-                if (addAfterLabel) addAfterLabel.innerHTML = '後（after）<span class="text-danger">*</span>';
-                if (addSeriesHint) addSeriesHint.textContent = '建議比例 1:1，總容量 5MB。需 1800 方案、測試員或付 600 點方可上傳系列圖；否則請改填下方對照圖前、後。';
-                if (editSeriesHint) editSeriesHint.textContent = '需 1800 方案、測試員或付 600 點方可上傳系列圖。';
+                if (addBeforeLabel) addBeforeLabel.textContent = tr('portfolio.beforeLabel') + ' *';
+                if (addAfterLabelText) addAfterLabelText.textContent = tr('portfolio.afterLabel');
+                if (addAfterMarker) { addAfterMarker.textContent = '*'; addAfterMarker.className = 'text-danger'; }
+                if (addSeriesHint) addSeriesHint.textContent = ratio + ' ' + hintNoSeries;
+                if (editSeriesHint) editSeriesHint.textContent = editNo;
             }
         }
 
@@ -373,17 +411,17 @@
             var addHint = document.getElementById('add-before-pts-hint');
             var editHint = document.getElementById('edit-before-pts-hint');
             var msg = !canUploadBefore
-                ? '點數不足（需 400 點）方可上傳對照圖。'
+                ? tr('portfolio.beforeHintNoPoints')
                 : (beforePayPoints === 400
-                    ? '付 400 點可上傳／更換，可顯示一個月。'
-                    : '300/900/1800 方案或測試員可上傳（免費）。本方案對照圖上限：300→3 組、900→10 組、1800→30 組。' + (beforeQuotaLimit > 0 ? ' 已使用 ' + beforeQuotaUsed + '／' + beforeQuotaLimit + ' 組。' : ''));
+                    ? tr('portfolio.beforeHint400')
+                    : tr('portfolio.beforeHintPlan') + (beforeQuotaLimit > 0 ? ' ' + (tr('portfolio.beforeHintUsed') || '已使用 {used}／{limit} 組。').replace('{used}', beforeQuotaUsed).replace('{limit}', beforeQuotaLimit) : ''));
             if (addHint) addHint.textContent = msg;
             if (editHint) editHint.textContent = msg;
         }
 
         function fillSubcategorySelect(selectId, categoryKey, type) {
             var sel = document.getElementById(selectId);
-            sel.innerHTML = '<option value="">— 選擇子分類 —</option>';
+            sel.innerHTML = '<option value="">' + tr('portfolio.selectSubcategory') + '</option>';
             if (!categoryKey) return;
             var list = getCategoriesByType(type);
             var cat = list.find(function (c) { return c.key === categoryKey; });
@@ -398,34 +436,36 @@
 
         async function loadPortfolio() {
             var grid = document.getElementById('portfolio-grid');
-            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>';
+            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>' + tr('portfolio.loading') + '</div>';
             try {
                 const r = await fetch('/api/manufacturer-portfolio?manufacturer_id=' + mfrId);
                 const d = await r.json();
                 portfolioItems = d.items || [];
                 renderGrid();
             } catch (e) {
-                document.getElementById('portfolio-grid').innerHTML = '<div class="col-12"><div class="alert alert-danger">載入失敗：' + esc(e.message) + '</div></div>';
+                document.getElementById('portfolio-grid').innerHTML = '<div class="col-12"><div class="alert alert-danger">' + tr('portfolio.loadFailed') + ': ' + esc(e.message) + '</div></div>';
             }
         }
 
         function renderGrid() {
             var grid = document.getElementById('portfolio-grid');
             if (!portfolioItems.length) {
-                grid.innerHTML = '<div class="col-12"><div class="add-card p-4" id="add-card-empty"><i class="bi bi-images fs-1 mb-2"></i><div class="fw-semibold">尚無作品</div><div class="small mt-1">點此新增第一件作品</div></div></div>';
-                document.getElementById('add-card-empty').addEventListener('click', openAddForm);
+                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + tr('portfolio.noWorksYet') + '</p></div>';
+                openAddForm();
                 return;
             }
+            var unnamed = tr('portfolio.unnamed');
+            var editLabel = tr('portfolio.edit');
             grid.innerHTML = portfolioItems.map(function (p) {
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="portfolio-card h-100">' +
                     (p.image_url ? '<img src="' + esc(p.image_url) + '" class="portfolio-img" loading="lazy" alt="' + esc(p.title || '') + '">' : '<div class="portfolio-img-placeholder"><i class="bi bi-image"></i></div>') +
                     '<div class="p-3">' +
-                    '<div class="fw-semibold text-truncate mb-1">' + esc(p.title || '未命名') + '</div>' +
+                    '<div class="fw-semibold text-truncate mb-1">' + esc(p.title || unnamed) + '</div>' +
                     (p.design_highlight ? '<div class="text-muted small text-truncate mb-2">' + esc(p.design_highlight) + '</div>' : '') +
                     ((p.tags || []).length ? '<div class="mb-2">' + p.tags.slice(0,3).map(function(t){ return '<span class="badge bg-light text-secondary border me-1">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
                     '<div class="d-flex gap-2 mt-2">' +
-                    '<button class="btn btn-outline-primary btn-sm flex-fill" onclick="window._editPortfolio(\'' + p.id + '\')"><i class="bi bi-pencil me-1"></i>編輯</button>' +
-                    '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || '未命名') + '\')"><i class="bi bi-trash"></i></button>' +
+                    '<button class="btn btn-outline-primary btn-sm flex-fill" onclick="window._editPortfolio(\'' + p.id + '\')"><i class="bi bi-pencil me-1"></i>' + editLabel + '</button>' +
+                    '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || unnamed).replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>' +
                     '</div></div></div></div>';
             }).join('');
         }
@@ -440,12 +480,19 @@
         }
 
         function bindEvents() {
-            editModal = new bootstrap.Modal(document.getElementById('edit-modal'));
-            deleteModal = new bootstrap.Modal(document.getElementById('delete-modal'));
+            var btnOpen = document.getElementById('btn-add-open');
+            if (btnOpen) btnOpen.addEventListener('click', openAddForm);
+            var btnClose = document.getElementById('btn-add-close');
+            if (btnClose) btnClose.addEventListener('click', function () { var p = document.getElementById('add-form-panel'); if (p) p.classList.add('d-none'); });
+            var btnCancel = document.getElementById('btn-add-cancel');
+            if (btnCancel) btnCancel.addEventListener('click', function () { var p = document.getElementById('add-form-panel'); if (p) p.classList.add('d-none'); });
 
-            document.getElementById('btn-add-open').addEventListener('click', openAddForm);
-            document.getElementById('btn-add-close').addEventListener('click', function () { document.getElementById('add-form-panel').classList.add('d-none'); });
-            document.getElementById('btn-add-cancel').addEventListener('click', function () { document.getElementById('add-form-panel').classList.add('d-none'); });
+            try {
+                var editEl = document.getElementById('edit-modal');
+                var deleteEl = document.getElementById('delete-modal');
+                if (editEl && typeof bootstrap !== 'undefined') editModal = new bootstrap.Modal(editEl);
+                if (deleteEl && typeof bootstrap !== 'undefined') deleteModal = new bootstrap.Modal(deleteEl);
+            } catch (e) { console.warn('Modal init:', e); }
 
             function addCategoryType() {
                 return document.querySelector('input[name="add-category-type"]:checked');
@@ -500,20 +547,20 @@
             document.getElementById('add-form').addEventListener('submit', async function (e) {
                 e.preventDefault();
                 var btn = document.getElementById('btn-add-submit');
-                btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>儲存中…';
+                btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
                     var fd = new FormData();
                     var mainFile, beforeFile;
                     if (canUploadSeries) {
                         var addImageInput = document.getElementById('add-image');
                         beforeFile = document.getElementById('add-image-before').files[0];
-                        if (!addImageInput.files.length) { showToast('請至少選擇一張系列圖', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>儲存作品'; return; }
+                        if (!addImageInput.files.length) { showToast(tr('portfolio.addSeriesRequired'), 'warning'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); return; }
                         for (var i = 0; i < addImageInput.files.length; i++) fd.append('image', addImageInput.files[i]);
                         if (beforeFile) fd.append('image_before', beforeFile);
                     } else {
                         beforeFile = document.getElementById('add-image-before').files[0];
                         mainFile = document.getElementById('add-image-after').files[0];
-                        if (!beforeFile || !mainFile) { showToast('請上傳對照圖「前」「後」兩張圖', 'warning'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>儲存作品'; return; }
+                        if (!beforeFile || !mainFile) { showToast(tr('portfolio.addBeforeAfterRequired'), 'warning'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); return; }
                         fd.append('image', mainFile);
                         fd.append('image_before', beforeFile);
                     }
@@ -527,8 +574,8 @@
                     fd.append('category_type', (addType && addType.value) || 'custom');
                     const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
                     const d = await r.json();
-                    if (!r.ok) throw new Error(d.error || '新增失敗');
-                    showToast('作品已新增！');
+                    if (!r.ok) throw new Error(d.error || tr('portfolio.addFailed'));
+                    showToast(tr('portfolio.added'));
                     document.getElementById('add-form').reset();
                     document.getElementById('add-type-custom').checked = true;
                     document.getElementById('add-type-remake').checked = false;
@@ -540,12 +587,12 @@
                     document.getElementById('add-form-panel').classList.add('d-none');
                     await loadPortfolio();
                 } catch (e) { showToast(e.message, 'danger'); }
-                finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>儲存作品'; }
+                finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); }
             });
 
             document.getElementById('btn-edit-save').addEventListener('click', async function () {
                 var btn = this;
-                btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>儲存中…';
+                btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
                     var pid = document.getElementById('edit-id').value;
                     var fd = new FormData();
@@ -563,25 +610,25 @@
                     fd.append('category_type', (editType && editType.value) || 'custom');
                     const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                     const d = await r.json();
-                    if (!r.ok) throw new Error(d.error || '更新失敗');
-                    showToast('修改已儲存！');
+                    if (!r.ok) throw new Error(d.error || tr('portfolio.updateFailed'));
+                    showToast(tr('portfolio.saved'));
                     editModal.hide();
                     await loadPortfolio();
                 } catch (e) { showToast(e.message, 'danger'); }
-                finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>儲存修改'; }
+                finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); }
             });
 
             document.getElementById('btn-delete-confirm').addEventListener('click', async function () {
                 var btn = this;
-                btn.disabled = true; btn.textContent = '刪除中…';
+                btn.disabled = true; btn.textContent = tr('portfolio.deleting');
                 try {
                     const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + deleteTargetId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
-                    if (!r.ok) { var d = await r.json(); throw new Error(d.error || '刪除失敗'); }
-                    showToast('作品已刪除');
+                    if (!r.ok) { var d = await r.json(); throw new Error(d.error || tr('portfolio.deleteFailed')); }
+                    showToast(tr('portfolio.deleted'));
                     deleteModal.hide();
                     await loadPortfolio();
                 } catch (e) { showToast(e.message, 'danger'); }
-                finally { btn.disabled = false; btn.textContent = '刪除'; }
+                finally { btn.disabled = false; btn.textContent = tr('portfolio.delete'); }
             });
         }
 
@@ -617,7 +664,8 @@
 
         window._deletePortfolio = function (pid, title) {
             deleteTargetId = pid;
-            document.getElementById('delete-title').textContent = title;
+            var msg = (tr('portfolio.deleteConfirm') || '確定要刪除「{title}」？此操作無法還原。').replace(/\{title\}/g, title);
+            document.getElementById('delete-confirm-text').textContent = msg;
             if (deleteModal) deleteModal.show();
         };
 

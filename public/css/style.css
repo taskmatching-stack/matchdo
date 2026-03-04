@@ -670,7 +670,6 @@ body {
     white-space: nowrap;
     text-shadow: none;
     -webkit-font-smoothing: subpixel-antialiased;
-    -moz-osx-font-smoothing: auto;
 }
 #site-header .nav-points-desktop:hover {
     color: #445D7E;
@@ -681,7 +680,6 @@ body {
     font-weight: 600;
     text-shadow: none;
     -webkit-font-smoothing: subpixel-antialiased;
-    -moz-osx-font-smoothing: auto;
 }
 #site-header #navPointsMobile .nav-points-link {
     display: inline-flex;
@@ -691,7 +689,6 @@ body {
     white-space: nowrap;
     text-shadow: none;
     -webkit-font-smoothing: subpixel-antialiased;
-    -moz-osx-font-smoothing: auto;
 }
 #site-header #navPointsMobile .nav-points-link:hover {
     color: #445D7E;

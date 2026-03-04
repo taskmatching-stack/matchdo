@@ -1,0 +1,18 @@
+---
+description: 廠商作品頁面 — 唯一可改的檔案是 public/client/manufacturer-portfolio.html，勿改根目錄 client/
+alwaysApply: true
+---
+
+# 廠商作品頁（/client/manufacturer-portfolio.html）
+
+## 唯一正確檔案
+
+- **要改的檔案：** `public/client/manufacturer-portfolio.html`
+- **不要改的檔案：** `client/manufacturer-portfolio.html`（根目錄的 client，舊版/備用）
+
+Express 先掛 `static('public')`，所以 URL `/client/manufacturer-portfolio.html` 實際由 **public/client/manufacturer-portfolio.html** 提供。
+
+## 修改對照圖、前/後、系列圖、新增作品表單
+
+一律編輯 **public/client/manufacturer-portfolio.html**。  
+根目錄的 `client/manufacturer-portfolio.html` 已加註「非主要入口」，僅作標記用，勿對其改對照圖邏輯。

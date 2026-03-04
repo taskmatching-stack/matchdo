@@ -73,6 +73,12 @@
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
+        function getPageLang() {
+            var q = (new URLSearchParams(window.location.search)).get('lang');
+            if (q) return q.toLowerCase().split('-')[0];
+            var doc = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+            return (doc.indexOf('en') === 0) ? 'en' : 'zh';
+        }
         async function getToken() {
             if (typeof AuthService === 'undefined') return null;
             try {
@@ -81,6 +87,23 @@
             } catch (e) { return null; }
         }
         async function init() {
+            var isEn = getPageLang() === 'en';
+            if (isEn) {
+                document.documentElement.lang = 'en';
+                document.title = 'Account Info - MatchDO';
+                var t = document.querySelector('.page-title-bar h3'); if (t) t.textContent = 'Account Info';
+                var bc = document.querySelectorAll('.breadcrumb-item'); if (bc[0]) bc[0].innerHTML = '<a href="/index.html">Home</a>'; if (bc[1]) bc[1].textContent = 'Account Info';
+                document.getElementById('auth-alert').innerHTML = 'Please <a href="/index.html" class="alert-link">log in</a> first.';
+                document.querySelector('.card-header h5').innerHTML = '<i class="bi bi-person-circle me-2"></i>My Account';
+                document.querySelectorAll('.card-body dl dt')[0].textContent = 'Email';
+                document.querySelectorAll('.card-body dl dt')[1].textContent = 'Display name';
+                document.querySelectorAll('.card-body dl dt')[2].textContent = 'Role';
+                document.querySelectorAll('.card-body dl dt')[3].textContent = 'Points';
+                document.querySelector('.card-body h6').innerHTML = '<i class="bi bi-telephone me-2"></i>Contact';
+                document.getElementById('profile-contact-empty').textContent = 'Not set. Go to Contact Settings to fill in.';
+                document.querySelectorAll('.card-body a.btn-outline-primary')[0].innerHTML = '<i class="bi bi-telephone me-2"></i>Contact Settings';
+                document.querySelectorAll('.card-body a.btn-outline-secondary')[0].innerHTML = '<i class="bi bi-currency-exchange me-2"></i>My points';
+            }
             var token = await getToken();
             if (!token) {
                 document.getElementById('auth-alert').classList.remove('d-none');
@@ -94,32 +117,25 @@
                     fetch('/api/me/credits', { headers: headers }),
                     fetch('/api/me/contact-info', { headers: headers })
                 ]);
-                if (!profileRes.ok) throw new Error('無法載入帳號');
+                if (!profileRes.ok) throw new Error(isEn ? 'Failed to load account' : '無法載入帳號');
                 var p = await profileRes.json();
                 document.getElementById('profile-email').textContent = p.email || '—';
                 document.getElementById('profile-name').textContent = p.full_name || '—';
-                document.getElementById('profile-role').textContent = (p.role === 'admin' ? '管理員' : p.role === 'tester' ? '測試員' : '一般用戶') || '—';
+                document.getElementById('profile-role').textContent = isEn
+                    ? (p.role === 'admin' ? 'Admin' : p.role === 'tester' ? 'Tester' : 'User') || '—'
+                    : (p.role === 'admin' ? '管理員' : p.role === 'tester' ? '測試員' : '一般用戶') || '—';
 
                 if (creditsRes.ok) {
                     var cred = await creditsRes.json();
-                    document.getElementById('profile-credits').textContent = (cred.balance != null ? cred.balance : 0) + ' 點';
+                    document.getElementById('profile-credits').textContent = (cred.balance != null ? cred.balance : 0) + (isEn ? ' pts' : ' 點');
                 } else {
-                    document.getElementById('profile-credits').textContent = '0 點';
+                    document.getElementById('profile-credits').textContent = isEn ? '0 pts' : '0 點';
                 }
 
                 var contact = contactRes.ok ? await contactRes.json() : {};
-                var contactLabels = {
-                    company_name: '公司/工作室名稱',
-                    phone: '電話',
-                    mobile: '手機',
-                    email: 'Email',
-                    line_id: 'LINE ID',
-                    wechat_id: 'WeChat',
-                    telegram_id: 'Telegram',
-                    website_url: '官網',
-                    facebook_url: 'Facebook',
-                    instagram_url: 'Instagram'
-                };
+                var contactLabels = isEn
+                    ? { company_name: 'Company / Studio', phone: 'Phone', mobile: 'Mobile', email: 'Email', line_id: 'LINE ID', wechat_id: 'WeChat', telegram_id: 'Telegram', website_url: 'Website', facebook_url: 'Facebook', instagram_url: 'Instagram' }
+                    : { company_name: '公司/工作室名稱', phone: '電話', mobile: '手機', email: 'Email', line_id: 'LINE ID', wechat_id: 'WeChat', telegram_id: 'Telegram', website_url: '官網', facebook_url: 'Facebook', instagram_url: 'Instagram' };
                 var contactOrder = ['company_name', 'phone', 'mobile', 'email', 'line_id', 'wechat_id', 'telegram_id', 'website_url', 'facebook_url', 'instagram_url'];
                 var hasAny = false;
                 var dl = document.getElementById('profile-contact-dl');
@@ -130,7 +146,7 @@
                         hasAny = true;
                         var dt = document.createElement('dt');
                         dt.className = 'col-sm-3 text-muted small';
-                        dt.textContent = (contactLabels[key] || key) + '：';
+                        dt.textContent = (contactLabels[key] || key) + (isEn ? ': ' : '：');
                         var dd = document.createElement('dd');
                         dd.className = 'col-sm-9 small mb-1';
                         dd.textContent = String(val).trim();
@@ -143,7 +159,8 @@
                     dl.classList.remove('d-none');
                 }
             } catch (e) {
-                document.getElementById('main-content').innerHTML = '<div class="alert alert-danger">載入失敗：' + (e.message || '請重新登入') + '</div>';
+                var msg = getPageLang() === 'en' ? ('Load failed: ' + (e.message || 'Please log in again')) : ('載入失敗：' + (e.message || '請重新登入'));
+                document.getElementById('main-content').innerHTML = '<div class="alert alert-danger">' + msg + '</div>';
             }
         }
         init();

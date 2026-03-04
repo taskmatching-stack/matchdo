@@ -5854,7 +5854,7 @@ app.get('/api/media-wall', async (req, res) => {
         // 廠商對比：有分類篩選時只回傳該分類的對比圖，無篩選時回傳 show_on_media_wall 的項目（需 category_key 欄位請執行 docs/add-manufacturer-portfolio-category-fields.sql）
         let compRows = [];
         if (!layoutOnly || layoutOnly === 'comparison') {
-        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until';
+        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until';
         if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
             let compQuery = supabase
                 .from('manufacturer_portfolio')
@@ -5913,6 +5913,8 @@ app.get('/api/media-wall', async (req, res) => {
                     image_url: seriesExpired ? null : (p.image_url || null),
                     image_url_before: beforeExpired ? null : (p.image_url_before || null),
                     design_highlight: p.design_highlight || null,
+                    tags: Array.isArray(p.tags) ? p.tags : [],
+                    description: p.description || null,
                     category_key: p.category_key || null,
                     subcategory_key: p.subcategory_key || null,
                     link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html'
@@ -6896,15 +6898,21 @@ app.get('/api/me/manufacturer', async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
-        const { data: mfr, error } = await supabase
-            .from('manufacturers')
-            .select('id, name, description, location, categories, contact_json')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        if (error) {
-            console.error('GET /api/me/manufacturer:', error);
+        const selectWithLogo = 'id, name, description, location, categories, contact_json, logo_url';
+        const selectWithoutLogo = 'id, name, description, location, categories, contact_json';
+        let resq = await supabase.from('manufacturers').select(selectWithLogo).eq('user_id', user.id).maybeSingle();
+        if (resq.error) {
+            const msg = (resq.error.message || '').toLowerCase();
+            if (msg.includes('logo_url') || msg.includes('column') || msg.includes('does not exist')) {
+                resq = await supabase.from('manufacturers').select(selectWithoutLogo).eq('user_id', user.id).maybeSingle();
+                if (!resq.error && resq.data) resq.data.logo_url = null;
+            }
+        }
+        if (resq.error) {
+            console.error('GET /api/me/manufacturer:', resq.error);
             return res.status(500).json({ error: '查詢失敗' });
         }
+        const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
         res.json(mfr);
     } catch (e) {
@@ -6970,6 +6978,7 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
         if (body.description !== undefined) updates.description = body.description.trim() || null;
         if (body.location !== undefined) updates.location = body.location.trim() || null;
         if (body.categories !== undefined) updates.categories = body.categories;
+        if (body.logo_url !== undefined) updates.logo_url = (body.logo_url && String(body.logo_url).trim()) ? String(body.logo_url).trim() : null;
         // 合併 contact_json（只更新帶進來的欄位）
         const SOCIAL_KEYS = ['email','phone','line_id','url','facebook','instagram','threads','twitter','whatsapp','youtube','linkedin'];
         const existing = mfr.contact_json || {};
@@ -7189,7 +7198,7 @@ app.get('/api/manufacturers', async (req, res) => {
         const per_page = Math.min(Math.max(parseInt(req.query.per_page || req.query.perPage, 10) || 12, 1), 50);
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
 
-        const baseSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id';
+        const baseSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url';
         let manufacturers = [];
         let fromSub = [];
         let fromMain = [];
@@ -7285,6 +7294,7 @@ app.get('/api/manufacturers', async (req, res) => {
             verified: mfr.verified,
             categories: mfr.categories || [],
             user_id: mfr.user_id || null,
+            logo_url: mfr.logo_url || null,
             portfolio: portfolioByMfr[mfr.id] || []
         })).sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
@@ -7301,7 +7311,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         const { id } = req.params;
         const { data: mfr, error } = await supabase
             .from('manufacturers')
-            .select('id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id')
+            .select('id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url')
             .eq('id', id)
             .eq('is_active', true)
             .maybeSingle();
@@ -7325,6 +7335,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             verified: mfr.verified,
             categories: mfr.categories || [],
             user_id: mfr.user_id || null,
+            logo_url: mfr.logo_url || null,
             portfolio: portfolio || []
         });
     } catch (e) {
@@ -7335,33 +7346,41 @@ app.get('/api/manufacturers/:id', async (req, res) => {
 
 // GET /api/manufacturer-portfolio — 廠商作品圖列表（圖庫找廠商、從圖庫選擇、純文字搜廠商圖）
 // Query: manufacturer_id（單一廠商）, category（依廠商分類篩選）, keyword / q（搜尋 title、tags）
+const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls';
+const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at';
+
 app.get('/api/manufacturer-portfolio', async (req, res) => {
     try {
         const { manufacturer_id, category, keyword, q } = req.query;
         const search = keyword || q;
 
-        let portfolioQuery = supabase
-            .from('manufacturer_portfolio')
-            .select('id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls');
-
-        if (manufacturer_id) {
-            portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
-        }
-
+        let portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_FULL);
+        if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
         if (category && category !== 'default') {
-            const { data: mfrIds } = await supabase
-                .from('manufacturers')
-                .select('id')
-                .eq('is_active', true)
-                .contains('categories', [category]);
+            const { data: mfrIds } = await supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
             const ids = (mfrIds || []).map(m => m.id);
             if (ids.length === 0) return res.json({ items: [] });
             portfolioQuery = portfolioQuery.in('manufacturer_id', ids);
         }
-
         portfolioQuery = portfolioQuery.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
 
-        const { data: items, error } = await portfolioQuery;
+        let { data: items, error } = await portfolioQuery;
+
+        if (error) {
+            console.warn('GET /api/manufacturer-portfolio 完整欄位失敗，改查基礎欄位（請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql 補齊）:', error.message);
+            portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_BASE);
+            if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
+            if (category && category !== 'default') {
+                const { data: mfrIds2 } = await supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
+                const ids2 = (mfrIds2 || []).map(m => m.id);
+                if (ids2.length === 0) return res.json({ items: [] });
+                portfolioQuery = portfolioQuery.in('manufacturer_id', ids2);
+            }
+            portfolioQuery = portfolioQuery.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+            const ret = await portfolioQuery;
+            error = ret.error;
+            items = ret.data || [];
+        }
 
         if (error) {
             console.error('GET /api/manufacturer-portfolio 失敗:', error);
