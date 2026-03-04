@@ -39,6 +39,7 @@ body {
 .navbar .navbar-nav .nav-link:hover, .navbar .navbar-nav .nav-link.active { color: #445D7E !important; }
 .navbar .dropdown-menu .dropdown-item:hover, .navbar .dropdown-menu .dropdown-item.active { background-color: #445D7E !important; color: #fff !important; }
 .navbar .navbar-nav .nav-link { color: #333333; }
+.navbar .navbar-nav .nav-link .nav-hover-caret { color: #445D7E; font-size: 16px; line-height: 1; vertical-align: middle; margin-left: 4px; }
 
 /*** Spinner ***/
 #spinner {
@@ -137,27 +138,21 @@ body {
     outline: none;
     color: #333333;
 }
+.navbar .navbar-nav .nav-link .nav-hover-caret {
+    color: #445D7E;
+    font-size: 16px;
+    line-height: 1;
+    vertical-align: middle;
+    margin-left: 4px;
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+}
+.navbar .navbar-nav .nav-link:hover .nav-hover-caret,
+.navbar .navbar-nav .nav-link.active .nav-hover-caret { opacity: 1; }
 
 .navbar .navbar-nav .nav-link:hover,
 .navbar .navbar-nav .nav-link.active {
     color: var(--bs-primary)
-}
-
-/* 下拉箭頭：Unicode ▾，三個箭頭同大、版面藍 #445D7E（0.9rem 與選單字同高、清楚可見） */
-.navbar .dropdown-toggle::after {
-    border: none;
-    content: "\25BC";
-    font-family: inherit;
-    font-size: 0.9rem;
-    vertical-align: middle;
-    margin-left: 6px;
-}
-#site-header .navbar .nav-item.nav-has-hover .nav-hover-caret,
-#site-header .navbar .nav-item.dropdown .nav-link.dropdown-toggle::after {
-    font-size: 0.9rem !important;
-    vertical-align: middle;
-    color: #445D7E !important;
-    border-top-color: #445D7E !important;
 }
 
 .navbar .dropdown-menu .dropdown-item:hover,
@@ -174,14 +169,6 @@ body {
     /* 我的功能：左側不展開，只保留右方滑出選單 */
     #site-header .navbar-collapse .nav-item.dropdown .dropdown-menu {
         display: none !important;
-    }
-    /* 客製產品、再製方案、我的功能：箭頭同大 0.9rem、版面藍 */
-    #site-header .navbar-collapse .nav-item.nav-has-hover .nav-hover-caret,
-    #site-header .navbar-collapse .nav-item.dropdown .nav-link.dropdown-toggle::after {
-        font-size: 0.9rem !important;
-        vertical-align: middle;
-        color: #445D7E !important;
-        border-top-color: #445D7E !important;
     }
 }
 
@@ -682,6 +669,7 @@ body {
         position: relative;
         z-index: 5;
     }
+    /* Logo 為圖檔 matchdo-logo.png；「DO」區塊請與下方登入按鈕同色：.btn-primary = #445D7E */
     #site-header .navbar-brand img {
         height: 78px !important;
         background: #fff;

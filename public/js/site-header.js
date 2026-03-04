@@ -26,15 +26,16 @@
             '#site-header{min-height:60px;}',
             '.navbar{padding:15px 0;font-family:"Space Grotesk",sans-serif;font-size:18px;border-bottom:2px solid #445D7E;}',
             '.navbar .navbar-nav .nav-link{margin-left:30px;padding:0;outline:none;color:#333;}',
+            '.navbar .navbar-nav .nav-link .nav-hover-caret{color:#445D7E;font-size:16px;line-height:1;vertical-align:middle;margin-left:4px;opacity:.6;transition:opacity .15s;}',
+            '.navbar .navbar-nav .nav-link:hover .nav-hover-caret,.navbar .navbar-nav .nav-link.active .nav-hover-caret{opacity:1;}',
             '.navbar .navbar-nav .nav-link:hover,.navbar .navbar-nav .nav-link.active{color:#445D7E!important;}',
-            '.navbar .dropdown-toggle::after{border:none;content:"\\25BC";font-family:inherit;font-size:.9rem;vertical-align:middle;margin-left:6px;color:#445D7E!important;border-top-color:#445D7E!important;}',
+            '.navbar .dropdown-toggle::after{display:none!important;}',
             '.navbar .dropdown-menu .dropdown-item:hover,.navbar .dropdown-menu .dropdown-item.active{background:#445D7E!important;color:#fff!important;}',
             '@keyframes nbDropIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}',
-            '.nav-hover-caret{font-size:.65rem;vertical-align:middle;margin-left:4px;opacity:.6;transition:opacity .15s;color:#445D7E!important;}',
             '.nav-hover-menu{min-width:180px;padding:.5rem 0;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.12);border:1px solid #e5e7eb;}',
             '.nav-hover-menu .dropdown-item{font-size:.9rem;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem;color:#374151;}',
             '.nav-hover-menu .dropdown-item:hover{background:#445D7E!important;color:#fff!important;}',
-            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}#site-header .navbar .nav-item.nav-has-hover .nav-hover-caret,#site-header .navbar .nav-item.dropdown .nav-link .nav-hover-caret{display:inline-block!important;font-size:.9rem!important;vertical-align:middle;color:#445D7E!important;}#site-header .navbar .nav-item.dropdown .nav-link.dropdown-toggle::after{color:#445D7E!important;border-top-color:#445D7E!important;font-size:.9rem!important;}}',
+            '@media(max-width:991.98px){.navbar .navbar-nav .nav-link{margin-left:0;padding:10px 0;}}',
             '@media(min-width:992px){',
             '.nav-item.nav-has-hover:hover .nav-hover-caret{opacity:1;}',
             '.nav-item.nav-has-hover:hover>.nav-hover-menu{display:block;margin-top:2px;animation:nbDropIn .15s ease;}',
@@ -203,7 +204,7 @@ async function renderHeader(headerContainer, user, config) {
                     
                     ${showMyFeaturesDropdown ? `
                         <div class="nav-item dropdown">
-                            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" title="` + t('nav.myFeaturesTitle') + `">` + t('nav.myFeatures') + `</a>
+                            <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" title="` + t('nav.myFeaturesTitle') + `" style="display:inline-flex;align-items:center;">` + t('nav.myFeatures') + `<span class="nav-hover-caret">▾</span></a>
                             <div class="dropdown-menu bg-light m-0">
                                 <h6 class="dropdown-header text-muted small">` + t('nav.dropdownCustom') + `</h6>
                                 <h6 class="dropdown-header"><i class="bi bi-person me-2"></i>` + t('nav.dropdownCustomClient') + `</h6>
