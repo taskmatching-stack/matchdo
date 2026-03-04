@@ -177,6 +177,7 @@ async function renderHeader(headerContainer, user, config) {
             <a href="${brandUrl}" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5">
                 <img src="/img/matchdo-logo.png" alt="MatchDO 合做" style="height:52px;width:auto;">
             </a>
+            ${user ? `<div id="navPointsMobile" class="d-lg-none nav-points-mobile align-self-center ms-auto me-2"><a href="/credits.html" class="nav-points-link text-decoration-none"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsMobileValue">—</span> 點</a></div>` : ''}
             <button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -287,6 +288,7 @@ async function renderHeader(headerContainer, user, config) {
                     `}
                 </div>
             </div>
+            ${user ? `<div class="nav-points-desktop-row d-none d-lg-flex align-items-center justify-content-end px-4 py-1"><a href="/credits.html" class="nav-points-desktop text-decoration-none small text-muted" title="${t('nav.myCredits') || '我的點數'}"><i class="bi bi-currency-exchange me-1"></i><span id="navPointsDesktopValue">—</span> 點</a></div>` : ''}
         </nav>
         <div id="nav-mobile-drawer" class="nav-mobile-drawer" aria-hidden="true">
             <div class="nav-mobile-drawer-backdrop"></div>
@@ -306,6 +308,7 @@ async function renderHeader(headerContainer, user, config) {
 
     if (user && typeof AuthService !== 'undefined' && AuthService.getSession) {
         loadRenewalReminderBanner(headerContainer);
+        loadHeaderCredits(headerContainer);
     }
 
     var langLinks = headerContainer.querySelectorAll('.lang-link');
@@ -320,6 +323,29 @@ async function renderHeader(headerContainer, user, config) {
     if (user && window.AuthService) {
         updateUserInfo(user);
     }
+}
+
+/** 取得點數餘額並更新 header 內桌機／手機點數顯示（僅在已登入時呼叫） */
+function loadHeaderCredits(headerContainer) {
+    if (!headerContainer || typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return;
+    window.AuthService.getSession().then(function (session) {
+        if (!session || !session.access_token) return;
+        fetch('/api/me/credits', { headers: { 'Authorization': 'Bearer ' + session.access_token } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                var balance = (data && typeof data.balance === 'number') ? String(data.balance) : '—';
+                var desktopEl = headerContainer.querySelector('#navPointsDesktopValue');
+                var mobileEl = headerContainer.querySelector('#navPointsMobileValue');
+                if (desktopEl) desktopEl.textContent = balance;
+                if (mobileEl) mobileEl.textContent = balance;
+            })
+            .catch(function () {
+                var desktopEl = headerContainer.querySelector('#navPointsDesktopValue');
+                var mobileEl = headerContainer.querySelector('#navPointsMobileValue');
+                if (desktopEl) desktopEl.textContent = '—';
+                if (mobileEl) mobileEl.textContent = '—';
+            });
+    }).catch(function () {});
 }
 
 function initMobileNavDrawer(headerContainer) {

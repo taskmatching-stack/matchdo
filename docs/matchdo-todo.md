@@ -82,6 +82,41 @@
 
 ---
 
+## 規劃：Header 會員點數顯示位置
+
+**目標**：會員點數在 header 永遠可見；桌機在個人選單下、手機在漢堡左邊。
+
+### 顯示規則
+
+| 版型 | 位置 | 說明 |
+|------|------|------|
+| **桌機版** | 個人選單「下」 | 在頭像／個人選單區塊內、頭像下方或緊鄰處，永遠顯示一列「N 點」（可點擊連到 `/credits.html`），不需展開選單即見。 |
+| **手機版** | 漢堡左邊 | 在 Logo 與漢堡按鈕之間，永遠顯示「N 點」（可點擊連到 `/credits.html`）。 |
+
+- 僅**已登入**時顯示點數；未登入不顯示。
+- 點數來源：**`GET /api/me/credits`**（回傳 `balance`），與 `credits.html` 相同。
+
+### 實作要點
+
+1. **`public/js/site-header.js`**
+   - **桌機**：在 `#authSection` 內、登入時於頭像 dropdown 前方或下方插入一個「點數」節點（例如 `<a href="/credits.html" class="nav-points-desktop">…</a>`）。可用小字或 icon＋數字（如 `bi-currency-exchange`＋「123 點」），置於頭像正下方或同一 flex 行內，依現有 `.nav-avatar-toggle` 排版微調。
+   - **手機**：在 **navbar-brand 之後、navbar-toggler 之前** 插入一個僅手機顯示的區塊（例如 `<div id="navPointsMobile" class="d-lg-none">…</div>`），內為 `<a href="/credits.html">N 點</a>`，確保 DOM 順序為：Logo → 點數 → 漢堡。
+   - 初次渲染時若尚未取得點數，可先顯示「—」或「0」，再在 `loadSiteHeader` 內（或之後）呼叫 `GET /api/me/credits`，取得 `data.balance` 後更新兩處節點（桌機 `.nav-points-desktop`、手機 `#navPointsMobile`）。若與 `updateUserInfo` 一併更新，可一併在登入狀態變更時重取點數。
+
+2. **`public/css/style.css`**
+   - 桌機：`.nav-points-desktop` 僅在 `min-width: 992px`（或全站 RWD 斷點）顯示，樣式與個人選單區一致（字級、顏色、間距）。
+   - 手機：`#navPointsMobile` 僅在 `max-width: 991.98px` 顯示（或使用 `d-lg-none`），置於 logo 與漢堡之間，不折行、不壓縮漢堡按鈕。
+
+3. **i18n**  
+   - 若需「點」字樣多語，可加 `nav.points` 或沿用既有點數相關 key。
+
+### 注意
+
+- 不更動現有個人選單 dropdown 內容（「我的點數」連結保留）。
+- 點數僅在 header 顯示餘額數字＋連結，不重複整塊 credits 介面。
+
+---
+
 ## 近期完成（2026-02-25 部署規劃）
 
 ### 部署方案：Zeabur + GitHub
@@ -1700,7 +1735,7 @@ notifications (依賴 matches)
 - 廠商資料被查看時發送通知（`vendor_profile_viewed`）
 
 **預期結果**：兩端基本介面齊全，廠商列表頁提供長期訂閱用戶額外曝光價值
-
+；、、
 ---
 
 ### 📅 階段三：測試數據生成（第二週後半，預計 0.5-1 天）⭐⭐⭐

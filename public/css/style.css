@@ -633,6 +633,52 @@ body {
     border-right: none;
 }
 
+/* ===== Navbar：會員點數顯示（桌機在個人選單旁、手機在漢堡左邊） ===== */
+/* 桌機版點數：頭像下方、兩條橫線中間，與頭像同寬靠右、不佔滿寬就不撐開 */
+#site-header .navbar {
+    flex-wrap: wrap;
+}
+#site-header .nav-points-desktop-row {
+    flex: 0 0 auto;
+    width: auto;
+    order: 10;
+    margin-left: auto;
+    background: #ffffff;
+    box-sizing: border-box;
+}
+#site-header .nav-points-desktop {
+    font-size: 0.95rem;
+    color: #6c757d;
+    white-space: nowrap;
+    text-shadow: none;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+}
+#site-header .nav-points-desktop:hover {
+    color: #445D7E;
+}
+#site-header .nav-points-desktop #navPointsDesktopValue,
+#site-header #navPointsMobileValue {
+    color: #ffc107;
+    font-weight: 600;
+    text-shadow: none;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+}
+#site-header #navPointsMobile .nav-points-link {
+    display: inline-flex;
+    align-items: center;
+    font-size: 1rem;
+    color: #333;
+    white-space: nowrap;
+    text-shadow: none;
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+}
+#site-header #navPointsMobile .nav-points-link:hover {
+    color: #445D7E;
+}
+
 /* ===== Navbar：authSection 緊貼頭像，減少右側空白 ===== */
 @media (min-width: 992px) {
     #site-header #authSection {
