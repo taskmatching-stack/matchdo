@@ -184,6 +184,9 @@
                 #media-wall-filter .filter-tag.filter-sub { font-size: 0.75rem; padding: 0.2rem 0.4rem; border-color: #8a96a6; color: #5c6470; }
                 #media-wall-filter .filter-tag.filter-sub:hover, #media-wall-filter .filter-tag.filter-sub.active { border-color: #445D7E; color: #445D7E; }
                 #media-wall-filter .filter-tag.filter-sub.active { background: #e8ecf0; }
+                .mw-layout-filter { cursor: pointer; font-size: 0.875rem; padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid #dee2e6; background: #fff; }
+                .mw-layout-filter:hover, .mw-layout-filter.active { border-color: #445D7E; color: #445D7E; }
+                .mw-layout-filter.active { background: #e8ecf0; }
             </style>
             <div class="d-flex flex-wrap align-items-center justify-content-center gap-2 mb-2">
                 <input type="search" id="media-wall-search" class="form-control form-control-sm" data-i18n-placeholder="home.searchPlaceholder" placeholder="搜尋作品（標題或提示詞）" style="max-width: 280px;" autocomplete="off">
@@ -191,6 +194,10 @@
                 <button type="button" id="mw-fav-filter-btn" class="btn btn-sm btn-outline-secondary" title="只顯示我的收藏作品">
                     <i class="bi bi-heart me-1"></i>我的收藏<span class="fav-count"></span>
                 </button>
+                <span class="filter-tag mw-layout-filter" data-layout-type="" role="button" tabindex="0" title="全部類型">全部</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖">設計圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖">對照圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="collection" role="button" tabindex="0" title="資料夾 1×2">系列圖</span>
                 <button type="button" id="media-wall-load-more" class="btn btn-sm btn-outline-secondary d-none" data-i18n="home.loadMore">載入更多</button>
             </div>
             <div id="media-wall-filter" class="mb-2 d-none">
@@ -471,9 +478,15 @@
             // 縮圖列已移除（改由格線過濾顯示），保留空函數供舊呼叫點相容
             function renderFavSection() {}
 
-            // 「我的收藏」過濾：只顯示已收藏作品
+            // 「我的收藏」過濾：只顯示已收藏作品（可疊加 layout 類型篩選）
             function renderFavoritesGrid() {
                 var favs = loadFavs();
+                if (currentLayoutType) {
+                    favs = favs.filter(function (f) {
+                        var t = (f.item && f.item.type) || 'user_design';
+                        return t === currentLayoutType;
+                    });
+                }
                 grid.innerHTML = '';
                 if (!favs.length) { renderFavoritesEmptyState(); return; }
                 favs.forEach(function(f) {
@@ -801,6 +814,7 @@
             var adminOpts = { isAdmin: false, getToken: function () { return Promise.resolve(null); } };
             var currentCategoryKey = '';
             var currentSubcategoryKey = '';
+            var currentLayoutType = '';
 
             // ── 我的收藏 過濾按鈕 ──
             var favFilterBtn = document.getElementById('mw-fav-filter-btn');
@@ -819,6 +833,18 @@
                     }
                 });
             }
+
+            // ── 設計圖 / 對照圖 / 系列圖 過濾（與分類疊加，API 用 layout_type 篩選）
+            document.querySelectorAll('.mw-layout-filter').forEach(function (el) {
+                var type = (el.getAttribute('data-layout-type') || '').trim();
+                el.addEventListener('click', function () {
+                    currentLayoutType = type;
+                    document.querySelectorAll('.mw-layout-filter').forEach(function (t) { t.classList.toggle('active', (t.getAttribute('data-layout-type') || '').trim() === currentLayoutType); });
+                    applyLayoutFilterAndReload();
+                });
+                el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
+            });
+            document.querySelectorAll('.mw-layout-filter').forEach(function (t) { t.classList.toggle('active', (t.getAttribute('data-layout-type') || '').trim() === currentLayoutType); });
 
             // 頁面載入後同步 DB 收藏（僅登入時）
             (function () {
@@ -852,18 +878,31 @@
                 var url = '/api/media-wall?per_page=' + perPage + '&page=' + page + (q ? '&q=' + encodeURIComponent(q) : '');
                 if (currentCategoryKey) url += '&category_key=' + encodeURIComponent(currentCategoryKey);
                 if (currentSubcategoryKey) url += '&subcategory_key=' + encodeURIComponent(currentSubcategoryKey);
+                if (currentLayoutType) url += '&layout_type=' + encodeURIComponent(currentLayoutType);
                 return url;
             }
+            function applyLayoutFilterAndReload() {
+                if (showingFavoritesOnly) {
+                    renderFavoritesGrid();
+                } else {
+                    loadMediaWall(1, (searchInput && searchInput.value.trim()) ? searchInput.value.trim() : currentQ || '', false, adminOpts);
+                }
+            }
+            var loadMediaWallRequestId = 0;
             function loadMediaWall(page, q, append, opts) {
                 opts = opts || adminOpts;
                 if (isLoading) return;
                 isLoading = true;
+                var thisRequestId = ++loadMediaWallRequestId;
                 if (!append) { grid.innerHTML = ''; loading.classList.remove('d-none'); empty.classList.add('d-none'); }
                 var url = buildMediaWallUrl(page, q);
-                fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+                var fetchOpts = currentLayoutType ? { cache: 'no-store' } : {};
+                fetch(url, fetchOpts).then(function (r) { return r.json(); }).then(function (data) {
+                    if (thisRequestId !== loadMediaWallRequestId) return;
                     loading.classList.add('d-none');
                     if (data.error) { if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '無法載入作品牆，請稍後再試。'; } return; }
                     var items = data.items || [];
+                    if (currentLayoutType) items = items.filter(function (p) { return (p.type || '') === currentLayoutType; });
                     if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
                     empty.classList.add('d-none');
                     var is1x2 = function (p) { return p.type === 'collection' || p.size === '1x2'; };
@@ -871,22 +910,25 @@
                     var ones = items.filter(function (p) { return !is1x2(p); });
                     var displayOrder = collections.concat(ones);
                     displayOrder.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
-                    var twoRows = grid.querySelectorAll('.media-wall-1x2');
-                    for (var i = 0; i < twoRows.length; i++) {
-                        if (i <= 5) twoRows[i].classList.add('media-wall-1x2-pos' + i);
-                    }
-                    var comps = grid.querySelectorAll('.media-wall-comparison');
-                    for (var i = 0; i < comps.length; i++) {
-                        if (i <= 5) comps[i].classList.add('media-wall-comparison-pos' + i);
+                    if (!currentLayoutType) {
+                        var twoRows = grid.querySelectorAll('.media-wall-1x2');
+                        for (var i = 0; i < twoRows.length; i++) {
+                            if (i <= 5) twoRows[i].classList.add('media-wall-1x2-pos' + i);
+                        }
+                        var comps = grid.querySelectorAll('.media-wall-comparison');
+                        for (var i = 0; i < comps.length; i++) {
+                            if (i <= 5) comps[i].classList.add('media-wall-comparison-pos' + i);
+                        }
                     }
                     currentPage = page;
                     currentQ = q;
                     renderFavSection();
                     if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', page < 2 || items.length < perPage);
                 }).catch(function () {
+                    if (thisRequestId !== loadMediaWallRequestId) return;
                     loading.classList.add('d-none');
                     if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '無法載入作品牆，請稍後再試。'; }
-                }).finally(function () { isLoading = false; });
+                }).finally(function () { if (thisRequestId === loadMediaWallRequestId) isLoading = false; });
             }
             function runFilterMain(key) {
                 currentCategoryKey = key || '';

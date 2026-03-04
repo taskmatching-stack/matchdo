@@ -5722,9 +5722,14 @@ app.get('/api/media-wall', async (req, res) => {
     const searchQ = (req.query.q && String(req.query.q).trim()) || '';
     const filterCategoryKey = (req.query.category_key && String(req.query.category_key).trim()) || '';
     const filterSubcategoryKey = (req.query.subcategory_key && String(req.query.subcategory_key).trim()) || '';
+    const filterLayoutType = (req.query.layout_type && String(req.query.layout_type).trim()) || '';
+    const layoutOnly = ['user_design', 'comparison', 'collection'].includes(filterLayoutType) ? filterLayoutType : null;
 
     const out = [];
     const hasCategoryFilter = !!(filterCategoryKey || filterSubcategoryKey);
+    const nUserLimit = layoutOnly === 'user_design' ? perPage : nUser;
+    const nComparisonLimit = layoutOnly === 'comparison' ? perPage : nComparison;
+    const nCollectionLimit = layoutOnly === 'collection' ? Math.min(perPage, Math.max(1, Math.floor(perPage / 2))) : nCollection;
 
     try {
         // 主分類篩選時：custom_products.category 可能存「主分類 key」或「子分類 key」（表單只送一個欄位），故需包含該主分類下所有子分類 key
@@ -5743,6 +5748,7 @@ app.get('/api/media-wall', async (req, res) => {
 
         // 用戶設計：只查「有圖」且允許顯示在首頁的；可依 category / subcategory_key 篩選
         let userRows = [];
+        if (!layoutOnly || layoutOnly === 'user_design') {
         let userQuery = supabase
             .from('custom_products')
             .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage')
@@ -5751,7 +5757,7 @@ app.get('/api/media-wall', async (req, res) => {
         if (categoryKeysToMatch && categoryKeysToMatch.length) userQuery = userQuery.in('category', categoryKeysToMatch);
         else if (filterCategoryKey) userQuery = userQuery.eq('category', filterCategoryKey);
         if (filterSubcategoryKey) userQuery = userQuery.eq('subcategory_key', filterSubcategoryKey);
-        userQuery = userQuery.order('created_at', { ascending: false }).range(offset, offset + (hasCategoryFilter ? perPage : nUser) - 1);
+        userQuery = userQuery.order('created_at', { ascending: false }).range(offset, offset + (hasCategoryFilter ? perPage : nUserLimit) - 1);
         const userRes = await userQuery;
         if (!userRes.error) userRows = userRes.data || [];
         if (userRes.error && userRes.error.code !== '42703') console.warn('GET /api/media-wall 用戶設計查詢失敗:', userRes.error.message);
@@ -5762,7 +5768,7 @@ app.get('/api/media-wall', async (req, res) => {
                 .not('ai_generated_image_url', 'eq', null);
             if (categoryKeysToMatch && categoryKeysToMatch.length) fallbackQuery = fallbackQuery.in('category', categoryKeysToMatch);
             else if (filterCategoryKey) fallbackQuery = fallbackQuery.eq('category', filterCategoryKey);
-            fallbackQuery = fallbackQuery.order('created_at', { ascending: false }).range(offset, offset + (hasCategoryFilter ? perPage : nUser) - 1);
+            fallbackQuery = fallbackQuery.order('created_at', { ascending: false }).range(offset, offset + (hasCategoryFilter ? perPage : nUserLimit) - 1);
             const fallback = await fallbackQuery;
             userRows = (fallback.data && fallback.data.length) ? fallback.data : [];
             if (filterSubcategoryKey && userRows.length) userRows = userRows.filter(p => (p.subcategory_key || '') === filterSubcategoryKey);
@@ -5804,9 +5810,11 @@ app.get('/api/media-wall', async (req, res) => {
                 });
             });
         }
+        }
 
         // 廠商對比：有分類篩選時只回傳該分類的對比圖，無篩選時回傳 show_on_media_wall 的項目（需 category_key 欄位請執行 docs/add-manufacturer-portfolio-category-fields.sql）
         let compRows = [];
+        if (!layoutOnly || layoutOnly === 'comparison') {
         const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, show_on_media_wall, category_key, subcategory_key';
         if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
             let compQuery = supabase
@@ -5815,7 +5823,7 @@ app.get('/api/media-wall', async (req, res) => {
                 .eq('show_on_media_wall', true)
                 .in('category_key', categoryKeysToMatch)
                 .order('created_at', { ascending: false })
-                .range(offset, offset + nComparison - 1);
+                .range(offset, offset + nComparisonLimit - 1);
             if (filterSubcategoryKey) compQuery = compQuery.eq('subcategory_key', filterSubcategoryKey);
             const compRes = await compQuery;
             if (!compRes.error) compRows = compRes.data || [];
@@ -5826,7 +5834,7 @@ app.get('/api/media-wall', async (req, res) => {
                 .select(compSelect)
                 .eq('show_on_media_wall', true)
                 .order('created_at', { ascending: false })
-                .range(offset, offset + nComparison - 1);
+                .range(offset, offset + nComparisonLimit - 1);
             if (!compRes.error) compRows = compRes.data || [];
             if (compRes.error && compRes.error.code !== '42703') console.warn('GET /api/media-wall 廠商對比查詢:', compRes.error.message);
             if (compRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(compRes.error.message || compRes.error.code)) {
@@ -5834,9 +5842,10 @@ app.get('/api/media-wall', async (req, res) => {
                     .from('manufacturer_portfolio')
                     .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight')
                     .order('created_at', { ascending: false })
-                    .range(offset, offset + nComparison - 1);
+                    .range(offset, offset + nComparisonLimit - 1);
                 compRows = fallback.data || [];
             }
+        }
         }
         if (compRows && compRows.length) {
             // Batch-fetch manufacturer user_id so the lightbox can offer in-app contact
@@ -5869,10 +5878,12 @@ app.get('/api/media-wall', async (req, res) => {
             });
         }
         // 沒有對比圖時不顯示對比（不塞 demo），每種類型都要有分類
+        }
 
         // 資料夾：請先執行 docs/fix-media-collections-for-api.sql（補 title、關 RLS）
         let collRows = [];
-        const collLimit = hasCategoryFilter ? Math.min(nCollection * 3, 30) : nCollection;
+        if (!layoutOnly || layoutOnly === 'collection') {
+        const collLimit = hasCategoryFilter ? Math.min(nCollectionLimit * 3, 30) : nCollectionLimit;
         if (collLimit > 0) {
             const collRes = await supabase
                 .from('media_collections')
@@ -5897,11 +5908,12 @@ app.get('/api/media-wall', async (req, res) => {
                         const keys = p.category_keys;
                         if (!keys || !Array.isArray(keys) || keys.length === 0) return false;
                         return keys.indexOf(filterCategoryKey) !== -1;
-                    }).slice(0, nCollection);
+                    }).slice(0, nCollectionLimit);
                 }
             } else {
-                collRows = raw.slice(0, nCollection);
+                collRows = raw.slice(0, nCollectionLimit);
             }
+        }
         }
         // Batch-fetch manufacturer user_id for collections that have manufacturer_id
         const collMfrIds = [...new Set(collRows.map(p => p.manufacturer_id).filter(Boolean))];
