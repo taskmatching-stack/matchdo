@@ -1,5 +1,7 @@
 # 廠商作品欄位：顯示位置與標籤搜尋
 
+**對照圖＝一筆作品**：設計圖存 `image_url_before`、作品圖存 `image_url`，同一筆資料、絕不分開存成兩筆。
+
 ## 1. 語系（英文版仍出現中文）
 
 - **已處理**：「前、後各一張。」、主／子分類選單預設選項等已加語系鍵；表單標籤／按鈕／placeholder 有鍵者會依語系切換。
@@ -28,17 +30,17 @@
 
 - **getGalleryComparisonItems**（server.js）從 `manufacturer_portfolio` 取：  
   `id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, category_key`，再組廠商名／地區／聯絡等。  
-- 圖庫列表／彈窗用的就是上述欄位；**沒有**用「系列圖多張」（`series_image_urls`），只用到一張主圖 + 一張前圖（廠商詳情頁才用前／後並排）。
+- 圖庫列表／彈窗用的就是上述欄位；**沒有**用「系列圖多張」（`series_image_urls`），只用到一張主圖 + 一張設計圖（廠商詳情頁才用設計圖／作品圖並排）。
 
 ### 靈感牆（首頁 media wall：`public/iStudio-1.0.0/index.html`，資料來自 `GET /api/media-wall`）
 
-- **對比圖**（`type === 'comparison'`，來自 `manufacturer_portfolio`，`show_on_media_wall = true`）  
-  - **卡片**：前／後圖（滑桿對照）、**作品名稱**（overlay）。  
-  - **Lightbox**：前／後滑桿、標題、**作品亮點**、**標籤**、**描述**（有值才顯示）、按鈕（查看廠商、再設計等）。
+- **對照圖**（`type === 'comparison'`，來自 `manufacturer_portfolio`，`show_on_media_wall = true`）  
+  - **卡片**：**滑桿**（設計圖／作品圖對照）、作品名稱 overlay、左上角標籤「對照」。  
+  - **Lightbox**：設計圖／作品圖滑桿、標題、作品亮點、標籤、描述、按鈕（聯絡廠商、再設計等）。
 
-- **作品集／系列**（`type === 'collection'`，來自 `media_collections`）  
-  - **卡片**：1×2 格、兩張圖（`cover_image_url` 或 `image_urls` 前兩張）、**標題**。  
-  - **Lightbox**：多張圖（`image_urls` 最多 20 張）、標題、**描述**（資料夾說明，有值才顯示）。
+- **系列圖**（`type === 'collection'`，來自 `media_collections`）  
+  - **卡片**：**多圖縮圖**（2 張→1×2 兩格，3 張以上→2×2 四格，取 `image_urls` 前 4 張）、標題、左上角標籤「系列」。  
+  - **Lightbox**：多張圖輪播、標題、描述（資料夾說明）。
 
 實作：`GET /api/media-wall` 對比圖回傳 `design_highlight, tags, description`；`public/iStudio-1.0.0/index.html` lightbox 內 `#media-wall-lightbox-detail-portfolio` 顯示上述欄位。
 
@@ -48,15 +50,15 @@
 
 | 欄位         | 圖庫列表 | 圖庫彈窗 | 廠商詳情頁作品集 | 靈感牆對比圖 | 靈感牆作品集 |
 |--------------|----------|----------|------------------|--------------|--------------|
-| 主圖 (image_url) | ✓ 一張   | ✓ 一張   | ✓（或與前圖並排） | ✓（滑桿「後」） | —            |
-| 前圖 (image_url_before) | ✗ | ✗ | ✓ 與後圖並排 | ✓（滑桿「前」） | —            |
+| 作品圖 (image_url) | ✓ 一張   | ✓ 一張   | ✓（或與設計圖並排） | ✓（滑桿右） | —            |
+| 設計圖 (image_url_before) | ✗ | ✗ | ✓ 與作品圖並排 | ✓（滑桿左） | —            |
 | 作品名稱     | ✓        | ✓        | ✓                | ✓            | ✓（資料夾標題） |
 | 作品亮點     | ✗        | ✓        | ✓                | ✓ Lightbox   | ✗            |
 | 作品描述     | ✗        | ✓        | ✗                | ✓ Lightbox   | ✓ Lightbox   |
 | 標籤         | ✓ 前 3 個 | ✓ 全部   | ✓                | ✓ Lightbox   | ✗            |
 | 分類         | 篩選用   | —        | —                | 篩選用       | 篩選用       |
 
-- **圖庫**：列表／彈窗都沒有前／後並排，只有單一主圖；前／後並排在**廠商詳情頁**作品集才有。  
+- **圖庫**：列表／彈窗都沒有設計圖／作品圖並排，只有單一主圖；設計圖／作品圖並排在**廠商詳情頁**作品集才有。  
 - **靈感牆**：對比圖 lightbox 已顯示作品亮點、標籤、描述；作品集 lightbox 已顯示描述（資料夾說明）。
 
 ---

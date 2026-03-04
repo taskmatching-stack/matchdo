@@ -222,13 +222,43 @@
         if (!id) { showError(); return; }
 
         fetch('/api/manufacturers/' + encodeURIComponent(id))
-            .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-            .then(renderProfile)
-            .catch(showError);
+            .then(function (r) {
+                if (r.ok) return r.json();
+                return r.json().catch(function () { return {}; }).then(function (body) {
+                    return Promise.reject({ status: r.status, message: (body && body.error) || '無法載入' });
+                });
+            })
+            .then(function (data) {
+                try {
+                    renderProfile(data);
+                } catch (err) {
+                    console.error('renderProfile error:', err);
+                    showError(404, err.message);
+                }
+            })
+            .catch(function (err) {
+                var status = (err && err.status) || 0;
+                var msg = (err && err.message) || '';
+                showError(status, msg);
+            });
 
-        function showError() {
+        function showError(status, detail) {
             document.getElementById('pageLoading').classList.add('d-none');
-            document.getElementById('pageError').classList.remove('d-none');
+            var errEl = document.getElementById('pageError');
+            errEl.classList.remove('d-none');
+            var msgEl = errEl.querySelector('p');
+            if (msgEl) {
+                var is404 = status === 404 || (detail && String(detail).indexOf('不存在') !== -1);
+                var is500 = status === 500;
+                if (is500) {
+                    msgEl.innerHTML = '暫時無法載入廠商資料，請稍後再試。';
+                } else {
+                    msgEl.innerHTML = '找不到此廠商，或已下架。';
+                }
+                var safeId = (id || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                msgEl.innerHTML += '<br><small class="d-block mt-2 text-muted">此連結的廠商 ID：' + (safeId ? '<code class="user-select-all">' + safeId + '</code>' : '—') + '</small>';
+                msgEl.innerHTML += '<br><small class="d-block mt-1">若您是廠商，請至首頁「我的功能」→「製作方」→「建立廠商資料」先建立一筆廠商；建立後用同一個網址即可開啟此頁。</small>';
+            }
         }
 
         function starsHTML(rating) {
@@ -351,11 +381,12 @@
                 document.getElementById('heroLocation').classList.remove('d-none');
             }
 
-            // 簡介
-            if (v.specialty) {
-                document.getElementById('vendorDesc').textContent = v.specialty;
-                document.getElementById('sectionDesc').style.display = '';
-            }
+            // 簡介（API 回傳 specialty = description）
+            var specialty = (v.specialty || v.description || '').trim();
+            var descEl = document.getElementById('vendorDesc');
+            var sectionDescEl = document.getElementById('sectionDesc');
+            if (descEl) descEl.textContent = specialty || '此廠商尚未填寫簡介。';
+            if (sectionDescEl) sectionDescEl.style.display = '';
 
             // 服務地區（contact.service_area 陣列 or 字串，分組顯示）
             var contact = v.contact || {};
@@ -474,7 +505,8 @@
                     } else {
                         imgHTML = '<div class="portfolio-no-img"><i class="bi bi-image"></i></div>';
                     }
-                    var tagsHTML = (p.tags || []).map(function(t){ return '<span class="cap-tag">' + escHtml(t) + '</span>'; }).join('');
+                    var tagList = Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? (p.tags.split(/[,，、\s]+/).map(function(s){ return s.trim(); }).filter(Boolean)) : []);
+                    var tagsHTML = tagList.map(function(t){ return '<span class="cap-tag">' + escHtml(t) + '</span>'; }).join('');
                     col.innerHTML = '<div class="portfolio-card">' + imgHTML +
                         '<div class="p-2">' +
                         (p.title ? '<div class="fw-semibold small mb-1" style="color:#2d4059">' + escHtml(p.title) + '</div>' : '') +

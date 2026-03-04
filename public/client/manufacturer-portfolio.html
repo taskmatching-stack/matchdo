@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 此頁為 /client/manufacturer-portfolio.html 實際來源：public/client/manufacturer-portfolio.html（對照圖＝前＋後兩欄） -->
+<!-- 此頁為 /client/manufacturer-portfolio.html 實際來源：public/client/manufacturer-portfolio.html（對照圖＝設計圖＋作品圖） -->
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
@@ -64,26 +64,27 @@
                 <div class="card-body">
                     <form id="add-form" enctype="multipart/form-data">
                         <div class="row g-3">
+                            <div class="col-12"><div class="section-title" data-i18n="portfolio.seriesSection">系列圖</div></div>
                             <div class="col-md-6" id="add-series-block">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.seriesImages">系列圖（可多張）</label>
+                                <label class="form-label fw-semibold" for="add-image" data-i18n="portfolio.seriesImages">系列圖（可多張）</label>
                                 <input type="file" class="form-control" id="add-image" accept="image/*" multiple>
                                 <div class="text-muted small mt-1" id="add-series-hint">建議比例 1:1，JPEG/PNG/WEBP，總容量 5MB。1800／測試員或付 600 點可上傳（付點數可顯示一個月）。</div>
                                 <div id="add-image-preview" class="mt-2 d-flex flex-wrap gap-2"></div>
                             </div>
-                            <div class="col-12"><hr class="my-2"><div class="section-title" data-i18n="portfolio.comparisonImages">對照圖（前/後對比）</div></div>
-                            <div class="col-12"><p class="text-muted small mb-2" data-i18n="portfolio.comparisonOneEach">前、後各一張。</p></div>
-                            <!-- 前：固定顯示，不依 JS 控制顯示/隱藏 -->
+                            <div class="col-12"><hr class="my-2"><div class="section-title" data-i18n="portfolio.comparisonImages">對照圖（設計圖／作品圖）</div></div>
+                            <div class="col-12"><p class="text-muted small mb-2" data-i18n="portfolio.comparisonOneEach">設計圖、作品圖各一張。</p></div>
+                            <!-- 設計圖：固定顯示 -->
                             <div class="col-md-6" id="add-before-block">
-                                <label class="form-label fw-semibold" id="add-before-label">前（before，可選）</label>
+                                <label class="form-label fw-semibold" id="add-before-label" data-i18n="portfolio.beforeOptional">設計圖（可選）</label>
                                 <input type="file" class="form-control" id="add-image-before" accept="image/*">
                                 <div class="text-muted small mt-1" id="add-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
                                 <div id="add-image-before-preview" class="mt-2"></div>
                             </div>
-                            <!-- 後（after）：獨立一欄，結構與「前」對稱，絕不隱藏 -->
+                            <!-- 作品圖：獨立一欄，絕不隱藏 -->
                             <div class="col-md-6 d-block" id="add-after-block" style="display: block !important;">
-                                <label class="form-label fw-semibold" id="add-after-label" for="add-image-after"><span id="add-after-label-text">後（after）</span><span id="add-after-marker" class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold" id="add-after-label" for="add-image-after"><span id="add-after-label-text" data-i18n="portfolio.afterLabel">作品圖</span><span id="add-after-marker" class="text-danger">*</span></label>
                                 <input type="file" class="form-control" id="add-image-after" accept="image/*" aria-describedby="add-after-hint">
-                                <div class="text-muted small mt-1" id="add-after-hint">若不上傳系列圖，請改上傳「前」「後」兩張圖作為對照（作品圖）。</div>
+                                <div class="text-muted small mt-1" id="add-after-hint" data-i18n="portfolio.afterHint">對照圖的「作品圖」（完成／實品）。</div>
                                 <div id="add-image-after-preview" class="mt-2"></div>
                             </div>
                             <div class="col-md-6">
@@ -161,17 +162,17 @@
                                 <img id="edit-current-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentSeriesImg" alt="目前系列圖">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" id="edit-before-label" data-i18n="portfolio.editBeforeLabel">對照圖 - 前（留空保持原圖）</label>
+                                <label class="form-label fw-semibold" id="edit-before-label" data-i18n="portfolio.editBeforeLabel">對照圖 - 設計圖（留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image-before" accept="image/*">
                                 <div class="text-muted small mt-1" id="edit-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
                                 <div id="edit-image-before-preview" class="mt-2"></div>
-                                <img id="edit-current-before-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentBeforeImg" alt="目前對照圖-前">
+                                <img id="edit-current-before-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentBeforeImg" alt="目前設計圖">
                             </div>
                             <div class="col-md-6" id="edit-after-block">
-                                <label class="form-label fw-semibold" id="edit-after-label" data-i18n="portfolio.editAfterLabel">對照圖 - 後（留空保持原圖）</label>
+                                <label class="form-label fw-semibold" id="edit-after-label" data-i18n="portfolio.editAfterLabel">對照圖 - 作品圖（留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image-after" accept="image/*">
                                 <div id="edit-image-after-preview" class="mt-2"></div>
-                                <img id="edit-current-after-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentAfterImg" alt="目前對照圖-後">
+                                <img id="edit-current-after-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentAfterImg" alt="目前作品圖">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.workName">作品名稱</label>
@@ -544,25 +545,31 @@
             makePreview('edit-image-before', 'edit-image-before-preview');
             makePreview('edit-image-after', 'edit-image-after-preview');
 
+            var addFormSubmitting = false;
             document.getElementById('add-form').addEventListener('submit', async function (e) {
                 e.preventDefault();
+                if (addFormSubmitting) return;
+                addFormSubmitting = true;
                 var btn = document.getElementById('btn-add-submit');
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
                     var fd = new FormData();
                     var mainFile, beforeFile;
-                    if (canUploadSeries) {
-                        var addImageInput = document.getElementById('add-image');
-                        beforeFile = document.getElementById('add-image-before').files[0];
-                        if (!addImageInput.files.length) { showToast(tr('portfolio.addSeriesRequired'), 'warning'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); return; }
+                    var addImageInput = document.getElementById('add-image');
+                    var afterFile = document.getElementById('add-image-after').files[0];
+                    beforeFile = document.getElementById('add-image-before').files[0];
+                    var hasSeries = addImageInput.files.length > 0;
+                    var hasBeforeAfter = !!(beforeFile && afterFile);
+                    if (hasSeries) {
                         for (var i = 0; i < addImageInput.files.length; i++) fd.append('image', addImageInput.files[i]);
                         if (beforeFile) fd.append('image_before', beforeFile);
-                    } else {
-                        beforeFile = document.getElementById('add-image-before').files[0];
-                        mainFile = document.getElementById('add-image-after').files[0];
-                        if (!beforeFile || !mainFile) { showToast(tr('portfolio.addBeforeAfterRequired'), 'warning'); btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); return; }
-                        fd.append('image', mainFile);
+                    } else if (hasBeforeAfter) {
+                        // 對照圖＝一筆：設計圖、作品圖一起送，後端存成同一筆（image_url=作品圖, image_url_before=設計圖）
+                        fd.append('image', afterFile);
                         fd.append('image_before', beforeFile);
+                    } else {
+                        showToast(tr('portfolio.addSeriesOrBeforeAfterRequired'), 'warning');
+                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
                     }
                     fd.append('title', document.getElementById('add-title').value.trim());
                     fd.append('design_highlight', document.getElementById('add-highlight').value.trim());
@@ -587,7 +594,7 @@
                     document.getElementById('add-form-panel').classList.add('d-none');
                     await loadPortfolio();
                 } catch (e) { showToast(e.message, 'danger'); }
-                finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); }
+                finally { addFormSubmitting = false; btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); }
             });
 
             document.getElementById('btn-edit-save').addEventListener('click', async function () {
@@ -596,7 +603,10 @@
                 try {
                     var pid = document.getElementById('edit-id').value;
                     var fd = new FormData();
-                    var imgFile = canUploadSeries ? document.getElementById('edit-image').files[0] : document.getElementById('edit-image-after').files[0];
+                    // 有選就送：對照圖－後有選就送（有系列權限的就有對照權限）；兩者都選時優先送對照後
+                    var seriesFile = document.getElementById('edit-image').files[0];
+                    var afterFile = document.getElementById('edit-image-after').files[0];
+                    var imgFile = afterFile || seriesFile;
                     if (imgFile) fd.append('image', imgFile);
                     var beforeFile = document.getElementById('edit-image-before').files[0];
                     if (beforeFile) fd.append('image_before', beforeFile);

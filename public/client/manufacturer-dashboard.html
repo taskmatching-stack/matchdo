@@ -45,10 +45,26 @@
     </div>
 
     <div class="container py-4">
-        <!-- 未建立廠商資料提示 -->
-        <div id="no-mfr-alert" class="alert alert-warning d-none" role="alert">
-            <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料。
-            <a href="/profile/contact-info.html" class="alert-link">前往建立廠商資料</a>
+        <!-- 未建立廠商資料：建立表單（僅在 404 時顯示） -->
+        <div id="no-mfr-create" class="card border-0 shadow-sm mb-4 d-none">
+            <div class="card-body p-4">
+                <h5 class="card-title mb-3"><i class="bi bi-building-add me-2"></i>建立廠商資料</h5>
+                <p class="text-muted small mb-3">請填寫下方欄位建立您的廠商頁面，建立後即可上傳作品並在靈感牆顯示「廠商詳情」。</p>
+                <form id="create-mfr-form">
+                    <div class="mb-3">
+                        <label for="create-mfr-name" class="form-label">廠商名稱 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="create-mfr-name" placeholder="公司或工作室名稱" required maxlength="200">
+                    </div>
+                    <div class="mb-3">
+                        <label for="create-mfr-desc" class="form-label">簡短介紹</label>
+                        <textarea class="form-control" id="create-mfr-desc" rows="2" placeholder="選填，之後可再編輯"></textarea>
+                    </div>
+                    <div id="create-mfr-msg" class="small mb-2"></div>
+                    <button type="submit" class="btn btn-primary" id="create-mfr-btn">
+                        <i class="bi bi-check-lg me-1"></i>建立廠商資料
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- 統計卡 -->
@@ -156,6 +172,21 @@
                     </div>
                 </div>
 
+                <!-- 我的廠商頁網址（靈感牆「廠商詳情」連到這裡） -->
+                <div class="section-title mt-4">我的廠商頁網址</div>
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body py-2">
+                        <p class="small text-muted mb-2">訪客從首頁靈感牆點「廠商詳情」會開啟此連結，可複製分享。</p>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <input type="text" class="form-control form-control-sm font-monospace" id="mfr-profile-url" readonly placeholder="建立廠商資料後會顯示" style="max-width:100%;">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-copy-profile-url" title="複製連結">
+                                <i class="bi bi-clipboard me-1"></i>複製連結
+                            </button>
+                        </div>
+                        <span id="copy-profile-url-msg" class="small text-success mt-1 d-none">已複製到剪貼簿</span>
+                    </div>
+                </div>
+
                 <!-- 廠商 LOGO -->
                 <div class="section-title mt-4">廠商 LOGO <small class="text-muted fw-normal fs-6">（顯示於廠商頁面頭像與分享預覽）</small></div>
                 <div class="card border-0 shadow-sm mb-3">
@@ -251,8 +282,8 @@
             try {
                 const res = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
                 if (res.status === 404) {
-                    document.getElementById('no-mfr-alert').classList.remove('d-none');
-                    document.getElementById('mfr-summary').innerHTML = '<div class="text-muted">尚未建立廠商資料。</div>';
+                    document.getElementById('no-mfr-create').classList.remove('d-none');
+                    document.getElementById('mfr-summary').innerHTML = '<div class="text-muted">尚未建立廠商資料。請在上方表單建立。</div>';
                     document.getElementById('mfr-name').textContent = '（尚未建立廠商資料）';
                     return;
                 }
@@ -260,6 +291,11 @@
                 mfrId = mfr.id;
                 document.getElementById('mfr-name').textContent = mfr.name || '廠商';
                 document.getElementById('link-preview').href = '/vendor-profile.html?id=' + mfrId;
+                var profileUrlInput = document.getElementById('mfr-profile-url');
+                if (profileUrlInput) {
+                    var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+                    profileUrlInput.value = origin ? (origin.replace(/\/$/, '') + '/vendor-profile.html?id=' + encodeURIComponent(mfrId)) : ('/vendor-profile.html?id=' + encodeURIComponent(mfrId));
+                }
 
                 // 摘要卡
                 const contact = mfr.contact_json || {};
@@ -427,6 +463,75 @@
                     } catch (e) {
                         logoSaveMsg.textContent = '❌ ' + e.message;
                         logoSaveMsg.className = 'small text-danger';
+                    }
+                });
+            }
+
+            // 首次建立廠商表單
+            var createMfrForm = document.getElementById('create-mfr-form');
+            if (createMfrForm) {
+                createMfrForm.addEventListener('submit', async function (e) {
+                    e.preventDefault();
+                    var nameEl = document.getElementById('create-mfr-name');
+                    var descEl = document.getElementById('create-mfr-desc');
+                    var msgEl = document.getElementById('create-mfr-msg');
+                    var btnEl = document.getElementById('create-mfr-btn');
+                    var name = (nameEl && nameEl.value || '').trim();
+                    if (!name) {
+                        if (msgEl) { msgEl.textContent = '請填寫廠商名稱'; msgEl.className = 'small text-danger mb-2'; }
+                        return;
+                    }
+                    var t = await getToken();
+                    if (!t) {
+                        if (msgEl) { msgEl.textContent = '請先登入'; msgEl.className = 'small text-danger mb-2'; }
+                        return;
+                    }
+                    if (msgEl) msgEl.textContent = '';
+                    if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>建立中…'; }
+                    try {
+                        var r = await fetch('/api/me/manufacturer', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                            body: JSON.stringify({
+                                name: name,
+                                description: (descEl && descEl.value || '').trim() || undefined
+                            })
+                        });
+                        var data = await r.json().catch(function () { return {}; });
+                        if (!r.ok) {
+                            throw new Error(data.error || '建立失敗');
+                        }
+                        window.location.reload();
+                    } catch (err) {
+                        if (msgEl) { msgEl.textContent = '❌ ' + (err.message || '建立失敗'); msgEl.className = 'small text-danger mb-2'; }
+                        if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="bi bi-check-lg me-1"></i>建立廠商資料'; }
+                    }
+                });
+            }
+
+            // 複製廠商頁網址
+            var btnCopyProfileUrl = document.getElementById('btn-copy-profile-url');
+            var copyProfileUrlMsg = document.getElementById('copy-profile-url-msg');
+            if (btnCopyProfileUrl) {
+                btnCopyProfileUrl.addEventListener('click', function () {
+                    var input = document.getElementById('mfr-profile-url');
+                    var url = (input && input.value || '').trim();
+                    if (!url) return;
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(url).then(function () {
+                            if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
+                        }).catch(function () {
+                            fallbackCopy(url);
+                        });
+                    } else {
+                        fallbackCopy(url);
+                    }
+                    function fallbackCopy(text) {
+                        try {
+                            input.select();
+                            document.execCommand('copy');
+                            if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
+                        } catch (e) {}
                     }
                 });
             }

@@ -148,8 +148,9 @@
                 #media-wall-grid .card .card-img-wrap img[src*="placehold.co"] { filter: grayscale(1); }
                 #media-wall-grid .card .card-img-wrap .media-wall-placeholder { background: #e8e8e8 !important; color: #888 !important; font-size: 0.7rem; display: flex !important; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 80px; background-image: repeating-linear-gradient(0deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px), repeating-linear-gradient(90deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px) !important; }
                 #media-wall-grid .card .card-img-wrap .media-wall-placeholder span { color: #888; }
-                /* 1x2 資料夾：直列兩格 */
+                /* 系列多圖：1×2（兩格）或 2×2（四格） */
                 #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 2px; padding: 2px; }
+                #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid.collection-grid-2x2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
                 #media-wall-grid .media-wall-1x2 .card .card-img-wrap.collection-grid img { width: 100%; height: 100%; object-fit: cover; display: block; }
                 /* 對比卡：圖區內填滿，overlay 滑桿（垂直線+圓形把手） */
                 .comparison-slider-wrap { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -168,6 +169,10 @@
                 .mw-fav-btn.active { color:#ff6b6b; }
                 .mw-fav-btn:not(.active) { color:rgba(255,255,255,.85); }
                 .mw-fav-btn:not(.active):hover { color:#ff6b6b; }
+                /* 卡片類型標籤：對照＝滑桿，系列＝1×2 */
+                .media-wall-type-badge { position: absolute; top: 6px; left: 6px; z-index: 8; padding: 2px 6px; font-size: 0.6rem; font-weight: 600; border-radius: 4px; pointer-events: none; }
+                .media-wall-type-comparison { background: rgba(68,93,126,.9); color: #fff; }
+                .media-wall-type-collection { background: rgba(80,120,80,.9); color: #fff; }
                 /* 管理員：在首頁關閉個別圖片顯示 */
                 #media-wall-grid .card { position: relative; }
                 #media-wall-grid .media-wall-admin-hide { position: absolute; top: 4px; right: 4px; z-index: 10; padding: 2px 6px; font-size: 0.65rem; background: rgba(0,0,0,.7); color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 2px; }
@@ -293,7 +298,7 @@
                         <i class="bi bi-chat-dots me-1"></i><span data-i18n="home.contactVendor">聯絡廠商</span>
                     </button>
                     <button type="button" id="media-wall-lightbox-scene-sim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
-                    <button type="button" id="media-wall-lightbox-link" class="btn btn-primary btn-sm" data-i18n="home.findVendor">找廠商訂製</button>
+                    <button type="button" id="media-wall-lightbox-link" class="btn btn-primary btn-sm">找廠商訂製</button>
                     <button type="button" id="media-wall-lightbox-redesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
                 </div>
@@ -566,9 +571,10 @@
                 if (linkEl) {
                     linkEl.onclick = null;
                     if (isVendorItem && mfrId) {
-                        // 廠商作品（comparison / collection）→ 直接跳廠商詳情頁
+                        // 對照圖、系列圖 → 連到廠商詳情頁
                         var destUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                        linkEl.innerHTML = '<i class="bi bi-person-badge me-1"></i>查看廠商詳情';
+                        var viewVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.viewVendorDetail') : '廠商詳情';
+                        linkEl.innerHTML = '<i class="bi bi-person-badge me-1"></i>' + viewVendorText;
                         linkEl.onclick = function() { window.location.href = destUrl; };
                         linkEl.style.display = 'inline-block';
                     } else if (isVendorItem && item.link && item.link.indexOf('collection.html') !== -1) {
@@ -578,14 +584,15 @@
                         linkEl.onclick = function() { window.location.href = collUrl; };
                         linkEl.style.display = 'inline-block';
                     } else if (item.type === 'user_design') {
-                        // 用戶設計 → 帶入主分類、子分類到圖庫找廠商
+                        // 一般設計圖（單張）→ 搜尋廠商（帶分類到圖庫）
                         var mainKey = (item.category_key || item.category || '').trim();
                         var subKey = (item.subcategory_key || '').trim();
                         var q = [];
                         if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
                         if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
                         var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
+                        var searchVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.searchVendor') : '搜尋廠商';
+                        linkEl.innerHTML = '<i class="bi bi-search me-1"></i>' + searchVendorText;
                         linkEl.onclick = (function(u){ return function(){ window.location.href = u; }; })(galleryUrl);
                         linkEl.style.display = 'inline-block';
                     } else if (item.link) {
@@ -675,16 +682,18 @@
                     } else if (p.type === 'comparison') {
                         var compAfter = (p.image_url || '').trim() || placeholdAfter;
                         var compBefore = (p.image_url_before || '').trim() || placeholdBefore;
-                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(compAfter) + '" alt="實品" loading="lazy"><img class="slider-fg" src="' + escAttr(compBefore) + '" alt="概念" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左右移動滑桿可對照效果</span><input type="range" min="0" max="100" value="50"></div></div>';
+                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(compAfter) + '" alt="作品圖" loading="lazy"><img class="slider-fg" src="' + escAttr(compBefore) + '" alt="設計圖" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左＝設計圖、右＝作品圖</span><input type="range" min="0" max="100" value="50"></div></div>';
                     } else if (p.type === 'collection') {
                         var cov = (p.cover_image_url || '').trim();
-                        var urls = p.image_urls && Array.isArray(p.image_urls) ? p.image_urls : (cov ? [cov, cov] : []);
+                        var urls = p.image_urls && Array.isArray(p.image_urls) ? p.image_urls : (cov ? [cov] : []);
                         if (urls.length === 0) {
                             content = '<div class="media-wall-placeholder"><span>系列</span></div>';
                         } else {
                             wrapExtra = ' collection-grid';
-                            var two = [urls[0], urls[1] || urls[0]];
-                            content = two.map(function (u) { return '<img src="' + escAttr(u) + '" alt="" loading="lazy">'; }).join('');
+                            var n = urls.length;
+                            var show = n >= 4 ? urls.slice(0, 4) : (n >= 2 ? [urls[0], urls[1]] : [urls[0], urls[0]]);
+                            if (show.length === 4) wrapExtra += ' collection-grid-2x2';
+                            content = show.map(function (u) { return '<img src="' + escAttr(u) + '" alt="" loading="lazy">'; }).join('');
                         }
                     } else {
                         var img = (p.image_url || p.cover_image_url || '').trim();
@@ -714,7 +723,10 @@
                     }
                     wrap.setAttribute('data-item', JSON.stringify(dataItem));
                     var isFaved = isFavorite(p.id || (p.title + p.type));
-                    wrap.innerHTML = '<div class="card"><a href="#" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + content + '<div class="card-title-overlay">' + title + '</div></div></a><button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(String(p.id || (p.title + p.type))) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></div>';
+                    var typeBadge = '';
+                    if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
+                    else if (p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
+                    wrap.innerHTML = '<div class="card"><a href="#" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay">' + title + '</div></div></a><button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(String(p.id || (p.title + p.type))) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></div>';
                     // 愛心按鈕事件
                     var favBtn = wrap.querySelector('.mw-fav-btn');
                     if (favBtn) {
@@ -1142,8 +1154,10 @@
                             _dest = item.link || '/custom/gallery.html';
                         }
                     }
-                    var _label = item.manufacturer_id ? '<i class="bi bi-person-badge me-1"></i>查看廠商詳情'
-                        : '<i class="bi bi-building me-1"></i>找廠商訂製';
+                    var _viewVendor = (window.i18n && window.i18n.t) ? window.i18n.t('home.viewVendorDetail') : '廠商詳情';
+                    var _searchVendor = (window.i18n && window.i18n.t) ? window.i18n.t('home.searchVendor') : '搜尋廠商';
+                    var _label = item.manufacturer_id ? ('<i class="bi bi-person-badge me-1"></i>' + _viewVendor)
+                        : ('<i class="bi bi-search me-1"></i>' + _searchVendor);
                     linkEl.innerHTML = _label;
                     linkEl.onclick = (function(d){ return function(){ window.location.href = d; }; })(_dest);
                     linkEl.style.display = 'inline-block';
@@ -1165,7 +1179,7 @@
                     var after = item.image_url || placeholdAfter;
                     var before = item.image_url_before || placeholdBefore;
                     bodyEl.dataset.designImageUrl = before;
-                    bodyEl.innerHTML = '<div class="comparison-slider-wrap" style="position:relative;width:100%;max-width:100%;height:78vh;min-height:320px;margin:0 auto;overflow:hidden;"><img class="slider-bg" src="' + after.replace(/"/g, '&quot;') + '" alt="實品" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center"><img class="slider-fg" src="' + before.replace(/"/g, '&quot;') + '" alt="概念" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;clip-path:inset(0 50% 0 0)"><div class="slider-overlay" style="position:absolute;inset:0"><div class="slider-line" style="position:absolute;top:0;bottom:0;width:2px;background:#445D7E;left:50%;margin-left:-1px"></div><div class="slider-handle" style="position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;background:#fff;border:2px solid #445D7E;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#445D7E">⇄</div><span class="slider-hint" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);padding:2px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:0.65rem;border-radius:4px;white-space:nowrap;">左右移動滑桿可對照效果</span><input type="range" min="0" max="100" value="50" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize"></div></div>';
+                    bodyEl.innerHTML = '<div class="comparison-slider-wrap" style="position:relative;width:100%;max-width:100%;height:78vh;min-height:320px;margin:0 auto;overflow:hidden;"><img class="slider-bg" src="' + after.replace(/"/g, '&quot;') + '" alt="作品圖" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center"><img class="slider-fg" src="' + before.replace(/"/g, '&quot;') + '" alt="設計圖" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;clip-path:inset(0 50% 0 0)"><div class="slider-overlay" style="position:absolute;inset:0"><div class="slider-line" style="position:absolute;top:0;bottom:0;width:2px;background:#445D7E;left:50%;margin-left:-1px"></div><div class="slider-handle" style="position:absolute;top:50%;left:50%;width:28px;height:28px;margin:-14px 0 0 -14px;background:#fff;border:2px solid #445D7E;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#445D7E">⇄</div><span class="slider-hint" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);padding:2px 8px;background:rgba(0,0,0,.5);color:#fff;font-size:0.65rem;border-radius:4px;white-space:nowrap;">左＝設計圖、右＝作品圖</span><input type="range" min="0" max="100" value="50" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize"></div></div>';
                     var compWrap = bodyEl.querySelector('.comparison-slider-wrap');
                     var range = compWrap && compWrap.querySelector('input[type="range"]');
                     if (range && compWrap) {

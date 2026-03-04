@@ -5900,9 +5900,11 @@ app.get('/api/media-wall', async (req, res) => {
             }
             const nowIso = new Date().toISOString();
             compRows.forEach(p => {
-                const mfrUserId = compMfrMap[p.manufacturer_id] || null;
                 const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
                 const beforeExpired = p.before_image_valid_until && p.before_image_valid_until < nowIso;
+                const imageUrl = seriesExpired ? null : (p.image_url || null);
+                const imageUrlBefore = beforeExpired ? null : (p.image_url_before || null);
+                const mfrUserId = compMfrMap[p.manufacturer_id] || null;
                 out.push({
                     type: 'comparison',
                     size: '1x1',
@@ -5910,8 +5912,8 @@ app.get('/api/media-wall', async (req, res) => {
                     manufacturer_id: p.manufacturer_id,
                     manufacturer_user_id: mfrUserId,
                     title: p.title || '廠商作品',
-                    image_url: seriesExpired ? null : (p.image_url || null),
-                    image_url_before: beforeExpired ? null : (p.image_url_before || null),
+                    image_url: imageUrl,
+                    image_url_before: imageUrlBefore,
                     design_highlight: p.design_highlight || null,
                     tags: Array.isArray(p.tags) ? p.tags : [],
                     description: p.description || null,
@@ -5931,7 +5933,7 @@ app.get('/api/media-wall', async (req, res) => {
         if (collLimit > 0) {
             const collRes = await supabase
                 .from('media_collections')
-                .select('id, title, slug, cover_image_url, description, category_keys, manufacturer_id')
+                .select('id, title, slug, cover_image_url, image_urls, description, category_keys, manufacturer_id')
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true })
                 .order('created_at', { ascending: false })
@@ -7306,23 +7308,43 @@ app.get('/api/manufacturers', async (req, res) => {
 });
 
 // GET /api/manufacturers/:id — 單一廠商詳情（vendor-profile.html 用）
+// 不篩 is_active：從靈感牆對照圖/系列圖點進來的廠商應能開啟詳情頁（廠商上傳的作品即視為可展示）
 app.get('/api/manufacturers/:id', async (req, res) => {
+    const { id } = req.params;
     try {
-        const { id } = req.params;
-        const { data: mfr, error } = await supabase
-            .from('manufacturers')
-            .select('id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url')
-            .eq('id', id)
-            .eq('is_active', true)
-            .maybeSingle();
-        if (error) return res.status(500).json({ error: '查詢失敗' });
+        const fullSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, is_active';
+        let resq = await supabase.from('manufacturers').select(fullSelect).eq('id', id).maybeSingle();
+
+        if (resq.error) {
+            console.warn('GET /api/manufacturers/:id 完整查詢失敗:', resq.error.code, resq.error.message);
+            resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories').eq('id', id).maybeSingle();
+            if (!resq.error && resq.data) {
+                resq.data.rating = null;
+                resq.data.capabilities = null;
+                resq.data.verified = null;
+                resq.data.is_active = true;
+                resq.data.user_id = null;
+                resq.data.logo_url = null;
+            }
+        }
+        if (resq.error) {
+            console.error('GET /api/manufacturers/:id 查詢失敗:', resq.error);
+            return res.status(500).json({ error: '查詢失敗', detail: resq.error.message });
+        }
+        const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '廠商不存在' });
 
-        const { data: portfolio } = await supabase
+        let portfolio = [];
+        const portRes = await supabase
             .from('manufacturer_portfolio')
             .select('id, title, description, image_url, image_url_before, design_highlight, tags, category_key, subcategory_key, sort_order')
             .eq('manufacturer_id', id)
             .order('sort_order', { ascending: true });
+        if (portRes.error) {
+            console.warn('GET /api/manufacturers/:id portfolio 查詢失敗:', portRes.error.message);
+        } else {
+            portfolio = portRes.data || [];
+        }
 
         res.json({
             id: mfr.id,
@@ -7336,11 +7358,11 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             categories: mfr.categories || [],
             user_id: mfr.user_id || null,
             logo_url: mfr.logo_url || null,
-            portfolio: portfolio || []
+            portfolio
         });
     } catch (e) {
         console.error('GET /api/manufacturers/:id 異常:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        res.status(500).json({ error: '系統錯誤', detail: e.message });
     }
 });
 
@@ -7518,6 +7540,7 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         }
 
         const oneMonthFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        // 對照圖＝一筆作品：設計圖存 image_url_before、作品圖存 image_url，絕不分開存兩筆
         const insertPayload = {
             manufacturer_id: manufacturerId,
             title: title || null,
@@ -7528,7 +7551,8 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
             tags: tags.length ? tags : [],
             category_key: categoryKey,
             subcategory_key: subcategoryKey,
-            category_type: categoryType
+            category_type: categoryType,
+            show_on_media_wall: true
         };
         if (mainFiles.length > 0 && !canUploadSeriesFree) insertPayload.series_image_valid_until = oneMonthFromNow;
         if (seriesImageUrls.length > 0) insertPayload.series_image_urls = seriesImageUrls;
