@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>帳號資訊 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark">帳號資訊</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="/index.html">首頁</a></li>
+                        <li class="breadcrumb-item active">帳號資訊</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-xxl py-3">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
+                    <div id="main-content" class="d-none">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="bi bi-person-circle me-2"></i>我的帳號</h5>
+                            </div>
+                            <div class="card-body p-4">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-3 text-muted">Email</dt>
+                                    <dd class="col-sm-9" id="profile-email">—</dd>
+                                    <dt class="col-sm-3 text-muted">顯示名稱</dt>
+                                    <dd class="col-sm-9" id="profile-name">—</dd>
+                                    <dt class="col-sm-3 text-muted">角色</dt>
+                                    <dd class="col-sm-9" id="profile-role">—</dd>
+                                    <dt class="col-sm-3 text-muted">目前點數</dt>
+                                    <dd class="col-sm-9" id="profile-credits">—</dd>
+                                </dl>
+                                <hr>
+                                <h6 class="text-muted mb-2"><i class="bi bi-telephone me-2"></i>聯絡資訊</h6>
+                                <div id="profile-contact-wrap" class="mb-3">
+                                    <p class="text-muted small mb-0" id="profile-contact-empty">尚未填寫，請至「聯絡資訊設定」填寫。</p>
+                                    <dl class="row mb-0 d-none" id="profile-contact-dl"></dl>
+                                </div>
+                                <a href="/profile/contact-info.html" class="btn btn-outline-primary"><i class="bi bi-telephone me-2"></i>聯絡資訊設定</a>
+                                <a href="/credits.html" class="btn btn-outline-secondary ms-2"><i class="bi bi-currency-exchange me-2"></i>我的點數</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+    (function () {
+        async function getToken() {
+            if (typeof AuthService === 'undefined') return null;
+            try {
+                var s = await AuthService.getSession();
+                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
+            } catch (e) { return null; }
+        }
+        async function init() {
+            var token = await getToken();
+            if (!token) {
+                document.getElementById('auth-alert').classList.remove('d-none');
+                return;
+            }
+            document.getElementById('main-content').classList.remove('d-none');
+            var headers = { Authorization: 'Bearer ' + token };
+            try {
+                var [profileRes, creditsRes, contactRes] = await Promise.all([
+                    fetch('/api/me/profile', { headers: headers }),
+                    fetch('/api/me/credits', { headers: headers }),
+                    fetch('/api/me/contact-info', { headers: headers })
+                ]);
+                if (!profileRes.ok) throw new Error('無法載入帳號');
+                var p = await profileRes.json();
+                document.getElementById('profile-email').textContent = p.email || '—';
+                document.getElementById('profile-name').textContent = p.full_name || '—';
+                document.getElementById('profile-role').textContent = (p.role === 'admin' ? '管理員' : p.role === 'tester' ? '測試員' : '一般用戶') || '—';
+
+                if (creditsRes.ok) {
+                    var cred = await creditsRes.json();
+                    document.getElementById('profile-credits').textContent = (cred.balance != null ? cred.balance : 0) + ' 點';
+                } else {
+                    document.getElementById('profile-credits').textContent = '0 點';
+                }
+
+                var contact = contactRes.ok ? await contactRes.json() : {};
+                var contactLabels = {
+                    company_name: '公司/工作室名稱',
+                    phone: '電話',
+                    mobile: '手機',
+                    email: 'Email',
+                    line_id: 'LINE ID',
+                    wechat_id: 'WeChat',
+                    telegram_id: 'Telegram',
+                    website_url: '官網',
+                    facebook_url: 'Facebook',
+                    instagram_url: 'Instagram'
+                };
+                var contactOrder = ['company_name', 'phone', 'mobile', 'email', 'line_id', 'wechat_id', 'telegram_id', 'website_url', 'facebook_url', 'instagram_url'];
+                var hasAny = false;
+                var dl = document.getElementById('profile-contact-dl');
+                var emptyEl = document.getElementById('profile-contact-empty');
+                contactOrder.forEach(function (key) {
+                    var val = contact[key];
+                    if (val && String(val).trim()) {
+                        hasAny = true;
+                        var dt = document.createElement('dt');
+                        dt.className = 'col-sm-3 text-muted small';
+                        dt.textContent = (contactLabels[key] || key) + '：';
+                        var dd = document.createElement('dd');
+                        dd.className = 'col-sm-9 small mb-1';
+                        dd.textContent = String(val).trim();
+                        dl.appendChild(dt);
+                        dl.appendChild(dd);
+                    }
+                });
+                if (hasAny) {
+                    emptyEl.classList.add('d-none');
+                    dl.classList.remove('d-none');
+                }
+            } catch (e) {
+                document.getElementById('main-content').innerHTML = '<div class="alert alert-danger">載入失敗：' + (e.message || '請重新登入') + '</div>';
+            }
+        }
+        init();
+    })();
+    </script>
+</body>
+</html>

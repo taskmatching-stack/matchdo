@@ -5854,7 +5854,7 @@ app.get('/api/media-wall', async (req, res) => {
         // 廠商對比：有分類篩選時只回傳該分類的對比圖，無篩選時回傳 show_on_media_wall 的項目（需 category_key 欄位請執行 docs/add-manufacturer-portfolio-category-fields.sql）
         let compRows = [];
         if (!layoutOnly || layoutOnly === 'comparison') {
-        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, show_on_media_wall, category_key, subcategory_key';
+        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until';
         if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
             let compQuery = supabase
                 .from('manufacturer_portfolio')
@@ -5879,7 +5879,7 @@ app.get('/api/media-wall', async (req, res) => {
             if (compRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(compRes.error.message || compRes.error.code)) {
                 const fallback = await supabase
                     .from('manufacturer_portfolio')
-                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight')
+                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, series_image_valid_until, before_image_valid_until')
                     .order('created_at', { ascending: false })
                     .range(offset, offset + nComparisonLimit - 1);
                 compRows = fallback.data || [];
@@ -5898,8 +5898,11 @@ app.get('/api/media-wall', async (req, res) => {
                     .eq('is_active', true);
                 (compMfrs || []).forEach(m => { compMfrMap[m.id] = m.user_id || null; });
             }
+            const nowIso = new Date().toISOString();
             compRows.forEach(p => {
                 const mfrUserId = compMfrMap[p.manufacturer_id] || null;
+                const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
+                const beforeExpired = p.before_image_valid_until && p.before_image_valid_until < nowIso;
                 out.push({
                     type: 'comparison',
                     size: '1x1',
@@ -5907,8 +5910,8 @@ app.get('/api/media-wall', async (req, res) => {
                     manufacturer_id: p.manufacturer_id,
                     manufacturer_user_id: mfrUserId,
                     title: p.title || '廠商作品',
-                    image_url: p.image_url || null,
-                    image_url_before: p.image_url_before || null,
+                    image_url: seriesExpired ? null : (p.image_url || null),
+                    image_url_before: beforeExpired ? null : (p.image_url_before || null),
                     design_highlight: p.design_highlight || null,
                     category_key: p.category_key || null,
                     subcategory_key: p.subcategory_key || null,
@@ -6104,6 +6107,146 @@ app.get('/api/me/can-edit-media-folders', async (req, res) => {
         if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
     }
 });
+
+// 系列圖上傳：600 點／次，付點數者可顯示一個月
+const POINTS_PORTFOLIO_SERIES = 600;
+
+// GET /api/me/can-upload-portfolio-series — 可否上傳系列圖（1800／測試員免費；否則付 600 點，顯示一個月）
+app.get('/api/me/can-upload-portfolio-series', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const free = await canEditMediaCollections(user.id);
+        if (free) return res.json({ allowed: true, payPoints: 0 });
+        const { data: cred } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+        const balance = (cred && cred.balance) ? cred.balance : 0;
+        res.json({ allowed: balance >= POINTS_PORTFOLIO_SERIES, payPoints: POINTS_PORTFOLIO_SERIES });
+    } catch (e) {
+        console.error('GET /api/me/can-upload-portfolio-series:', e);
+        if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// 扣 600 點並回傳新餘額；不足則回傳 null
+async function deductPortfolioSeriesPoints(userId) {
+    const { data: row } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', userId).maybeSingle();
+    const current = (row && row.balance) ? row.balance : 0;
+    if (current < POINTS_PORTFOLIO_SERIES) return null;
+    const balanceAfter = current - POINTS_PORTFOLIO_SERIES;
+    const totalSpent = (row ? (row.total_spent || 0) : 0) + POINTS_PORTFOLIO_SERIES;
+    const now = new Date().toISOString();
+    if (row) {
+        const { error: upErr } = await supabase.from('user_credits').update({ balance: balanceAfter, total_spent: totalSpent, updated_at: now }).eq('user_id', userId);
+        if (upErr) return null;
+    } else {
+        const { error: insErr } = await supabase.from('user_credits').insert({ user_id: userId, balance: balanceAfter, total_earned: 0, total_spent: POINTS_PORTFOLIO_SERIES, updated_at: now });
+        if (insErr) return null;
+    }
+    await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        type: 'consumed',
+        amount: -POINTS_PORTFOLIO_SERIES,
+        balance_after: balanceAfter,
+        source: 'portfolio_series',
+        description: '廠商作品系列圖上傳（顯示一個月）',
+        metadata: {}
+    });
+    return balanceAfter;
+}
+
+// 對照圖上傳：300/900/1800 方案或測試員免費（有組數上限）；否則付 400 點，顯示一個月
+const PORTFOLIO_BEFORE_PLAN_KEYS = ['300', '900', '1800'];
+// 各方案對照圖組數上限：300→3 組、900→10 組、1800→30 組；測試員/管理員比照 30 組
+const PORTFOLIO_BEFORE_QUOTA = { '300': 3, '900': 10, '1800': 30 };
+const PORTFOLIO_BEFORE_QUOTA_DEFAULT = 30;
+
+async function canUploadPortfolioBeforeFree(userId) {
+    if (!userId) return false;
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
+    if (profile?.role === 'admin' || profile?.role === 'tester') return true;
+    const now = new Date().toISOString();
+    const { data: rows } = await supabase
+        .from('user_subscriptions')
+        .select('id, subscription_plans(plan_key)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('end_date', now);
+    return (rows || []).some(r => PORTFOLIO_BEFORE_PLAN_KEYS.includes(r.subscription_plans?.plan_key));
+}
+
+/** 回傳該用戶對照圖免費額度：{ limit, planKey }，無方案則 limit 0 */
+async function getPortfolioBeforeQuota(userId) {
+    if (!userId) return { limit: 0, planKey: null };
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
+    if (profile?.role === 'admin' || profile?.role === 'tester') return { limit: PORTFOLIO_BEFORE_QUOTA_DEFAULT, planKey: 'tester' };
+    const now = new Date().toISOString();
+    const { data: rows } = await supabase
+        .from('user_subscriptions')
+        .select('id, subscription_plans(plan_key)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('end_date', now);
+    const planKey = (rows && rows[0] && rows[0].subscription_plans) ? rows[0].subscription_plans.plan_key : null;
+    const limit = (planKey && PORTFOLIO_BEFORE_QUOTA[planKey] !== undefined) ? PORTFOLIO_BEFORE_QUOTA[planKey] : 0;
+    return { limit, planKey };
+}
+
+const POINTS_PORTFOLIO_BEFORE = 400;
+
+// GET /api/me/can-upload-portfolio-before — 可否上傳對照圖（300/900/1800/測試員免費有額度；否則付 400 點，顯示一個月）
+app.get('/api/me/can-upload-portfolio-before', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const free = await canUploadPortfolioBeforeFree(user.id);
+        const { limit: quotaLimit, planKey } = await getPortfolioBeforeQuota(user.id);
+        let quotaUsed = 0;
+        const { data: mfr } = await supabase.from('manufacturers').select('id').eq('user_id', user.id).maybeSingle();
+        if (mfr && quotaLimit > 0) {
+            const { count } = await supabase.from('manufacturer_portfolio')
+                .select('*', { count: 'exact', head: true })
+                .eq('manufacturer_id', mfr.id)
+                .not('image_url_before', 'is', null);
+            quotaUsed = typeof count === 'number' ? count : 0;
+        }
+        if (free) {
+            const allowed = quotaUsed < quotaLimit;
+            return res.json({ allowed, payPoints: 0, quotaLimit, quotaUsed });
+        }
+        const { data: cred } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
+        const balance = (cred && cred.balance) ? cred.balance : 0;
+        res.json({ allowed: balance >= POINTS_PORTFOLIO_BEFORE, payPoints: POINTS_PORTFOLIO_BEFORE, quotaLimit: 0, quotaUsed: 0 });
+    } catch (e) {
+        console.error('GET /api/me/can-upload-portfolio-before:', e);
+        if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+async function deductPortfolioBeforePoints(userId) {
+    const { data: row } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', userId).maybeSingle();
+    const current = (row && row.balance) ? row.balance : 0;
+    if (current < POINTS_PORTFOLIO_BEFORE) return null;
+    const balanceAfter = current - POINTS_PORTFOLIO_BEFORE;
+    const totalSpent = (row ? (row.total_spent || 0) : 0) + POINTS_PORTFOLIO_BEFORE;
+    const now = new Date().toISOString();
+    if (row) {
+        const { error: upErr } = await supabase.from('user_credits').update({ balance: balanceAfter, total_spent: totalSpent, updated_at: now }).eq('user_id', userId);
+        if (upErr) return null;
+    } else {
+        const { error: insErr } = await supabase.from('user_credits').insert({ user_id: userId, balance: balanceAfter, total_earned: 0, total_spent: POINTS_PORTFOLIO_BEFORE, updated_at: now });
+        if (insErr) return null;
+    }
+    await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        type: 'consumed',
+        amount: -POINTS_PORTFOLIO_BEFORE,
+        balance_after: balanceAfter,
+        source: 'portfolio_before',
+        description: '廠商作品對照圖上傳（顯示一個月）',
+        metadata: {}
+    });
+    return balanceAfter;
+}
 
 function normalizeMediaCollectionRow(row) {
     if (!row) return row;
@@ -6633,6 +6776,28 @@ app.get('/api/me/profile', async (req, res) => {
         });
     } catch (e) {
         console.error('GET /api/me/profile 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/me/contact-info — 當前登入用戶的聯絡資訊（聯絡資訊設定頁所儲存）
+app.get('/api/me/contact-info', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('contact_info')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (error) {
+            if (error.code === '42P01') return res.json({}); // 表不存在
+            console.error('GET /api/me/contact-info:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json(data || {});
+    } catch (e) {
+        console.error('GET /api/me/contact-info 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -7177,7 +7342,7 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
 
         let portfolioQuery = supabase
             .from('manufacturer_portfolio')
-            .select('id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at');
+            .select('id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls');
 
         if (manufacturer_id) {
             portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
@@ -7221,24 +7386,32 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
         }
 
-        const result = list.map(p => ({
-            id: p.id,
-            manufacturer_id: p.manufacturer_id,
-            manufacturer_name: mfrMap[p.manufacturer_id]?.name || '',
-            manufacturer_location: mfrMap[p.manufacturer_id]?.location || '',
-            manufacturer_contact: mfrMap[p.manufacturer_id]?.contact_json || null,
-            manufacturer_user_id: mfrMap[p.manufacturer_id]?.user_id || null,
-            categories: mfrMap[p.manufacturer_id]?.categories || [],
-            title: p.title,
-            description: p.description,
-            image_url: p.image_url,
-            image_url_before: p.image_url_before || null,
-            design_highlight: p.design_highlight || null,
-            tags: p.tags || [],
-            sort_order: p.sort_order,
-            category_key: null,
-            subcategory_key: null
-        }));
+        const now = new Date();
+        const result = list.map(p => {
+            const seriesExpired = p.series_image_valid_until && now > new Date(p.series_image_valid_until);
+            const beforeExpired = p.before_image_valid_until && now > new Date(p.before_image_valid_until);
+            const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls : (p.image_url ? [p.image_url] : []);
+            return {
+                id: p.id,
+                manufacturer_id: p.manufacturer_id,
+                manufacturer_name: mfrMap[p.manufacturer_id]?.name || '',
+                manufacturer_location: mfrMap[p.manufacturer_id]?.location || '',
+                manufacturer_contact: mfrMap[p.manufacturer_id]?.contact_json || null,
+                manufacturer_user_id: mfrMap[p.manufacturer_id]?.user_id || null,
+                categories: mfrMap[p.manufacturer_id]?.categories || [],
+                title: p.title,
+                description: p.description,
+                image_url: seriesExpired ? null : (p.image_url || null),
+                series_image_urls: seriesExpired ? [] : seriesUrls,
+                image_url_before: beforeExpired ? null : (p.image_url_before || null),
+                design_highlight: p.design_highlight || null,
+                tags: p.tags || [],
+                sort_order: p.sort_order,
+                category_key: p.category_key || null,
+                subcategory_key: p.subcategory_key || null,
+                category_type: p.category_type || null
+            };
+        });
 
         if (result.length === 0) {
             console.warn('GET /api/manufacturer-portfolio 回傳 0 筆。若首頁媒體牆有廠商作品，請確認 .env 已設 SUPABASE_SERVICE_ROLE_KEY 並在 Supabase 執行過 docs/seed-manufacturers-and-portfolio.sql');
@@ -7250,52 +7423,101 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
     }
 });
 
-// POST /api/manufacturers/:id/portfolio — 上傳廠商作品圖（主圖、第二張圖、作品重點）
-app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'image_before', maxCount: 1 }]), async (req, res) => {
+// POST /api/manufacturers/:id/portfolio — 上傳廠商作品圖（系列圖＝1800 方案；對照圖＝所有人）
+app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', maxCount: 10 }, { name: 'image_before', maxCount: 1 }]), async (req, res) => {
     try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
         const manufacturerId = req.params.id;
         const body = req.body || {};
-        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey } = body;
+        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType } = body;
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
         const categoryKey = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
         const subcategoryKey = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
+        const categoryType = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
 
         const files = req.files || {};
-        const mainFile = (files.image && files.image[0]) || null;
+        const mainFiles = (files.image && Array.isArray(files.image)) ? files.image : [];
+        const mainFile = mainFiles[0] || null;
         const beforeFile = (files.image_before && files.image_before[0]) || null;
+
+        const canUploadSeriesFree = await canEditMediaCollections(user.id);
+        const canUploadBeforeFree = await canUploadPortfolioBeforeFree(user.id);
+        if (mainFile && !canUploadSeriesFree && !beforeFile) {
+            const balanceAfter = await deductPortfolioSeriesPoints(user.id);
+            if (balanceAfter === null) {
+                return res.status(403).json({ error: '系列圖需 1800 方案、測試員或付 600 點（點數不足）' });
+            }
+        }
+        if (mainFiles.length === 0 && !beforeFile && !bodyImageUrl) {
+            return res.status(400).json({ error: '請上傳系列圖（多張可），或對照圖前、後兩張' });
+        }
 
         const { data: mfr } = await supabase.from('manufacturers').select('id').eq('id', manufacturerId).single();
         if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
 
-        if (!mainFile && !bodyImageUrl) {
-            return res.status(400).json({ error: '請上傳作品圖片或提供 image_url' });
-        }
-
         let imageUrl = bodyImageUrl;
-        if (mainFile) {
-            const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, mainFile);
+        let seriesImageUrls = [];
+        if (mainFiles.length > 0) {
+            for (const f of mainFiles) {
+                const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, f);
+                seriesImageUrls.push(publicUrl);
+            }
+            imageUrl = seriesImageUrls[0];
+        } else if (beforeFile && !canUploadSeriesFree) {
+            const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, beforeFile);
             imageUrl = publicUrl;
         }
 
         let imageUrlBefore = bodyImageUrlBefore || null;
-        if (beforeFile) {
+        let beforeFileUsedAsBefore = false;
+        if (beforeFile && canUploadSeriesFree) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, beforeFile);
             imageUrlBefore = publicUrl;
+            beforeFileUsedAsBefore = true;
+        } else if (beforeFile && mainFile) {
+            const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, beforeFile);
+            imageUrlBefore = publicUrl;
+            beforeFileUsedAsBefore = true;
         }
+        if (beforeFileUsedAsBefore && !canUploadBeforeFree) {
+            const balanceAfter = await deductPortfolioBeforePoints(user.id);
+            if (balanceAfter === null) {
+                return res.status(403).json({ error: '對照圖需 300/900/1800 方案、測試員或付 400 點（點數不足）' });
+            }
+        }
+        if (beforeFileUsedAsBefore && canUploadBeforeFree) {
+            const { limit: quotaLimit } = await getPortfolioBeforeQuota(user.id);
+            const { count } = await supabase.from('manufacturer_portfolio')
+                .select('*', { count: 'exact', head: true })
+                .eq('manufacturer_id', manufacturerId)
+                .not('image_url_before', 'is', null);
+            const current = typeof count === 'number' ? count : 0;
+            if (quotaLimit > 0 && current >= quotaLimit) {
+                return res.status(403).json({ error: '對照圖組數已達方案上限（300→3 組、900→10 組、1800→30 組）' });
+            }
+        }
+
+        const oneMonthFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const insertPayload = {
+            manufacturer_id: manufacturerId,
+            title: title || null,
+            description: description || null,
+            design_highlight: design_highlight || null,
+            image_url: imageUrl,
+            image_url_before: imageUrlBefore,
+            tags: tags.length ? tags : [],
+            category_key: categoryKey,
+            subcategory_key: subcategoryKey,
+            category_type: categoryType
+        };
+        if (mainFiles.length > 0 && !canUploadSeriesFree) insertPayload.series_image_valid_until = oneMonthFromNow;
+        if (seriesImageUrls.length > 0) insertPayload.series_image_urls = seriesImageUrls;
+        if (beforeFileUsedAsBefore && !canUploadBeforeFree) insertPayload.before_image_valid_until = oneMonthFromNow;
 
         const { data: inserted, error } = await supabase
             .from('manufacturer_portfolio')
-            .insert({
-                manufacturer_id: manufacturerId,
-                title: title || null,
-                description: description || null,
-                design_highlight: design_highlight || null,
-                image_url: imageUrl,
-                image_url_before: imageUrlBefore,
-                tags: tags.length ? tags : [],
-                category_key: categoryKey,
-                subcategory_key: subcategoryKey
-            })
+            .insert(insertPayload)
             .select('id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order, category_key, subcategory_key, created_at')
             .single();
 
@@ -7313,17 +7535,46 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
 // PUT /api/manufacturers/:id/portfolio/:portfolioId — 更新廠商作品（作品重點、主圖／第二張圖）
 app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'image_before', maxCount: 1 }]), async (req, res) => {
     try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
         const { manufacturerId, portfolioId } = req.params;
         const body = req.body || {};
-        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey } = body;
+        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType } = body;
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
 
         const files = req.files || {};
         const mainFile = (files.image && files.image[0]) || null;
         const beforeFile = (files.image_before && files.image_before[0]) || null;
 
+        const canUploadSeriesFree = await canEditMediaCollections(user.id);
+        const canUploadBeforeFree = await canUploadPortfolioBeforeFree(user.id);
+        if (mainFile && !canUploadSeriesFree) {
+            const balanceAfter = await deductPortfolioSeriesPoints(user.id);
+            if (balanceAfter === null) {
+                return res.status(403).json({ error: '系列圖（主圖）需 1800 方案、測試員或付 600 點（點數不足）' });
+            }
+        }
+        if (beforeFile && !canUploadBeforeFree) {
+            const balanceAfter = await deductPortfolioBeforePoints(user.id);
+            if (balanceAfter === null) {
+                return res.status(403).json({ error: '對照圖需 300/900/1800 方案、測試員或付 400 點（點數不足）' });
+            }
+        }
+
         const { data: row } = await supabase.from('manufacturer_portfolio').select('id, image_url, image_url_before').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該作品' });
+
+        if (beforeFile && canUploadBeforeFree && !row.image_url_before) {
+            const { limit: quotaLimit } = await getPortfolioBeforeQuota(user.id);
+            const { count } = await supabase.from('manufacturer_portfolio')
+                .select('*', { count: 'exact', head: true })
+                .eq('manufacturer_id', manufacturerId)
+                .not('image_url_before', 'is', null);
+            const current = typeof count === 'number' ? count : 0;
+            if (quotaLimit > 0 && current >= quotaLimit) {
+                return res.status(403).json({ error: '對照圖組數已達方案上限（300→3 組、900→10 組、1800→30 組）' });
+            }
+        }
 
         const updates = {
             updated_at: new Date().toISOString(),
@@ -7334,15 +7585,22 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         };
         if (bodyCategoryKey !== undefined) updates.category_key = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
         if (bodySubcategoryKey !== undefined) updates.subcategory_key = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
+        if (bodyCategoryType !== undefined) updates.category_type = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
 
         if (mainFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, mainFile);
             updates.image_url = publicUrl;
+            if (!canUploadSeriesFree) {
+                updates.series_image_valid_until = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            }
         } else if (bodyImageUrl !== undefined) updates.image_url = bodyImageUrl || row.image_url;
 
         if (beforeFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, beforeFile);
             updates.image_url_before = publicUrl;
+            if (!canUploadBeforeFree) {
+                updates.before_image_valid_until = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            }
         } else if (bodyImageUrlBefore !== undefined) updates.image_url_before = bodyImageUrlBefore || null;
 
         const { data: updated, error } = await supabase.from('manufacturer_portfolio').update(updates).eq('id', portfolioId).select('id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order').single();

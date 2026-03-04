@@ -1,6 +1,6 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-03-01  
+> **更新日期**：2026-03-04  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
 > **推送／部署步驟**：見下方「四、部署流程」
@@ -203,8 +203,11 @@ git push origin main
 
 ### 步驟 2：Cloud Run 更新（Google Cloud Shell）
 
+- 後端已改為**啟動即 listen PORT**（避免 Cloud Run 啟動逾時）；首頁篩選（設計圖／對照圖／系列圖）與網址狀態綁定已上線。
+- 在 **Google Cloud Shell** 執行（見 `.cursor/rules/deployment.mdc`）：
+
 ```bash
-cd ~/matchdo && git pull origin main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
 ```
 
 ---

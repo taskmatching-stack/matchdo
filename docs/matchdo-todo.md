@@ -4,6 +4,17 @@
 
 ---
 
+## 近期完成（2026-03-04 Cloud Run 部署 + 首頁篩選）
+
+| 項目 | 說明 |
+|------|------|
+| **Cloud Run 啟動修正** | `server.js` 改為在建立 app 後**立即 listen(PORT)**，再載入路由與背景 bootstrap，避免 Cloud Run 判定「未在時限內 listen」導致部署失敗；media-wall try 區塊語法修正（Missing catch）已一併推送。 |
+| **首頁篩選與網址** | 首頁三種 layout_type（設計圖／對照圖／系列圖）按鈕、篩選狀態與 URL 綁定（`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`）；載入時從 URL 還原、popstate 支援返回。 |
+| **Sitemap** | 首頁「全部 + 三種類型 + 中英文」與動態 `sitemap-categories.xml` 已加入；見 `docs/SEO-PROGRESS.md`、`docs/sitemap.md`。 |
+| **部署方式** | 僅 **Google Cloud Shell**（見 `.cursor/rules/deployment.mdc`）；指令用 `git fetch + reset --hard` 再 `gcloud run deploy`。 |
+
+---
+
 ## 近期完成（2026-03-04 Header 會員點數）
 
 | 項目 | 說明 |
@@ -338,9 +349,9 @@
 
 | 步驟 | 內容 | 完成後 |
 |------|------|--------|
-| **1** | 訂製品線 E2E 驗證（SQL 已執行 + 本地六步跑通） | 可進行上雲 |
+| **1** | 訂製品線 E2E 驗證（SQL 已執行 + 本地／雲端六步跑通） | 可進行上雲 |
 | **2** | 再製方案 E2E（可選） | — |
-| **3** | 上雲與環境（GitHub + Zeabur；環境變數 + 雲端 SQL，見 `docs/deploy-zeabur-github.md`） | 站點對外可訪問 |
+| **3** | 上雲與環境（**目前：Cloud Run**，見 `.cursor/rules/deployment.mdc`、`docs/SEO-PROGRESS.md` 四；替代方案 Zeabur 見 `docs/deploy-zeabur-github.md`） | 站點對外可訪問 |
 | **4** | 會員與金流驗證（方案／點數／6 折／金流回調） | 可正式對外或切正式金流 |
 | **5** | 後排與可選（廠商搜尋、設計圖社群分享、UI、通知、README 等） | 依時程 |
 | **6** | 手機／平板 App 轉化（可選：PWA → 可選 Capacitor 上架） | 可安裝／可上架 |
@@ -441,13 +452,16 @@
 | 優先 | 待辦 | 對應 |
 |------|------|------|
 | — | ~~多語系（前端）~~ ✅ 已完成 | 2026-02-22 完成。見本檔「多語系（前端）實作進度」。 |
-| 1 | **訂製品線 E2E 驗證** | 步驟 1 |
+| **→ 建議下一步** | **繼續測 E2E** | 見下方「目前建議進度」。 |
+| 1 | **訂製品線 E2E 驗證** | 步驟 1（本地六步跑通 → 可上雲） |
 | 2 | **再製方案 E2E**（可選） | 步驟 2 |
-| 3 | **上雲與環境** | 步驟 3 |
+| 3 | **上雲與環境** | 步驟 3（**目前為 Cloud Run**，見 `.cursor/rules/deployment.mdc`、`docs/SEO-PROGRESS.md` 四、部署流程） |
 | 4 | **會員與金流驗證** | 步驟 4（會員系統規劃見 `docs/membership-tiers-and-points-plan.md`；6 折、方案頁、credits 已接） |
 | 5 | 後排與可選（廠商搜尋、project-detail UI、金流、通知、README） | 步驟 5 |
 | 6 | **手機／平板 App 轉化**（可選，見 `docs/app-mobile-tablet-plan.md`） | 步驟 6 |
 | 已完成 | **廠商的資料夾功能** | 見本檔下方「廠商資料夾」相關紀錄。 |
+
+**目前建議進度**：Cloud Run 已可正常部署、首頁篩選與網址已上線。接下來請**繼續 E2E**：若尚未跑過**步驟 1（訂製品線 E2E 六步）**，先在本機或雲端依「接下來工作步驟」1.2 跑通；完成後可選做步驟 2（再製 E2E），再進行步驟 4（會員與金流驗證）。
 
 **常用**：發包案模擬資料 `node docs/generate-test-data-projects.js`；作品集 schema `docs/expert-portfolio-schema.sql`；首頁 AI 流程 `docs/首頁AI識別流程.md`。
 
