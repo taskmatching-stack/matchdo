@@ -204,7 +204,6 @@
                 <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖">設計圖</span>
                 <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖（設計圖／作品圖滑桿）">對照圖</span>
                 <span class="filter-tag mw-layout-filter" data-layout-type="series" role="button" tabindex="0" title="廠商系列多圖">系列圖</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="collection" role="button" tabindex="0" title="資料夾 1×2">資料夾</span>
                 <button type="button" id="media-wall-load-more" class="btn btn-sm btn-outline-secondary d-none" data-i18n="home.loadMore">載入更多</button>
             </div>
             <div id="media-wall-filter" class="mb-2 d-none">
@@ -677,7 +676,7 @@
             function renderOne(p, opts) {
                     var wrap = document.createElement('div');
                     var cls = 'media-wall-item';
-                    if (p.size === '1x2') cls += ' media-wall-1x2';
+                    if (p.size === '1x2' || p.type === 'series' || p.type === 'collection') cls += ' media-wall-1x2';
                     if (p.type === 'comparison') cls += ' media-wall-comparison';
                     wrap.className = cls;
                     wrap.setAttribute('data-type', p.type || '');
@@ -710,7 +709,7 @@
                         } else {
                             content = '<img src="' + escAttr(urls[0]) + '" alt="" loading="lazy">';
                         }
-                        if (urls.length >= 2) wrap.classList.add('media-wall-1x2');
+                        wrap.classList.add('media-wall-1x2');
                     } else {
                         var img = (p.image_url || p.cover_image_url || '').trim();
                         content = (img ? '<img src="' + escAttr(img) + '" alt="" loading="lazy">' : '<div class="media-wall-placeholder"><span>—</span></div>');
@@ -1091,7 +1090,7 @@
                     try {
                         var profile = await AuthService.getUserProfile();
                         var session = await AuthService.getSession();
-                        if (profile && profile.role === 'admin') adminOpts.isAdmin = true;
+                        if (profile && (profile.role === 'admin' || profile.can_delete_media_wall === true)) adminOpts.isAdmin = true;
                         var token = (session && session.access_token) || (session && session.session && session.session.access_token);
                         if (token) {
                             adminOpts.getToken = function () { return AuthService.getSession().then(function (s) { return (s && s.access_token) || (s && s.session && s.session.access_token) || null; }); };

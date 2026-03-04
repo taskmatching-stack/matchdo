@@ -826,19 +826,27 @@ app.get('/api/admin/users', async (req, res) => {
         let list = [];
         const { data: profiles, error: profErr } = await supabase
             .from('profiles')
-            .select('id, email, full_name, role, member_level')
+            .select('id, email, full_name, role, member_level, can_delete_media_wall')
             .order('email', { ascending: true });
         if (profErr) {
             if (profErr.code === '42703') {
                 const { data: prof2, error: e2 } = await supabase
                     .from('profiles')
-                    .select('id, email, full_name, role')
+                    .select('id, email, full_name, role, member_level')
                     .order('email', { ascending: true });
                 if (e2) {
-                    console.error('GET /api/admin/users profiles:', e2);
-                    return res.status(500).json({ error: '查詢用戶失敗' });
+                    const { data: prof3, error: e3 } = await supabase
+                        .from('profiles')
+                        .select('id, email, full_name, role')
+                        .order('email', { ascending: true });
+                    if (e3) {
+                        console.error('GET /api/admin/users profiles:', e3);
+                        return res.status(500).json({ error: '查詢用戶失敗' });
+                    }
+                    list = (prof3 || []).map(p => ({ ...p, member_level: '一般', can_delete_media_wall: false }));
+                } else {
+                    list = (prof2 || []).map(p => ({ ...p, member_level: p.member_level || '一般', can_delete_media_wall: false }));
                 }
-                list = (prof2 || []).map(p => ({ ...p, member_level: '一般' }));
             } else {
                 console.error('GET /api/admin/users profiles:', profErr);
                 return res.status(500).json({ error: '查詢用戶失敗' });
@@ -863,6 +871,7 @@ app.get('/api/admin/users', async (req, res) => {
             full_name: p.full_name || '',
             role: p.role || 'user',
             member_level: p.member_level || '一般',
+            can_delete_media_wall: p.can_delete_media_wall === true,
             points: creditsMap[p.id] ? creditsMap[p.id].balance : 0,
             total_earned: creditsMap[p.id] ? creditsMap[p.id].total_earned : 0,
             total_spent: creditsMap[p.id] ? creditsMap[p.id].total_spent : 0
@@ -1078,6 +1087,7 @@ app.patch('/api/admin/users/:id', express.json(), async (req, res) => {
         const memberLevel = body.member_level != null ? String(body.member_level).trim() : null;
         const role = body.role != null ? String(body.role).trim() : null;
         const points = body.points != null ? parseInt(body.points, 10) : null;
+        const canDeleteMediaWall = body.can_delete_media_wall;
 
         const allowedRoles = ['user', 'admin', 'tester'];
         if (role !== null && role !== '' && allowedRoles.indexOf(role) === -1) {
@@ -1114,6 +1124,22 @@ app.patch('/api/admin/users/:id', express.json(), async (req, res) => {
             if (roleErr) {
                 console.error('PATCH /api/admin/users profiles role:', roleErr);
                 return res.status(500).json({ error: '更新角色失敗（請確認已執行 docs/migration-add-tester-role.sql）' });
+            }
+        }
+
+        if (canDeleteMediaWall !== undefined && canDeleteMediaWall !== null) {
+            const { data: prof, error: profErr } = await supabase
+                .from('profiles')
+                .select('id').eq('id', userId).single();
+            if (profErr || !prof) return res.status(404).json({ error: '找不到該用戶' });
+            const { error: updateErr } = await supabase
+                .from('profiles')
+                .update({ can_delete_media_wall: !!canDeleteMediaWall })
+                .eq('id', userId);
+            if (updateErr) {
+                if (updateErr.code === '42703') return res.status(400).json({ error: '請先執行 docs/add-profiles-can-delete-media-wall.sql' });
+                console.error('PATCH /api/admin/users can_delete_media_wall:', updateErr);
+                return res.status(500).json({ error: '更新首頁刪圖權限失敗' });
             }
         }
 
@@ -6006,10 +6032,11 @@ app.get('/api/media-wall', async (req, res) => {
                 const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
                 const imageUrl = seriesExpired ? null : (p.image_url || null);
                 const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
+                if (!seriesUrls.length) return;
                 const mfrUserId = seriesMfrMap[p.manufacturer_id] || null;
                 out.push({
                     type: 'series',
-                    size: '1x1',
+                    size: '1x2',
                     id: p.id,
                     manufacturer_id: p.manufacturer_id,
                     manufacturer_user_id: mfrUserId,
@@ -6021,7 +6048,7 @@ app.get('/api/media-wall', async (req, res) => {
                     category_key: p.category_key || null,
                     subcategory_key: p.subcategory_key || null,
                     link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html',
-                    series_image_urls: seriesUrls.length ? seriesUrls : (imageUrl ? [imageUrl] : [])
+                    series_image_urls: seriesUrls
                 });
             });
         }
@@ -6072,14 +6099,16 @@ app.get('/api/media-wall', async (req, res) => {
                 .eq('is_active', true);
             (collMfrs || []).forEach(m => { collMfrMap[m.id] = m.user_id || null; });
         }
-        // 資料夾與系列圖整合為同一種：皆以 type=series、series_image_urls 回傳，前端同一套顯示
+        // 資料夾與系列圖整合為同一種：皆以 type=series、series_image_urls 回傳，前端同一套顯示；無圖的資料夾不顯示
         collRows.forEach(p => {
             const cover = p.cover_image_url || null;
             const imageUrls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0) ? p.image_urls : (cover ? [cover] : []);
+            if (!imageUrls.length) return;
             const mfrId = p.manufacturer_id || null;
             const mfrUserId = collMfrMap[mfrId] || null;
             out.push({
                 type: 'series',
+                size: '1x2',
                 id: p.id,
                 title: p.title || '系列',
                 slug: p.slug,
@@ -6120,10 +6149,32 @@ app.get('/api/media-wall', async (req, res) => {
     }
 });
 
+// 首頁靈感牆刪除/隱藏權限：管理員 或 profiles.can_delete_media_wall 為 true
+async function requireMediaWallDelete(req, res) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        res.status(401).json({ error: '未授權' });
+        return null;
+    }
+    const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+        res.status(401).json({ error: 'token 無效' });
+        return null;
+    }
+    const { data: profile } = await supabase.from('profiles').select('role, can_delete_media_wall').eq('id', user.id).single();
+    const canDelete = profile?.role === 'admin' || profile?.can_delete_media_wall === true;
+    if (!canDelete) {
+        res.status(403).json({ error: '僅管理員或具「首頁刪圖」權限的帳號可操作' });
+        return null;
+    }
+    return user;
+}
+
 // PATCH /api/admin/media-wall-item — 管理員在首頁關閉/開啟個別項目顯示
 app.patch('/api/admin/media-wall-item', express.json(), async (req, res) => {
     try {
-        const adminUser = await requireAdmin(req, res);
+        const adminUser = await requireMediaWallDelete(req, res);
         if (!adminUser) return;
         const { type, id, show } = req.body || {};
         if (!type || !id || typeof show !== 'boolean') {
@@ -6158,7 +6209,7 @@ app.patch('/api/admin/media-wall-item', express.json(), async (req, res) => {
 // DELETE /api/admin/media-wall-item — 管理員永久移除項目（user_design 刪除資料；comparison/collection 僅隱藏）
 app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
     try {
-        const adminUser = await requireAdmin(req, res);
+        const adminUser = await requireMediaWallDelete(req, res);
         if (!adminUser) return;
         const type = (req.body && req.body.type) || req.query.type;
         const id = (req.body && req.body.id) || req.query.id;
