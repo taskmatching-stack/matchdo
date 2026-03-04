@@ -182,12 +182,14 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 
 | 網址 | 說明 | 更新方式 |
 |------|------|----------|
-| **GET /sitemap.xml** | Sitemap **索引**，列出下面兩個子 sitemap | 固定結構 |
-| **GET /sitemap-pages.xml** | 靜態公開頁（首頁、方案、訂製/再製、圖庫、登入等；見 server.js SITEMAP_PAGES） | 程式內固定清單 |
+| **GET /sitemap.xml** | Sitemap **索引**，列出五個子 sitemap（pages / categories / vendors / products / collections） | 固定結構 |
+| **GET /sitemap-pages.xml** | 靜態公開頁 + **首頁四種類型**（全部 `/`、設計圖/對照圖/系列圖 `/?layout_type=...`）+ **中英文**（`/?lang=en` 與三種 layout_type + lang）；見 server.js SITEMAP_PAGES | 程式內固定清單 |
+| **GET /sitemap-categories.xml** | **動態**：首頁「分類」篩選 `/?category_key=xxx`（來自 `ai_categories` 主分類）；與 layout_type／lang 可疊加，sitemap 只列主分類 landing | **每次請求即時查 DB** |
 | **GET /sitemap-vendors.xml** | **動態**：廠商列表 + 各廠商詳情頁 | **每次請求即時查 DB**（`manufacturers`），新廠商上線即被收錄 |
 
+- **首頁網址疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang` 可同時出現在同一 URL；sitemap 收錄「全部、三種類型、中英文、主分類」等主要 landing，不列所有組合。
 - **會員頁面**（`/client/*`、`/profile/*`、`/expert/*`、`/admin/*`）**不放進 sitemap**，僅收錄對外公開頁與廠商相關頁。
-- **唯一可能手動**：若新增一種**全新的公開頁面**，在 **server.js** 的 **SITEMAP_PAGES** 加一筆即可；其餘皆自動。目前已含：`/`、`/subscription-plans.html`、`/credits.html`、`/custom/`、`/custom/gallery.html`、`/custom-product.html`、`/remake/`、`/remake-product.html`、about/contact/service 等、login/register。
+- **唯一可能手動**：若新增一種**全新的公開頁面**，在 **server.js** 的 **SITEMAP_PAGES** 加一筆即可；其餘皆自動。目前已含：`/`、三種 `/?layout_type=...`、四筆 `?lang=en` 變體、`/subscription-plans.html`、`/custom/`、`/custom/gallery.html`、`/custom-product.html`、`/remake/`、`/remake-product.html`、about/contact、login/register 等。
 - **GET /robots.txt**：內含 `Sitemap: {BASE_URL}/sitemap.xml` 與 `Disallow: /admin/`、`/api/`、`/payment/`。
 - 部署後在 **Google Search Console** 提交 `https://你的網域/sitemap.xml` 即可。
 

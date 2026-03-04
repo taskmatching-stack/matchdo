@@ -1,6 +1,18 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-03-01
+更新日期：2026-03-04
+
+---
+
+## 近期完成（2026-03-04 Header 會員點數）
+
+| 項目 | 說明 |
+|------|------|
+| **桌機版點數** | 已登入時在頭像「下方」、兩條橫線中間（navbar-collapse 底線與 navbar 底線之間）顯示「N 點」，寬度與頭像同寬靠右（`flex: 0 0 auto`、`margin-left: auto`），不佔滿寬、不撐開版面；點擊連到 `/credits.html` |
+| **手機版點數** | 已登入時在 Logo 與漢堡之間（`#navPointsMobile`）顯示「N 點」，`ms-auto me-2` 靠右；點擊連到 `/credits.html` |
+| **點數來源** | `GET /api/me/credits` 取 `balance`，`loadHeaderCredits()` 於 header 渲染後呼叫並更新 `#navPointsDesktopValue`、`#navPointsMobileValue` |
+| **樣式** | 數字與「測試中」同色 `#ffc107`、字重 600；桌機 0.95rem／手機 1rem；`text-shadow: none`、`subpixel-antialiased` 避免糊感；背景與導覽列同色 `#ffffff` |
+| **規劃文件** | 本檔「規劃：Header 會員點數顯示位置」一節為實作依據；commit `ae0802a` |
 
 ---
 
@@ -82,7 +94,7 @@
 
 ---
 
-## 規劃：Header 會員點數顯示位置
+## 規劃：Header 會員點數顯示位置（已實作 2026-03-04）
 
 **目標**：會員點數在 header 永遠可見；桌機在個人選單下、手機在漢堡左邊。
 
@@ -1066,7 +1078,7 @@ node docs/generate-test-data-100experts.js
 ## 🗺️ 網站地圖
 **路徑對照、SEO Sitemap、Google Analytics（GA4）** 皆在：**[docs/sitemap.md](./sitemap.md)**
 
-- **GET /sitemap.xml**：Sitemap 索引 → **sitemap-pages.xml**（靜態頁）、**sitemap-vendors.xml**（動態由 DB 產出，新廠商即被收錄）；會員頁不放進 sitemap。
+- **GET /sitemap.xml**：Sitemap 索引 → **sitemap-pages.xml**（靜態頁，含首頁篩選 URL：`/?layout_type=user_design|comparison|collection`）、**sitemap-vendors.xml**（動態由 DB 產出）；會員頁不放進 sitemap。詳見 **docs/SEO-PROGRESS.md**。
 - **GA4**：至 [analytics.google.com](https://analytics.google.com/) 申請，用 GA4（無 GA5）；ID 設環境變數後於全站版型掛追蹤碼。
 
 **快速導航**:

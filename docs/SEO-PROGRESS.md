@@ -26,19 +26,25 @@
 
 ### ✅ Phase SEO-2：Canonical + Hreflang（隨 Phase SEO-1 完成）
 
-### ✅ Sitemap 調整（2026-03-01 完成）
+### ✅ Sitemap 調整（2026-03-01 完成；2026-03-04 首頁篩選 URL）
 
 | 調整項目 | 說明 |
 |---------|------|
 | 移除殼頁 | 從 `SITEMAP_PAGES` 移除無實際內容的 iStudio 範本頁：`service`、`feature`、`project`、`testimonial`、`team` |
 | 新增 `sitemap-collections.xml` | 動態查詢 `media_collections`（`is_active=true`），自動收錄所有作品系列頁 `/custom/collection.html?slug=XXX` |
-| sitemap 索引更新 | `/sitemap.xml` 已加入第四個子 sitemap `sitemap-collections.xml` |
+| sitemap 索引更新 | `/sitemap.xml` 現含五個子 sitemap：pages、categories、vendors、products、collections |
+| **首頁篩選 URL（2026-03-04）** | 首頁網址狀態可**疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`。Sitemap 收錄主要 landing，不列所有組合。 |
+| **首頁四種「類型」** | **全部**＝`/`；**設計圖／對照圖／系列圖**＝`/?layout_type=user_design|comparison|collection`（共 4 筆在 `sitemap-pages.xml`） |
+| **中英文** | `sitemap-pages.xml` 另加 4 筆：`/?lang=en`、`/?layout_type=user_design&lang=en`、`/?layout_type=comparison&lang=en`、`/?layout_type=collection&lang=en`，與頁面 hreflang 對應 |
+| **分類** | 動態 `sitemap-categories.xml`：從 `ai_categories` 查主分類，產出 `/?category_key=xxx`（與 layout_type／lang 可疊加，sitemap 只列主分類 landing） |
+| **Canonical** | 首頁有篩選參數時 canonical 為目前完整網址；無參數時為 `https://matchdo.cc/`（見 `index.html` 內 `#mw-canonical`） |
 
-**目前四個子 sitemap 更新機制：**
+**目前五個子 sitemap 更新機制：**
 
 | Sitemap | 來源 | 更新方式 |
 |---------|------|---------|
-| `sitemap-pages.xml` | `SITEMAP_PAGES` 陣列（`server.js`） | 新增靜態頁需手動補 |
+| `sitemap-pages.xml` | `SITEMAP_PAGES` 陣列（`server.js`） | 新增靜態頁或首頁篩選 URL 需手動補 |
+| `sitemap-categories.xml` | `ai_categories` 表（主分類 key） | ✅ 自動 |
 | `sitemap-vendors.xml` | `manufacturers` 表（`is_active=true`） | ✅ 自動 |
 | `sitemap-products.xml` | `custom_products` 表（`visibility='public'`） | ✅ 自動 |
 | `sitemap-collections.xml` | `media_collections` 表（`is_active=true`） | ✅ 自動 |

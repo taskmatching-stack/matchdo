@@ -516,8 +516,16 @@ app.get('/custom/gallery.html', async (req, res) => {
 });
 
 // GET /sitemap.xml — SEO 用網站地圖「索引」；子 sitemap 持續由 DB/靜態清單更新（見 docs/sitemap.md）
+// 首頁：全部(/) + 三種 layout_type + 中英文變體（與 hreflang 對應，利於收錄）
 const SITEMAP_PAGES = [
     { path: '/',                        priority: '1.0', changefreq: 'weekly' },
+    { path: '/?layout_type=user_design', priority: '0.9', changefreq: 'weekly' },
+    { path: '/?layout_type=comparison', priority: '0.9', changefreq: 'weekly' },
+    { path: '/?layout_type=collection', priority: '0.9', changefreq: 'weekly' },
+    { path: '/?lang=en',                priority: '0.95', changefreq: 'weekly' },
+    { path: '/?layout_type=user_design&lang=en', priority: '0.9', changefreq: 'weekly' },
+    { path: '/?layout_type=comparison&lang=en',  priority: '0.9', changefreq: 'weekly' },
+    { path: '/?layout_type=collection&lang=en',  priority: '0.9', changefreq: 'weekly' },
     { path: '/custom/',                 priority: '0.9', changefreq: 'weekly' },
     { path: '/custom/gallery.html',     priority: '0.9', changefreq: 'weekly' },
     { path: '/remake/',                 priority: '0.9', changefreq: 'weekly' },
@@ -534,12 +542,13 @@ const SITEMAP_PAGES = [
 function escapeXml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
-// Sitemap 索引：列出所有子 sitemap，Google 會依此再抓取各子 sitemap（持續更新來源）
+// Sitemap 索引：列出五個子 sitemap（pages / categories / vendors / products / collections）
 app.get('/sitemap.xml', (req, res) => {
     const base = (BASE_URL || '').replace(/\/$/, '');
     const now = new Date().toISOString().slice(0, 10);
     const entries = [
         '<sitemap><loc>' + escapeXml(base + '/sitemap-pages.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
+        '<sitemap><loc>' + escapeXml(base + '/sitemap-categories.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
         '<sitemap><loc>' + escapeXml(base + '/sitemap-vendors.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
         '<sitemap><loc>' + escapeXml(base + '/sitemap-products.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
         '<sitemap><loc>' + escapeXml(base + '/sitemap-collections.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>'
@@ -554,10 +563,33 @@ app.get('/sitemap-pages.xml', (req, res) => {
     const base = (BASE_URL || '').replace(/\/$/, '');
     const lastmod = new Date().toISOString().slice(0, 10);
     const urls = SITEMAP_PAGES.map(p => {
-        const loc = base + (p.path === '/' ? '' : p.path);
+        const loc = p.path === '/' ? base + '/' : base + p.path;
         return '  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>' + (p.changefreq || 'monthly') + '</changefreq><priority>' + (p.priority || '0.5') + '</priority></url>';
     }).join('\n');
     const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + '\n</urlset>';
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(xml);
+});
+// 動態：首頁「分類」篩選 URL（ai_categories 主分類，/?category_key=xxx），與 layout_type／lang 可疊加
+app.get('/sitemap-categories.xml', async (req, res) => {
+    const base = (BASE_URL || '').replace(/\/$/, '');
+    const lastmod = new Date().toISOString().slice(0, 10);
+    const urls = [];
+    try {
+        const { data: rows, error } = await supabase.from('ai_categories').select('key, sort_order').order('sort_order', { ascending: true });
+        if (!error && Array.isArray(rows) && rows.length > 0) {
+            rows.forEach(r => {
+                if (r && r.key) {
+                    const loc = base + '/?category_key=' + encodeURIComponent(r.key);
+                    urls.push('  <url><loc>' + escapeXml(loc) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.85</priority></url>');
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('sitemap-categories.xml 查詢 ai_categories 失敗:', e && e.message);
+    }
+    const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>';
     res.set('Content-Type', 'application/xml; charset=utf-8');
     res.set('Cache-Control', 'public, max-age=3600');
     res.send(xml);
@@ -11280,42 +11312,22 @@ app.post('/api/match/run-split', async (req, res) => {
     }
 });
 
+// 先監聽 PORT（Cloud Run 要求容器在時限內 listen，否則判定啟動失敗）
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log('Server running on port', PORT);
+    const hasStability = !!getStabilityApiKey();
+    console.log('STABILITY_API_KEY loaded:', hasStability ? 'yes' : 'no (erase/upscale/控制區 會回 503)');
+    if (process.env.GEMINI_API_KEY) console.log('Gemini 翻譯模型: 後台可設，預設', GEMINI_MODEL_TRANSLATION_DEFAULT, '| 讀圖/分析:', GEMINI_MODEL_READ_DEFAULT);
+    if (!hasStability) {
+        const stabilityKeys = Object.keys(process.env).filter(k => k.toUpperCase().includes('STABILITY'));
+        console.log('.env 需包含 STABILITY_API_KEY 或 STABILITY_AI_API_KEY。目前含 STABILITY 的變數:', stabilityKeys.length ? stabilityKeys.join(', ') : '(無)');
+        console.log('.env 路徑:', envPath, '存在:', require('fs').existsSync(envPath));
+        console.log('stability-key.txt 會讀取:', path.join(__dirname, 'stability-key.txt'));
+        console.log('>>> 解法：1) 建立 stability-key.txt（只放一行 sk- 開頭金鑰） 2) 或執行: node server.js --stability-key=您的金鑰 <<<');
+    }
+});
+// 背景執行分類／DB 初始化，不阻塞 listen（避免 Cloud Run 啟動逾時）
 bootstrapCategories().finally(() => {
-    Promise.all([
-        ensureAiCategoriesTableAndSeed()
-    ])
-        .then(() => {
-            setTimeout(() => {
-                const PORT = process.env.PORT || 3000;
-                app.listen(PORT, () => {
-                console.log('Server running on port', PORT);
-                const hasStability = !!getStabilityApiKey();
-                console.log('STABILITY_API_KEY loaded:', hasStability ? 'yes' : 'no (erase/upscale/控制區 會回 503)');
-                if (process.env.GEMINI_API_KEY) console.log('Gemini 翻譯模型: 後台可設，預設', GEMINI_MODEL_TRANSLATION_DEFAULT, '| 讀圖/分析:', GEMINI_MODEL_READ_DEFAULT);
-                if (!hasStability) {
-                    const stabilityKeys = Object.keys(process.env).filter(k => k.toUpperCase().includes('STABILITY'));
-                    console.log('.env 需包含 STABILITY_API_KEY 或 STABILITY_AI_API_KEY。目前含 STABILITY 的變數:', stabilityKeys.length ? stabilityKeys.join(', ') : '(無)');
-                    console.log('.env 路徑:', envPath, '存在:', require('fs').existsSync(envPath));
-                    console.log('stability-key.txt 會讀取:', path.join(__dirname, 'stability-key.txt'));
-                    console.log('>>> 解法：1) 建立 stability-key.txt（只放一行 sk- 開頭金鑰） 2) 或執行: node server.js --stability-key=您的金鑰 <<<');
-                }
-            });
-            }, 500);
-        })
-        .catch(() => {
-            const PORT = process.env.PORT || 3000;
-            app.listen(PORT, () => {
-                console.log('Server running on port', PORT);
-                const hasStability = !!getStabilityApiKey();
-                console.log('STABILITY_API_KEY loaded:', hasStability ? 'yes' : 'no (erase/upscale/控制區 會回 503)');
-                if (process.env.GEMINI_API_KEY) console.log('Gemini 翻譯模型: 後台可設，預設', GEMINI_MODEL_TRANSLATION_DEFAULT, '| 讀圖/分析:', GEMINI_MODEL_READ_DEFAULT);
-                if (!hasStability) {
-                    const stabilityKeys = Object.keys(process.env).filter(k => k.toUpperCase().includes('STABILITY'));
-                    console.log('.env 需包含 STABILITY_API_KEY 或 STABILITY_AI_API_KEY。目前含 STABILITY 的變數:', stabilityKeys.length ? stabilityKeys.join(', ') : '(無)');
-                    console.log('.env 路徑:', envPath, '存在:', require('fs').existsSync(envPath));
-                    console.log('stability-key.txt 會讀取:', path.join(__dirname, 'stability-key.txt'));
-                    console.log('>>> 解法：1) 建立 stability-key.txt（只放一行 sk- 開頭金鑰） 2) 或執行: node server.js --stability-key=您的金鑰 <<<');
-                }
-            });
-        });
+    ensureAiCategoriesTableAndSeed().catch(err => console.warn('ensureAiCategoriesTableAndSeed:', err && err.message));
 });
