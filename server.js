@@ -2352,6 +2352,36 @@ app.get(/^\/public\/custom\/?(.*)$/, (req, res) => {
     res.redirect(302, '/custom' + (rest ? '/' + rest : ''));
 });
 app.use('/uploads', express.static(uploadDir));
+
+// 圖片代理：僅允許 Supabase Storage 網址，同源輸出以避免跨域 __cf_bm Cookie 警告與部分「圖片截斷」問題
+const SUPABASE_STORAGE_ORIGIN = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+app.get('/api/proxy-image', (req, res) => {
+    const raw = req.query.url;
+    if (!raw || typeof raw !== 'string') return res.status(400).send('Missing url');
+    let decoded;
+    try { decoded = decodeURIComponent(raw); } catch (_) { return res.status(400).send('Invalid url'); }
+    if (!SUPABASE_STORAGE_ORIGIN || !decoded.startsWith(SUPABASE_STORAGE_ORIGIN + '/')) {
+        return res.status(400).send('URL not allowed');
+    }
+    (async () => {
+        try {
+            const resp = await fetch(decoded, { method: 'GET', redirect: 'follow' });
+            if (!resp.ok) {
+                res.status(resp.status === 404 ? 404 : 502).send(resp.statusText || 'Upstream error');
+                return;
+            }
+            const ct = resp.headers.get('content-type') || 'application/octet-stream';
+            res.setHeader('Content-Type', ct);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            const buf = await resp.arrayBuffer();
+            res.end(Buffer.from(buf));
+        } catch (e) {
+            console.error('proxy-image error:', e.message);
+            if (!res.headersSent) res.status(502).send('Proxy error');
+        }
+    })();
+});
+
 // 提供 client 和 expert 目錄的靜態服務
 app.use('/client', express.static(path.join(__dirname, 'client')));
 app.use('/expert', express.static(path.join(__dirname, 'expert')));
@@ -6097,14 +6127,14 @@ app.get('/api/media-wall', async (req, res) => {
                 .eq('is_active', true);
             (collMfrs || []).forEach(m => { collMfrMap[m.id] = m.user_id || null; });
         }
-        // 資料夾與系列圖整合為同一種：皆以 type=series、series_image_urls 回傳，前端同一套顯示（無圖時前端顯示佔位）
+        // 資料夾（media_collections）用 type=collection，與廠商系列圖 type=series 區分，前端篩選「系列圖／資料夾」才正確
         collRows.forEach(p => {
             const cover = p.cover_image_url || null;
             const imageUrls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0) ? p.image_urls : (cover ? [cover] : []);
             const mfrId = p.manufacturer_id || null;
             const mfrUserId = collMfrMap[mfrId] || null;
             out.push({
-                type: 'series',
+                type: 'collection',
                 size: '1x2',
                 id: p.id,
                 title: p.title || '系列',
@@ -6128,17 +6158,20 @@ app.get('/api/media-wall', async (req, res) => {
                 }
             }
         });
-        // 篩選類型時只回傳該類型：設計圖＝僅 AI 生成（無 manufacturer_id）；系列圖／對照圖＝僅該 type
+        // 篩選類型時只回傳該類型：設計圖＝僅 AI 生成；對照圖／系列圖／資料夾＝依 type 篩選（勿對 const out 重新賦值）
+        let items = out;
         if (layoutOnly === 'user_design') {
-            out = out.filter(function (item) { return item.type === 'user_design' && !item.manufacturer_id; });
-        } else if (layoutOnly === 'series' || layoutOnly === 'collection') {
-            out = out.filter(function (item) { return item.type === 'series'; });
+            items = out.filter(function (item) { return item.type === 'user_design' && !item.manufacturer_id; });
         } else if (layoutOnly === 'comparison') {
-            out = out.filter(function (item) { return item.type === 'comparison'; });
+            items = out.filter(function (item) { return item.type === 'comparison'; });
+        } else if (layoutOnly === 'series') {
+            items = out.filter(function (item) { return item.type === 'series'; });
+        } else if (layoutOnly === 'collection') {
+            items = out.filter(function (item) { return item.type === 'collection'; });
         }
 
         res.set('Cache-Control', 'public, max-age=120');
-        res.json({ items: out, page, per_page: perPage });
+        res.json({ items: items, page, per_page: perPage });
     } catch (e) {
         console.error('GET /api/media-wall 異常:', e);
         res.set('Cache-Control', 'public, max-age=60');
