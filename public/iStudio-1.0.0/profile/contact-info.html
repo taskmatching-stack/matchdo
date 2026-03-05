@@ -418,7 +418,7 @@
 
                 const { error } = await AuthService.supabase
                     .from('contact_info')
-                    .upsert(contactData);
+                    .upsert(contactData, { onConflict: 'user_id' });
 
                 if (error) throw error;
 

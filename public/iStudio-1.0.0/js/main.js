@@ -163,8 +163,8 @@
     spinner();
     
     
-    // Initiate the wowjs
-    new WOW().init();
+    // Initiate the wowjs（若頁面有載入 WOW 才執行）
+    if (typeof WOW !== 'undefined') { new WOW().init(); }
 
 
     // Sticky Navbar

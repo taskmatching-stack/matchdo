@@ -164,8 +164,8 @@
     spinner();
     
     
-    // Initiate the wowjs
-    new WOW().init();
+    // Initiate the wowjs（若頁面有載入 WOW 才執行，避免 contact-info 等頁報錯）
+    if (typeof WOW !== 'undefined') { new WOW().init(); }
 
 
     // Sticky Navbar
