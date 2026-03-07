@@ -1160,7 +1160,53 @@ $(document).ready(function () {
         var src = $('#sceneSimPreviewImg').attr('src');
         return (src && src.trim()) ? src.trim() : '';
     }
-    // 從首頁/數位資產點「實境模擬」進來：切到 Tab 並帶入圖片
+    // 動態網址：?tab=product-design | scene-sim | pattern-extract
+    function getTabParamFromButtonId(buttonId) {
+        if (buttonId === 'tab-product-design') return 'product-design';
+        if (buttonId === 'tab-scene-sim') return 'scene-sim';
+        if (buttonId === 'tab-pattern-extract') return 'pattern-extract';
+        return 'product-design';
+    }
+    function getTabButtonIdFromParam(param) {
+        if (param === 'scene-sim') return 'tab-scene-sim';
+        if (param === 'pattern-extract') return 'tab-pattern-extract';
+        return 'tab-product-design';
+    }
+    function applyTabFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        var tabParam = params.get('tab') || 'product-design';
+        if (tabParam !== 'product-design' && tabParam !== 'scene-sim' && tabParam !== 'pattern-extract') tabParam = 'product-design';
+        var tabId = getTabButtonIdFromParam(tabParam);
+        var tabEl = document.getElementById(tabId);
+        if (tabEl && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+            var tab = new bootstrap.Tab(tabEl);
+            tab.show();
+        }
+    }
+    function updateUrlForTab(tabParam) {
+        var base = window.location.pathname || '/custom-product.html';
+        var url = tabParam === 'product-design' ? base : base + '?tab=' + encodeURIComponent(tabParam);
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({ tab: tabParam }, '', url);
+        }
+    }
+    // 初次載入：依 URL 切換 Tab
+    applyTabFromUrl();
+    // 切換 Tab 時更新網址
+    $('#designTabs').on('shown.bs.tab', function (e) {
+        var targetId = (e.target && e.target.id) ? e.target.id : '';
+        var tabParam = getTabParamFromButtonId(targetId);
+        var base = window.location.pathname || '/custom-product.html';
+        var url = tabParam === 'product-design' ? base : base + '?tab=' + encodeURIComponent(tabParam);
+        if (window.history && window.history.pushState) {
+            window.history.pushState({ tab: tabParam }, '', url);
+        }
+    });
+    // 瀏覽器前進/後退時依網址切換 Tab
+    $(window).on('popstate', function () {
+        applyTabFromUrl();
+    });
+    // 從首頁/數位資產點「實境模擬」進來：切到 Tab 並帶入圖片（保留原有邏輯，在 applyTabFromUrl 之後執行）
     (function () {
         var params = new URLSearchParams(window.location.search);
         if (params.get('tab') !== 'scene-sim') return;
@@ -1355,6 +1401,205 @@ $(document).ready(function () {
                 $btn.prop('disabled', false);
                 $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + t('customProduct.sceneSimResultNote') + '</p>');
                 console.warn('scene-simulate:', err);
+            });
+    });
+
+    // ----- 圖樣提取 Tab（單張圖上傳、選填提示詞、可選無縫拼接、Size Mode） -----
+    window.patternExtractImageDataUrl = null;
+    window.patternExtractImageDimensions = { w: 1024, h: 1024 };
+    var PATTERN_EXTRACT_ASPECT_MAP = { '1:1': [1024, 1024], '16:9': [1024, 576], '9:16': [576, 1024], '4:3': [1024, 768], '3:4': [768, 1024] };
+    function clampResolution(v) {
+        var n = parseInt(v, 10);
+        if (isNaN(n)) return 1024;
+        var step = 8;
+        var rounded = Math.round(n / step) * step;
+        return Math.min(2048, Math.max(512, rounded));
+    }
+    function updatePatternExtractResolutionDisplay() {
+        var mode = $('#patternExtractSizeMode').val();
+        var hasImage = !!window.patternExtractImageDataUrl;
+        if (mode === 'same' && !hasImage) {
+            $('#patternExtractResolutionDisplay').text('—').attr('title', '上傳圖片後顯示原圖解析度');
+            return;
+        }
+        var dims = getPatternExtractWidthHeight();
+        $('#patternExtractResolutionDisplay').text(dims.w + '×' + dims.h).attr('title', '目前解析度');
+    }
+    function getPatternExtractWidthHeight() {
+        var mode = $('#patternExtractSizeMode').val();
+        if (mode === 'aspect') {
+            var pair = PATTERN_EXTRACT_ASPECT_MAP[$('#patternExtractAspectRatio').val()] || [1024, 1024];
+            return { w: pair[0], h: pair[1] };
+        }
+        if (mode === 'manual') {
+            var w = clampResolution($('#patternExtractWidth').val());
+            var h = clampResolution($('#patternExtractHeight').val());
+            return { w: w, h: h };
+        }
+        return window.patternExtractImageDimensions || { w: 1024, h: 1024 };
+    }
+    function updatePatternExtractSizeModeUI() {
+        var mode = $('#patternExtractSizeMode').val();
+        $('#patternExtractSizeAspect').css('display', mode === 'aspect' ? 'block' : 'none');
+        $('#patternExtractSizeManualPanel').css('display', mode === 'manual' ? 'block' : 'none');
+        updatePatternExtractResolutionDisplay();
+    }
+    function setPatternExtractUploadPreview(dataUrl) {
+        if (!dataUrl || !dataUrl.trim()) {
+            window.patternExtractImageDataUrl = null;
+            window.patternExtractImageDimensions = { w: 1024, h: 1024 };
+            $('#patternExtractUploadImg').addClass('d-none').attr('src', '');
+            $('#patternExtractUploadZone').removeClass('has-image');
+            updatePatternExtractResolutionDisplay();
+            return;
+        }
+        window.patternExtractImageDataUrl = dataUrl;
+        $('#patternExtractUploadImg').attr('src', dataUrl).removeClass('d-none');
+        $('#patternExtractUploadZone').addClass('has-image');
+        var img = document.getElementById('patternExtractUploadImg');
+        if (img) {
+            img.onload = function () {
+                var nw = img.naturalWidth || 1024;
+                var nh = img.naturalHeight || 1024;
+                var w = clampResolution(nw);
+                var h = clampResolution(nh);
+                window.patternExtractImageDimensions = { w: w, h: h };
+                updatePatternExtractResolutionDisplay();
+            };
+            if (img.complete) img.onload();
+        }
+    }
+    $(document).on('click', '#patternExtractUploadZone', function (e) {
+        if ($(e.target).closest('.scene-sim-upload-label').length) return;
+        var input = document.getElementById('patternExtractFile');
+        if (input) input.click();
+    });
+    $('#patternExtractFile').on('change', function () {
+        var file = this.files && this.files[0];
+        if (!file || !file.type.match(/^image\//)) return;
+        var reader = new FileReader();
+        reader.onload = function (e) { setPatternExtractUploadPreview(e.target.result); };
+        reader.readAsDataURL(file);
+        this.value = '';
+    });
+    $('#patternExtractUploadZone').on('dragover', function (e) { e.preventDefault(); e.stopPropagation(); $(this).css('border-color', '#445D7E'); });
+    $('#patternExtractUploadZone').on('dragleave', function (e) { e.preventDefault(); $(this).css('border-color', ''); });
+    $('#patternExtractUploadZone').on('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).css('border-color', '');
+        var file = e.originalEvent && e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files && e.originalEvent.dataTransfer.files[0];
+        if (!file || !file.type.match(/^image\//)) return;
+        var reader = new FileReader();
+        reader.onload = function (ev) { setPatternExtractUploadPreview(ev.target.result); };
+        reader.readAsDataURL(file);
+    });
+    $('#patternExtractSizeMode').on('change', updatePatternExtractSizeModeUI);
+    $('#patternExtractAspectRatio').on('change', updatePatternExtractResolutionDisplay);
+    $('#patternExtractWidth').on('input', function () {
+        var v = clampResolution(this.value);
+        $('#patternExtractWidth').val(v);
+        $('#patternExtractWidthSlider').val(v);
+        updatePatternExtractResolutionDisplay();
+    });
+    $('#patternExtractWidthSlider').on('input', function () {
+        var v = parseInt(this.value, 10);
+        $('#patternExtractWidth').val(v);
+        updatePatternExtractResolutionDisplay();
+    });
+    $('#patternExtractHeight').on('input', function () {
+        var v = clampResolution(this.value);
+        $('#patternExtractHeight').val(v);
+        $('#patternExtractHeightSlider').val(v);
+        updatePatternExtractResolutionDisplay();
+    });
+    $('#patternExtractHeightSlider').on('input', function () {
+        var v = parseInt(this.value, 10);
+        $('#patternExtractHeight').val(v);
+        updatePatternExtractResolutionDisplay();
+    });
+    updatePatternExtractSizeModeUI();
+    function renderPatternExtractResult(imageDataUrl) {
+        if (!imageDataUrl) return;
+        var wrap = $('#patternExtractResultWrap');
+        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>';
+        var $inner = $('<div class="scene-sim-result-inner"></div>');
+        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', '圖樣提取結果').addClass('img-fluid rounded').css('maxWidth', '100%'));
+        var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>下載圖片</a>');
+        $btn.on('click', function (e) {
+            e.preventDefault();
+            try {
+                var dataUrl = (imageDataUrl || '');
+                var mimeMatch = dataUrl.match(/^data:image\/(jpeg|jpg|png);base64,/i);
+                var ext = (mimeMatch && mimeMatch[1]) ? (mimeMatch[1].toLowerCase() === 'png' ? 'png' : 'jpg') : 'jpg';
+                var mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+                var base64 = dataUrl.split(',')[1];
+                if (!base64) return;
+                var bin = atob(base64);
+                var arr = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                var blob = new Blob([arr], { type: mime });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'pattern-extract.' + ext;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) { console.warn(err); }
+        });
+        $inner.append($btn).append(note);
+        wrap.html('').append($inner);
+    }
+    $('#patternExtractApplyBtn').on('click', function () {
+        var imageUrl = window.patternExtractImageDataUrl || '';
+        if (!imageUrl) {
+            alert('請上傳一張圖片');
+            return;
+        }
+        var $btn = $('#patternExtractApplyBtn');
+        var $wrap = $('#patternExtractResultWrap');
+        var prompt = ($('#patternExtractPrompt').val() || '').trim();
+        var seamless = $('#patternExtractSeamless').prop('checked');
+        var dims = getPatternExtractWidthHeight();
+        var outputFormat = ($('#patternExtractOutputFormat').val() === 'png') ? 'png' : 'jpeg';
+        $btn.prop('disabled', true);
+        $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>');
+        var headers = { 'Content-Type': 'application/json' };
+        Promise.resolve().then(function () {
+            if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
+                return window.AuthService.getSession();
+            }
+            return null;
+        }).then(function (session) {
+            if (session && session.access_token) headers['Authorization'] = 'Bearer ' + session.access_token;
+            return fetch('/api/pattern-extract', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ image: imageUrl, prompt: prompt, seamless: seamless, width: dims.w, height: dims.h, output_format: outputFormat })
+            });
+        }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
+            .then(function (result) {
+                $btn.prop('disabled', false);
+                var data = result.data;
+                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>';
+                if (result.status === 401) {
+                    $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginToSelectAssets') || '請先登入') + '</p>' + noteHtml);
+                    return;
+                }
+                if (result.status === 402) {
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>' + noteHtml);
+                    return;
+                }
+                if (data.success && data.imageData) {
+                    renderPatternExtractResult(data.imageData);
+                } else {
+                    $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
+                }
+            })
+            .catch(function (err) {
+                $btn.prop('disabled', false);
+                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>');
+                console.warn('pattern-extract:', err);
             });
     });
 });

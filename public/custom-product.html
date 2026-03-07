@@ -474,6 +474,16 @@
         #custom-product .scene-sim-preview-inner { padding: 0.5rem; text-align: center; }
         #custom-product .scene-sim-preview-hint { font-size: 0.8125rem; color: #64748b; }
         #custom-product .scene-sim-preview-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* 圖樣提取：固定高度、向上對齊 */
+        #custom-product #panel-pattern-extract .create-panel-left { min-height: 420px; display: flex; flex-direction: column; align-items: stretch; }
+        #custom-product #panel-pattern-extract .pattern-extract-size-wrap { min-height: 100px; display: flex; flex-direction: column; align-items: flex-start; }
+        #custom-product .pattern-extract-size-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.75rem 1rem; margin-top: 0.5rem; min-height: 2.5rem; }
+        #custom-product .pattern-extract-size-row .form-label { font-size: 0.8125rem; margin-bottom: 0.25rem; }
+        #custom-product .pattern-extract-size-row .form-select-sm { width: auto; min-width: 120px; }
+        #custom-product .pattern-extract-size-row .size-manual-panel { padding: 0.5rem 0; }
+        #custom-product .pattern-extract-size-row .input-with-slider { margin-bottom: 0.5rem; }
+        #custom-product .pattern-extract-size-row .input-with-slider:last-child { margin-bottom: 0; }
+        #custom-product .pattern-extract-size-row .resolution-display { font-size: 0.8125rem; color: #64748b; align-self: center; }
     </style>
     <div class="container-fluid py-4" style="background: #f1f5f9;">
         <div class="container">
@@ -487,6 +497,9 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-scene-sim" data-bs-toggle="tab" data-bs-target="#panel-scene-sim" type="button" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-i18n="home.sceneSim">實境模擬</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-pattern-extract" data-bs-toggle="tab" data-bs-target="#panel-pattern-extract" type="button" role="tab" aria-controls="panel-pattern-extract" aria-selected="false">圖樣提取</button>
                     </li>
                 </ul>
 
@@ -590,6 +603,88 @@
                             <div class="create-panel-right" id="sceneSimResultWrap">
                                 <p class="placeholder-hint mb-0 text-muted" data-i18n="customProduct.resultHere">結果會顯示在這裡</p>
                                 <p class="scene-sim-result-note text-muted small mt-2 mb-0" data-i18n="customProduct.sceneSimResultNote">此圖不會存入數位資產，請自行下載保存。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="panel-pattern-extract" role="tabpanel" aria-labelledby="tab-pattern-extract">
+                        <div class="create-panel scene-sim-panel">
+                            <div class="create-panel-left">
+                                <div class="form-row full">
+                                    <label class="label" for="patternExtractPrompt">提示詞（選填）</label>
+                                    <input type="text" id="patternExtractPrompt" class="form-control form-control-sm scene-sim-prompt-input" placeholder="選填，可描述想強調的風格或用途" />
+                                </div>
+                                <div class="form-row full scene-sim-images-row">
+                                    <span class="label w-100 mb-1">上傳一張圖片</span>
+                                    <div class="scene-sim-col" style="max-width: 280px;">
+                                        <div id="patternExtractUploadZone" class="scene-sim-upload-zone" role="button" tabindex="0" aria-label="上傳圖樣來源圖">
+                                            <input type="file" id="patternExtractFile" accept="image/*" class="d-none">
+                                            <label for="patternExtractFile" class="scene-sim-upload-label"><span class="scene-sim-upload-text">點擊或拖曳上傳</span></label>
+                                            <img id="patternExtractUploadImg" src="" alt="" class="scene-sim-upload-img d-none">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-row full mt-2">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="patternExtractSeamless" value="1">
+                                        <label class="form-check-label" for="patternExtractSeamless">無縫拼接（輸出可平鋪的圖樣）</label>
+                                    </div>
+                                </div>
+                                <div class="form-row full pattern-extract-size-wrap">
+                                <div class="pattern-extract-size-row">
+                                    <div>
+                                        <label class="form-label small mb-0">Size Mode</label>
+                                        <select id="patternExtractSizeMode" class="form-select form-select-sm">
+                                            <option value="same">Same as input</option>
+                                            <option value="aspect">Aspect ratio</option>
+                                            <option value="manual">Manual</option>
+                                        </select>
+                                    </div>
+                                    <div id="patternExtractSizeAspect" style="display:none;">
+                                        <label class="form-label small mb-0">比例</label>
+                                        <select id="patternExtractAspectRatio" class="form-select form-select-sm">
+                                            <option value="1:1">1:1</option>
+                                            <option value="16:9">16:9</option>
+                                            <option value="9:16">9:16</option>
+                                            <option value="4:3">4:3</option>
+                                            <option value="3:4">3:4</option>
+                                        </select>
+                                    </div>
+                                    <div id="patternExtractSizeManualPanel" style="display:none;">
+                                        <div class="size-manual-panel">
+                                            <div class="mb-2 fw-bold small">解析度（Manual）</div>
+                                            <div class="input-with-slider">
+                                                <label class="form-label small mb-1">Width</label>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <input type="number" id="patternExtractWidth" class="form-control form-control-sm" value="1024" min="512" max="2048" step="8" style="width:70px;" />
+                                                    <input type="range" id="patternExtractWidthSlider" min="512" max="2048" step="8" value="1024" class="form-range flex-grow-1" style="max-width:120px;" />
+                                                </div>
+                                            </div>
+                                            <div class="input-with-slider mb-0">
+                                                <label class="form-label small mb-1">Height</label>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <input type="number" id="patternExtractHeight" class="form-control form-control-sm" value="1024" min="512" max="2048" step="8" style="width:70px;" />
+                                                    <input type="range" id="patternExtractHeightSlider" min="512" max="2048" step="8" value="1024" class="form-range flex-grow-1" style="max-width:120px;" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span class="resolution-display small align-self-center" id="patternExtractResolutionDisplay" title="目前解析度">1024×1024</span>
+                                    <div>
+                                        <label class="form-label small mb-0">輸出格式</label>
+                                        <select id="patternExtractOutputFormat" class="form-select form-select-sm" style="width:100px;">
+                                            <option value="jpeg" selected>JPG</option>
+                                            <option value="png">PNG</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                </div>
+                                <button type="button" class="btn btn-primary btn-generate w-100 mt-2" id="patternExtractApplyBtn">
+                                    <i class="fas fa-crop-alt me-2"></i><span>提取圖樣</span>
+                                </button>
+                            </div>
+                            <div class="create-panel-right" id="patternExtractResultWrap">
+                                <p class="placeholder-hint mb-0 text-muted">結果會顯示在這裡</p>
+                                <p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>
                             </div>
                         </div>
                     </div>

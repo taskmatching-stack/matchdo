@@ -537,6 +537,8 @@ const SITEMAP_PAGES = [
     { path: '/remake/',                 priority: '0.9', changefreq: 'weekly' },
     { path: '/subscription-plans.html', priority: '0.8', changefreq: 'monthly' },
     { path: '/custom-product.html',     priority: '0.8', changefreq: 'monthly' },
+    { path: '/custom-product.html?tab=scene-sim',     priority: '0.8', changefreq: 'monthly' },
+    { path: '/custom-product.html?tab=pattern-extract', priority: '0.8', changefreq: 'monthly' },
     { path: '/remake-product.html',     priority: '0.8', changefreq: 'monthly' },
     { path: '/about.html',              priority: '0.6', changefreq: 'yearly' },
     { path: '/contact.html',            priority: '0.6', changefreq: 'yearly' },
@@ -1278,7 +1280,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_translation', 'points_listing_per_category'
+            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_translation', 'points_listing_per_category'
         ]);
         const obj = {};
         (rows || []).forEach(r => { obj[r.key] = r.value; });
@@ -1296,6 +1298,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_ai_remove_bg: parseInt(obj.points_ai_remove_bg, 10) || 15,
             points_ai_replace_bg_relight: parseInt(obj.points_ai_replace_bg_relight, 10) || 30,
             points_scene_simulate: parseInt(obj.points_scene_simulate, 10) || 20,
+            points_pattern_extract: parseInt(obj.points_pattern_extract, 10) || 20,
             points_translation: parseInt(obj.points_translation, 10) || 1,
             points_listing_per_category: parseInt(obj.points_listing_per_category, 10) || 200
         });
@@ -1327,6 +1330,7 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_ai_remove_bg !== undefined) await upsert('points_ai_remove_bg', body.points_ai_remove_bg);
         if (body.points_ai_replace_bg_relight !== undefined) await upsert('points_ai_replace_bg_relight', body.points_ai_replace_bg_relight);
         if (body.points_scene_simulate !== undefined) await upsert('points_scene_simulate', body.points_scene_simulate);
+        if (body.points_pattern_extract !== undefined) await upsert('points_pattern_extract', body.points_pattern_extract);
         if (body.points_translation !== undefined) await upsert('points_translation', body.points_translation);
         if (body.points_listing_per_category !== undefined) await upsert('points_listing_per_category', body.points_listing_per_category);
         res.json({ success: true });
@@ -1410,6 +1414,70 @@ app.patch('/api/admin/scene-sim-prompt', express.json(), async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         console.error('PATCH /api/admin/scene-sim-prompt:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/pattern-extract-prompt — 圖樣提取系統提示詞（僅管理員）
+app.get('/api/admin/pattern-extract-prompt', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'pattern_extract_system_prompt').maybeSingle();
+        const system_prompt = (row && row.value != null) ? String(row.value).trim() : '';
+        res.json({ system_prompt });
+    } catch (e) {
+        console.error('GET /api/admin/pattern-extract-prompt:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/pattern-extract-prompt — 儲存圖樣提取系統提示詞（僅管理員）
+app.patch('/api/admin/pattern-extract-prompt', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const system_prompt = (req.body && req.body.system_prompt != null) ? String(req.body.system_prompt).trim() : '';
+        await supabase.from('payment_config').upsert({
+            key: 'pattern_extract_system_prompt',
+            value: system_prompt,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('PATCH /api/admin/pattern-extract-prompt:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/pattern-extract-seamless-prompt — 圖樣提取無縫拼接系統提示詞（僅管理員）
+app.get('/api/admin/pattern-extract-seamless-prompt', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'pattern_extract_seamless_system_prompt').maybeSingle();
+        const system_prompt = (row && row.value != null) ? String(row.value).trim() : '';
+        res.json({ system_prompt });
+    } catch (e) {
+        console.error('GET /api/admin/pattern-extract-seamless-prompt:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/pattern-extract-seamless-prompt — 儲存圖樣提取無縫拼接系統提示詞（僅管理員）
+app.patch('/api/admin/pattern-extract-seamless-prompt', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const system_prompt = (req.body && req.body.system_prompt != null) ? String(req.body.system_prompt).trim() : '';
+        await supabase.from('payment_config').upsert({
+            key: 'pattern_extract_seamless_system_prompt',
+            value: system_prompt,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+        res.json({ success: true });
+    } catch (e) {
+        console.error('PATCH /api/admin/pattern-extract-seamless-prompt:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -2339,13 +2407,23 @@ app.post('/api/payment/paypal/capture', express.json(), async (req, res) => {
     }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-// 避免瀏覽器請求 /favicon.ico 時 404（若專案有 favicon 請放在 public/img/favicon.ico，並在頁面用 <link href="/img/favicon.ico" rel="icon">）
-app.get('/favicon.ico', (req, res) => {
-    const faviconPath = path.join(__dirname, 'public', 'img', 'favicon.ico');
-    if (fs.existsSync(faviconPath)) return res.sendFile(faviconPath);
+// 小圖示：在 static 之前註冊，避免雲端/快取導致不顯示
+const imgDir = path.join(__dirname, 'public', 'img');
+function sendIcon(req, res, filename) {
+    const filePath = path.join(imgDir, filename);
+    if (fs.existsSync(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.sendFile(filePath);
+    }
     res.status(204).end();
-});
+}
+app.get('/favicon.ico', (req, res) => sendIcon(req, res, 'favicon.ico'));
+app.get('/img/favicon.ico', (req, res) => sendIcon(req, res, 'favicon.ico'));
+app.get('/img/favicon-32x32.png', (req, res) => sendIcon(req, res, 'favicon-32x32.png'));
+app.get('/img/favicon-16x16.png', (req, res) => sendIcon(req, res, 'favicon-16x16.png'));
+app.get('/img/apple-touch-icon.png', (req, res) => sendIcon(req, res, 'apple-touch-icon.png'));
+
+app.use(express.static(path.join(__dirname, 'public')));
 // 錯誤連結修正：/public/custom/* → /custom/*
 app.get(/^\/public\/custom\/?(.*)$/, (req, res) => {
     const rest = (req.path.match(/^\/public\/custom\/?(.*)$/) || [])[1] || '';
@@ -3597,11 +3675,29 @@ async function buildPromptFromRemakeCategoryKeys(categoryKeys, userPrompt) {
 // 實境模擬：通用系統提示詞（後台未設定時使用）
 const DEFAULT_SCENE_SIM_SYSTEM_PROMPT = 'Seamlessly place the product into the provided environment or person image. Keep the product clearly visible and well-integrated. Match lighting, shadows, and perspective to the scene. Output a single photorealistic image.';
 
+const DEFAULT_PATTERN_EXTRACT_SYSTEM_PROMPT = 'Analyze the reference image and extract its core artistic motif. Generate a clean, flat, high-resolution 2D standalone graphic design. The output must be a single, centered flat artwork on a solid white background, completely isolated from any physical product or 3D environment. No mockups, no shading, zero perspective distortion. Optimized for apparel DTG printing or decal application with sharp edge clarity.';
+
+const DEFAULT_PATTERN_EXTRACT_SEAMLESS_PROMPT = 'Analyze the reference image and extract its core aesthetic, texture, and color palette. Generate a completely flat, 2D seamless repeating pattern. The design must be perfectly tileable with consistent edge-matching, allowing for infinite repetition top-to-bottom and left-to-right without any visible seams or borders. Uniform flat studio lighting, zero 3D distortion or mockups. High-resolution print-ready textile surface design.';
+
 // 實境模擬：從 payment_config 讀取系統提示詞（供生圖 API 組合用；空則用上方預設）
 async function getSceneSimSystemPrompt() {
     const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'scene_sim_system_prompt').maybeSingle();
     const value = (row && row.value != null) ? String(row.value).trim() : '';
     return value || DEFAULT_SCENE_SIM_SYSTEM_PROMPT;
+}
+
+// 圖樣提取：從 payment_config 讀取系統提示詞；空則用上方預設
+async function getPatternExtractSystemPrompt() {
+    const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'pattern_extract_system_prompt').maybeSingle();
+    const value = (row && row.value != null) ? String(row.value).trim() : '';
+    return value || DEFAULT_PATTERN_EXTRACT_SYSTEM_PROMPT;
+}
+
+// 圖樣提取無縫拼接：從 payment_config 讀取；空則用上方預設
+async function getPatternExtractSeamlessSystemPrompt() {
+    const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'pattern_extract_seamless_system_prompt').maybeSingle();
+    const value = (row && row.value != null) ? String(row.value).trim() : '';
+    return value || DEFAULT_PATTERN_EXTRACT_SEAMLESS_PROMPT;
 }
 
 /** 將圖片參數轉成 BFL 用的 base64：data:image/xxx;base64,xxx 取後段；http(s) URL 則 fetch 後轉 base64 */
@@ -3651,6 +3747,40 @@ async function generateSceneSimulateImage(environmentImageBase64, productImageBa
     if (!createRes.ok) {
         const errText = await createRes.text();
         throw new Error(`BFL scene-sim: ${createRes.status} ${errText}`);
+    }
+    const createData = await createRes.json();
+    return pollBflResult(createData, BFL_API_KEY);
+}
+
+/** 圖樣提取：單張圖 + 提示詞 + 可選無縫拼接 + 解析度 + 輸出格式，送 BFL 圖生圖（僅 input_image），回傳 buffer */
+async function generatePatternExtractImage(imageBase64, userPrompt, seamless, seed, width, height, outputFormat) {
+    const BFL_API_KEY = process.env.BFL_API_KEY;
+    if (!BFL_API_KEY || !imageBase64) return null;
+    const systemPrompt = seamless
+        ? await getPatternExtractSeamlessSystemPrompt()
+        : await getPatternExtractSystemPrompt();
+    let prompt = (userPrompt && String(userPrompt).trim())
+        ? systemPrompt + '\n\nUser instruction: ' + String(userPrompt).trim()
+        : systemPrompt;
+    const w = Math.min(2048, Math.max(512, parseInt(width, 10) || 1024));
+    const h = Math.min(2048, Math.max(512, parseInt(height, 10) || 1024));
+    const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
+    const body = {
+        prompt,
+        output_format: fmt,
+        width: w,
+        height: h,
+        input_image: imageBase64
+    };
+    if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
+    const createRes = await fetch(BFL_FLUX_PRO, {
+        method: 'POST',
+        headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'x-key': BFL_API_KEY },
+        body: JSON.stringify(body)
+    });
+    if (!createRes.ok) {
+        const errText = await createRes.text();
+        throw new Error(`BFL pattern-extract: ${createRes.status} ${errText}`);
     }
     const createData = await createRes.json();
     return pollBflResult(createData, BFL_API_KEY);
@@ -3735,6 +3865,84 @@ app.post('/api/scene-simulate', express.json(), async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message || '實境模擬失敗，請稍後再試'
+        });
+    }
+});
+
+// API: 圖樣提取（單張圖 → 提取圖樣，可選無縫拼接）；需登入，成功後扣 points_pattern_extract（預設 20 點）
+app.post('/api/pattern-extract', express.json(), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        let isAdmin = false;
+        let currentUser = null;
+        if (authHeader) {
+            const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+            const { data: { user }, error } = await supabase.auth.getUser(token);
+            if (!error && user) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                isAdmin = profile?.role === 'admin';
+                currentUser = user;
+            }
+        }
+        if (!currentUser) {
+            return res.status(401).json({ success: false, error: '請先登入後再使用圖樣提取' });
+        }
+        const { image, prompt: userPrompt, seamless, width, height, output_format } = req.body;
+        if (!image || typeof image !== 'string') {
+            return res.status(400).json({ success: false, error: '請上傳一張圖片' });
+        }
+        const imageBase64 = await resolveImageToBase64(image);
+        if (!imageBase64) {
+            return res.status(400).json({ success: false, error: '圖片無法讀取，請重新上傳' });
+        }
+        if (!process.env.BFL_API_KEY) {
+            return res.status(503).json({ success: false, error: '圖樣提取服務暫未設定，請稍後再試' });
+        }
+        const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';
+        const seed = Math.floor(Math.random() * 2147483647);
+        const buffer = await generatePatternExtractImage(imageBase64, userPrompt || '', !!seamless, seed, width, height, outputFormat);
+        if (!buffer) {
+            return res.status(500).json({ success: false, error: '生圖失敗，請稍後再試' });
+        }
+        const imageData = buffer.toString('base64');
+        const mime = outputFormat === 'png' ? 'image/png' : 'image/jpeg';
+        if (!isAdmin) {
+            const pointsToDeduct = await getPointsPatternExtract();
+            if (pointsToDeduct > 0) {
+                const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', currentUser.id).maybeSingle();
+                const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
+                if (balance < pointsToDeduct) {
+                    return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
+                }
+                const balanceAfter = balance - pointsToDeduct;
+                const totalSpent = (credRow ? (credRow.total_spent || 0) : 0) + pointsToDeduct;
+                await supabase.from('user_credits').upsert({
+                    user_id: currentUser.id,
+                    balance: balanceAfter,
+                    total_spent: totalSpent,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+                await supabase.from('credit_transactions').insert({
+                    user_id: currentUser.id,
+                    type: 'consumed',
+                    amount: -pointsToDeduct,
+                    balance_after: balanceAfter,
+                    source: 'pattern_extract',
+                    description: '圖樣提取',
+                    metadata: {}
+                });
+            }
+        }
+        res.json({
+            success: true,
+            imageData: `data:${mime};base64,${imageData}`,
+            seed
+        });
+    } catch (error) {
+        console.error('圖樣提取錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || '圖樣提取失敗，請稍後再試'
         });
     }
 });
@@ -4022,6 +4230,12 @@ async function getPointsAIUpscale() {
 
 async function getPointsSceneSimulate() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_scene_simulate');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 20);
+}
+
+async function getPointsPatternExtract() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_pattern_extract');
     const v = (rows && rows[0]) ? rows[0].value : null;
     return Math.max(0, parseInt(v, 10) || 20);
 }

@@ -12,6 +12,8 @@
 | `/subscription-plans.html` | `public/subscription-plans.html` | 會員方案與定價（訂製品四級方案、點數規則） | ✅ 存在 |
 | `/custom/` | `public/custom/index.html` | 訂製方案首頁（找訂製廠商、建立客製產品、圖庫） | ✅ 存在 |
 | `/custom-product.html` | `public/custom-product.html` | 產品設計表單（訂製分類） | ✅ 存在 |
+| `/custom-product.html?tab=scene-sim` | 同上 | 產品設計頁「實境模擬」分頁 | ✅ 動態網址 |
+| `/custom-product.html?tab=pattern-extract` | 同上 | 產品設計頁「圖樣提取」分頁 | ✅ 動態網址 |
 | `/remake/` | `public/remake/index.html` | 再製方案首頁（改裝現有品、必填參考圖） | ✅ 存在 |
 | `/remake-product.html` | `public/remake-product.html` | 再製設計表單（再製分類，後台 remake-categories） | ✅ 存在 |
 | `/credits.html` | `public/credits.html` | 我的點數／儲值／訂閱付款 | ✅ 存在 |
@@ -189,7 +191,7 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 
 - **首頁網址疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang` 可同時出現在同一 URL；sitemap 收錄「全部、三種類型、中英文、主分類」等主要 landing，不列所有組合。
 - **會員頁面**（`/client/*`、`/profile/*`、`/expert/*`、`/admin/*`）**不放進 sitemap**，僅收錄對外公開頁與廠商相關頁。
-- **唯一可能手動**：若新增一種**全新的公開頁面**，在 **server.js** 的 **SITEMAP_PAGES** 加一筆即可；其餘皆自動。目前已含：`/`、三種 `/?layout_type=...`、四筆 `?lang=en` 變體、`/subscription-plans.html`、`/custom/`、`/custom/gallery.html`、`/custom-product.html`、`/remake/`、`/remake-product.html`、about/contact、login/register 等。
+- **唯一可能手動**：若新增一種**全新的公開頁面**，在 **server.js** 的 **SITEMAP_PAGES** 加一筆即可；其餘皆自動。目前已含：`/`、三種 `/?layout_type=...`、四筆 `?lang=en` 變體、`/subscription-plans.html`、`/custom/`、`/custom/gallery.html`、`/custom-product.html`、`/custom-product.html?tab=scene-sim`、`/custom-product.html?tab=pattern-extract`、`/remake/`、`/remake-product.html`、about/contact、login/register 等。
 - **GET /robots.txt**：內含 `Sitemap: {BASE_URL}/sitemap.xml` 與 `Disallow: /admin/`、`/api/`、`/payment/`。
 - 部署後在 **Google Search Console** 提交 `https://你的網域/sitemap.xml` 即可。
 

@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini 翻譯／讀圖模型與實境模擬系統提示詞。可隨官方更新型號與提示詞內容。</p>
+        <p class="text-muted small mb-3">Gemini 翻譯／讀圖模型、實境模擬與圖樣提取系統提示詞。可隨官方更新型號與提示詞內容。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -41,12 +41,28 @@
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存</button>
           </div>
         </div>
-        <div class="card">
+        <div class="card mb-3">
           <div class="card-body">
             <h6 class="card-title">實境模擬系統提示詞</h6>
             <p class="text-muted small mb-2">前台「實境模擬」生圖時，會將此系統提示詞與使用者輸入的提示詞（選填）組合後送交 Flux 2.0 PRO。留空則僅使用使用者輸入。</p>
             <textarea id="sceneSimSystemPrompt" class="form-control form-control-sm" rows="4" placeholder="例：將產品自然融入真實室內場景，保持產品主體清晰，背景為生活化環境。"></textarea>
             <button type="button" class="btn btn-sm btn-primary mt-2" id="btnSaveSceneSimPrompt">儲存</button>
+          </div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="card-title">圖樣提取系統提示詞</h6>
+            <p class="text-muted small mb-2">前台「圖樣提取」生圖時（未勾選無縫拼接），會將此系統提示詞與使用者輸入的提示詞（選填）組合後送交 Flux。留空則使用內建預設。</p>
+            <textarea id="patternExtractSystemPrompt" class="form-control form-control-sm" rows="4" placeholder="例：從圖片中提取可重複的圖樣或紋理，保持風格一致，適合用於織品或平面設計。"></textarea>
+            <button type="button" class="btn btn-sm btn-primary mt-2" id="btnSavePatternExtractPrompt">儲存</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">圖樣提取無縫拼接系統提示詞</h6>
+            <p class="text-muted small mb-2">前台「圖樣提取」勾選「無縫拼接」時，會使用此系統提示詞。留空則使用內建預設（可平鋪、邊緣對齊）。</p>
+            <textarea id="patternExtractSeamlessSystemPrompt" class="form-control form-control-sm" rows="4" placeholder="例：生成可無縫平鋪的 2D 圖樣，邊緣對齊、無接縫。"></textarea>
+            <button type="button" class="btn btn-sm btn-primary mt-2" id="btnSavePatternExtractSeamlessPrompt">儲存</button>
           </div>
         </div>
       </main>
@@ -128,6 +144,52 @@
       showMsg('實境模擬系統提示詞已儲存');
     } catch (e) { showMsg('儲存失敗', true); }
   }
+  async function loadPatternExtractPrompt() {
+    var ta = document.getElementById('patternExtractSystemPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/pattern-extract-prompt', { headers: headers });
+      var data = await res.json();
+      if (res.ok && data.system_prompt != null) ta.value = data.system_prompt;
+    } catch (e) {}
+  }
+  async function savePatternExtractPrompt() {
+    var ta = document.getElementById('patternExtractSystemPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    try {
+      var res = await fetch('/api/admin/pattern-extract-prompt', { method: 'PATCH', headers: headers, body: JSON.stringify({ system_prompt: ta.value.trim() }) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('圖樣提取系統提示詞已儲存');
+    } catch (e) { showMsg('儲存失敗', true); }
+  }
+  async function loadPatternExtractSeamlessPrompt() {
+    var ta = document.getElementById('patternExtractSeamlessSystemPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/pattern-extract-seamless-prompt', { headers: headers });
+      var data = await res.json();
+      if (res.ok && data.system_prompt != null) ta.value = data.system_prompt;
+    } catch (e) {}
+  }
+  async function savePatternExtractSeamlessPrompt() {
+    var ta = document.getElementById('patternExtractSeamlessSystemPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    try {
+      var res = await fetch('/api/admin/pattern-extract-seamless-prompt', { method: 'PATCH', headers: headers, body: JSON.stringify({ system_prompt: ta.value.trim() }) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('圖樣提取無縫拼接系統提示詞已儲存');
+    } catch (e) { showMsg('儲存失敗', true); }
+  }
 
   async function updateLoginStatus() {
     var statusText = document.getElementById('loginStatusText');
@@ -142,6 +204,8 @@
         if (logoutBtn) logoutBtn.style.display = 'inline-block';
         loadAiConfig();
         loadSceneSimPrompt();
+        loadPatternExtractPrompt();
+        loadPatternExtractSeamlessPrompt();
       } else {
         statusText.textContent = '未登入';
         if (loginLink) { loginLink.style.display = 'inline-block'; loginLink.href = '/login.html?returnUrl=' + encodeURIComponent(location.pathname); }
@@ -162,6 +226,8 @@
     });
     document.getElementById('btnSaveAiConfig')?.addEventListener('click', saveAiConfig);
     document.getElementById('btnSaveSceneSimPrompt')?.addEventListener('click', saveSceneSimPrompt);
+    document.getElementById('btnSavePatternExtractPrompt')?.addEventListener('click', savePatternExtractPrompt);
+    document.getElementById('btnSavePatternExtractSeamlessPrompt')?.addEventListener('click', savePatternExtractSeamlessPrompt);
   });
 })();
   </script>
