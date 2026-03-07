@@ -1419,11 +1419,11 @@ $(document).ready(function () {
         var mode = $('#patternExtractSizeMode').val();
         var hasImage = !!window.patternExtractImageDataUrl;
         if (mode === 'same' && !hasImage) {
-            $('#patternExtractResolutionDisplay').text('—').attr('title', '上傳圖片後顯示原圖解析度');
+            $('#patternExtractResolutionDisplay').text('—').attr('title', t('customProduct.patternExtractResolutionHint'));
             return;
         }
         var dims = getPatternExtractWidthHeight();
-        $('#patternExtractResolutionDisplay').text(dims.w + '×' + dims.h).attr('title', '目前解析度');
+        $('#patternExtractResolutionDisplay').text(dims.w + '×' + dims.h).attr('title', t('customProduct.currentResolution'));
     }
     function getPatternExtractWidthHeight() {
         var mode = $('#patternExtractSizeMode').val();
@@ -1522,10 +1522,10 @@ $(document).ready(function () {
     function renderPatternExtractResult(imageDataUrl) {
         if (!imageDataUrl) return;
         var wrap = $('#patternExtractResultWrap');
-        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>';
+        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
-        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', '圖樣提取結果').addClass('img-fluid rounded').css('maxWidth', '100%'));
-        var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>下載圖片</a>');
+        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.patternExtractTab') || '圖樣提取結果').addClass('img-fluid rounded').css('maxWidth', '100%'));
+        var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>' + (t('customProduct.downloadImage') || '下載圖片') + '</a>');
         $btn.on('click', function (e) {
             e.preventDefault();
             try {
@@ -1553,7 +1553,7 @@ $(document).ready(function () {
     $('#patternExtractApplyBtn').on('click', function () {
         var imageUrl = window.patternExtractImageDataUrl || '';
         if (!imageUrl) {
-            alert('請上傳一張圖片');
+            alert(t('customProduct.patternExtractUploadRequired') || '請上傳一張圖片');
             return;
         }
         var $btn = $('#patternExtractApplyBtn');
@@ -1563,7 +1563,7 @@ $(document).ready(function () {
         var dims = getPatternExtractWidthHeight();
         var outputFormat = ($('#patternExtractOutputFormat').val() === 'png') ? 'png' : 'jpeg';
         $btn.prop('disabled', true);
-        $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>');
+        $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
@@ -1581,7 +1581,7 @@ $(document).ready(function () {
             .then(function (result) {
                 $btn.prop('disabled', false);
                 var data = result.data;
-                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>';
+                var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>';
                 if (result.status === 401) {
                     $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginToSelectAssets') || '請先登入') + '</p>' + noteHtml);
                     return;
@@ -1598,7 +1598,7 @@ $(document).ready(function () {
             })
             .catch(function (err) {
                 $btn.prop('disabled', false);
-                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會存入數位資產，請自行下載保存。</p>');
+                $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>');
                 console.warn('pattern-extract:', err);
             });
     });
