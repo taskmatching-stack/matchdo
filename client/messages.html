@@ -366,7 +366,8 @@
                     const res = await fetch('/api/direct-messages/' + msgId + '/translate', {
                         method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
                     });
-                    const data = await res.json();
+                    let data = {};
+                    try { data = await res.json(); } catch (_) {}
                     if (!res.ok) { alert(data.error || '翻譯失敗'); return; }
                     let trDiv = div.querySelector('.msg-translation');
                     if (!trDiv) { trDiv = document.createElement('div'); trDiv.className = 'msg-translation'; div.appendChild(trDiv); }

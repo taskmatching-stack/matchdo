@@ -70,9 +70,9 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 const { GoogleGenAI } = require('@google/genai');
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-// 翻譯 prompt 用：可後台設定，見 getTranslationModelName
+// 翻譯 prompt 用：可後台設定，見 getTranslationModelName。若報錯 404/模型不存在，請改為 gemini-2.0-flash 或 gemini-1.5-flash
 const GEMINI_MODEL_TRANSLATION_DEFAULT = 'gemini-2.5-flash-lite';
-// 讀圖／分析／估算等：可後台設定，見 getReadModelName
+// 讀圖／分析／估算等：可後台設定，見 getReadModelName（若 404 可改為 gemini-2.0-flash）
 const GEMINI_MODEL_READ_DEFAULT = 'gemini-3-flash-preview';
 // Gemini API 排隊：多人同時用時依序送出
 let _geminiQueueTail = Promise.resolve();
@@ -151,7 +151,9 @@ async function translatePromptToEnglish(text) {
                     return t;
                 }
                 const out = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                return (out != null ? String(out).trim() : '') || t;
+                if (out != null && String(out).trim()) return String(out).trim();
+                const finishReason = data.candidates?.[0]?.finishReason;
+                if (finishReason && finishReason !== 'STOP') console.warn('translatePromptToEnglish 未完成:', finishReason);
             } catch (e) {
                 console.error('translatePromptToEnglish:', e.message);
                 return t;
@@ -10001,18 +10003,23 @@ app.post('/api/direct-conversations/:conversationId/messages/asset-url', express
     }
 });
 
-// POST /api/direct-messages/:msgId/translate — 翻譯單則訊息（扣 1 點；已有儲存則直接回傳不扣點）
+// POST /api/direct-messages/:msgId/translate — 翻譯單則訊息（先翻譯，成功後再扣 1 點；已有儲存則直接回傳不扣點）
 app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, res) => {
     try {
         const user = await getAuthUser(req);
         if (!user) return res.status(401).json({ error: '請先登入' });
         const { msgId } = req.params;
-        // 取訊息 & 驗證參與者
         const { data: msg } = await supabase.from('direct_messages').select('id, body, image_url, conversation_id').eq('id', msgId).maybeSingle();
         if (!msg) return res.status(404).json({ error: '找不到訊息' });
         if (!msg.body && !msg.image_url) return res.status(400).json({ error: '此訊息無文字可翻譯' });
-        const { data: conv } = await supabase.from('direct_conversations').select('user_a_id, user_b_id').eq('id', msg.conversation_id).single();
-        if (!conv || (conv.user_a_id !== user.id && conv.user_b_id !== user.id)) return res.status(403).json({ error: '僅參與者可翻譯' });
+        const { data: conv, error: convErr } = await supabase.from('direct_conversations').select('user_a_id, user_b_id').eq('id', msg.conversation_id).maybeSingle();
+        if (convErr) {
+            console.error('翻譯 查詢對話失敗:', convErr.message);
+            return res.status(500).json({ error: '查詢對話失敗，請稍後再試' });
+        }
+        if (!conv || (conv.user_a_id !== user.id && conv.user_b_id !== user.id)) {
+            return res.status(conv ? 403 : 404).json({ error: conv ? '僅參與者可翻譯' : '找不到對話' });
+        }
         const originalText = (msg.body || '').trim();
         if (!originalText) return res.status(400).json({ error: '此訊息無文字可翻譯' });
         // 已有儲存翻譯：直接回傳，不扣點
@@ -10028,52 +10035,79 @@ app.post('/api/direct-messages/:msgId/translate', express.json(), async (req, re
                 balance_after: credits?.balance ?? null
             });
         }
-        // admin / tester 不扣點
+        // 非管理員／測試員：先檢查點數（尚未扣點）
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
         const isPrivileged = profile?.role === 'admin' || profile?.role === 'tester';
-        let newBalance = null;
         if (!isPrivileged) {
             const { data: credits } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
             const balance = credits?.balance ?? 0;
             if (balance < 1) return res.status(402).json({ error: '點數不足，翻譯需要 1 點' });
+        }
+        // ——— 僅做翻譯，不扣點 ———
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) return res.status(500).json({ error: '翻譯服務未設定' });
+        const model = await getTranslationModelName();
+        const promptText = `Detect the language of the text below. If it is Chinese (any variant), translate it to English. Otherwise, translate it to Traditional Chinese (繁體中文). Return only valid JSON with keys: detected_lang (ISO 639-1 code), target_lang, translated_text. No markdown.\n\nText: ${originalText}`;
+        let translated = '';
+        let sourceLang = '';
+        let targetLang = '';
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) });
+            const data = await resp.json();
+            if (data.error) {
+                console.error('翻譯 Gemini API 錯誤:', data.error.code, data.error.message, 'model=', model);
+                const hint = (data.error.code === 404 || /not found|invalid model/i.test(String(data.error.message || ''))) ? '（請至後台 AI 設定檢查 Gemini 翻譯模型名稱）' : '';
+                return res.status(500).json({ error: '翻譯服務暫時無法使用' + hint });
+            }
+            const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if (!raw || !raw.trim()) {
+                console.warn('翻譯 Gemini 無回傳內容');
+                return res.status(500).json({ error: '翻譯無回傳結果，請稍後再試' });
+            }
+            let jsonStr = raw.replace(/```json\n?|```/g, '').trim();
+            const braceStart = jsonStr.indexOf('{');
+            if (braceStart !== -1) {
+                const braceEnd = jsonStr.lastIndexOf('}');
+                if (braceEnd > braceStart) jsonStr = jsonStr.slice(braceStart, braceEnd + 1);
+            }
+            const parsed = JSON.parse(jsonStr);
+            translated = (parsed.translated_text != null ? String(parsed.translated_text) : '').trim();
+            sourceLang = (parsed.detected_lang != null ? String(parsed.detected_lang) : '').trim();
+            targetLang = (parsed.target_lang != null ? String(parsed.target_lang) : '').trim();
+            if (!translated) return res.status(500).json({ error: '翻譯結果為空，請稍後再試' });
+        } catch (e) {
+            console.error('翻譯 Gemini 解析失敗:', e?.message);
+            return res.status(500).json({ error: '翻譯失敗，請稍後再試' });
+        }
+        // ——— 翻譯成功後才扣點並儲存 ———
+        let newBalance = null;
+        if (!isPrivileged) {
+            const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', user.id).maybeSingle();
+            const balance = (credRow?.balance != null) ? credRow.balance : 0;
             newBalance = balance - 1;
-            await supabase.from('user_credits').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', user.id);
-            await supabase.from('credit_transactions').insert({
+            const totalSpent = (credRow?.total_spent ?? 0) + 1;
+            await supabase.from('user_credits').upsert({
+                user_id: user.id,
+                balance: newBalance,
+                total_spent: totalSpent,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            const ctRes = await supabase.from('credit_transactions').insert({
                 user_id: user.id, type: 'consumed', amount: -1,
                 balance_after: newBalance, source: 'message_translate', description: '訊息翻譯（1 點）'
-            }).catch(() => {});
+            });
+            if (ctRes.error) console.warn('credit_transactions insert:', ctRes.error?.message);
         }
-        // 呼叫 Gemini 翻譯：自動偵測語言、翻譯成對立語言
-        const apiKey = process.env.GEMINI_API_KEY;
-        let translated = '', sourceLang = '', targetLang = '';
-        if (apiKey) {
-            const model = await getTranslationModelName();
-            const promptText = `Detect the language of the text below. If it is Chinese (any variant), translate it to English. Otherwise, translate it to Traditional Chinese (繁體中文). Return only valid JSON with keys: detected_lang (ISO 639-1 code), target_lang, translated_text. No markdown.\n\nText: ${originalText}`;
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-                const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] }) });
-                const data = await resp.json();
-                const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                const jsonStr = raw.replace(/```json\n?|```/g, '').trim();
-                const parsed = JSON.parse(jsonStr);
-                translated = parsed.translated_text || '';
-                sourceLang = parsed.detected_lang || '';
-                targetLang = parsed.target_lang || '';
-            } catch (e) {
-                console.error('翻譯 Gemini 解析失敗:', e.message);
-                return res.status(500).json({ error: '翻譯失敗，點數已扣除' });
-            }
-        } else {
-            return res.status(500).json({ error: '翻譯服務未設定' });
-        }
-        // 儲存翻譯，之後同一則再按翻譯不重複扣點
-        await supabase.from('direct_message_translations').upsert(
+        const dmtRes = await supabase.from('direct_message_translations').upsert(
             { message_id: msgId, user_id: user.id, translated_text: translated, target_lang: targetLang || null, source_lang: sourceLang || null },
             { onConflict: 'message_id,user_id' }
-        ).catch((e) => console.warn('direct_message_translations upsert:', e?.message));
+        );
+        if (dmtRes.error) console.warn('direct_message_translations upsert:', dmtRes.error?.message);
         res.json({ original_text: originalText, translated_text: translated, source_lang: sourceLang, target_lang: targetLang, points_used: isPrivileged ? 0 : 1, balance_after: newBalance });
     } catch (e) {
-        console.error('POST /api/direct-messages/:msgId/translate:', e);
+        console.error('POST /api/direct-messages/:msgId/translate:', e?.message || e);
+        if (e?.stack) console.error(e.stack);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
