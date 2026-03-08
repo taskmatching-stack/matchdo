@@ -1037,6 +1037,8 @@
                     if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '無法載入作品牆，請稍後再試。'; }
                 }).finally(function () { if (thisRequestId === loadMediaWallRequestId) isLoading = false; });
             }
+            // 立即載入靈感牆，不等待 Auth / 分類 API，避免首次進入頁面時因非同步延遲而空白
+            loadMediaWall(1, currentQ, false, adminOpts);
             function runFilterMain(key) {
                 currentCategoryKey = key || '';
                 currentSubcategoryKey = '';
@@ -1147,7 +1149,7 @@
                     if (catJson && catJson.categories && catJson.categories.length) categoriesData = catJson;
                 } catch (e) {}
                 renderFilterTags();
-                loadMediaWall(1, currentQ, false, adminOpts);
+                // 靈感牆已在上方同步載入，此處僅更新篩選標籤，不再重複請求
             })();
             if (searchBtn && searchInput) {
                 searchBtn.addEventListener('click', function () {
