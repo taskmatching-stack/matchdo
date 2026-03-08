@@ -1201,6 +1201,9 @@ $(document).ready(function () {
         if (window.history && window.history.pushState) {
             window.history.pushState({ tab: tabParam }, '', url);
         }
+        if (tabParam === 'pattern-extract' && typeof updatePatternExtractResolutionDisplay === 'function') {
+            updatePatternExtractResolutionDisplay();
+        }
     });
     // 瀏覽器前進/後退時依網址切換 Tab
     $(window).on('popstate', function () {
@@ -1407,7 +1410,21 @@ $(document).ready(function () {
     // ----- 圖樣提取 Tab（單張圖上傳、選填提示詞、可選無縫拼接、Size Mode） -----
     window.patternExtractImageDataUrl = null;
     window.patternExtractImageDimensions = { w: 1024, h: 1024 };
-    var PATTERN_EXTRACT_ASPECT_MAP = { '1:1': [1024, 1024], '16:9': [1024, 576], '9:16': [576, 1024], '4:3': [1024, 768], '3:4': [768, 1024] };
+    // 各比例預設解析度均為 1 MP 總像素（1,048,576），與 1:1 同為 20 點
+    var PATTERN_EXTRACT_ASPECT_MAP = {
+        '1:1': [1024, 1024],   // 1024*1024 = 1,048,576
+        '16:9': [1368, 768],   // 1368*768 = 1,050,624 ≈ 1 MP
+        '9:16': [768, 1368],   // 768*1368 = 1,050,624 ≈ 1 MP
+        '4:3': [1184, 888],    // 1184*888 = 1,051,392 ≈ 1 MP
+        '3:4': [888, 1184]     // 888*1184 = 1,051,392 ≈ 1 MP
+    };
+    /** 圖樣提取點數（與後端一致）：依總解析度（寬×高）總像素計算，不依長寬比。1 MP = 1024×1024 像素，總像素無條件進位，上限 4 MP；1 MP=20 點，每多 1 MP +10 點 */
+    function patternExtractPointsFromResolution(w, h) {
+        var oneMp = 1024 * 1024;
+        var totalPixels = w * h;  // 總解析度
+        var mp = Math.min(4, Math.ceil(totalPixels / oneMp) || 1);
+        return 20 + (mp - 1) * 10;
+    }
     function clampResolution(v) {
         var n = parseInt(v, 10);
         if (isNaN(n)) return 1024;
@@ -1415,15 +1432,36 @@ $(document).ready(function () {
         var rounded = Math.round(n / step) * step;
         return Math.min(2048, Math.max(512, rounded));
     }
+    function initPatternExtractPointsPopover() {
+        var el = document.getElementById('patternExtractPointsHelp');
+        if (!el || typeof bootstrap === 'undefined' || !bootstrap.Popover) return;
+        var title = t('customProduct.patternExtractPointsHelpLabel') || '點數計價說明';
+        var content = t('customProduct.patternExtractPointsTooltip') || '依總解析度（寬×高）計價：1 MP＝20 點，每多 1 MP ＋10 點（無條件進位，上限 4 MP）';
+        var existing = bootstrap.Popover.getInstance(el);
+        if (existing) existing.dispose();
+        new bootstrap.Popover(el, {
+            title: title,
+            content: content,
+            trigger: 'click',
+            placement: 'top',
+            container: 'body'
+        });
+    }
     function updatePatternExtractResolutionDisplay() {
         var mode = $('#patternExtractSizeMode').val();
         var hasImage = !!window.patternExtractImageDataUrl;
         if (mode === 'same' && !hasImage) {
             $('#patternExtractResolutionDisplay').text('—').attr('title', t('customProduct.patternExtractResolutionHint'));
+            $('#patternExtractPointsDisplay').text('').attr('title', '');
+            initPatternExtractPointsPopover();
             return;
         }
         var dims = getPatternExtractWidthHeight();
         $('#patternExtractResolutionDisplay').text(dims.w + '×' + dims.h).attr('title', t('customProduct.currentResolution'));
+        var pts = patternExtractPointsFromResolution(dims.w, dims.h);
+        var ptsLabel = (t('customProduct.patternExtractPointsAbout') || '約 {n} 點').replace('{n}', pts);
+        $('#patternExtractPointsDisplay').text(ptsLabel).attr('title', t('customProduct.patternExtractPointsTooltip') || '');
+        initPatternExtractPointsPopover();
     }
     function getPatternExtractWidthHeight() {
         var mode = $('#patternExtractSizeMode').val();

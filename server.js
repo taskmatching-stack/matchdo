@@ -1282,7 +1282,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_translation', 'points_listing_per_category'
+            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_translation', 'points_listing_per_category'
         ]);
         const obj = {};
         (rows || []).forEach(r => { obj[r.key] = r.value; });
@@ -1301,6 +1301,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_ai_replace_bg_relight: parseInt(obj.points_ai_replace_bg_relight, 10) || 30,
             points_scene_simulate: parseInt(obj.points_scene_simulate, 10) || 20,
             points_pattern_extract: parseInt(obj.points_pattern_extract, 10) || 20,
+            points_pattern_extract_per_extra_mp: parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10,
             points_translation: parseInt(obj.points_translation, 10) || 1,
             points_listing_per_category: parseInt(obj.points_listing_per_category, 10) || 200
         });
@@ -1333,6 +1334,7 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_ai_replace_bg_relight !== undefined) await upsert('points_ai_replace_bg_relight', body.points_ai_replace_bg_relight);
         if (body.points_scene_simulate !== undefined) await upsert('points_scene_simulate', body.points_scene_simulate);
         if (body.points_pattern_extract !== undefined) await upsert('points_pattern_extract', body.points_pattern_extract);
+        if (body.points_pattern_extract_per_extra_mp !== undefined) await upsert('points_pattern_extract_per_extra_mp', body.points_pattern_extract_per_extra_mp);
         if (body.points_translation !== undefined) await upsert('points_translation', body.points_translation);
         if (body.points_listing_per_category !== undefined) await upsert('points_listing_per_category', body.points_listing_per_category);
         res.json({ success: true });
@@ -3871,7 +3873,7 @@ app.post('/api/scene-simulate', express.json(), async (req, res) => {
     }
 });
 
-// API: 圖樣提取（單張圖 → 提取圖樣，可選無縫拼接）；需登入，成功後扣 points_pattern_extract（預設 20 點）
+// API: 圖樣提取（單張圖 → 提取圖樣，可選無縫拼接）；依輸出解析度計價：1 MP=20 點，每多 1 MP +10 點（MP 無條件進位，上限 4 MP）
 app.post('/api/pattern-extract', express.json(), async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -3893,6 +3895,16 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
         if (!image || typeof image !== 'string') {
             return res.status(400).json({ success: false, error: '請上傳一張圖片' });
         }
+        const w = Math.min(2048, Math.max(512, parseInt(width, 10) || 1024));
+        const h = Math.min(2048, Math.max(512, parseInt(height, 10) || 1024));
+        const pointsToDeduct = await getPointsPatternExtractForResolution(w, h);
+        if (!isAdmin && pointsToDeduct > 0) {
+            const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', currentUser.id).maybeSingle();
+            const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
+            if (balance < pointsToDeduct) {
+                return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
+            }
+        }
         const imageBase64 = await resolveImageToBase64(image);
         if (!imageBase64) {
             return res.status(400).json({ success: false, error: '圖片無法讀取，請重新上傳' });
@@ -3902,38 +3914,33 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
         }
         const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';
         const seed = Math.floor(Math.random() * 2147483647);
-        const buffer = await generatePatternExtractImage(imageBase64, userPrompt || '', !!seamless, seed, width, height, outputFormat);
+        const buffer = await generatePatternExtractImage(imageBase64, userPrompt || '', !!seamless, seed, w, h, outputFormat);
         if (!buffer) {
             return res.status(500).json({ success: false, error: '生圖失敗，請稍後再試' });
         }
         const imageData = buffer.toString('base64');
         const mime = outputFormat === 'png' ? 'image/png' : 'image/jpeg';
-        if (!isAdmin) {
-            const pointsToDeduct = await getPointsPatternExtract();
-            if (pointsToDeduct > 0) {
-                const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', currentUser.id).maybeSingle();
-                const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
-                if (balance < pointsToDeduct) {
-                    return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
-                }
-                const balanceAfter = balance - pointsToDeduct;
-                const totalSpent = (credRow ? (credRow.total_spent || 0) : 0) + pointsToDeduct;
-                await supabase.from('user_credits').upsert({
-                    user_id: currentUser.id,
-                    balance: balanceAfter,
-                    total_spent: totalSpent,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id' });
-                await supabase.from('credit_transactions').insert({
-                    user_id: currentUser.id,
-                    type: 'consumed',
-                    amount: -pointsToDeduct,
-                    balance_after: balanceAfter,
-                    source: 'pattern_extract',
-                    description: '圖樣提取',
-                    metadata: {}
-                });
-            }
+        if (!isAdmin && pointsToDeduct > 0) {
+            const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', currentUser.id).maybeSingle();
+            const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
+            const balanceAfter = balance - pointsToDeduct;
+            const totalSpent = (credRow ? (credRow.total_spent || 0) : 0) + pointsToDeduct;
+            await supabase.from('user_credits').upsert({
+                user_id: currentUser.id,
+                balance: balanceAfter,
+                total_spent: totalSpent,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+            const ctRes = await supabase.from('credit_transactions').insert({
+                user_id: currentUser.id,
+                type: 'consumed',
+                amount: -pointsToDeduct,
+                balance_after: balanceAfter,
+                source: 'pattern_extract',
+                description: '圖樣提取',
+                metadata: {}
+            });
+            if (ctRes.error) console.warn('pattern_extract credit_transactions insert:', ctRes.error?.message);
         }
         res.json({
             success: true,
@@ -4234,6 +4241,26 @@ async function getPointsSceneSimulate() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_scene_simulate');
     const v = (rows && rows[0]) ? rows[0].value : null;
     return Math.max(0, parseInt(v, 10) || 20);
+}
+
+/** 圖樣提取計價：依「總解析度」總像素 (寬×高) 計算，不依長寬比。1 MP = 1024×1024 像素，總像素無條件進位到整數 MP，上限 4 MP。 */
+function patternExtractMegapixelsFromResolution(width, height) {
+    const w = Math.min(2048, Math.max(512, parseInt(width, 10) || 1024));
+    const h = Math.min(2048, Math.max(512, parseInt(height, 10) || 1024));
+    const totalPixels = w * h;  // 總解析度（總像素）
+    const oneMp = 1024 * 1024;
+    return Math.min(4, Math.ceil(totalPixels / oneMp) || 1);
+}
+
+/** 圖樣提取點數：基本 1 MP = 20 點，超過後每多 1 MP 多 10 點（對應官方：首 MP 較貴、後續較便宜）。 */
+async function getPointsPatternExtractForResolution(width, height) {
+    const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['points_pattern_extract', 'points_pattern_extract_per_extra_mp']);
+    const obj = {};
+    (rows || []).forEach(r => { obj[r.key] = r.value; });
+    const base = Math.max(0, parseInt(obj.points_pattern_extract, 10) || 20);
+    const perExtra = Math.max(0, parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10);
+    const mp = patternExtractMegapixelsFromResolution(width, height);
+    return base + (mp - 1) * perExtra;
 }
 
 async function getPointsPatternExtract() {
