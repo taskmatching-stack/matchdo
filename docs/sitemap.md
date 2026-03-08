@@ -1,5 +1,9 @@
 # MatchDO 網站地圖 (Sitemap)
 
+**說明**：本表「狀態」已依專案實際檔案核對。`/client`、`/expert` 由 server 掛載根目錄的 `client/`、`expert/`；`/admin` 因先掛 `static('public')`，實際由 **public/admin/** 提供。
+
+---
+
 ## 📍 公開頁面 (Public)
 基礎路徑: `http://localhost:3000/`
 
@@ -26,17 +30,18 @@
 ---
 
 ## 👤 客戶前台 (Client)
-基礎路徑: `http://localhost:3000/client/`
+基礎路徑: `http://localhost:3000/client/`  
+**實際檔案目錄**：專案根目錄 `client/`（server 掛載 `/client` → `client/`）  
 **使用者**: 發案者（有需求的業主）
 
 | 路徑 | 檔案位置 | 說明 | 狀態 |
 |------|---------|------|------|
-| `/client/dashboard.html` | `client/dashboard.html` | 客戶控制台（統計、快速操作） | ✅ 已建立 |
-| `/client/my-projects.html` | `client/my-projects.html` | 我的專案列表 | ⏳ 待確認 |
-| `/client/project-detail.html` | `client/project-detail.html` | 專案詳情（含套餐管理） | ❌ 未建立 |
-| `/client/project-items.html` | `client/project-items.html` | 項目/套餐管理介面 | ❌ 未建立 |
-| `/client/matched-experts.html` | `client/matched-experts.html` | 媒合廠商列表 | ❌ 未建立 |
-| `/client/contact-unlocks.html` | `client/contact-unlocks.html` | 聯絡紀錄 | ❌ 未建立 |
+| `/client/dashboard.html` | `client/dashboard.html` | 客戶控制台（統計、快速操作） | ✅ 存在 |
+| `/client/my-projects.html` | `client/my-projects.html` | 我的專案列表 | ✅ 存在 |
+| `/client/project-detail.html` | `client/project-detail.html` | 專案詳情（含套餐管理） | ✅ 存在 |
+| `/client/project-items.html` | `client/project-items.html` | 項目/套餐管理介面（專案詳情內可導向，獨立頁尚未建立） | ❌ 未建立 |
+| `/client/matched-experts.html` | `client/matched-experts.html` | 媒合廠商列表 | ✅ 存在 |
+| `/client/contact-unlocks.html` | `client/contact-unlocks.html` | 聯絡紀錄 | ✅ 存在 |
 
 ### 客戶流程
 1. **註冊/登入** → 選擇「發案者」角色
@@ -49,16 +54,16 @@
 ---
 
 ## 🔧 專家前台 (Expert)
-基礎路徑: `http://localhost:3000/expert/`
-**使用者**: 接案者（提供服務的廠商/專家）
+基礎路徑: `http://localhost:3000/expert/`  
+**實際檔案目錄**：專案根目錄 `expert/`
 
 | 路徑 | 檔案位置 | 說明 | 狀態 |
 |------|---------|------|------|
-| `/expert/dashboard.html` | `expert/dashboard.html` | 專家控制台 | ❌ 未建立 |
-| `/expert/listing-detail.html` | `expert/listing-detail.html` | 服務項目詳情 | ❌ 未建立 |
-| `/expert/my-listings.html` | `expert/my-listings.html` | 我的服務列表 | ❌ 未建立 |
-| `/expert/matched-projects.html` | `expert/matched-projects.html` | 媒合到的專案 | ❌ 未建立 |
-| `/expert/vendor-settings.html` | `expert/vendor-settings.html` | 廠商設定 | ❌ 未建立 |
+| `/expert/dashboard.html` | `expert/dashboard.html` | 專家控制台 | ✅ 存在 |
+| `/expert/listing-detail.html` | `expert/listing-detail.html` | 服務項目詳情 | ❌ 未建立（目前有 listing-form.html） |
+| `/expert/my-listings.html` | `expert/my-listings.html` | 我的服務列表 | ✅ 存在 |
+| `/expert/matched-projects.html` | `expert/matched-projects.html` | 媒合到的專案 | ✅ 存在 |
+| `/expert/vendor-settings.html` | `expert/vendor-settings.html` | 廠商設定 | ❌ 未建立（目前有 my-profile.html、profile-view.html） |
 
 ### 專家流程
 1. **註冊/登入** → 選擇「專家」角色
@@ -70,16 +75,15 @@
 ---
 
 ## 🛠️ 管理員後台 (Admin)
-基礎路徑: `http://localhost:3000/admin/`
-**使用者**: 系統管理員
+基礎路徑: `http://localhost:3000/admin/`  
+**實際檔案目錄**：`public/admin/`（因先掛 `static('public')`，/admin 由 public/admin 提供）
 
 | 路徑 | 檔案位置 | 說明 | 狀態 |
 |------|---------|------|------|
-| `/admin/index.html` | `admin/index.html` | 管理員儀表板 | ✅ 存在 |
-| `/admin/membership.html` | `admin/membership.html` | 會員／訂閱管理（方案、點數規則、權限、用戶等級、點數流水） | ✅ 存在 |
-| `/admin/dashboard.html` | `admin/dashboard.html` | 管理員控制台 | ⏳ 待確認 |
-| `/admin/users.html` | `admin/users.html` | 用戶管理 | ⏳ 待確認 |
-| `/admin/analytics.html` | `admin/analytics.html` | 數據分析 | ⏳ 待確認 |
+| `/admin/index.html` | `public/admin/index.html` | 管理員儀表板 | ✅ 存在 |
+| `/admin/membership.html` | `public/admin/membership.html` | 會員／訂閱管理（方案、點數規則、權限、用戶等級、點數流水） | ✅ 存在 |
+| `/admin/user-management.html` | `public/admin/user-management.html` | 用戶管理 | ✅ 存在 |
+| `/admin/analytics.html` | `public/admin/analytics.html` | 數據分析 | ✅ 存在 |
 
 ---
 
@@ -91,17 +95,16 @@
 
 | 檔案 | 說明 | 狀態 |
 |------|------|------|
-| `config/auth-config.js` | 認證服務（Supabase），全站共用 | ✅ 存在 |
-| `js/site-header.js` | 網站頭部（非首頁） | ✅ 存在 |
-| `iStudio-1.0.0/js/site-header.js` | **首頁用**網站頭部 | ✅ 存在 |
-| `js/sidebar.js` | 側邊欄元件 | ⏳ 待確認 |
+| `public/config/auth-config.js` | 認證服務（Supabase），全站共用 | ✅ 存在 |
+| `public/js/site-header.js` | 網站頭部（非首頁） | ✅ 存在 |
+| `public/iStudio-1.0.0/js/site-header.js` | **首頁用**網站頭部 | ✅ 存在 |
 
 ### CSS 樣式
-路徑: `/css/`
+路徑: `/css/`（由 public 提供）
 
 | 檔案 | 說明 | 狀態 |
 |------|------|------|
-| `css/style.css` | 全域樣式 | ⏳ 待確認 |
+| `public/css/style.css` 或 iStudio 內樣式 | 全域樣式 | 依模板存在 |
 
 ### 配置檔案
 路徑: `/config/`
@@ -126,40 +129,25 @@
 
 ## 📊 目前進度統計
 
-### ✅ 已完成 (6 項)
-1. 資料庫架構（11 表 + 5 函數 + 2 視圖）
-2. 認證系統（Supabase Auth）
-3. 公開頁面（首頁、登入、註冊）
-4. 客戶控制台 (`/client/dashboard.html`)
-5. 伺服器靜態路由配置
-6. AI 分析 API
+### ✅ 已建立
+- 公開頁面、客戶前台（dashboard / my-projects / project-detail / matched-experts / contact-unlocks）、專家前台（dashboard / my-listings / matched-projects / listing-form 等）、管理員後台（public/admin 內多數頁面）、認證與靜態路由、AI 相關 API。
 
-### 🔄 進行中 (Stage 2)
-- 客戶前台介面開發
-
-### ⏳ 待開發
-- 客戶專案管理頁面（4 個頁面）
-- 專家前台介面（5 個頁面）
-- 管理員後台確認
+### ❌ 尚未建立（文件中標示）
+- `/client/project-items.html`（項目/套餐獨立頁；專案詳情內有導向，實際檔案未建）
+- `/expert/listing-detail.html`、`/expert/vendor-settings.html`（目前有 listing-form、my-profile 等）
 
 ---
 
-## 🚀 優先順序
+## 🚀 優先順序（參考）
 
-### 高優先級（本週）
-1. ✅ `/client/dashboard.html` - 客戶控制台
-2. ⬜ `/client/my-projects.html` - 專案列表
-3. ⬜ `/client/project-detail.html` - 專案詳情
-4. ⬜ `/client/project-items.html` - 項目/套餐管理
+### 已上線
+- 客戶：dashboard、my-projects、project-detail、matched-experts、contact-unlocks
+- 專家：dashboard、my-listings、matched-projects、listing-form
+- 管理員：index、membership、user-management、analytics 等（public/admin）
 
-### 中優先級（下週）
-5. ⬜ `/client/matched-experts.html` - 媒合廠商
-6. ⬜ `/expert/dashboard.html` - 專家控制台
-7. ⬜ `/expert/my-listings.html` - 服務列表
-
-### 低優先級（可延後）
-- 廠商目錄（公開頁面）
-- 管理員後台完善
+### 可補建
+- `/client/project-items.html` - 項目/套餐獨立頁（目前由 project-detail 內流程涵蓋）
+- `/expert/listing-detail.html`、`/expert/vendor-settings.html` - 視需求對應至現有 listing-form、my-profile
 
 ---
 
@@ -212,4 +200,4 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 
 ---
 
-最後更新: 2026-02-22
+最後更新: 2026-03-05（已依實際專案檔案核對客戶/專家/後台狀態）

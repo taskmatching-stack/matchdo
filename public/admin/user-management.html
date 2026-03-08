@@ -239,6 +239,16 @@
                 var addUserModalEl = new bootstrap.Modal(document.getElementById('addUserModal'));
                 var editingId = null;
 
+                // 強制清除殘留的 modal 遮罩與 body 鎖定，避免關閉後畫面仍變暗、無法點擊
+                function clearModalBackdrop() {
+                    document.querySelectorAll('.modal-backdrop').forEach(function (el) { el.remove(); });
+                    document.body.classList.remove('modal-open');
+                    document.body.style.removeProperty('overflow');
+                    document.body.style.removeProperty('padding-right');
+                }
+                document.getElementById('addUserModal').addEventListener('hidden.bs.modal', clearModalBackdrop);
+                document.getElementById('editUserModal').addEventListener('hidden.bs.modal', clearModalBackdrop);
+
                 $('#btnAddUser').on('click', function () {
                     $('#addEmail').val('');
                     $('#addPassword').val('');
@@ -272,13 +282,17 @@
                             return;
                         }
                         addUserModalEl.hide();
-                        loadUsers().then(function (data) {
-                            if (data.error) return;
-                            allUsers = data.users || [];
-                            $('#totalUsers').text(allUsers.length);
-                            $('#adminUsers').text(allUsers.filter(function (u) { return u.role === 'admin'; }).length);
-                            applyFilter();
-                        });
+                        // 等 modal 完全關閉後再重整列表，並在 hidden.bs.modal 中清除殘留 backdrop
+                        document.getElementById('addUserModal').addEventListener('hidden.bs.modal', function onAddHidden() {
+                            document.getElementById('addUserModal').removeEventListener('hidden.bs.modal', onAddHidden);
+                            loadUsers().then(function (data) {
+                                if (data.error) return;
+                                allUsers = data.users || [];
+                                $('#totalUsers').text(allUsers.length);
+                                $('#adminUsers').text(allUsers.filter(function (u) { return u.role === 'admin'; }).length);
+                                applyFilter();
+                            });
+                        }, { once: true });
                     } catch (e) {
                         alert('請求失敗：' + (e.message || e));
                     } finally {
