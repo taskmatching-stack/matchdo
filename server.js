@@ -442,7 +442,17 @@ app.get('/inspiration/:type/:id', async (req, res) => {
         const title = (item.title || '作品').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         const desc = (item.description || (item.generation_prompt || item.title) || 'MATCHDO 靈感牆作品').toString().slice(0, 160).replace(/</g, '&lt;').replace(/"/g, '&quot;');
         const img = item.image_url || item.cover_image_url || '';
-        const imgUrl = img && (img.startsWith('http') ? img : `${BASE_URL}${img.startsWith('/') ? '' : '/'}${img}`);
+        let imgUrl = '';
+        if (img) {
+            const supabaseOrigin = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+            if (img.startsWith('http')) {
+                imgUrl = (supabaseOrigin && img.startsWith(supabaseOrigin + '/'))
+                    ? (base + '/api/proxy-image?url=' + encodeURIComponent(img))
+                    : img;
+            } else {
+                imgUrl = base + (img.startsWith('/') ? '' : '/') + img;
+            }
+        }
         const pageUrl = `${base}/inspiration/${encodeURIComponent(type)}/${encodeURIComponent(id)}`;
         const itemParam = `${encodeURIComponent(type)}-${encodeURIComponent(id)}`;
         const redirectUrl = `${base}/?item=${itemParam}`;
