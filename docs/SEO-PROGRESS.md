@@ -180,7 +180,103 @@ CREATE INDEX IF NOT EXISTS idx_manufacturers_name_desc_trgm
 
 ---
 
-## 三、驗證工具
+## 三、靈感牆卡片與 SEO（分析摘要，2026-03-05）
+
+### 3.1 現況：卡片內容是否被搜尋引擎識別？
+
+**結論：目前靈感牆每個卡片的「描述／提示詞」幾乎沒有被用在可被搜尋引擎有效識別的語意結構上。**
+
+| 項目 | 現況 | 對 SEO 的影響 |
+|------|------|----------------|
+| **卡片 HTML 來源** | 由 JS 動態產生（`renderOne()` + `/api/media-wall`），**初始 HTML 為空**（`#media-wall-grid` 內僅註解） | 爬蟲需執行 JS 才看得到內容；有延遲與預算風險，且非語意化結構 |
+| **標題 (title)** | 僅放在 `<div class="card-title-overlay">` 內，**非 `<h2>`／`<h3>` 或 `<article>`** | 搜尋引擎較難將標題視為「內容標題」層級 |
+| **提示詞／描述 (prompt)** | 只存在 `data-item` 的 JSON 裡（如 `generation_prompt`），**畫面上卡片沒有顯示**；lightbox 打開後才有「提示詞」欄位 | 未以可見、語意化文字出現在 DOM，不利索引與關聯 |
+| **圖片 alt** | 所有卡片內 `<img>` 皆為 **`alt=""`**（空） | 圖片無法以「描述該作品」的 alt 被理解，也影響無障礙與圖片搜尋 |
+| **卡片連結** | `<a href="#">`，**沒有每個作品專屬的 URL**（點擊開 lightbox） | 無法為「單一作品」建立獨立搜尋結果或 canonical URL |
+| **結構化資料** | 首頁有 Organization + WebSite；**沒有 ItemList／ImageGallery 或每張卡片的 CreativeWork** | 搜尋引擎無法以「作品列表＋每則標題／描述」的結構化方式理解靈感牆 |
+
+因此：**卡片上的「描述」並沒有被轉成可被搜尋引擎善用的語意內容**（沒有語意標籤、沒有 alt、沒有 per-item 結構化資料、也沒有獨立 URL）。
+
+### 3.2 建議優化方向（規劃；完成狀態見 3.4、3.5）
+
+#### A. 語意 HTML 與可見文字（優先）
+
+- **卡片標題**：將 overlay 內標題改為 **`<h2>` 或 `<h3>`**（或外層包 `<article>`），並視情況加 `itemprop="name"` 或對應 schema 屬性，讓爬蟲明確識別「這是作品標題」。
+- **提示詞／描述**：在卡片上提供**簡短可見描述**（例如前 80 字 + 「…」），放在 `<p>` 或 `<span>` 內（可預設摺疊或僅在 hover 顯示），**不要只放在 data-item**。這樣 DOM 內就有可索引的「作品描述」文字。
+- **圖片 alt**：每張卡片主圖的 **`alt`** 用 **title + 簡短描述**（或至少 title），例如：`alt="作品：{title}，{prompt 前 50 字}…"`，讓圖片搜尋與無障礙都能對應到內容。
+
+#### B. 結構化資料（JSON-LD）
+
+- 在首頁（或靈感牆區塊）加入 **ItemList**：列出當前頁顯示的作品，每項含 `name`（title）、`description`（prompt 或簡述）、`image`、`url`（若未來有獨立 URL）。
+- 或為每張卡片輸出 **CreativeWork**（或 ImageObject）：`name`、`description`、`image`，讓 Google 能理解「這是一組創作作品＋每則的標題與描述」。
+
+#### C. 獨立 URL（中長期）
+
+- 若希望「單一作品」能出現在搜尋結果，可為每個作品提供**可爬取的 URL**，例如：`/inspiration/{id}` 或 `/?item=xxx`，並在該 URL 的頁面（或 SSR 片段）輸出對應的 **meta description、og:title、og:description、og:image** 與 **CreativeWork** schema。  
+- 目前卡片點擊只開 lightbox、無換 URL，搜尋引擎無法為「這張卡」建立獨立索引。
+
+#### D. 與現有 SEO 文件的對應
+
+- **SEO-PLAN.md**：Phase SEO-3 已有 JSON-LD 規劃；可在此基礎上**補「首頁靈感牆 ItemList／CreativeWork」**一項。
+- **SEO-PROGRESS.md**：本節（三、靈感牆卡片與 SEO）可作為後續實作時的檢查清單；實作完成後再於「一、已完成項目」或「二、待完成」中更新狀態。
+
+### 3.3 小結
+
+| 優化項 | 難度 | 效益 | 備註 |
+|--------|------|------|------|
+| 圖片 `alt` 用 title／描述 | 低 | 高 | 立即改善圖片與無障礙 |
+| 卡片標題改為 `<h2>`／`<article>` | 低 | 中 | 語意明確 |
+| 卡片上顯示簡短描述（可見文字） | 中 | 高 | 描述才真正進入索引 |
+| 首頁 ItemList / CreativeWork JSON-LD | 中 | 高 | 需與 API 資料對應 |
+| 每張卡片獨立 URL + meta + schema | 高 | 很高 | 需路由與後端或 SSR |
+
+**目前卡片描述確實未應用到 SEO；以上順序可作為實作優先順序參考。**
+
+### 3.4 已實作項目（2026-03-05）
+
+| 項目 | 說明 |
+|------|------|
+| 語意標籤 | 每張卡片外層改為 `<article class="card">`，標題改為 `<h2>` 包在 `.card-title-overlay` 內，樣式不變 |
+| 圖片 alt | 所有卡片主圖／對照圖／系列圖均填入描述性 `alt`（標題 + 簡短描述，最多約 150 字元） |
+| 可見描述（供爬蟲） | 每張卡片在 DOM 內加入 `<span class="media-wall-seo-desc">`，內容為「描述：」+ 簡短描述，以 CSS 視覺隱藏（不影響版面） |
+| JSON-LD ItemList | 首頁靈感牆首次載入後，動態注入 `script#media-wall-itemlist-ld`，內容為 schema.org **ItemList**，每筆為 **ListItem** + **CreativeWork**（name、description、image），最多 50 筆 |
+
+以上改動均不影響現有版面與操作（點擊、收藏、篩選、lightbox 等維持不變）。
+
+### 3.5 完成度與接下來要做什麼
+
+| 建議優化方向 | 狀態 | 說明 |
+|--------------|------|------|
+| **語意 HTML**：`<h2>`／`<article>` | ✅ 已完成 | 見 3.4 |
+| **圖片 alt**：title + 簡短描述 | ✅ 已完成 | 見 3.4 |
+| **卡片上描述**：不要只放在 data-item | ✅ 已做（DOM 隱藏） | 以 `media-wall-seo-desc` 視覺隱藏 span 提供可索引描述；若要做「畫面上可見」的簡短描述（如 hover 或摺疊），可再補 |
+| **JSON-LD**：ItemList／CreativeWork | ✅ 已完成 | 見 3.4 |
+| **獨立 URL**：如 `/inspiration/:type/:id` | ✅ 已完成（2026-03-05） | 見 3.6 |
+
+**接下來要做的事**（可選）：若需讓「單一作品」進 sitemap，可動態產出 `sitemap-inspiration.xml` 或於現有 sitemap 收錄部分作品獨立 URL。
+
+### 3.6 獨立 URL 實作摘要（2026-03-05）
+
+| 項目 | 說明 |
+|------|------|
+| **URL 格式** | `/inspiration/:type/:id`（type＝user_design、comparison、series、collection） |
+| **後端** | `GET /inspiration/:type/:id` 回傳 HTML，含 meta、og:*、CreativeWork JSON-LD；body 內導向 `/?item=type-id` |
+| **API** | `GET /api/media-wall-item/:type/:id` 回傳單一作品 |
+| **前端** | 卡片 `href="/inspiration/type/id"`；點擊開 lightbox；首頁 `?item=type-id` 時 fetch 並開 lightbox，replaceState 清參數 |
+| **社群分享** | lightbox 分享 URL 改為該作品獨立 URL |
+
+（以下為原規劃說明，獨立 URL 已實作完成，保留供參考。）
+
+- **獨立 URL（中長期）**（已完成）：為每張作品提供可爬取的 URL（例如 `/inspiration/{id}` 或 `/?item=xxx`），並在該頁輸出：
+  - **Meta**：`description`、`og:title`、`og:description`、`og:image`、`og:url`
+  - **Schema**：單一作品的 **CreativeWork** JSON-LD  
+  這樣搜尋引擎與**社群分享**才能對應到「這一張作品」。
+- **社群分享是否該用獨立 URL？**  
+  **建議要。** 有獨立 URL 後，分享連結應指向該作品頁（例如 `https://matchdo.cc/inspiration/123`），該頁的 OG 標籤才會是「這張作品的標題、描述、圖片」，在 FB／LINE／Twitter 上顯示正確預覽。目前卡片點擊只開 lightbox、不換網址，分享整頁只會是首頁的 OG，無法「分享單一作品」。實作獨立 URL 時，一併讓「分享這張」按鈕（若有）帶出該作品頁的 URL 即可。
+
+---
+
+## 四、驗證工具
 
 | 工具 | 用途 | 網址 |
 |------|------|------|
@@ -191,7 +287,7 @@ CREATE INDEX IF NOT EXISTS idx_manufacturers_name_desc_trgm
 
 ---
 
-## 四、部署流程
+## 五、部署流程
 
 ### 步驟 1：本機推上 GitHub
 
@@ -212,7 +308,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 
 ---
 
-## 五、圖片路徑規範
+## 六、圖片路徑規範
 
 | 用途 | 正確路徑 |
 |------|---------|

@@ -172,10 +172,13 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 
 | 網址 | 說明 | 更新方式 |
 |------|------|----------|
-| **GET /sitemap.xml** | Sitemap **索引**，列出五個子 sitemap（pages / categories / vendors / products / collections） | 固定結構 |
+| **GET /sitemap.xml** | Sitemap **索引**，列出六個子 sitemap（pages / categories / vendors / products / collections / inspiration） | 固定結構 |
 | **GET /sitemap-pages.xml** | 靜態公開頁 + **首頁四種類型**（全部 `/`、設計圖/對照圖/系列圖 `/?layout_type=...`）+ **中英文**（`/?lang=en` 與三種 layout_type + lang）；見 server.js SITEMAP_PAGES | 程式內固定清單 |
 | **GET /sitemap-categories.xml** | **動態**：首頁「分類」篩選 `/?category_key=xxx`（來自 `ai_categories` 主分類）；與 layout_type／lang 可疊加，sitemap 只列主分類 landing | **每次請求即時查 DB** |
 | **GET /sitemap-vendors.xml** | **動態**：廠商列表 + 各廠商詳情頁 | **每次請求即時查 DB**（`manufacturers`），新廠商上線即被收錄 |
+| **GET /sitemap-products.xml** | **動態**：公開客製作品詳情頁 | **每次請求即時查 DB**（custom_products） |
+| **GET /sitemap-collections.xml** | **動態**：作品系列／資料夾頁（slug） | **每次請求即時查 DB**（media_collections） |
+| **GET /sitemap-inspiration.xml** | **動態**：靈感牆單一作品獨立 URL（/inspiration/:type/:id），上限 150 筆 | **每次請求即時查 DB** |
 
 - **首頁網址疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang` 可同時出現在同一 URL；sitemap 收錄「全部、三種類型、中英文、主分類」等主要 landing，不列所有組合。
 - **會員頁面**（`/client/*`、`/profile/*`、`/expert/*`、`/admin/*`）**不放進 sitemap**，僅收錄對外公開頁與廠商相關頁。

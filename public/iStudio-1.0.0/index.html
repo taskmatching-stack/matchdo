@@ -146,7 +146,9 @@
                 #media-wall-grid .card .card-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
                 #media-wall-grid .card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.15); pointer-events: none; transition: opacity .2s ease; }
                 #media-wall-grid .card:hover .card-img-wrap::after { opacity: 0; }
-                #media-wall-grid .card .card-title-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff; font-size: 0.7rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                #media-wall-grid .card .card-title-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff !important; font-size: 0.7rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 1px #445D7E, 0 1px 3px rgba(0,0,0,.9); }
+                #media-wall-grid .card .card-title-overlay h2, #media-wall-grid .card .card-title-overlay h3 { margin: 0; font-size: inherit; font-weight: inherit; color: #fff !important; text-shadow: 0 0 1px #445D7E, 0 1px 3px rgba(0,0,0,.9); }
+                .media-wall-seo-desc { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
                 #media-wall-grid .card .card-img-wrap img[src*="placehold.co"] { filter: grayscale(1); }
                 #media-wall-grid .card .card-img-wrap .media-wall-placeholder { background: #e8e8e8 !important; color: #888 !important; font-size: 0.7rem; display: flex !important; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 80px; background-image: repeating-linear-gradient(0deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px), repeating-linear-gradient(90deg, transparent 0, transparent 9px, rgba(255,255,255,.05) 9px, rgba(255,255,255,.05) 10px) !important; }
                 #media-wall-grid .card .card-img-wrap .media-wall-placeholder span { color: #888; }
@@ -162,7 +164,8 @@
                 .comparison-slider-wrap .slider-overlay input[type="range"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; pointer-events: auto; }
                 .comparison-slider-wrap .slider-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #445D7E; left: 50%; margin-left: -1px; pointer-events: none; box-shadow: 0 0 2px rgba(0,0,0,.25); }
                 .comparison-slider-wrap .slider-handle { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; background: #fff; border: 2px solid #445D7E; border-radius: 50%; display: flex; align-items: center; justify-content: center; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 12px; color: #445D7E; }
-                .comparison-slider-wrap .slider-hint { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff; font-size: 0.6rem; border-radius: 4px; white-space: nowrap; pointer-events: none; }
+                /* 對照卡說明「左＝設計圖、右＝作品圖」：左右置中、與愛心按鈕同高（top 對齊） */
+                .comparison-slider-wrap .slider-hint { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff; font-size: 0.6rem; border-radius: 4px; white-space: nowrap; pointer-events: none; }
                 #media-wall-grid .media-wall-1x2 .card .card-img-wrap { aspect-ratio: unset; min-height: 0; }
                 #media-wall-grid .media-wall-1x2 .card { min-height: 0; }
                 /* ── 愛心按鈕 ── */
@@ -685,17 +688,25 @@
                     if (p.id) wrap.setAttribute('data-id', p.id);
                     var link = escAttr(p.link || '/custom/gallery.html');
                     var title = esc(p.title);
+                    var titleRaw = (p.title || '').trim();
+                    var promptText = (p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '') : '';
+                    var descRaw = (p.description || p.title || '').trim();
+                    var shortDescSrc = (p.type === 'user_design') ? (promptText || titleRaw) : descRaw;
+                    var shortDesc = (shortDescSrc || '').slice(0, 80);
+                    if (shortDesc.length >= 80 && shortDescSrc.length > 80) shortDesc += '\u2026';
+                    var altSuffix = (shortDesc && shortDesc !== titleRaw) ? (' \u2014 ' + (shortDesc.slice(0, 60))) : '';
+                    var altText = (titleRaw + altSuffix).slice(0, 150);
                     var content = '';
                     var wrapExtra = '';
                     var placeholdAfter = 'https://placehold.co/400x300/555/aaa?text=%E5%AF%A6%E5%93%81';
                     var placeholdBefore = 'https://placehold.co/400x300/888/ccc?text=%E6%A6%82%E5%BF%B5';
                     if (p.type === 'user_design') {
                         var img = (p.image_url || '').trim();
-                        content = (img ? '<img src="' + escAttr(img) + '" alt="" loading="lazy">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
+                        content = (img ? '<img src="' + escAttr(img) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
                     } else if (p.type === 'comparison') {
                         var compAfter = (p.image_url || '').trim() || placeholdAfter;
                         var compBefore = (p.image_url_before || '').trim() || placeholdBefore;
-                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(compAfter) + '" alt="作品圖" loading="lazy"><img class="slider-fg" src="' + escAttr(compBefore) + '" alt="設計圖" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左＝設計圖、右＝作品圖</span><input type="range" min="0" max="100" value="50"></div></div>';
+                        content = '<div class="comparison-slider-wrap"><img class="slider-bg" src="' + escAttr(compAfter) + '" alt="' + escAttr('作品圖：' + titleRaw) + '" loading="lazy"><img class="slider-fg" src="' + escAttr(compBefore) + '" alt="' + escAttr('設計圖：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy"><div class="slider-overlay"><div class="slider-line" style="left:50%; margin-left:-1px"></div><div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div><span class="slider-hint">左＝設計圖、右＝作品圖</span><input type="range" min="0" max="100" value="50"></div></div>';
                     } else if (p.type === 'series' || p.type === 'collection') {
                         var urls = (p.series_image_urls && Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls
                             : (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length ? p.image_urls : ((p.cover_image_url && p.cover_image_url.trim()) ? [p.cover_image_url.trim()] : (p.image_url ? [p.image_url] : [])));
@@ -703,17 +714,17 @@
                             content = '<div class="media-wall-placeholder"><span>系列</span></div>';
                         } else if (urls.length >= 4) {
                             wrapExtra = ' collection-grid collection-grid-2x2';
-                            content = urls.slice(0, 4).map(function (u) { return '<img src="' + escAttr(u) + '" alt="" loading="lazy">'; }).join('');
+                            content = urls.slice(0, 4).map(function (u) { return '<img src="' + escAttr(u) + '" alt="' + escAttr(altText) + '" loading="lazy">'; }).join('');
                         } else if (urls.length >= 2) {
                             wrapExtra = ' collection-grid';
-                            content = [urls[0], urls[1]].map(function (u) { return '<img src="' + escAttr(u) + '" alt="" loading="lazy">'; }).join('');
+                            content = [urls[0], urls[1]].map(function (u) { return '<img src="' + escAttr(u) + '" alt="' + escAttr(altText) + '" loading="lazy">'; }).join('');
                         } else {
-                            content = '<img src="' + escAttr(urls[0]) + '" alt="" loading="lazy">';
+                            content = '<img src="' + escAttr(urls[0]) + '" alt="' + escAttr(altText) + '" loading="lazy">';
                         }
                         wrap.classList.add('media-wall-1x2');
                     } else {
                         var img = (p.image_url || p.cover_image_url || '').trim();
-                        content = (img ? '<img src="' + escAttr(img) + '" alt="" loading="lazy">' : '<div class="media-wall-placeholder"><span>—</span></div>');
+                        content = (img ? '<img src="' + escAttr(img) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>—</span></div>');
                     }
                     var dataItem = { id: String(p.id || (p.title + p.type)), type: p.type, title: title, link: p.link || '/custom/gallery.html', image_url: (p.image_url || '').trim(), image_url_before: (p.image_url_before || '').trim(), cover_image_url: (p.cover_image_url || '').trim() };
                     if (p.type === 'comparison' || p.type === 'collection' || p.type === 'series') {
@@ -747,7 +758,10 @@
                     var typeBadge = '';
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
                     else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
-                    wrap.innerHTML = '<div class="card"><a href="#" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay">' + title + '</div></div></a><button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(String(p.id || (p.title + p.type))) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></div>';
+                    var itemId = String(p.id || (p.title + p.type));
+                    var inspirationHref = '/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(itemId);
+                    var seoDescSpan = shortDesc ? ('<span class="media-wall-seo-desc">\u63cf\u8ff0\uff1a' + esc(shortDesc) + '</span>') : '';
+                    wrap.innerHTML = '<article class="card"><a href="' + escAttr(inspirationHref) + '" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay"><h2>' + title + '</h2></div>' + seoDescSpan + '</div></a><button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(itemId) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></article>';
                     // 愛心按鈕事件
                     var favBtn = wrap.querySelector('.mw-fav-btn');
                     if (favBtn) {
@@ -974,6 +988,23 @@
                 return url;
             }
             var loadMediaWallRequestId = 0;
+            function updateMediaWallItemListLD(list) {
+                if (!list || list.length === 0) return;
+                var baseUrl = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://matchdo.cc';
+                var elements = list.slice(0, 50).map(function (p, i) {
+                    var name = (p.title || '').trim();
+                    var desc = ((p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt) : p.description) || p.title || '';
+                    var img = (p.image_url || p.cover_image_url || '').trim();
+                    var item = { '@type': 'CreativeWork', name: name || '\u4f5c\u54c1' };
+                    if (desc) item.description = (desc + '').slice(0, 200);
+                    if (img) item.image = img.indexOf('http') === 0 ? img : (baseUrl + (img.indexOf('/') === 0 ? '' : '/') + img);
+                    return { '@type': 'ListItem', position: i + 1, item: item };
+                });
+                var ld = { '@context': 'https://schema.org', '@type': 'ItemList', name: 'MATCHDO \u7075\u611f\u5893 \u4f5c\u54c1\u5217\u8868', numberOfItems: elements.length, itemListElement: elements };
+                var script = document.getElementById('media-wall-itemlist-ld');
+                if (!script) { script = document.createElement('script'); script.id = 'media-wall-itemlist-ld'; script.type = 'application/ld+json'; document.head.appendChild(script); }
+                script.textContent = JSON.stringify(ld);
+            }
             function loadMediaWall(page, q, append, opts) {
                 opts = opts || adminOpts;
                 if (isLoading) return;
@@ -991,7 +1022,9 @@
                     if (layoutFilter) items = items.filter(function (p) { return (p.type || '') === layoutFilter; });
                     if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
                     empty.classList.add('d-none');
+                    var listForLD = [];
                     if (layoutFilter) {
+                        listForLD = items;
                         items.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
                     } else {
                         var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
@@ -1009,8 +1042,10 @@
                             if (iComp < comparisons.length) displayOrder.push(comparisons[iComp++]);
                             for (var k = 0; k < maxDesignPerBlock && iDesign < designs.length; k++) displayOrder.push(designs[iDesign++]);
                         }
+                        listForLD = displayOrder;
                         displayOrder.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
                     }
+                    if (!append && listForLD.length > 0) updateMediaWallItemListLD(listForLD);
                     if (!layoutFilter) {
                         var twoRows = grid.querySelectorAll('.media-wall-1x2');
                         for (var i = 0; i < twoRows.length; i++) {
@@ -1184,14 +1219,7 @@
                 }, { root: null, rootMargin: '0px', threshold: 0 });
                 io.observe(sentinel);
             }
-            grid.addEventListener('click', function (e) {
-                var a = e.target.closest('a.media-wall-card-link');
-                if (!a) return;
-                e.preventDefault();
-                var wrap = a.closest('.media-wall-item');
-                var data = wrap && wrap.getAttribute('data-item');
-                if (!data) return;
-                var item = JSON.parse(data);
+            function openLightboxWithItem(item) {
                 var titleEl = document.getElementById('media-wall-lightbox-title');
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
                 var linkEl = document.getElementById('media-wall-lightbox-link');
@@ -1287,17 +1315,11 @@
                 var lbFavId = item.id || (item.title + item.type);
                 syncLightboxFavBtn(lbFavId, item);
 
-                // ── 分享按鈕：依 item 類型決定分享 URL ────────────────
+                // ── 分享按鈕：使用獨立 URL 供社群分享正確預覽 ────────────────
                 (function() {
                     var origin = window.location.origin;
-                    var shareUrl = origin; // fallback
-                    if (item.type === 'user_design' && item.id) {
-                        shareUrl = origin + '/custom-product-detail.html?id=' + encodeURIComponent(item.id);
-                    } else if (item.manufacturer_id) {
-                        shareUrl = origin + '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id);
-                    } else if (item.type === 'collection' && item.slug) {
-                        shareUrl = origin + '/custom/collection.html?slug=' + encodeURIComponent(item.slug);
-                    }
+                    var itemId = item.id != null ? String(item.id) : (item.title + (item.type || ''));
+                    var shareUrl = (item.type && itemId) ? (origin + '/inspiration/' + encodeURIComponent(item.type) + '/' + encodeURIComponent(itemId)) : origin;
                     document.getElementById('media-wall-lightbox').dataset.shareUrl = shareUrl;
                     document.getElementById('media-wall-lightbox').dataset.shareImg = item.image_url || item.cover_image_url || '';
                 })();
@@ -1379,7 +1401,41 @@
                 } else {
                     setLightboxDetailAndShow(categoriesData.categories || []);
                 }
+            }
+            grid.addEventListener('click', function (e) {
+                var a = e.target.closest('a.media-wall-card-link');
+                if (!a) return;
+                e.preventDefault();
+                var wrap = a.closest('.media-wall-item');
+                var data = wrap && wrap.getAttribute('data-item');
+                if (!data) return;
+                var item = JSON.parse(data);
+                openLightboxWithItem(item);
             });
+            // 從獨立 URL 導向（/?item=type-id）進入時，取得單一作品並開啟 lightbox
+            (function () {
+                var params = typeof window !== 'undefined' && window.location && window.location.search ? new URLSearchParams(window.location.search) : null;
+                var itemParam = params && params.get('item') ? params.get('item').trim() : '';
+                if (!itemParam) return;
+                var knownTypes = ['user_design', 'comparison', 'series', 'collection'];
+                var parts = itemParam.split('-');
+                var type = parts.length >= 1 && knownTypes.indexOf(parts[0]) >= 0 ? parts[0] : '';
+                var id = parts.length >= 2 ? parts.slice(1).join('-') : '';
+                if (!type || !id) return;
+                fetch('/api/media-wall-item/' + encodeURIComponent(type) + '/' + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (data) {
+                    var item = data && data.item ? data.item : null;
+                    if (item) {
+                        openLightboxWithItem(item);
+                        try {
+                            var url = window.location.pathname || '/';
+                            var q = window.location.search ? new URLSearchParams(window.location.search) : new URLSearchParams();
+                            q.delete('item');
+                            var newSearch = q.toString() ? ('?' + q.toString()) : '';
+                            window.history.replaceState({}, '', url + newSearch);
+                        } catch (err) {}
+                    }
+                }).catch(function () {});
+            })();
             // ── lightbox 愛心按鈕 ──
             var lbFavBtn = document.getElementById('media-wall-lightbox-fav');
             if (lbFavBtn) {
