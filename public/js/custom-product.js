@@ -310,6 +310,7 @@ $(document).ready(function () {
 
     // AI 生成圖片：必選圖內容分類，後端依選中的 key 組合提示詞 + 使用者描述
     $('#generateImageBtn').click(async function () {
+        if (typeof window.gtag === 'function') { window.gtag('event', 'design_generate_click', {}); }
         const prompt = $('#productPrompt').val().trim();
         if (!prompt) {
             alert('請輸入文字描述');

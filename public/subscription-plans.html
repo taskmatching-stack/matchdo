@@ -32,6 +32,11 @@
   <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/subscription-plans.html">
   <link rel="alternate" hreflang="en" href="https://matchdo.cc/subscription-plans.html?lang=en">
   <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/subscription-plans.html">
+
+  <!-- BreadcrumbList JSON-LD -->
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首頁","item":"https://matchdo.cc/"},{"@type":"ListItem","position":2,"name":"方案與定價","item":"https://matchdo.cc/subscription-plans.html"}]}
+  </script>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="/css/style.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
@@ -272,6 +277,7 @@
         var credits = parseInt(btn.getAttribute(isYearly ? 'data-credits-yearly' : 'data-credits'), 10) || 0;
         var plan = btn.getAttribute('data-plan');
         var billing = isYearly ? 'yearly' : 'monthly';
+        if (typeof window.gtag === 'function') { window.gtag('event', 'subscribe_plan_click', { plan: plan || '', billing: billing }); }
         var creditsUrl = '/credits.html?amount=' + amount + '&credits=' + credits + '&billing=' + encodeURIComponent(billing) + (plan ? '&plan=' + encodeURIComponent(plan) : '');
         if (window.AuthService && AuthService.getSession) {
           AuthService.getSession().then(function(s){

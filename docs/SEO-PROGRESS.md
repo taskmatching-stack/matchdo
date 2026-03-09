@@ -1,6 +1,6 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-03-04  
+> **更新日期**：2026-03-05  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
 > **推送／部署步驟**：見下方「四、部署流程」
@@ -21,8 +21,8 @@
 | `public/remake/index.html` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `public/subscription-plans.html` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `public/vendors.html` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `public/custom/gallery.html` | ❌ 僅基本 desc | ❌ | ❌ | ❌ | ❌ |
-| `public/vendor-profile.html` | ❌ 無 | ❌ | ❌ | ❌ | ❌ |
+| `public/custom/gallery.html` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `public/vendor-profile.html` | ✅（動態由 JS 更新） | ✅ | ✅ | ✅ | ✅ |
 
 ### ✅ Phase SEO-2：Canonical + Hreflang（隨 Phase SEO-1 完成）
 
@@ -32,14 +32,14 @@
 |---------|------|
 | 移除殼頁 | 從 `SITEMAP_PAGES` 移除無實際內容的 iStudio 範本頁：`service`、`feature`、`project`、`testimonial`、`team` |
 | 新增 `sitemap-collections.xml` | 動態查詢 `media_collections`（`is_active=true`），自動收錄所有作品系列頁 `/custom/collection.html?slug=XXX` |
-| sitemap 索引更新 | `/sitemap.xml` 現含五個子 sitemap：pages、categories、vendors、products、collections |
+| sitemap 索引更新 | `/sitemap.xml` 現含六個子 sitemap：pages、categories、vendors、products、collections、**inspiration**（靈感牆獨立 URL） |
 | **首頁篩選 URL（2026-03-04）** | 首頁網址狀態可**疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`。Sitemap 收錄主要 landing，不列所有組合。 |
 | **首頁四種「類型」** | **全部**＝`/`；**設計圖／對照圖／系列圖**＝`/?layout_type=user_design|comparison|collection`（共 4 筆在 `sitemap-pages.xml`） |
 | **中英文** | `sitemap-pages.xml` 另加 4 筆：`/?lang=en`、`/?layout_type=user_design&lang=en`、`/?layout_type=comparison&lang=en`、`/?layout_type=collection&lang=en`，與頁面 hreflang 對應 |
 | **分類** | 動態 `sitemap-categories.xml`：從 `ai_categories` 查主分類，產出 `/?category_key=xxx`（與 layout_type／lang 可疊加，sitemap 只列主分類 landing） |
 | **Canonical** | 首頁有篩選參數時 canonical 為目前完整網址；無參數時為 `https://matchdo.cc/`（見 `index.html` 內 `#mw-canonical`） |
 
-**目前五個子 sitemap 更新機制：**
+**目前六個子 sitemap 更新機制：**
 
 | Sitemap | 來源 | 更新方式 |
 |---------|------|---------|
@@ -48,6 +48,7 @@
 | `sitemap-vendors.xml` | `manufacturers` 表（`is_active=true`） | ✅ 自動 |
 | `sitemap-products.xml` | `custom_products` 表（`visibility='public'`） | ✅ 自動 |
 | `sitemap-collections.xml` | `media_collections` 表（`is_active=true`） | ✅ 自動 |
+| `sitemap-inspiration.xml` | 靈感牆項目（user_design / comparison / series / collection） | ✅ 自動（2026-03-05） |
 
 ### ✅ Phase SEO-3：JSON-LD 結構化資料（主要頁面完成）
 
@@ -59,23 +60,18 @@
 | `remake/index.html` | `WebPage` |
 | `subscription-plans.html` | `Product` + `Offer` |
 | `vendors.html` | `CollectionPage` |
-| `vendor-profile.html` | ❌ 待加 `LocalBusiness` |
-| `custom/gallery.html` | ❌ 待加 `CollectionPage` |
+| `vendor-profile.html` | ✅ `LocalBusiness`（動態） |
+| `custom/gallery.html` | ✅ `CollectionPage` |
 
 ### ✅ 新頁面：`/vendors.html` 廠商列表頁（已新增）
 
-### ✅ 新頁面：`/vendor-profile.html` 廠商詳情頁（已建立，待補 SEO）
+### ✅ 新頁面：`/vendor-profile.html` 廠商詳情頁（SEO 已補，見優先 1）
 
-- 動態顯示廠商名稱、介紹、聯絡方式、作品集
-- 站內聯絡廠商按鈕（有 user_id 才顯示）
-- **SEO meta / JSON-LD 尚未加入**
+- 動態顯示廠商名稱、介紹、聯絡方式、作品集；meta／OG／LocalBusiness 由 JS 依廠商資料更新。
 
-### ✅ 新頁面：`/custom/gallery.html` 圖庫找廠商（已建立，待補 SEO）
+### ✅ 新頁面：`/custom/gallery.html` 圖庫找廠商（SEO 已補，見優先 2）
 
-- 分類從 `custom_product_categories` 資料庫動態載入（含子分類）
-- 地區依時區 / 語系智慧排序（從 `service_areas` API 載入）
-- 多語系支援（`?lang=en` 切換中英文）
-- **SEO meta / JSON-LD 尚未加入**
+- 分類從 `custom_product_categories` 資料庫動態載入（含子分類）；meta／OG／CollectionPage 已完成。
 
 ### ✅ Navbar 全面整治（2026-03-01 完成）
 
@@ -106,6 +102,19 @@
 | `og-remake.jpg` | 再製方案頁 OG 圖 |
 | `og-plans.jpg` | 訂閱方案頁 OG 圖 |
 | `og-vendors.jpg` | 廠商列表頁 OG 圖 |
+
+### ✅ Google 網站行為分析（GA4）（2026-03-05）
+
+| 項目 | 說明 |
+|------|------|
+| **前台載入** | `public/js/ga4-loader.js` 從 `GET /api/config/ga4` 取得衡量 ID，有值則動態注入 gtag 並送 page_view |
+| **涵蓋範圍** | 首頁、產品設計、訂閱方案、廠商列表、客製產品等主要頁面直接掛載；其餘使用共用導覽的頁面由 `site-header.js` 動態注入，全站覆蓋 |
+| **後台設定** | 後台「網站設定」→「GA4 衡量 ID」填寫 `G-XXXXXXXXXX` 並儲存後即生效；無需改 HTML |
+| **文件** | `docs/user-manual.md` 已新增「Google 網站行為分析（GA4）」說明 |
+
+### ✅ 聯絡信箱統一為 support@matchdo.cc（2026-03-05）
+
+頁腳 partial、`site-footer.js` fallback、首頁 Organization JSON-LD 的 `contactPoint`、about／contact／feature／service 等對外頁面聯絡信箱與「Contact Us」連結均已改為 **support@matchdo.cc**。
 
 ---
 
@@ -155,6 +164,54 @@
 1. 前往 https://search.google.com/search-console
 2. 資源已驗證（matchdo.cc）
 3. 左側「Sitemap」→ 新增 `https://matchdo.cc/sitemap.xml`
+
+### ✅ BreadcrumbList、vendor-profile 動態 OG、GA4 事件、次要頁 meta（2026-03-05 已完成）
+
+| 項目 | 說明 |
+|------|------|
+| **BreadcrumbList JSON-LD** | 已加至：首頁／客製產品、產品設計、圖庫找廠商、廠商列表、廠商詳情、再製方案、再製設計、方案與定價。 |
+| **vendor-profile 動態 OG** | `GET /vendor-profile.html?id=xxx` 由 server.js 依廠商 ID 查 DB，輸出動態 title／description／og:image（logo 或首張作品圖）、canonical／hreflang；無 id 時仍走靜態檔。 |
+| **GA4 自訂事件** | 已加：`contact_vendor`（廠商頁／列表／圖庫 modal／系列頁）、`subscribe_plan_click`、`design_generate_click`、`remake_generate_click`。 |
+| **次要頁面 meta** | collection.html、remake-product.html、login、register、no-access、404 已補 description／canonical；remake-product 與 collection 另補 OG／Twitter。 |
+
+### 仍可優化項目（建議優先順序，2026-03-05）
+
+| 優先 | 項目 | 說明 |
+|------|------|------|
+| **1** | **Google Search Console 提交 Sitemap** | 等正式內容充實後執行（見上方 ⏸ 優先 4）；提交後可查看索引狀態、搜尋成效。 |
+| **2** | **英文頁 meta 文案** | 目前 `description`、`og:title`、`og:description` 多為中文；若希望英文搜尋也有對應摘要，可為 `?lang=en` 或英文版頁面提供英文 meta（或由後台／i18n 動態輸出）。 |
+
+#### 獨立 URL 三項技術細節評估（最小幅修改可行性）
+
+以下三點為「獨立 URL 發揮 100% 功力」的常見建議，評估是否能在**最小幅修改**下完成：
+
+| 項目 | 現況 | 最小幅可行？ | 說明 |
+|------|------|:------------:|------|
+| **① 動態 OG** | 已實作。`/inspiration/:type/:id` 依 `media-wall-item` API 回傳的 `item` 動態輸出 **og:title**（目前為 `{item.title} - MATCHDO 靈感牆`）、**og:description**、**og:image**（該張圖，Supabase 圖已走 proxy）。分享到 FB/LINE 會顯示該作品標題與縮圖，非統一 Logo。 | ✅ 已達標 | 若希望標題格式改為「MatchDO｜{分類或提示詞}」可再微調字串，屬一行級修改。 |
+| **② 語意化網址** | 目前為 `/inspiration/user_design/123`、`/inspiration/comparison/456`（type + id）。目標為 `/design/bespoke-oxford-shoes-9527` 這類「分類英文＋id」。 | ❌ 非最小幅 | 需：新路徑規則（如 `/design/:slug-:id` 或 `/design/:slug`）、slug 來源（從 category_key／title 產生或 DB 存 slug）、舊網址 301 重導、前端所有連結與分享改新網址、sitemap 改輸出新網址。且「分類英文」需有穩定欄位或對照表。 |
+| **③ Canonical ＋ Sitemap** | **Canonical**：獨立頁 HTML 目前有 og:url，但**沒有** `<link rel="canonical">`。補上即可。**Sitemap**：已有 `sitemap-inspiration.xml` 收錄約 150 筆獨立 URL（user_design / comparison / series / collection）。 | ③a 可／③b 不可 | **③a Canonical**：在 `/inspiration/:type/:id` 輸出的 HTML 加一行 `<link rel="canonical" href="${pageUrl}">` 即完成，**最小幅**。**③b 「再設計點擊最多優先進 sitemap」**：需先有「每張圖被點擊再設計」的計數（目前無此埋點或表），再依計數排序／篩選 sitemap 清單，**非最小幅**。 |
+
+**結論（最小幅可做）**  
+- ① 已滿足；若要標題格式微調可順手做。  
+- ② 語意化網址需架構與資料調整，不建議列為「最小幅」。  
+- ③ **③a 加 canonical** 已於 2026-03-05 完成（`/inspiration/:type/:id` 輸出的 HTML 已含 `<link rel="canonical" href="${pageUrl}">`）；③b 等有再設計點擊資料後再排入實作。
+
+**其餘待做（已紀錄）**  
+- **① 標題格式**：可選將 og:title 改為「MatchDO｜{標題或分類}」格式（一行級）。  
+- **② 語意化網址**：中長期，如 `/design/bespoke-oxford-shoes-9527`，需新路徑、slug 來源、301、前端與 sitemap 全面改。  
+- **③b Sitemap 高品質優先**：需「再設計點擊」埋點與儲存，再依計數排序／篩選 sitemap 收錄。
+
+#### 次要頁面 meta 檢查結果（2026-03-05，已補齊）
+
+| 頁面 | description | OG | canonical | 備註 |
+|------|:-----------:|:--:|:---------:|------|
+| `public/custom/collection.html` | ✅ | ✅ | ✅ | 已補靜態描述與 OG |
+| `public/remake-product.html` | ✅ | ✅ | ✅ | 已補 keywords、description、OG、canonical、hreflang、BreadcrumbList |
+| `public/remake/index.html` | ✅ | ✅ | ✅ | 已完整 |
+| `public/login.html` | ✅ | — | ✅ | 已補 description、canonical |
+| `public/register.html` | ✅ | — | ✅ | 同上 |
+| `public/no-access.html` | ✅ | — | ✅ | 同上 |
+| `public/404.html`、`iStudio-1.0.0/404.html` | ✅ | — | — | 已補 title、description |
 
 ### ✅ 選擇性：Favicon Apple Touch Icon（2026-03-01 完成）
 
@@ -253,7 +310,7 @@ CREATE INDEX IF NOT EXISTS idx_manufacturers_name_desc_trgm
 | **JSON-LD**：ItemList／CreativeWork | ✅ 已完成 | 見 3.4 |
 | **獨立 URL**：如 `/inspiration/:type/:id` | ✅ 已完成（2026-03-05） | 見 3.6 |
 
-**接下來要做的事**（可選）：若需讓「單一作品」進 sitemap，可動態產出 `sitemap-inspiration.xml` 或於現有 sitemap 收錄部分作品獨立 URL。
+**接下來要做的事**（可選）：~~若需讓「單一作品」進 sitemap~~ → **✅ 已完成**：已動態產出 `sitemap-inspiration.xml`，並加入 sitemap 索引（見上方「一、已完成項目」Sitemap 表）。
 
 ### 3.6 獨立 URL 實作摘要（2026-03-05）
 

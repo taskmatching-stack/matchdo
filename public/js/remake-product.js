@@ -274,6 +274,7 @@ $(document).ready(function () {
 
     // AI 生成圖片：再製方案必須有參考圖，分類來自 remake_categories
     $('#generateImageBtn').click(async function () {
+        if (typeof window.gtag === 'function') { window.gtag('event', 'remake_generate_click', {}); }
         const prompt = $('#productPrompt').val().trim();
         if (!prompt) {
             alert('請輸入文字描述');

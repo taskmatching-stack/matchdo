@@ -21,6 +21,9 @@
     <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/custom/gallery.html">
     <link rel="alternate" hreflang="en" href="https://matchdo.cc/custom/gallery.html?lang=en">
     <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/custom/gallery.html">
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首頁","item":"https://matchdo.cc/"},{"@type":"ListItem","position":2,"name":"客製產品","item":"https://matchdo.cc/custom/"},{"@type":"ListItem","position":3,"name":"圖庫找廠商","item":"https://matchdo.cc/custom/gallery.html"}]}
+    </script>
     <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
     <link href="/img/favicon.ico" rel="icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -525,6 +528,7 @@
         if (mfrUserId) {
             contactBtn.classList.remove('d-none');
             contactBtn.onclick = async function() {
+                if (typeof window.gtag === 'function') { window.gtag('event', 'contact_vendor', { source: 'gallery_modal' }); }
                 if (typeof AuthService !== 'undefined') {
                     const s = await AuthService.getSession().catch(()=>null);
                     const token = s&&(s.access_token||(s.session&&s.session.access_token));

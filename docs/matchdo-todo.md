@@ -1,6 +1,27 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-03-04
+更新日期：2026-03-05
+
+---
+
+## 本次檢查與修復（2026-03-05）
+
+| 項目 | 說明 |
+|------|------|
+| **GA4 全站載入** | 前台 `ga4-loader.js` 從 `/api/config/ga4` 取得衡量 ID 並注入 gtag；主要頁面（首頁、產品設計、訂閱方案、廠商列表、客製產品、remake-product、vendors）直接掛載 script，其餘由 `site-header.js` 動態注入以覆蓋全站。後台「網站設定」填 GA4 衡量 ID 即可，無需改 HTML。 |
+| **聯絡信箱統一** | 頁腳 partial、site-footer.js、首頁 Organization JSON-LD、about／contact／feature／service 等對外頁面聯絡信箱與 Contact Us 連結均改為 **support@matchdo.cc**。 |
+| **文件更新** | `docs/SEO-PROGRESS.md` 更新：GA4、sitemap-inspiration、聯絡信箱；`docs/user-manual.md` 新增 GA4 與圖片網址說明。推送 commit `f5f7d26`。 |
+| **獨立 URL Canonical（③a）** | `/inspiration/:type/:id` 輸出的 HTML 已加上 `<link rel="canonical" href="${pageUrl}">`，搜尋引擎可明確識別正本網址。 |
+
+---
+
+## 待辦：SEO 獨立 URL 其餘項（已紀錄，見 docs/SEO-PROGRESS.md）
+
+| 項目 | 說明 |
+|------|------|
+| **① 標題格式** | 可選：將靈感牆獨立頁 og:title 改為「MatchDO｜{標題或分類}」格式（一行級）。 |
+| **② 語意化網址** | 中長期：改為 `/design/bespoke-oxford-shoes-9527` 等，需新路徑、slug 來源、301、前端與 sitemap 全面改。 |
+| **③b Sitemap 高品質優先** | 需「再設計點擊」埋點與儲存，再依計數排序／篩選 sitemap 收錄。 |
 
 ---
 
