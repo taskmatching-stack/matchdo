@@ -291,6 +291,12 @@
 - **靈感牆卡片與 lightbox 圖片**：首頁靈感牆每張卡片的 `<img src>` 與 lightbox 內顯示的圖片，若來源為 Supabase Storage，已改為透過 `/api/proxy-image?url=...` 載入。因此「在新分頁開啟圖片」或「複製圖片網址」時，會得到 `https://matchdo.cc/api/proxy-image?url=...`，為**可分享的自家網域網址**。
 - **分享用圖片網址**：lightbox 內「分享」使用的圖片網址（shareImg）亦為上述 proxy 網址，方便複製或分享單一圖片時顯示 matchdo.cc。
 
+### Google 網站行為分析（GA4）
+
+- **設定位置**：後台 → **網站設定**（site-settings）→「GA4 衡量 ID」欄位填寫 Measurement ID（格式 `G-XXXXXXXXXX`），儲存後全站即會載入 Google Analytics 4 追蹤。
+- **取得 ID**：至 [Google Analytics](https://analytics.google.com/) 建立 GA4 資源，在「資料串流」中取得「衡量 ID」。
+- **涵蓋範圍**：首頁、產品設計、訂閱方案、廠商列表、客製產品、登入／註冊等所有使用共用導覽或已個別掛載的頁面，皆會送出 page_view 等事件至 GA4，可在 GA4 報表查看流量與行為。
+
 ---
 
 *本手冊依目前網站功能撰寫，若畫面或流程有更新，請以站內實際介面為準。*  

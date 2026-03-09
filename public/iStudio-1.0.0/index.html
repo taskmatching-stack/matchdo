@@ -34,6 +34,8 @@
     <link rel="alternate" hreflang="en" href="https://matchdo.cc/?lang=en">
     <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/">
 
+    <!-- Google Analytics（GA4）網站行為分析：由 /api/config/ga4 取得 ID，後台可於「網站設定」填寫 -->
+    <script src="/js/ga4-loader.js" async></script>
     <!-- Favicon -->
     <link rel="icon" href="/img/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png">
@@ -76,7 +78,13 @@
       "description": "AI 輔助客製產品設計平台，媒合優質廠商，一站式從設計到生產。",
       "foundingDate": "2025",
       "areaServed": "TW",
-      "availableLanguage": ["Chinese", "English"]
+      "availableLanguage": ["Chinese", "English"],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer service",
+        "email": "support@matchdo.cc",
+        "availableLanguage": ["Chinese", "English"]
+      }
     }
     </script>
     <script type="application/ld+json">

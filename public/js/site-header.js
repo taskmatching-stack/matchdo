@@ -458,3 +458,12 @@ async function handleLogout(event) {
     }
 }
 
+// GA4 網站行為分析：若頁面尚未載入 ga4-loader，由導覽注入以覆蓋全站（後台「網站設定」可填衡量 ID）
+(function () {
+    if (document.querySelector('script[src*="ga4-loader"]')) return;
+    var s = document.createElement('script');
+    s.src = '/js/ga4-loader.js';
+    s.async = true;
+    document.head.appendChild(s);
+})();
+

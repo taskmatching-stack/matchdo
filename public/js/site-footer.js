@@ -66,7 +66,7 @@
                         <div class="col-md-6 col-lg-3">
                             <h5 class="text-white mb-4">聯絡我們</h5>
                             <p><i class="fa fa-map-marker-alt me-3"></i>Taipei, Taiwan</p>
-                            <p><i class="fa fa-envelope me-3"></i>support@matchdo.tw</p>
+                            <p><i class="fa fa-envelope me-3"></i><a href="mailto:support@matchdo.cc" class="text-white-50">support@matchdo.cc</a></p>
                         </div>
                         <div class="col-md-6 col-lg-3">
                             <h5 class="text-white mb-4">連結</h5>
