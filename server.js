@@ -1413,11 +1413,18 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_translation', 'points_listing_per_category'
+            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_translation', 'points_listing_per_category',
+            'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
         (rows || []).forEach(r => { obj[r.key] = r.value; });
+        const grantWelcomeOn = (obj.grant_welcome_points_on_register || '').toString() === '1' || (obj.grant_welcome_points_on_register || '').toString().toLowerCase() === 'true';
+        const grantMonthlyOn = (obj.grant_monthly_points_enabled || '').toString() === '1' || (obj.grant_monthly_points_enabled || '').toString().toLowerCase() === 'true';
         res.json({
+            grant_welcome_points_on_register: grantWelcomeOn,
+            welcome_points_amount: parseInt(obj.welcome_points_amount, 10) || 0,
+            grant_monthly_points_enabled: grantMonthlyOn,
+            monthly_points_free_tier: parseInt(obj.monthly_points_free_tier, 10) || 150,
             points_text_to_image: parseInt(obj.points_text_to_image, 10) || 15,
             points_image_to_image: parseInt(obj.points_image_to_image, 10) || 20,
             points_ai_upscale: parseInt(obj.points_ai_upscale, 10) || 10,
@@ -1468,6 +1475,10 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_pattern_extract_per_extra_mp !== undefined) await upsert('points_pattern_extract_per_extra_mp', body.points_pattern_extract_per_extra_mp);
         if (body.points_translation !== undefined) await upsert('points_translation', body.points_translation);
         if (body.points_listing_per_category !== undefined) await upsert('points_listing_per_category', body.points_listing_per_category);
+        if (body.grant_welcome_points_on_register !== undefined) await upsert('grant_welcome_points_on_register', body.grant_welcome_points_on_register ? '1' : '0');
+        if (body.welcome_points_amount !== undefined) await upsert('welcome_points_amount', body.welcome_points_amount);
+        if (body.grant_monthly_points_enabled !== undefined) await upsert('grant_monthly_points_enabled', body.grant_monthly_points_enabled ? '1' : '0');
+        if (body.monthly_points_free_tier !== undefined) await upsert('monthly_points_free_tier', body.monthly_points_free_tier);
         res.json({ success: true });
     } catch (e) {
         console.error('PATCH /api/admin/points-config:', e);
@@ -1896,11 +1907,66 @@ async function getCurrentUser(req, res) {
     return user;
 }
 
-// GET /api/me/credits — 查詢當前用戶點數餘額與近期紀錄
+// 發點：依後台開關在查詢點數時執行「註冊送點」與「每月發點」（開關關閉時不執行）
+const GRANT_CONFIG_KEYS = ['grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'];
+async function ensureGrantPointsIfEnabled(userId) {
+    const { data: configRows } = await supabase.from('payment_config').select('key, value').in('key', GRANT_CONFIG_KEYS);
+    const cfg = {};
+    (configRows || []).forEach(r => { cfg[r.key] = r.value; });
+    const welcomeOn = (cfg.grant_welcome_points_on_register || '').toString() === '1' || (cfg.grant_welcome_points_on_register || '').toString().toLowerCase() === 'true';
+    const welcomeAmount = Math.max(0, parseInt(cfg.welcome_points_amount, 10) || 0);
+    const monthlyOn = (cfg.grant_monthly_points_enabled || '').toString() === '1' || (cfg.grant_monthly_points_enabled || '').toString().toLowerCase() === 'true';
+    const monthlyFree = Math.max(0, parseInt(cfg.monthly_points_free_tier, 10) || 0);
+
+    const now = new Date();
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const grantPoints = async (amount, source, description) => {
+        if (!amount || amount <= 0) return;
+        const { data: row } = await supabase.from('user_credits').select('balance, total_earned, total_spent').eq('user_id', userId).maybeSingle();
+        const prev = row ? (row.balance || 0) : 0;
+        const totalEarned = row ? (row.total_earned || 0) + amount : amount;
+        const totalSpent = row ? (row.total_spent || 0) : 0;
+        const newBalance = prev + amount;
+        if (row) {
+            await supabase.from('user_credits').update({ balance: newBalance, total_earned: totalEarned, updated_at: now.toISOString() }).eq('user_id', userId);
+        } else {
+            await supabase.from('user_credits').insert({ user_id: userId, balance: newBalance, total_earned: totalEarned, total_spent: 0, updated_at: now.toISOString() });
+        }
+        await supabase.from('credit_transactions').insert({
+            user_id: userId,
+            type: 'granted',
+            amount: amount,
+            balance_after: newBalance,
+            source,
+            description: description || (source === 'welcome' ? '註冊贈送' : '每月發點')
+        });
+    };
+
+    if (welcomeOn && welcomeAmount > 0) {
+        const { data: hasWelcome } = await supabase.from('credit_transactions').select('id').eq('user_id', userId).eq('source', 'welcome').limit(1).maybeSingle();
+        if (!hasWelcome) await grantPoints(welcomeAmount, 'welcome', '註冊贈送');
+    }
+
+    if (monthlyOn) {
+        const { data: hasThisMonth } = await supabase.from('credit_transactions').select('id').eq('user_id', userId).eq('source', 'monthly_grant').gte('created_at', thisMonthStart).limit(1).maybeSingle();
+        if (!hasThisMonth) {
+            let amount = monthlyFree;
+            const { data: subRows } = await supabase.from('user_subscriptions').select('subscription_plans(credits_monthly)').eq('user_id', userId).eq('status', 'active').gt('end_date', now.toISOString()).limit(1);
+            if (subRows && subRows[0] && subRows[0].subscription_plans && (subRows[0].subscription_plans.credits_monthly || 0) > 0) {
+                amount = parseInt(subRows[0].subscription_plans.credits_monthly, 10) || 0;
+            }
+            if (amount > 0) await grantPoints(amount, 'monthly_grant', '每月發點');
+        }
+    }
+}
+
+// GET /api/me/credits — 查詢當前用戶點數餘額與近期紀錄（若後台開關開啟，會先執行註冊送點／每月發點）
 app.get('/api/me/credits', async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        try { await ensureGrantPointsIfEnabled(user.id); } catch (grantErr) { console.warn('ensureGrantPointsIfEnabled:', grantErr && grantErr.message); }
         const { data: credits, error: credErr } = await supabase
             .from('user_credits')
             .select('balance, total_earned, total_spent')

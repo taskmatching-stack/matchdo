@@ -105,6 +105,34 @@
                 <button type="button" class="btn btn-sm btn-primary mt-2" id="btnSavePoints">儲存點數規則</button>
               </div>
             </div>
+            <div class="card mt-3">
+              <div class="card-body">
+                <h6 class="card-title">發點設定</h6>
+                <p class="text-muted small">註冊送點與每月發點由開關控制；關閉時不發點。每月發點：有付費方案者依該方案「每月點數」發放，其餘依「免費會員每月點數」。</p>
+                <div class="row g-2 align-items-center">
+                  <div class="col-auto">
+                    <div class="form-check">
+                      <input type="checkbox" class="form-check-input" id="grantWelcomePoints" />
+                      <label class="form-check-label" for="grantWelcomePoints">註冊送點</label>
+                    </div>
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label small mb-0">註冊贈送點數</label>
+                    <input type="number" id="welcomePointsAmount" class="form-control form-control-sm" min="0" value="0" style="width:80px;" />
+                  </div>
+                  <div class="col-auto">
+                    <div class="form-check">
+                      <input type="checkbox" class="form-check-input" id="grantMonthlyPoints" />
+                      <label class="form-check-label" for="grantMonthlyPoints">每月發點</label>
+                    </div>
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label small mb-0">免費會員每月點數</label>
+                    <input type="number" id="monthlyPointsFreeTier" class="form-control form-control-sm" min="0" value="150" style="width:80px;" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="tab-pane fade" id="permissions" role="tabpanel">
@@ -432,11 +460,19 @@
         { key: 'points_listing_per_category', label: '額外刊登接案製作資訊', value: data.points_listing_per_category, note: '點/月/分類（額度滿後加購）' }
       ];
       tbody.innerHTML = '';
-      rows.forEach(function(r) {
+        rows.forEach(function(r) {
         var tr = document.createElement('tr');
         tr.innerHTML = '<td>' + r.label + '</td><td><input type="number" class="form-control form-control-sm points-input" data-key="' + r.key + '" value="' + (r.value != null ? r.value : 0) + '" min="0" style="width:80px;" /></td><td class="text-muted small">' + (r.note || '') + '</td>';
         tbody.appendChild(tr);
       });
+      var grantWelcome = document.getElementById('grantWelcomePoints');
+      var welcomeAmount = document.getElementById('welcomePointsAmount');
+      var grantMonthly = document.getElementById('grantMonthlyPoints');
+      var monthlyFree = document.getElementById('monthlyPointsFreeTier');
+      if (grantWelcome) grantWelcome.checked = !!data.grant_welcome_points_on_register;
+      if (welcomeAmount != null) welcomeAmount.value = data.welcome_points_amount != null ? data.welcome_points_amount : 0;
+      if (grantMonthly) grantMonthly.checked = !!data.grant_monthly_points_enabled;
+      if (monthlyFree != null) monthlyFree.value = data.monthly_points_free_tier != null ? data.monthly_points_free_tier : 150;
     } catch (e) {}
   }
   async function savePoints() {
@@ -447,6 +483,14 @@
       var k = inp.dataset.key;
       if (k) payload[k] = parseInt(inp.value, 10) || 0;
     });
+    var grantWelcome = document.getElementById('grantWelcomePoints');
+    var welcomeAmount = document.getElementById('welcomePointsAmount');
+    var grantMonthly = document.getElementById('grantMonthlyPoints');
+    var monthlyFree = document.getElementById('monthlyPointsFreeTier');
+    if (grantWelcome) payload.grant_welcome_points_on_register = grantWelcome.checked;
+    if (welcomeAmount != null) payload.welcome_points_amount = parseInt(welcomeAmount.value, 10) || 0;
+    if (grantMonthly) payload.grant_monthly_points_enabled = grantMonthly.checked;
+    if (monthlyFree != null) payload.monthly_points_free_tier = parseInt(monthlyFree.value, 10) || 0;
     if (Object.keys(payload).length === 0) {
       showMsg('請先切換至「點數規則」分頁並等待載入完成後再儲存', true);
       return;
