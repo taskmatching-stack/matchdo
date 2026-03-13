@@ -1264,8 +1264,8 @@ $(document).ready(function () {
         reader.onload = function (ev) { setSceneSimUploadPreview(ev.target.result); };
         reader.readAsDataURL(file);
     });
-    $('#sceneSimPreviewWrap').on('click', function (e) {
-        if ($(e.target).closest('.scene-sim-preview-img').length) return;
+    function openAssetPickerModal(context) {
+        window.assetPickerContext = context || 'sceneSim';
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         $('#sceneSimAssetPickerModal').modal('show');
         var $list = $('#sceneSimAssetList');
@@ -1303,7 +1303,10 @@ $(document).ready(function () {
                     });
                     $list.find('.scene-sim-asset-item').on('click', function () {
                         var u = $(this).attr('data-image-url');
-                        if (u) setSceneSimPreview(u);
+                        if (u) {
+                            if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
+                            else setSceneSimPreview(u);
+                        }
                         $('#sceneSimAssetPickerModal').modal('hide');
                     });
                 })
@@ -1312,6 +1315,14 @@ $(document).ready(function () {
                     $empty.removeClass('d-none').text(t('customProduct.loadFailed'));
                 });
         });
+    }
+    $('#sceneSimPreviewWrap').on('click', function (e) {
+        if ($(e.target).closest('.scene-sim-preview-img').length) return;
+        openAssetPickerModal('sceneSim');
+    });
+    $('#patternExtractPreviewWrap').on('click', function (e) {
+        if ($(e.target).closest('.scene-sim-preview-img').length) return;
+        openAssetPickerModal('patternExtract');
     });
     // 實境模擬結果：只顯示圖＋下載按鈕，不存入數位資產
     function renderSceneSimResult(imageDataUrl) {
@@ -1487,56 +1498,32 @@ $(document).ready(function () {
         $('#patternExtractSizeManualPanel').css('display', mode === 'manual' ? 'block' : 'none');
         updatePatternExtractResolutionDisplay();
     }
-    function setPatternExtractUploadPreview(dataUrl) {
-        if (!dataUrl || !dataUrl.trim()) {
+    // 圖樣提取：僅能從數位資產選擇圖片，設定預覽與解析度
+    function setPatternExtractPreview(imageUrl) {
+        if (!imageUrl || !imageUrl.trim()) {
             window.patternExtractImageDataUrl = null;
             window.patternExtractImageDimensions = { w: 1024, h: 1024 };
-            $('#patternExtractUploadImg').addClass('d-none').attr('src', '');
-            $('#patternExtractUploadZone').removeClass('has-image');
+            $('#patternExtractPreviewImg').addClass('d-none').attr('src', '');
+            $('#patternExtractPreviewInner').removeClass('d-none');
             updatePatternExtractResolutionDisplay();
             return;
         }
-        window.patternExtractImageDataUrl = dataUrl;
-        $('#patternExtractUploadImg').attr('src', dataUrl).removeClass('d-none');
-        $('#patternExtractUploadZone').addClass('has-image');
-        var img = document.getElementById('patternExtractUploadImg');
+        window.patternExtractImageDataUrl = imageUrl.trim();
+        $('#patternExtractPreviewImg').attr('src', window.patternExtractImageDataUrl).removeClass('d-none');
+        $('#patternExtractPreviewInner').addClass('d-none');
+        var img = document.getElementById('patternExtractPreviewImg');
         if (img) {
             img.onload = function () {
                 var nw = img.naturalWidth || 1024;
                 var nh = img.naturalHeight || 1024;
-                var w = clampResolution(nw);
-                var h = clampResolution(nh);
-                window.patternExtractImageDimensions = { w: w, h: h };
+                window.patternExtractImageDimensions = { w: clampResolution(nw), h: clampResolution(nh) };
                 updatePatternExtractResolutionDisplay();
             };
             if (img.complete) img.onload();
+        } else {
+            updatePatternExtractResolutionDisplay();
         }
     }
-    $(document).on('click', '#patternExtractUploadZone', function (e) {
-        if ($(e.target).closest('.scene-sim-upload-label').length) return;
-        var input = document.getElementById('patternExtractFile');
-        if (input) input.click();
-    });
-    $('#patternExtractFile').on('change', function () {
-        var file = this.files && this.files[0];
-        if (!file || !file.type.match(/^image\//)) return;
-        var reader = new FileReader();
-        reader.onload = function (e) { setPatternExtractUploadPreview(e.target.result); };
-        reader.readAsDataURL(file);
-        this.value = '';
-    });
-    $('#patternExtractUploadZone').on('dragover', function (e) { e.preventDefault(); e.stopPropagation(); $(this).css('border-color', '#445D7E'); });
-    $('#patternExtractUploadZone').on('dragleave', function (e) { e.preventDefault(); $(this).css('border-color', ''); });
-    $('#patternExtractUploadZone').on('drop', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        $(this).css('border-color', '');
-        var file = e.originalEvent && e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files && e.originalEvent.dataTransfer.files[0];
-        if (!file || !file.type.match(/^image\//)) return;
-        var reader = new FileReader();
-        reader.onload = function (ev) { setPatternExtractUploadPreview(ev.target.result); };
-        reader.readAsDataURL(file);
-    });
     $('#patternExtractSizeMode').on('change', updatePatternExtractSizeModeUI);
     $('#patternExtractAspectRatio').on('change', updatePatternExtractResolutionDisplay);
     $('#patternExtractWidth').on('input', function () {
@@ -1596,7 +1583,7 @@ $(document).ready(function () {
     $('#patternExtractApplyBtn').on('click', function () {
         var imageUrl = window.patternExtractImageDataUrl || '';
         if (!imageUrl) {
-            alert(t('customProduct.patternExtractUploadRequired') || '請上傳一張圖片');
+            alert(t('customProduct.patternExtractSelectRequired') || '請從數位資產選擇一張圖片');
             return;
         }
         var $btn = $('#patternExtractApplyBtn');

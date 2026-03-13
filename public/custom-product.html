@@ -625,13 +625,15 @@
                                     <input type="text" id="patternExtractPrompt" class="form-control form-control-sm scene-sim-prompt-input" data-i18n-placeholder="customProduct.patternExtractPromptPlaceholder" placeholder="選填，可描述想強調的風格或用途" />
                                 </div>
                                 <div class="form-row full scene-sim-images-row">
-                                    <span class="label w-100 mb-1" data-i18n="customProduct.patternExtractUploadLabel">上傳一張圖片</span>
+                                    <span class="label w-100 mb-1" data-i18n="customProduct.patternExtractSelectFromAssets">從數位資產選擇圖片</span>
                                     <div class="scene-sim-col" style="max-width: 280px;">
-                                        <div id="patternExtractUploadZone" class="scene-sim-upload-zone" role="button" tabindex="0" aria-label="Upload pattern source image">
-                                            <input type="file" id="patternExtractFile" accept="image/*" class="d-none">
-                                            <label for="patternExtractFile" class="scene-sim-upload-label"><span class="scene-sim-upload-text" data-i18n="customProduct.patternExtractUploadHint">點擊或拖曳上傳</span></label>
-                                            <img id="patternExtractUploadImg" src="" alt="" class="scene-sim-upload-img d-none">
+                                        <div id="patternExtractPreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" aria-label="從數位資產選擇圖片" data-i18n-title="customProduct.clickToSelectFromAssets" title="點擊可從數位資產選擇圖片">
+                                            <div id="patternExtractPreviewInner" class="scene-sim-preview-inner">
+                                                <span class="scene-sim-preview-hint" data-i18n="customProduct.clickToSelect">點擊選擇</span>
+                                            </div>
+                                            <img id="patternExtractPreviewImg" src="" alt="" class="scene-sim-preview-img d-none">
                                         </div>
+                                        <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.patternExtractAssetsOnlyHint">僅能使用數位資產庫的圖片，避免侵權。</p>
                                     </div>
                                 </div>
                                 <div class="form-row full mt-2">
