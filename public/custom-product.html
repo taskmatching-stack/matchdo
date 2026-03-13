@@ -560,9 +560,12 @@
                                     <input type="number" id="generationSeed" name="generationSeed" class="form-control" data-i18n-placeholder="customProduct.seedPlaceholder" placeholder="留空＝隨機，整數可重現相同風格" min="-2147483648" max="2147483647" step="1" style="max-width: 12rem;">
                                 </div>
                             </details>
-                            <button type="button" class="btn btn-primary btn-generate" id="generateImageBtn">
-                                <i class="fas fa-wand-magic-sparkles me-2"></i><span data-i18n="customProduct.generate">生成圖片</span>
-                            </button>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <button type="button" class="btn btn-primary btn-generate" id="generateImageBtn">
+                                    <i class="fas fa-wand-magic-sparkles me-2"></i><span data-i18n="customProduct.generate">生成圖片</span>
+                                </button>
+                                <span class="points-hint text-muted small" id="generatePointsDisplay" data-i18n="customProduct.generatePointsAbout" title="無參考圖 15 點，有參考圖 20 點">無參考圖 15 點／有參考圖 20 點</span>
+                            </div>
                         </div>
                         <div class="create-panel-right" id="generatedImagePreviewWrap">
                             <div id="generatedImagePreview"></div>
@@ -601,9 +604,12 @@
                                         </div>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-primary btn-generate w-100 mt-2" id="sceneSimApplyBtn">
-                                    <i class="fas fa-cube me-2"></i><span data-i18n="customProduct.applyToScene">套用至實境</span>
-                                </button>
+                                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                    <button type="button" class="btn btn-primary btn-generate" id="sceneSimApplyBtn">
+                                        <i class="fas fa-cube me-2"></i><span data-i18n="customProduct.applyToScene">套用至實境</span>
+                                    </button>
+                                    <span class="points-hint text-muted small" id="sceneSimPointsDisplay" data-i18n="customProduct.sceneSimPointsAbout" title="每次約 20 點">約 20 點</span>
+                                </div>
                             </div>
                             <div class="create-panel-right" id="sceneSimResultWrap">
                                 <p class="placeholder-hint mb-0 text-muted" data-i18n="customProduct.resultHere">結果會顯示在這裡</p>
@@ -674,7 +680,7 @@
                                         </div>
                                     </div>
                                     <span class="resolution-display small align-self-center" id="patternExtractResolutionDisplay" title="目前解析度">1024×1024</span>
-                                    <span class="small text-muted align-self-center ms-1" id="patternExtractPointsDisplay" title="依總解析度（寬×高）計價">約 20 點</span>
+                                    <span class="small text-muted align-self-center ms-1" id="patternExtractPointsDisplay" title="20 點起，依匯出解析度而定">20 點起，依匯出解析度 · 約 20 點</span>
                                     <span id="patternExtractPointsHelp" class="align-self-center ms-1 d-inline-block" role="button" tabindex="0" aria-label="點數計價說明" title=""><i class="fas fa-info-circle text-muted" style="cursor:pointer;font-size:0.85rem;opacity:0.8;"></i></span>
                                     <div>
                                         <label class="form-label small mb-0" data-i18n="customProduct.outputFormat">輸出格式</label>

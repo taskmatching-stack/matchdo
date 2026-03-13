@@ -1453,15 +1453,19 @@ $(document).ready(function () {
         var hasImage = !!window.patternExtractImageDataUrl;
         if (mode === 'same' && !hasImage) {
             $('#patternExtractResolutionDisplay').text('—').attr('title', t('customProduct.patternExtractResolutionHint'));
-            $('#patternExtractPointsDisplay').text('').attr('title', '');
+            var defaultPts = 20;
+            var fromLabel = t('customProduct.patternExtractPointsFrom') || '20 點起，依匯出解析度而定';
+            var ptsLabel = (t('customProduct.patternExtractPointsAbout') || '約 {n} 點').replace('{n}', defaultPts);
+            $('#patternExtractPointsDisplay').text(fromLabel + ' · ' + ptsLabel).attr('title', fromLabel);
             initPatternExtractPointsPopover();
             return;
         }
         var dims = getPatternExtractWidthHeight();
         $('#patternExtractResolutionDisplay').text(dims.w + '×' + dims.h).attr('title', t('customProduct.currentResolution'));
         var pts = patternExtractPointsFromResolution(dims.w, dims.h);
+        var fromLabel = t('customProduct.patternExtractPointsFrom') || '20 點起，依匯出解析度而定';
         var ptsLabel = (t('customProduct.patternExtractPointsAbout') || '約 {n} 點').replace('{n}', pts);
-        $('#patternExtractPointsDisplay').text(ptsLabel).attr('title', t('customProduct.patternExtractPointsTooltip') || '');
+        $('#patternExtractPointsDisplay').text(fromLabel + ' · ' + ptsLabel).attr('title', t('customProduct.patternExtractPointsTooltip') || '');
         initPatternExtractPointsPopover();
     }
     function getPatternExtractWidthHeight() {
