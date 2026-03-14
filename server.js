@@ -8484,21 +8484,21 @@ app.delete('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', async (r
 });
 
 // ---------- 廠商素材庫（設計端參考圖來源；依設計當下分類載入；必顯示廠商名稱與連結）----------
-// GET /api/vendor-assets — 設計端選圖用，必傳 category_key；可選 subcategory_key、manufacturer_id
+// GET /api/vendor-assets — 設計端選圖用。分類素材池：必傳 category_key；個別廠商版型庫：可只傳 manufacturer_id
 app.get('/api/vendor-assets', async (req, res) => {
     try {
-        const categoryKey = (req.query.category_key || '').trim();
-        if (!categoryKey) return res.status(400).json({ error: '請傳入 category_key（設計當下選取的主分類）' });
+        const categoryKey = (req.query.category_key || '').trim() || null;
         const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
         const manufacturerId = (req.query.manufacturer_id || '').trim() || null;
+        if (!categoryKey && !manufacturerId) return res.status(400).json({ error: '請傳入 category_key（分類素材池）或 manufacturer_id（個別廠商版型庫）' });
 
         let query = supabase
             .from('vendor_assets')
             .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order')
-            .eq('category_key', categoryKey)
             .eq('is_public', true)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
+        if (categoryKey) query = query.eq('category_key', categoryKey);
         if (subcategoryKey) query = query.eq('subcategory_key', subcategoryKey);
         if (manufacturerId) query = query.eq('manufacturer_id', manufacturerId);
 

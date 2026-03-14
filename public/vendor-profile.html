@@ -167,6 +167,9 @@
                         <button id="btnContactVendor" class="btn btn-success d-none" onclick="contactVendor()">
                             <i class="bi bi-chat-dots me-2"></i>站內聯絡廠商
                         </button>
+                        <a id="btnDesignWithVendorBase" href="#" class="btn btn-primary btn-sm d-none">
+                            <i class="bi bi-palette2 me-1"></i><span data-i18n="vendor.designWithBaseModels">用此廠商版型設計</span>
+                        </a>
                         <a id="btnViewPortfolio" href="/custom/gallery.html" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-images me-1"></i>瀏覽作品圖庫
                         </a>
@@ -360,6 +363,12 @@
             var contactBtn = document.getElementById('btnContactVendor');
             if (contactBtn && _vendorUserId) {
                 contactBtn.classList.remove('d-none');
+            }
+            // 用此廠商版型設計：連到產品設計頁並帶 manufacturer_id，設計頁可從此廠商版型庫導入
+            var btnDesignBase = document.getElementById('btnDesignWithVendorBase');
+            if (btnDesignBase && v.id) {
+                btnDesignBase.href = '/custom-product.html?manufacturer_id=' + encodeURIComponent(v.id) + '&vendor_name=' + encodeURIComponent(v.name || '');
+                btnDesignBase.classList.remove('d-none');
             }
 
             // Hero（頭像：有 logo_url 顯示圖片，否則顯示預設圖示）

@@ -560,8 +560,10 @@
 
                             <div class="form-row full">
                                 <span class="label" data-i18n="customProduct.refImages">參考圖</span>
+                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可從數位版型庫（分類素材池）導入，或從個別廠商的版型庫導入後再設計。</p>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btnRefFromVendorAssets" data-i18n="customProduct.selectFromVendorAssets" title="依目前選擇的分類載入廠商素材">從廠商素材庫選擇</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
                                 </div>
                                 <div id="referenceImagesSlots" class="ref-slots"></div>
                                 <input type="file" id="referenceImageFile" accept="image/*" class="file-input-hidden">

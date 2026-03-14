@@ -207,16 +207,20 @@
                 .mw-layout-filter:hover, .mw-layout-filter.active { border-color: #445D7E; color: #445D7E; }
                 .mw-layout-filter.active { background: #e8ecf0; }
             </style>
+            <div class="text-center py-2 mb-2" id="home-help-cta">
+                <span class="text-muted small" data-i18n="home.helpCtaPrefix">第一次來？</span>
+                <a href="/help/" data-i18n="home.helpCtaLink">了解怎麼設計與找廠商</a>
+            </div>
             <div class="d-flex flex-wrap align-items-center justify-content-center gap-2 mb-2">
                 <input type="search" id="media-wall-search" class="form-control form-control-sm" data-i18n-placeholder="home.searchPlaceholder" placeholder="搜尋作品（標題或提示詞）" style="max-width: 280px;" autocomplete="off">
                 <button type="button" id="media-wall-search-btn" class="btn btn-sm btn-outline-primary" data-i18n="home.searchBtn">搜尋</button>
                 <button type="button" id="mw-fav-filter-btn" class="btn btn-sm btn-outline-secondary" title="只顯示我的收藏作品">
-                    <i class="bi bi-heart me-1"></i>我的收藏<span class="fav-count"></span>
+                    <i class="bi bi-heart me-1"></i><span data-i18n="home.myFavorites">我的收藏</span><span class="fav-count"></span>
                 </button>
-                <span class="filter-tag mw-layout-filter" data-layout-type="" role="button" tabindex="0" title="全部類型">全部</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖">設計圖</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖（設計圖／作品圖滑桿）">對照圖</span>
-                <span class="filter-tag mw-layout-filter" data-layout-type="series" role="button" tabindex="0" title="廠商系列多圖">系列圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="" role="button" tabindex="0" title="全部類型" data-i18n="home.layoutAll">全部</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖" data-i18n="home.layoutDesign">設計圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖" data-i18n="home.layoutComparison">對照圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="series" role="button" tabindex="0" title="系列圖" data-i18n="home.layoutSeries">系列圖</span>
                 <button type="button" id="media-wall-load-more" class="btn btn-sm btn-outline-secondary d-none" data-i18n="home.loadMore">載入更多</button>
             </div>
             <div id="media-wall-filter" class="mb-2 d-none">

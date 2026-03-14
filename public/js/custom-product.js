@@ -7,6 +7,15 @@
 $(document).ready(function () {
     function t(key) { return (window.i18n && window.i18n.t) ? window.i18n.t(key) : key; }
     let generatedImageData = null;
+    // 從廠商頁「用此廠商版型設計」進入時帶入的廠商 id / 名稱（供「從此廠商版型庫選擇」使用）
+    var urlParams = typeof window !== 'undefined' && window.location && window.location.search ? new URLSearchParams(window.location.search) : null;
+    var refVendorMfrId = urlParams ? (urlParams.get('manufacturer_id') || '').trim() : '';
+    var refVendorName = urlParams ? decodeURIComponent(urlParams.get('vendor_name') || '') : '';
+    if (refVendorMfrId) {
+        $('#btnRefFromThisVendorAssets').removeClass('d-none');
+        if (refVendorName) $('#btnRefFromThisVendorAssets').text((t('customProduct.selectFromVendorBasePrefix') || '從 ') + refVendorName + (t('customProduct.selectFromVendorBaseSuffix') || ' 版型庫選擇'));
+        else $('#btnRefFromThisVendorAssets').text(t('customProduct.selectFromThisVendorBase') || '從此廠商版型庫選擇');
+    }
     let lastGeneratedImageUrl = null;  // 最近一次生成的圖 URL（供儲存到後端）
     let lastGeneratedPrompt = null;    // 最近一次前端輸入的提示詞（必存）
     let lastGeneratedSeed = null;      // 最近一次使用的 Seed（可重現風格，供儲存）
@@ -285,6 +294,8 @@ $(document).ready(function () {
         $list.empty().addClass('d-none');
         $empty.addClass('d-none');
         $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
+        $('#vendorAssetsPickerLabel').text(t('customProduct.selectFromVendorAssets') || '從廠商素材庫選擇');
+        $('#vendorAssetsCategoryHint').text(t('customProduct.categoryBaseHint') || '素材依您目前選擇的主分類載入；點選圖片即加入參考圖。');
         var modalEl = document.getElementById('vendorAssetsPickerModal');
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
@@ -296,6 +307,70 @@ $(document).ready(function () {
             var items = (data && data.items) ? data.items : [];
             if (!items.length) {
                 $empty.removeClass('d-none');
+                return;
+            }
+            $list.removeClass('d-none');
+            items.forEach(function (item) {
+                var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
+                var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
+                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
+                $card.find('.vendor-asset-card').on('click', function () {
+                    var u = $(this).attr('data-image-url');
+                    if (!u) return;
+                    fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
+                        return new Promise(function (resolve, reject) {
+                            var reader = new FileReader();
+                            reader.onload = function () { resolve(reader.result); };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                    }).then(function (dataUrl) {
+                        ensureRefArrays();
+                        var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
+                        if (firstEmpty >= 0) {
+                            refDataUrls[firstEmpty] = dataUrl;
+                            renderRefSlots();
+                            renderRefCards();
+                        }
+                        if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
+                    }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+                });
+                $list.append($card);
+            });
+        }).catch(function () {
+            $loading.addClass('d-none').text('');
+            $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
+        });
+    });
+
+    // 從此廠商版型庫選擇：僅當 URL 帶 manufacturer_id 時顯示按鈕，依廠商載入其版型後選圖加入參考圖
+    $('#btnRefFromThisVendorAssets').on('click', function () {
+        if (!refVendorMfrId) return;
+        var $list = $('#vendorAssetsList');
+        var $empty = $('#vendorAssetsEmpty');
+        var $loading = $('#vendorAssetsLoading');
+        var $hint = $('#vendorAssetsCategoryHint');
+        var $label = $('#vendorAssetsPickerLabel');
+        $list.empty().addClass('d-none');
+        $empty.addClass('d-none');
+        $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
+        var labelText = refVendorName
+            ? ((t('customProduct.selectFromVendorBasePrefix') || '從 ') + refVendorName + (t('customProduct.selectFromVendorBaseSuffix') || ' 版型庫選擇'))
+            : (t('customProduct.selectFromThisVendorBase') || '從此廠商版型庫選擇');
+        if ($label.length) $label.text(labelText);
+        if ($hint.length) $hint.text(t('customProduct.vendorBaseHint') || '點選圖片即加入參考圖。');
+        var modalEl = document.getElementById('vendorAssetsPickerModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            (new bootstrap.Modal(modalEl)).show();
+        }
+        var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(refVendorMfrId);
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            $loading.addClass('d-none');
+            var items = (data && data.items) ? data.items : [];
+            if (!items.length) {
+                $empty.removeClass('d-none').text(t('customProduct.vendorBaseEmpty') || '此廠商尚無版型素材。');
                 return;
             }
             $list.removeClass('d-none');
