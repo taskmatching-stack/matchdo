@@ -225,6 +225,7 @@ async function renderHeader(headerContainer, user, config) {
                                 <a href="/client/demands.html" class="dropdown-item"><i class="bi bi-list-ul me-2"></i>` + t('nav.demands') + `</a>
                                 <a href="/client/manufacturer-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.vendorDashboard') + `</a>
                                 <a href="/client/manufacturer-portfolio.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.vendorPortfolio') + `</a>
+                                <a href="/client/manufacturer-materials.html" class="dropdown-item"><i class="bi bi-folder2-open me-2"></i>` + (t('nav.vendorBaseModels') || '我的數位版型 (Base Models)') + `</a>
                                 <a href="/client/manufacturer-inquiries.html" class="dropdown-item"><i class="bi bi-chat-quote me-2"></i>` + t('nav.vendorInquiries') + `</a>
                             </div>
                         </div>
