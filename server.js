@@ -8483,6 +8483,183 @@ app.delete('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', async (r
     }
 });
 
+// ---------- 廠商素材庫（設計端參考圖來源；依設計當下分類載入；必顯示廠商名稱與連結）----------
+// GET /api/vendor-assets — 設計端選圖用，必傳 category_key；可選 subcategory_key、manufacturer_id
+app.get('/api/vendor-assets', async (req, res) => {
+    try {
+        const categoryKey = (req.query.category_key || '').trim();
+        if (!categoryKey) return res.status(400).json({ error: '請傳入 category_key（設計當下選取的主分類）' });
+        const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
+        const manufacturerId = (req.query.manufacturer_id || '').trim() || null;
+
+        let query = supabase
+            .from('vendor_assets')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order')
+            .eq('category_key', categoryKey)
+            .eq('is_public', true)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (subcategoryKey) query = query.eq('subcategory_key', subcategoryKey);
+        if (manufacturerId) query = query.eq('manufacturer_id', manufacturerId);
+
+        const { data: rows, error } = await query;
+        if (error) {
+            if (error.code === '42P01') return res.status(200).json({ items: [], message: '尚未建立廠商素材表，請執行 docs/vendor-assets-schema.sql' });
+            console.error('GET /api/vendor-assets 失敗:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        const list = rows || [];
+        const mfrIds = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))];
+        let mfrMap = {};
+        if (mfrIds.length) {
+            const { data: mfrs } = await supabase.from('manufacturers').select('id, name').in('id', mfrIds).eq('is_active', true);
+            (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
+        }
+        const items = list.map(r => ({
+            id: r.id,
+            manufacturer_id: r.manufacturer_id,
+            category_key: r.category_key,
+            subcategory_key: r.subcategory_key,
+            title: r.title,
+            description: r.description,
+            image_url: r.image_url,
+            usage_type: r.usage_type,
+            sort_order: r.sort_order,
+            manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
+            manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null
+        }));
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/vendor-assets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/me/vendor-assets — 廠商自己的素材列表（需登入且已建立廠商資料）
+app.get('/api/me/vendor-assets', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const categoryKey = (req.query.category_key || '').trim() || null;
+        let query = supabase
+            .from('vendor_assets')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, created_at, updated_at')
+            .eq('manufacturer_id', manufacturerId)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (categoryKey) query = query.eq('category_key', categoryKey);
+        const { data: list, error } = await query;
+        if (error) {
+            if (error.code === '42P01') return res.json({ items: [] });
+            console.error('GET /api/me/vendor-assets 失敗:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json({ items: list || [] });
+    } catch (e) {
+        console.error('GET /api/me/vendor-assets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/vendor-assets — 廠商上傳素材（需登入且已建立廠商資料）
+app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const body = req.body || {};
+        const categoryKey = (body.category_key || '').trim();
+        if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
+        const subcategoryKey = (body.subcategory_key || '').trim() || null;
+        const title = (body.title || '').trim() || null;
+        const description = (body.description || '').trim() || null;
+        const usageType = (body.usage_type || 'reference_only').trim() || 'reference_only';
+
+        const file = req.file;
+        if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
+
+        const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
+        const { data: inserted, error } = await supabase
+            .from('vendor_assets')
+            .insert({
+                manufacturer_id: manufacturerId,
+                category_key: categoryKey,
+                subcategory_key: subcategoryKey,
+                title: title,
+                description: description,
+                image_url: publicUrl,
+                usage_type: usageType,
+                is_public: true,
+                sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0
+            })
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, created_at')
+            .single();
+        if (error) {
+            console.error('POST /api/me/vendor-assets 失敗:', error);
+            return res.status(500).json({ error: '新增素材失敗' });
+        }
+        res.status(201).json(inserted);
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/me/vendor-assets/:id — 更新廠商素材（僅本人廠商）
+app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const id = req.params.id;
+        const body = req.body || {};
+        const { data: row } = await supabase.from('vendor_assets').select('id, image_url, category_key').eq('id', id).eq('manufacturer_id', manufacturerId).single();
+        if (!row) return res.status(404).json({ error: '找不到該素材' });
+
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.category_key !== undefined) updates.category_key = (String(body.category_key || '').trim()) || row.category_key;
+        if (body.subcategory_key !== undefined) updates.subcategory_key = (body.subcategory_key || '').trim() || null;
+        if (body.title !== undefined) updates.title = (body.title || '').trim() || null;
+        if (body.description !== undefined) updates.description = (body.description || '').trim() || null;
+        if (body.usage_type !== undefined) updates.usage_type = (body.usage_type || 'reference_only').trim() || 'reference_only';
+        if (body.sort_order !== undefined) updates.sort_order = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
+
+        const file = req.file;
+        if (file) {
+            const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
+            updates.image_url = publicUrl;
+        }
+
+        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, updated_at').single();
+        if (error) {
+            console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json(updated);
+    } catch (e) {
+        console.error('PUT /api/me/vendor-assets/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/me/vendor-assets/:id — 刪除廠商素材（僅本人廠商）
+app.delete('/api/me/vendor-assets/:id', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const id = req.params.id;
+        const { data: row } = await supabase.from('vendor_assets').select('id').eq('id', id).eq('manufacturer_id', manufacturerId).single();
+        if (!row) return res.status(404).json({ error: '找不到該素材' });
+        const { error } = await supabase.from('vendor_assets').delete().eq('id', id);
+        if (error) {
+            console.error('DELETE /api/me/vendor-assets/:id 失敗:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.status(204).send();
+    } catch (e) {
+        console.error('DELETE /api/me/vendor-assets/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // ---------- 廠商資料夾（系列）----------
 // GET /api/manufacturers/:id/collections — 列出某廠商的資料夾（公開）
 app.get('/api/manufacturers/:id/collections', async (req, res) => {

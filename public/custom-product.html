@@ -137,6 +137,22 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="vendorAssetsPickerModal" tabindex="-1" aria-labelledby="vendorAssetsPickerLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="vendorAssetsPickerLabel" data-i18n="customProduct.selectFromVendorAssets">從廠商素材庫選擇</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <p id="vendorAssetsCategoryHint" class="text-muted small mb-2">素材依您目前選擇的主分類載入；點選圖片即加入參考圖。</p>
+                    <div id="vendorAssetsList" class="row g-3"></div>
+                    <p id="vendorAssetsEmpty" class="text-muted small mb-0 d-none">此分類下尚無廠商素材。</p>
+                    <p id="vendorAssetsLoading" class="text-muted small mb-0 d-none">載入中…</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- jQuery + Bootstrap：與首頁一致，在 body、在 modal 之後載入，供 navbar 與 modal 使用 -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
@@ -302,6 +318,7 @@
             0%   { background-position: 100% 0; }
             100% { background-position: -100% 0; }
         }
+        #custom-product .design-flow-steps { font-size: 0.8125rem; padding-left: 0.5rem; border-left: 3px solid #445D7E; margin-bottom: 0.5rem; }
         #custom-product .create-panel-left { min-width: 0; }
         #custom-product .create-panel-right {
             min-height: 320px;
@@ -510,6 +527,7 @@
 
                 <div class="tab-content" id="designTabContent">
                     <div class="tab-pane fade show active" id="panel-product-design" role="tabpanel" aria-labelledby="tab-product-design">
+                <p class="design-flow-steps text-muted small mb-2" id="designFlowSteps" data-i18n="customProduct.designFlowSteps">步驟：描述／選圖 → 生成 → 選廠商／下單</p>
                 <form id="customProductForm">
                     <div class="create-panel">
                         <div class="create-panel-left">
@@ -542,6 +560,9 @@
 
                             <div class="form-row full">
                                 <span class="label" data-i18n="customProduct.refImages">參考圖</span>
+                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnRefFromVendorAssets" data-i18n="customProduct.selectFromVendorAssets" title="依目前選擇的分類載入廠商素材">從廠商素材庫選擇</button>
+                                </div>
                                 <div id="referenceImagesSlots" class="ref-slots"></div>
                                 <input type="file" id="referenceImageFile" accept="image/*" class="file-input-hidden">
                                 <div class="ref-cards-wrap">

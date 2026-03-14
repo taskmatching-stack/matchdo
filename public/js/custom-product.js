@@ -271,6 +271,69 @@ $(document).ready(function () {
         e.target.value = '';
     });
 
+    // 從廠商素材庫選擇：依設計當下主分類載入，選圖加入參考圖（必顯示廠商名稱與連結）
+    $('#btnRefFromVendorAssets').on('click', function () {
+        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+        if (!mainKey) {
+            alert(t('customProduct.selectCategoryFirstForVendorAssets') || '請先選擇主分類，素材庫會依此分類載入。');
+            return;
+        }
+        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+        var $list = $('#vendorAssetsList');
+        var $empty = $('#vendorAssetsEmpty');
+        var $loading = $('#vendorAssetsLoading');
+        $list.empty().addClass('d-none');
+        $empty.addClass('d-none');
+        $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
+        var modalEl = document.getElementById('vendorAssetsPickerModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            (new bootstrap.Modal(modalEl)).show();
+        }
+        var url = '/api/vendor-assets?category_key=' + encodeURIComponent(mainKey);
+        if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            $loading.addClass('d-none');
+            var items = (data && data.items) ? data.items : [];
+            if (!items.length) {
+                $empty.removeClass('d-none');
+                return;
+            }
+            $list.removeClass('d-none');
+            items.forEach(function (item) {
+                var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
+                var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
+                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
+                $card.find('.vendor-asset-card').on('click', function () {
+                    var u = $(this).attr('data-image-url');
+                    if (!u) return;
+                    fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
+                        return new Promise(function (resolve, reject) {
+                            var reader = new FileReader();
+                            reader.onload = function () { resolve(reader.result); };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                    }).then(function (dataUrl) {
+                        ensureRefArrays();
+                        var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
+                        if (firstEmpty >= 0) {
+                            refDataUrls[firstEmpty] = dataUrl;
+                            renderRefSlots();
+                            renderRefCards();
+                        }
+                        if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
+                    }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+                });
+                $list.append($card);
+            });
+        }).catch(function () {
+            $loading.addClass('d-none').text('');
+            $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
+        });
+    });
+
     async function describeOneImage(index, btn, descArea) {
         if (!refDataUrls[index]) return;
         const originalText = btn.html();
@@ -396,7 +459,11 @@ $(document).ready(function () {
                 if (imgSrc) {
                     previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="Generated" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="點擊放大" /></div>';
                 }
+                var nextStepText = (typeof t === 'function' && t('customProduct.designNextStepHint')) ? t('customProduct.designNextStepHint') : '建議：可到「我的數位資產」查看，或到「圖庫找廠商」找廠商訂製';
                 previewHtml += '<p class="text-success small mb-2"><i class="fas fa-check-circle me-1"></i>已生成並儲存，重整後仍會保留在右側歷史</p>' +
+                    '<p class="small text-muted mb-2">' + nextStepText + '</p>' +
+                    '<a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-box-seam me-1"></i>我的數位資產</a> ' +
+                    '<a href="/custom/gallery.html" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-search me-1"></i>圖庫找廠商</a> ' +
                     '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>重新生成</button>';
                 $('#generatedImagePreview').html(previewHtml);
                 showGeneratedResult();
