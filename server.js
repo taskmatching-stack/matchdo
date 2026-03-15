@@ -1152,8 +1152,9 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
         if (body.verified !== undefined) updates.verified = !!body.verified;
         if (body.contact_json !== undefined && typeof body.contact_json === 'object') updates.contact_json = body.contact_json;
         if (body.expires_at !== undefined) updates.expires_at = body.expires_at === null || body.expires_at === '' ? null : body.expires_at;
+        if (body.vendor_source !== undefined) updates.vendor_source = (body.vendor_source === null || body.vendor_source === '' || body.vendor_source === 'paid') ? null : String(body.vendor_source).trim();
         if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
-        const { data: updated, error } = await supabase.from('manufacturers').update(updates).eq('id', manufacturerId).select('id, name, description, location, contact_json, categories, logo_url, is_active, verified, expires_at').single();
+        const { data: updated, error } = await supabase.from('manufacturers').update(updates).eq('id', manufacturerId).select('id, name, description, location, contact_json, categories, logo_url, is_active, verified, expires_at, vendor_source').single();
         if (error) {
             console.error('PATCH /api/admin/manufacturers/:id:', error);
             return res.status(500).json({ error: error.message || '更新失敗' });

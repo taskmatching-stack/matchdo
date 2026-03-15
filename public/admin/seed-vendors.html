@@ -273,6 +273,7 @@
       var createdCell = formatDate(m.created_at);
       var mfrName = (m.name || '').replace(/"/g, '&quot;');
       var actionCell = '<button type="button" class="btn btn-sm btn-outline-primary" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-upload me-1"></i>上傳素材</button>';
+      if (!m.is_paid) actionCell += ' <button type="button" class="btn btn-sm btn-outline-success ms-1" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-paid"><i class="bi bi-check-circle me-1"></i>轉為付費</button>';
       return '<tr>' +
         '<td>' + (m.name ? escapeHtml(m.name) : '—') + '</td>' +
         '<td>' + typeLabel + '</td>' +
@@ -284,6 +285,33 @@
         '</tr>';
     }).join('');
     tbody.querySelectorAll('button[data-mfr-id]').forEach(function(btn) {
+      if (btn.dataset.action === 'convert-paid') {
+        btn.addEventListener('click', function() {
+          var id = btn.dataset.mfrId;
+          var name = btn.dataset.mfrName || '';
+          if (!id) return;
+          if (!confirm('確定將「' + name + '」轉為付費廠商？轉換後該廠商可自行編輯資料與素材，其素材也會對一般使用者顯示。')) return;
+          getToken().then(function(token) {
+            if (!token) { alert('請先登入'); return; }
+            btn.disabled = true;
+            fetch('/api/admin/manufacturers/' + encodeURIComponent(id), {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+              body: JSON.stringify({ vendor_source: null, expires_at: null })
+            }).then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+              .then(function(result) {
+                if (result.ok) {
+                  loadList(document.getElementById('filterType').value === 'seed');
+                } else {
+                  alert(result.data.error || '更新失敗');
+                }
+              })
+              .catch(function() { alert('網路錯誤'); })
+              .finally(function() { btn.disabled = false; });
+          });
+        });
+        return;
+      }
       btn.addEventListener('click', function() {
         document.getElementById('uploadMfrId').value = btn.dataset.mfrId || '';
         document.getElementById('uploadMfrName').textContent = btn.dataset.mfrName || '';
