@@ -42,6 +42,12 @@
 未執行該 migration 時，**不可**在 INSERT 中傳入 `generation_prompt`、`generation_seed`（後端已改為寫入此二欄，請先執行 SQL）。  
 未執行 show_on_homepage migration 時，GET `/api/custom-products/for-homepage` 會回傳空列表（已處理）。
 
+來源：`docs/add-custom-products-reference-sources.sql`
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| reference_sources | JSONB | 再設計時引用之廠商素材來源陣列，每項含 vendor_asset_id, manufacturer_id, manufacturer_name, manufacturer_profile_url, image_url |
+
 ---
 
 程式參考：`server.js` 中所有 `custom_products` 的 insert/update 皆應只使用上表欄位。

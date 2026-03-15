@@ -896,6 +896,29 @@ async function requireAdmin(req, res) {
     return user;
 }
 
+// 檢查使用者是否為管理員（不送 res，供權限判斷用）
+async function isAdminUserId(userId) {
+    if (!userId) return false;
+    const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
+    return data?.role === 'admin';
+}
+
+// 取得當前請求者是否為管理員（不送 401/403，供 GET 篩選用）
+async function getRequestAdminFlag(req) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return false;
+    const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return false;
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    return profile?.role === 'admin';
+}
+
+// 廠商公開曝光條件：is_active 且 (expires_at 為空 或 expires_at > 現在)。種子廠商 90 天後不曝光
+function manufacturerVisibleExpiresFilter() {
+    return 'expires_at.is.null,expires_at.gt.' + new Date().toISOString();
+}
+
 // 後台：管理員或測試員（僅 Playground / AI 工具頁用）
 async function requireAdminOrTester(req, res) {
     const authHeader = req.headers.authorization;
@@ -1066,6 +1089,172 @@ app.post('/api/admin/users', express.json(), async (req, res) => {
         res.status(201).json({ success: true, id: userId, email });
     } catch (e) {
         console.error('POST /api/admin/users 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/seed-manufacturer — 管理員建立種子廠商（綁定指定 user_id，vendor_source=seed）
+// 還原點：見 docs/還原點-種子廠商實作前.md；操作手冊：docs/種子廠商入駐操作手冊.md
+app.post('/api/admin/seed-manufacturer', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const body = req.body || {};
+        const userId = (body.user_id || '').trim();
+        if (!userId) return res.status(400).json({ error: '請傳入 user_id（欲綁定之登入帳號 UUID）' });
+        const name = (body.name || '').trim();
+        if (!name) return res.status(400).json({ error: '請填寫廠商名稱' });
+        const { data: existing } = await supabase.from('manufacturers').select('id').eq('user_id', userId).maybeSingle();
+        if (existing) return res.status(400).json({ error: '該使用者已綁定廠商，一帳號僅能綁定一間廠商' });
+        const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(); // 種子廠商 90 天公開期
+        const payload = {
+            user_id: userId,
+            name,
+            description: (body.description || '').trim() || null,
+            location: (body.location || '').trim() || null,
+            contact_json: body.contact_json && typeof body.contact_json === 'object' ? body.contact_json : {},
+            categories: Array.isArray(body.categories) ? body.categories : [],
+            is_active: true,
+            verified: !!body.verified,
+            vendor_source: 'seed',
+            expires_at: expiresAt
+        };
+        const { data: inserted, error } = await supabase.from('manufacturers').insert(payload).select('id, name, user_id, vendor_source, expires_at').single();
+        if (error) {
+            if (error.code === '42703') return res.status(500).json({ error: '請先執行 docs/add-manufacturers-vendor-source.sql 與 docs/add-manufacturers-expires-at.sql 新增欄位' });
+            console.error('POST /api/admin/seed-manufacturer:', error);
+            return res.status(500).json({ error: error.message || '建立失敗' });
+        }
+        res.status(201).json(inserted);
+    } catch (e) {
+        console.error('POST /api/admin/seed-manufacturer 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/manufacturers/:id — 管理員代為編輯任意廠商資料（名稱、描述、聯絡等）；用於種子廠商維護
+app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const manufacturerId = (req.params.id || '').trim();
+        if (!manufacturerId) return res.status(400).json({ error: '請傳入廠商 id' });
+        const { data: mfr } = await supabase.from('manufacturers').select('id').eq('id', manufacturerId).single();
+        if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
+        const body = req.body || {};
+        const updates = {};
+        if (body.name !== undefined && body.name != null && String(body.name).trim()) updates.name = String(body.name).trim();
+        if (body.description !== undefined) updates.description = (body.description && String(body.description).trim()) ? String(body.description).trim() : null;
+        if (body.location !== undefined) updates.location = (body.location && String(body.location).trim()) ? String(body.location).trim() : null;
+        if (body.categories !== undefined) updates.categories = Array.isArray(body.categories) ? body.categories : [];
+        if (body.logo_url !== undefined) updates.logo_url = (body.logo_url && String(body.logo_url).trim()) ? String(body.logo_url).trim() : null;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.verified !== undefined) updates.verified = !!body.verified;
+        if (body.contact_json !== undefined && typeof body.contact_json === 'object') updates.contact_json = body.contact_json;
+        if (body.expires_at !== undefined) updates.expires_at = body.expires_at === null || body.expires_at === '' ? null : body.expires_at;
+        if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
+        const { data: updated, error } = await supabase.from('manufacturers').update(updates).eq('id', manufacturerId).select('id, name, description, location, contact_json, categories, logo_url, is_active, verified, expires_at').single();
+        if (error) {
+            console.error('PATCH /api/admin/manufacturers/:id:', error);
+            return res.status(500).json({ error: error.message || '更新失敗' });
+        }
+        res.json(updated);
+    } catch (e) {
+        console.error('PATCH /api/admin/manufacturers/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/seed-manufacturers — 管理員查詢種子廠商列表（含剩餘天數、是否已轉付費）
+app.get('/api/admin/seed-manufacturers', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const seedOnly = (req.query.seed_only === '1' || req.query.seed_only === 'true');
+        let query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, location, contact_json, verified, created_at').order('created_at', { ascending: false });
+        if (seedOnly) query = query.eq('vendor_source', 'seed');
+        const { data: rows, error } = await query;
+        if (error) {
+            if (error.code === '42703') return res.status(500).json({ error: '請先執行 docs/add-manufacturers-vendor-source.sql 與 add-manufacturers-expires-at.sql' });
+            console.error('GET /api/admin/seed-manufacturers:', error);
+            return res.status(500).json({ error: error.message || '查詢失敗' });
+        }
+        const now = new Date();
+        const items = (rows || []).map((m) => {
+            const vs = m.vendor_source || null;
+            const exp = m.expires_at ? new Date(m.expires_at) : null;
+            const isSeed = vs === 'seed';
+            const isPaid = !isSeed || !m.expires_at; // 已轉付費：vendor_source 非 seed 或已清空 expires_at
+            let remainingDays = null;
+            if (isSeed && exp) remainingDays = exp > now ? Math.ceil((exp - now) / (24 * 60 * 60 * 1000)) : 0; // 0 = 已過期
+            return {
+                id: m.id,
+                name: m.name,
+                user_id: m.user_id || null,
+                vendor_source: vs,
+                expires_at: m.expires_at || null,
+                remaining_days: remainingDays,
+                is_paid: isPaid,
+                location: m.location || null,
+                contact_json: m.contact_json || {},
+                verified: !!m.verified,
+                created_at: m.created_at || null
+            };
+        });
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/admin/seed-manufacturers 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/manufacturers/:id/vendor-assets — 管理員代為上傳該廠商素材（數位版型）
+app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const manufacturerId = (req.params.id || '').trim();
+        if (!manufacturerId) return res.status(400).json({ error: '請傳入廠商 id' });
+        const { data: mfr } = await supabase.from('manufacturers').select('id').eq('id', manufacturerId).single();
+        if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
+        const body = req.body || {};
+        const categoryKey = (body.category_key || '').trim();
+        if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
+        const subcategoryKey = (body.subcategory_key || '').trim() || null;
+        const title = (body.title || '').trim() || null;
+        const description = (body.description || '').trim() || null;
+        const styleKey = (body.style_key || '').trim() || null;
+        const materialKey = (body.material_key || '').trim() || null;
+        const file = req.file;
+        if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
+        const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
+        const insertPayload = {
+            manufacturer_id: manufacturerId,
+            category_key: categoryKey,
+            subcategory_key: subcategoryKey,
+            title: title,
+            description: description,
+            image_url: publicUrl,
+            usage_type: 'reference_only',
+            is_public: true,
+            sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0
+        };
+        if (styleKey) insertPayload.style_key = styleKey;
+        if (materialKey) insertPayload.material_key = materialKey;
+        const { data: inserted, error } = await supabase
+            .from('vendor_assets')
+            .insert(insertPayload)
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, created_at')
+            .single();
+        if (error) {
+            if (error.code === '42P01') return res.status(500).json({ error: '請先執行 docs/vendor-assets-schema.sql 建立 vendor_assets 表' });
+            if (error.code === '42703') return res.status(500).json({ error: '請先執行 docs/add-vendor-assets-style-material.sql 新增造型/材質欄位' });
+            console.error('POST /api/admin/manufacturers/:id/vendor-assets:', error);
+            return res.status(500).json({ error: error.message || '新增素材失敗' });
+        }
+        res.status(201).json(inserted);
+    } catch (e) {
+        console.error('POST /api/admin/manufacturers/:id/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -6052,7 +6241,7 @@ app.post('/api/custom-products', async (req, res) => {
             return res.status(401).json({ error: '未授權：token 無效' });
         }
 
-        const { title, description, category, category_key, subcategory_key, reference_image_url, ai_generated_image_url, analysis_json, show_on_homepage, generation_prompt, generation_seed } = req.body;
+        const { title, description, category, category_key, subcategory_key, reference_image_url, ai_generated_image_url, analysis_json, show_on_homepage, generation_prompt, generation_seed, reference_sources } = req.body;
 
         if (!title || !description) {
             console.warn('POST /api/custom-products 400: 缺少 title/description');
@@ -6084,6 +6273,15 @@ app.post('/api/custom-products', async (req, res) => {
             generation_seed: seedVal,
             show_on_homepage: true
         };
+        if (reference_sources != null && Array.isArray(reference_sources) && reference_sources.length > 0) {
+            insertPayload.reference_sources = reference_sources.map(s => ({
+                vendor_asset_id: s.vendor_asset_id || null,
+                manufacturer_id: s.manufacturer_id || null,
+                manufacturer_name: s.manufacturer_name || '',
+                manufacturer_profile_url: s.manufacturer_profile_url || '',
+                image_url: s.image_url || ''
+            }));
+        }
         const { data, error } = await supabase
             .from('custom_products')
             .insert(insertPayload)
@@ -7701,14 +7899,18 @@ app.get('/api/me/manufacturer', async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
-        const selectWithLogo = 'id, name, description, location, categories, contact_json, logo_url';
-        const selectWithoutLogo = 'id, name, description, location, categories, contact_json';
+        const selectWithLogo = 'id, name, description, location, categories, contact_json, logo_url, vendor_source, expires_at';
+        const selectWithoutLogo = 'id, name, description, location, categories, contact_json, vendor_source, expires_at';
         let resq = await supabase.from('manufacturers').select(selectWithLogo).eq('user_id', user.id).maybeSingle();
         if (resq.error) {
             const msg = (resq.error.message || '').toLowerCase();
-            if (msg.includes('logo_url') || msg.includes('column') || msg.includes('does not exist')) {
-                resq = await supabase.from('manufacturers').select(selectWithoutLogo).eq('user_id', user.id).maybeSingle();
-                if (!resq.error && resq.data) resq.data.logo_url = null;
+            if (msg.includes('logo_url') || msg.includes('vendor_source') || msg.includes('expires_at') || msg.includes('column') || msg.includes('does not exist')) {
+                resq = await supabase.from('manufacturers').select('id, name, description, location, categories, contact_json').eq('user_id', user.id).maybeSingle();
+                if (!resq.error && resq.data) {
+                    resq.data.logo_url = null;
+                    resq.data.vendor_source = null;
+                    resq.data.expires_at = null;
+                }
             }
         }
         if (resq.error) {
@@ -7773,8 +7975,9 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
-        const { data: mfr } = await supabase.from('manufacturers').select('id, contact_json').eq('user_id', user.id).maybeSingle();
+        const { data: mfr } = await supabase.from('manufacturers').select('id, contact_json, vendor_source').eq('user_id', user.id).maybeSingle();
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料' });
+        if (mfr.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
         const body = req.body || {};
         const updates = {};
         if (body.name !== undefined && body.name.trim()) updates.name = body.name.trim();
@@ -8007,21 +8210,18 @@ app.get('/api/manufacturers', async (req, res) => {
         let fromMain = [];
 
         if (category_key || subcategory_key) {
+            const expiresFilter = manufacturerVisibleExpiresFilter();
             if (subcategory_key) {
-                const { data: subList, error: eSub } = await supabase
-                    .from('manufacturers')
-                    .select(baseSelect)
-                    .eq('is_active', true)
-                    .contains('categories', [subcategory_key]);
+                let subQ = supabase.from('manufacturers').select(baseSelect).eq('is_active', true).contains('categories', [subcategory_key]);
+                try { subQ = subQ.or(expiresFilter); } catch (_) {}
+                const { data: subList, error: eSub } = await subQ;
                 if (!eSub && subList) fromSub = subList;
             }
             const subIds = new Set(fromSub.map(m => m.id));
             if (category_key) {
-                const { data: mainList, error: eMain } = await supabase
-                    .from('manufacturers')
-                    .select(baseSelect)
-                    .eq('is_active', true)
-                    .contains('categories', [category_key]);
+                let mainQ = supabase.from('manufacturers').select(baseSelect).eq('is_active', true).contains('categories', [category_key]);
+                try { mainQ = mainQ.or(expiresFilter); } catch (_) {}
+                const { data: mainList, error: eMain } = await mainQ;
                 if (!eMain && mainList) fromMain = mainList.filter(m => !subIds.has(m.id));
             }
             manufacturers = [...fromSub, ...fromMain];
@@ -8036,11 +8236,9 @@ app.get('/api/manufacturers', async (req, res) => {
             const start = (page - 1) * per_page;
             manufacturers = manufacturers.slice(start, start + per_page);
         } else if (category && category !== 'default') {
-            const { data, error } = await supabase
-                .from('manufacturers')
-                .select(baseSelect)
-                .eq('is_active', true)
-                .contains('categories', [category]);
+            let catQ = supabase.from('manufacturers').select(baseSelect).eq('is_active', true).contains('categories', [category]);
+            try { catQ = catQ.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
+            const { data, error } = await catQ;
             if (error) {
                 console.error('GET /api/manufacturers 查詢失敗:', error);
                 return res.status(500).json({ error: '查詢廠商失敗' });
@@ -8056,11 +8254,8 @@ app.get('/api/manufacturers', async (req, res) => {
             const start = (page - 1) * per_page;
             manufacturers = manufacturers.slice(start, start + per_page);
         } else {
-            let query = supabase
-                .from('manufacturers')
-                .select(baseSelect)
-                .eq('is_active', true)
-                .order('rating', { ascending: false });
+            let query = supabase.from('manufacturers').select(baseSelect).eq('is_active', true).order('rating', { ascending: false });
+            try { query = query.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
             if (q) {
                 query = query.or(`name.ilike.%${q}%,description.ilike.%${q}%`);
             }
@@ -8109,16 +8304,16 @@ app.get('/api/manufacturers', async (req, res) => {
 });
 
 // GET /api/manufacturers/:id — 單一廠商詳情（vendor-profile.html 用）
-// 不篩 is_active：從靈感牆對照圖/系列圖點進來的廠商應能開啟詳情頁（廠商上傳的作品即視為可展示）
+// 不篩 is_active：從靈感牆對照圖/系列圖點進來的廠商應能開啟詳情頁；若已過 expires_at 則 404
 app.get('/api/manufacturers/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const fullSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, is_active';
+        const fullSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, is_active, expires_at';
         let resq = await supabase.from('manufacturers').select(fullSelect).eq('id', id).maybeSingle();
 
         if (resq.error) {
             console.warn('GET /api/manufacturers/:id 完整查詢失敗:', resq.error.code, resq.error.message);
-            resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories').eq('id', id).maybeSingle();
+            resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories, expires_at').eq('id', id).maybeSingle();
             if (!resq.error && resq.data) {
                 resq.data.rating = null;
                 resq.data.capabilities = null;
@@ -8134,6 +8329,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         }
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '廠商不存在' });
+        if (mfr.expires_at && new Date(mfr.expires_at) <= new Date()) return res.status(404).json({ error: '此廠商已過公開期。如需繼續曝光請至挖貝升級付費方案。' });
 
         let portfolio = [];
         const portRes = await supabase
@@ -8180,7 +8376,9 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
         let portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_FULL);
         if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
         if (category && category !== 'default') {
-            const { data: mfrIds } = await supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
+            let mfrQ = supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
+            try { mfrQ = mfrQ.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
+            const { data: mfrIds } = await mfrQ;
             const ids = (mfrIds || []).map(m => m.id);
             if (ids.length === 0) return res.json({ items: [] });
             portfolioQuery = portfolioQuery.in('manufacturer_id', ids);
@@ -8194,7 +8392,9 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
             portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_BASE);
             if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
             if (category && category !== 'default') {
-                const { data: mfrIds2 } = await supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
+                let mfrQ2 = supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
+                try { mfrQ2 = mfrQ2.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
+                const { data: mfrIds2 } = await mfrQ2;
                 const ids2 = (mfrIds2 || []).map(m => m.id);
                 if (ids2.length === 0) return res.json({ items: [] });
                 portfolioQuery = portfolioQuery.in('manufacturer_id', ids2);
@@ -8284,9 +8484,15 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         const mainFile = mainFiles[0] || null;
         const beforeFile = (files.image_before && files.image_before[0]) || null;
 
+        const { data: mfr } = await supabase.from('manufacturers').select('id, user_id, vendor_source').eq('id', manufacturerId).single();
+        if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
+        const isAdmin = await isAdminUserId(user.id);
+        if (mfr.user_id !== user.id && !isAdmin) return res.status(403).json({ error: '僅廠商本人或管理員可上傳作品' });
+        if (mfr.vendor_source === 'seed' && mfr.user_id === user.id) return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+
         const canUploadSeriesFree = await canEditMediaCollections(user.id);
         const canUploadBeforeFree = await canUploadPortfolioBeforeFree(user.id);
-        if (mainFile && !canUploadSeriesFree && !beforeFile) {
+        if (!isAdmin && mainFile && !canUploadSeriesFree && !beforeFile) {
             const balanceAfter = await deductPortfolioSeriesPoints(user.id);
             if (balanceAfter === null) {
                 return res.status(403).json({ error: '系列圖需 1800 方案、測試員或付 600 點（點數不足）' });
@@ -8295,9 +8501,6 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         if (mainFiles.length === 0 && !beforeFile && !bodyImageUrl) {
             return res.status(400).json({ error: '請上傳系列圖（多張可），或對照圖前、後兩張' });
         }
-
-        const { data: mfr } = await supabase.from('manufacturers').select('id').eq('id', manufacturerId).single();
-        if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
 
         let imageUrl = bodyImageUrl;
         let seriesImageUrls = [];
@@ -8323,7 +8526,7 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
             imageUrlBefore = publicUrl;
             beforeFileUsedAsBefore = true;
         }
-        if (beforeFileUsedAsBefore && !canUploadBeforeFree) {
+        if (!isAdmin && beforeFileUsedAsBefore && !canUploadBeforeFree) {
             const balanceAfter = await deductPortfolioBeforePoints(user.id);
             if (balanceAfter === null) {
                 return res.status(403).json({ error: '對照圖需 300/900/1800 方案、測試員或付 400 點（點數不足）' });
@@ -8408,6 +8611,12 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
             }
         }
 
+        const { data: mfrPut } = await supabase.from('manufacturers').select('user_id, vendor_source').eq('id', manufacturerId).single();
+        if (!mfrPut) return res.status(404).json({ error: '找不到該廠商' });
+        const isAdminPut = await isAdminUserId(user.id);
+        if (mfrPut.user_id !== user.id && !isAdminPut) return res.status(403).json({ error: '僅廠商本人或管理員可編輯作品' });
+        if (mfrPut.vendor_source === 'seed' && mfrPut.user_id === user.id) return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+
         const { data: row } = await supabase.from('manufacturer_portfolio').select('id, image_url, image_url_before').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該作品' });
 
@@ -8468,7 +8677,14 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
 // DELETE /api/manufacturers/:manufacturerId/portfolio/:portfolioId — 刪除廠商作品圖
 app.delete('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', async (req, res) => {
     try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
         const { manufacturerId, portfolioId } = req.params;
+        const { data: mfrDel } = await supabase.from('manufacturers').select('user_id, vendor_source').eq('id', manufacturerId).single();
+        if (!mfrDel) return res.status(404).json({ error: '找不到該廠商' });
+        const isAdminDel = await isAdminUserId(user.id);
+        if (mfrDel.user_id !== user.id && !isAdminDel) return res.status(403).json({ error: '僅廠商本人或管理員可刪除作品' });
+        if (mfrDel.vendor_source === 'seed' && mfrDel.user_id === user.id) return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
         const { data: row } = await supabase.from('manufacturer_portfolio').select('id').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該作品' });
         const { error } = await supabase.from('manufacturer_portfolio').delete().eq('id', portfolioId);
@@ -8485,21 +8701,27 @@ app.delete('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', async (r
 
 // ---------- 廠商素材庫（設計端參考圖來源；依設計當下分類載入；必顯示廠商名稱與連結）----------
 // GET /api/vendor-assets — 設計端選圖用。分類素材池：必傳 category_key；個別廠商版型庫：可只傳 manufacturer_id
+// 一般使用者不顯示種子廠商素材（智慧財產權）；僅管理員可見
 app.get('/api/vendor-assets', async (req, res) => {
     try {
+        const isAdmin = await getRequestAdminFlag(req);
         const categoryKey = (req.query.category_key || '').trim() || null;
         const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
+        const styleKey = (req.query.style_key || '').trim() || null;
+        const materialKey = (req.query.material_key || '').trim() || null;
         const manufacturerId = (req.query.manufacturer_id || '').trim() || null;
         if (!categoryKey && !manufacturerId) return res.status(400).json({ error: '請傳入 category_key（分類素材池）或 manufacturer_id（個別廠商版型庫）' });
 
         let query = supabase
             .from('vendor_assets')
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key')
             .eq('is_public', true)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
         if (categoryKey) query = query.eq('category_key', categoryKey);
         if (subcategoryKey) query = query.eq('subcategory_key', subcategoryKey);
+        if (styleKey) query = query.eq('style_key', styleKey);
+        if (materialKey) query = query.eq('material_key', materialKey);
         if (manufacturerId) query = query.eq('manufacturer_id', manufacturerId);
 
         const { data: rows, error } = await query;
@@ -8508,13 +8730,17 @@ app.get('/api/vendor-assets', async (req, res) => {
             console.error('GET /api/vendor-assets 失敗:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        const list = rows || [];
+        let list = rows || [];
         const mfrIds = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))];
         let mfrMap = {};
         if (mfrIds.length) {
-            const { data: mfrs } = await supabase.from('manufacturers').select('id, name').in('id', mfrIds).eq('is_active', true);
+            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, vendor_source').in('id', mfrIds).eq('is_active', true);
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
         }
+        if (!isAdmin) list = list.filter(r => {
+            const mfr = mfrMap[r.manufacturer_id];
+            return !mfr || mfr.vendor_source !== 'seed';
+        });
         const items = list.map(r => ({
             id: r.id,
             manufacturer_id: r.manufacturer_id,
@@ -8525,6 +8751,8 @@ app.get('/api/vendor-assets', async (req, res) => {
             image_url: r.image_url,
             usage_type: r.usage_type,
             sort_order: r.sort_order,
+            style_key: r.style_key || null,
+            material_key: r.material_key || null,
             manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
             manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null
         }));
@@ -8543,7 +8771,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const categoryKey = (req.query.category_key || '').trim() || null;
         let query = supabase
             .from('vendor_assets')
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, created_at, updated_at')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, created_at, updated_at')
             .eq('manufacturer_id', manufacturerId)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
@@ -8561,36 +8789,42 @@ app.get('/api/me/vendor-assets', async (req, res) => {
     }
 });
 
-// POST /api/me/vendor-assets — 廠商上傳素材（需登入且已建立廠商資料）
+// POST /api/me/vendor-assets — 廠商上傳素材（需登入且已建立廠商資料）；種子廠商不得上傳
 app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+        if (mfrVa && mfrVa.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
         const body = req.body || {};
         const categoryKey = (body.category_key || '').trim();
         if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
         const subcategoryKey = (body.subcategory_key || '').trim() || null;
         const title = (body.title || '').trim() || null;
         const description = (body.description || '').trim() || null;
-        const usageType = (body.usage_type || 'reference_only').trim() || 'reference_only';
+        const styleKey = (body.style_key || '').trim() || null;
+        const materialKey = (body.material_key || '').trim() || null;
 
         const file = req.file;
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
 
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
+        const insertPayload = {
+            manufacturer_id: manufacturerId,
+            category_key: categoryKey,
+            subcategory_key: subcategoryKey,
+            title: title,
+            description: description,
+            image_url: publicUrl,
+            usage_type: (body.usage_type || 'reference_only').trim() || 'reference_only',
+            is_public: true,
+            sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0
+        };
+        if (styleKey) insertPayload.style_key = styleKey;
+        if (materialKey) insertPayload.material_key = materialKey;
         const { data: inserted, error } = await supabase
             .from('vendor_assets')
-            .insert({
-                manufacturer_id: manufacturerId,
-                category_key: categoryKey,
-                subcategory_key: subcategoryKey,
-                title: title,
-                description: description,
-                image_url: publicUrl,
-                usage_type: usageType,
-                is_public: true,
-                sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0
-            })
+            .insert(insertPayload)
             .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, created_at')
             .single();
         if (error) {
@@ -8604,11 +8838,13 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
     }
 });
 
-// PUT /api/me/vendor-assets/:id — 更新廠商素材（僅本人廠商）
+// PUT /api/me/vendor-assets/:id — 更新廠商素材（僅本人廠商）；種子廠商不得編輯
 app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        const { data: mfrVaPut } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+        if (mfrVaPut && mfrVaPut.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
         const id = req.params.id;
         const body = req.body || {};
         const { data: row } = await supabase.from('vendor_assets').select('id, image_url, category_key').eq('id', id).eq('manufacturer_id', manufacturerId).single();
@@ -8621,6 +8857,8 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.description !== undefined) updates.description = (body.description || '').trim() || null;
         if (body.usage_type !== undefined) updates.usage_type = (body.usage_type || 'reference_only').trim() || 'reference_only';
         if (body.sort_order !== undefined) updates.sort_order = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
+        if (body.style_key !== undefined) updates.style_key = (body.style_key || '').trim() || null;
+        if (body.material_key !== undefined) updates.material_key = (body.material_key || '').trim() || null;
 
         const file = req.file;
         if (file) {
@@ -8628,7 +8866,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             updates.image_url = publicUrl;
         }
 
-        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, updated_at').single();
+        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, updated_at').single();
         if (error) {
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
@@ -8640,11 +8878,13 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
     }
 });
 
-// DELETE /api/me/vendor-assets/:id — 刪除廠商素材（僅本人廠商）
+// DELETE /api/me/vendor-assets/:id — 刪除廠商素材（僅本人廠商）；種子廠商不得刪除
 app.delete('/api/me/vendor-assets/:id', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        const { data: mfrVaDel } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+        if (mfrVaDel && mfrVaDel.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
         const id = req.params.id;
         const { data: row } = await supabase.from('vendor_assets').select('id').eq('id', id).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該素材' });
@@ -8745,11 +8985,23 @@ async function getMeManufacturerId(req, res) {
     return mfr.id;
 }
 
-// POST /api/me/manufacturer/collections — 建立資料夾（需登入且為廠商）
+// 種子廠商不得寫入時回傳 403（在 getMeManufacturerId 之後呼叫，傳入 manufacturerId）
+async function rejectSeedManufacturerWrite(manufacturerId, res) {
+    if (!manufacturerId) return true;
+    const { data: mfr } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+    if (mfr && mfr.vendor_source === 'seed') {
+        res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        return true;
+    }
+    return false;
+}
+
+// POST /api/me/manufacturer/collections — 建立資料夾（需登入且為廠商）；種子廠商不得建立
 app.post('/api/me/manufacturer/collections', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
         const body = req.body || {};
         const title = (body.title || '').trim();
         if (!title) return res.status(400).json({ error: '請填寫資料夾名稱' });
@@ -8777,11 +9029,12 @@ app.post('/api/me/manufacturer/collections', express.json(), async (req, res) =>
     }
 });
 
-// PUT /api/me/manufacturer/collections/:id — 更新資料夾
+// PUT /api/me/manufacturer/collections/:id — 更新資料夾；種子廠商不得編輯
 app.put('/api/me/manufacturer/collections/:id', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
         const collectionId = req.params.id;
         const { data: existing } = await supabase
             .from('manufacturer_collections')
@@ -8816,11 +9069,12 @@ app.put('/api/me/manufacturer/collections/:id', express.json(), async (req, res)
     }
 });
 
-// DELETE /api/me/manufacturer/collections/:id — 刪除資料夾
+// DELETE /api/me/manufacturer/collections/:id — 刪除資料夾；種子廠商不得刪除
 app.delete('/api/me/manufacturer/collections/:id', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
         const collectionId = req.params.id;
         const { data: existing } = await supabase
             .from('manufacturer_collections')
@@ -8841,11 +9095,12 @@ app.delete('/api/me/manufacturer/collections/:id', async (req, res) => {
     }
 });
 
-// POST /api/me/manufacturer/collections/:id/items — 將作品加入資料夾（body: portfolio_id）
+// POST /api/me/manufacturer/collections/:id/items — 將作品加入資料夾（body: portfolio_id）；種子廠商不得編輯
 app.post('/api/me/manufacturer/collections/:id/items', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
         const collectionId = req.params.id;
         const { data: coll } = await supabase
             .from('manufacturer_collections')
@@ -8880,11 +9135,12 @@ app.post('/api/me/manufacturer/collections/:id/items', express.json(), async (re
     }
 });
 
-// DELETE /api/me/manufacturer/collections/:id/items/:portfolioId — 從資料夾移除作品
+// DELETE /api/me/manufacturer/collections/:id/items/:portfolioId — 從資料夾移除作品；種子廠商不得編輯
 app.delete('/api/me/manufacturer/collections/:id/items/:portfolioId', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
         const { id: collectionId, portfolioId } = req.params;
         const { data: coll } = await supabase
             .from('manufacturer_collections')

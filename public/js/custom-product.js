@@ -142,6 +142,7 @@ $(document).ready(function () {
     const MAX_REF_IMAGES = 8;
     let refDataUrls = []; // length 8, null = 空
     let refDescs = [];
+    let refSources = []; // 與 refDataUrls 對齊，來自廠商素材時存 { vendor_asset_id, manufacturer_id, manufacturer_name, manufacturer_profile_url, image_url }
     let currentAddSlot = 0;
     let selectedRefIndex = 0; // 目前選中的參考圖索引（對應上方縮圖與下方卡片）
 
@@ -150,6 +151,8 @@ $(document).ready(function () {
         refDataUrls = refDataUrls.slice(0, MAX_REF_IMAGES);
         while (refDescs.length < MAX_REF_IMAGES) refDescs.push('');
         refDescs = refDescs.slice(0, MAX_REF_IMAGES);
+        while (refSources.length < MAX_REF_IMAGES) refSources.push(null);
+        refSources = refSources.slice(0, MAX_REF_IMAGES);
     }
 
     function updateRefSelection() {
@@ -177,6 +180,7 @@ $(document).ready(function () {
                     ev.stopPropagation();
                     refDataUrls[i] = null;
                     refDescs[i] = '';
+                    refSources[i] = null;
                     renderRefSlots();
                     renderRefCards();
                 }));
@@ -300,8 +304,13 @@ $(document).ready(function () {
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
         }
+        var styleKey = ($('#vendorAssetsStyleKey').val() || '').trim();
+        var materialKey = ($('#vendorAssetsMaterialKey').val() || '').trim();
         var url = '/api/vendor-assets?category_key=' + encodeURIComponent(mainKey);
         if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
+        if (styleKey) url += '&style_key=' + encodeURIComponent(styleKey);
+        if (materialKey) url += '&material_key=' + encodeURIComponent(materialKey);
+        try { window.__vendorAssetsFetchParams = { mode: 'category', mainKey: mainKey, subKey: subKey }; } catch (e) {}
         fetch(url).then(function (r) { return r.json(); }).then(function (data) {
             $loading.addClass('d-none');
             var items = (data && data.items) ? data.items : [];
@@ -315,9 +324,12 @@ $(document).ready(function () {
                 var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
-                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
+                var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
+                var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
+                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '" data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
                 $card.find('.vendor-asset-card').on('click', function () {
-                    var u = $(this).attr('data-image-url');
+                    var $c = $(this);
+                    var u = $c.attr('data-image-url');
                     if (!u) return;
                     fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
                         return new Promise(function (resolve, reject) {
@@ -331,6 +343,13 @@ $(document).ready(function () {
                         var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
                         if (firstEmpty >= 0) {
                             refDataUrls[firstEmpty] = dataUrl;
+                            refSources[firstEmpty] = {
+                                vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
+                                manufacturer_id: $c.attr('data-manufacturer-id') || null,
+                                manufacturer_name: $c.attr('data-manufacturer-name') || '',
+                                manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
+                                image_url: u
+                            };
                             renderRefSlots();
                             renderRefCards();
                         }
@@ -343,6 +362,72 @@ $(document).ready(function () {
             $loading.addClass('d-none').text('');
             $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
         });
+    });
+
+    // 素材池篩選「套用」：依目前造型/材質重新載入列表（需先開過素材庫或廠商版型庫）
+    $('#vendorAssetsApplyFilter').on('click', function () {
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        if (!params) return;
+        var styleKey = ($('#vendorAssetsStyleKey').val() || '').trim();
+        var materialKey = ($('#vendorAssetsMaterialKey').val() || '').trim();
+        var url = '';
+        if (params.mode === 'category' && params.mainKey) {
+            url = '/api/vendor-assets?category_key=' + encodeURIComponent(params.mainKey);
+            if (params.subKey) url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+        } else if (params.mode === 'manufacturer' && params.manufacturerId) {
+            url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(params.manufacturerId);
+        } else return;
+        if (styleKey) url += '&style_key=' + encodeURIComponent(styleKey);
+        if (materialKey) url += '&material_key=' + encodeURIComponent(materialKey);
+        var $list = $('#vendorAssetsList');
+        var $empty = $('#vendorAssetsEmpty');
+        var $loading = $('#vendorAssetsLoading');
+        var modalEl = document.getElementById('vendorAssetsPickerModal');
+        $list.empty().addClass('d-none');
+        $empty.addClass('d-none');
+        $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            $loading.addClass('d-none');
+            var items = (data && data.items) ? data.items : [];
+            if (!items.length) {
+                $empty.removeClass('d-none').text(params.mode === 'manufacturer' ? (t('customProduct.vendorBaseEmpty') || '此廠商尚無版型素材。') : '此分類下尚無符合條件的素材。');
+                return;
+            }
+            $list.removeClass('d-none');
+            items.forEach(function (item) {
+                var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
+                var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
+                var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
+                var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
+                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '" data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
+                $card.find('.vendor-asset-card').on('click', function () {
+                    var $c = $(this);
+                    var u = $c.attr('data-image-url');
+                    if (!u) return;
+                    fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
+                        return new Promise(function (resolve, reject) {
+                            var reader = new FileReader();
+                            reader.onload = function () { resolve(reader.result); };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                    }).then(function (dataUrl) {
+                        ensureRefArrays();
+                        var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
+                        if (firstEmpty >= 0) {
+                            refDataUrls[firstEmpty] = dataUrl;
+                            refSources[firstEmpty] = { vendor_asset_id: $c.attr('data-vendor-asset-id') || null, manufacturer_id: $c.attr('data-manufacturer-id') || null, manufacturer_name: $c.attr('data-manufacturer-name') || '', manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '', image_url: u };
+                            renderRefSlots();
+                            renderRefCards();
+                        }
+                        if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
+                    }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+                });
+                $list.append($card);
+            });
+        }).catch(function () { $loading.addClass('d-none'); $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗'); });
     });
 
     // 從此廠商版型庫選擇：僅當 URL 帶 manufacturer_id 時顯示按鈕，依廠商載入其版型後選圖加入參考圖
@@ -365,7 +450,12 @@ $(document).ready(function () {
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
         }
+        var styleKey = ($('#vendorAssetsStyleKey').val() || '').trim();
+        var materialKey = ($('#vendorAssetsMaterialKey').val() || '').trim();
         var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(refVendorMfrId);
+        if (styleKey) url += '&style_key=' + encodeURIComponent(styleKey);
+        if (materialKey) url += '&material_key=' + encodeURIComponent(materialKey);
+        try { window.__vendorAssetsFetchParams = { mode: 'manufacturer', manufacturerId: refVendorMfrId }; } catch (e) {}
         fetch(url).then(function (r) { return r.json(); }).then(function (data) {
             $loading.addClass('d-none');
             var items = (data && data.items) ? data.items : [];
@@ -379,9 +469,12 @@ $(document).ready(function () {
                 var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
-                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
+                var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
+                var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
+                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '" data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
                 $card.find('.vendor-asset-card').on('click', function () {
-                    var u = $(this).attr('data-image-url');
+                    var $c = $(this);
+                    var u = $c.attr('data-image-url');
                     if (!u) return;
                     fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
                         return new Promise(function (resolve, reject) {
@@ -395,6 +488,13 @@ $(document).ready(function () {
                         var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
                         if (firstEmpty >= 0) {
                             refDataUrls[firstEmpty] = dataUrl;
+                            refSources[firstEmpty] = {
+                                vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
+                                manufacturer_id: $c.attr('data-manufacturer-id') || null,
+                                manufacturer_name: $c.attr('data-manufacturer-name') || '',
+                                manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
+                                image_url: u
+                            };
                             renderRefSlots();
                             renderRefCards();
                         }
@@ -759,19 +859,24 @@ $(document).ready(function () {
             }
             var mainKey = $('#imageCategoryMainSelect').val() || '';
             var subKey = $('#imageCategorySubSelect').val() || '';
+            var refSourcesList = (typeof refSources !== 'undefined' && Array.isArray(refSources)) ? refSources.filter(Boolean) : [];
+            var firstRefImageUrl = refSourcesList.length && refSourcesList[0].image_url ? refSourcesList[0].image_url : null;
+            var payload = {
+                title: title,
+                description: description,
+                category_key: mainKey || null,
+                subcategory_key: subKey || null,
+                generation_prompt: promptText || null,
+                generation_seed: seedToSave != null ? seedToSave : null,
+                ai_generated_image_url: imageUrl
+            };
+            if (firstRefImageUrl) payload.reference_image_url = firstRefImageUrl;
+            if (refSourcesList.length) payload.reference_sources = refSourcesList;
             btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>儲存中...');
             fetch('/api/custom-products', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                body: JSON.stringify({
-                    title: title,
-                    description: description,
-                    category_key: mainKey || null,
-                    subcategory_key: subKey || null,
-                    generation_prompt: promptText || null,
-                    generation_seed: seedToSave != null ? seedToSave : null,
-                    ai_generated_image_url: imageUrl
-                })
+                body: JSON.stringify(payload)
             })
                 .then(function (res) { return res.text().then(function (text) {
                     var data = {};
@@ -911,6 +1016,7 @@ $(document).ready(function () {
                     var showOnHomepage = p.show_on_homepage === true;
                     var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
                     var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
+                    var refSourcesJson = (p.reference_sources && Array.isArray(p.reference_sources) && p.reference_sources.length) ? JSON.stringify(p.reference_sources) : '';
                     var $cell = $('<div class="past-item-wrap"></div>').attr({
                         'data-image-url': url,
                         'data-prompt': promptText,
@@ -919,7 +1025,8 @@ $(document).ready(function () {
                         'data-product-id': p.id || '',
                         'data-show-on-homepage': showOnHomepage ? '1' : '0',
                         'data-category-key': catKey,
-                        'data-subcategory-key': subKey
+                        'data-subcategory-key': subKey,
+                        'data-reference-sources': refSourcesJson
                     });
                     $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
                     var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
@@ -934,7 +1041,7 @@ $(document).ready(function () {
                 try {
                     if (products && products.length > 0) {
                         var toCache = products.slice(0, 30).map(function (p) {
-                            return { id: p.id, ai_generated_image_url: p.ai_generated_image_url, reference_image_url: p.reference_image_url, generation_prompt: p.generation_prompt, generation_seed: p.generation_seed, title: p.title, owner_display: p.owner_display, owner_email: p.owner_email, show_on_homepage: p.show_on_homepage, category: p.category, subcategory_key: p.subcategory_key, analysis_json: p.analysis_json };
+                            return { id: p.id, ai_generated_image_url: p.ai_generated_image_url, reference_image_url: p.reference_image_url, generation_prompt: p.generation_prompt, generation_seed: p.generation_seed, title: p.title, owner_display: p.owner_display, owner_email: p.owner_email, show_on_homepage: p.show_on_homepage, category: p.category, subcategory_key: p.subcategory_key, analysis_json: p.analysis_json, reference_sources: p.reference_sources };
                         });
                         sessionStorage.setItem('customProductGalleryCache', JSON.stringify({ products: toCache, ownerDisplay: galleryOwnerDisplay, ts: Date.now() }));
                     }
@@ -1056,6 +1163,23 @@ $(document).ready(function () {
         $('#pastItemModalPrompt').text(prompt || '（無）');
         $('#pastItemModalSeed').text(seed || '（無）');
         $('#pastItemModalOwner').text(ownerDisplay || ('（' + t('customProduct.thisGeneration') + '）'));
+        var refSourcesRaw = wrap.attr('data-reference-sources') || '';
+        var refSourcesList = [];
+        try { if (refSourcesRaw) refSourcesList = JSON.parse(refSourcesRaw); } catch (e) {}
+        if (Array.isArray(refSourcesList) && refSourcesList.length > 0) {
+            var refHtml = '';
+            refSourcesList.forEach(function (s) {
+                var imgUrl = (s.image_url || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                var mfrName = (s.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var profileUrl = (s.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
+                refHtml += '<a href="' + profileUrl + '" target="_blank" rel="noopener" class="text-decoration-none d-inline-block" title="' + mfrName + '"><img src="' + imgUrl + '" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.3);"><span class="d-block small text-white mt-0">' + mfrName + '</span></a>';
+            });
+            $('#pastItemModalRefSourcesInner').html(refHtml);
+            $('#pastItemModalRefSources').removeClass('d-none');
+        } else {
+            $('#pastItemModalRefSourcesInner').empty();
+            $('#pastItemModalRefSources').addClass('d-none');
+        }
         var $showSection = $('#pastItemModalShowSection');
         var $checkbox = $('#pastItemModalShowOnHomepage');
         var catKey = (wrap.attr('data-category-key') || '').trim();
@@ -1201,6 +1325,7 @@ $(document).ready(function () {
             var showOnHomepage = p.show_on_homepage === true;
             var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
             var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
+            var refSourcesJson = (p.reference_sources && Array.isArray(p.reference_sources) && p.reference_sources.length) ? JSON.stringify(p.reference_sources) : '';
             var $cell = $('<div class="past-item-wrap"></div>').attr({
                 'data-image-url': url,
                 'data-prompt': promptText,
@@ -1209,7 +1334,8 @@ $(document).ready(function () {
                 'data-product-id': p.id || '',
                 'data-show-on-homepage': showOnHomepage ? '1' : '0',
                 'data-category-key': catKey,
-                'data-subcategory-key': subKey
+                'data-subcategory-key': subKey,
+                'data-reference-sources': refSourcesJson
             });
             $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
             var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');

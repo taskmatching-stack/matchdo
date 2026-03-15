@@ -47,6 +47,10 @@
         </div>
     </div>
 
+    <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert">
+        <i class="bi bi-info-circle me-2"></i>您為種子廠商，由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。
+    </div>
+
     <div class="container py-4">
         <div id="auth-alert" class="alert alert-warning d-none"><span data-i18n="portfolio.authRequired">請先</span><a href="/index.html" class="alert-link" data-i18n="portfolio.login">登入</a><span data-i18n="portfolio.authSuffix">。</span></div>
         <div id="no-mfr-alert" class="alert alert-warning d-none">
@@ -284,6 +288,7 @@
     (function () {
         var token = null;
         var mfrId = null;
+        var isSeedVendor = false;
         var customCategories = [];
         var remakeCategories = [];
         var portfolioItems = [];
@@ -346,6 +351,12 @@
                 }
                 const mfr = await r.json();
                 mfrId = mfr.id;
+                isSeedVendor = (mfr.vendor_source === 'seed');
+                if (isSeedVendor) {
+                    document.getElementById('seed-vendor-banner').classList.remove('d-none');
+                    var btnAdd = document.getElementById('btn-add-open');
+                    if (btnAdd) btnAdd.classList.add('d-none');
+                }
                 document.getElementById('main-content').classList.remove('d-none');
                 document.title = tr('portfolio.pageTitle') + (isEn ? ' - MatchDO' : ' - MatchDO 合做');
                 try {
@@ -494,7 +505,7 @@
             var grid = document.getElementById('portfolio-grid');
             if (!portfolioItems.length) {
                 grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + tr('portfolio.noWorksYet') + '</p></div>';
-                openAddForm();
+                if (!isSeedVendor) openAddForm();
                 return;
             }
             var unnamed = tr('portfolio.unnamed');
@@ -510,8 +521,8 @@
                     (p.design_highlight ? '<div class="text-muted small text-truncate mb-2">' + esc(p.design_highlight) + '</div>' : '') +
                     ((p.tags || []).length ? '<div class="mb-2">' + p.tags.slice(0,3).map(function(t){ return '<span class="badge bg-light text-secondary border me-1">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
                     '<div class="d-flex gap-2 mt-2">' +
-                    '<button class="btn btn-outline-primary btn-sm flex-fill" onclick="window._editPortfolio(\'' + p.id + '\')"><i class="bi bi-pencil me-1"></i>' + editLabel + '</button>' +
-                    '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || unnamed).replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>' +
+                    (isSeedVendor ? '<span class="text-muted small">由平台代為維護</span>' : ('<button class="btn btn-outline-primary btn-sm flex-fill" onclick="window._editPortfolio(\'' + p.id + '\')"><i class="bi bi-pencil me-1"></i>' + editLabel + '</button>' +
+                    '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || unnamed).replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>')) +
                     '</div></div></div></div>';
             }).join('');
         }
@@ -725,6 +736,7 @@
         }
 
         window._editPortfolio = function (pid) {
+            if (isSeedVendor) { alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。'); return; }
             var p = portfolioItems.find(function (x) { return x.id == pid; });
             if (!p) return;
             document.getElementById('edit-id').value = p.id;
@@ -788,6 +800,7 @@
         };
 
         window._deletePortfolio = function (pid, title) {
+            if (isSeedVendor) { alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。'); return; }
             deleteTargetId = pid;
             var msg = (tr('portfolio.deleteConfirm') || '確定要刪除「{title}」？此操作無法還原。').replace(/\{title\}/g, title);
             document.getElementById('delete-confirm-text').textContent = msg;

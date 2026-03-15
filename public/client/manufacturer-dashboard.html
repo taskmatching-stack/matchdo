@@ -37,11 +37,15 @@
                     <h4 class="mb-0 fw-bold">廠商控制台</h4>
                     <small class="text-muted" id="mfr-name">載入中…</small>
                 </div>
-                <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-primary">
+                <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-primary" id="btn-edit-mfr">
                     <i class="bi bi-pencil me-1"></i>編輯廠商資料
                 </a>
             </div>
         </div>
+    </div>
+
+    <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert">
+        <i class="bi bi-info-circle me-2"></i>您為種子廠商，由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。
     </div>
 
     <div class="container py-4">
@@ -300,6 +304,18 @@
                 mfrId = mfr.id;
                 document.getElementById('mfr-name').textContent = mfr.name || '廠商';
                 document.getElementById('link-preview').href = '/vendor-profile.html?id=' + mfrId;
+                if (mfr.vendor_source === 'seed') {
+                    document.getElementById('seed-vendor-banner').classList.remove('d-none');
+                    var btnEdit = document.getElementById('btn-edit-mfr');
+                    if (btnEdit) {
+                        btnEdit.removeAttribute('href');
+                        btnEdit.href = '#';
+                        btnEdit.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。');
+                        });
+                    }
+                }
                 var profileUrlInput = document.getElementById('mfr-profile-url');
                 if (profileUrlInput) {
                     var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';

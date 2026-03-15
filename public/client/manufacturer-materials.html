@@ -43,6 +43,10 @@
         </div>
     </div>
 
+    <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert">
+        <i class="bi bi-info-circle me-2"></i>您為種子廠商，由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。
+    </div>
+
     <div class="container py-4">
         <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
         <div id="no-mfr-alert" class="alert alert-warning d-none">
@@ -185,6 +189,7 @@
     <script>
     (function () {
         var token = null;
+        var isSeedVendor = false;
         var categories = [];
         var materials = [];
         var deleteTargetId = null;
@@ -278,17 +283,18 @@
             grid.innerHTML = list.map(function (m) {
                 var catName = catNames[m.category_key] || m.category_key || '—';
                 var usageLabel = m.usage_type === 'quotable' ? '可依此報價' : '僅參考';
+                var actionBtns = isSeedVendor
+                    ? '<span class="text-muted small">由平台代為維護</span>'
+                    : ('<button class="btn btn-outline-primary btn-sm flex-fill" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i>編輯</button>' +
+                       '<button class="btn btn-outline-danger btn-sm" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<img src="' + esc(m.image_url) + '" class="material-img" loading="lazy" alt="">' : '') +
                     '<div class="card-body p-3">' +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
                     '<div class="text-muted small mb-2">' + esc(catName) + ' · ' + usageLabel + '</div>' +
-                    '<div class="d-flex gap-2">' +
-                    '<button class="btn btn-outline-primary btn-sm flex-fill" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i>編輯</button>' +
-                    '<button class="btn btn-outline-danger btn-sm" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>' +
-                    '</div></div></div></div>';
+                    '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
-            grid.querySelectorAll('button[data-id]').forEach(function (btn) {
+            if (!isSeedVendor) grid.querySelectorAll('button[data-id]').forEach(function (btn) {
                 if (btn.classList.contains('btn-outline-danger')) {
                     btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
                 } else {
@@ -348,6 +354,7 @@
         });
 
         function openEditModal(id) {
+            if (isSeedVendor) { alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。'); return; }
             var m = materials.find(function (x) { return x.id === id; });
             if (!m) return;
             document.getElementById('edit-id').value = m.id;
@@ -390,6 +397,7 @@
         });
 
         function openDeleteModal(id, title) {
+            if (isSeedVendor) { alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。'); return; }
             deleteTargetId = id;
             document.getElementById('delete-confirm-text').textContent = '確定要刪除「' + (title || '此素材') + '」？';
             deleteModalEl = new bootstrap.Modal(document.getElementById('delete-modal'));
@@ -435,6 +443,12 @@
                     return;
                 }
                 if (!mfrRes.ok) throw new Error('載入廠商失敗');
+                var mfrData = await mfrRes.json();
+                isSeedVendor = (mfrData.vendor_source === 'seed');
+                if (isSeedVendor) {
+                    document.getElementById('seed-vendor-banner').classList.remove('d-none');
+                    document.getElementById('btn-add-open').classList.add('d-none');
+                }
                 document.getElementById('main-content').classList.remove('d-none');
                 await loadCategories();
                 await loadMaterials();

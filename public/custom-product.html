@@ -104,6 +104,7 @@
                             <div class="detail-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="pastItemModalSeed" class="detail-value"></span></div>
                             <div class="detail-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="pastItemModalOwner" class="detail-value"></span></div>
                         </div>
+                        <div id="pastItemModalRefSources" class="d-none mt-2 px-2 pb-2" style="background: rgba(0,0,0,.1); border-radius: 8px;"><span class="detail-label d-block small mb-1">引用來源</span><div id="pastItemModalRefSourcesInner" class="d-flex flex-wrap gap-2"></div></div>
                     </div>
                     <div id="pastItemModalShowSection" class="d-none">
                         <label class="d-flex align-items-center gap-2 mb-0">
@@ -146,6 +147,29 @@
                 </div>
                 <div class="modal-body py-2">
                     <p id="vendorAssetsCategoryHint" class="text-muted small mb-2">素材依您目前選擇的主分類載入；點選圖片即加入參考圖。</p>
+                    <div id="vendorAssetsFilterRow" class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <span class="small text-muted">篩選：</span>
+                        <select class="form-select form-select-sm" id="vendorAssetsStyleKey" style="width:auto;">
+                            <option value="">造型 — 全部</option>
+                            <option value="silhouette">服裝輪廓</option>
+                            <option value="accessories">配件</option>
+                            <option value="furniture">家具</option>
+                            <option value="bags">包袋</option>
+                            <option value="shoes">鞋類</option>
+                            <option value="other">其他</option>
+                        </select>
+                        <select class="form-select form-select-sm" id="vendorAssetsMaterialKey" style="width:auto;">
+                            <option value="">材質 — 全部</option>
+                            <option value="fabric">布料</option>
+                            <option value="leather">皮革</option>
+                            <option value="metal">金屬</option>
+                            <option value="wood">木材</option>
+                            <option value="plastic">塑料</option>
+                            <option value="ceramic">陶瓷</option>
+                            <option value="other">其他</option>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="vendorAssetsApplyFilter">套用</button>
+                    </div>
                     <div id="vendorAssetsList" class="row g-3"></div>
                     <p id="vendorAssetsEmpty" class="text-muted small mb-0 d-none">此分類下尚無廠商素材。</p>
                     <p id="vendorAssetsLoading" class="text-muted small mb-0 d-none">載入中…</p>

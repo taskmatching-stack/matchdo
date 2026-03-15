@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>種子廠商管理 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-3">種子廠商管理</h4>
+
+        <div class="alert alert-light border mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
+          <span class="fw-semibold">操作網址（請加入書籤）：</span>
+          <a href="/admin/seed-vendors.html" id="pageUrl" class="text-break">—</a>
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="btnCopyUrl" title="複製網址"><i class="bi bi-clipboard"></i> 複製</button>
+        </div>
+
+        <p class="text-muted small mb-3">
+          <strong>步驟一</strong>：下方「代為建立廠商資料」＝替該使用者建立一筆廠商資料（與前台既有廠商資料建立頁同一種資料，只是由管理員代建並設為種子）。<br>
+          <strong>步驟二</strong>：建立後，該廠商會出現在下方列表，再點該列的「上傳素材」即可<strong>代為上傳素材</strong>（數位版型／Base Models）。廠商本人可至前台廠商控制台「查看」，但種子期間不得編輯。
+        </p>
+
+        <!-- 步驟一：代為建立廠商資料（新增種子廠商） -->
+        <div class="card mb-4">
+          <div class="card-header bg-white py-2"><strong>步驟一：代為建立廠商資料</strong> <span class="text-muted small">（新增種子廠商，綁定使用者）</span></div>
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small mb-0">綁定使用者 <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" id="newUserSelect">
+                  <option value="">— 請選擇使用者 —</option>
+                </select>
+                <div class="form-text small">選一個已註冊的帳號，該帳號登入後即為此廠商</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-0">廠商名稱 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" id="newName" placeholder="必填" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-0">地點</label>
+                <input type="text" class="form-control form-control-sm" id="newLocation" placeholder="選填" />
+              </div>
+              <div class="col-md-8">
+                <label class="form-label small mb-0">簡短介紹</label>
+                <input type="text" class="form-control form-control-sm" id="newDescription" placeholder="選填" />
+              </div>
+              <div class="col-md-4 d-flex align-items-end gap-2">
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" id="newVerified" />
+                  <label class="form-check-label small" for="newVerified">顯示認證標章</label>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" id="btnCreateSeed">建立</button>
+              </div>
+              <div class="col-12 mt-2">
+                <label class="form-label small mb-1">聯繫與社群</label>
+                <div class="row g-2">
+                  <div class="col-6 col-md-4"><input type="text" class="form-control form-control-sm" id="newEmail" placeholder="Email" /></div>
+                  <div class="col-6 col-md-4"><input type="text" class="form-control form-control-sm" id="newPhone" placeholder="電話" /></div>
+                  <div class="col-6 col-md-4"><input type="text" class="form-control form-control-sm" id="newLineId" placeholder="LINE ID" /></div>
+                  <div class="col-6 col-md-4"><input type="text" class="form-control form-control-sm" id="newUrl" placeholder="官網 URL" /></div>
+                  <div class="col-6 col-md-4"><input type="text" class="form-control form-control-sm" id="newFacebook" placeholder="Facebook" /></div>
+                  <div class="col-6 col-md-4"><input type="text" class="form-control form-control-sm" id="newInstagram" placeholder="Instagram" /></div>
+                </div>
+                <div class="form-text small">選填，與廠商基本資料一致</div>
+              </div>
+            </div>
+            <p id="createMsg" class="small mb-0 mt-2 text-danger" style="display:none;"></p>
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <label class="form-label small mb-0">篩選</label>
+          <select class="form-select form-select-sm" id="filterType" style="width:auto;">
+            <option value="">全部廠商（含已轉付費）</option>
+            <option value="seed">僅種子廠商</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="btnReload"><i class="bi bi-arrow-clockwise me-1"></i>重新載入</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header bg-white py-2"><strong>已建立的廠商</strong> <span class="text-muted small">— 步驟二：點「上傳素材」可代為上傳該廠商的數位版型（素材）</span></div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover table-bordered mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>廠商名稱</th>
+                    <th>類型</th>
+                    <th>剩餘天數</th>
+                    <th>到期日</th>
+                    <th>廠商頁</th>
+                    <th>建立時間</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tableBody">
+                  <tr><td colspan="7" class="text-center text-muted">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p id="emptyList" class="text-muted small mt-2 mb-0" style="display:none;">尚無符合條件的廠商。</p>
+          </div>
+        </div>
+        <!-- 代為上傳素材 Modal（數位版型） -->
+        <div class="modal fade" id="uploadAssetModal" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h6 class="modal-title">代為上傳素材 — <span id="uploadMfrName"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <input type="hidden" id="uploadMfrId" />
+                <div class="mb-3">
+                  <label class="form-label small">主分類 <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" id="uploadCategory">
+                    <option value="">— 請選擇主分類 —</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small">子分類</label>
+                  <select class="form-select form-select-sm" id="uploadSubcategory">
+                    <option value="">— 選填 —</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small">標題</label>
+                  <input type="text" class="form-control form-control-sm" id="uploadTitle" placeholder="選填" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small">素材圖 <span class="text-danger">*</span></label>
+                  <input type="file" class="form-control form-control-sm" id="uploadImage" accept="image/*" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small">簡短介紹</label>
+                  <input type="text" class="form-control form-control-sm" id="uploadDescription" placeholder="選填" />
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label small">造型</label>
+                    <select class="form-select form-select-sm" id="uploadStyleKey">
+                      <option value="">— 選填 —</option>
+                      <option value="silhouette">服裝輪廓</option>
+                      <option value="accessories">配件</option>
+                      <option value="furniture">家具</option>
+                      <option value="bags">包袋</option>
+                      <option value="shoes">鞋類</option>
+                      <option value="other">其他</option>
+                    </select>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small">材質</label>
+                    <select class="form-select form-select-sm" id="uploadMaterialKey">
+                      <option value="">— 選填 —</option>
+                      <option value="fabric">布料</option>
+                      <option value="leather">皮革</option>
+                      <option value="metal">金屬</option>
+                      <option value="wood">木材</option>
+                      <option value="plastic">塑料</option>
+                      <option value="ceramic">陶瓷</option>
+                      <option value="other">其他</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="form-text small mb-2">造型與材質可幫助素材池篩選，避免同類圖混在一起</p>
+                <p id="uploadMsg" class="small mb-0 text-danger" style="display:none;"></p>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary btn-sm" id="uploadSubmit">上傳素材</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function() {
+  var items = [];
+  var allUsers = [];
+
+  function getToken() {
+    return (window.AuthService && typeof AuthService.getSession === 'function')
+      ? AuthService.getSession().then(function(s) { return s && (s.access_token || (s.session && s.session.access_token)); })
+      : Promise.resolve(null);
+  }
+
+  function loadUsersForSelect() {
+    getToken().then(function(token) {
+      if (!token) return;
+      Promise.all([
+        fetch('/api/admin/users', { headers: { Authorization: 'Bearer ' + token } }).then(function(r) { return r.ok ? r.json() : { users: [] }; }),
+        fetch('/api/admin/seed-manufacturers', { headers: { Authorization: 'Bearer ' + token } }).then(function(r) { return r.ok ? r.json() : { items: [] }; })
+      ]).then(function(results) {
+        var users = (results[0].users || []).filter(function(u) { return u.id; });
+        var mfrs = results[1].items || [];
+        var boundIds = {};
+        mfrs.forEach(function(m) { if (m.user_id) boundIds[m.user_id] = true; });
+        allUsers = users;
+        var sel = document.getElementById('newUserSelect');
+        sel.innerHTML = '<option value="">— 請選擇使用者 —</option>';
+        users.forEach(function(u) {
+          var opt = document.createElement('option');
+          opt.value = u.id;
+          var label = (u.email || '') + (u.full_name ? ' － ' + u.full_name : '');
+          if (boundIds[u.id]) label += ' [已綁定廠商]';
+          opt.textContent = label;
+          opt.disabled = !!boundIds[u.id];
+          sel.appendChild(opt);
+        });
+      });
+    });
+  }
+
+  function loadList(seedOnly) {
+    var tbody = document.getElementById('tableBody');
+    var emptyEl = document.getElementById('emptyList');
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">載入中…</td></tr>';
+    emptyEl.style.display = 'none';
+    getToken().then(function(token) {
+      if (!token) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">請先登入</td></tr>'; return; }
+      var url = '/api/admin/seed-manufacturers';
+      if (seedOnly) url += '?seed_only=1';
+      fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+        .then(function(r) {
+          if (!r.ok) throw new Error(r.status === 403 ? '無權限' : r.status === 401 ? '請重新登入' : '載入失敗');
+          return r.json();
+        })
+        .then(function(data) {
+          items = data.items || [];
+          renderTable(items);
+          if (items.length === 0) {
+            tbody.innerHTML = '';
+            emptyEl.style.display = 'block';
+          }
+        })
+        .catch(function(err) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">' + (err.message || '載入失敗') + '</td></tr>';
+        });
+    });
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      return isNaN(d.getTime()) ? iso : d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch (e) { return iso; }
+  }
+
+  function renderTable(list) {
+    var tbody = document.getElementById('tableBody');
+    tbody.innerHTML = list.map(function(m) {
+      var typeLabel = m.is_paid ? '<span class="badge bg-success">已轉付費</span>' : '<span class="badge bg-primary">種子</span>';
+      var daysCell = '—';
+      if (!m.is_paid && m.remaining_days !== null) {
+        daysCell = m.remaining_days === 0 ? '<span class="text-danger">已過期</span>' : (m.remaining_days + ' 天');
+      }
+      var expiresCell = m.expires_at ? formatDate(m.expires_at) : '—';
+      var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(m.id);
+      var createdCell = formatDate(m.created_at);
+      var mfrName = (m.name || '').replace(/"/g, '&quot;');
+      var actionCell = '<button type="button" class="btn btn-sm btn-outline-primary" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-upload me-1"></i>上傳素材</button>';
+      return '<tr>' +
+        '<td>' + (m.name ? escapeHtml(m.name) : '—') + '</td>' +
+        '<td>' + typeLabel + '</td>' +
+        '<td>' + daysCell + '</td>' +
+        '<td>' + expiresCell + '</td>' +
+        '<td><a href="' + profileUrl + '" target="_blank" rel="noopener">開啟廠商頁 <i class="bi bi-box-arrow-up-right small"></i></a></td>' +
+        '<td>' + createdCell + '</td>' +
+        '<td>' + actionCell + '</td>' +
+        '</tr>';
+    }).join('');
+    tbody.querySelectorAll('button[data-mfr-id]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.getElementById('uploadMfrId').value = btn.dataset.mfrId || '';
+        document.getElementById('uploadMfrName').textContent = btn.dataset.mfrName || '';
+        document.getElementById('uploadCategory').innerHTML = '<option value="">— 請選擇主分類 —</option>';
+        document.getElementById('uploadSubcategory').innerHTML = '<option value="">— 選填 —</option>';
+        document.getElementById('uploadTitle').value = '';
+        document.getElementById('uploadDescription').value = '';
+        document.getElementById('uploadImage').value = '';
+        document.getElementById('uploadStyleKey').value = '';
+        document.getElementById('uploadMaterialKey').value = '';
+        document.getElementById('uploadMsg').style.display = 'none';
+        fillUploadCategories();
+        var modal = new bootstrap.Modal(document.getElementById('uploadAssetModal'));
+        modal.show();
+      });
+    });
+  }
+
+  var uploadCategories = [];
+  function fillUploadCategories() {
+    if (uploadCategories.length) {
+      var sel = document.getElementById('uploadCategory');
+      sel.innerHTML = '<option value="">— 請選擇主分類 —</option>';
+      uploadCategories.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.key;
+        opt.textContent = c.name || c.key;
+        sel.appendChild(opt);
+      });
+      return;
+    }
+    fetch('/api/custom-product-categories').then(function(r) { return r.json(); }).then(function(d) {
+      uploadCategories = d.categories || [];
+      var sel = document.getElementById('uploadCategory');
+      sel.innerHTML = '<option value="">— 請選擇主分類 —</option>';
+      uploadCategories.forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.key;
+        opt.textContent = c.name || c.key;
+        sel.appendChild(opt);
+      });
+    }).catch(function() {});
+  }
+  document.getElementById('uploadCategory').addEventListener('change', function() {
+    var key = this.value;
+    var sub = document.getElementById('uploadSubcategory');
+    sub.innerHTML = '<option value="">— 選填 —</option>';
+    if (!key) return;
+    var cat = uploadCategories.find(function(c) { return c.key === key; });
+    if (cat && cat.subcategories && cat.subcategories.length) {
+      cat.subcategories.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.key || '';
+        opt.textContent = s.name || s.key || '';
+        sub.appendChild(opt);
+      });
+    }
+  });
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function setPageUrl() {
+    var a = document.getElementById('pageUrl');
+    var url = (window.location.origin || '') + '/admin/seed-vendors.html';
+    if (a) { a.href = url; a.textContent = url; }
+  }
+  document.getElementById('btnCopyUrl').addEventListener('click', function() {
+    var url = (window.location.origin || '') + '/admin/seed-vendors.html';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function() { alert('已複製網址'); }).catch(function() { prompt('請手動複製', url); });
+    } else { prompt('請手動複製', url); }
+  });
+
+  document.getElementById('btnCreateSeed').addEventListener('click', function() {
+    var userId = (document.getElementById('newUserSelect').value || '').trim();
+    var name = (document.getElementById('newName').value || '').trim();
+    var msgEl = document.getElementById('createMsg');
+    msgEl.style.display = 'none';
+    if (!userId) { msgEl.textContent = '請選擇要綁定的使用者'; msgEl.style.display = 'block'; return; }
+    if (!name) { msgEl.textContent = '請填寫廠商名稱'; msgEl.style.display = 'block'; return; }
+    var payload = { user_id: userId, name: name };
+    var loc = (document.getElementById('newLocation').value || '').trim();
+    if (loc) payload.location = loc;
+    var desc = (document.getElementById('newDescription').value || '').trim();
+    if (desc) payload.description = desc;
+    payload.verified = document.getElementById('newVerified').checked;
+    var contact = {};
+    var email = (document.getElementById('newEmail').value || '').trim();
+    if (email) contact.email = email;
+    var phone = (document.getElementById('newPhone').value || '').trim();
+    if (phone) contact.phone = phone;
+    var lineId = (document.getElementById('newLineId').value || '').trim();
+    if (lineId) contact.line_id = lineId;
+    var url = (document.getElementById('newUrl').value || '').trim();
+    if (url) contact.url = url;
+    var fb = (document.getElementById('newFacebook').value || '').trim();
+    if (fb) contact.facebook = fb;
+    var ig = (document.getElementById('newInstagram').value || '').trim();
+    if (ig) contact.instagram = ig;
+    if (Object.keys(contact).length) payload.contact_json = contact;
+    var btn = document.getElementById('btnCreateSeed');
+    btn.disabled = true;
+    getToken().then(function(token) {
+      if (!token) { msgEl.textContent = '請先登入'; msgEl.style.display = 'block'; btn.disabled = false; return; }
+      fetch('/api/admin/seed-manufacturer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload)
+      })
+        .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+        .then(function(result) {
+          if (result.ok) {
+            document.getElementById('newUserSelect').value = '';
+            document.getElementById('newName').value = '';
+            document.getElementById('newLocation').value = '';
+            document.getElementById('newDescription').value = '';
+            document.getElementById('newVerified').checked = false;
+            document.getElementById('newEmail').value = '';
+            document.getElementById('newPhone').value = '';
+            document.getElementById('newLineId').value = '';
+            document.getElementById('newUrl').value = '';
+            document.getElementById('newFacebook').value = '';
+            document.getElementById('newInstagram').value = '';
+            msgEl.textContent = '已建立。';
+            msgEl.classList.remove('text-danger');
+            msgEl.classList.add('text-success');
+            msgEl.style.display = 'block';
+            loadUsersForSelect();
+            loadList(document.getElementById('filterType').value === 'seed');
+          } else {
+            msgEl.textContent = result.data.error || '建立失敗';
+            msgEl.classList.remove('text-success');
+            msgEl.classList.add('text-danger');
+            msgEl.style.display = 'block';
+          }
+        })
+        .catch(function() { msgEl.textContent = '網路錯誤'; msgEl.style.display = 'block'; msgEl.classList.add('text-danger'); })
+        .finally(function() { btn.disabled = false; });
+    });
+  });
+
+  document.getElementById('uploadSubmit').addEventListener('click', function() {
+    var mfrId = (document.getElementById('uploadMfrId').value || '').trim();
+    var categoryKey = (document.getElementById('uploadCategory').value || '').trim();
+    var fileInput = document.getElementById('uploadImage');
+    var msgEl = document.getElementById('uploadMsg');
+    msgEl.style.display = 'none';
+    if (!mfrId) { msgEl.textContent = '請選擇廠商'; msgEl.style.display = 'block'; return; }
+    if (!categoryKey) { msgEl.textContent = '請選擇主分類'; msgEl.style.display = 'block'; return; }
+    if (!fileInput.files || !fileInput.files[0]) { msgEl.textContent = '請選擇素材圖片'; msgEl.style.display = 'block'; return; }
+    var fd = new FormData();
+    fd.append('category_key', categoryKey);
+    fd.append('subcategory_key', (document.getElementById('uploadSubcategory').value || '').trim());
+    fd.append('title', (document.getElementById('uploadTitle').value || '').trim());
+    fd.append('description', (document.getElementById('uploadDescription').value || '').trim());
+    fd.append('style_key', (document.getElementById('uploadStyleKey').value || '').trim() || '');
+    fd.append('material_key', (document.getElementById('uploadMaterialKey').value || '').trim() || '');
+    fd.append('image', fileInput.files[0]);
+    var btn = document.getElementById('uploadSubmit');
+    btn.disabled = true;
+    getToken().then(function(token) {
+      if (!token) { msgEl.textContent = '請先登入'; msgEl.style.display = 'block'; btn.disabled = false; return; }
+      fetch('/api/admin/manufacturers/' + encodeURIComponent(mfrId) + '/vendor-assets', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token },
+        body: fd
+      })
+        .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+        .then(function(result) {
+          if (result.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('uploadAssetModal')).hide();
+            loadList(document.getElementById('filterType').value === 'seed');
+            alert('已上傳素材');
+          } else {
+            msgEl.textContent = result.data.error || '上傳失敗';
+            msgEl.style.display = 'block';
+          }
+        })
+        .catch(function() { msgEl.textContent = '網路錯誤'; msgEl.style.display = 'block'; })
+        .finally(function() { btn.disabled = false; });
+    });
+  });
+
+  document.getElementById('filterType').addEventListener('change', function() {
+    loadList(this.value === 'seed');
+  });
+  document.getElementById('btnReload').addEventListener('click', function() {
+    loadList(document.getElementById('filterType').value === 'seed');
+  });
+
+  document.addEventListener('DOMContentLoaded', function() {
+    setPageUrl();
+    loadUsersForSelect();
+    loadList(false);
+  });
+})();
+  </script>
+</body>
+</html>
