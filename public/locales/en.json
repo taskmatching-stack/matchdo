@@ -664,7 +664,7 @@
   "help.refSourceVendor": "Individual vendor's base models: Go to a vendor's profile (e.g. from the homepage gallery or vendor list), click \"Design with this vendor's base models\"; on the product design page you'll see \"Select from this vendor's base models\" to import only that vendor's base models, then design.",
   "help.vendorList": "Vendor list",
   "help.vendorTitle": "Vendors",
-  "help.vendorIntro": "Vendor dashboard: upload portfolio, manage materials, view inquiries.",
+  "help.vendorIntro": "We welcome vendors to upload your base product templates so designers can redesign and contact you. Vendor dashboard: upload portfolio, my base models, view inquiries.",
   "help.goVendorDashboard": "Go to Vendor Dashboard",
   "help.vendorNote": "(Log in and set up vendor profile first)",
   "help.faqTitle": "FAQ",
@@ -675,7 +675,7 @@
   "help.faqVendorAssets": "No images when selecting from vendor material library?",
   "help.faqVendorAssetsA": "Select a main category first; materials load by that category. If no vendor has uploaded for that category, you'll see a message that there are no materials yet.",
   "help.faqVendorUpload": "How can vendors get their materials seen by designers?",
-  "help.faqVendorUploadA": "After logging in, go to Vendor Dashboard → My base models (Base Models), upload images and set main category (required), title, etc. Designers can see your assets in \"Select from vendor material library\" by category on the product design page, or by clicking \"Design with this vendor's base models\" on your profile and then \"Select from this vendor's base models\".",
+  "help.faqVendorUploadA": "We welcome you to upload base product templates so designers can redesign and contact you. After logging in, go to Vendor Dashboard → My base models (Base Models), upload images and set main category (required), title, etc. Designers can see your assets in \"Select from vendor material library\" by category on the product design page, or by clicking \"Design with this vendor's base models\" on your profile and then \"Select from this vendor's base models\".",
   "help.contact": "Contact us",
   "help.moreLater": "More modules and screenshot tutorials will be added. For issues, see FAQ or contact us.",
 
