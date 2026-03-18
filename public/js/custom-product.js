@@ -547,11 +547,16 @@ $(document).ready(function () {
     });
 
     // AI 生成圖片：必選圖內容分類，後端依選中的 key 組合提示詞 + 使用者描述
+    // 防止手機雙擊／連點導致多個生成請求同時進行
+    var isGenerateInProgress = false;
     $('#generateImageBtn').click(async function () {
+        if (isGenerateInProgress) return;
+        isGenerateInProgress = true;
         if (typeof window.gtag === 'function') { window.gtag('event', 'design_generate_click', {}); }
         const prompt = $('#productPrompt').val().trim();
         if (!prompt) {
             alert('請輸入文字描述');
+            isGenerateInProgress = false;
             return;
         }
         const mainKey = $('#imageCategoryMainSelect').val();
@@ -561,6 +566,7 @@ $(document).ready(function () {
         if (subKey) categoryKeys.push(subKey);
         if (categoryKeys.length === 0) {
             alert('請先選擇主分類（必選），會影響生成的產品類型。');
+            isGenerateInProgress = false;
             return;
         }
 
@@ -688,6 +694,7 @@ $(document).ready(function () {
             showGeneratedResult();
             document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } finally {
+            isGenerateInProgress = false;
             btn.prop('disabled', false).html(originalText);
             // 手機版畫布：移除 loading 脈衝
             $('#generatedImagePreviewWrap').removeClass('is-loading');
