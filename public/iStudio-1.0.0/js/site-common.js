@@ -37,7 +37,7 @@
       // fallback minimal
       const nav = document.getElementById('nav-links');
       if(nav){
-        nav.innerHTML = '<a class="nav-item nav-link" href="/index.html">首頁</a>';
+        nav.innerHTML = '<a class="nav-item nav-link" href="/">首頁</a>';
       }
     }
   }

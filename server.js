@@ -402,9 +402,13 @@ app.use((req, res, next) => {
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
-// 首頁：/ 與 /index.html 直接顯示 iStudio 內容（用 __dirname 避免 Cloud Run 等環境 cwd 不同）
+// 首頁：僅 / 送 iStudio 內容；/index.html 301 到 /（與 canonical 一致，避免 GSC「替代頁面」重複網址）
 const indexPath = path.join(__dirname, 'public', 'iStudio-1.0.0', 'index.html');
-app.get(['/', '/index.html'], (req, res) => {
+app.get('/index.html', (req, res) => {
+    const q = (req.url && req.url.indexOf('?') >= 0) ? req.url.slice(req.url.indexOf('?')) : '';
+    res.redirect(301, '/' + q);
+});
+app.get('/', (req, res) => {
     res.sendFile(indexPath, (err) => {
         if (err) {
             console.error('首頁 sendFile 失敗:', err.message, 'path:', indexPath);

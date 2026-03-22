@@ -82,7 +82,7 @@ const AuthMiddleware = {
                     <span>${displayName}</span>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="/index.html">
+                    <li><a class="dropdown-item" href="/">
                         <i class="bi bi-house"></i> 首頁
                     </a></li>
                     <li><a class="dropdown-item" href="/expert/my-listings.html">

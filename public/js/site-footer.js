@@ -60,7 +60,7 @@
                 <div class="container py-5">
                     <div class="row g-5">
                         <div class="col-md-6 col-lg-3">
-                            <a href="/index.html" class="d-inline-block mb-3"><h1 class="text-white">MATCHDO</h1></a>
+                            <a href="/" class="d-inline-block mb-3"><h1 class="text-white">MATCHDO</h1></a>
                             <p class="mb-0">連結高端需求與卓越工藝。縮減設計與生產的摩擦，讓訂製不再靠想像。<br><span class="text-white-50 small">Connecting global vision with master craftsmanship. Beyond imagination, into reality.</span></p>
                         </div>
                         <div class="col-md-6 col-lg-3">
@@ -70,7 +70,7 @@
                         </div>
                         <div class="col-md-6 col-lg-3">
                             <h5 class="text-white mb-4">連結</h5>
-                            <a class="btn btn-link" href="/index.html">首頁</a>
+                            <a class="btn btn-link" href="/">首頁</a>
                             <a class="btn btn-link" href="/custom-product.html">產品設計</a>
                             <a class="btn btn-link" href="/custom/">訂製產品</a>
                             <a class="btn btn-link" href="/contact.html">聯絡我們</a>
@@ -85,7 +85,7 @@
                 <div class="container">
                     <div class="row">
                         <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">&copy; MATCHDO 合做. All Rights Reserved.</div>
-                        <div class="col-md-6 text-center text-md-end"><a href="/index.html" class="text-white-50 text-decoration-none">Home</a></div>
+                        <div class="col-md-6 text-center text-md-end"><a href="/" class="text-white-50 text-decoration-none">Home</a></div>
                     </div>
                 </div>
             </div>

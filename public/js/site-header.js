@@ -148,7 +148,7 @@ async function renderHeader(headerContainer, user, config) {
     }
     const isCustom = isCustomProductSection();
     const isRemake = isRemakeSection();
-    const brandUrl = '/index.html';
+    const brandUrl = '/';
     const path = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
     const isHomePage = path === '/' || path === '/index.html' || path === '';
     const homeActive = isHomePage ? ' active' : '';
@@ -156,7 +156,7 @@ async function renderHeader(headerContainer, user, config) {
     const remakeActive = isRemake ? ' active' : '';
     const customUrl = '/custom/';
     const remakeUrl = '/remake/';
-    const loginHref = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl) ? AuthService.getLoginUrl(path) : ('/login.html?returnUrl=' + encodeURIComponent(path || '/index.html'));
+        const loginHref = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl) ? AuthService.getLoginUrl(path) : ('/login.html?returnUrl=' + encodeURIComponent(path || '/'));
     if ((isCustom || isRemake) && typeof document !== 'undefined' && document.documentElement) {
         document.documentElement.setAttribute('data-theme', isRemake ? 'remake' : 'custom');
         if (!document.querySelector('link[href*="theme-custom.css"]')) {
@@ -243,7 +243,7 @@ async function renderHeader(headerContainer, user, config) {
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdownDesktop">
                                 <li class="dropdown-header text-muted small">` + t('nav.accountSettings') + `</li>
-                                <li><a class="dropdown-item" href="/index.html"><i class="bi bi-house me-2"></i>` + t('nav.home') + `</a></li>
+                                <li><a class="dropdown-item" href="/"><i class="bi bi-house me-2"></i>` + t('nav.home') + `</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li class="dropdown-header"><i class="bi bi-gear me-2"></i>` + t('nav.settings') + `</li>
                                 <li><a class="dropdown-item" href="/profile/account.html"><i class="bi bi-person-circle me-2"></i>` + (t('nav.accountInfo') || '帳號資訊') + `</a></li>
@@ -278,7 +278,7 @@ async function renderHeader(headerContainer, user, config) {
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end w-100">
                                 <li class="dropdown-header text-muted small">` + t('nav.accountSettings') + `</li>
-                                <li><a class="dropdown-item" href="/index.html"><i class="bi bi-house me-2"></i>` + t('nav.home') + `</a></li>
+                                <li><a class="dropdown-item" href="/"><i class="bi bi-house me-2"></i>` + t('nav.home') + `</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="/profile/account.html"><i class="bi bi-person-circle me-2"></i>` + (t('nav.accountInfo') || '帳號資訊') + `</a></li>
                                 <li><a class="dropdown-item" href="/credits.html"><i class="bi bi-currency-exchange me-2"></i>` + (t('nav.myCredits') || '我的點數') + `</a></li>
