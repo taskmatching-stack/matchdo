@@ -73,7 +73,9 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // 翻譯 prompt 用：可後台設定，見 getTranslationModelName。若報錯 404/模型不存在，請改為 gemini-2.0-flash 或 gemini-1.5-flash
 const GEMINI_MODEL_TRANSLATION_DEFAULT = 'gemini-2.5-flash-lite';
 // 讀圖／分析／估算等：可後台設定，見 getReadModelName（若 404 可改為 gemini-2.0-flash）
-const GEMINI_MODEL_READ_DEFAULT = 'gemini-3-flash-preview';
+const GEMINI_MODEL_READ_DEFAULT = 'gemini-3.1-flash-lite';
+const visualSemantics = require('./lib/visual-semantics');
+const adminMigrations = require('./lib/admin-migrations');
 // Gemini API 排隊：多人同時用時依序送出
 let _geminiQueueTail = Promise.resolve();
 function runInGeminiQueue(fn) {
@@ -118,6 +120,62 @@ async function getReadModelName() {
         if (fromDb) return fromDb;
     } catch (_) {}
     return process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT;
+}
+
+async function getTaggingModelName() {
+    return visualSemantics.getTaggingModelName(supabase);
+}
+
+function getVisualSemanticsDeps() {
+    return {
+        supabase,
+        genAI,
+        runInGeminiQueue,
+        getTaggingModelName,
+        fetch: globalThis.fetch
+    };
+}
+
+function parseAiTagsFromBody(body) {
+    const raw = body && body.ai_tags;
+    if (raw == null || raw === '') return null;
+    try {
+        const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!Array.isArray(arr)) return null;
+        const tags = arr.map((t) => String(t).trim()).filter(Boolean);
+        return tags.length ? tags : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function recordVisualSemanticsEvent(row) {
+    try {
+        const { error } = await supabase.from('visual_semantics_events').insert(row);
+        if (error && error.code !== '42P01') console.warn('recordVisualSemanticsEvent:', error.message);
+    } catch (e) {
+        console.warn('recordVisualSemanticsEvent:', e.message);
+    }
+}
+
+async function runVendorAssetImageSemantics(file, context, ownerId) {
+    const deps = getVisualSemanticsDeps();
+    const imagePart = visualSemantics.bufferToImagePart(file.buffer || file, file.mimetype);
+    const result = await visualSemantics.analyzeImageSemantics(deps, imagePart, context);
+    await recordVisualSemanticsEvent({
+        source_type: 'vendor_asset',
+        source_id: null,
+        image_url: context.image_url || null,
+        text_input: null,
+        semantics_kind: 'image',
+        ai_tags: result.tags,
+        semantics_json: result.semantics,
+        model: result.model,
+        prompt_version: result.prompt_version,
+        owner_id: ownerId || null,
+        category_key: context.category_key || null
+    });
+    return result;
 }
 
 // === 翻譯：送什麼 / 回什麼（就一件事）===
@@ -509,6 +567,16 @@ app.get('/iStudio-1.0.0/client/custom-product-detail.html', (req, res) => {
     const q = raw.indexOf('?') >= 0 ? raw.slice(raw.indexOf('?')) : '';
     res.redirect(302, '/client/custom-product-detail.html' + q);
 });
+// 廠商後台：舊書籤／誤輸入缺 client 前綴時導向正式路徑
+function redirectWithQuery(req, res, targetPath) {
+    const raw = req.originalUrl || req.url || '';
+    const q = raw.indexOf('?') >= 0 ? raw.slice(raw.indexOf('?')) : '';
+    res.redirect(302, targetPath + q);
+}
+app.get('/manufacturer-dashboard.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-dashboard.html'));
+app.get('/manufacturer-materials.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-materials.html'));
+app.get('/manufacturer-portfolio.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-portfolio.html'));
+app.get('/manufacturer-inquiries.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-inquiries.html'));
 
 // 圖庫找廠商：由伺服器注入資料，避免前端 fetch 失敗導致永遠沒顯示
 async function getGalleryComparisonItems() {
@@ -1686,11 +1754,21 @@ app.get('/api/admin/ai-config', async (req, res) => {
     try {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
-        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['gemini_model', 'gemini_model_read']);
+        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['gemini_model', 'gemini_model_read', 'gemini_model_tagging']);
         const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
+        const readVal = byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT;
+        const tagVal = byKey.gemini_model_tagging || process.env.GEMINI_MODEL_TAGGING || visualSemantics.GEMINI_MODEL_TAGGING_DEFAULT;
+        const analysisVal = byKey.gemini_model_read || byKey.gemini_model_tagging || readVal || tagVal;
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
-            gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT
+            gemini_model_read: readVal,
+            gemini_model_tagging: tagVal,
+            gemini_model_analysis: analysisVal,
+            saved_in_db: {
+                gemini_model: !!byKey.gemini_model,
+                gemini_model_read: !!byKey.gemini_model_read,
+                gemini_model_tagging: !!byKey.gemini_model_tagging
+            }
         });
     } catch (e) {
         console.error('GET /api/admin/ai-config:', e);
@@ -1705,24 +1783,106 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (!adminUser) return;
         const body = req.body || {};
         const now = new Date().toISOString();
+        const upserts = [];
         if (body.gemini_model !== undefined) {
-            await supabase.from('payment_config').upsert({
-                key: 'gemini_model',
-                value: String(body.gemini_model).trim(),
-                updated_at: now
-            }, { onConflict: 'key' });
+            upserts.push({ key: 'gemini_model', value: String(body.gemini_model).trim(), updated_at: now });
         }
-        if (body.gemini_model_read !== undefined) {
-            await supabase.from('payment_config').upsert({
-                key: 'gemini_model_read',
-                value: String(body.gemini_model_read).trim(),
-                updated_at: now
-            }, { onConflict: 'key' });
+        const analysisModel = (body.gemini_model_analysis != null && String(body.gemini_model_analysis).trim())
+            ? String(body.gemini_model_analysis).trim()
+            : null;
+        if (analysisModel) {
+            upserts.push({ key: 'gemini_model_read', value: analysisModel, updated_at: now });
+            upserts.push({ key: 'gemini_model_tagging', value: analysisModel, updated_at: now });
+        } else {
+            if (body.gemini_model_read !== undefined) {
+                upserts.push({ key: 'gemini_model_read', value: String(body.gemini_model_read).trim(), updated_at: now });
+            }
+            if (body.gemini_model_tagging !== undefined) {
+                upserts.push({ key: 'gemini_model_tagging', value: String(body.gemini_model_tagging).trim(), updated_at: now });
+            }
         }
-        res.json({ success: true });
+        if (upserts.length === 0) {
+            return res.status(400).json({ error: '無可儲存的欄位' });
+        }
+        const { error } = await supabase.from('payment_config').upsert(upserts, { onConflict: 'key' });
+        if (error) {
+            console.error('PATCH /api/admin/ai-config upsert:', error);
+            return res.status(500).json({
+                error: error.message || '寫入 payment_config 失敗',
+                hint: error.code === '42P01' ? '請在 Supabase 執行 docs/payment-config-schema.sql' : undefined
+            });
+        }
+        const keys = [...new Set(upserts.map((u) => u.key))];
+        const { data: rows, error: readErr } = await supabase.from('payment_config').select('key, value').in('key', keys);
+        if (readErr) {
+            return res.status(500).json({ error: readErr.message || '儲存後讀取失敗' });
+        }
+        const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
+        const readVal = byKey.gemini_model_read || analysisModel || null;
+        res.json({
+            success: true,
+            gemini_model: byKey.gemini_model ?? null,
+            gemini_model_read: readVal,
+            gemini_model_tagging: byKey.gemini_model_tagging || readVal,
+            gemini_model_analysis: readVal
+        });
     } catch (e) {
         console.error('PATCH /api/admin/ai-config:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
+// GET /api/admin/migrations — 資料庫 migration 狀態（需 SUPABASE_DB_URL + 管理員）
+app.get('/api/admin/migrations', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        if (!DB_URL) {
+            return res.json({
+                db_connected: false,
+                hint: '請在 Cloud Run／本機 .env 設定 SUPABASE_DB_URL（Supabase → Project Settings → Database → Connection string）後重啟服務。',
+                migrations: []
+            });
+        }
+        const pool = new Pool({ connectionString: DB_URL });
+        const client = await pool.connect();
+        try {
+            const migrations = await adminMigrations.getMigrationStatuses(client);
+            res.json({ db_connected: true, migrations });
+        } finally {
+            client.release();
+            await pool.end();
+        }
+    } catch (e) {
+        console.error('GET /api/admin/migrations:', e);
+        res.status(500).json({ error: e.message || '查詢失敗' });
+    }
+});
+
+// POST /api/admin/migrations/:id/run — 執行白名單 migration（僅管理員）
+app.post('/api/admin/migrations/:id/run', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        if (!DB_URL) {
+            return res.status(503).json({
+                error: '未設定 SUPABASE_DB_URL，無法從網站執行 SQL',
+                hint: '請在部署環境變數加入資料庫連線字串後重啟，或改至 Supabase SQL Editor 手動執行 docs/*.sql'
+            });
+        }
+        const id = (req.params.id || '').trim();
+        const pool = new Pool({ connectionString: DB_URL });
+        const client = await pool.connect();
+        try {
+            const result = await adminMigrations.runMigrationById(id, client);
+            res.json({ success: true, ...result });
+        } finally {
+            client.release();
+            await pool.end();
+        }
+    } catch (e) {
+        console.error('POST /api/admin/migrations/:id/run:', e);
+        res.status(500).json({ error: e.message || '執行失敗' });
     }
 });
 
@@ -7001,7 +7161,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
         if (type === 'comparison' || type === 'series') {
             const { data: row, error } = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until')
+                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until, min_order_quantity')
                 .eq('id', id)
                 .maybeSingle();
             if (error || !row) return res.status(404).json({ error: '找不到該作品' });
@@ -7031,7 +7191,8 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 description: row.description || null,
                 category_key: row.category_key || null,
                 subcategory_key: row.subcategory_key || null,
-                link: row.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) : '/custom/gallery.html'
+                link: row.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) : '/custom/gallery.html',
+                min_order_quantity: (row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity))) ? Number(row.min_order_quantity) : null
             };
             if (type === 'comparison') item.image_url_before = imageUrlBefore;
             if (type === 'series' && seriesUrls.length) item.series_image_urls = seriesUrls;
@@ -7547,12 +7708,12 @@ app.get('/api/custom-products/:id/manufacturers', async (req, res) => {
         if (ids.length > 0) {
             const { data: portfolios } = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, sort_order')
+                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, sort_order, min_order_quantity')
                 .in('manufacturer_id', ids)
                 .order('sort_order', { ascending: true });
             (portfolios || []).forEach(p => {
                 if (!portfolioByMfr[p.manufacturer_id]) portfolioByMfr[p.manufacturer_id] = [];
-                portfolioByMfr[p.manufacturer_id].push({ id: p.id, title: p.title, image_url: p.image_url, image_url_before: p.image_url_before || null, design_highlight: p.design_highlight || null, tags: p.tags || [] });
+                portfolioByMfr[p.manufacturer_id].push({ id: p.id, title: p.title, image_url: p.image_url, image_url_before: p.image_url_before || null, design_highlight: p.design_highlight || null, tags: p.tags || [], min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null });
             });
         }
 
@@ -8277,12 +8438,12 @@ app.get('/api/manufacturers', async (req, res) => {
         if (ids.length > 0) {
             const { data: portfolios } = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, sort_order')
+                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, sort_order, min_order_quantity')
                 .in('manufacturer_id', ids)
                 .order('sort_order', { ascending: true });
             (portfolios || []).forEach(p => {
                 if (!portfolioByMfr[p.manufacturer_id]) portfolioByMfr[p.manufacturer_id] = [];
-                portfolioByMfr[p.manufacturer_id].push({ id: p.id, title: p.title, image_url: p.image_url, image_url_before: p.image_url_before || null, design_highlight: p.design_highlight || null, tags: p.tags || [] });
+                portfolioByMfr[p.manufacturer_id].push({ id: p.id, title: p.title, image_url: p.image_url, image_url_before: p.image_url_before || null, design_highlight: p.design_highlight || null, tags: p.tags || [], min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null });
             });
         }
 
@@ -8339,7 +8500,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         let portfolio = [];
         const portRes = await supabase
             .from('manufacturer_portfolio')
-            .select('id, title, description, image_url, image_url_before, design_highlight, tags, category_key, subcategory_key, sort_order')
+            .select('id, title, description, image_url, image_url_before, design_highlight, tags, category_key, subcategory_key, sort_order, min_order_quantity')
             .eq('manufacturer_id', id)
             .order('sort_order', { ascending: true });
         if (portRes.error) {
@@ -8370,7 +8531,22 @@ app.get('/api/manufacturers/:id', async (req, res) => {
 
 // GET /api/manufacturer-portfolio — 廠商作品圖列表（圖庫找廠商、從圖庫選擇、純文字搜廠商圖）
 // Query: manufacturer_id（單一廠商）, category（依廠商分類篩選）, keyword / q（搜尋 title、tags）
-const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall';
+/** @param {unknown} raw @param {{ forUpdate?: boolean }} [opts] */
+function parseManufacturerPortfolioMinOrderQty(raw, opts) {
+    const forUpdate = opts && opts.forUpdate;
+    if (raw === undefined) {
+        if (forUpdate) return { omit: true };
+        return { value: null };
+    }
+    if (raw === null) return { value: null };
+    const s = String(raw).trim();
+    if (s === '' || s.toLowerCase() === 'null') return { value: null };
+    const n = parseInt(s, 10);
+    if (!Number.isFinite(n) || n < 1) return { error: '最小可訂製數量須為 1 以上的整數，或留空表示未填寫' };
+    return { value: n };
+}
+
+const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity';
 const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at';
 
 app.get('/api/manufacturer-portfolio', async (req, res) => {
@@ -8457,7 +8633,8 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
                 category_key: p.category_key || null,
                 subcategory_key: p.subcategory_key || null,
                 category_type: p.category_type || null,
-                show_on_media_wall: p.show_on_media_wall !== false
+                show_on_media_wall: p.show_on_media_wall !== false,
+                min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null
             };
         });
 
@@ -8479,6 +8656,8 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         const manufacturerId = req.params.id;
         const body = req.body || {};
         const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall } = body;
+        const moqPost = parseManufacturerPortfolioMinOrderQty(body.min_order_quantity);
+        if (moqPost.error) return res.status(400).json({ error: moqPost.error });
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
         const categoryKey = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
         const subcategoryKey = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
@@ -8562,7 +8741,8 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
             category_key: categoryKey,
             subcategory_key: subcategoryKey,
             category_type: categoryType,
-            show_on_media_wall: bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0
+            show_on_media_wall: bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0,
+            min_order_quantity: moqPost.value
         };
         if (mainFiles.length > 0 && !canUploadSeriesFree) insertPayload.series_image_valid_until = oneMonthFromNow;
         // 健康邏輯：純系列才寫 series_image_urls，且 image_url_before 必為 null；對照圖不寫 series_image_urls
@@ -8573,7 +8753,7 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         const { data: inserted, error } = await supabase
             .from('manufacturer_portfolio')
             .insert(insertPayload)
-            .select('id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order, category_key, subcategory_key, created_at')
+            .select('id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order, category_key, subcategory_key, created_at, min_order_quantity')
             .single();
 
         if (error) {
@@ -8595,6 +8775,8 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         const { manufacturerId, portfolioId } = req.params;
         const body = req.body || {};
         const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall, upload_type: bodyUploadType } = body;
+        const moqPut = parseManufacturerPortfolioMinOrderQty(body.min_order_quantity, { forUpdate: true });
+        if (moqPut.error) return res.status(400).json({ error: moqPut.error });
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
 
         const files = req.files || {};
@@ -8648,6 +8830,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (bodySubcategoryKey !== undefined) updates.subcategory_key = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
         if (bodyCategoryType !== undefined) updates.category_type = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
         if (bodyShowOnMediaWall !== undefined) updates.show_on_media_wall = (bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0);
+        if (!moqPut.omit) updates.min_order_quantity = moqPut.value;
 
         if (mainFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, mainFile);
@@ -8667,7 +8850,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         // 健康邏輯：編輯時若為「系列」且未上傳設計圖，明確清除 image_url_before，避免混成對照圖
         else if (String(bodyUploadType || '').toLowerCase() === 'series') updates.image_url_before = null;
 
-        const { data: updated, error } = await supabase.from('manufacturer_portfolio').update(updates).eq('id', portfolioId).select('id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order').single();
+        const { data: updated, error } = await supabase.from('manufacturer_portfolio').update(updates).eq('id', portfolioId).select('id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order, min_order_quantity').single();
         if (error) {
             console.error('PUT /api/manufacturers/:id/portfolio/:portfolioId 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
@@ -8776,7 +8959,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const categoryKey = (req.query.category_key || '').trim() || null;
         let query = supabase
             .from('vendor_assets')
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, created_at, updated_at')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
             .eq('manufacturer_id', manufacturerId)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
@@ -8791,6 +8974,39 @@ app.get('/api/me/vendor-assets', async (req, res) => {
     } catch (e) {
         console.error('GET /api/me/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/vendor-assets/generate-tags — 上傳前預覽 AI 標籤（Gemini 讀圖）
+app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+        if (mfrVa && mfrVa.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        const file = req.file;
+        if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
+        const body = req.body || {};
+        const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+        const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+        let ownerId = null;
+        if (token) {
+            const { data: { user } } = await supabase.auth.getUser(token);
+            ownerId = user?.id || null;
+        }
+        const result = await runVendorAssetImageSemantics(file, {
+            category_key: (body.category_key || '').trim(),
+            title: (body.title || '').trim(),
+            description: (body.description || '').trim()
+        }, ownerId);
+        res.json({
+            ai_tags: result.tags,
+            image_semantics_json: result.semantics,
+            model: result.model
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/generate-tags:', e);
+        res.status(503).json({ error: e.message || 'AI 標籤產生失敗，請稍後重試' });
     }
 });
 
@@ -8813,6 +9029,42 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         const file = req.file;
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
 
+        const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+        const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+        let ownerId = null;
+        if (token) {
+            const { data: { user } } = await supabase.auth.getUser(token);
+            ownerId = user?.id || null;
+        }
+
+        let tags = parseAiTagsFromBody(body);
+        let semanticsJson = null;
+        let tagsSource = 'gemini';
+        if (body.image_semantics_json) {
+            try {
+                semanticsJson = typeof body.image_semantics_json === 'string'
+                    ? JSON.parse(body.image_semantics_json)
+                    : body.image_semantics_json;
+            } catch (_) {}
+        }
+        if (!tags || !tags.length) {
+            try {
+                const sem = await runVendorAssetImageSemantics(file, {
+                    category_key: categoryKey,
+                    title,
+                    description
+                }, ownerId);
+                tags = sem.tags;
+                semanticsJson = sem.semantics;
+                tagsSource = 'gemini';
+            } catch (semErr) {
+                console.error('vendor-assets semantics:', semErr);
+                return res.status(503).json({ error: semErr.message || 'AI 標籤產生失敗，請稍後重試' });
+            }
+        } else {
+            tagsSource = semanticsJson ? 'gemini' : 'manual';
+        }
+
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
         const insertPayload = {
             manufacturer_id: manufacturerId,
@@ -8823,19 +9075,39 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
             image_url: publicUrl,
             usage_type: (body.usage_type || 'reference_only').trim() || 'reference_only',
             is_public: true,
-            sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0
+            sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0,
+            ai_tags: tags,
+            ai_tags_generated_at: new Date().toISOString(),
+            tags_source: tagsSource
         };
+        if (semanticsJson) insertPayload.image_semantics_json = semanticsJson;
         if (styleKey) insertPayload.style_key = styleKey;
         if (materialKey) insertPayload.material_key = materialKey;
         const { data: inserted, error } = await supabase
             .from('vendor_assets')
             .insert(insertPayload)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, created_at')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, ai_tags, image_semantics_json, tags_source, created_at')
             .single();
         if (error) {
+            if (error.code === '42703') {
+                return res.status(500).json({ error: '請先至管理後台「資料庫維護」執行「視覺語意庫」migration，或於 Supabase SQL Editor 執行 docs/add-digital-prototype-ai-tags.sql' });
+            }
             console.error('POST /api/me/vendor-assets 失敗:', error);
             return res.status(500).json({ error: '新增素材失敗' });
         }
+        await recordVisualSemanticsEvent({
+            source_type: 'vendor_asset',
+            source_id: inserted.id,
+            image_url: publicUrl,
+            text_input: null,
+            semantics_kind: 'image',
+            ai_tags: tags,
+            semantics_json: semanticsJson,
+            model: tagsSource === 'gemini' ? await getTaggingModelName() : null,
+            prompt_version: visualSemantics.PROMPT_VERSION,
+            owner_id: ownerId,
+            category_key: categoryKey
+        });
         res.status(201).json(inserted);
     } catch (e) {
         console.error('POST /api/me/vendor-assets 異常:', e);
@@ -8950,7 +9222,7 @@ app.get('/api/manufacturers/:id/collections/:collectionId', async (req, res) => 
         if (portfolioIds.length > 0) {
             const { data: rows } = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, title, image_url, image_url_before, design_highlight, tags')
+                .select('id, title, image_url, image_url_before, design_highlight, tags, min_order_quantity')
                 .in('id', portfolioIds)
                 .eq('manufacturer_id', manufacturerId);
             const byId = {};

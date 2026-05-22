@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini 翻譯／讀圖模型、實境模擬與圖樣提取系統提示詞。可隨官方更新型號與提示詞內容。</p>
+        <p class="text-muted small mb-3">翻譯與分析模型、實境模擬與圖樣提取系統提示詞。分析／讀圖／自動標籤建議統一使用 <strong>gemini-3.1-flash-lite</strong>。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -27,18 +27,18 @@
         <div class="card mb-3">
           <div class="card-body">
             <h6 class="card-title">AI 模型設定</h6>
-            <p class="text-muted small">翻譯用於 prompt 中→英；讀圖／分析用於圖片描述、客製分析、估算、標籤等。可隨官方更新型號。</p>
             <div class="mb-3">
-              <label class="form-label small mb-1">Gemini 翻譯模型</label>
+              <label class="form-label small mb-1">Gemini 翻譯模型（prompt 中→英）</label>
               <input type="text" id="aiConfigGeminiModel" class="form-control form-control-sm" placeholder="gemini-2.5-flash-lite" />
-              <p class="form-text small text-muted mb-0">例：gemini-2.5-flash-lite（預設）、gemini-2.5-flash、gemini-2.0-flash 等。</p>
+              <p class="form-text small text-muted mb-0">與「分析」分開；生圖前翻譯用，預設 gemini-2.5-flash-lite。</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">Gemini 讀圖／分析模型</label>
-              <input type="text" id="aiConfigGeminiModelRead" class="form-control form-control-sm" placeholder="gemini-3-flash-preview" />
-              <p class="form-text small text-muted mb-0">例：gemini-3-flash-preview（預設）、gemini-2.5-flash 等，依 <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noopener">官方文件</a> 填寫。</p>
+              <label class="form-label small mb-1">Gemini 分析／讀圖／標籤（統一）</label>
+              <input type="text" id="aiConfigGeminiAnalysis" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite" />
+              <p class="form-text small text-muted mb-0">客製分析、數位原型標籤、提示詞／生成圖語意等<strong>全部讀圖分析</strong>都用此模型。儲存後會同時寫入資料庫 <code>gemini_model_read</code> 與 <code>gemini_model_tagging</code>。</p>
             </div>
-            <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存</button>
+            <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存模型設定</button>
+            <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
           </div>
         </div>
         <div class="card mb-3">
@@ -89,36 +89,64 @@
     el.className = 'alert mb-3 py-2 ' + (isError ? 'alert-danger' : 'alert-success');
     el.textContent = msg;
   }
+  function applyAiConfigToForm(data) {
+    var inp = document.getElementById('aiConfigGeminiModel');
+    var inpAnalysis = document.getElementById('aiConfigGeminiAnalysis');
+    var hint = document.getElementById('aiConfigDbHint');
+    if (!inp || !inpAnalysis) return;
+    if (data.gemini_model != null) inp.value = data.gemini_model;
+    var analysis = data.gemini_model_analysis || data.gemini_model_read || data.gemini_model_tagging || 'gemini-3.1-flash-lite';
+    inpAnalysis.value = analysis;
+    if (hint && data.saved_in_db) {
+      var s = data.saved_in_db;
+      hint.textContent = (s.gemini_model_read || s.gemini_model_tagging)
+        ? '（已從資料庫載入分析模型）' : '（分析模型尚未寫入 DB，顯示為預設值）';
+    }
+  }
 
   async function loadAiConfig() {
-    var inp = document.getElementById('aiConfigGeminiModel');
-    var inpRead = document.getElementById('aiConfigGeminiModelRead');
-    if (!inp) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) return;
     try {
       var res = await fetch('/api/admin/ai-config', { headers: headers });
       var data = await res.json();
-      if (res.ok) {
-        if (data.gemini_model != null) inp.value = data.gemini_model;
-        if (inpRead && data.gemini_model_read != null) inpRead.value = data.gemini_model_read;
+      if (!res.ok) {
+        showMsg(data.error || '載入失敗', true);
+        return;
       }
-    } catch (e) {}
+      applyAiConfigToForm(data);
+    } catch (e) {
+      showMsg('載入失敗：' + (e.message || ''), true);
+    }
   }
   async function saveAiConfig() {
     var inp = document.getElementById('aiConfigGeminiModel');
-    var inpRead = document.getElementById('aiConfigGeminiModelRead');
-    if (!inp) return;
+    var inpAnalysis = document.getElementById('aiConfigGeminiAnalysis');
+    if (!inp || !inpAnalysis) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
-    var payload = { gemini_model: inp.value.trim() || 'gemini-2.5-flash-lite' };
-    if (inpRead) payload.gemini_model_read = inpRead.value.trim() || 'gemini-3-flash-preview';
+    var payload = {
+      gemini_model: inp.value.trim() || 'gemini-2.5-flash-lite',
+      gemini_model_analysis: inpAnalysis.value.trim() || 'gemini-3.1-flash-lite'
+    };
+    var btn = document.getElementById('btnSaveAiConfig');
+    btn.disabled = true;
     try {
       var res = await fetch('/api/admin/ai-config', { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
       var data = await res.json();
-      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
-      showMsg('AI 模型設定已儲存');
-    } catch (e) { showMsg('儲存失敗', true); }
+      if (!res.ok) {
+        var err = data.error || '儲存失敗';
+        if (data.hint) err += ' — ' + data.hint;
+        showMsg(err, true);
+        return;
+      }
+      applyAiConfigToForm(data);
+      showMsg('已儲存：翻譯「' + (data.gemini_model || payload.gemini_model) + '」，分析「' + (data.gemini_model_analysis || payload.gemini_model_analysis) + '」');
+    } catch (e) {
+      showMsg('儲存失敗：' + (e.message || ''), true);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   async function loadSceneSimPrompt() {

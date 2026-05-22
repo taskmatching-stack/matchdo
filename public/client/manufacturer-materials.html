@@ -93,7 +93,13 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold">素材圖片 <span class="text-danger">*</span></label>
                                 <input type="file" class="form-control" id="add-image" accept="image/*" required>
-                                <p class="text-muted small mt-1 mb-0">設計者會在產品設計的「參考圖」中依分類看到此圖，並可連到您的廠商頁面。</p>
+                                <p class="text-muted small mt-1 mb-0">上傳時將由 AI 自動產生搜尋標籤（必要）。設計者會在產品設計的「參考圖」中依分類看到此圖。</p>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-preview-tags" disabled><i class="bi bi-tags me-1"></i>先預覽 AI 標籤</button>
+                            </div>
+                            <div class="col-12 d-none" id="add-tags-panel">
+                                <label class="form-label fw-semibold small">AI 建議標籤</label>
+                                <div id="add-tags-list" class="d-flex flex-wrap gap-1"></div>
+                                <p class="text-muted small mb-0 mt-1" id="add-tags-hint"></p>
                             </div>
                             <div class="col-12">
                                 <button type="submit" class="btn btn-primary" id="btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳</button>
@@ -195,6 +201,29 @@
         var deleteTargetId = null;
         var editModalEl = null;
         var deleteModalEl = null;
+        var pendingAiTags = null;
+        var pendingSemanticsJson = null;
+
+        function renderTagBadges(tags) {
+            if (!tags || !tags.length) return '';
+            return tags.slice(0, 8).map(function (t) {
+                return '<span class="badge bg-light text-dark border me-1 mb-1">' + esc(t) + '</span>';
+            }).join('') + (tags.length > 8 ? '<span class="text-muted small">+' + (tags.length - 8) + '</span>' : '');
+        }
+
+        function showPendingTags(tags, hint) {
+            pendingAiTags = tags;
+            var panel = document.getElementById('add-tags-panel');
+            var list = document.getElementById('add-tags-list');
+            var hintEl = document.getElementById('add-tags-hint');
+            if (!tags || !tags.length) {
+                panel.classList.add('d-none');
+                return;
+            }
+            panel.classList.remove('d-none');
+            list.innerHTML = renderTagBadges(tags);
+            hintEl.textContent = hint || '確認無誤後按上傳即可寫入資料庫。';
+        }
 
         function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
         function showToast(msg, type) {
@@ -287,11 +316,13 @@
                     ? '<span class="text-muted small">由平台代為維護</span>'
                     : ('<button class="btn btn-outline-primary btn-sm flex-fill" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i>編輯</button>' +
                        '<button class="btn btn-outline-danger btn-sm" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
+                var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<img src="' + esc(m.image_url) + '" class="material-img" loading="lazy" alt="">' : '') +
                     '<div class="card-body p-3">' +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
                     '<div class="text-muted small mb-2">' + esc(catName) + ' · ' + usageLabel + '</div>' +
+                    tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
             if (!isSeedVendor) grid.querySelectorAll('button[data-id]').forEach(function (btn) {
@@ -309,7 +340,49 @@
             fillSubcategorySelect('add-subcategory', null);
             document.getElementById('add-form').reset();
             document.getElementById('add-form-msg').textContent = '';
+            pendingAiTags = null;
+            pendingSemanticsJson = null;
+            document.getElementById('add-tags-panel').classList.add('d-none');
+            document.getElementById('btn-preview-tags').disabled = true;
         }
+
+        document.getElementById('add-image').addEventListener('change', function () {
+            document.getElementById('btn-preview-tags').disabled = !this.files || !this.files[0];
+            pendingAiTags = null;
+            pendingSemanticsJson = null;
+            document.getElementById('add-tags-panel').classList.add('d-none');
+        });
+
+        document.getElementById('btn-preview-tags').addEventListener('click', async function () {
+            var file = document.getElementById('add-image').files[0];
+            var categoryKey = document.getElementById('add-category').value;
+            if (!file) { showToast('請先選擇圖片', 'warning'); return; }
+            if (!categoryKey) { showToast('請先選擇主分類', 'warning'); return; }
+            var btn = document.getElementById('btn-preview-tags');
+            btn.disabled = true;
+            try {
+                var fd = new FormData();
+                fd.append('image', file);
+                fd.append('category_key', categoryKey);
+                fd.append('title', document.getElementById('add-title').value || '');
+                fd.append('description', document.getElementById('add-description').value || '');
+                var r = await fetch('/api/me/vendor-assets/generate-tags', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token },
+                    body: fd
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) { showToast(data.error || '標籤產生失敗', 'danger'); return; }
+                pendingAiTags = data.ai_tags || [];
+                pendingSemanticsJson = data.image_semantics_json || null;
+                showPendingTags(pendingAiTags, '模型：' + (data.model || ''));
+                showToast('已產生 ' + pendingAiTags.length + ' 個標籤');
+            } catch (err) {
+                showToast(err.message || '標籤產生失敗', 'danger');
+            } finally {
+                btn.disabled = false;
+            }
+        });
 
         document.getElementById('btn-add-open').addEventListener('click', openAddForm);
         document.getElementById('btn-add-close').addEventListener('click', function () { document.getElementById('add-form-panel').classList.add('d-none'); });
@@ -333,8 +406,16 @@
             formData.append('description', document.getElementById('add-description').value || '');
             formData.append('usage_type', document.getElementById('add-usage-type').value || 'reference_only');
             formData.append('image', file);
+            if (pendingAiTags && pendingAiTags.length) {
+                formData.append('ai_tags', JSON.stringify(pendingAiTags));
+                if (pendingSemanticsJson) {
+                    formData.append('image_semantics_json', JSON.stringify(pendingSemanticsJson));
+                }
+            }
             var btn = document.getElementById('btn-add-submit');
             btn.disabled = true;
+            var btnHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>正在產生 AI 標籤並上傳…';
             try {
                 var r = await fetch('/api/me/vendor-assets', {
                     method: 'POST',
@@ -343,13 +424,17 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) { msgEl.textContent = data.error || '上傳失敗'; return; }
-                showToast('已新增素材');
+                var tagMsg = (data.ai_tags && data.ai_tags.length) ? '（' + data.ai_tags.length + ' 個 AI 標籤）' : '';
+                showToast('已新增素材' + tagMsg);
                 document.getElementById('add-form-panel').classList.add('d-none');
+                pendingAiTags = null;
+                pendingSemanticsJson = null;
                 loadMaterials();
             } catch (err) {
                 msgEl.textContent = err.message || '上傳失敗';
             } finally {
                 btn.disabled = false;
+                btn.innerHTML = btnHtml;
             }
         });
 

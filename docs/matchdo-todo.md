@@ -1,6 +1,6 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-03-13
+更新日期：2026-05-20
 
 ---
 
@@ -9,7 +9,11 @@
 | 文件 | 說明 |
 |------|------|
 | **`docs/STABLE-BASELINE.md`** | **實作前必讀**：目前穩定版本 commit（b27ce73）、還原方式、安全實作原則（不破壞穩定性、加法優先、不更動首頁靈感牆）。 |
-| **`docs/設計與開店路徑-廠商素材庫規格.md`** | ① 操作流程更清晰（導覽語意、各功能頁內步驟提示與建議下一步；**首頁靈感牆不變動**）。② 廠商素材庫：資料模型、廠商端上傳與分類、設計端「從廠商素材庫選參考圖」、權限與實作順序。尚未實作。 |
+| **`docs/設計與開店路徑-廠商素材庫規格.md`** | ① 操作流程更清晰（導覽語意、各功能頁內步驟提示與建議下一步；**首頁靈感牆不變動**）。② 廠商素材庫：資料模型、廠商端上傳與分類、設計端「從廠商素材庫選參考圖」、權限與實作順序。已部分實作（見 `vendor_assets`）。 |
+| **`docs/三角色架構與AB線說明.md`** | **對外說明用**：訂製者／製造商／產業供應商三角色、**A 線**（`vendor_assets`）與 **B 線**（原型組＋材料）流程圖與對照表；含官方帳號與 A 線測試摘要。 |
+| **本檔 §4「產業供應商、製造商採購庫」** | 供應商上架分兩類：**數位原型組**（一組多圖）、**材料**；製造商後台分別**導入**至原型組庫／材料庫（B2B；**不用「收藏」**）；**不**接入訂製者設計頁；另含線下店家、官方虛擬廠商；**暫不實作**。 |
+| **本檔 §5「會員後台・三角色介面分離」** | 會員中心 IA、導覽三區、頁面對照、capabilities 顯示；與 `/admin/` 分工；**規劃中**。 |
+| **本檔 §6「視覺語意庫・Gemini 標籤／提示詞／生成圖解析」** | 上傳與生圖時以 **`gemini-3.1-flash-lite`** 解讀圖與提示詞，累積 **`visual_semantics`** 供搜尋與日後售前風格意圖／流行預測；首頁靈感牆標籤搜尋；**規劃中**。 |
 
 ---
 
@@ -502,6 +506,11 @@
 | 4 | **會員與金流驗證** | 步驟 4（會員系統規劃見 `docs/membership-tiers-and-points-plan.md`；6 折、方案頁、credits 已接） |
 | 5 | 後排與可選（廠商搜尋、project-detail UI、金流、通知、README） | 步驟 5 |
 | 6 | **手機／平板 App 轉化**（可選，見 `docs/app-mobile-tablet-plan.md`） | 步驟 6 |
+| 後排 | **產業供應商目錄（原型組＋材料；導入制）** | 見 **§4.3～§4.5**；僅製造商後台；與訂製者 `custom-product` 無關 |
+| 後排 | **線下訂製店家目錄** | 每筆僅 Google Maps 連結 + 站內分類；見 **§4.1** |
+| 後排 | **官方虛擬廠商（範例版型）** | 不接單、僅 `vendor_assets` 範例；見 **§4.2** |
+| 後排 | **會員後台・三角色介面分離** | 見 **§5**；A 線 E2E 穩定後先做導覽＋會員中心 P0 |
+| 後排 | **視覺語意庫（Gemini 標籤＋提示詞／生成圖解析＋搜尋）** | 見 **§6**；與 A 線上傳、訂製生圖、靈感牆連動 |
 | 已完成 | **廠商的資料夾功能** | 見本檔下方「廠商資料夾」相關紀錄。 |
 
 **目前建議進度**：Cloud Run 已可正常部署、首頁篩選與網址已上線。接下來請**繼續 E2E**：若尚未跑過**步驟 1（訂製品線 E2E 六步）**，先在本機或雲端依「接下來工作步驟」1.2 跑通；完成後可選做步驟 2（再製 E2E），再進行步驟 4（會員與金流驗證）。
@@ -662,6 +671,634 @@
 | **預設語系** | 建議預設為繁中（zh-TW）；依瀏覽器或使用者選擇切換。 |
 
 **待討論**：第一版要支援的語系數量（例如先繁中＋英文）、是否需 path prefix 以利 SEO、語系檔由誰維護與更新流程。
+
+---
+
+### 4. 產業供應商、製造商採購庫與相關規劃（討論用，暫不實作）
+
+> 三角色與 A／B 線流程圖、對外說明：**`docs/三角色架構與AB線說明.md`**
+
+以下整合：**線下店家目錄**、**官方虛擬廠商**、**產業供應商數位目錄（原型組＋材料）**、**導入制**。實作前請依此節與需求方確認。  
+**帳號原則**：不新增「訂製者／製造商」身分切換；僅 **admin** 特殊。其餘以 **資料資格（capabilities）** 控制功能是否開放。  
+**用語（製造商端）**：一律用 **「導入」**、**「加入我的材料庫」**／**「加入我的原型組庫」**、**「取消導入」**；**勿用「收藏」**，避免與訂製者媒體牆收藏（`media_wall_favorites`）混淆。API／表名亦避免 `favorite`。  
+**範圍澄清（2026-05-12）**：產業供應商目錄 = **製造商內部採購／打樣參考**（材料＋成品／半成品原型組），與**訂製者**設計頁、媒體牆收藏、AI 試穿**無關**；亦**不**透過 `?manufacturer_id=` 載入。
+
+#### 4.1 線下訂製店家目錄（非入駐；Google Maps）
+
+| 項目 | 說明 |
+|------|------|
+| 目的 | 讓訂製者找到**未入駐**、以線下為主的訂製相關店家；不要求登入、不要求作品上傳。 |
+| 第一階段資料 | **不爬蟲、暫不接 Google Places API**；每筆必填：**Google Maps 連結** + **站內分類**；站內不快取電話／地址，使用者以「開啟 Google 地圖」為主。 |
+| 與製作方分流 | 與 `manufacturers` 接單／作品集分開呈現與文案。 |
+
+#### 4.2 官方虛擬廠商（訂製範例版型；不接單）
+
+| 項目 | 說明 |
+|------|------|
+| 做法 | 一筆 **`manufacturers`**（例：MatchDO 官方範例），素材走既有 **`vendor_assets`**。 |
+| 類型 | `vendor_source = platform`（或同等欄位），**非** `seed`（種子素材一般使用者看不到）。 |
+| 不接單 | 不出現在「找製作方」、不提供站內聯絡／詢價；僅供訂製者設計參考與招商 demo。 |
+| 顯示名稱 | 可設廠商層級「素材上不顯示接單廠商名」或固定顯示「MatchDO 官方範例」。 |
+
+#### 4.3 產業供應商數位目錄（B2B；製造商專用）
+
+**定位**：上游**產業供應商**（或管理員代上架）可上傳兩類目錄；**製造商**（已建廠商且至少 1 筆 `manufacturer_portfolio`）在後台瀏覽並**導入**至對應庫。  
+**不是**給訂製者直接逛的目錄；**不是**既有 `vendor_assets`（後者給**訂製者**當設計參考，屬接單製造商對外版型）。
+
+**兩大類（上傳與導入皆須區分，不可混在同一表單／同一列表無標籤）**：
+
+| 類型 | `item_kind`（建議） | 供應商上傳 | 一組內容 | 製造商導入後 | 主要用途 |
+|------|---------------------|------------|----------|--------------|----------|
+| **產品的數位原型組** | `prototype_set` | 建立一組、**可上傳多張圖**（例：正面／背面／細節／尺寸示意） | 標題、說明、規格摘要；`image_urls[]` 有序 | **我的原型組庫** | 參考成品／半成品樣貌、結構、打樣溝通 |
+| **材料** | `material` | 建立一筆材料品項 | 主圖（可選副圖）、材質／色號／幅寬／單價區間等規格欄 | **我的材料庫** | 備料、詢價、聯絡進貨 |
+
+- **原型組 ≠ 材料**：原型組強調「產品長怎樣、幾張圖一組」；材料強調「原料規格與採購」。UI 分頁或 Tab：**原型組**｜**材料**。  
+- **與廠商作品系列類似**：原型組的多圖可參考既有 `manufacturer_portfolio` 系列圖／`series_image_urls` 的「一組多圖」模式，但資料表獨立、僅 B2B 供應商目錄使用。
+
+**與現有層級對照**：
+
+| 類型 | 誰維護 | 誰用 | 資料 |
+|------|--------|------|------|
+| 訂製者設計參考 | 接單製造商 | 訂製者 | `vendor_assets`（已有） |
+| 產業供應商・原型組 | 產業供應商／管理員 | 製造商（有作品門檻） | 🆕 `supplier_catalog_items`（`prototype_set`）+ 多圖子表 |
+| 產業供應商・材料 | 產業供應商／管理員 | 製造商（有作品門檻） | 🆕 `supplier_catalog_items`（`material`） |
+| 官方範例版型 | 平台 | 訂製者 | 官方虛擬廠商 + `vendor_assets` |
+
+**資格（capabilities，不切身分）**：
+
+```
+可瀏覽產業供應商目錄、可導入（原型組或材料）⇔
+  已登入
+  AND EXISTS manufacturers WHERE user_id = 當前使用者
+  AND manufacturer_portfolio 該 manufacturer_id ≥ 1 筆（建議 image_url 非空）
+```
+
+- 後端 API 強制；無資格 → 403 + 引導「請先上傳至少 1 件作品」。  
+- 建議 `GET /api/me/capabilities` 回傳：`has_manufacturer`、`portfolio_count`、`can_use_supplier_catalog`、`can_import_supplier_catalog`。
+
+**資料模型（概念）**：
+
+| 表／概念 | 說明 |
+|----------|------|
+| `industry_suppliers` | 供應商公司：名稱、分類、聯絡、Maps 連結、上下架 |
+| `supplier_catalog_items` | 目錄主檔：`item_kind` = `prototype_set` \| `material`；名稱、分類、規格摘要、所屬供應商；材料用 `cover_image_url` 等 |
+| `supplier_prototype_set_images` | 僅 `prototype_set`：**一組多圖**，`catalog_item_id` + `image_url` + `sort_order` |
+| `manufacturer_supplier_imports` | **導入紀錄**：`manufacturer_id` + `catalog_item_id` + `item_kind` + 導入時快照（含原型組整組 `image_urls` 或材料規格）+ `imported_at`、備註 |
+
+（若實作簡化第一版：仍可用單表 `supplier_products` 加 `item_kind` 欄，原型組圖存 JSONB `image_urls`；第二版再拆子表。）
+
+**「導入」定義**：依 `item_kind` 點 **「加入我的原型組庫」** 或 **「加入我的材料庫」** → 寫入 `manufacturer_supplier_imports`；不整庫同步；預設**快照**（原型組快照須含當時整組圖序）。
+
+#### 4.4 製造商後台（Maker Dashboard）必做行為
+
+| 行為 | 說明 |
+|------|------|
+| **瀏覽供應商目錄** | Tab／篩選：**原型組**｜**材料**；列表卡片依類型顯示（原型組顯示多圖縮圖列，材料顯示主圖＋規格摘要）。 |
+| **加入我的原型組庫** | `item_kind=prototype_set` 時；`POST /api/me/supplier-catalog-imports`，body：`catalog_item_id`。詳情頁可翻整組圖再導入。 |
+| **加入我的材料庫** | `item_kind=material` 時；同上 API，依 kind 寫入對應庫。按鈕文案分開，不用「收藏」。 |
+| **我的原型組庫** | 已導入原型組：整組圖、標題、供應商、備註、聯絡、取消導入。 |
+| **我的材料庫** | 已導入材料：規格、供應商、備註、聯絡、取消導入。 |
+| **用途** | 原型組 → 打樣／結構參考；材料 → 備料／詢價。**不是**給訂製者選設計參考。 |
+| **解鎖提示** | 無作品時：「上傳至少 1 件作品後可使用產業供應商目錄」。 |
+| **上傳第 1 件作品後** | 可 toast：「已解鎖產業供應商目錄」。 |
+
+**供應商／管理員上架（與製造商導入對稱）**：
+
+| 行為 | 說明 |
+|------|------|
+| **新增數位原型組** | 一組多圖上傳、標題、說明、分類；至少 1 張圖才可上架。 |
+| **新增材料** | 主圖、名稱、材料規格欄（材質、色號、幅寬等依品類可調）。 |
+| **不可** | 同一筆同時當原型組又當材料；上傳表單須先選類型。 |
+
+#### 4.5 與訂製者設計流分離（必讀；先前規劃已修正）
+
+| 項目 | 說明 |
+|------|------|
+| **不做** | 已導入的**原型組與材料**皆**不**出現在 `custom-product.html`、**不**接入 AI 試穿／實境模擬、**不**因 `?manufacturer_id=` 載入、**不**進訂製者數位資產。 |
+| **`?manufacturer_id=` 維持現狀** | 僅 **`vendor_assets`（對外版型）**；與產業供應商目錄無關。 |
+| **兩條線對照** | ① 訂製者：`vendor_assets` → 設計頁。② 製造商：`supplier_catalog_items`（原型組｜材料）→ **導入** → 原型組庫／材料庫（後台）。 |
+
+#### 4.6 介面文案（僅製造商後台，可選）
+
+| 項目 | 說明 |
+|------|------|
+| **分庫標題** | 材料庫可用「本店常用原料」；原型組庫可用「參考原型組」等；**僅製造商本人可見**。 |
+| **顯示供應商名** | 兩庫列表皆顯示**真實產業供應商名稱**與聯絡方式。 |
+| **進階（第二階段，另議）** | 若要給訂製者看圖，須自行 **`vendor_assets` 上傳**並處理授權；**不**自動把導入的原型組／材料推到設計頁。 |
+
+#### 4.7 API 清單（概念，實作時對照）
+
+| API | 誰 | 說明 |
+|-----|-----|------|
+| `GET /api/me/capabilities` | 登入者 | 含供應商目錄／導入資格 |
+| `GET /api/industry-suppliers` | 有資格製造商 | 供應商列表 |
+| `GET /api/industry-suppliers/:id/catalog-items` | 有資格 | 該供應商目錄；query：`item_kind=prototype_set\|material` |
+| `GET /api/supplier-catalog-items/:id` | 有資格 | 單筆詳情（原型組含多圖陣列） |
+| `POST /api/me/supplier-catalog-imports` | 有資格 | **導入**；body：`catalog_item_id`（後端依 `item_kind` 歸庫） |
+| `GET /api/me/supplier-catalog-imports` | 有資格 | 已導入列表；query：`item_kind` 篩選 |
+| `DELETE /api/me/supplier-catalog-imports/:id` | 有資格 | **取消導入** |
+| 管理／供應商端 | admin 或供應商帳 | `POST/PATCH` 上架原型組（多圖）、材料；分開 endpoint 或同一 resource + `item_kind` |
+
+（以上 API **僅**供製造商後台；**勿**對訂製者或 `custom-product` 開公開讀取。）
+
+#### 4.8 實施階段
+
+| 階段 | 內容 |
+|------|------|
+| **P0** | SQL：`industry_suppliers`、`supplier_catalog_items`（含 `item_kind`）、原型組多圖、`manufacturer_supplier_imports`；capabilities；管理員可上架兩類 |
+| **P1** | 製造商後台：目錄 Tab（原型組｜材料）、分別導入、**我的原型組庫**＋**我的材料庫** |
+| **P2** | 篩選、備註、規格複製；供應商自助上架表單（先選類型再多圖／材料欄） |
+| **P3** | 供應商自助／月費名錄 |
+| **並行可選** | §4.1 線下店家目錄、§4.2 官方虛擬廠商（與本節分開排程） |
+
+#### 4.9 風險與規則
+
+- 產業供應商上架即同意：已解鎖之製造商可於平台內瀏覽並導入參考；禁止批量爬取對外轉售。  
+- 聯絡方式僅有資格製造商可見；供應商列表／材料 API 不進公開 SEO。  
+- 訂製者**看不到**產業供應商目錄與已導入內容；訂製者設計仍只用 `vendor_assets`。  
+- 與 `vendor_assets`、種子廠商、線下 Maps 目錄：**分表、分入口**，避免一個 `manufacturers` 承載全部角色。
+
+**需求一句話**：產業供應商上架分 **數位原型組（一組多圖）** 與 **材料** 兩類；製造商（有作品）分別**導入**至原型組庫／材料庫（**不用「收藏」**）；**與訂製者設計頁、`manufacturer_id` 無關**。
+
+---
+
+### 5. 會員後台・三角色介面分離（規劃中）
+
+> 架構與 A／B 線：**`docs/三角色架構與AB線說明.md`**。本節只談**登入後會員看到的後台／導覽**，不取代 **`/admin/`** 平台管理後台。
+
+**更新：2026-05-20**
+
+#### 5.0 現況與問題
+
+| 現況 | 問題 |
+|------|------|
+| 頂部「我的功能」下拉混排訂製＋廠商（`site-header.js`） | 文案「訂製品（客戶／供應商兼用）」易混淆；新用戶不知自己是訂製還是接單 |
+| 廠商頁散落 `/client/manufacturer-*.html` | 與訂製頁同層路徑，缺少「會員中心」總覽 |
+| 產業供應商（B 線）尚未實作 | 若塞進廠商區會與 A 線 `vendor_assets`、B 線導入混為一談 |
+| `profiles.role` 僅 `user`／`admin`／`tester` | **沒有**註冊時選「訂製者／製造商」；介面須用**能力（capabilities）**分區，而非身分切換 |
+
+**目標**：同一登入帳號可同時具多種能力，但**畫面上三區分開、標題與用語一致**；無能力則隱藏或顯示解鎖說明。
+
+#### 5.1 兩種後台分工（必讀）
+
+| | **平台管理後台** | **會員後台（本節）** |
+|---|------------------|----------------------|
+| 路徑 | `/admin/*` | `/member/*`（新建）＋既有 `/client/*`、`/profile/*` 等 |
+| 誰能進 | `profiles.role = admin` | 已登入會員（`user` 等） |
+| 做什麼 | 全站用戶、種子廠商、分類、金流、代上架產業目錄 | **自己的**訂製、廠商、供應商（若有綁定） |
+| 三角色 | 營運代操作 | ① 訂製／設計 ② 製造商 ③ 產業供應商（若具資格） |
+
+#### 5.2 設計原則
+
+1. **不新增註冊身分欄位**；註冊後人人預設可見 **① 訂製／設計區**（登入即可）。  
+2. **② 製造商區**：`manufacturers.user_id = 我` 時顯示；未建廠商 → 區塊內「建立廠商資料」引導（沿用 `/client/manufacturer-dashboard.html`）。  
+3. **③ 產業供應商區**（B 線）：`industry_suppliers` 綁定帳號或管理員代營第一版可僅 admin；會員端待 B 線 P2 再開。  
+4. **製造商・產業採購（B）** 與 **製造商・對外素材（A）** 在 ② 區內再分子區，文案標 **「給訂製者看的版型」** vs **「產業原料／原型組（採購）」**。  
+5. **共通帳務**：點數、方案、帳號設定放在會員中心頂部或側欄「帳戶」，不塞進三角色任一區。
+
+#### 5.3 統一入口（建議）
+
+| 項目 | 說明 |
+|------|------|
+| **會員中心首頁** | 新建 `/member/index.html`（或 `/my.html`）：三張卡片／三 Tab → 訂製｜製造｜產業供應 |
+| **頂部導覽** | 「我的功能」改為 **「會員中心」** 連到上列首頁；或保留下拉但改為**三個區塊標題**（見 5.5） |
+| **子控制台** | 各區可有輕量總覽頁（可第二階段）：`/member/design/`、`/member/manufacturer/`、`/member/supplier/` |
+
+#### 5.4 三角色功能對照（會員後台）
+
+**① 訂製／設計**（人人可用；對應訂製者）
+
+| 功能 | 現有路徑 | 備註 |
+|------|----------|------|
+| 總覽／快速開始 | `/member/design/`（新）或 `/client/dashboard.html` | 捷徑：建立產品、我的資產 |
+| 建立訂製產品 | `/custom-product.html` | A 線消費端 |
+| 再製設計 | `/remake-product.html` | |
+| 我的數位資產 | `/client/my-custom-products.html` | |
+| 圖庫找廠商 | `/custom/gallery.html` | |
+| 我的對話 | `/client/messages.html` | |
+| AI 編輯區 | `/client/ai-edit.html` | 依會員方案 |
+| 點數／方案 | `/credits.html`、`/subscription-plans.html` | 共通帳務 |
+
+**② 製造商／接單**（需已建 `manufacturers`）
+
+| 子區 | 功能 | 現有路徑 | 資料線 |
+|------|------|----------|--------|
+| **接單與曝光** | 廠商控制台 | `/client/manufacturer-dashboard.html` | |
+| | 我的作品 | `/client/manufacturer-portfolio.html` | 作品集 |
+| | 訂製需求列表 | `/client/demands.html` | |
+| | 詢價／聯絡 | `/client/manufacturer-inquiries.html` | |
+| **對外・A 線** | 我的數位版型（給訂製者選） | `/client/manufacturer-materials.html` | `vendor_assets` |
+| **採購・B 線** | 產業供應商目錄 | `/client/supplier-catalog.html`（新） | 規劃 §4 |
+| | 我的原型組庫 | `/client/my-prototype-imports.html`（新） | 導入 `prototype_set` |
+| | 我的材料庫 | `/client/my-material-imports.html`（新） | 導入 `material` |
+| | 解鎖提示 | 無作品時顯示於 B 子區 | `portfolio_count ≥ 1` |
+
+種子廠商（`vendor_source = seed`）：② 區可**唯讀**或隱藏編輯入口，文案連到「平台代維護／升級付費」（與現行一致）。
+
+**③ 產業供應商**（上游；與 ② 製造商不同公司）
+
+| 功能 | 路徑 | 備註 |
+|------|------|------|
+| 供應商控制台 | `/member/supplier/`（新） | 第一版可由 admin 代上架；P2 開放自管 |
+| 上架數位原型組 | 表單：一組多圖 | `item_kind = prototype_set` |
+| 上架材料 | 表單：規格＋主圖 | `item_kind = material` |
+| 聯絡與公司資料 | 同控制台 | `industry_suppliers` |
+
+**誰會看到 ③**：`industry_suppliers.user_id = 我`（或 `supplier_staff` 表，第二階段）；一般製造商**不**看到 ③，只看到 ② 內的「瀏覽產業目錄／導入」。
+
+#### 5.5 導覽改版（`site-header.js` + i18n）
+
+**現行**：一個下拉、兩個 header（設計／開店）混在一起。
+
+**建議改為**（登入後「會員中心」下拉或獨立頁）：
+
+```
+會員中心
+├─ 【訂製與設計】          ← ① 人人可見
+│    設計者控制台、建立產品、我的數位資產、圖庫找廠商、我的對話 …
+├─ 【製造商／接單】        ← ② has_manufacturer
+│    廠商控制台、作品、詢價、訂製需求
+│    ── 給訂製者（A 線）──
+│    我的數位版型
+│    ── 產業採購（B 線）──  ← can_import_supplier_catalog
+│    產業目錄、我的原型組庫、我的材料庫
+└─ 【產業供應商】          ← ③ is_industry_supplier（規劃）
+     供應商控制台、上架原型組、上架材料
+```
+
+**共通（下拉底或帳戶區）**：帳號資訊、聯絡設定、我的點數、方案與定價、登出。  
+**admin**：維持另開「平台管理」連結至 `/admin/`，不與三角色混排。
+
+#### 5.6 Capabilities API（會員中心用）
+
+擴充 **`GET /api/me/capabilities`**（與 §4 對齊），前端據此顯示／隱藏區塊：
+
+| 欄位 | 用途 |
+|------|------|
+| `has_manufacturer` | 是否顯示 ② 整區 |
+| `manufacturer_id` | 控制台連結參數 |
+| `portfolio_count` | B 線是否解鎖產業目錄 |
+| `can_use_supplier_catalog` | ② 內 B 子區：瀏覽目錄 |
+| `can_import_supplier_catalog` | ② 內 B 子區：導入 |
+| `is_industry_supplier` | 是否顯示 ③（B 線 P2+） |
+| `is_seed_manufacturer` | ② 內編輯限制、文案 |
+| `vendor_source` | `platform`／`seed`／null，官方範例標示用 |
+
+#### 5.7 介面線框（文字）
+
+**會員中心首頁 `/member/index.html`**
+
+- 頂：歡迎、點數摘要、帳戶設定連結  
+- 三欄（手機改直排）：  
+  - **訂製與設計** — 說明「用 AI 設計並找廠商製作」→ 進入設計區  
+  - **製造商** — 未建廠商：大按鈕「建立廠商」；已建：作品數／詢價數／捷徑  
+  - **產業供應商** — 無資格：灰階＋「此為產業上游帳號」；有資格：上架數統計  
+
+**製造商區子頁** 頂部 **Tab**：`接單` | `對外版型 (A)` | `產業採購 (B)`，避免一頁塞滿連結。
+
+#### 5.8 實施階段
+
+| 階段 | 內容 | 依賴 |
+|------|------|------|
+| **M0** | 文件定案（本節 + 三角色說明）、i18n key 清單 | — |
+| **M1** | `GET /api/me/capabilities`；`/member/index.html` 三區卡片；`site-header` 下拉改三區標題（連結仍用現有 URL） | A 線 E2E 建議先跑通 |
+| **M2** | `/member/design/`、`/member/manufacturer/` 輕量總覽；製造商 Tab（接單／A／B） | |
+| **M3** | B 線新頁：產業目錄、原型組庫、材料庫（§4 P1） | §4 P0 SQL |
+| **M4** | ③ 產業供應商控制台、上架表單（§4 P2 自助） | `industry_suppliers` 綁帳 |
+
+**建議順序**：**A 線測試（官方素材）→ M1 導覽分區 → §4 B 線後端 → M3／M4**。
+
+#### 5.9 與既有頁面遷移
+
+- **不強制搬 URL**：第一版只改導覽與會員中心入口，舊書籤 `/client/manufacturer-dashboard.html` 仍有效。  
+- **第二版**可選：製造商頁統一 prefix `/member/manufacturer/*` 並 301 舊路徑。  
+- **專家媒合**（`/expert/*`）：維持第四區「服務媒合（專家）」或收進 ② 底部「進階」，與訂製三角色文件分開註記，避免本節範圍膨脹。
+
+#### 5.10 驗收清單（會員後台）
+
+- [ ] 未登入：看不到會員中心，僅公開頁＋登入  
+- [ ] 僅一般 user：只看到 ①＋帳戶；無 ②③  
+- [ ] 已建廠商、無作品：② 可見，B 子區顯示解鎖提示  
+- [ ] 已建廠商、有作品：② 完整，B 子區可進目錄（B 線實作後）  
+- [ ] 產業供應商帳：③ 可見，①② 仍可用（同帳雙能力）  
+- [ ] admin：頂部另有平台管理，三角色區與 `/admin/` 不混  
+
+**需求一句話**：登入後以**會員中心**統一入口，**訂製／製造商／產業供應商**三區分開；製造商區內再分**對外版型（A）**與**產業採購（B）**；用 capabilities 控制顯示，不新增註冊身分。
+
+---
+
+### 6. 視覺語意庫・Gemini 標籤／提示詞／生成圖解析與首頁搜尋（規劃中）
+
+**更新：2026-05-20**（擴充：累積語意資料供搜尋與日後流行預測）
+
+#### 6.0 產品願景（一句話）
+
+凡進平台的**可搜尋視覺資產**（廠商數位原型、作品集、訂製者提示詞與 AI 生成圖），在上傳或生圖完成時，一律用 **`gemini-3.1-flash-lite`** 做**讀圖／讀文**解析，寫入統一語意結構；短期支撐**靈感牆與站內搜尋**，長期累積為**售前風格意圖分析**與**流行趨勢預測**的資料基礎（分析儀表板、聚合報表為後續產品，本階段只做**採集＋可查**）。
+
+**適用對象**：**所有付費／一般製造商**自行上傳（非僅種子）；種子廠商仍由平台代傳，代傳時同樣跑解析。訂製者 `custom_products` 之公開作品一併納入（已有 `generation_prompt` 欄，見 `docs/add-custom-products-prompt-seed.sql`）。
+
+---
+
+**產品需求（需求方確認）**：
+
+1. **廠商／供應商**上傳「產品的數位原型」（含 `vendor_assets` 數位版型、`manufacturer_portfolio` 系列圖、未來 §4 **原型組**）時：  
+   - **必要**：上傳後由 **Gemini 讀圖自動產生標籤**（`ai_tags`），寫入資料庫；未產生標籤不得完成上架（或強制重試）。  
+   - **可選**：**重繪成產品圖**（示意成品圖，FLUX／Gemini 依現行生圖策略）；勾選才跑、扣點規則另訂。  
+2. **訂製者生圖流程**（`custom_products`）：  
+   - **提示詞解析（必要）**：儲存或生圖時，對 `generation_prompt`（及可選 `analysis_json`）做 **Gemini 文字解析** → `prompt_semantics_json`（意圖、品類、風格、材質、場景等）。  
+   - **生成圖解析（必要）**：`POST /api/generate-product-image` 成功後，對 **`ai_generated_image_url`** 再跑 **Gemini 讀圖** → `image_semantics_json`（視覺風格、配色、結構、氛圍標籤）；與提示詞語意分開存，便於日後比對「意圖 vs 成品」。  
+   - **參考圖（建議）**：若有 `reference_image_url`，同樣讀圖寫入語意庫（來源標記 `reference`）。  
+3. **首頁靈感牆**（`/` 媒體牆）：搜尋框輸入文字時，可**以標籤／語意欄位**比對篩選（含 portfolio、`user_design` 的 tags + prompt + 生成圖語意）；**卡片版面不變**，僅在卡片加**小圖示**（例：`bi-tags`），點擊／hover 才顯示標籤全文。  
+4. **資料累積**：每筆解析寫入**中央語意表**（見 §6.2），保留 `model`、`prompt_version`、`created_at`，供日後聚合（熱門 tag、分類×風格矩陣、時間序列）而不必每次重跑 Gemini。
+
+與 §4 對齊：**材料**（`material`）可共用 Gemini 標籤，但「重繪產品圖」主要針對**原型／版型圖**；材料以規格欄為主。
+
+**模型（讀圖／讀文，統一）**：
+
+| 項目 | 規劃 |
+|------|------|
+| 預設模型 | **分析／讀圖／標籤** 一律 **`gemini-3.1-flash-lite`**；翻譯仍用 `gemini_model`（預設 `gemini-2.5-flash-lite`） |
+| 後台設定 | `/admin/ai-settings.html` → **「分析／讀圖／標籤（統一）」** 儲存後寫入 `gemini_model_read` + `gemini_model_tagging` |
+| 程式 | `server.js`：`getTaggingModelName()` + `runInGeminiQueue()` 共用；429 時可 fallback 至 `gemini-2.5-flash-lite`（與翻譯路徑相同策略） |
+| 管理頁 | `/admin/ai-settings.html` 增加「標籤／語意解析模型」欄位 |
+| 成本 | 上傳／生圖**同步**解析可能略增延遲；大量舊資料用 **T6 補跑腳本** 離峰執行 |
+
+---
+
+#### 6.1 現況檢查（2026-05-20 程式對照）
+
+| 項目 | 現況 | 缺口 |
+|------|------|------|
+| **`vendor_assets` 上傳** | `POST /api/me/vendor-assets`、`POST /api/admin/manufacturers/:id/vendor-assets`；欄位：分類、標題、說明、造型／材質 key、單圖 | ❌ 無 Gemini 標籤；❌ 無重繪產品圖；表無 `tags`／`ai_tags` 欄（見 `docs/vendor-assets-schema.sql`） |
+| **`manufacturer-portfolio` 系列／對照** | 上傳可帶 **手動** `tags`（逗號分隔）；lightbox 可顯示 `tags`、`design_highlight` | ❌ 非 Gemini 自動；❌ 無重繪產品圖欄位 |
+| **管理員代傳素材** | `/admin/seed-vendors.html` Modal：分類、標題、單圖、造型／材質 | 同 `vendor_assets`，缺 Gemini／重繪 |
+| **產業供應商原型組 §4** | 尚未實作 | 待 §4 表建立時一併納入 `ai_tags` |
+| **Gemini 現有用途** | 首頁 **服務媒合** `POST /api/ai-detect`（工項 JSON）；客製 `analyze-custom-product`；翻譯／讀圖模型見 `server.js` | ❌ **未**用於廠商上傳素材自動標籤 |
+| **生圖** | 訂製流程 `POST /api/generate-product-image`（**FLUX**） | 可複用為「重繪產品圖」可選步驟，需獨立 API 與 Storage 路徑 |
+| **首頁搜尋 `?q=`** | `GET /api/media-wall`；placeholder「搜尋作品（標題或提示詞）」 | ⚠️ **僅**在後端過濾 **`user_design`**（`custom_products` 的 title、generation_prompt）；**未**搜尋 portfolio 標籤／`image_semantics`／`prompt_semantics` |
+| **首頁卡片 UI** | 對照／系列圖 lightbox 內有「標籤」列（`media-wall-lightbox-tags`） | ❌ 牆上卡片**未**顯示標籤小圖示；搜尋也不含廠商作品標籤 |
+| **`custom_products` 語意** | 有 `generation_prompt`、`analysis_json`（analyze 時寫入） | ❌ 生圖後**未**對生成圖做 Gemini 視覺解析；❌ 提示詞**未**結構化為可搜尋 `ai_tags` |
+| **語意累積／趨勢用** | 無中央表 | ❌ 無法跨來源聚合 tag 頻率、時間序列 |
+
+**相關檔案**：`server.js`（`GET /api/media-wall`、`POST /api/generate-product-image`、`POST /api/analyze-custom-product`、`vendor-assets`）、`public/client/manufacturer-materials.html`、`public/client/manufacturer-portfolio.html`、`public/custom-product.html`、`public/admin/seed-vendors.html`、`public/admin/ai-settings.html`、`public/iStudio-1.0.0/index.html`（`#media-wall-search`）。
+
+---
+
+#### 6.2 資料模型（建議）
+
+**A. 各業務表快取欄位**（供列表、靈感牆、API 直接讀，避免每次 JOIN）
+
+| 表 | 新增欄位（建議） | 說明 |
+|----|------------------|------|
+| `vendor_assets` | `ai_tags text[]`、`ai_tags_generated_at`、`tags_source`（`gemini`／`manual`） | 讀圖標籤；上架必要 |
+| `vendor_assets` | `image_semantics_json jsonb` | 完整結構化輸出（風格、材質、結構、配色、一句摘要） |
+| `vendor_assets` | `product_preview_image_url text`（可選） | 「重繪成產品圖」；原圖仍為 `image_url` |
+| `manufacturer_portfolio` | `ai_tags text[]`、`image_semantics_json jsonb` | 系列／對照每筆上傳後強制 Gemini；手動 `tags` 第二階段改為補充 |
+| `manufacturer_portfolio` | `product_preview_image_url`（可選） | 同上 |
+| `custom_products` | `ai_tags text[]` | 由提示詞＋生成圖語意**合併去重**後的快取，供搜尋 |
+| `custom_products` | `prompt_semantics_json jsonb` | 解析 `generation_prompt`（＋可選 description） |
+| `custom_products` | `image_semantics_json jsonb` | 解析 `ai_generated_image_url`（生圖成功後寫入） |
+| `custom_products` | `semantics_generated_at timestamptz` | 最後一次語意更新時間 |
+| `supplier_catalog_items`（§4） | `ai_tags`、`image_semantics_json`、`product_preview_image_url` | 原型組必填；材料至少 tags |
+
+**B. 中央語意事件表**（累積與趨勢分析用，建議）
+
+| 表 | 欄位 | 說明 |
+|----|------|------|
+| **`visual_semantics_events`**（新表） | `id`、`source_type`（`vendor_asset`／`portfolio`／`custom_product`／`catalog_item`）、`source_id`、`image_url`、`text_input`（提示詞原文，可 null）、`semantics_kind`（`image`／`prompt`／`generated_image`／`reference_image`）、`ai_tags text[]`、`semantics_json jsonb`、`model text`、`prompt_version text`、`owner_id`、`category_key`、`created_at` | 每次解析 append 一筆；**不刪舊列**以便時間序列；業務表更新時同步寫入最新一筆或 upsert 鏡像 |
+
+**索引**：
+
+- 各表 `ai_tags` → **GIN**（array containment）  
+- `image_semantics_json`、`prompt_semantics_json` → **GIN** `jsonb_path_ops` 或 generated column 抽 `tags` 陣列（量大時再優化）  
+- `visual_semantics_events (source_type, source_id, semantics_kind)`、`(created_at)`、`ai_tags` GIN  
+
+**SQL 檔（待寫）**：
+
+1. `docs/add-digital-prototype-ai-tags.sql` — `vendor_assets`、`manufacturer_portfolio`  
+2. `docs/add-custom-products-semantics.sql` — `custom_products` 語意欄位  
+3. `docs/add-visual-semantics-events.sql` — 中央事件表 + RLS（僅 service role 寫入；讀取依產品規則）
+
+**`semantics_json` 建議 schema（Gemini 輸出，版本化）**：
+
+```json
+{
+  "tags": ["極簡", "皮革", "手提包"],
+  "category_guess": "bags",
+  "style_keywords": ["minimal", "luxury"],
+  "materials": ["leather"],
+  "colors": ["#8B4513", "black"],
+  "structure": ["top-handle", "structured"],
+  "mood": ["elegant"],
+  "intent_summary": "高端極簡皮革手提包，偏都會通勤",
+  "locale": "zh-TW"
+}
+```
+
+提示詞解析可省略 `colors`／`structure`（無圖），生成圖解析可省略與提示詞重複的 narrative，以 **tags + style_keywords** 為搜尋主軸。
+
+---
+
+#### 6.3 上傳流程（廠商／供應商／管理員代傳）
+
+```mermaid
+sequenceDiagram
+    participant U as 上傳者
+    participant API as 後端
+    participant G as Gemini
+    participant F as FLUX可選
+
+    U->>API: 上傳原型圖（+ 分類）
+    API->>G: 讀圖產生 ai_tags（必要）
+    G-->>API: tags[] 或失敗
+    alt 失敗
+        API-->>U: 400 請重試，不可上架
+    end
+    opt 勾選重繪產品圖
+        API->>F: 依原型+分類生成示意圖
+        F-->>API: product_preview_image_url
+    end
+    API-->>U: 201 含 ai_tags（+ 可選預覽圖）
+```
+
+| 步驟 | UI（製造商／admin） | 後端 |
+|------|---------------------|------|
+| 1 | 選圖、分類、標題；**顯示「正在產生 AI 標籤…」** | 先存圖或暫存，呼叫 **`POST /api/.../generate-prototype-tags`**（Gemini vision + 結構化 JSON 標籤陣列） |
+| 2 | 顯示建議標籤（唯讀或可刪單一 tag，**不可空白送出**） | 寫入 `ai_tags` |
+| 3 | 勾選「一併重繪成產品示意圖（可選，扣點）」 | **`POST /api/.../render-product-preview`** → FLUX；寫入 `product_preview_image_url` |
+| 4 | 確認上架 | `INSERT` 正式列 |
+
+**套用頁面**：
+
+- `/client/manufacturer-materials.html`（`vendor_assets`）  
+- `/client/manufacturer-portfolio.html`（系列／多圖＝原型組語意）  
+- `/admin/seed-vendors.html` 代傳素材 Modal  
+- 未來 §4 供應商上架原型組表單（材料：僅步驟 1～2）
+
+**點數**：重繪可選步驟依 `membership-tiers-and-points-plan.md` 訂點；**Gemini 語意解析（標籤／提示詞／讀圖）建議不扣使用者點數**（平台吸收或訂閱內含），避免阻礙資料累積；若需限流可對免費帳號每日 N 次。
+
+---
+
+#### 6.3b 三條解析管線（共用 `gemini-3.1-flash-lite`）
+
+| 管線 | 觸發時機 | 輸入 | 輸出寫入 | 搜尋用途 |
+|------|----------|------|----------|----------|
+| **P1 原型／素材讀圖** | `vendor_assets`／`portfolio`／§4 上架前 | 圖片 URL 或上傳檔 | `ai_tags`、`image_semantics_json` + `visual_semantics_events` | 靈感牆、圖庫、廠商頁 |
+| **P2 提示詞解析** | `custom_products` 儲存／生圖請求前；`analyze-custom-product` 可合併 | `generation_prompt`、`title`、`category_key` | `prompt_semantics_json`、合併進 `ai_tags` | 靈感牆 `q`、意圖分析 |
+| **P3 生成圖讀圖** | `generate-product-image` **成功回傳後**（非同步亦可） | `ai_generated_image_url` | `image_semantics_json`、更新 `ai_tags` + event | 比對意圖 vs 成品、流行視覺特徵 |
+
+**實作要點**：
+
+- 抽出 **`lib/visual-semantics.js`**（或 `server.js` 內模組）：`analyzeImageSemantics(bufferOrUrl, context)`、`analyzePromptSemantics(text, context)`；統一 prompt 模板與 JSON schema 校驗（失敗重試 1 次）。  
+- **P2／P3 分開存**：避免只用提示詞標籤代表生成結果，否則趨勢分析會失真。  
+- **公開範圍**：僅 `show_on_homepage`／公開 portfolio 的語意進入「對外搜尋」；私人設計可寫 event 但 `GET /api/media-wall` 不曝光（RLS／API filter）。  
+- **與現有 `analyze-custom-product` 關係**：短期可並存（舊 `analysis_json` 供表單）；中期將結構化標籤**對齊** `prompt_semantics_json.tags`，避免兩套欄位漂移。
+
+---
+
+#### 6.4 首頁靈感牆・標籤搜尋與簡潔 UI
+
+**搜尋行為（`GET /api/media-wall?q=`）**：
+
+| 類型 | 現況 `q` | 規劃 `q` |
+|------|----------|----------|
+| `user_design` | title、generation_prompt | ✅ 加上 `ai_tags`、`prompt_semantics_json` 內 tags、`image_semantics_json` 內 tags（`ilike` 或 GIN） |
+| `comparison`／`series` | ❌ 不過濾 | ✅ `ai_tags`／`tags`／`design_highlight`／`title`／`description`／`image_semantics_json` |
+| `vendor_assets` 是否進牆 | 目前靈感牆**不含** `vendor_assets` 列 | **本需求若含「官方／廠商版型」被搜尋**：需另議是否將部分 `vendor_assets` 以 `type=vendor_asset` 進牆；**預設先做 portfolio 系列＋對照**；`vendor_assets` 進牆列為 **P2 可選** |
+
+**前端（`index.html` 媒體牆卡片）**：
+
+- 卡片**不顯示**標籤文字列（維持簡潔）。  
+- 若該筆 `ai_tags.length > 0`（或 `tags`）：角標小 icon **`bi-tags`**（或 `#has-ai-tags`）。  
+- 點 icon → Bootstrap popover／小 modal 列出標籤；或僅在 **lightbox** 詳情顯示（現有 `media-wall-lightbox-tags-row` 改為優先顯示 `ai_tags`）。  
+- 搜尋 placeholder 改為：「搜尋標籤、標題或提示詞」；i18n `home.searchPlaceholder`。
+
+**注意**：`docs/STABLE-BASELINE.md` 要求靈感牆穩定；實作採**加法**（icon + API 擴充），不改現有卡片尺寸與 layout 篩選邏輯。
+
+---
+
+#### 6.5 API 清單（概念）
+
+| API | 說明 |
+|-----|------|
+| `POST /api/me/vendor-assets/generate-tags` | P1：上傳圖後 Gemini 產 `ai_tags` + `semantics_json`（preview） |
+| `POST /api/me/vendor-assets` | 必帶 `ai_tags`（非空）；寫入業務表 + `visual_semantics_events` |
+| `POST /api/me/vendor-assets/render-product-preview` | 可選重繪；完成後可再跑 P1 於預覽圖（選項） |
+| 同上 pattern | `manufacturer-portfolio` 上傳；admin 代傳路徑 |
+| `POST /api/custom-products/:id/analyze-semantics` | P2+P3：手動重跑（管理員／本人） |
+| （內部） | `generate-product-image` 成功 hook → P3 非同步 |
+| （內部） | `POST /api/custom-products`／更新 → 有 `generation_prompt` 則 P2 |
+| `GET /api/media-wall` | `q` 擴充：portfolio + user_design 的 `ai_tags`／semantics |
+| `GET /api/admin/semantics-stats`（T7） | 聚合：tag 次數、分類×風格、近 7/30 日（趨勢預覽，僅 admin） |
+
+**Gemini prompt（`payment_config` 可覆寫）**：
+
+| key | 用途 |
+|-----|------|
+| `gemini_model_tagging` | 模型 ID，預設 `gemini-3.1-flash-lite` |
+| `prototype_tagging_prompt` | P1 讀圖 |
+| `prompt_semantics_prompt` | P2 讀文 |
+| `generated_image_semantics_prompt` | P3 讀生成圖 |
+
+輸出皆為 **JSON**，校驗失敗則 400／重試；`tags` 陣列 5～20 個，中英皆可，含品類／材質／風格／結構／配色關鍵字。
+
+---
+
+#### 6.6 實施階段（工作分解）
+
+| 階段 | 內容 | 產出 |
+|------|------|------|
+| **T0** | SQL：業務表語意欄位 + `visual_semantics_events` + GIN；三份 migration 檔 | ⏳ **Supabase 網站** SQL Editor 依序執行 `add-digital-prototype-ai-tags.sql`、`add-custom-products-semantics.sql`、`add-visual-semantics-events.sql`（見 `add-visual-semantics-all.sql` 索引） |
+| **T0.5** | `getTaggingModelName()`、`lib/visual-semantics.js`、後台 `gemini_model_tagging` | ✅ 已實作（預設 prompt 在模組；後台三 prompt 編輯待補） |
+| **T1** | P1：`vendor_assets` 上傳必備標籤（`manufacturer-materials` + seed-vendors Modal） | ✅ API + materials 頁；admin seed Modal 待接 |
+| **T2** | P1：`manufacturer-portfolio` 系列／對照上傳 | 作品集語意齊全 |
+| **T3** | P2+P3：`generate-product-image` hook + `custom_products` 欄位寫入 | 提示詞＋生成圖進語意庫 |
+| **T4** | `GET /api/media-wall` 的 `q` 擴充 + 首頁 **tags 小 icon**／lightbox 優先 `ai_tags` | 站內搜尋可用 |
+| **T5** | 可選「重繪產品圖」+ 扣點；§4 原型組接入 P1 | 與原 §6 重繪需求一致 |
+| **T6** | 補跑腳本 `node docs/backfill-visual-semantics.js`（portfolio、vendor_assets、公開 custom_products） | 舊資料進語意庫 |
+| **T7（後續產品）** | Admin 語意統計 API、匯出 CSV、售前「風格意圖」報表雛形 | 流行預測資料基礎 |
+
+**建議順序**：**A 線 E2E 穩定 → T0～T0.5 → T1 → T3 → T4 → T2 → T6 → T5**。（先讓訂製生圖與首頁搜尋有語意，再補齊 portfolio 量。）
+
+**工時粗估（供排程）**：
+
+| 區塊 | 約略 |
+|------|------|
+| T0 + T0.5 | 0.5～1 天 |
+| T1 + T2 | 1～1.5 天（含前端上傳 UX） |
+| T3 | 1 天（hook + 失敗重試） |
+| T4 | 0.5～1 天 |
+| T6 | 0.5 天 |
+| T5 + T7 | 另計 |
+
+---
+
+#### 6.8 日後「流行預測／售前風格意圖」（本階段不實作 UI，僅預留）
+
+| 能力 | 資料來源 | 說明 |
+|------|----------|------|
+| 熱門風格 tag 排行 | `visual_semantics_events.ai_tags` + `created_at` | 按週／月聚合 |
+| 分類 × 風格矩陣 | `category_key` + `style_keywords` | 訂製品與廠商作品交叉 |
+| 意圖 vs 成品落差 | 同筆 `custom_product` 的 P2 與 P3 | 提示詞偏「極簡」但生成圖偏「繁複」等 |
+| 售前建議（未來） | 廠商 `vendor_assets` 語意 vs 近期平台熱門 | 輔助報價／推薦版型 |
+
+**隱私**：僅聚合公開或已授權資料；私人 `show_on_homepage=false` 不進對外統計。GDPR／刪帳時刪除對應 `visual_semantics_events`（依 `owner_id`）。
+
+---
+
+#### 6.9 前端待改檔案
+
+| 檔案 | 變更 |
+|------|------|
+| `public/client/manufacturer-materials.html` | 上傳：產生標籤中狀態、顯示建議 tags、必過關才送出 |
+| `public/client/manufacturer-portfolio.html` | 同上；系列多圖可「主圖解析 + 其餘圖批次」（或僅封面） |
+| `public/custom-product.html`（或生圖頁） | 生圖後顯示「已分析風格標籤」（唯讀）；可選重試解析 |
+| `public/iStudio-1.0.0/index.html` | 搜尋 placeholder、tags icon、lightbox 顯示 `ai_tags` |
+| `public/admin/ai-settings.html` | `gemini_model_tagging`、三 prompt  textarea |
+| `public/admin/semantics-stats.html`（T7 新頁） | 趨勢預覽儀表 |
+
+---
+
+#### 6.10 與其他章節關係
+
+| 章節 | 關係 |
+|------|------|
+| §4 B 線 | 原型組／材料上架時走 **P1**，寫入 `supplier_catalog_items` + events |
+| §5 會員中心 | 「我的數位版型／作品」入口不變；上傳流程內嵌語意步驟 |
+| §6 舊「僅標籤」 | 本擴充**包含**原需求，並加上 P2/P3 與中央表 |
+| `docs/首頁AI識別流程.md` | 首頁工項識別仍用既有 read 模型；**不混用** tagging 模型 unless 後台統一 |
+
+---
+
+#### 6.7 驗收清單
+
+**廠商上傳（P1）**
+
+- [ ] 上傳單張原型圖不帶 `ai_tags` → API 拒絕或前端擋送出  
+- [ ] 使用 `gemini-3.1-flash-lite`（或後台 `gemini_model_tagging`）成功產出 `ai_tags` + `image_semantics_json`  
+- [ ] 寫入 `visual_semantics_events` 一筆 `semantics_kind=image`  
+- [ ] Gemini 失敗 → 明確錯誤，可重試  
+- [ ] 不勾重繪 → 僅存原型圖 + 標籤  
+- [ ] 勾重繪 → 另有 `product_preview_image_url`，原型圖不變  
+
+**訂製生圖（P2/P3）**
+
+- [ ] 有 `generation_prompt` 的產品 → 存在 `prompt_semantics_json`  
+- [ ] 生圖成功 → 存在 `image_semantics_json`，且 `ai_tags` 含視覺標籤  
+- [ ] P2 與 P3 的 tags 可分開查詢（事件表 `semantics_kind` 正確）  
+
+**搜尋與 UI**
+
+- [ ] 首頁 `q`：對照／系列 + 使用者設計皆可依 tag／提示詞語意篩出  
+- [ ] 靈感牆卡片無標籤文字外露；有標籤者見小 icon；點開可讀全文  
+- [ ] §4 原型組（實作後）沿用 P1  
+
+**資料累積（趨勢預留）**
+
+- [ ] T6 補跑後，公開作品在 `visual_semantics_events` 可查  
+- [ ] 私人作品不出現在 media-wall 搜尋結果  
+
+**需求一句話**：上傳與生圖時用 **`gemini-3.1-flash-lite`** 解析**圖＋提示詞＋生成圖**，**必備標籤**才能上架／公開；語意寫入業務表與 **`visual_semantics_events`** 供搜尋與日後流行預測；首頁搜尋擴充但卡片仍簡潔。
 
 ---
 

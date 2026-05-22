@@ -520,9 +520,18 @@
                     }
                     var tagList = Array.isArray(p.tags) ? p.tags : (typeof p.tags === 'string' ? (p.tags.split(/[,，、\s]+/).map(function(s){ return s.trim(); }).filter(Boolean)) : []);
                     var tagsHTML = tagList.map(function(t){ return '<span class="cap-tag">' + escHtml(t) + '</span>'; }).join('');
+                    var moqN = p.min_order_quantity;
+                    var moqBlock = '';
+                    if (moqN != null && moqN !== '' && Number(moqN) >= 1) {
+                        var moqText = (window.i18n && typeof window.i18n.t === 'function')
+                            ? String(window.i18n.t('portfolio.moqLine')).replace(/\{n\}/g, String(moqN))
+                            : ('最小可訂製：' + moqN + ' 件');
+                        moqBlock = '<div class="text-muted small mt-1" style="font-size:.75rem;">' + escHtml(moqText) + '</div>';
+                    }
                     col.innerHTML = '<div class="portfolio-card">' + imgHTML +
                         '<div class="p-2">' +
                         (p.title ? '<div class="fw-semibold small mb-1" style="color:#2d4059">' + escHtml(p.title) + '</div>' : '') +
+                        moqBlock +
                         (p.design_highlight ? '<div class="text-muted small mb-1" style="font-size:.75rem;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">' + escHtml(p.design_highlight) + '</div>' : '') +
                         (tagsHTML ? '<div class="d-flex flex-wrap gap-1 mt-1">' + tagsHTML + '</div>' : '') +
                         '</div></div>';

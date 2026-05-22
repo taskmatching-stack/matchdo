@@ -150,6 +150,11 @@
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="add-tags" data-i18n-placeholder="portfolio.tagsPlaceholder" placeholder="例：皮革, 手工, 訂製">
                             </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold" for="add-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
+                                <input type="number" class="form-control" id="add-moq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="portfolio.minOrderQtyPlaceholder" placeholder="例：50">
+                                <p class="text-muted small mt-1 mb-0" data-i18n="portfolio.minOrderQtyHint">此作品接單的起訂件數；留空表示未填寫（訪客將不顯示）。</p>
+                            </div>
                             <div class="col-12">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="add-show-on-media-wall" checked>
@@ -243,6 +248,11 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="edit-tags">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold" for="edit-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
+                                <input type="number" class="form-control" id="edit-moq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="portfolio.minOrderQtyPlaceholder" placeholder="例：50">
+                                <p class="text-muted small mt-1 mb-0" data-i18n="portfolio.minOrderQtyHint">此作品接單的起訂件數；留空表示未填寫（訪客將不顯示）。</p>
                             </div>
                             <div class="col-12">
                                 <div class="form-check">
@@ -511,13 +521,18 @@
             var unnamed = tr('portfolio.unnamed');
             var editLabel = tr('portfolio.edit');
             var publicLabel = tr('portfolio.publicBadge');
-            var privateLabel = tr('portfolio.privateBadge');
+                var privateLabel = tr('portfolio.privateBadge');
             grid.innerHTML = portfolioItems.map(function (p) {
                 var pubBadge = (p.show_on_media_wall !== false) ? ('<span class="badge bg-success me-1">' + publicLabel + '</span>') : ('<span class="badge bg-secondary me-1">' + privateLabel + '</span>');
+                var moqN = p.min_order_quantity;
+                var moqLine = (moqN != null && moqN !== '' && Number(moqN) >= 1)
+                    ? esc(String(tr('portfolio.moqLine')).replace(/\{n\}/g, String(moqN)))
+                    : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="portfolio-card h-100">' +
                     (p.image_url ? '<img src="' + esc(p.image_url) + '" class="portfolio-img" loading="lazy" alt="' + esc(p.title || '') + '">' : '<div class="portfolio-img-placeholder"><i class="bi bi-image"></i></div>') +
                     '<div class="p-3">' +
                     '<div class="fw-semibold text-truncate mb-1">' + pubBadge + esc(p.title || unnamed) + '</div>' +
+                    (moqLine ? '<div class="text-muted small mb-1">' + moqLine + '</div>' : '') +
                     (p.design_highlight ? '<div class="text-muted small text-truncate mb-2">' + esc(p.design_highlight) + '</div>' : '') +
                     ((p.tags || []).length ? '<div class="mb-2">' + p.tags.slice(0,3).map(function(t){ return '<span class="badge bg-light text-secondary border me-1">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
                     '<div class="d-flex gap-2 mt-2">' +
@@ -658,6 +673,7 @@
                     fd.append('design_highlight', document.getElementById('add-highlight').value.trim());
                     fd.append('description', document.getElementById('add-desc').value.trim());
                     fd.append('tags', document.getElementById('add-tags').value.trim());
+                    fd.append('min_order_quantity', document.getElementById('add-moq').value.trim());
                     fd.append('category_key', document.getElementById('add-category').value);
                     fd.append('subcategory_key', document.getElementById('add-subcategory').value);
                     var addType = addCategoryType();
@@ -677,6 +693,8 @@
                     document.getElementById('add-image-preview').innerHTML = '';
                     document.getElementById('add-image-before-preview').innerHTML = '';
                     document.getElementById('add-image-after-preview').innerHTML = '';
+                    var addMoq = document.getElementById('add-moq');
+                    if (addMoq) addMoq.value = '';
                     document.getElementById('add-form-panel').classList.add('d-none');
                     await loadPortfolio();
                 } catch (e) { showToast(e.message, 'danger'); }
@@ -706,6 +724,7 @@
                     fd.append('design_highlight', document.getElementById('edit-highlight').value.trim());
                     fd.append('description', document.getElementById('edit-desc').value.trim());
                     fd.append('tags', document.getElementById('edit-tags').value.trim());
+                    fd.append('min_order_quantity', document.getElementById('edit-moq').value.trim());
                     fd.append('category_key', document.getElementById('edit-category').value);
                     fd.append('subcategory_key', document.getElementById('edit-subcategory').value);
                     var editType = editCategoryType();
@@ -745,6 +764,8 @@
             document.getElementById('edit-desc').value = p.description || '';
             document.getElementById('edit-show-on-media-wall').checked = p.show_on_media_wall !== false;
             document.getElementById('edit-tags').value = (p.tags || []).join(', ');
+            var editMoq = document.getElementById('edit-moq');
+            if (editMoq) editMoq.value = (p.min_order_quantity != null && p.min_order_quantity !== '') ? String(p.min_order_quantity) : '';
             var catType = (p.category_type === 'remake') ? 'remake' : 'custom';
             document.getElementById('edit-type-custom').checked = (catType === 'custom');
             document.getElementById('edit-type-remake').checked = (catType === 'remake');

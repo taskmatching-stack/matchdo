@@ -1,0 +1,8 @@
+-- §6 視覺語意庫：請在 Supabase 網站執行（SQL Editor）
+-- 路徑：Supabase 專案 → SQL → New query → 依序貼上並 Run 下列三個檔案內容
+--
+-- ① docs/add-digital-prototype-ai-tags.sql
+-- ② docs/add-custom-products-semantics.sql
+-- ③ docs/add-visual-semantics-events.sql
+--
+-- 每個檔案執行成功後再執行下一個。全部完成後，廠商上傳數位版型即可寫入 ai_tags。
