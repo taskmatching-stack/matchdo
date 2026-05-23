@@ -1013,14 +1013,14 @@
 
 與 §4 對齊：**材料**（`material`）可共用 Gemini 標籤，但「重繪產品圖」主要針對**原型／版型圖**；材料以規格欄為主。
 
-**模型（讀圖／讀文，統一）**：
+**模型（分開設定）**：
 
 | 項目 | 規劃 |
 |------|------|
-| 預設模型 | **分析／讀圖／標籤** 一律 **`gemini-3.1-flash-lite`**；翻譯仍用 `gemini_model`（預設 `gemini-2.5-flash-lite`） |
-| 後台設定 | `/admin/ai-settings.html` → **「分析／讀圖／標籤（統一）」** 儲存後寫入 `gemini_model_read` + `gemini_model_tagging` |
-| 程式 | `server.js`：`getTaggingModelName()` + `runInGeminiQueue()` 共用；429 時可 fallback 至 `gemini-2.5-flash-lite`（與翻譯路徑相同策略） |
-| 管理頁 | `/admin/ai-settings.html` 增加「標籤／語意解析模型」欄位 |
+| 預設模型 | **標籤用讀圖**（`gemini_model_tagging`）→ **`gemini-3.1-flash-lite`**；**一般讀圖／分析**（`gemini_model_read`）→ 預設 `gemini-3-flash-preview`；**翻譯** → `gemini-2.5-flash-lite` |
+| 後台設定 | `/admin/ai-settings.html` → **三欄分開**儲存，互不覆寫 |
+| 程式 | `getTaggingModelName()` 僅用於 §6 素材標籤／語意；`getReadModelName()` 用於客製分析、首頁識別等 |
+| 管理頁 | `/admin/ai-settings.html`：翻譯／讀圖分析／標籤用讀圖模型 + **標籤用讀圖系統提示詞**（`GET/PATCH /api/admin/semantics-prompts`）；種子 SQL：`docs/seed-semantics-prompts.sql` |
 | 成本 | 上傳／生圖**同步**解析可能略增延遲；大量舊資料用 **T6 補跑腳本** 離峰執行 |
 
 ---
@@ -1266,7 +1266,7 @@ sequenceDiagram
 | §4 B 線 | 原型組／材料上架時走 **P1**，寫入 `supplier_catalog_items` + events |
 | §5 會員中心 | 「我的數位版型／作品」入口不變；上傳流程內嵌語意步驟 |
 | §6 舊「僅標籤」 | 本擴充**包含**原需求，並加上 P2/P3 與中央表 |
-| `docs/首頁AI識別流程.md` | 首頁工項識別仍用既有 read 模型；**不混用** tagging 模型 unless 後台統一 |
+| `docs/首頁AI識別流程.md` | 首頁工項識別用 **`gemini_model_read`**；素材標籤用 **`gemini_model_tagging`**，兩者分開 |
 
 ---
 

@@ -73,7 +73,7 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // 翻譯 prompt 用：可後台設定，見 getTranslationModelName。若報錯 404/模型不存在，請改為 gemini-2.0-flash 或 gemini-1.5-flash
 const GEMINI_MODEL_TRANSLATION_DEFAULT = 'gemini-2.5-flash-lite';
 // 讀圖／分析／估算等：可後台設定，見 getReadModelName（若 404 可改為 gemini-2.0-flash）
-const GEMINI_MODEL_READ_DEFAULT = 'gemini-3.1-flash-lite';
+const GEMINI_MODEL_READ_DEFAULT = 'gemini-3-flash-preview';
 const visualSemantics = require('./lib/visual-semantics');
 const adminMigrations = require('./lib/admin-migrations');
 // Gemini API 排隊：多人同時用時依序送出
@@ -155,6 +155,84 @@ async function recordVisualSemanticsEvent(row) {
         if (error && error.code !== '42P01') console.warn('recordVisualSemanticsEvent:', error.message);
     } catch (e) {
         console.warn('recordVisualSemanticsEvent:', e.message);
+    }
+}
+
+/** 設計頁生成圖（custom_products.ai_generated_image_url）→ ai_tags／語意欄位；失敗不拋出 */
+async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
+    const imageUrl = (ctx.imageUrl || '').trim();
+    if (!productId || !imageUrl || !process.env.GEMINI_API_KEY) return null;
+    try {
+        const deps = getVisualSemanticsDeps();
+        const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
+        const imgResult = await visualSemantics.analyzeGeneratedImageSemantics(deps, imagePart, {
+            generation_prompt: ctx.generationPrompt || null,
+            title: ctx.title || null,
+            category_key: ctx.categoryKey || null
+        });
+        let mergedTags = imgResult.tags || [];
+        let promptSemantics = null;
+        const genPrompt = (ctx.generationPrompt || '').trim();
+        if (genPrompt) {
+            try {
+                const pResult = await visualSemantics.analyzePromptSemantics(deps, genPrompt, {
+                    title: ctx.title,
+                    category_key: ctx.categoryKey
+                });
+                promptSemantics = pResult.semantics;
+                mergedTags = visualSemantics.mergeTags(mergedTags, pResult.tags);
+            } catch (pe) {
+                console.warn('enrichCustomProductSemantics prompt:', pe.message);
+            }
+        }
+        const updates = {
+            ai_tags: mergedTags,
+            image_semantics_json: imgResult.semantics,
+            semantics_generated_at: new Date().toISOString()
+        };
+        if (promptSemantics) updates.prompt_semantics_json = promptSemantics;
+        const { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId);
+        if (updErr) {
+            if (updErr.code === '42703') {
+                console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-semantics.sql');
+            } else {
+                console.warn('enrichCustomProductSemantics update:', updErr.message);
+            }
+            return null;
+        }
+        await recordVisualSemanticsEvent({
+            source_type: 'custom_product',
+            source_id: productId,
+            image_url: imageUrl,
+            text_input: genPrompt || null,
+            semantics_kind: 'generated_image',
+            ai_tags: imgResult.tags,
+            semantics_json: imgResult.semantics,
+            model: imgResult.model,
+            prompt_version: imgResult.prompt_version,
+            owner_id: ownerId || null,
+            category_key: ctx.categoryKey || null
+        });
+        if (promptSemantics && genPrompt) {
+            await recordVisualSemanticsEvent({
+                source_type: 'custom_product',
+                source_id: productId,
+                image_url: null,
+                text_input: genPrompt,
+                semantics_kind: 'prompt',
+                ai_tags: mergedTags,
+                semantics_json: promptSemantics,
+                model: imgResult.model,
+                prompt_version: visualSemantics.PROMPT_VERSION,
+                owner_id: ownerId || null,
+                category_key: ctx.categoryKey || null
+            });
+        }
+        console.log('custom_products 語意標籤完成 id=%s tags=%d', productId, mergedTags.length);
+        return { ai_tags: mergedTags };
+    } catch (e) {
+        console.error('enrichCustomProductSemantics:', e.message);
+        return null;
     }
 }
 
@@ -1756,14 +1834,10 @@ app.get('/api/admin/ai-config', async (req, res) => {
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['gemini_model', 'gemini_model_read', 'gemini_model_tagging']);
         const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
-        const readVal = byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT;
-        const tagVal = byKey.gemini_model_tagging || process.env.GEMINI_MODEL_TAGGING || visualSemantics.GEMINI_MODEL_TAGGING_DEFAULT;
-        const analysisVal = byKey.gemini_model_read || byKey.gemini_model_tagging || readVal || tagVal;
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
-            gemini_model_read: readVal,
-            gemini_model_tagging: tagVal,
-            gemini_model_analysis: analysisVal,
+            gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
+            gemini_model_tagging: byKey.gemini_model_tagging || process.env.GEMINI_MODEL_TAGGING || visualSemantics.GEMINI_MODEL_TAGGING_DEFAULT,
             saved_in_db: {
                 gemini_model: !!byKey.gemini_model,
                 gemini_model_read: !!byKey.gemini_model_read,
@@ -1787,19 +1861,11 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.gemini_model !== undefined) {
             upserts.push({ key: 'gemini_model', value: String(body.gemini_model).trim(), updated_at: now });
         }
-        const analysisModel = (body.gemini_model_analysis != null && String(body.gemini_model_analysis).trim())
-            ? String(body.gemini_model_analysis).trim()
-            : null;
-        if (analysisModel) {
-            upserts.push({ key: 'gemini_model_read', value: analysisModel, updated_at: now });
-            upserts.push({ key: 'gemini_model_tagging', value: analysisModel, updated_at: now });
-        } else {
-            if (body.gemini_model_read !== undefined) {
-                upserts.push({ key: 'gemini_model_read', value: String(body.gemini_model_read).trim(), updated_at: now });
-            }
-            if (body.gemini_model_tagging !== undefined) {
-                upserts.push({ key: 'gemini_model_tagging', value: String(body.gemini_model_tagging).trim(), updated_at: now });
-            }
+        if (body.gemini_model_read !== undefined) {
+            upserts.push({ key: 'gemini_model_read', value: String(body.gemini_model_read).trim(), updated_at: now });
+        }
+        if (body.gemini_model_tagging !== undefined) {
+            upserts.push({ key: 'gemini_model_tagging', value: String(body.gemini_model_tagging).trim(), updated_at: now });
         }
         if (upserts.length === 0) {
             return res.status(400).json({ error: '無可儲存的欄位' });
@@ -1818,13 +1884,11 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             return res.status(500).json({ error: readErr.message || '儲存後讀取失敗' });
         }
         const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
-        const readVal = byKey.gemini_model_read || analysisModel || null;
         res.json({
             success: true,
             gemini_model: byKey.gemini_model ?? null,
-            gemini_model_read: readVal,
-            gemini_model_tagging: byKey.gemini_model_tagging || readVal,
-            gemini_model_analysis: readVal
+            gemini_model_read: byKey.gemini_model_read ?? null,
+            gemini_model_tagging: byKey.gemini_model_tagging ?? null
         });
     } catch (e) {
         console.error('PATCH /api/admin/ai-config:', e);
@@ -1883,6 +1947,67 @@ app.post('/api/admin/migrations/:id/run', express.json(), async (req, res) => {
     } catch (e) {
         console.error('POST /api/admin/migrations/:id/run:', e);
         res.status(500).json({ error: e.message || '執行失敗' });
+    }
+});
+
+// GET /api/admin/semantics-prompts — 視覺語意／標籤用 Gemini 系統提示詞（僅管理員）
+app.get('/api/admin/semantics-prompts', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const keys = visualSemantics.SEMANTICS_PROMPT_KEYS;
+        const defaults = visualSemantics.DEFAULT_PROMPTS;
+        const { data: rows, error } = await supabase.from('payment_config').select('key, value').in('key', keys);
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(500).json({ error: '請先執行 docs/payment-config-schema.sql 建立 payment_config 表' });
+            }
+            return res.status(500).json({ error: error.message || '查詢失敗' });
+        }
+        const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value != null ? String(r.value) : ''; return o; }, {});
+        const saved_in_db = {};
+        const out = {};
+        keys.forEach((k) => {
+            const dbVal = (byKey[k] || '').trim();
+            saved_in_db[k] = !!dbVal;
+            out[k] = dbVal || defaults[k] || '';
+        });
+        res.json({ ...out, defaults, saved_in_db });
+    } catch (e) {
+        console.error('GET /api/admin/semantics-prompts:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/semantics-prompts — 儲存視覺語意系統提示詞（僅管理員）
+app.patch('/api/admin/semantics-prompts', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const body = req.body || {};
+        const keys = visualSemantics.SEMANTICS_PROMPT_KEYS;
+        const now = new Date().toISOString();
+        const upserts = [];
+        keys.forEach((k) => {
+            if (body[k] !== undefined) {
+                upserts.push({ key: k, value: String(body[k]).trim(), updated_at: now });
+            }
+        });
+        if (upserts.length === 0) {
+            return res.status(400).json({ error: '無可儲存的提示詞欄位' });
+        }
+        const { error } = await supabase.from('payment_config').upsert(upserts, { onConflict: 'key' });
+        if (error) {
+            console.error('PATCH /api/admin/semantics-prompts:', error);
+            return res.status(500).json({
+                error: error.message || '寫入失敗',
+                hint: error.code === '42P01' ? '請先執行 docs/payment-config-schema.sql' : undefined
+            });
+        }
+        res.json({ success: true, saved: upserts.map((u) => u.key) });
+    } catch (e) {
+        console.error('PATCH /api/admin/semantics-prompts:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });
 
@@ -4689,7 +4814,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                     const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
                     const showOnHomepage = !(await hasActivePaidSubscription(currentUser.id));
-                    const { error: insertErr } = await supabase.from('custom_products').insert({
+                    const { data: insertedProduct, error: insertErr } = await supabase.from('custom_products').insert({
                         owner_id: currentUser.id,
                         title, description,
                         category: mainCategoryKey,
@@ -4703,7 +4828,17 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         show_on_homepage: showOnHomepage
                     }).select('id').single();
                     if (insertErr) console.error('寫入 custom_products 失敗:', insertErr.message);
-                    else console.log('已寫入 custom_products owner_id=%s', currentUser.id);
+                    else {
+                        console.log('已寫入 custom_products owner_id=%s', currentUser.id);
+                        if (insertedProduct && insertedProduct.id && imageUrl) {
+                            enrichCustomProductSemantics(insertedProduct.id, currentUser.id, {
+                                imageUrl,
+                                generationPrompt: generationPromptVal,
+                                title,
+                                categoryKey: mainCategoryKey
+                            }).catch(() => {});
+                        }
+                    }
                 } catch (e) {
                     console.error('扣點或寫入 custom_products 異常:', e.message);
                 }
@@ -6452,6 +6587,15 @@ app.post('/api/custom-products', async (req, res) => {
             .insert(insertPayload)
             .select()
             .single();
+
+        if (!error && data && data.id && ai_generated_image_url) {
+            enrichCustomProductSemantics(data.id, user.id, {
+                imageUrl: ai_generated_image_url,
+                generationPrompt: promptVal,
+                title,
+                categoryKey: mainCategoryVal
+            }).catch(() => {});
+        }
 
         if (error) {
             console.error('POST /api/custom-products 儲存失敗:', error.message, error);

@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">翻譯與分析模型、實境模擬與圖樣提取系統提示詞。分析／讀圖／自動標籤建議統一使用 <strong>gemini-3.1-flash-lite</strong>。</p>
+        <p class="text-muted small mb-3">三類 Gemini 模型分開設定：<strong>翻譯</strong>、<strong>一般讀圖／分析</strong>、<strong>標籤用讀圖</strong>（數位原型自動標籤建議 <code>gemini-3.1-flash-lite</code>）。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -33,12 +33,48 @@
               <p class="form-text small text-muted mb-0">與「分析」分開；生圖前翻譯用，預設 gemini-2.5-flash-lite。</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">Gemini 分析／讀圖／標籤（統一）</label>
-              <input type="text" id="aiConfigGeminiAnalysis" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite" />
-              <p class="form-text small text-muted mb-0">客製分析、數位原型標籤、提示詞／生成圖語意等<strong>全部讀圖分析</strong>都用此模型。儲存後會同時寫入資料庫 <code>gemini_model_read</code> 與 <code>gemini_model_tagging</code>。</p>
+              <label class="form-label small mb-1">Gemini 讀圖／分析模型</label>
+              <input type="text" id="aiConfigGeminiModelRead" class="form-control form-control-sm" placeholder="gemini-3-flash-preview" />
+              <p class="form-text small text-muted mb-0">客製產品分析、首頁 AI 識別、估算等<strong>一般讀圖</strong>（<code>gemini_model_read</code>）。與下方「標籤用讀圖」分開。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">Gemini 標籤用讀圖模型</label>
+              <input type="text" id="aiConfigGeminiModelTagging" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite" />
+              <p class="form-text small text-muted mb-0"><strong>設計頁 AI 生成圖</strong>與<strong>廠商數位原型上傳</strong>共用此模型讀圖產標籤（<code>gemini_model_tagging</code>）。建議 gemini-3.1-flash-lite。</p>
             </div>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存模型設定</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
+          </div>
+        </div>
+        <div class="card mb-3 border-primary">
+          <div class="card-body">
+            <h6 class="card-title">設計頁・AI 生成圖讀圖（主要）</h6>
+            <p class="text-muted small mb-2">訂製者在 <code>custom-product.html</code> 生圖成功後，後端讀<strong>生成圖 URL</strong>（<code>ai_generated_image_url</code>），寫入 <code>custom_products.ai_tags</code> 與語意庫。會一併解析 <code>generation_prompt</code> 文字。輸出必須為 JSON 且含非空 <code>tags</code>。</p>
+            <textarea id="generatedImageSemanticsPrompt" class="form-control form-control-sm font-monospace" rows="14" spellcheck="false"></textarea>
+            <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+              <button type="button" class="btn btn-sm btn-primary" id="btnSaveGeneratedImageSemanticsPrompt">儲存設計頁提示詞</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnResetGeneratedImageSemanticsPrompt">還原程式預設</button>
+              <span id="generatedImagePromptDbHint" class="small text-muted"></span>
+            </div>
+          </div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="card-title">廠商・數位原型／素材讀圖</h6>
+            <p class="text-muted small mb-2">製造商上傳<strong>數位版型／素材</strong>（<code>vendor_assets</code>）時使用。與設計頁生成圖為不同提示詞。</p>
+            <textarea id="prototypeTaggingPrompt" class="form-control form-control-sm font-monospace" rows="10" spellcheck="false"></textarea>
+            <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btnSavePrototypeTaggingPrompt">儲存廠商提示詞</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="btnResetPrototypeTaggingPrompt">還原程式預設</button>
+              <span id="prototypePromptDbHint" class="small text-muted"></span>
+            </div>
+            <details class="mt-3 small text-muted">
+              <summary class="user-select-none">進階：僅文字提示詞解析（prompt_semantics_prompt）</summary>
+              <div class="mt-2">
+                <textarea id="promptSemanticsPrompt" class="form-control form-control-sm font-monospace" rows="4" spellcheck="false"></textarea>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="btnSaveAllSemanticsPrompts">儲存進階提示詞</button>
+              </div>
+            </details>
           </div>
         </div>
         <div class="card mb-3">
@@ -91,17 +127,123 @@
   }
   function applyAiConfigToForm(data) {
     var inp = document.getElementById('aiConfigGeminiModel');
-    var inpAnalysis = document.getElementById('aiConfigGeminiAnalysis');
+    var inpRead = document.getElementById('aiConfigGeminiModelRead');
+    var inpTag = document.getElementById('aiConfigGeminiModelTagging');
     var hint = document.getElementById('aiConfigDbHint');
-    if (!inp || !inpAnalysis) return;
+    if (!inp || !inpRead || !inpTag) return;
     if (data.gemini_model != null) inp.value = data.gemini_model;
-    var analysis = data.gemini_model_analysis || data.gemini_model_read || data.gemini_model_tagging || 'gemini-3.1-flash-lite';
-    inpAnalysis.value = analysis;
+    if (data.gemini_model_read != null) inpRead.value = data.gemini_model_read;
+    if (data.gemini_model_tagging != null) inpTag.value = data.gemini_model_tagging;
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
-      hint.textContent = (s.gemini_model_read || s.gemini_model_tagging)
-        ? '（已從資料庫載入分析模型）' : '（分析模型尚未寫入 DB，顯示為預設值）';
+      var parts = [];
+      if (s.gemini_model) parts.push('翻譯');
+      if (s.gemini_model_read) parts.push('讀圖分析');
+      if (s.gemini_model_tagging) parts.push('標籤讀圖');
+      hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
+  }
+
+  var semanticsDefaults = {};
+
+  async function loadSemanticsPrompts() {
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) return;
+    try {
+      var res = await fetch('/api/admin/semantics-prompts', { headers: headers });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '載入語意提示詞失敗', true); return; }
+      semanticsDefaults = data.defaults || {};
+      var taProto = document.getElementById('prototypeTaggingPrompt');
+      var taG = document.getElementById('generatedImageSemanticsPrompt');
+      var taP = document.getElementById('promptSemanticsPrompt');
+      if (taProto) taProto.value = data.prototype_tagging_prompt || '';
+      if (taG) taG.value = data.generated_image_semantics_prompt || '';
+      if (taP) taP.value = data.prompt_semantics_prompt || '';
+      var hintProto = document.getElementById('prototypePromptDbHint');
+      if (hintProto && data.saved_in_db) {
+        hintProto.textContent = data.saved_in_db.prototype_tagging_prompt
+          ? '（已從資料庫載入）' : '（程式預設，儲存後寫入 DB）';
+      }
+      var hintGen = document.getElementById('generatedImagePromptDbHint');
+      if (hintGen && data.saved_in_db) {
+        hintGen.textContent = data.saved_in_db.generated_image_semantics_prompt
+          ? '（已從資料庫載入）' : '（程式預設，儲存後寫入 DB）';
+      }
+    } catch (e) {
+      showMsg('載入語意提示詞失敗：' + (e.message || ''), true);
+    }
+  }
+
+  async function saveGeneratedImageSemanticsPrompt() {
+    var ta = document.getElementById('generatedImageSemanticsPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    if (!ta.value.trim()) { showMsg('提示詞不可為空', true); return; }
+    try {
+      var res = await fetch('/api/admin/semantics-prompts', {
+        method: 'PATCH',
+        headers: headers,
+        body: JSON.stringify({ generated_image_semantics_prompt: ta.value.trim() })
+      });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('設計頁生成圖提示詞已儲存');
+      loadSemanticsPrompts();
+    } catch (e) { showMsg('儲存失敗：' + (e.message || ''), true); }
+  }
+
+  function resetGeneratedImageSemanticsPrompt() {
+    var ta = document.getElementById('generatedImageSemanticsPrompt');
+    if (!ta || !semanticsDefaults.generated_image_semantics_prompt) return;
+    if (!confirm('確定還原為程式內建預設？（需按「儲存設計頁提示詞」才會寫入資料庫）')) return;
+    ta.value = semanticsDefaults.generated_image_semantics_prompt;
+    showMsg('已填入程式預設，請按「儲存設計頁提示詞」寫入資料庫');
+  }
+
+  async function savePrototypeTaggingPrompt() {
+    var ta = document.getElementById('prototypeTaggingPrompt');
+    if (!ta) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    if (!ta.value.trim()) { showMsg('提示詞不可為空', true); return; }
+    try {
+      var res = await fetch('/api/admin/semantics-prompts', {
+        method: 'PATCH',
+        headers: headers,
+        body: JSON.stringify({ prototype_tagging_prompt: ta.value.trim() })
+      });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || (data.hint ? data.error + ' — ' + data.hint : '儲存失敗'), true); return; }
+      showMsg('廠商數位原型提示詞已儲存');
+      loadSemanticsPrompts();
+    } catch (e) { showMsg('儲存失敗：' + (e.message || ''), true); }
+  }
+
+  function resetPrototypeTaggingPrompt() {
+    var ta = document.getElementById('prototypeTaggingPrompt');
+    if (!ta || !semanticsDefaults.prototype_tagging_prompt) return;
+    if (!confirm('確定還原為程式內建預設？（需按「儲存提示詞」才會寫入資料庫）')) return;
+    ta.value = semanticsDefaults.prototype_tagging_prompt;
+    showMsg('已填入程式預設，請按「儲存提示詞」寫入資料庫');
+  }
+
+  async function saveAllSemanticsPrompts() {
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    var payload = {
+      prototype_tagging_prompt: (document.getElementById('prototypeTaggingPrompt') || {}).value || '',
+      prompt_semantics_prompt: (document.getElementById('promptSemanticsPrompt') || {}).value || '',
+      generated_image_semantics_prompt: (document.getElementById('generatedImageSemanticsPrompt') || {}).value || ''
+    };
+    try {
+      var res = await fetch('/api/admin/semantics-prompts', { method: 'PATCH', headers: headers, body: JSON.stringify(payload) });
+      var data = await res.json();
+      if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+      showMsg('語意提示詞已全部儲存');
+      loadSemanticsPrompts();
+    } catch (e) { showMsg('儲存失敗', true); }
   }
 
   async function loadAiConfig() {
@@ -121,13 +263,15 @@
   }
   async function saveAiConfig() {
     var inp = document.getElementById('aiConfigGeminiModel');
-    var inpAnalysis = document.getElementById('aiConfigGeminiAnalysis');
-    if (!inp || !inpAnalysis) return;
+    var inpRead = document.getElementById('aiConfigGeminiModelRead');
+    var inpTag = document.getElementById('aiConfigGeminiModelTagging');
+    if (!inp || !inpRead || !inpTag) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
     var payload = {
       gemini_model: inp.value.trim() || 'gemini-2.5-flash-lite',
-      gemini_model_analysis: inpAnalysis.value.trim() || 'gemini-3.1-flash-lite'
+      gemini_model_read: inpRead.value.trim() || 'gemini-3-flash-preview',
+      gemini_model_tagging: inpTag.value.trim() || 'gemini-3.1-flash-lite'
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
@@ -141,7 +285,7 @@
         return;
       }
       applyAiConfigToForm(data);
-      showMsg('已儲存：翻譯「' + (data.gemini_model || payload.gemini_model) + '」，分析「' + (data.gemini_model_analysis || payload.gemini_model_analysis) + '」');
+      showMsg('已儲存：翻譯「' + (data.gemini_model || payload.gemini_model) + '」，讀圖分析「' + (data.gemini_model_read || payload.gemini_model_read) + '」，標籤讀圖「' + (data.gemini_model_tagging || payload.gemini_model_tagging) + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -231,6 +375,7 @@
         if (loginLink) loginLink.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'inline-block';
         loadAiConfig();
+        loadSemanticsPrompts();
         loadSceneSimPrompt();
         loadPatternExtractPrompt();
         loadPatternExtractSeamlessPrompt();
@@ -253,6 +398,11 @@
       location.href = '/login.html';
     });
     document.getElementById('btnSaveAiConfig')?.addEventListener('click', saveAiConfig);
+    document.getElementById('btnSaveGeneratedImageSemanticsPrompt')?.addEventListener('click', saveGeneratedImageSemanticsPrompt);
+    document.getElementById('btnResetGeneratedImageSemanticsPrompt')?.addEventListener('click', resetGeneratedImageSemanticsPrompt);
+    document.getElementById('btnSavePrototypeTaggingPrompt')?.addEventListener('click', savePrototypeTaggingPrompt);
+    document.getElementById('btnResetPrototypeTaggingPrompt')?.addEventListener('click', resetPrototypeTaggingPrompt);
+    document.getElementById('btnSaveAllSemanticsPrompts')?.addEventListener('click', saveAllSemanticsPrompts);
     document.getElementById('btnSaveSceneSimPrompt')?.addEventListener('click', saveSceneSimPrompt);
     document.getElementById('btnSavePatternExtractPrompt')?.addEventListener('click', savePatternExtractPrompt);
     document.getElementById('btnSavePatternExtractSeamlessPrompt')?.addEventListener('click', savePatternExtractSeamlessPrompt);
