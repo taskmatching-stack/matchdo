@@ -49,7 +49,7 @@
         <div class="card mb-3 border-primary">
           <div class="card-body">
             <h6 class="card-title">設計頁・AI 生成圖讀圖（主要）</h6>
-            <p class="text-muted small mb-2">訂製者在 <code>custom-product.html</code> 生圖成功後，後端讀<strong>生成圖 URL</strong>（<code>ai_generated_image_url</code>），寫入 <code>custom_products.ai_tags</code> 與語意庫。會一併解析 <code>generation_prompt</code> 文字。輸出必須為 JSON 且含非空 <code>tags</code>。</p>
+            <p class="text-muted small mb-2">訂製者生圖後讀<strong>生成圖</strong>產標籤。預設要求 <code>tags</code> <strong>同時含繁中與英文</strong>（12～24 個，與前台 <code>?lang=</code> 無關）。輸出必須為 JSON 且 <code>tags</code> 非空。</p>
             <textarea id="generatedImageSemanticsPrompt" class="form-control form-control-sm font-monospace" rows="14" spellcheck="false"></textarea>
             <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
               <button type="button" class="btn btn-sm btn-primary" id="btnSaveGeneratedImageSemanticsPrompt">儲存設計頁提示詞</button>
@@ -61,7 +61,7 @@
         <div class="card mb-3">
           <div class="card-body">
             <h6 class="card-title">廠商・數位原型／素材讀圖</h6>
-            <p class="text-muted small mb-2">製造商上傳<strong>數位版型／素材</strong>（<code>vendor_assets</code>）時使用。與設計頁生成圖為不同提示詞。</p>
+            <p class="text-muted small mb-2">廠商上傳<strong>數位版型／素材</strong>時使用。標籤預設<strong>中英並存</strong>，與前台語系無關。</p>
             <textarea id="prototypeTaggingPrompt" class="form-control form-control-sm font-monospace" rows="10" spellcheck="false"></textarea>
             <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
               <button type="button" class="btn btn-sm btn-outline-primary" id="btnSavePrototypeTaggingPrompt">儲存廠商提示詞</button>
