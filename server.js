@@ -1663,7 +1663,11 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
         if (body.verified !== undefined) updates.verified = !!body.verified;
         if (body.contact_json !== undefined && typeof body.contact_json === 'object') updates.contact_json = body.contact_json;
         if (body.expires_at !== undefined) updates.expires_at = body.expires_at === null || body.expires_at === '' ? null : body.expires_at;
-        if (body.vendor_source !== undefined) updates.vendor_source = (body.vendor_source === null || body.vendor_source === '' || body.vendor_source === 'paid') ? null : String(body.vendor_source).trim();
+        if (body.vendor_source !== undefined) {
+            const vs = body.vendor_source;
+            if (vs === null || vs === '' || vs === 'paid') updates.vendor_source = null;
+            else updates.vendor_source = String(vs).trim();
+        }
         if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
         const { data: updated, error } = await supabase.from('manufacturers').update(updates).eq('id', manufacturerId).select('id, name, description, location, contact_json, categories, logo_url, is_active, verified, expires_at, vendor_source').single();
         if (error) {
@@ -1677,13 +1681,34 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
     }
 });
 
+// DELETE /api/admin/manufacturers/:id — 管理員刪除廠商（含種子／官方範例；關聯資料依 DB CASCADE）
+app.delete('/api/admin/manufacturers/:id', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const manufacturerId = (req.params.id || '').trim();
+        if (!manufacturerId) return res.status(400).json({ error: '請傳入廠商 id' });
+        const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('id', manufacturerId).single();
+        if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
+        const { error } = await supabase.from('manufacturers').delete().eq('id', manufacturerId);
+        if (error) {
+            console.error('DELETE /api/admin/manufacturers/:id:', error);
+            return res.status(500).json({ error: error.message || '刪除失敗（可能有未設定 CASCADE 的關聯資料）' });
+        }
+        res.json({ ok: true, deleted_id: manufacturerId, name: mfr.name });
+    } catch (e) {
+        console.error('DELETE /api/admin/manufacturers/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/admin/seed-manufacturers — 管理員查詢種子廠商列表（含剩餘天數、是否已轉付費）
 app.get('/api/admin/seed-manufacturers', async (req, res) => {
     try {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
         const seedOnly = (req.query.seed_only === '1' || req.query.seed_only === 'true');
-        let query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, location, contact_json, verified, created_at').order('created_at', { ascending: false });
+        let query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, is_active, location, contact_json, verified, created_at').order('created_at', { ascending: false });
         if (seedOnly) query = query.eq('vendor_source', 'seed');
         const { data: rows, error } = await query;
         if (error) {
@@ -1696,7 +1721,9 @@ app.get('/api/admin/seed-manufacturers', async (req, res) => {
             const vs = m.vendor_source || null;
             const exp = m.expires_at ? new Date(m.expires_at) : null;
             const isSeed = vs === 'seed';
-            const isPaid = !isSeed || !m.expires_at; // 已轉付費：vendor_source 非 seed 或已清空 expires_at
+            const isPlatform = vs === 'platform';
+            const isPaid = !isSeed; // 非種子＝已解除種子限制（付費或官方範例）
+            const isActive = m.is_active !== false;
             let remainingDays = null;
             if (isSeed && exp) remainingDays = exp > now ? Math.ceil((exp - now) / (24 * 60 * 60 * 1000)) : 0; // 0 = 已過期
             return {
@@ -1707,6 +1734,9 @@ app.get('/api/admin/seed-manufacturers', async (req, res) => {
                 expires_at: m.expires_at || null,
                 remaining_days: remainingDays,
                 is_paid: isPaid,
+                is_platform: isPlatform,
+                is_seed: isSeed,
+                is_active: isActive,
                 location: m.location || null,
                 contact_json: m.contact_json || {},
                 verified: !!m.verified,
