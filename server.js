@@ -489,7 +489,7 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-/** 廠商素材「產品圖優化」Flux 提示詞；產品名稱取自標題欄位（通用品類、僅主體無雜物） */
+/** 數位原型「產品圖優化」Flux 提示詞；名稱取自標題（通用品類、僅主體無雜物） */
 function buildVendorAssetProductOptimizePrompt(title) {
     const product = (title || '').trim() || 'product';
     return [
@@ -503,6 +503,29 @@ function buildVendorAssetProductOptimizePrompt(title) {
         'subtle natural shadow under product only, symmetrical balanced composition,',
         'ultra high detail, 8k resolution'
     ].join(' ');
+}
+
+/** 材料參考「材質圖優化」Flux 提示詞；以呈現材質紋理與色彩為主 */
+function buildVendorAssetMaterialOptimizePrompt(title, materialKey) {
+    const label = (title || '').trim() || (materialKey || '').trim() || 'material sample';
+    const typeHint = (materialKey || '').trim() ? `${materialKey} material` : 'material';
+    return [
+        `Material reference image of ${label}, ${typeHint},`,
+        'visual emphasis on authentic surface texture, weave, grain, sheen, and accurate color reproduction,',
+        'texture and color are the primary focus, clearly readable for designers selecting materials,',
+        'natural soft even lighting that reveals texture without harsh glare or color cast,',
+        'simple flat lay or gentle drape of the material swatch only,',
+        'plain seamless neutral white or light gray background,',
+        'no props, no scissors, no rulers, no tools, no hands, no people, no finished products,',
+        'no packaging, no text, no watermark, no logo, no scene decoration,',
+        'photorealistic macro detail showing fiber structure and true color, 8k resolution'
+    ].join(' ');
+}
+
+function buildVendorAssetOptimizePrompt(title, assetKind, materialKey) {
+    return normalizeVendorAssetKind(assetKind) === 'material'
+        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey)
+        : buildVendorAssetProductOptimizePrompt(title);
 }
 
 async function recordVisualSemanticsEvent(row) {
@@ -4756,14 +4779,14 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材產品圖優化：以參考圖 + 標題組提示詞，Flux 2 Pro 圖生圖 */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title) {
+/** 廠商素材圖優化：以參考圖 + 標題／asset_kind 組提示詞，Flux 2 Pro 圖生圖 */
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
-    const prompt = buildVendorAssetProductOptimizePrompt(title);
+    const prompt = buildVendorAssetOptimizePrompt(title, assetKind, materialKey);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], null, 'jpeg');
-    if (!buf || !buf.length) throw new Error('產品圖優化服務未設定或暫時無法使用（BFL_API_KEY）');
+    if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return buf;
 }
 
@@ -5429,11 +5452,24 @@ async function getPointsVendorAssetUpload() {
     return Math.max(0, parseInt(v, 10) || 5);
 }
 
-// 廠商素材上傳 + 產品圖優化（含標籤，預設 15 點）
+// 數位原型上傳 + 產品圖優化（含標籤，預設 15 點）
 async function getPointsVendorAssetOptimize() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_optimize');
     const v = (rows && rows[0]) ? rows[0].value : null;
     return Math.max(0, parseInt(v, 10) || 15);
+}
+
+// 材料參考上傳 + 材質圖優化（含標籤，預設 10 點）
+async function getPointsVendorAssetMaterialOptimize() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_material_optimize');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 10);
+}
+
+async function getPointsVendorAssetOptimizeForKind(assetKind) {
+    return normalizeVendorAssetKind(assetKind) === 'material'
+        ? getPointsVendorAssetMaterialOptimize()
+        : getPointsVendorAssetOptimize();
 }
 
 async function checkUserCreditsBalance(userId, required) {
@@ -9677,6 +9713,7 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
         res.json({
             points_upload: await getPointsVendorAssetUpload(),
             points_optimize: await getPointsVendorAssetOptimize(),
+            points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
             optimize_includes_tags: true
         });
     } catch (e) {
@@ -9733,13 +9770,14 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         const description = (body.description || '').trim() || null;
         const styleKey = (body.style_key || '').trim() || null;
         const materialKey = (body.material_key || '').trim() || null;
+        const assetKind = normalizeVendorAssetKind(body.asset_kind);
 
         const file = req.file;
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
 
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
         const pointsRequired = wantsOptimize
-            ? await getPointsVendorAssetOptimize()
+            ? await getPointsVendorAssetOptimizeForKind(assetKind)
             : await getPointsVendorAssetUpload();
 
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
@@ -9792,15 +9830,16 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         let uploadFile = file;
         if (wantsOptimize) {
             try {
-                const optimizedBuf = await optimizeVendorAssetImageWithFlux(file.buffer, file.mimetype, title);
+                const optimizedBuf = await optimizeVendorAssetImageWithFlux(file.buffer, file.mimetype, title, assetKind, materialKey);
                 uploadFile = {
                     buffer: optimizedBuf,
                     mimetype: 'image/jpeg',
                     originalname: (file.originalname || 'image.jpg').replace(/\.[^.]+$/, '') + '.jpg'
                 };
             } catch (optErr) {
-                console.error('vendor-assets product optimize:', optErr);
-                return res.status(503).json({ error: optErr.message || '產品圖優化失敗，請稍後重試' });
+                console.error('vendor-assets image optimize:', optErr);
+                const failLabel = assetKind === 'material' ? '材質圖優化失敗' : '產品圖優化失敗';
+                return res.status(503).json({ error: optErr.message || `${failLabel}，請稍後重試` });
             }
         }
 
@@ -9822,7 +9861,7 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         if (semanticsJson) insertPayload.image_semantics_json = semanticsJson;
         if (styleKey) insertPayload.style_key = styleKey;
         if (materialKey) insertPayload.material_key = materialKey;
-        insertPayload.asset_kind = normalizeVendorAssetKind(body.asset_kind);
+        insertPayload.asset_kind = assetKind;
         const { data: inserted, error } = await supabase
             .from('vendor_assets')
             .insert(insertPayload)
@@ -9863,8 +9902,14 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
                 ownerId,
                 pointsRequired,
                 wantsOptimize ? 'vendor_asset_optimize' : 'vendor_asset_upload',
-                wantsOptimize ? `廠商素材上傳＋產品圖優化（${pointsRequired} 點）` : `廠商素材上傳（${pointsRequired} 點）`,
-                { manufacturer_id: manufacturerId, optimize: wantsOptimize }
+                wantsOptimize
+                    ? (assetKind === 'material'
+                        ? `材料參考上傳＋材質圖優化（${pointsRequired} 點）`
+                        : `數位原型上傳＋產品圖優化（${pointsRequired} 點）`)
+                    : (assetKind === 'material'
+                        ? `材料參考上傳（${pointsRequired} 點）`
+                        : `數位原型上傳（${pointsRequired} 點）`),
+                { manufacturer_id: manufacturerId, optimize: wantsOptimize, asset_kind: assetKind }
             );
             if (!consumed.ok) {
                 console.warn('vendor-assets 扣點失敗（已上傳）:', consumed.error);
@@ -9893,7 +9938,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (mfrVaPut && mfrVaPut.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
         const id = req.params.id;
         const body = req.body || {};
-        const { data: row } = await supabase.from('vendor_assets').select('id, image_url, category_key').eq('id', id).eq('manufacturer_id', manufacturerId).single();
+        const { data: row } = await supabase.from('vendor_assets').select('id, image_url, category_key, title, description, asset_kind, material_key').eq('id', id).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該素材' });
 
         const updates = { updated_at: new Date().toISOString() };
@@ -9908,17 +9953,119 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.asset_kind !== undefined) updates.asset_kind = normalizeVendorAssetKind(body.asset_kind);
 
         const file = req.file;
+        const wantsOptimize = parseTruthyBody(body.optimize_product_image);
+        const assetKind = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
+        const titleForPrompt = updates.title !== undefined ? updates.title : row.title;
+        const materialKeyForPrompt = updates.material_key !== undefined ? updates.material_key : row.material_key;
+        const categoryKeyForTags = updates.category_key || row.category_key;
+        let balanceAfter = null;
+        let pointsDeducted = 0;
+
         if (file) {
-            const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
+            const pointsRequired = wantsOptimize
+                ? await getPointsVendorAssetOptimizeForKind(assetKind)
+                : await getPointsVendorAssetUpload();
+
+            const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+            const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+            let ownerId = null;
+            if (token) {
+                const { data: { user } } = await supabase.auth.getUser(token);
+                ownerId = user?.id || null;
+            }
+            let isAdmin = false;
+            if (ownerId) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+                isAdmin = profile?.role === 'admin';
+            }
+            if (!isAdmin && ownerId && pointsRequired > 0) {
+                const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+                if (!sufficient) {
+                    return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+                }
+            }
+
+            let tags = parseAiTagsFromBody(body);
+            let semanticsJson = null;
+            if (body.image_semantics_json) {
+                try {
+                    semanticsJson = typeof body.image_semantics_json === 'string'
+                        ? JSON.parse(body.image_semantics_json)
+                        : body.image_semantics_json;
+                } catch (_) {}
+            }
+            if (!tags || !tags.length) {
+                try {
+                    const sem = await runVendorAssetImageSemantics(file, {
+                        category_key: categoryKeyForTags,
+                        title: titleForPrompt,
+                        description: updates.description !== undefined ? updates.description : row.description
+                    }, ownerId);
+                    tags = sem.tags;
+                    semanticsJson = sem.semantics;
+                } catch (semErr) {
+                    console.error('PUT vendor-assets semantics:', semErr);
+                    return res.status(503).json({ error: semErr.message || 'AI 標籤產生失敗，請稍後重試' });
+                }
+            }
+            updates.ai_tags = tags;
+            updates.ai_tags_generated_at = new Date().toISOString();
+            updates.tags_source = semanticsJson ? 'gemini' : (parseAiTagsFromBody(body) ? 'manual' : 'gemini');
+            if (semanticsJson) updates.image_semantics_json = semanticsJson;
+
+            let uploadFile = file;
+            if (wantsOptimize) {
+                try {
+                    const optimizedBuf = await optimizeVendorAssetImageWithFlux(
+                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt
+                    );
+                    uploadFile = {
+                        buffer: optimizedBuf,
+                        mimetype: 'image/jpeg',
+                        originalname: (file.originalname || 'image.jpg').replace(/\.[^.]+$/, '') + '.jpg'
+                    };
+                } catch (optErr) {
+                    console.error('PUT vendor-assets image optimize:', optErr);
+                    const failLabel = assetKind === 'material' ? '材質圖優化失敗' : '產品圖優化失敗';
+                    return res.status(503).json({ error: optErr.message || `${failLabel}，請稍後重試` });
+                }
+            }
+
+            const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, uploadFile);
             updates.image_url = publicUrl;
+
+            if (!isAdmin && ownerId && pointsRequired > 0) {
+                const consumed = await consumeUserCredits(
+                    ownerId,
+                    pointsRequired,
+                    wantsOptimize ? 'vendor_asset_optimize' : 'vendor_asset_upload',
+                    wantsOptimize
+                        ? (assetKind === 'material'
+                            ? `材料參考更新圖＋材質圖優化（${pointsRequired} 點）`
+                            : `數位原型更新圖＋產品圖優化（${pointsRequired} 點）`)
+                        : (assetKind === 'material'
+                            ? `材料參考更新圖（${pointsRequired} 點）`
+                            : `數位原型更新圖（${pointsRequired} 點）`),
+                    { manufacturer_id: manufacturerId, vendor_asset_id: id, optimize: wantsOptimize, asset_kind: assetKind }
+                );
+                if (consumed.ok) {
+                    balanceAfter = consumed.balance_after;
+                    pointsDeducted = pointsRequired;
+                }
+            }
         }
 
-        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, asset_kind, updated_at').single();
+        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, asset_kind, ai_tags, updated_at').single();
         if (error) {
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
-        res.json(updated);
+        res.json({
+            ...updated,
+            points_deducted: pointsDeducted,
+            balance_after: balanceAfter,
+            product_optimized: file ? wantsOptimize : false
+        });
     } catch (e) {
         console.error('PUT /api/me/vendor-assets/:id 異常:', e);
         res.status(500).json({ error: '系統錯誤' });

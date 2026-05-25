@@ -144,7 +144,7 @@
                                 <div class="col-12">
                                     <div class="form-check mb-1">
                                         <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
-                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeProduct">產品圖優化（Flux 重繪，含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖優化（Flux 重繪，含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
                                     </div>
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
@@ -177,7 +177,22 @@
                         <div class="mb-3 d-none" id="edit-material-key-wrap"><label class="form-label" data-i18n="baseModels.materialCategory">材質分類</label><select class="form-select" id="edit-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3"><label class="form-label">簡短說明</label><textarea class="form-control" id="edit-description" rows="2"></textarea></div>
-                        <div class="mb-3"><label class="form-label">更換圖片（選填）</label><input type="file" class="form-control" id="edit-image" accept="image/*"></div>
+                        <div class="mb-3"><label class="form-label">更換圖片（選填）</label><input type="file" class="form-control" id="edit-image" accept="image/*"><button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
+                        <div id="edit-tags-panel" class="mb-3 d-none">
+                            <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
+                            <div id="edit-tags-list" class="d-flex flex-wrap gap-1 mb-2"></div>
+                            <div class="input-group input-group-sm mb-1" style="max-width: 320px;">
+                                <input type="text" class="form-control" id="edit-tag-input" data-i18n-placeholder="baseModels.tagInputPlaceholder" placeholder="新增標籤">
+                                <button type="button" class="btn btn-outline-secondary" id="btn-edit-add-tag" data-i18n="baseModels.addTagBtn">加入</button>
+                            </div>
+                        </div>
+                        <div id="edit-image-options" class="mb-3 d-none">
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="checkbox" id="edit-optimize-image">
+                                <label class="form-check-label" for="edit-optimize-image" id="edit-optimize-label"><span data-i18n="baseModels.optimizeProduct">產品圖優化（Flux 重繪，含 AI 標籤）</span> — <span id="edit-points-optimize" class="fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                            </div>
+                            <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong id="edit-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -234,7 +249,8 @@
         var pendingByForm = {};
         var capabilities = null;
         var supplierImportModal = null;
-        var uploadPricing = { points_upload: 5, points_optimize: 15 };
+        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10 };
+        var editPending = { tags: null, semantics: null };
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) {
@@ -351,13 +367,56 @@
             showPendingTags(form, p.tags, '');
         }
 
+        function optimizePointsForKind(kind) {
+            return normalizeKind(kind) === 'material'
+                ? (uploadPricing.points_optimize_material != null ? uploadPricing.points_optimize_material : 10)
+                : (uploadPricing.points_optimize != null ? uploadPricing.points_optimize : 15);
+        }
+
         function applyUploadPricingToForms() {
             document.querySelectorAll('.add-form').forEach(function (form) {
                 var baseEl = form.querySelector('.add-points-base');
                 var optEl = form.querySelector('.add-points-optimize');
+                var kind = form.getAttribute('data-kind') || 'prototype';
                 if (baseEl) baseEl.textContent = String(uploadPricing.points_upload);
-                if (optEl) optEl.textContent = String(uploadPricing.points_optimize);
+                if (optEl) optEl.textContent = String(optimizePointsForKind(kind));
             });
+        }
+
+        function updateEditOptimizeLabel(assetKind) {
+            var labelSpan = document.querySelector('#edit-optimize-label span[data-i18n]');
+            if (!labelSpan) return;
+            var key = normalizeKind(assetKind) === 'material' ? 'baseModels.optimizeMaterial' : 'baseModels.optimizeProduct';
+            var fb = normalizeKind(assetKind) === 'material' ? '材質圖優化（Flux 重繪，含 AI 標籤）' : '產品圖優化（Flux 重繪，含 AI 標籤）';
+            labelSpan.setAttribute('data-i18n', key);
+            labelSpan.textContent = tr(key, fb);
+            var editBase = document.getElementById('edit-points-base');
+            var editOpt = document.getElementById('edit-points-optimize');
+            if (editBase) editBase.textContent = String(uploadPricing.points_upload);
+            if (editOpt) editOpt.textContent = String(optimizePointsForKind(assetKind));
+        }
+
+        function renderEditTags() {
+            var tags = editPending.tags || [];
+            var panel = document.getElementById('edit-tags-panel');
+            var list = document.getElementById('edit-tags-list');
+            if (!tags.length) { panel.classList.add('d-none'); return; }
+            panel.classList.remove('d-none');
+            list.innerHTML = tags.map(function (t, i) {
+                return '<span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1 mb-1">' +
+                    esc(t) + '<button type="button" class="btn-close btn-close-sm edit-tag-remove" style="font-size:0.45rem;padding:0.15rem" data-idx="' + i + '"></button></span>';
+            }).join('');
+            list.querySelectorAll('.edit-tag-remove').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var idx = parseInt(btn.getAttribute('data-idx'), 10);
+                    if (!isNaN(idx)) { editPending.tags.splice(idx, 1); renderEditTags(); }
+                });
+            });
+        }
+
+        function toggleEditImageOptions(show) {
+            var opts = document.getElementById('edit-image-options');
+            if (opts) opts.classList.toggle('d-none', !show);
         }
 
         async function loadUploadPricing() {
@@ -367,6 +426,7 @@
                 if (r.ok) {
                     uploadPricing.points_upload = d.points_upload != null ? d.points_upload : 5;
                     uploadPricing.points_optimize = d.points_optimize != null ? d.points_optimize : 15;
+                    uploadPricing.points_optimize_material = d.points_optimize_material != null ? d.points_optimize_material : 10;
                 }
             } catch (_) {}
             applyUploadPricingToForms();
@@ -589,6 +649,13 @@
             document.getElementById('edit-title').value = m.title || '';
             document.getElementById('edit-description').value = m.description || '';
             document.getElementById('edit-image').value = '';
+            document.getElementById('edit-optimize-image').checked = false;
+            editPending.tags = null;
+            editPending.semantics = null;
+            document.getElementById('edit-tags-panel').classList.add('d-none');
+            document.getElementById('btn-edit-preview-tags').disabled = true;
+            toggleEditImageOptions(false);
+            updateEditOptimizeLabel(m.asset_kind);
             fillCategorySelect(document.getElementById('edit-category'), m.category_key);
             fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
             var wrap = document.getElementById('edit-material-key-wrap');
@@ -597,6 +664,52 @@
             editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
             editModalEl.show();
         }
+
+        document.getElementById('edit-image').addEventListener('change', function () {
+            var hasFile = this.files && this.files[0];
+            document.getElementById('btn-edit-preview-tags').disabled = !hasFile;
+            toggleEditImageOptions(!!hasFile);
+            if (!hasFile) {
+                editPending.tags = null;
+                editPending.semantics = null;
+                document.getElementById('edit-tags-panel').classList.add('d-none');
+            }
+        });
+
+        document.getElementById('btn-edit-preview-tags').addEventListener('click', async function () {
+            var fileInput = document.getElementById('edit-image');
+            var file = fileInput.files && fileInput.files[0];
+            var cat = document.getElementById('edit-category').value;
+            if (!file || !cat) { showToast(tr('baseModels.needCategory', '請選擇主分類與圖片'), 'warning'); return; }
+            var btn = document.getElementById('btn-edit-preview-tags');
+            btn.disabled = true;
+            try {
+                var fd = new FormData();
+                fd.append('image', file);
+                fd.append('category_key', cat);
+                fd.append('title', document.getElementById('edit-title').value || '');
+                fd.append('description', document.getElementById('edit-description').value || '');
+                var r = await fetch('/api/me/vendor-assets/generate-tags', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
+                editPending.tags = data.ai_tags || [];
+                editPending.semantics = data.image_semantics_json || null;
+                renderEditTags();
+                showToast('OK');
+            } finally { btn.disabled = false; }
+        });
+
+        document.getElementById('btn-edit-add-tag').addEventListener('click', function () {
+            var val = (document.getElementById('edit-tag-input').value || '').trim();
+            if (!val) return;
+            if (!editPending.tags) editPending.tags = [];
+            if (editPending.tags.indexOf(val) === -1) editPending.tags.push(val);
+            document.getElementById('edit-tag-input').value = '';
+            renderEditTags();
+        });
+        document.getElementById('edit-tag-input').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-edit-add-tag').click(); }
+        });
 
         document.getElementById('btn-edit-save').addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
@@ -610,12 +723,26 @@
             var mk = document.getElementById('edit-material-key').value;
             if (mk) fd.append('material_key', mk);
             var file = document.getElementById('edit-image').files[0];
-            if (file) fd.append('image', file);
+            if (file) {
+                fd.append('image', file);
+                if (editPending.tags && editPending.tags.length) {
+                    fd.append('ai_tags', JSON.stringify(editPending.tags));
+                    if (editPending.semantics) fd.append('image_semantics_json', JSON.stringify(editPending.semantics));
+                }
+                if (document.getElementById('edit-optimize-image').checked) fd.append('optimize_product_image', '1');
+            }
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                 var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    showToast((data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
+                    return;
+                }
                 if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
-                showToast('OK');
+                var okMsg = tr('baseModels.uploadSuccess', '儲存成功');
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
+                showToast(okMsg);
                 if (editModalEl) editModalEl.hide();
                 loadMaterials();
             } catch (err) { showToast(err.message, 'danger'); }

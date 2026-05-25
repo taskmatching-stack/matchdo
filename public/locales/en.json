@@ -54,6 +54,7 @@
   "baseModels.addTagBtn": "Add",
   "baseModels.tagsHint": "Remove or add tags before uploading",
   "baseModels.optimizeProduct": "Product photo optimization (Flux redraw, includes AI tags)",
+  "baseModels.optimizeMaterial": "Material swatch optimization (Flux redraw, includes AI tags)",
   "baseModels.uploadOnlyPoints": "Upload with AI tags only:",
   "baseModels.pointsUnit": "pts",
   "baseModels.uploadPublish": "Upload and publish",
