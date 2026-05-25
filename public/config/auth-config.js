@@ -239,8 +239,13 @@ const AuthService = {
                         } catch (e) {}
                     }
                     if (!supabaseClient || !supabaseClient.auth) return null;
-                    var _p = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
+                    var _p = await supabaseClient.from('profiles').select('*').eq('id', user.id).maybeSingle();
                     if (!_p.error && _p.data) return _p.data;
+                    var email = (user.email || '').trim().toLowerCase();
+                    if (email) {
+                        var _pe = await supabaseClient.from('profiles').select('*').eq('email', email).maybeSingle();
+                        if (!_pe.error && _pe.data) return Object.assign({}, _pe.data, { id: user.id });
+                    }
                     var _u = await supabaseClient.from('users').select('*, experts_profile(*)').eq('id', user.id).single();
                     if (!_u.error && _u.data) return _u.data;
                     return null;

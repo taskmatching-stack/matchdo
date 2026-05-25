@@ -7738,7 +7738,41 @@ app.get('/api/media-wall', async (req, res) => {
     }
 });
 
-// 首頁靈感牆刪除/隱藏權限：管理員 或 profiles.can_delete_media_wall 為 true
+// 首頁靈感牆刪除/隱藏：與 GET /api/me/profile 共用查詢（id 優先，再以 email 對應舊列）
+function profileCanDeleteMediaWall(profile) {
+    if (!profile) return false;
+    const role = String(profile.role || '').trim().toLowerCase();
+    return role === 'admin' || profile.can_delete_media_wall === true;
+}
+
+async function resolveProfileForAuthUser(user) {
+    if (!user?.id) return { profile: null, error: null };
+    const normEmail = String(user.email || '').trim().toLowerCase();
+    async function loadById(uid) {
+        let { data, error } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+        if (error && error.code === '42703' && String(error.message || '').includes('can_delete_media_wall')) {
+            const retry = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+            data = retry.data;
+            error = retry.error;
+        }
+        return { data, error };
+    }
+    let { data: profile, error } = await loadById(user.id);
+    let byEmail = null;
+    if (normEmail) {
+        const emailRes = await supabase.from('profiles').select('*').eq('email', normEmail).maybeSingle();
+        if (!emailRes.error) byEmail = emailRes.data;
+    }
+    if (!profile && byEmail) {
+        profile = { ...byEmail, id: user.id };
+        error = null;
+    } else if (profile && byEmail && profileCanDeleteMediaWall(byEmail) && !profileCanDeleteMediaWall(profile)) {
+        profile = { ...byEmail, id: user.id };
+    }
+    if (profile && profile.can_delete_media_wall == null) profile.can_delete_media_wall = false;
+    return { profile, error };
+}
+
 async function requireMediaWallDelete(req, res) {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -7751,10 +7785,17 @@ async function requireMediaWallDelete(req, res) {
         res.status(401).json({ error: 'token 無效' });
         return null;
     }
-    const { data: profile } = await supabase.from('profiles').select('role, can_delete_media_wall').eq('id', user.id).single();
-    const canDelete = profile?.role === 'admin' || profile?.can_delete_media_wall === true;
-    if (!canDelete) {
-        res.status(403).json({ error: '僅管理員或具「首頁刪圖」權限的帳號可操作' });
+    const { profile, error: profErr } = await resolveProfileForAuthUser(user);
+    if (profErr) {
+        console.error('requireMediaWallDelete profile:', profErr);
+        res.status(500).json({ error: '查詢權限失敗' });
+        return null;
+    }
+    if (!profileCanDeleteMediaWall(profile)) {
+        res.status(403).json({
+            error: '僅管理員或具「首頁刪圖」權限的帳號可操作',
+            hint: '請確認 Supabase profiles 中此帳號 role 為 admin，或執行 docs/fix-admin-media-wall-delete.sql。'
+        });
         return null;
     }
     return user;
@@ -8641,21 +8682,22 @@ app.get('/api/me/profile', async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
-        const { data: profile, error: profErr } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
+        const { profile, error: profErr } = await resolveProfileForAuthUser(user);
         if (profErr) {
             console.error('GET /api/me/profile:', profErr);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        if (profile) return res.json(profile);
+        if (profile) {
+            const out = { ...profile, id: user.id, email: profile.email || user.email || '' };
+            if (out.can_delete_media_wall == null) out.can_delete_media_wall = false;
+            return res.json(out);
+        }
         res.json({
             id: user.id,
             email: user.email || '',
             full_name: user.user_metadata?.full_name || '',
-            role: user.user_metadata?.role || 'user'
+            role: 'user',
+            can_delete_media_wall: false
         });
     } catch (e) {
         console.error('GET /api/me/profile 異常:', e);
