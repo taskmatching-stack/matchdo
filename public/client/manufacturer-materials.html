@@ -570,6 +570,29 @@
                 .filter(Boolean);
         }
 
+        function resolveCatalogGroupsForAsset(m) {
+            var out = [];
+            var seen = {};
+            (m.catalog_groups || []).forEach(function (g) {
+                if (!g || !g.id) return;
+                var name = String(g.name || '').trim();
+                if (!name) return;
+                if (seen[g.id]) return;
+                seen[g.id] = true;
+                out.push({ id: g.id, name: name });
+            });
+            if (!out.length && m.catalog_group_ids && m.catalog_group_ids.length && catalogGroupsFlat.length) {
+                m.catalog_group_ids.forEach(function (id) {
+                    var f = catalogGroupsFlat.find(function (g) { return String(g.id) === String(id); });
+                    if (f && f.name && !seen[f.id]) {
+                        seen[f.id] = true;
+                        out.push({ id: f.id, name: String(f.name).trim() });
+                    }
+                });
+            }
+            return out;
+        }
+
         function renderCatalogGroupCheckboxes(container, selectedIds) {
             if (!container) return;
             var sel = new Set((selectedIds || []).map(String));
@@ -770,12 +793,10 @@
                     : ('<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
-                var myCatList = (m.catalog_groups || []).filter(function (g) {
-                    return g && String(g.name || '').trim();
-                });
+                var myCatList = resolveCatalogGroupsForAsset(m);
                 var myCats = myCatList.length
                     ? '<div class="mb-2">' + myCatList.map(function (g) {
-                        return '<span class="badge bg-light text-primary border border-primary me-1 mb-1">' + esc(String(g.name).trim()) + '</span>';
+                        return '<span class="badge bg-light text-dark border me-1 mb-1" title="' + esc(g.name) + '">' + esc(g.name) + '</span>';
                     }).join('') + '</div>' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<img src="' + esc(m.image_url) + '" class="material-img" loading="lazy" alt="">' : '') +

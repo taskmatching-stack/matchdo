@@ -9971,17 +9971,30 @@ async function attachCatalogGroupIdsToAssets(items) {
     if (!(await vendorCatalogGroupsTableReady()) || !items || !items.length) return items;
     const assetIds = items.map((r) => r.id).filter(Boolean);
     if (!assetIds.length) return items;
-    const { data: links } = await supabase
+    const { data: links, error: linkErr } = await supabase
         .from('vendor_asset_group_links')
-        .select('asset_id, group_id, vendor_catalog_groups(id, name, parent_id)')
+        .select('asset_id, group_id')
         .in('asset_id', assetIds);
+    if (linkErr && linkErr.code === '42P01') return items;
+    if (linkErr) throw linkErr;
+    const groupIds = [...new Set((links || []).map((l) => l.group_id).filter(Boolean))];
+    const groupsById = {};
+    if (groupIds.length) {
+        const { data: groups, error: grpErr } = await supabase
+            .from('vendor_catalog_groups')
+            .select('id, name, parent_id')
+            .in('id', groupIds);
+        if (grpErr) throw grpErr;
+        (groups || []).forEach((g) => {
+            const name = (g.name != null) ? String(g.name).trim() : '';
+            if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null };
+        });
+    }
     const map = {};
     (links || []).forEach((l) => {
         if (!map[l.asset_id]) map[l.asset_id] = [];
-        const raw = l.vendor_catalog_groups;
-        const g = Array.isArray(raw) ? raw[0] : raw;
-        const name = (g && g.name != null) ? String(g.name).trim() : '';
-        if (g && g.id && name) map[l.asset_id].push({ id: g.id, name });
+        const g = groupsById[l.group_id];
+        if (g) map[l.asset_id].push(g);
     });
     return items.map((r) => ({
         ...r,
