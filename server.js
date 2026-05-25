@@ -508,75 +508,20 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-/** 數位原型 AI 重繪：僅讀後台分類提示詞（子分類優先，再主分類）；不內建任何品類的四個角度 */
-async function loadVendorAssetCategoryPrompt(categoryKey, subcategoryKey) {
-    const main = (categoryKey || '').trim();
-    const sub = (subcategoryKey || '').trim();
-    if (sub) {
-        let q = supabase.from('custom_product_subcategories').select('prompt, category_key').eq('key', sub).eq('is_active', true);
-        if (main) q = q.eq('category_key', main);
-        const { data: subRow, error: subErr } = await q.maybeSingle();
-        if (!subErr && subRow && (subRow.prompt || '').trim()) return subRow.prompt.trim();
-    }
-    if (main) {
-        const { data: mainRow, error: mainErr } = await supabase
-            .from('custom_product_categories')
-            .select('prompt')
-            .eq('key', main)
-            .eq('is_active', true)
-            .maybeSingle();
-        if (!mainErr && mainRow && (mainRow.prompt || '').trim()) return mainRow.prompt.trim();
-    }
-    return '';
-}
-
-const VENDOR_ASSET_MISSING_CATEGORY_PROMPT = 'MISSING_CATEGORY_PROMPT';
-
-/** 只規定 2×2 版面；四格「畫什麼角度」完全依上方後台分類提示詞，禁止擅自改成通用前後側視圖 */
-function buildCatalog2x2GridSuffix(hasRefs) {
-    const lines = [
-        '\n\n[CATALOG 2x2 GRID — OUTPUT FORMAT ONLY]',
-        '- Output exactly ONE image: 2 columns × 2 rows, four equal square panels, thin white or light gray gutters.',
-        '- Fixed placement: top-left = view 1, top-right = view 2, bottom-left = view 3, bottom-right = view 4.',
-        '- Each panel MUST follow ONLY the matching view in the category system prompt above (e.g. Split-view 1 → top-left). Do NOT invent generic front/back/side/three-quarter views unless the category prompt explicitly defines them.',
-        '- The same product in all four panels; only change angle, pose, or content per panel as specified in that category prompt.',
-        '- No logos or watermarks unless the category prompt above requires them.'
-    ];
-    if (hasRefs) {
-        lines.push('- Reference image defines shape/proportions only. Synthesize a new four-panel composite; never return the reference unchanged or as a single full-frame photo.');
-    }
-    lines.push(']');
-    return lines.join(' ');
-}
-
-/** 數位原型 AI 重繪：必須有後台分類提示詞（各品類自行定義四格內容） */
-async function buildVendorAssetPrototypeOptimizePrompt({ categoryKey, subcategoryKey, title, description }) {
-    const base = await loadVendorAssetCategoryPrompt(categoryKey, subcategoryKey);
-    if (!base) {
-        const err = new Error(VENDOR_ASSET_MISSING_CATEGORY_PROMPT);
-        throw err;
-    }
-    const titleLine = (title || '').trim();
-    const descLine = (description || '').trim();
-    const extra = [
-        titleLine ? `Product / variant name (supplement only): ${titleLine}` : '',
-        descLine ? `Vendor notes (supplement only): ${descLine}` : ''
-    ].filter(Boolean).join('\n');
-    let prompt = base;
-    if (extra) prompt += '\n\n' + extra;
-    prompt += buildCatalog2x2GridSuffix(true);
-    return prompt;
+/** 數位原型「產品圖 AI 重繪」：單張白底商品圖（與設計頁自傳參考圖同類，供 img2img 使用，非四格型錄） */
+function buildVendorAssetProductOptimizePrompt(title) {
+    const product = (title || '').trim() || 'product';
+    return [
+        `Professional e-commerce product photo of a single ${product},`,
+        'the product is the only subject in frame, centered, full product visible,',
+        'clean white seamless background, soft even studio lighting, no harsh shadows,',
+        'no props, no hands, no people, no packaging clutter, no scene decoration,',
+        'no text, no watermark, no logo unless already part of the product design,',
+        'photorealistic, sharp focus, accurate colors and proportions, 8k resolution'
+    ].join(' ');
 }
 
 function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
-    if (optErr && optErr.message === VENDOR_ASSET_MISSING_CATEGORY_PROMPT) {
-        return {
-            status: 400,
-            body: {
-                error: '此主分類或子分類尚無「提示詞（AI 設計用）」。請至後台訂製品廠商分類為該品類填寫專用四格視角（如 Split-view 1～4 對應左上／右上／左下／右下），再勾選 AI 重繪。'
-            }
-        };
-    }
     const failLabel = normalizeVendorAssetKind(assetKind) === 'material' ? '材質圖 AI 重繪失敗' : '產品圖 AI 重繪失敗';
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
@@ -4849,17 +4794,12 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材 AI 重繪：數位原型＝依分類提示詞輸出 2×2 四格；材料＝單張材質圖 */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey, categoryKey, subcategoryKey, description) {
+/** 廠商素材 AI 重繪：數位原型＝單張白底商品圖；材料＝單張材質圖 */
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const prompt = normalizeVendorAssetKind(assetKind) === 'material'
         ? buildVendorAssetMaterialOptimizePrompt(title, materialKey)
-        : await buildVendorAssetPrototypeOptimizePrompt({
-            categoryKey: (categoryKey || '').trim(),
-            subcategoryKey: (subcategoryKey || '').trim() || null,
-            title,
-            description
-        });
+        : buildVendorAssetProductOptimizePrompt(title);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], null, 'jpeg');
@@ -7843,7 +7783,11 @@ async function resolveProfileForAuthUser(user) {
     if (!profile && byEmail) {
         profile = { ...byEmail, id: user.id };
         error = null;
-    } else if (profile && byEmail && profileCanDeleteMediaWall(byEmail) && !profileCanDeleteMediaWall(profile)) {
+    } else if (
+        profile && byEmail && normEmail
+        && String(byEmail.email || '').trim().toLowerCase() === normEmail
+        && profileCanDeleteMediaWall(byEmail) && !profileCanDeleteMediaWall(profile)
+    ) {
         profile = { ...byEmail, id: user.id };
     }
     if (profile && profile.can_delete_media_wall == null) profile.can_delete_media_wall = false;
@@ -8767,6 +8711,7 @@ app.get('/api/me/profile', async (req, res) => {
         if (profile) {
             const out = { ...profile, id: user.id, email: profile.email || user.email || '' };
             if (out.can_delete_media_wall == null) out.can_delete_media_wall = false;
+            out.media_wall_manage = profileCanDeleteMediaWall(profile);
             return res.json(out);
         }
         res.json({
@@ -8774,7 +8719,8 @@ app.get('/api/me/profile', async (req, res) => {
             email: user.email || '',
             full_name: user.user_metadata?.full_name || '',
             role: 'user',
-            can_delete_media_wall: false
+            can_delete_media_wall: false,
+            media_wall_manage: false
         });
     } catch (e) {
         console.error('GET /api/me/profile 異常:', e);
@@ -9950,7 +9896,7 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         if (wantsOptimize) {
             try {
                 const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                    file.buffer, file.mimetype, title, assetKind, materialKey, categoryKey, subcategoryKey, description
+                    file.buffer, file.mimetype, title, assetKind, materialKey
                 );
                 uploadFile = {
                     buffer: optimizedBuf,
@@ -10144,9 +10090,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             if (wantsOptimize) {
                 try {
                     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt,
-                        categoryKeyForTags, (updates.subcategory_key != null ? updates.subcategory_key : row.subcategory_key),
-                        updates.description !== undefined ? updates.description : row.description
+                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt
                     );
                     uploadFile = {
                         buffer: optimizedBuf,

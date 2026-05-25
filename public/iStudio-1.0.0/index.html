@@ -1029,6 +1029,8 @@
             var adminOpts = { isAdmin: false, getToken: function () { return Promise.resolve(null); } };
             function profileCanDeleteOnHomepage(profile) {
                 if (!profile) return false;
+                if (profile.media_wall_manage === true) return true;
+                if (profile.media_wall_manage === false) return false;
                 var role = String(profile.role || '').trim().toLowerCase();
                 return role === 'admin' || profile.can_delete_media_wall === true;
             }
@@ -1042,8 +1044,10 @@
                             return (s && s.access_token) || (s && s.session && s.session.access_token) || null;
                         });
                     };
+                } else {
+                    adminOpts.getToken = function () { return Promise.resolve(null); };
                 }
-                if (adminOpts.isAdmin && !wasAdmin) {
+                if (adminOpts.isAdmin !== wasAdmin) {
                     if (typeof showingFavoritesOnly !== 'undefined' && showingFavoritesOnly) renderFavoritesGrid();
                     else if (typeof reloadMediaWall === 'function') reloadMediaWall(1, false);
                 }
@@ -1205,11 +1209,19 @@
                     AuthService.onAuthStateChange(function (event, session) {
                         if (session && session.user) {
                             syncFavsFromDB();
+                            if (AuthService.getUserProfile) {
+                                AuthService.getUserProfile().then(function (profile) {
+                                    applyMediaWallAdminFromProfile(profile, session);
+                                }).catch(function () {
+                                    applyMediaWallAdminFromProfile(null, session);
+                                });
+                            }
                         } else {
-                            // 登出：清空快取、重設按鈕
+                            // 登出：清空快取、重設按鈕，並撤銷靈感牆刪除權限（避免殘留給下一個使用者）
                             favUserLoggedIn = false;
                             saveFavs([]);
                             updateAllFavButtons();
+                            applyMediaWallAdminFromProfile(null, null);
                             if (showingFavoritesOnly) {
                                 showingFavoritesOnly = false;
                                 if (favFilterBtn) {
@@ -1218,7 +1230,6 @@
                                     var icon = favFilterBtn.querySelector('i');
                                     if (icon) icon.className = 'bi bi-heart me-1';
                                 }
-                                reloadMediaWall(1, false);
                             }
                         }
                     });

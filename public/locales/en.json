@@ -55,7 +55,7 @@
   "baseModels.addTagBtn": "Add",
   "baseModels.tagsHint": "Remove or add tags before uploading",
   "baseModels.optimizeProduct": "Product photo AI redraw (includes AI tags)",
-  "baseModels.optimizePrototypeHint": "Four panels follow that category's admin prompt only (subcategory first). AI redraw is blocked if the prompt is empty. Outputs one 2×2 image.",
+  "baseModels.optimizePrototypeHint": "When checked, redraws one clean white-background product shot from your upload (same use as self-uploaded design references, not a 4-panel catalog).",
   "baseModels.optimizeMaterial": "Material swatch AI redraw (includes AI tags)",
   "baseModels.uploadOnlyPoints": "Upload with AI tags only:",
   "baseModels.pointsUnit": "pts",

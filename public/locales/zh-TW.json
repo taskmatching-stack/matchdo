@@ -55,7 +55,7 @@
   "baseModels.addTagBtn": "加入",
   "baseModels.tagsHint": "可刪除或新增標籤後再上傳",
   "baseModels.optimizeProduct": "產品圖 AI 重繪（含 AI 標籤）",
-  "baseModels.optimizePrototypeHint": "四格角度與內容完全依後台該品類的「提示詞（AI 設計用）」（子分類優先）；未填寫提示詞無法 AI 重繪。輸出為一張 2×2 圖。",
+  "baseModels.optimizePrototypeHint": "勾選後會以原圖為參考，產出單張白底商品圖（與設計頁自傳參考圖相同用途，非四格型錄）。",
   "baseModels.optimizeMaterial": "材質圖 AI 重繪（含 AI 標籤）",
   "baseModels.uploadOnlyPoints": "僅上傳並產生標籤：",
   "baseModels.pointsUnit": "點",
