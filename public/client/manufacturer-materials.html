@@ -760,9 +760,11 @@
         document.getElementById('btn-delete-confirm').addEventListener('click', async function () {
             if (!deleteTargetId) return;
             try {
-                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(deleteTargetId), { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
-                if (!r.ok) { var d = await r.json().catch(function () { return {}; }); showToast(d.error || 'failed', 'danger'); return; }
-                showToast('OK');
+                var tok = await getToken();
+                if (!tok) { showToast(tr('baseModels.loginRequired', '請先登入'), 'danger'); return; }
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(deleteTargetId), { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } });
+                if (!r.ok) { var d = await r.json().catch(function () { return {}; }); showToast(d.error || tr('baseModels.deleteFailed', '刪除失敗'), 'danger'); return; }
+                showToast(tr('baseModels.deleteSuccess', '已刪除'));
                 if (deleteModalEl) deleteModalEl.hide();
                 deleteTargetId = null;
                 loadMaterials();

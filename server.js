@@ -408,6 +408,25 @@ function normalizeVendorAssetKind(raw) {
 const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, asset_kind, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 
+/** 依廠商 id + 素材 id 查一筆；缺欄位時自動降級（與 GET 列表一致，避免 DELETE 誤判 404） */
+async function fetchVendorAssetOwnedByManufacturer(assetId, manufacturerId, selectCols) {
+    const id = String(assetId || '').trim();
+    if (!id || !manufacturerId) return { data: null, error: null };
+    let cols = selectCols || 'id, manufacturer_id, source_catalog_item_id';
+    async function query(columns) {
+        return supabase.from('vendor_assets').select(columns).eq('id', id).eq('manufacturer_id', manufacturerId).maybeSingle();
+    }
+    let result = await query(cols);
+    if (result.error && result.error.code === '42703') {
+        const legacyCols = cols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'source_catalog_item_id').join(', ');
+        cols = legacyCols || 'id, manufacturer_id';
+        result = await query(cols);
+        if (result.data && result.data.source_catalog_item_id === undefined) result.data.source_catalog_item_id = null;
+    }
+    if (result.error) return result;
+    return result;
+}
+
 async function supplierCatalogTablesReady() {
     const { error } = await supabase.from('supplier_catalog_items').select('id').limit(1);
     return !error || error.code !== '42P01';
@@ -10038,9 +10057,15 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (!manufacturerId) return;
         const { data: mfrVaPut } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
         if (mfrVaPut && mfrVaPut.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
-        const id = req.params.id;
+        const id = (req.params.id || '').trim();
         const body = req.body || {};
-        const { data: row } = await supabase.from('vendor_assets').select('id, image_url, category_key, title, description, asset_kind, material_key').eq('id', id).eq('manufacturer_id', manufacturerId).single();
+        const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
+            id, manufacturerId, 'id, image_url, category_key, title, description, asset_kind, material_key'
+        );
+        if (rowErr) {
+            console.error('PUT /api/me/vendor-assets/:id select:', rowErr);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
         if (!row) return res.status(404).json({ error: '找不到該素材' });
 
         const updates = { updated_at: new Date().toISOString() };
@@ -10183,8 +10208,12 @@ app.delete('/api/me/vendor-assets/:id', async (req, res) => {
         if (!manufacturerId) return;
         const { data: mfrVaDel } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
         if (mfrVaDel && mfrVaDel.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
-        const id = req.params.id;
-        const { data: row } = await supabase.from('vendor_assets').select('id, source_catalog_item_id').eq('id', id).eq('manufacturer_id', manufacturerId).single();
+        const id = (req.params.id || '').trim();
+        const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(id, manufacturerId, 'id, source_catalog_item_id');
+        if (rowErr) {
+            console.error('DELETE /api/me/vendor-assets/:id select:', rowErr);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
         if (!row) return res.status(404).json({ error: '找不到該素材' });
         if (row.source_catalog_item_id && (await supplierCatalogTablesReady())) {
             await supabase.from('manufacturer_supplier_imports').delete()
