@@ -508,13 +508,37 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-/** 數位原型「產品圖 AI 重繪」：單張白底商品圖（與設計頁自傳參考圖同類，供 img2img 使用，非四格型錄） */
-function buildVendorAssetProductOptimizePrompt(title) {
+const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
+    white: 'clean pure white seamless studio background',
+    light_gray: 'clean light gray seamless studio background',
+    gray: 'neutral medium gray seamless studio background',
+    black: 'deep black seamless studio background with subtle rim lighting on the product edges'
+};
+
+/** 廠商 AI 重繪底色：white|light_gray|gray|black 或 #RRGGBB */
+function normalizeVendorOptimizeBackground(raw) {
+    const s = String(raw || '').trim().toLowerCase();
+    if (!s || s === 'white') return { key: 'white', prompt: VENDOR_OPTIMIZE_BACKGROUND_PROMPTS.white };
+    if (VENDOR_OPTIMIZE_BACKGROUND_PROMPTS[s]) return { key: s, prompt: VENDOR_OPTIMIZE_BACKGROUND_PROMPTS[s] };
+    const hex = s.match(/^#?([0-9a-f]{6})$/i);
+    if (hex) {
+        const color = `#${hex[1].toLowerCase()}`;
+        return {
+            key: 'custom',
+            prompt: `seamless solid studio background in exact color ${color}, evenly lit, no gradient or texture`
+        };
+    }
+    return { key: 'white', prompt: VENDOR_OPTIMIZE_BACKGROUND_PROMPTS.white };
+}
+
+/** 數位原型「產品圖 AI 重繪」：單張商品圖（與設計頁自傳參考圖同類，供 img2img 使用，非四格型錄） */
+function buildVendorAssetProductOptimizePrompt(title, backgroundColor) {
     const product = (title || '').trim() || 'product';
+    const bg = normalizeVendorOptimizeBackground(backgroundColor);
     return [
         `Professional e-commerce product photo of a single ${product},`,
         'the product is the only subject in frame, centered, full product visible,',
-        'clean white seamless background, soft even studio lighting, no harsh shadows,',
+        `${bg.prompt}, soft even studio lighting, no harsh shadows,`,
         'no props, no hands, no people, no packaging clutter, no scene decoration,',
         'no text, no watermark, no logo unless already part of the product design,',
         'photorealistic, sharp focus, accurate colors and proportions, 8k resolution'
@@ -527,16 +551,17 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
 }
 
 /** 材料參考「材質圖 AI 重繪」提示詞；以呈現材質紋理與色彩為主 */
-function buildVendorAssetMaterialOptimizePrompt(title, materialKey) {
+function buildVendorAssetMaterialOptimizePrompt(title, materialKey, backgroundColor) {
     const label = (title || '').trim() || (materialKey || '').trim() || 'material sample';
     const typeHint = (materialKey || '').trim() ? `${materialKey} material` : 'material';
+    const bg = normalizeVendorOptimizeBackground(backgroundColor);
     return [
         `Material reference image of ${label}, ${typeHint},`,
         'visual emphasis on authentic surface texture, weave, grain, sheen, and accurate color reproduction,',
         'texture and color are the primary focus, clearly readable for designers selecting materials,',
         'natural soft even lighting that reveals texture without harsh glare or color cast,',
         'simple flat lay or gentle drape of the material swatch only,',
-        'plain seamless neutral white or light gray background,',
+        `${bg.prompt},`,
         'no props, no scissors, no rulers, no tools, no hands, no people, no finished products,',
         'no packaging, no text, no watermark, no logo, no scene decoration,',
         'photorealistic macro detail showing fiber structure and true color, 8k resolution'
@@ -4794,12 +4819,12 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材 AI 重繪：數位原型＝單張白底商品圖；材料＝單張材質圖 */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey) {
+/** 廠商素材 AI 重繪：數位原型＝單張商品圖；材料＝單張材質圖（可選底色） */
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey, backgroundColor) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const prompt = normalizeVendorAssetKind(assetKind) === 'material'
-        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey)
-        : buildVendorAssetProductOptimizePrompt(title);
+        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey, backgroundColor)
+        : buildVendorAssetProductOptimizePrompt(title, backgroundColor);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], null, 'jpeg');
@@ -9895,8 +9920,9 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         let uploadFile = file;
         if (wantsOptimize) {
             try {
+                const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
                 const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                    file.buffer, file.mimetype, title, assetKind, materialKey
+                    file.buffer, file.mimetype, title, assetKind, materialKey, optimizeBackground
                 );
                 uploadFile = {
                     buffer: optimizedBuf,
@@ -10089,8 +10115,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             let uploadFile = file;
             if (wantsOptimize) {
                 try {
+                    const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
                     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt
+                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt, optimizeBackground
                     );
                     uploadFile = {
                         buffer: optimizedBuf,

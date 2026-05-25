@@ -95,7 +95,21 @@
                                         <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-prototype">
                                         <label class="form-check-label" for="add-optimize-prototype"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
                                     </div>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.optimizePrototypeHint">勾選後會以原圖為參考，產出單張白底商品圖（與設計頁自傳參考圖相同用途，非四格型錄）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.optimizePrototypeHint">勾選後會以原圖為參考，產出單張商品圖（可選底色；與設計頁自傳參考圖相同用途，非四格型錄）。</p>
+                                    <div class="add-optimize-bg-wrap d-none mb-2">
+                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
+                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
+                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
+                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
+                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
+                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
+                                            </select>
+                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
+                                        </div>
+                                        <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">僅在勾選 AI 重繪時套用；自訂色請選「自訂色」後點色票。</p>
+                                    </div>
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
@@ -147,6 +161,20 @@
                                         <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
                                         <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
                                     </div>
+                                    <div class="add-optimize-bg-wrap d-none mb-2">
+                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
+                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
+                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
+                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
+                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
+                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
+                                            </select>
+                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#f5f5f5" title="自訂底色">
+                                        </div>
+                                        <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">僅在勾選 AI 重繪時套用；自訂色請選「自訂色」後點色票。</p>
+                                    </div>
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
@@ -191,6 +219,19 @@
                             <div class="form-check mb-1">
                                 <input class="form-check-input" type="checkbox" id="edit-optimize-image">
                                 <label class="form-check-label" for="edit-optimize-image" id="edit-optimize-label"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span id="edit-points-optimize" class="fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                            </div>
+                            <div id="edit-optimize-bg-wrap" class="mb-2 d-none">
+                                <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <select class="form-select form-select-sm" id="edit-optimize-bg" style="max-width:11rem">
+                                        <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
+                                        <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
+                                        <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
+                                        <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
+                                        <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
+                                    </select>
+                                    <input type="color" class="form-control form-control-color d-none" id="edit-optimize-bg-custom" value="#ffffff" title="自訂底色">
+                                </div>
                             </div>
                             <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong id="edit-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                         </div>
@@ -374,6 +415,54 @@
                 : (uploadPricing.points_optimize != null ? uploadPricing.points_optimize : 15);
         }
 
+        function getOptimizeBackgroundValue(scopeEl) {
+            var root = scopeEl || document;
+            var sel = root.querySelector ? root.querySelector('.add-optimize-bg') : null;
+            if (!sel && root.querySelector) sel = root.querySelector('#edit-optimize-bg');
+            if (!sel) sel = document.getElementById('edit-optimize-bg');
+            if (!sel) return 'white';
+            if (sel.value === 'custom') {
+                var c = (root.querySelector && root.querySelector('.add-optimize-bg-custom')) || document.getElementById('edit-optimize-bg-custom');
+                return (c && c.value) ? c.value : '#ffffff';
+            }
+            return sel.value || 'white';
+        }
+
+        function syncOptimizeBgCustomInput(scopeEl) {
+            var root = scopeEl || document;
+            var sel = root.querySelector ? root.querySelector('.add-optimize-bg') : null;
+            if (!sel && root.querySelector) sel = root.querySelector('#edit-optimize-bg');
+            if (!sel) sel = document.getElementById('edit-optimize-bg');
+            var custom = (root.querySelector && root.querySelector('.add-optimize-bg-custom')) || document.getElementById('edit-optimize-bg-custom');
+            if (!sel || !custom) return;
+            custom.classList.toggle('d-none', sel.value !== 'custom');
+        }
+
+        function syncAddFormOptimizeBgWrap(form) {
+            if (!form) return;
+            var chk = form.querySelector('.add-optimize-product');
+            var wrap = form.querySelector('.add-optimize-bg-wrap');
+            if (!chk || !wrap) return;
+            wrap.classList.toggle('d-none', !chk.checked);
+        }
+
+        function syncEditOptimizeBgWrap() {
+            var chk = document.getElementById('edit-optimize-image');
+            var wrap = document.getElementById('edit-optimize-bg-wrap');
+            if (!chk || !wrap) return;
+            wrap.classList.toggle('d-none', !chk.checked);
+        }
+
+        function wireOptimizeBackgroundForm(form) {
+            if (!form) return;
+            var chk = form.querySelector('.add-optimize-product');
+            var sel = form.querySelector('.add-optimize-bg');
+            if (chk) chk.addEventListener('change', function () { syncAddFormOptimizeBgWrap(form); });
+            if (sel) sel.addEventListener('change', function () { syncOptimizeBgCustomInput(form); });
+            syncAddFormOptimizeBgWrap(form);
+            syncOptimizeBgCustomInput(form);
+        }
+
         function applyUploadPricingToForms() {
             document.querySelectorAll('.add-form').forEach(function (form) {
                 var baseEl = form.querySelector('.add-points-base');
@@ -418,6 +507,11 @@
         function toggleEditImageOptions(show) {
             var opts = document.getElementById('edit-image-options');
             if (opts) opts.classList.toggle('d-none', !show);
+            if (!show) {
+                var chk = document.getElementById('edit-optimize-image');
+                if (chk) chk.checked = false;
+                syncEditOptimizeBgWrap();
+            }
         }
 
         async function loadUploadPricing() {
@@ -551,6 +645,7 @@
             var subSel = form.querySelector('.add-subcategory');
             var imgInput = form.querySelector('.add-image');
             var previewBtn = form.querySelector('.btn-preview-tags');
+            wireOptimizeBackgroundForm(form);
 
             catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
 
@@ -612,7 +707,10 @@
                     if (p.semantics) fd.append('image_semantics_json', JSON.stringify(p.semantics));
                 }
                 var optimizeChk = form.querySelector('.add-optimize-product');
-                if (optimizeChk && optimizeChk.checked) fd.append('optimize_product_image', '1');
+                if (optimizeChk && optimizeChk.checked) {
+                    fd.append('optimize_product_image', '1');
+                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                }
                 var btn = form.querySelector('.btn-add-submit');
                 btn.disabled = true;
                 try {
@@ -676,6 +774,10 @@
                 document.getElementById('edit-tags-panel').classList.add('d-none');
             }
         });
+        document.getElementById('edit-optimize-image').addEventListener('change', syncEditOptimizeBgWrap);
+        document.getElementById('edit-optimize-bg').addEventListener('change', function () {
+            syncOptimizeBgCustomInput(document.getElementById('edit-form'));
+        });
 
         document.getElementById('btn-edit-preview-tags').addEventListener('click', async function () {
             var fileInput = document.getElementById('edit-image');
@@ -730,7 +832,10 @@
                     fd.append('ai_tags', JSON.stringify(editPending.tags));
                     if (editPending.semantics) fd.append('image_semantics_json', JSON.stringify(editPending.semantics));
                 }
-                if (document.getElementById('edit-optimize-image').checked) fd.append('optimize_product_image', '1');
+                if (document.getElementById('edit-optimize-image').checked) {
+                    fd.append('optimize_product_image', '1');
+                    fd.append('optimize_background', getOptimizeBackgroundValue(document.getElementById('edit-form')));
+                }
             }
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
