@@ -350,11 +350,18 @@
     function filterAssetItems(source) {
         const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
         let list = source || [];
+        const catKeys = getCategoryKeysToMatch();
+        if (catKeys.length) {
+            list = list.filter(a => a.category_key && catKeys.includes(a.category_key));
+        }
         if (selSub) {
-            list = list.filter(a =>
+            const subPrimary = String(selSub).split('&')[0].trim() || selSub;
+            const strict = list.filter(a =>
                 a.subcategory_key === selSub ||
-                (a.subcategory_key && String(a.subcategory_key).split('&')[0].trim() === String(selSub).split('&')[0].trim())
+                a.subcategory_key === subPrimary ||
+                !a.subcategory_key
             );
+            if (strict.length) list = strict;
         }
         if (selAreaCodes.length) list = list.filter(a => locMatchArea(a.manufacturer_location));
         if (kw) {
@@ -370,19 +377,32 @@
     }
 
     async function fetchVendorAssetsForGallery() {
-        const catKey = String(selCat).split('&')[0].trim() || selCat;
-        if (!catKey) return [];
+        if (!selCat) return [];
+        const tryKeys = [...new Set([
+            categoryKeyForUiActive(),
+            String(selCat).split('&')[0].trim(),
+            selCat,
+            ...getCategoryKeysToMatch()
+        ].filter(Boolean))];
         const subKey = selSub ? (String(selSub).split('&')[0].trim() || selSub) : '';
-        async function once(sub) {
+        async function once(catKey, sub) {
             let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
             if (sub) url += '&subcategory_key=' + encodeURIComponent(sub);
             const r = await fetch(url);
             const d = await r.json();
             return (d.items || []).filter(x => x && x.image_url);
         }
-        let items = await once(subKey);
-        if (!items.length && subKey) items = await once('');
-        return items;
+        const seen = {};
+        let merged = [];
+        for (const catKey of tryKeys) {
+            let items = await once(catKey, subKey);
+            if (!items.length && subKey) items = await once(catKey, '');
+            items.forEach(x => {
+                if (x && x.id && !seen[x.id]) { seen[x.id] = true; merged.push(x); }
+            });
+            if (merged.length) break;
+        }
+        return merged;
     }
 
     function updateFilterUi(portCount, assetCount) {
@@ -798,9 +818,11 @@
 
             // 4. 完全沒資料才顯示 demo
             if (!_rawItems.length) _rawItems = [DEMO_ITEM];
+            await applyFilters();
         } catch(err) {
             console.error('圖庫載入失敗', err);
             _rawItems = [DEMO_ITEM];
+            await applyFilters();
         } finally {
             if ($loading) $loading.classList.add('d-none');
         }
@@ -809,7 +831,7 @@
     // ── 鍵盤輸入 ──────────────────────────────────────────────────────────
     if ($keyword) $keyword.addEventListener('input', () => { clearTimeout(kwTimer); kwTimer = setTimeout(() => void applyFilters(), 300); });
 
-    // ── 初始化（與 01a1053 相同：URL 原樣寫入 selCat/selSub；最後只篩選一次）──
+    // ── 初始化（與 01a1053 相同，勿改 selCat 賦值方式）──
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
         applyModalI18n();
@@ -822,8 +844,8 @@
             selSub = urlSub;
             renderCategoryButtons();
             renderSubcategoryRow();
+            await applyFilters();
         }
-        await applyFilters();
     }
 
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
