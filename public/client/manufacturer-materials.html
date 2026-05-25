@@ -32,12 +32,12 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold">我的數位版型 (Base Models)</h4>
-                    <small class="text-muted">歡迎上傳您的基礎產品版型，方便設計者再設計並與您聯絡。可上傳造型／結構／材質圖，設計端會依分類選用並顯示您的廠商名稱與連結。</small>
+                    <h4 class="mb-0 fw-bold">上傳數位版型 (Base Models)</h4>
+                    <small class="text-muted">給<strong>訂製者</strong>在產品設計頁當參考圖（不是產業供應商的材料庫）。上傳後會出現在設計流程的「廠商素材」分類中，並顯示您的廠商名稱與連結。</small>
                 </div>
                 <div class="d-flex gap-2">
                     <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回控制台</a>
-                    <button class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i>新增素材</button>
+                    <button class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-cloud-upload me-1"></i>上傳數位版型</button>
                 </div>
             </div>
         </div>
@@ -54,11 +54,15 @@
         </div>
 
         <div id="main-content" class="d-none">
-            <!-- 新增素材表單 -->
-            <div id="add-form-panel" class="card border-0 shadow-sm mb-4 d-none">
+            <div class="alert alert-light border mb-3 py-2 small" id="upload-hint-bar">
+                <i class="bi bi-info-circle me-1 text-primary"></i>
+                <span id="upload-hint-text">請在下方<strong>上傳區</strong>選擇分類與圖片；儲存後可在「已上傳的版型」列表管理。設計者透過廠商頁聯絡您，平台不代為報價或收款。</span>
+            </div>
+            <!-- 上傳區（非種子廠商預設展開） -->
+            <div id="add-form-panel" class="card border-0 shadow-sm mb-4">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i>新增素材</span>
-                    <button class="btn-close" id="btn-add-close"></button>
+                    <span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-primary"></i>上傳數位版型</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btn-add-collapse">收合</button>
                 </div>
                 <div class="card-body">
                     <form id="add-form" enctype="multipart/form-data">
@@ -83,15 +87,9 @@
                                 <label class="form-label fw-semibold">簡短說明（選填）</label>
                                 <textarea class="form-control" id="add-description" rows="2" placeholder="供設計者參考"></textarea>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">用途</label>
-                                <select class="form-select" id="add-usage-type">
-                                    <option value="reference_only">僅參考</option>
-                                    <option value="quotable">可依此報價</option>
-                                </select>
-                            </div>
+                            <input type="hidden" id="add-usage-type" value="reference_only">
                             <div class="col-12">
-                                <label class="form-label fw-semibold">素材圖片 <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">版型參考圖 <span class="text-danger">*</span></label>
                                 <input type="file" class="form-control" id="add-image" accept="image/*" required>
                                 <p class="text-muted small mt-1 mb-0">上傳時將由 AI 自動產生搜尋標籤（必要）。設計者會在產品設計的「參考圖」中依分類看到此圖。</p>
                                 <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-preview-tags" disabled><i class="bi bi-tags me-1"></i>先預覽 AI 標籤</button>
@@ -102,7 +100,7 @@
                                 <p class="text-muted small mb-0 mt-1" id="add-tags-hint"></p>
                             </div>
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary" id="btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳</button>
+                                <button type="submit" class="btn btn-primary" id="btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳並發布</button>
                                 <span id="add-form-msg" class="ms-2 small text-danger"></span>
                             </div>
                         </div>
@@ -110,15 +108,14 @@
                 </div>
             </div>
 
-            <!-- 分類篩選 -->
-            <div class="mb-3">
-                <label class="form-label small text-muted">依分類篩選</label>
+            <div class="section-title" id="list-section-title">已上傳的版型</div>
+            <div class="mb-3 d-flex flex-wrap align-items-center gap-2">
+                <label class="form-label small text-muted mb-0">依分類篩選列表</label>
                 <select class="form-select form-select-sm" id="filter-category" style="max-width: 240px;">
                     <option value="">全部</option>
                 </select>
             </div>
 
-            <!-- 素材列表 -->
             <div id="materials-grid" class="row g-3"></div>
         </div>
     </div>
@@ -128,7 +125,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h6 class="modal-title">編輯素材</h6>
+                    <h6 class="modal-title">編輯數位版型</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -150,13 +147,7 @@
                             <label class="form-label">簡短說明</label>
                             <textarea class="form-control" id="edit-description" rows="2"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">用途</label>
-                            <select class="form-select" id="edit-usage-type">
-                                <option value="reference_only">僅參考</option>
-                                <option value="quotable">可依此報價</option>
-                            </select>
-                        </div>
+                        <input type="hidden" id="edit-usage-type" value="reference_only">
                         <div class="mb-3">
                             <label class="form-label">更換圖片（選填）</label>
                             <input type="file" class="form-control" id="edit-image" accept="image/*">
@@ -176,7 +167,7 @@
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header border-0">
-                    <h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i>刪除素材</h6>
+                    <h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i>刪除數位版型</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body pt-0" id="delete-confirm-text"></div>
@@ -302,16 +293,26 @@
         function renderGrid() {
             var grid = document.getElementById('materials-grid');
             var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
-            var list = filterCat ? materials : materials;
-            if (!list.length) {
-                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">尚無素材，點上方「新增素材」上傳。</p></div>';
-                return;
-            }
+            var list = filterCat ? materials.filter(function (m) { return (m.category_key || '') === filterCat; }) : materials;
             var catNames = {};
             categories.forEach(function (c) { catNames[c.key] = c.name || c.key; });
-            grid.innerHTML = list.map(function (m) {
+            var html = '';
+            if (!isSeedVendor) {
+                html += '<div class="col-sm-6 col-md-4 col-lg-3"><div class="add-card" id="grid-add-card" role="button" tabindex="0">' +
+                    '<i class="bi bi-cloud-upload fs-2 mb-2"></i><span class="fw-semibold">上傳數位版型</span></div></div>';
+            }
+            if (!list.length && isSeedVendor) {
+                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">尚無數位版型。種子廠商由平台代為維護，請聯絡管理員協助上傳。</p></div>';
+                return;
+            }
+            if (!list.length && !isSeedVendor) {
+                grid.innerHTML = html + '<div class="col-12"><p class="text-muted mb-0 mt-2">尚無已上傳項目，請使用上方<strong>上傳區</strong>或點此卡片開始上傳。</p></div>';
+                bindGridAddCard();
+                return;
+            }
+            html += list.map(function (m) {
                 var catName = catNames[m.category_key] || m.category_key || '—';
-                var usageLabel = m.usage_type === 'quotable' ? '可依此報價' : '僅參考';
+                var usageLabel = '供設計者參考';
                 var actionBtns = isSeedVendor
                     ? '<span class="text-muted small">由平台代為維護</span>'
                     : ('<button class="btn btn-outline-primary btn-sm flex-fill" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i>編輯</button>' +
@@ -325,6 +326,8 @@
                     tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
+            grid.innerHTML = html;
+            bindGridAddCard();
             if (!isSeedVendor) grid.querySelectorAll('button[data-id]').forEach(function (btn) {
                 if (btn.classList.contains('btn-outline-danger')) {
                     btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
@@ -334,16 +337,27 @@
             });
         }
 
-        function openAddForm() {
-            document.getElementById('add-form-panel').classList.remove('d-none');
+        function bindGridAddCard() {
+            var card = document.getElementById('grid-add-card');
+            if (!card || isSeedVendor) return;
+            function go() { openAddForm(true); }
+            card.addEventListener('click', go);
+            card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+        }
+
+        function openAddForm(scrollTo) {
+            var panel = document.getElementById('add-form-panel');
+            panel.classList.remove('d-none');
             fillCategorySelect('add-category');
             fillSubcategorySelect('add-subcategory', null);
             document.getElementById('add-form').reset();
+            document.getElementById('add-usage-type').value = 'reference_only';
             document.getElementById('add-form-msg').textContent = '';
             pendingAiTags = null;
             pendingSemanticsJson = null;
             document.getElementById('add-tags-panel').classList.add('d-none');
             document.getElementById('btn-preview-tags').disabled = true;
+            if (scrollTo) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         document.getElementById('add-image').addEventListener('change', function () {
@@ -384,8 +398,18 @@
             }
         });
 
-        document.getElementById('btn-add-open').addEventListener('click', openAddForm);
-        document.getElementById('btn-add-close').addEventListener('click', function () { document.getElementById('add-form-panel').classList.add('d-none'); });
+        document.getElementById('btn-add-open').addEventListener('click', function () { openAddForm(true); });
+        var collapseBtn = document.getElementById('btn-add-collapse');
+        if (collapseBtn) {
+            collapseBtn.classList.remove('d-none');
+            collapseBtn.addEventListener('click', function () {
+                var body = document.querySelector('#add-form-panel .card-body');
+                var form = document.getElementById('add-form');
+                if (!body) return;
+                var hidden = body.classList.toggle('d-none');
+                collapseBtn.textContent = hidden ? '展開上傳區' : '收合';
+            });
+        }
 
         document.getElementById('add-category').addEventListener('change', function () {
             fillSubcategorySelect('add-subcategory', this.value);
@@ -425,8 +449,7 @@
                 var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) { msgEl.textContent = data.error || '上傳失敗'; return; }
                 var tagMsg = (data.ai_tags && data.ai_tags.length) ? '（' + data.ai_tags.length + ' 個 AI 標籤）' : '';
-                showToast('已新增素材' + tagMsg);
-                document.getElementById('add-form-panel').classList.add('d-none');
+                showToast('已上傳數位版型' + tagMsg);
                 pendingAiTags = null;
                 pendingSemanticsJson = null;
                 loadMaterials();
@@ -533,6 +556,12 @@
                 if (isSeedVendor) {
                     document.getElementById('seed-vendor-banner').classList.remove('d-none');
                     document.getElementById('btn-add-open').classList.add('d-none');
+                    document.getElementById('add-form-panel').classList.add('d-none');
+                    var hint = document.getElementById('upload-hint-text');
+                    if (hint) hint.innerHTML = '您為<strong>種子廠商</strong>：數位版型由平台代為維護，此頁僅供預覽已發布項目。';
+                } else {
+                    var collapseBtnInit = document.getElementById('btn-add-collapse');
+                    if (collapseBtnInit) collapseBtnInit.classList.remove('d-none');
                 }
                 document.getElementById('main-content').classList.remove('d-none');
                 await loadCategories();
