@@ -94,23 +94,58 @@ function ensureNavLocaleReady() {
 document.addEventListener('DOMContentLoaded', function () {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return;
-    var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || null;
+    var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || null;
     var whenReady = ensureNavLocaleReady();
     whenReady.then(function () {
         return loadSiteHeader(session);
     }).then(function () {
         if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
             AuthService.onAuthStateChange(function (event, newSession) {
-                // INITIAL_SESSION 只是初始確認，不是狀態變更，不重畫
                 if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+                    _navFullyRendered = false;
                     loadSiteHeader(newSession);
+                    return;
+                }
+                // Supabase 常晚於 DOMContentLoaded 才回傳 session；若先前畫成未登入，必須補畫
+                if (event === 'INITIAL_SESSION') {
+                    var hadUser = _lastRenderedUserId != null && _lastRenderedUserId !== undefined;
+                    var hasUser = newSession && newSession.user;
+                    if (hasUser && !hadUser) {
+                        _navFullyRendered = false;
+                        loadSiteHeader(newSession);
+                    }
                 }
             });
         }
-    }).catch(function () {
-        loadSiteHeader(null);
+        scheduleHeaderAuthRetries(session);
+    }).catch(function (err) {
+        console.error('site-header init:', err);
+        loadSiteHeader(session || window.__authSessionForHeader || null);
+        scheduleHeaderAuthRetries(session);
     });
 });
+
+/** locale 或首次渲染較慢時，稍後再以 session 重畫（避免誤顯示「登入」） */
+function scheduleHeaderAuthRetries(initialSession) {
+    var delays = [400, 1200];
+    delays.forEach(function (ms) {
+        setTimeout(function () {
+            if (_lastRenderedUserId) return;
+            var s = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || initialSession || null;
+            if (s && s.user) {
+                _navFullyRendered = false;
+                loadSiteHeader(s);
+            } else if (window.AuthService && typeof AuthService.getSession === 'function') {
+                AuthService.getSession().then(function (sess) {
+                    if (sess && sess.user && !_lastRenderedUserId) {
+                        _navFullyRendered = false;
+                        loadSiteHeader(sess);
+                    }
+                }).catch(function () {});
+            }
+        }, ms);
+    });
+}
 
 var _lastRenderedUserId = undefined;
 var _navFullyRendered = false;
@@ -119,6 +154,13 @@ function loadSiteHeader(sessionFromEvent) {
     if (!headerContainer) return Promise.resolve();
     return (async function () {
         var user = sessionFromEvent && sessionFromEvent.user ? sessionFromEvent.user : null;
+        if (!user && window.__authSessionForHeader && window.__authSessionForHeader.user) {
+            user = window.__authSessionForHeader.user;
+        }
+        if (!user && window.getSessionFromStorage) {
+            var fromStore = getSessionFromStorage();
+            if (fromStore && fromStore.user) user = fromStore.user;
+        }
         if (!user && window.AuthService) {
             try {
                 var session = await AuthService.getSession();
@@ -126,7 +168,7 @@ function loadSiteHeader(sessionFromEvent) {
             } catch (e) {}
         }
         var uid = user ? (user.id || user.email || 'user') : null;
-        // 已完整渲染且同一 user → 跳過，防止重複觸發
+        // 已完整渲染且同一 user → 跳過，防止重複觸發（null→登入 會因 uid 不同而重畫）
         if (_navFullyRendered && uid === _lastRenderedUserId) return;
         _lastRenderedUserId = uid;
         _navFullyRendered = true;
@@ -194,7 +236,7 @@ async function renderHeader(headerContainer, user, config) {
     var rawT = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
     var navLang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : ((window.__I18N__ && window.__I18N__.lang) || 'zh-TW');
     var navFallbackZh = { 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.remake': '再製方案', 'nav.remakeDesign': '再製設計', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '依角色分類', 'nav.customizerSection': '訂製者', 'nav.manufacturerSection': '製造商', 'nav.supplierSection': '產業供應商', 'nav.supplierPortal': '供應商入口', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '我的廠商作品', 'nav.vendorBaseModels': '我的數位版型 (Base Models)', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式（與設計者溝通）', 'nav.myCredits': '我的點數', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '發案控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區' };
-    var navFallbackEn = { 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.customProduct': 'Custom Products', 'nav.remakeDesign': 'Remake Design', 'nav.subscriptionPlans': 'Plans & Pricing', 'nav.login': 'Log in', 'nav.myFeatures': 'My Workspace', 'nav.myFeaturesTitle': 'Workspace', 'nav.dropdownRoles': 'By role', 'nav.customizerSection': 'Customizer', 'nav.manufacturerSection': 'Manufacturer', 'nav.supplierSection': 'Industry supplier', 'nav.supplierPortal': 'Supplier portal', 'nav.supplierPrototypeLib': 'Prototype sets', 'nav.supplierMaterialLib': 'Materials catalog', 'nav.customHome': 'Custom product home', 'nav.createProduct': 'Create product', 'nav.myCustomProducts': 'My digital assets', 'nav.galleryFindVendor': 'Gallery – find vendors', 'nav.myMessages': 'My messages', 'nav.myCredits': 'My credits', 'nav.aiEditArea': 'My AI edit area', 'nav.createVendor': 'Create vendor profile', 'nav.demands': 'Customization requests', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'My portfolio', 'nav.vendorBaseModels': 'My base models', 'nav.vendorContact': 'Contact (for designers)', 'nav.clientDashboard': 'Project console', 'nav.accountInfo': 'Account', 'nav.accountSettings': 'Account & settings', 'nav.contactSettings': 'Contact settings', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN' };
+    var navFallbackEn = { 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.customProduct': 'Custom Products', 'nav.remakeDesign': 'Remake Design', 'nav.subscriptionPlans': 'Plans & Pricing', 'nav.login': 'Log in', 'nav.myFeatures': 'My Workspace', 'nav.myFeaturesTitle': 'Workspace', 'nav.dropdownCustom': 'Custom products', 'nav.dropdownRoles': 'By role', 'nav.designSection': 'Design / Find vendor', 'nav.customizerSection': 'Customizer', 'nav.manufacturerSection': 'Manufacturer', 'nav.supplierSection': 'Industry supplier', 'nav.supplierPortal': 'Supplier portal', 'nav.supplierPrototypeLib': 'Prototype sets', 'nav.supplierMaterialLib': 'Materials catalog', 'nav.customHome': 'Custom product home', 'nav.createProduct': 'Create product', 'nav.myCustomProducts': 'My digital assets', 'nav.galleryFindVendor': 'Gallery – find vendors', 'nav.findMakers': 'Find makers', 'nav.myMessages': 'My messages', 'nav.myCredits': 'My credits', 'nav.aiEditArea': 'My AI edit area', 'nav.createVendor': 'Create vendor profile', 'nav.demands': 'Customization requests', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'My portfolio', 'nav.vendorBaseModels': 'My base models', 'nav.vendorContact': 'Contact (for designers)', 'nav.clientDashboard': 'Project console', 'nav.accountInfo': 'Account', 'nav.accountSettings': 'Account & settings', 'nav.contactSettings': 'Contact settings', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN' };
     var navFallback = (navLang === 'en') ? navFallbackEn : navFallbackZh;
     var t = function (k) { var v = rawT(k); return (v && v !== k) ? v : (navFallback[k] || k); };
     var showLangSwitch = path.indexOf('/admin/') === -1;
@@ -234,14 +276,16 @@ async function renderHeader(headerContainer, user, config) {
                         <div class="nav-item dropdown">
                             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" title="` + t('nav.myFeaturesTitle') + `" style="display:inline-flex;align-items:center;">` + t('nav.myFeatures') + `<span class="nav-hover-caret">▾</span></a>
                             <div class="dropdown-menu bg-light m-0">
-                                <h6 class="dropdown-header text-muted small">` + t('nav.dropdownRoles') + `</h6>
+                                <h6 class="dropdown-header text-muted small">` + t('nav.dropdownCustom') + ` · ` + t('nav.dropdownRoles') + `</h6>
                                 <h6 class="dropdown-header"><i class="bi bi-pencil-square me-2"></i>` + t('nav.customizerSection') + `</h6>
+                                <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-pencil-square me-2"></i>` + t('nav.designSection') + `</a>
                                 <a href="/client/dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.clientDashboard') + `</a>
                                 <a href="/custom/" class="dropdown-item"><i class="bi bi-house me-2"></i>` + t('nav.customHome') + `</a>
                                 <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-plus-circle me-2"></i>` + t('nav.createProduct') + `</a>
                                 <a href="/remake-product.html" class="dropdown-item"><i class="bi bi-tools me-2"></i>` + t('nav.remakeDesign') + `</a>
                                 <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.myCustomProducts') + `</a>
                                 <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.galleryFindVendor') + `</a>
+                                <a href="/client/find-makers.html" class="dropdown-item"><i class="bi bi-shop me-2"></i>` + t('nav.findMakers') + `</a>
                                 <a href="/client/messages.html" class="dropdown-item"><i class="bi bi-chat-dots me-2"></i>` + t('nav.myMessages') + `</a>
                                 <a href="/credits.html" class="dropdown-item"><i class="bi bi-currency-exchange me-2"></i>` + t('nav.myCredits') + `</a>
                                 <a href="/client/ai-edit.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.aiEditArea') + `</a>
@@ -257,7 +301,7 @@ async function renderHeader(headerContainer, user, config) {
                                 <h6 class="dropdown-header"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
                                 <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierPortal') + `</a>
                                 <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-layers me-2"></i>` + t('nav.supplierPrototypeLib') + `</a>
-                                <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-palette2 me-2"></i>` + t('nav.supplierMaterialLib') + `</a>
+                                <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.supplierMaterialLib') + `</a>
                             </div>
                         </div>
                     ` : ''}
