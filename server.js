@@ -2073,8 +2073,6 @@ app.patch('/api/admin/users/:id', express.json(), async (req, res) => {
         const memberLevel = body.member_level != null ? String(body.member_level).trim() : null;
         const role = body.role != null ? String(body.role).trim() : null;
         const points = body.points != null ? parseInt(body.points, 10) : null;
-        const canDeleteMediaWall = body.can_delete_media_wall;
-
         const allowedRoles = ['user', 'admin', 'tester'];
         if (role !== null && role !== '' && allowedRoles.indexOf(role) === -1) {
             return res.status(400).json({ error: '角色僅可為：user、admin、tester' });
@@ -2110,22 +2108,6 @@ app.patch('/api/admin/users/:id', express.json(), async (req, res) => {
             if (roleErr) {
                 console.error('PATCH /api/admin/users profiles role:', roleErr);
                 return res.status(500).json({ error: '更新角色失敗（請確認已執行 docs/migration-add-tester-role.sql）' });
-            }
-        }
-
-        if (canDeleteMediaWall !== undefined && canDeleteMediaWall !== null) {
-            const { data: prof, error: profErr } = await supabase
-                .from('profiles')
-                .select('id').eq('id', userId).single();
-            if (profErr || !prof) return res.status(404).json({ error: '找不到該用戶' });
-            const { error: updateErr } = await supabase
-                .from('profiles')
-                .update({ can_delete_media_wall: !!canDeleteMediaWall })
-                .eq('id', userId);
-            if (updateErr) {
-                if (updateErr.code === '42703') return res.status(400).json({ error: '請先執行 docs/add-profiles-can-delete-media-wall.sql' });
-                console.error('PATCH /api/admin/users can_delete_media_wall:', updateErr);
-                return res.status(500).json({ error: '更新首頁刪圖權限失敗' });
             }
         }
 
@@ -7781,10 +7763,10 @@ app.get('/api/media-wall', async (req, res) => {
 });
 
 // 首頁靈感牆刪除/隱藏：與 GET /api/me/profile 共用查詢（id 優先，再以 email 對應舊列）
+/** 首頁靈感牆刪除／隱藏：僅 profiles.role = admin */
 function profileCanDeleteMediaWall(profile) {
     if (!profile) return false;
-    const role = String(profile.role || '').trim().toLowerCase();
-    return role === 'admin' || profile.can_delete_media_wall === true;
+    return String(profile.role || '').trim().toLowerCase() === 'admin';
 }
 
 async function resolveProfileForAuthUser(user) {
@@ -7813,6 +7795,7 @@ async function resolveProfileForAuthUser(user) {
         && String(byEmail.email || '').trim().toLowerCase() === normEmail
         && profileCanDeleteMediaWall(byEmail) && !profileCanDeleteMediaWall(profile)
     ) {
+        // Google 登入 id 與舊 Email 註冊列不同時，同 email 的管理員權限對齊
         profile = { ...byEmail, id: user.id };
     }
     if (profile && profile.can_delete_media_wall == null) profile.can_delete_media_wall = false;
@@ -7839,8 +7822,8 @@ async function requireMediaWallDelete(req, res) {
     }
     if (!profileCanDeleteMediaWall(profile)) {
         res.status(403).json({
-            error: '僅管理員或具「首頁刪圖」權限的帳號可操作',
-            hint: '請確認 Supabase profiles 中此帳號 role 為 admin，或執行 docs/fix-admin-media-wall-delete.sql。'
+            error: '僅管理員可操作首頁靈感牆刪除／隱藏',
+            hint: '請確認 Supabase profiles 中此帳號 role 為 admin（見 docs/fix-admin-media-wall-delete.sql）。'
         });
         return null;
     }

@@ -1031,8 +1031,7 @@
                 if (!profile) return false;
                 if (profile.media_wall_manage === true) return true;
                 if (profile.media_wall_manage === false) return false;
-                var role = String(profile.role || '').trim().toLowerCase();
-                return role === 'admin' || profile.can_delete_media_wall === true;
+                return String(profile.role || '').trim().toLowerCase() === 'admin';
             }
             function applyMediaWallAdminFromProfile(profile, session) {
                 var wasAdmin = adminOpts.isAdmin;
