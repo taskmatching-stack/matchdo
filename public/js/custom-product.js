@@ -413,16 +413,32 @@ $(document).ready(function () {
             '</div>' +
             '<div class="card-body p-2 vendor-asset-card-meta">' + meta +
             '<div class="fw-semibold small text-truncate vendor-asset-title" title="' + title + '">' + title + '</div>' +
-            '<div class="d-flex align-items-center gap-1 mt-1">' +
-            '<span class="small text-primary vendor-asset-mfr-name text-truncate flex-grow-1" title="' + mfrName + '">' + mfrName + '</span>' +
-            '<a href="' + profileUrl + '" class="small vendor-asset-mfr-link text-muted flex-shrink-0" target="_blank" rel="noopener" title="' +
-            (t('customProduct.vendorProfileLink') || '廠商頁').replace(/"/g, '&quot;') + '"><i class="bi bi-box-arrow-up-right"></i></a>' +
+            '<div class="d-flex align-items-center gap-1 mt-1 vendor-asset-mfr-row">' +
+            '<a href="' + profileUrl + '" class="small text-primary text-decoration-none vendor-asset-mfr-link text-truncate flex-grow-1" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a>' +
+            '<button type="button" class="btn btn-link btn-sm p-0 vendor-asset-mfr-search-btn flex-shrink-0" data-mfr-name="' + mfrName + '" title="' +
+            (t('customProduct.vendorFillSearch') || '填入廠商名稱篩選').replace(/"/g, '&quot;') + '"><i class="bi bi-search"></i></button>' +
             '</div></div></div></div>';
     }
 
     function bindVendorAssetCardClicks($list, modalEl) {
-        $list.find('.vendor-asset-card-meta, .vendor-asset-mfr-name, .vendor-asset-mfr-link, .vendor-asset-title').off('mousedown click pointerdown')
+        $list.find('.vendor-asset-card-meta, .vendor-asset-mfr-link, .vendor-asset-mfr-search-btn, .vendor-asset-title').off('mousedown click pointerdown')
             .on('mousedown click pointerdown', function (e) { e.stopPropagation(); });
+        $list.find('.vendor-asset-mfr-search-btn').off('click').on('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var name = ($(this).attr('data-mfr-name') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+            if (!name) return;
+            var $cell = $('.vendor-picker-mfr-name-cell');
+            var $input = $('#vendorAssetsManufacturerName');
+            if ($cell.hasClass('d-none') || !$input.length) {
+                alert(t('customProduct.vendorSearchLocked') || '此模式已鎖定單一廠商，無法使用廠商名稱篩選。');
+                return;
+            }
+            $input.val(name).trigger('focus');
+            var hint = (t('customProduct.vendorFilledSearch') || '已填入廠商名稱，可按「套用」篩選。');
+            var $hint = $('#vendorAssetsCategoryHint');
+            if ($hint.length) $hint.text(hint);
+        });
         $list.find('.vendor-asset-pick-zone, .vendor-asset-pick-img').off('click keydown').on('click keydown', function (e) {
             if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
             if (e.type === 'keydown') e.preventDefault();
