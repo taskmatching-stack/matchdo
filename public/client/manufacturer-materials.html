@@ -770,9 +770,12 @@
                     : ('<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
-                var myCats = (m.catalog_groups && m.catalog_groups.length)
-                    ? '<div class="mb-2">' + m.catalog_groups.map(function (g) {
-                        return '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-1 mb-1">' + esc(g.name) + '</span>';
+                var myCatList = (m.catalog_groups || []).filter(function (g) {
+                    return g && String(g.name || '').trim();
+                });
+                var myCats = myCatList.length
+                    ? '<div class="mb-2">' + myCatList.map(function (g) {
+                        return '<span class="badge bg-light text-primary border border-primary me-1 mb-1">' + esc(String(g.name).trim()) + '</span>';
                     }).join('') + '</div>' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<img src="' + esc(m.image_url) + '" class="material-img" loading="lazy" alt="">' : '') +

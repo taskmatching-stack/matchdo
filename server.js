@@ -9978,8 +9978,10 @@ async function attachCatalogGroupIdsToAssets(items) {
     const map = {};
     (links || []).forEach((l) => {
         if (!map[l.asset_id]) map[l.asset_id] = [];
-        const g = l.vendor_catalog_groups;
-        if (g) map[l.asset_id].push({ id: g.id, name: g.name });
+        const raw = l.vendor_catalog_groups;
+        const g = Array.isArray(raw) ? raw[0] : raw;
+        const name = (g && g.name != null) ? String(g.name).trim() : '';
+        if (g && g.id && name) map[l.asset_id].push({ id: g.id, name });
     });
     return items.map((r) => ({
         ...r,
