@@ -1,6 +1,24 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-05-20
+更新日期：2026-05-25
+
+---
+
+## 接下來執行進度（建議順序）
+
+> **你現在在這裡**：程式已 push；雲端需 **部署 + Supabase SQL** 後，分析欄位才會真的寫入。
+
+| 順序 | 做什麼 | 誰做 | 完成標準 |
+|------|--------|------|----------|
+| **1** | **Supabase 執行 SQL** | 你 | 依下方「待執行 SQL」至少跑完：`semantics` → `semantics-taxonomy` → `data-lineage` → `designer-region`；有廠商自訂分類則加 `vendor-catalog-groups` |
+| **2** | **Cloud Run 部署** | 你（Cloud Shell） | `git fetch && reset --hard origin/main` 後 `gcloud run deploy …`（見 `.cursor/rules/deployment.mdc`） |
+| **3** | **冒煙測試** | 你 | ① 產品設計生圖→儲存→Supabase 該列有 `ai_tags_by_dimension`、`designer_country_code`（可為 TW 等）② 從素材庫引用自己廠素材→`is_vendor_self_serve=true`（僅 DB 看，前台無提示）③ 圖庫首頁帶分類仍正常 |
+| **4** | **全站 E2E** | 你 | 訂製六步、素材庫、廠商頁、對話、點數；問題清單回報再改 |
+| **5** | **分析／報表（可選）** | 開發排程 | 媒體牆 API `exclude_vendor_self_serve`；依國家／分維 tag 聚合（R5） |
+| **6** | **舊資料補跑（可選）** | 開發排程 | 血緣 backfill；舊圖重跑 Gemini 補 `ai_tags_by_dimension`（耗 API） |
+| **7** | **設計風向改版** | 另開分支 | D0–D7，與圖庫／分析分開 PR（見下方規劃） |
+
+**暫緩／後排**：強制填設計者地區、圖庫作品+素材並列、產業供應商 B 線、會員三區 IA。
 
 ---
 
@@ -10,10 +28,123 @@
 |------|------|
 | **`docs/STABLE-BASELINE.md`** | **實作前必讀**：目前穩定版本 commit（b27ce73）、還原方式、安全實作原則（不破壞穩定性、加法優先、不更動首頁靈感牆）。 |
 | **`docs/設計與開店路徑-廠商素材庫規格.md`** | ① 操作流程更清晰（導覽語意、各功能頁內步驟提示與建議下一步；**首頁靈感牆不變動**）。② 廠商素材庫：資料模型、廠商端上傳與分類、設計端「從廠商素材庫選參考圖」、權限與實作順序。已部分實作（見 `vendor_assets`）。 |
+| **`docs/design-lineage-and-design-direction-plan.md`** | **訂製生圖資料血緣**（生圖帳號 vs 素材廠商帳號、`is_vendor_self_serve`）；**再製→設計風向**（設計意圖分析）分階段實作。 |
 | **`docs/三角色架構與AB線說明.md`** | **對外說明用**：訂製者／製造商／產業供應商三角色、**A 線**（`vendor_assets`）與 **B 線**（原型組＋材料）流程圖與對照表；含官方帳號與 A 線測試摘要。 |
 | **本檔 §4「產業供應商、製造商採購庫」** | 供應商上架分兩類：**數位原型組**（一組多圖）、**材料**；製造商後台分別**導入**至原型組庫／材料庫（B2B；**不用「收藏」**）；**不**接入訂製者設計頁；另含線下店家、官方虛擬廠商；**暫不實作**。 |
 | **本檔 §5「會員後台・三角色介面分離」** | 會員中心 IA、導覽三區、頁面對照、capabilities 顯示；與 `/admin/` 分工；**規劃中**。 |
 | **本檔 §6「視覺語意庫・Gemini 標籤／提示詞／生成圖解析」** | 上傳與生圖時以 **`gemini-3.1-flash-lite`** 解讀圖與提示詞，累積 **`visual_semantics`** 供搜尋與日後售前風格意圖／流行預測；首頁靈感牆標籤搜尋；**規劃中**。 |
+
+---
+
+## 近期完成（2026-05-20 圖庫分類・廠商素材）
+
+| 項目 | 說明 |
+|------|------|
+| **廠商自訂分類** | `docs/add-vendor-catalog-groups.sql` + 後端 API；`manufacturer-materials.html` 頁頂「我的分類」、上傳／編輯可掛分類；`vendor-profile.html` 依廠商分類瀏覽素材；產品設計頁「從廠商素材庫選」可配合廠商分類篩選。 |
+| **圖庫 `/custom/gallery.html`** | ① 首頁 `category_key`／`subcategory_key` **原樣帶入**（`init` 與穩定版 `01a1053` 相同；**禁止**改寫 `selCat`／`selSub`）。② 作品篩選對齊首頁媒體牆（`portfolio.category_key`、子分類、廠商 `categories[]`）。③ **該分類無對照圖／作品時**，顯示同訂製分類的 **`vendor_assets`**（素材 `category_key`／`subcategory_key` 與作品同一套 `assetMatchesCategory` 比對）。④ 按鈕高亮用 `categoryKeyForUiActive`（僅 UI，處理 URL 含 `&` 的異常參數）。commits：`65561c8`、`f459347`、`7b202db`、`f42e282`。 |
+| **部署** | 已 push `origin/main`；上線僅 **Google Cloud Shell**（見 `.cursor/rules/deployment.mdc`）。 |
+
+## 近期完成（2026-05-20 設計圖分維標籤・資料血緣）
+
+| 項目 | 說明 |
+|------|------|
+| **分維 AI 標籤** | `lib/visual-semantics.js` v3：生成圖語意拆為 style／material／color／structure／features／patterns／craftsmanship／form／mood／use_case／category，寫入 `ai_tags_by_dimension` + `image_semantics_json` |
+| **資料血緣** | `lib/custom-product-lineage.js`：`is_vendor_self_serve` **僅**素材庫引用自己廠素材；API 回傳 strip，**前端不顯示** |
+| **設計者國家** | `lib/designer-region-from-ip.js` + `geoip-lite`；僅 IP，不強制填寫 |
+| **SQL** | 見下方「待執行 SQL」；含 semantics、taxonomy、lineage、designer-region |
+
+### 待辦：圖庫・素材（測試後再改）
+
+| 優先 | 項目 | 說明 |
+|------|------|------|
+| **→ 目前** | **發案者全站 E2E** | 圖庫分類帶入與無作品顯示素材已驗證可顯示；其餘功能繼續測，有問題再逐項修改。 |
+| 待確認 | 首頁→圖庫 URL | 若仍出現 `category_key=主類&子類` 複合字串，可改首頁組連結只傳單一 key（圖庫端已容錯高亮）。 |
+| 可選 | 圖庫作品+素材並列 | 現況：僅「該分類作品數 = 0」才顯示素材；若要同時顯示作品與素材需另開需求。 |
+| 可選 | 圖庫篩選區版面 | 關鍵字是否固定在上、分類在下（先前改版曾影響版面，目前未改）。 |
+| 必做（若未執行） | Supabase SQL | `docs/add-vendor-catalog-groups.sql`；其它本輪相關 migration 見下方「待執行 SQL（2026-05-20）」。 |
+
+### 待執行 SQL（2026-05-20，雲端若尚未跑請補）
+
+| 檔案 | 用途 |
+|------|------|
+| `docs/add-vendor-catalog-groups.sql` | 廠商自訂素材分類表與關聯 |
+| `docs/add-manufacturer-portfolio-min-order-quantity.sql` | 作品／素材最小起訂量（若已上該欄位功能） |
+| `docs/add-custom-products-reference-sources.sql` | 客製產品引用廠商素材來源紀錄 |
+| `docs/add-custom-products-semantics.sql` | 生圖 `ai_tags`／語意 JSON（分析用） |
+| `docs/add-custom-products-semantics-taxonomy.sql` | 設計圖分維標籤 `ai_tags_by_dimension` |
+| `docs/add-custom-products-data-lineage.sql` | 廠商自產血緣（後端分析用） |
+| `docs/add-custom-products-designer-region.sql` | 設計者國家（僅 IP 快照） |
+
+---
+
+## 規劃：訂製生圖「資料血緣」（廠商自產標記）— 2026-05-20
+
+**目標**：設計好的圖已有 **分類**（`category`／`subcategory_key`）與 **tags**（`ai_tags` 等）；另需判定 **生圖帳號**（`owner_id`）與 **引用素材所屬廠商帳號**（`manufacturers.user_id`）是否相同，並註明，以便分析時排除廠商自己建的樣本。
+
+**詳細規格**：`docs/design-lineage-and-design-direction-plan.md` §二
+
+### 建議作法（摘要）
+
+| 步驟 | 待辦 | 說明 |
+|------|------|------|
+| 1 | **新增 SQL** | ✅ `docs/add-custom-products-data-lineage.sql`、`docs/add-custom-products-semantics-taxonomy.sql`（請在 Supabase 執行） |
+| 2 | **後端判定** | ✅ `lib/custom-product-lineage.js` + `POST /api/custom-products`；**僅伺服器**查 `manufacturers` |
+| 3 | **規則** | ✅ `is_vendor_self_serve` = **僅**「從素材庫引用自己廠素材」；上傳參考圖但未選素材庫 **不算**；**前端不顯示、API 已 strip** |
+| 3b | **設計圖分維標籤** | ✅ `lib/visual-semantics.js` v3：風格／材質／顏色／結構／特色／圖案／工藝／形態／氛圍／用途 + `ai_tags_by_dimension` |
+| 4 | **語意事件** | ✅ `visual_semantics_events.semantics_json` 含 `ai_tags_by_dimension` 與 `lineage`（內部） |
+| 5 | **媒體牆／報表** | ⏳ 對外趨勢 API 可選 `exclude_vendor_self_serve=true`（預設排除） |
+| 6 | **舊資料 backfill** | ⏳ 血緣與分維標籤批次補跑 |
+| 7 | **文件** | ✅ `docs/custom-products-db-columns.md`；**禁止**前端顯示廠商自產 |
+
+**分維欄位**（`ai_tags_by_dimension`）：`style`、`material`、`color`、`structure`、`features`、`patterns`、`craftsmanship`、`form`、`mood`、`use_case`、`category`。
+
+---
+
+## 設計者國家／地區（僅 IP，不強制填寫）— 2026-05-20
+
+**決策**：不強制使用者填地區；儲存設計圖時依 **IP** 寫入國家快照（`designer_region_source=ip` 或 `unknown`）。
+
+| 項目 | 說明 |
+|------|------|
+| **程式** | `lib/designer-region-from-ip.js`；`POST /api/custom-products`、生圖自動儲存皆寫入 |
+| **推斷** | 優先 CDN 標頭（`CF-IPCountry` 等）→ 否則 `geoip-lite` + `X-Forwarded-For` |
+| **SQL** | `docs/add-custom-products-designer-region.sql`（請在 Supabase 執行） |
+| **隱私** | `designer_region_json` 只存遮罩 IP；**前端不顯示、API strip**（與廠商自產相同） |
+| **依賴** | `geoip-lite`（`package.json`）；`app.set('trust proxy', 1)` 以正確讀取代理 IP |
+
+### 待辦（可選後續）
+
+| 階段 | 待辦 |
+|------|------|
+| R4 | 舊資料無法補 IP（僅新儲存有效） |
+| R5 | 後台／趨勢報表依 `designer_country_code` 聚合 |
+
+**不實作**：強制表單、使用者宣告地區（除非你日後改需求）。
+
+---
+
+## 規劃：再製方案 → 設計風向（設計意圖分析）— 2026-05-20
+
+**目標**：將現行 **再製方案** 整線改為 **設計風向**——核心為 **設計意圖分析**（圖＋描述 → 結構化風格／意圖），而非「改裝分類」語意；生圖／儲存可保留，但分類與 prompt 體系重定位。
+
+**詳細規格**：`docs/design-lineage-and-design-direction-plan.md` §三
+
+### 待辦（分階段）
+
+| 階段 | 待辦 | 說明 |
+|------|------|------|
+| **D0** | **規格確認** | 方案 A：`custom_products.product_line`（`custom`／`design_direction`，舊 `remake` 遷移）vs 方案 B：獨立 `design_intent_analyses` 表；導覽是否保留 `/remake/` URL |
+| **D1** | **資料層** | migration：`product_line`；`remake_categories` 改名或改語意為設計風向；種子／後台資料遷移 |
+| **D2** | **後台** | `/admin/remake-categories.html` → 設計風向分類與 **意圖分析用 prompt**（非改裝用語） |
+| **D3** | **API** | `categorySource: 'design_direction'`；新增或擴充 `analyze-design-intent`；`buildPromptFromDesignDirectionKeys`；生圖仍寫 `custom_products` 並帶 **§ 資料血緣** 旗標 |
+| **D4** | **前端** | `remake-product.html`／`remake-product.js` 文案與流程：意圖分析結果區、標籤；`/remake/` 首頁改「設計風向」 |
+| **D5** | **列表／靈感牆** | 我的客製產品篩選 `product_line`；媒體牆是否獨立設計風向比例（可沿用本檔「再製品靈感牆比例」規劃，改欄位名） |
+| **D6** | **多語系／SEO** | `locales`、nav、Sitemap；舊連結 301 或相容 |
+| **D7** | **E2E** | 設計風向：上傳圖 → 意圖分析 → 生圖 → 儲存 → 確認 `product_line` 與血緣旗標 |
+
+**與訂製線關係**：訂製產品設計頁維持現行；設計風向為**另一產品線**（共用 `custom_products` 表較省改動，見規劃文件方案 A）。
+
+**注意**：改動面大，**勿與圖庫分類帶入**同一 PR；全站 E2E 測完後另開實作分支。
 
 ---
 
@@ -489,6 +620,8 @@
 | 1.7 權限與保護 | ✅ 完成 | requireAdmin／Expert／Client、關鍵 API JWT |
 | 1.8 廠商端媒合 | ✅ 完成 | 可媒合專案、預媒合、申請、我已媒合、站內聯繫 |
 | 媒體牆 | ✅ 完成 | 三類型 50:30:20、對比滑桿、系列四格；種子見 `docs/seed-media-wall-sample.sql` |
+| 圖庫找廠商 | ✅ 基本完成（2026-05-20） | 首頁帶分類、作品篩選對齊媒體牆、無作品顯示同分類素材；細項見上方「近期完成（2026-05-20）」 |
+| 廠商素材・自訂分類 | ✅ 基本完成（2026-05-20） | `vendor_catalog_groups`、素材庫／廠商頁／產品設計串接；SQL 見 `add-vendor-catalog-groups.sql` |
 | 服務媒合開關 | ✅ 完成 | `ENABLE_SERVICE_MATCHING`、`GET /api/public-config`；預設關閉 |
 
 ### 下一步優先（只保留這一張）
@@ -499,7 +632,7 @@
 | 優先 | 待辦 | 對應 |
 |------|------|------|
 | — | ~~多語系（前端）~~ ✅ 已完成 | 2026-02-22 完成。見本檔「多語系（前端）實作進度」。 |
-| **→ 建議下一步** | **繼續測 E2E** | 見下方「目前建議進度」。 |
+| **→ 建議下一步** | **繼續全站 E2E（含圖庫以外）** | 圖庫分類＋素材 fallback 已上線；見上方「待辦：圖庫・素材」與「目前建議進度」。 |
 | 1 | **訂製品線 E2E 驗證** | 步驟 1（本地六步跑通 → 可上雲） |
 | 2 | **再製方案 E2E**（可選） | 步驟 2 |
 | 3 | **上雲與環境** | 步驟 3（**目前為 Cloud Run**，見 `.cursor/rules/deployment.mdc`、`docs/SEO-PROGRESS.md` 四、部署流程） |
@@ -511,9 +644,12 @@
 | 後排 | **官方虛擬廠商（範例版型）** | 不接單、僅 `vendor_assets` 範例；見 **§4.2** |
 | 後排 | **會員後台・三角色介面分離** | 見 **§5**；A 線 E2E 穩定後先做導覽＋會員中心 P0 |
 | 後排 | **視覺語意庫（Gemini 標籤＋提示詞／生成圖解析＋搜尋）** | 見 **§6**；與 A 線上傳、訂製生圖、靈感牆連動 |
+| 後排 | **訂製生圖資料血緣（廠商自產標記）** | 見上方「規劃：資料血緣」；`docs/design-lineage-and-design-direction-plan.md` |
+| 已完成 | **設計者國家（僅 IP 快照）** | `lib/designer-region-from-ip.js`；見上方「設計者國家／地區」；報表 R5 待做 |
+| 後排 | **再製方案 → 設計風向（設計意圖分析）** | 見上方「規劃：再製→設計風向」；整線改版，分 D0–D7 |
 | 已完成 | **廠商的資料夾功能** | 見本檔下方「廠商資料夾」相關紀錄。 |
 
-**目前建議進度**：Cloud Run 已可正常部署、首頁篩選與網址已上線。接下來請**繼續 E2E**：若尚未跑過**步驟 1（訂製品線 E2E 六步）**，先在本機或雲端依「接下來工作步驟」1.2 跑通；完成後可選做步驟 2（再製 E2E），再進行步驟 4（會員與金流驗證）。
+**目前建議進度**（2026-05-20）：**圖庫**已可從首頁帶入分類，且分類下無作品時會顯示同分類**廠商素材**（`vendor_assets`）。請**繼續測其它功能**（產品設計、素材庫選圖、廠商頁、對話、點數等），有問題再回報逐項改。若尚未跑過訂製品線 E2E 六步，仍可依「接下來工作步驟」1.2 補跑；再製 E2E、會員與金流驗證為後續步驟。
 
 **常用**：發包案模擬資料 `node docs/generate-test-data-projects.js`；作品集 schema `docs/expert-portfolio-schema.sql`；首頁 AI 流程 `docs/首頁AI識別流程.md`。
 

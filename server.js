@@ -75,7 +75,25 @@ const GEMINI_MODEL_TRANSLATION_DEFAULT = 'gemini-2.5-flash-lite';
 // 讀圖／分析／估算等：可後台設定，見 getReadModelName（若 404 可改為 gemini-2.0-flash）
 const GEMINI_MODEL_READ_DEFAULT = 'gemini-3-flash-preview';
 const visualSemantics = require('./lib/visual-semantics');
+const customProductLineage = require('./lib/custom-product-lineage');
+const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
+
+function mergeDesignerRegionIntoPayload(payload, req, uiLocale) {
+    const region = designerRegionFromIp.resolveDesignerRegionFromRequest(req, { uiLocale });
+    return Object.assign(payload, region);
+}
+
+/** migration 未執行時略過內部分析欄位後重試 insert */
+function stripInternalCustomProductInsertColumns(payload) {
+    const p = { ...payload };
+    delete p.generator_manufacturer_id;
+    delete p.has_self_vendor_reference;
+    delete p.is_vendor_self_serve;
+    delete p.data_lineage_json;
+    designerRegionFromIp.DESIGNER_REGION_DB_KEYS.forEach((k) => { delete p[k]; });
+    return p;
+}
 // Gemini API 排隊：多人同時用時依序送出
 let _geminiQueueTail = Promise.resolve();
 function runInGeminiQueue(fn) {
@@ -91,6 +109,7 @@ function looksLikeNonEnglish(str) {
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
+app.set('trust proxy', 1);
 // 上傳目錄保留供靜態服務（向後相容舊 URL）；Multer 改為 memory 後改傳 Supabase Storage
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
@@ -782,21 +801,37 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
                 console.warn('enrichCustomProductSemantics prompt:', pe.message);
             }
         }
+        const tagsByDim = visualSemantics.buildTagsByDimension(imgResult.semantics);
         const updates = {
             ai_tags: mergedTags,
             image_semantics_json: imgResult.semantics,
+            ai_tags_by_dimension: tagsByDim,
             semantics_generated_at: new Date().toISOString()
         };
         if (promptSemantics) updates.prompt_semantics_json = promptSemantics;
         const { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId);
         if (updErr) {
             if (updErr.code === '42703') {
-                console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-semantics.sql');
+                console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-semantics.sql 與 add-custom-products-semantics-taxonomy.sql');
             } else {
                 console.warn('enrichCustomProductSemantics update:', updErr.message);
             }
             return null;
         }
+        let lineageMeta = null;
+        try {
+            const { data: prodRow } = await supabase
+                .from('custom_products')
+                .select('is_vendor_self_serve, has_self_vendor_reference')
+                .eq('id', productId)
+                .maybeSingle();
+            if (prodRow) lineageMeta = { lineage: prodRow };
+        } catch (_) {}
+        const semanticsForEvent = {
+            ...imgResult.semantics,
+            ai_tags_by_dimension: tagsByDim,
+            ...(lineageMeta || {})
+        };
         await recordVisualSemanticsEvent({
             source_type: 'custom_product',
             source_id: productId,
@@ -804,7 +839,7 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
             text_input: genPrompt || null,
             semantics_kind: 'generated_image',
             ai_tags: imgResult.tags,
-            semantics_json: imgResult.semantics,
+            semantics_json: semanticsForEvent,
             model: imgResult.model,
             prompt_version: imgResult.prompt_version,
             owner_id: ownerId || null,
@@ -5498,7 +5533,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                     const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
                     const showOnHomepage = !(await hasActivePaidSubscription(currentUser.id));
-                    const { data: insertedProduct, error: insertErr } = await supabase.from('custom_products').insert({
+                    const autoInsertPayload = {
                         owner_id: currentUser.id,
                         title, description,
                         category: mainCategoryKey,
@@ -5510,7 +5545,17 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         generation_prompt: generationPromptVal,
                         generation_seed: seedNum,
                         show_on_homepage: showOnHomepage
-                    }).select('id').single();
+                    };
+                    const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
+                    mergeDesignerRegionIntoPayload(autoInsertPayload, req, autoUiLocale);
+                    let insertRes = await supabase.from('custom_products').insert(autoInsertPayload).select('id').single();
+                    if (insertRes.error && insertRes.error.code === '42703') {
+                        insertRes = await supabase.from('custom_products')
+                            .insert(stripInternalCustomProductInsertColumns(autoInsertPayload))
+                            .select('id').single();
+                    }
+                    const insertedProduct = insertRes.data;
+                    const insertErr = insertRes.error;
                     if (insertErr) console.error('寫入 custom_products 失敗:', insertErr.message);
                     else {
                         console.log('已寫入 custom_products owner_id=%s', currentUser.id);
@@ -7318,20 +7363,26 @@ app.post('/api/custom-products', async (req, res) => {
             generation_seed: seedVal,
             show_on_homepage: true
         };
-        if (reference_sources != null && Array.isArray(reference_sources) && reference_sources.length > 0) {
-            insertPayload.reference_sources = reference_sources.map(s => ({
-                vendor_asset_id: s.vendor_asset_id || null,
-                manufacturer_id: s.manufacturer_id || null,
-                manufacturer_name: s.manufacturer_name || '',
-                manufacturer_profile_url: s.manufacturer_profile_url || '',
-                image_url: s.image_url || ''
-            }));
+        const lineage = await customProductLineage.computeCustomProductLineage(
+            supabase,
+            user.id,
+            reference_sources
+        );
+        insertPayload.generator_manufacturer_id = lineage.generator_manufacturer_id;
+        insertPayload.has_self_vendor_reference = lineage.has_self_vendor_reference;
+        insertPayload.is_vendor_self_serve = lineage.is_vendor_self_serve;
+        insertPayload.data_lineage_json = lineage.data_lineage_json;
+        if (lineage.reference_sources) insertPayload.reference_sources = lineage.reference_sources;
+        const uiLocale = (req.body.ui_locale || req.body.lang || req.query.lang || '').trim() || null;
+        mergeDesignerRegionIntoPayload(insertPayload, req, uiLocale);
+
+        async function doInsert(payload) {
+            return supabase.from('custom_products').insert(payload).select().single();
         }
-        const { data, error } = await supabase
-            .from('custom_products')
-            .insert(insertPayload)
-            .select()
-            .single();
+        let { data, error } = await doInsert(insertPayload);
+        if (error && error.code === '42703') {
+            ({ data, error } = await doInsert(stripInternalCustomProductInsertColumns(insertPayload)));
+        }
 
         if (!error && data && data.id && ai_generated_image_url) {
             enrichCustomProductSemantics(data.id, user.id, {
@@ -7347,8 +7398,8 @@ app.post('/api/custom-products', async (req, res) => {
             return res.status(500).json({ error: error.message });
         }
 
-        console.log('POST /api/custom-products 儲存成功 id=%s owner_id=%s', data.id, user.id);
-        res.json({ success: true, product: data });
+        console.log('POST /api/custom-products 儲存成功 id=%s owner_id=%s self_serve=%s', data.id, user.id, lineage.is_vendor_self_serve);
+        res.json({ success: true, product: customProductLineage.stripInternalCustomProductFields(data) });
     } catch (e) {
         console.error('POST /api/custom-products 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -7391,7 +7442,7 @@ app.get('/api/custom-products', async (req, res) => {
         }
         const ownerDisplay = (user.user_metadata && user.user_metadata.full_name) || user.email || '';
         const ownerEmail = user.email || '';
-        const productsWithOwner = list.map(p => ({
+        const productsWithOwner = list.map(p => customProductLineage.stripInternalCustomProductFields({
             ...p,
             owner_email: ownerEmail,
             owner_display: ownerDisplay

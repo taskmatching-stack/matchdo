@@ -48,6 +48,42 @@
 |------|------|------|
 | reference_sources | JSONB | 再設計時引用之廠商素材來源陣列，每項含 vendor_asset_id, manufacturer_id, manufacturer_name, manufacturer_profile_url, image_url |
 
+來源：`docs/add-custom-products-semantics.sql`（語意／標籤，分析用）
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| ai_tags | text[] | Gemini 合併標籤（生成圖＋提示詞） |
+| prompt_semantics_json | JSONB | 提示詞語意 |
+| image_semantics_json | JSONB | 生成圖語意 |
+| semantics_generated_at | TIMESTAMPTZ | 語意產生時間 |
+
+來源：`docs/add-custom-products-semantics-taxonomy.sql`
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| ai_tags_by_dimension | JSONB | 分維標籤：style, material, color, structure, features, patterns, craftsmanship, form, mood, use_case, category |
+
+來源：`docs/add-custom-products-data-lineage.sql`（**不對前端暴露**）
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| generator_manufacturer_id | UUID | 生圖者若為廠商，對應 manufacturers.id |
+| has_self_vendor_reference | BOOLEAN | 是否從素材庫引用自己廠商素材 |
+| is_vendor_self_serve | BOOLEAN | 同上且為廠商帳號；**僅**素材庫自引才算，上傳參考圖不算 |
+| data_lineage_json | JSONB | 判定細節（內部） |
+| product_line | TEXT | 規劃中：`custom`／`design_direction`（再製改版用） |
+
+來源：`docs/add-custom-products-designer-region.sql`（**僅 IP**，不強制表單；不對前端暴露）
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| designer_country_code | TEXT | ISO2（如 TW、US），儲存當下由 IP 推斷 |
+| designer_region_codes | text[] | 目前 IP 僅國家，預設 `{}` |
+| designer_region_source | TEXT | `ip` 或 `unknown` |
+| designer_ui_locale | TEXT | 儲存當下介面語系（輔助，不作國家） |
+| designer_region_json | JSONB | 內部：推斷方式、遮罩 IP（不含完整 IP） |
+
 ---
 
-程式參考：`server.js` 中所有 `custom_products` 的 insert/update 皆應只使用上表欄位。
+程式參考：`server.js` 中所有 `custom_products` 的 insert/update 皆應只使用上表欄位。  
+設計者地區：`lib/designer-region-from-ip.js`（CDN 標頭 → `geoip-lite` 後備）。
