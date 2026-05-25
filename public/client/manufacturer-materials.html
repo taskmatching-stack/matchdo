@@ -78,7 +78,7 @@
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" placeholder=""></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填品類名稱（如：托特包）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                                 <div class="col-12 d-none add-tags-panel">
@@ -93,7 +93,7 @@
                                 <div class="col-12">
                                     <div class="form-check mb-1">
                                         <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-prototype">
-                                        <label class="form-check-label" for="add-optimize-prototype"><span data-i18n="baseModels.optimizeProduct">產品圖優化（Flux 重繪，含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                        <label class="form-check-label" for="add-optimize-prototype"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
                                     </div>
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
@@ -129,7 +129,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.materialCategory">材質分類（選填）</label><select class="form-select add-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" placeholder=""></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                                 <div class="col-12 d-none add-tags-panel">
@@ -144,7 +144,7 @@
                                 <div class="col-12">
                                     <div class="form-check mb-1">
                                         <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
-                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖優化（Flux 重繪，含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
                                     </div>
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
@@ -189,7 +189,7 @@
                         <div id="edit-image-options" class="mb-3 d-none">
                             <div class="form-check mb-1">
                                 <input class="form-check-input" type="checkbox" id="edit-optimize-image">
-                                <label class="form-check-label" for="edit-optimize-image" id="edit-optimize-label"><span data-i18n="baseModels.optimizeProduct">產品圖優化（Flux 重繪，含 AI 標籤）</span> — <span id="edit-points-optimize" class="fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                <label class="form-check-label" for="edit-optimize-image" id="edit-optimize-label"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span id="edit-points-optimize" class="fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
                             </div>
                             <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong id="edit-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                         </div>
@@ -387,7 +387,7 @@
             var labelSpan = document.querySelector('#edit-optimize-label span[data-i18n]');
             if (!labelSpan) return;
             var key = normalizeKind(assetKind) === 'material' ? 'baseModels.optimizeMaterial' : 'baseModels.optimizeProduct';
-            var fb = normalizeKind(assetKind) === 'material' ? '材質圖優化（Flux 重繪，含 AI 標籤）' : '產品圖優化（Flux 重繪，含 AI 標籤）';
+            var fb = normalizeKind(assetKind) === 'material' ? '材質圖 AI 重繪（含 AI 標籤）' : '產品圖 AI 重繪（含 AI 標籤）';
             labelSpan.setAttribute('data-i18n', key);
             labelSpan.textContent = tr(key, fb);
             var editBase = document.getElementById('edit-points-base');

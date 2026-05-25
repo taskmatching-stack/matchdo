@@ -489,7 +489,7 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-/** 數位原型「產品圖優化」Flux 提示詞；名稱取自標題（通用品類、僅主體無雜物） */
+/** 數位原型「產品圖 AI 重繪」提示詞；名稱取自標題（通用品類、僅主體無雜物，單張白底） */
 function buildVendorAssetProductOptimizePrompt(title) {
     const product = (title || '').trim() || 'product';
     return [
@@ -505,7 +505,7 @@ function buildVendorAssetProductOptimizePrompt(title) {
     ].join(' ');
 }
 
-/** 材料參考「材質圖優化」Flux 提示詞；以呈現材質紋理與色彩為主 */
+/** 材料參考「材質圖 AI 重繪」提示詞；以呈現材質紋理與色彩為主 */
 function buildVendorAssetMaterialOptimizePrompt(title, materialKey) {
     const label = (title || '').trim() || (materialKey || '').trim() || 'material sample';
     const typeHint = (materialKey || '').trim() ? `${materialKey} material` : 'material';
