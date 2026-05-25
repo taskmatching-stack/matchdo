@@ -92,6 +92,20 @@
 
             <div id="panel-material" class="asset-kind-panel d-none">
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本，供設計者選用。</p>
+                <div id="supplier-import-banner" class="card border-0 shadow-sm mb-3 border-start border-success border-4">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                            <div>
+                                <h6 class="fw-semibold mb-1"><i class="bi bi-truck me-2 text-success"></i><span data-i18n="baseModels.importFromSupplier">從產業供應商導入材料</span></h6>
+                                <p class="text-muted small mb-0" id="supplier-import-hint" data-i18n="baseModels.importFromSupplierHint">瀏覽上游供應商材料目錄，一鍵加入您的「材料參考」供訂製者選用。</p>
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm" id="btn-open-supplier-import" disabled>
+                                <i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.browseSupplierMaterials">瀏覽供應商材料</span>
+                            </button>
+                        </div>
+                        <div id="supplier-import-locked" class="alert alert-warning small py-2 mt-2 mb-0 d-none"></div>
+                    </div>
+                </div>
                 <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel">
                     <div class="card-header bg-white"><span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-success"></i><span data-i18n="baseModels.uploadMaterial">上傳材料參考</span></span></div>
                     <div class="card-body">
@@ -157,6 +171,22 @@
         </div>
     </div>
 
+    <div class="modal fade" id="supplier-import-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title" data-i18n="baseModels.supplierCatalogTitle">產業供應商材料目錄</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="supplier-catalog-loading" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div></div>
+                    <div id="supplier-catalog-empty" class="text-muted small d-none" data-i18n="baseModels.supplierCatalogEmpty">尚無可導入的材料。請由管理員執行 docs/seed-industry-supplier-materials.sql 或於後台上架。</div>
+                    <div id="supplier-catalog-list" class="row g-3 d-none"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-area"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -172,6 +202,8 @@
         var editModalEl = null;
         var deleteModalEl = null;
         var pendingByForm = {};
+        var capabilities = null;
+        var supplierImportModal = null;
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) {
@@ -318,6 +350,9 @@
                 var kindBadge = m.asset_kind === 'material'
                     ? '<span class="badge bg-light text-success border mb-2">' + esc(tr('baseModels.tabMaterial', '材料')) + '</span> '
                     : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ';
+                if (m.from_supplier_catalog && m.supplier_name) {
+                    kindBadge += '<span class="badge bg-light text-dark border mb-2"><i class="bi bi-truck me-1"></i>' + esc(tr('baseModels.fromSupplier', '供應商')) + '：' + esc(m.supplier_name) + '</span> ';
+                }
                 var actionBtns = isSeedVendor ? '<span class="text-muted small">—</span>'
                     : ('<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
@@ -513,6 +548,121 @@
         });
         document.getElementById('filter-category').addEventListener('change', renderGrid);
 
+        function updateSupplierImportUi() {
+            var btn = document.getElementById('btn-open-supplier-import');
+            var locked = document.getElementById('supplier-import-locked');
+            if (!btn || !capabilities) return;
+            var can = capabilities.can_import_supplier_catalog && !isSeedVendor;
+            btn.disabled = !can;
+            if (locked) {
+                if (can) {
+                    locked.classList.add('d-none');
+                } else {
+                    locked.classList.remove('d-none');
+                    if (!capabilities.supplier_catalog_ready) {
+                        locked.textContent = tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
+                    } else if ((capabilities.portfolio_count || 0) < 1) {
+                        locked.textContent = tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品後，才可從產業供應商導入材料');
+                    } else if (isSeedVendor) {
+                        locked.textContent = tr('baseModels.seedNoImport', '種子廠商無法導入');
+                    } else {
+                        locked.textContent = tr('baseModels.importLocked', '目前無法導入');
+                    }
+                }
+            }
+        }
+
+        async function loadCapabilities() {
+            try {
+                var r = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
+                capabilities = await r.json().catch(function () { return {}; });
+            } catch (e) {
+                capabilities = {};
+            }
+            updateSupplierImportUi();
+        }
+
+        async function openSupplierImportModal() {
+            if (!supplierImportModal) {
+                supplierImportModal = new bootstrap.Modal(document.getElementById('supplier-import-modal'));
+            }
+            var loading = document.getElementById('supplier-catalog-loading');
+            var empty = document.getElementById('supplier-catalog-empty');
+            var list = document.getElementById('supplier-catalog-list');
+            loading.classList.remove('d-none');
+            empty.classList.add('d-none');
+            list.classList.add('d-none');
+            list.innerHTML = '';
+            supplierImportModal.show();
+            try {
+                var r = await fetch('/api/me/supplier-catalog-items?item_kind=material', { headers: { Authorization: 'Bearer ' + token } });
+                var data = await r.json().catch(function () { return {}; });
+                loading.classList.add('d-none');
+                if (!r.ok) {
+                    showToast(data.error || tr('baseModels.loadCatalogFailed', '載入失敗'), 'danger');
+                    empty.classList.remove('d-none');
+                    return;
+                }
+                var items = data.items || [];
+                if (!items.length) {
+                    empty.classList.remove('d-none');
+                    return;
+                }
+                list.classList.remove('d-none');
+                list.innerHTML = items.map(function (item) {
+                    var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
+                    var specLine = [spec.material_type, spec.color, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).join(' · ');
+                    var btn = item.already_imported
+                        ? '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>' + esc(tr('baseModels.alreadyImported', '已導入')) + '</button>'
+                        : '<button type="button" class="btn btn-sm btn-success btn-import-supplier" data-id="' + esc(item.id) + '">' + esc(tr('baseModels.importBtn', '導入至材料參考')) + '</button>';
+                    return '<div class="col-md-6"><div class="card h-100">' +
+                        (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top" style="height:140px;object-fit:cover" alt="">' : '') +
+                        '<div class="card-body p-3"><div class="text-muted small mb-1">' + esc(item.supplier_name || '') + '</div>' +
+                        '<div class="fw-semibold mb-1">' + esc(item.title || '') + '</div>' +
+                        '<p class="small text-muted mb-2">' + esc(item.description || specLine || '') + '</p>' +
+                        btn + '</div></div></div>';
+                }).join('');
+                list.querySelectorAll('.btn-import-supplier').forEach(function (b) {
+                    b.addEventListener('click', function () { importSupplierMaterial(b.getAttribute('data-id')); });
+                });
+            } catch (err) {
+                loading.classList.add('d-none');
+                showToast(err.message, 'danger');
+            }
+        }
+
+        async function importSupplierMaterial(catalogItemId) {
+            try {
+                var r = await fetch('/api/me/supplier-catalog-imports', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ catalog_item_id: catalogItemId })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    showToast(data.error || tr('baseModels.importFailed', '導入失敗'), 'danger');
+                    return;
+                }
+                showToast(tr('baseModels.importSuccess', '已導入材料參考'), 'success');
+                if (supplierImportModal) supplierImportModal.hide();
+                await loadMaterials();
+                switchKind('material');
+            } catch (err) {
+                showToast(err.message, 'danger');
+            }
+        }
+
+        var btnSupplierImport = document.getElementById('btn-open-supplier-import');
+        if (btnSupplierImport) {
+            btnSupplierImport.addEventListener('click', function () {
+                if (!capabilities || !capabilities.can_import_supplier_catalog) {
+                    updateSupplierImportUi();
+                    return;
+                }
+                openSupplierImportModal();
+            });
+        }
+
         async function init() {
             var localeReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
             await localeReady;
@@ -533,6 +683,7 @@
                 }
                 document.getElementById('main-content').classList.remove('d-none');
                 await loadCategories();
+                await loadCapabilities();
                 await loadMaterials();
                 switchKind('prototype');
             } catch (e) { showToast(e.message, 'danger'); }
