@@ -146,7 +146,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-2">
-                    <p id="vendorAssetsCategoryHint" class="text-muted small mb-2">素材依您目前選擇的主分類載入；點選圖片即加入參考圖。</p>
+                    <p id="vendorAssetsCategoryHint" class="text-muted small mb-2" data-i18n="customProduct.categoryBaseHint">素材依主分類載入；點選圖片可加入參考圖（可連選多張，最多 8 張）。</p>
                     <div id="vendorAssetsFilterRow" class="d-flex flex-wrap align-items-center gap-2 mb-2">
                         <span class="small text-muted">篩選：</span>
                         <select class="form-select form-select-sm" id="vendorAssetsStyleKey" style="width:auto;">
@@ -583,8 +583,8 @@
                             <p class="form-text text-muted small mb-0 mt-1 cat-desktop-hint" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
 
                             <div class="form-row full">
-                                <span class="label" data-i18n="customProduct.refImages">參考圖</span>
-                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可從數位版型庫（分類素材池）導入，或從個別廠商的版型庫導入後再設計。</p>
+                                <span class="label" data-i18n="customProduct.refImages">參考圖（最多 8 張，可複選）</span>
+                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可同時選多張（最多 8 張）：點下方空白格「＋」本機上傳，或按「從廠商素材庫選擇」加入。可混用① 數位原型（造型）② 材料參考（質感／色）③ 圖樣或草圖。有參考圖時生圖 20 點。</p>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btnRefFromVendorAssets" data-i18n="customProduct.selectFromVendorAssets" title="依目前選擇的分類載入廠商素材">從廠商素材庫選擇</button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
