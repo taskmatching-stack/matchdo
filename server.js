@@ -400,6 +400,14 @@ function buildInspirationTagsBlockHtml(tags) {
     return '<details class="inspiration-tags-details"><summary><i class="bi bi-tags" aria-hidden="true"></i> 標籤（' + tags.length + '）</summary><div class="inspiration-tags-list">' + inner + '</div></details>';
 }
 
+function normalizeVendorAssetKind(raw) {
+    const k = String(raw || '').trim().toLowerCase();
+    return k === 'material' ? 'material' : 'prototype';
+}
+
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, asset_kind, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+
 function parseAiTagsFromBody(body) {
     const raw = body && body.ai_tags;
     if (raw == null || raw === '') return null;
@@ -1683,13 +1691,21 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
         };
         if (styleKey) insertPayload.style_key = styleKey;
         if (materialKey) insertPayload.material_key = materialKey;
+        insertPayload.asset_kind = normalizeVendorAssetKind(body.asset_kind);
         const { data: inserted, error } = await supabase
             .from('vendor_assets')
             .insert(insertPayload)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, created_at')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, created_at')
             .single();
         if (error) {
             if (error.code === '42P01') return res.status(500).json({ error: '請先執行 docs/vendor-assets-schema.sql 建立 vendor_assets 表' });
+            if (error.code === '42703' && String(error.message || '').includes('asset_kind')) {
+                delete insertPayload.asset_kind;
+                const retry = await supabase.from('vendor_assets').insert(insertPayload)
+                    .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, created_at').single();
+                if (retry.error) return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-kind.sql 新增 asset_kind 欄位' });
+                return res.status(201).json(retry.data);
+            }
             if (error.code === '42703') return res.status(500).json({ error: '請先執行 docs/add-vendor-assets-style-material.sql 新增造型/材質欄位' });
             console.error('POST /api/admin/manufacturers/:id/vendor-assets:', error);
             return res.status(500).json({ error: error.message || '新增素材失敗' });
@@ -9419,18 +9435,31 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
         const categoryKey = (req.query.category_key || '').trim() || null;
-        let query = supabase
-            .from('vendor_assets')
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
-            .eq('manufacturer_id', manufacturerId)
-            .order('sort_order', { ascending: true })
-            .order('created_at', { ascending: false });
-        if (categoryKey) query = query.eq('category_key', categoryKey);
-        const { data: list, error } = await query;
+        const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
+        const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material') ? assetKindQ : null;
+        async function runList(selectCols) {
+            let query = supabase
+                .from('vendor_assets')
+                .select(selectCols)
+                .eq('manufacturer_id', manufacturerId)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false });
+            if (categoryKey) query = query.eq('category_key', categoryKey);
+            if (assetKindFilter && selectCols.includes('asset_kind')) query = query.eq('asset_kind', assetKindFilter);
+            return query;
+        }
+        let { data: list, error } = await runList(VENDOR_ASSET_SELECT_ME);
+        if (error && error.code === '42703') {
+            ({ data: list, error } = await runList(VENDOR_ASSET_SELECT_ME_LEGACY));
+            if (list) list = list.map((row) => ({ ...row, asset_kind: row.asset_kind || 'prototype' }));
+        }
         if (error) {
             if (error.code === '42P01') return res.json({ items: [] });
             console.error('GET /api/me/vendor-assets 失敗:', error);
             return res.status(500).json({ error: '查詢失敗' });
+        }
+        if (assetKindFilter && list && list.length && list[0].asset_kind == null) {
+            list = list.filter((row) => normalizeVendorAssetKind(row.asset_kind) === assetKindFilter);
         }
         res.json({ items: list || [] });
     } catch (e) {
@@ -9545,12 +9574,22 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         if (semanticsJson) insertPayload.image_semantics_json = semanticsJson;
         if (styleKey) insertPayload.style_key = styleKey;
         if (materialKey) insertPayload.material_key = materialKey;
+        insertPayload.asset_kind = normalizeVendorAssetKind(body.asset_kind);
         const { data: inserted, error } = await supabase
             .from('vendor_assets')
             .insert(insertPayload)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, ai_tags, image_semantics_json, tags_source, created_at')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, ai_tags, image_semantics_json, tags_source, created_at')
             .single();
         if (error) {
+            if (error.code === '42703' && String(error.message || '').includes('asset_kind')) {
+                delete insertPayload.asset_kind;
+                const retry = await supabase.from('vendor_assets').insert(insertPayload)
+                    .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, ai_tags, image_semantics_json, tags_source, created_at').single();
+                if (retry.error) {
+                    return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-kind.sql 新增 asset_kind 欄位' });
+                }
+                return res.status(201).json({ ...retry.data, asset_kind: normalizeVendorAssetKind(body.asset_kind) });
+            }
             if (error.code === '42703') {
                 return res.status(500).json({ error: '請先至管理後台「資料庫維護」執行「視覺語意庫」migration，或於 Supabase SQL Editor 執行 docs/add-digital-prototype-ai-tags.sql' });
             }
@@ -9598,6 +9637,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.sort_order !== undefined) updates.sort_order = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
         if (body.style_key !== undefined) updates.style_key = (body.style_key || '').trim() || null;
         if (body.material_key !== undefined) updates.material_key = (body.material_key || '').trim() || null;
+        if (body.asset_kind !== undefined) updates.asset_kind = normalizeVendorAssetKind(body.asset_kind);
 
         const file = req.file;
         if (file) {
@@ -9605,7 +9645,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             updates.image_url = publicUrl;
         }
 
-        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, updated_at').single();
+        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, asset_kind, updated_at').single();
         if (error) {
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });

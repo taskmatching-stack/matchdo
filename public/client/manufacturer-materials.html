@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>我的數位版型 (Base Models) - MatchDO 合做</title>
+    <title data-i18n="baseModels.pageTitle">上傳數位版型 (Base Models) - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <link href="../img/favicon.ico" rel="icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
     <style>
         .material-card { border-radius: 12px; border: 1px solid #e9ecef; overflow: hidden; transition: box-shadow .15s; }
         .material-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); }
@@ -23,6 +24,8 @@
         .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
         .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 14px; border-left: 3px solid #0d6efd; padding-left: 10px; }
         #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+        #asset-kind-tabs .nav-link { font-weight: 600; }
+        #asset-kind-tabs .nav-link.active { color: #0d6efd; border-color: #dee2e6 #dee2e6 #fff; }
     </style>
 </head>
 <body>
@@ -32,12 +35,11 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h4 class="mb-0 fw-bold">上傳數位版型 (Base Models)</h4>
-                    <small class="text-muted">給<strong>訂製者</strong>在產品設計頁當參考圖（不是產業供應商的材料庫）。上傳後會出現在設計流程的「廠商素材」分類中，並顯示您的廠商名稱與連結。</small>
+                    <h4 class="mb-0 fw-bold" data-i18n="baseModels.pageTitle">上傳數位版型 (Base Models)</h4>
+                    <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料參考」。</small>
                 </div>
                 <div class="d-flex gap-2">
-                    <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>返回控制台</a>
-                    <button class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-cloud-upload me-1"></i>上傳數位版型</button>
+                    <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
                 </div>
             </div>
         </div>
@@ -54,104 +56,84 @@
         </div>
 
         <div id="main-content" class="d-none">
-            <div class="alert alert-light border mb-3 py-2 small" id="upload-hint-bar">
-                <i class="bi bi-info-circle me-1 text-primary"></i>
-                <span id="upload-hint-text">請在下方<strong>上傳區</strong>選擇分類與圖片；儲存後可在「已上傳的版型」列表管理。設計者透過廠商頁聯絡您，平台不代為報價或收款。</span>
-            </div>
-            <!-- 上傳區（非種子廠商預設展開） -->
-            <div id="add-form-panel" class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                    <span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-primary"></i>上傳數位版型</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="btn-add-collapse">收合</button>
+            <ul class="nav nav-tabs mb-3" id="asset-kind-tabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" type="button" data-kind="prototype" id="tab-prototype" role="tab">
+                        <i class="bi bi-box me-1"></i><span data-i18n="baseModels.tabPrototype">數位原型</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" type="button" data-kind="material" id="tab-material" role="tab">
+                        <i class="bi bi-palette me-1"></i><span data-i18n="baseModels.tabMaterial">材料參考</span>
+                    </button>
+                </li>
+            </ul>
+
+            <div id="panel-prototype" class="asset-kind-panel">
+                <p class="text-muted small mb-3" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供設計者選用。</p>
+                <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4 upload-panel">
+                    <div class="card-header bg-white"><span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-primary"></i><span data-i18n="baseModels.uploadPrototype">上傳數位原型</span></span></div>
+                    <div class="card-body">
+                        <form class="add-form" data-kind="prototype" enctype="multipart/form-data">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" placeholder=""></div>
+                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
+                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i>先預覽 AI 標籤</button></div>
+                                <div class="col-12 d-none add-tags-panel"><div class="add-tags-list d-flex flex-wrap gap-1"></div><p class="text-muted small mb-0 mt-1 add-tags-hint"></p></div>
+                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳並發布</button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <form id="add-form" enctype="multipart/form-data">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label>
-                                <select class="form-select" id="add-category" required>
-                                    <option value="">— 選擇主分類 —</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-semibold">子分類（選填）</label>
-                                <select class="form-select" id="add-subcategory">
-                                    <option value="">— 選擇子分類 —</option>
-                                </select>
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label fw-semibold">素材標題</label>
-                                <input type="text" class="form-control" id="add-title" placeholder="例：iPhone 17 Pro Max 背蓋造型">
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label fw-semibold">簡短說明（選填）</label>
-                                <textarea class="form-control" id="add-description" rows="2" placeholder="供設計者參考"></textarea>
-                            </div>
-                            <input type="hidden" id="add-usage-type" value="reference_only">
-                            <div class="col-12">
-                                <label class="form-label fw-semibold">版型參考圖 <span class="text-danger">*</span></label>
-                                <input type="file" class="form-control" id="add-image" accept="image/*" required>
-                                <p class="text-muted small mt-1 mb-0">上傳時將由 AI 自動產生搜尋標籤（必要）。設計者會在產品設計的「參考圖」中依分類看到此圖。</p>
-                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-preview-tags" disabled><i class="bi bi-tags me-1"></i>先預覽 AI 標籤</button>
-                            </div>
-                            <div class="col-12 d-none" id="add-tags-panel">
-                                <label class="form-label fw-semibold small">AI 建議標籤</label>
-                                <div id="add-tags-list" class="d-flex flex-wrap gap-1"></div>
-                                <p class="text-muted small mb-0 mt-1" id="add-tags-hint"></p>
-                            </div>
-                            <div class="col-12">
-                                <button type="submit" class="btn btn-primary" id="btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳並發布</button>
-                                <span id="add-form-msg" class="ms-2 small text-danger"></span>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+                <div class="section-title list-section-title" data-i18n="baseModels.listPrototype">已上傳的數位原型</div>
             </div>
 
-            <div class="section-title" id="list-section-title">已上傳的版型</div>
+            <div id="panel-material" class="asset-kind-panel d-none">
+                <p class="text-muted small mb-3" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本，供設計者選用。</p>
+                <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel">
+                    <div class="card-header bg-white"><span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-success"></i><span data-i18n="baseModels.uploadMaterial">上傳材料參考</span></span></div>
+                    <div class="card-body">
+                        <form class="add-form" data-kind="material" enctype="multipart/form-data">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.materialCategory">材質分類（選填）</label><select class="form-select add-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" placeholder=""></div>
+                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
+                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i>先預覽 AI 標籤</button></div>
+                                <div class="col-12 d-none add-tags-panel"><div class="add-tags-list d-flex flex-wrap gap-1"></div><p class="text-muted small mb-0 mt-1 add-tags-hint"></p></div>
+                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳並發布</button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料參考</div>
+            </div>
+
             <div class="mb-3 d-flex flex-wrap align-items-center gap-2">
-                <label class="form-label small text-muted mb-0">依分類篩選列表</label>
-                <select class="form-select form-select-sm" id="filter-category" style="max-width: 240px;">
-                    <option value="">全部</option>
-                </select>
+                <label class="form-label small text-muted mb-0">依分類篩選</label>
+                <select class="form-select form-select-sm" id="filter-category" style="max-width: 240px;"><option value="">全部</option></select>
             </div>
-
             <div id="materials-grid" class="row g-3"></div>
         </div>
     </div>
 
-    <!-- 編輯 Modal -->
     <div class="modal fade" id="edit-modal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="modal-title">編輯數位版型</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
+                <div class="modal-header"><h6 class="modal-title">編輯</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <form id="edit-form">
                         <input type="hidden" id="edit-id">
-                        <div class="mb-3">
-                            <label class="form-label">主分類 <span class="text-danger">*</span></label>
-                            <select class="form-select" id="edit-category" required></select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">子分類</label>
-                            <select class="form-select" id="edit-subcategory"></select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">素材標題</label>
-                            <input type="text" class="form-control" id="edit-title">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">簡短說明</label>
-                            <textarea class="form-control" id="edit-description" rows="2"></textarea>
-                        </div>
-                        <input type="hidden" id="edit-usage-type" value="reference_only">
-                        <div class="mb-3">
-                            <label class="form-label">更換圖片（選填）</label>
-                            <input type="file" class="form-control" id="edit-image" accept="image/*">
-                        </div>
+                        <input type="hidden" id="edit-asset-kind">
+                        <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
+                        <div class="mb-3"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
+                        <div class="mb-3 d-none" id="edit-material-key-wrap"><label class="form-label" data-i18n="baseModels.materialCategory">材質分類</label><select class="form-select" id="edit-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
+                        <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
+                        <div class="mb-3"><label class="form-label">簡短說明</label><textarea class="form-control" id="edit-description" rows="2"></textarea></div>
+                        <div class="mb-3"><label class="form-label">更換圖片（選填）</label><input type="file" class="form-control" id="edit-image" accept="image/*"></div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -162,14 +144,10 @@
         </div>
     </div>
 
-    <!-- 刪除確認 Modal -->
     <div class="modal fade" id="delete-modal" tabindex="-1">
         <div class="modal-dialog modal-sm">
             <div class="modal-content">
-                <div class="modal-header border-0">
-                    <h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i>刪除數位版型</h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
+                <div class="modal-header border-0"><h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i>刪除</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body pt-0" id="delete-confirm-text"></div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">取消</button>
@@ -188,32 +166,28 @@
         var token = null;
         var isSeedVendor = false;
         var categories = [];
-        var materials = [];
+        var materialsAll = [];
+        var activeKind = 'prototype';
         var deleteTargetId = null;
         var editModalEl = null;
         var deleteModalEl = null;
-        var pendingAiTags = null;
-        var pendingSemanticsJson = null;
+        var pendingByForm = {};
+
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb || k;
+        }
+
+        function normalizeKind(k) { return (k === 'material') ? 'material' : 'prototype'; }
 
         function renderTagBadges(tags) {
             if (!tags || !tags.length) return '';
             return tags.slice(0, 8).map(function (t) {
                 return '<span class="badge bg-light text-dark border me-1 mb-1">' + esc(t) + '</span>';
             }).join('') + (tags.length > 8 ? '<span class="text-muted small">+' + (tags.length - 8) + '</span>' : '');
-        }
-
-        function showPendingTags(tags, hint) {
-            pendingAiTags = tags;
-            var panel = document.getElementById('add-tags-panel');
-            var list = document.getElementById('add-tags-list');
-            var hintEl = document.getElementById('add-tags-hint');
-            if (!tags || !tags.length) {
-                panel.classList.add('d-none');
-                return;
-            }
-            panel.classList.remove('d-none');
-            list.innerHTML = renderTagBadges(tags);
-            hintEl.textContent = hint || '確認無誤後按上傳即可寫入資料庫。';
         }
 
         function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -233,10 +207,9 @@
             } catch (e) { return null; }
         }
 
-        function fillCategorySelect(selectId, selectedKey) {
-            var sel = document.getElementById(selectId);
+        function fillCategorySelect(sel, selectedKey) {
             if (!sel) return;
-            sel.innerHTML = '<option value="">— 選擇主分類 —</option>';
+            sel.innerHTML = '<option value="">—</option>';
             categories.forEach(function (c) {
                 var opt = document.createElement('option');
                 opt.value = c.key;
@@ -245,14 +218,13 @@
                 sel.appendChild(opt);
             });
         }
-        function fillSubcategorySelect(selectId, categoryKey, selectedSubKey) {
-            var sel = document.getElementById(selectId);
+
+        function fillSubcategorySelect(sel, categoryKey, selectedSubKey) {
             if (!sel) return;
-            sel.innerHTML = '<option value="">— 選擇子分類 —</option>';
+            sel.innerHTML = '<option value="">—</option>';
             if (!categoryKey) return;
             var cat = categories.find(function (c) { return c.key === categoryKey; });
-            var subs = (cat && cat.subcategories) ? cat.subcategories : [];
-            subs.forEach(function (s) {
+            (cat && cat.subcategories ? cat.subcategories : []).forEach(function (s) {
                 var opt = document.createElement('option');
                 opt.value = s.key;
                 opt.textContent = s.name || s.key;
@@ -261,253 +233,265 @@
             });
         }
 
+        function initCategorySelects() {
+            document.querySelectorAll('.add-category').forEach(function (sel) { fillCategorySelect(sel); });
+            fillCategorySelect(document.getElementById('edit-category'));
+            var filterSel = document.getElementById('filter-category');
+            if (filterSel) {
+                filterSel.innerHTML = '<option value="">' + esc(tr('baseModels.filterAll', '全部')) + '</option>' +
+                    categories.map(function (c) { return '<option value="' + esc(c.key) + '">' + esc(c.name || c.key) + '</option>'; }).join('');
+            }
+        }
+
+        function getFormPending(form) {
+            var key = form.getAttribute('data-kind') || 'prototype';
+            if (!pendingByForm[key]) pendingByForm[key] = { tags: null, semantics: null };
+            return pendingByForm[key];
+        }
+
+        function showPendingTags(form, tags, hint) {
+            var p = getFormPending(form);
+            p.tags = tags;
+            var panel = form.querySelector('.add-tags-panel');
+            var list = form.querySelector('.add-tags-list');
+            var hintEl = form.querySelector('.add-tags-hint');
+            if (!tags || !tags.length) { panel.classList.add('d-none'); return; }
+            panel.classList.remove('d-none');
+            list.innerHTML = renderTagBadges(tags);
+            hintEl.textContent = hint || '';
+        }
+
         async function loadCategories() {
-            try {
-                var r = await fetch('/api/custom-product-categories');
-                var d = await r.json();
-                categories = d.categories || [];
-                fillCategorySelect('add-category');
-                fillCategorySelect('edit-category');
-                fillCategorySelect('filter-category');
-                var filterSel = document.getElementById('filter-category');
-                if (filterSel) filterSel.innerHTML = '<option value="">全部</option>' + categories.map(function (c) { return '<option value="' + esc(c.key) + '">' + esc(c.name || c.key) + '</option>'; }).join('');
-            } catch (e) { console.warn('loadCategories', e); }
+            var r = await fetch('/api/custom-product-categories');
+            var d = await r.json();
+            categories = d.categories || [];
+            initCategorySelects();
+        }
+
+        function itemsForActiveKind() {
+            var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
+            return materialsAll.filter(function (m) {
+                if (normalizeKind(m.asset_kind) !== activeKind) return false;
+                if (filterCat && (m.category_key || '') !== filterCat) return false;
+                return true;
+            });
         }
 
         async function loadMaterials() {
             var grid = document.getElementById('materials-grid');
-            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>';
+            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div></div>';
             try {
-                var url = '/api/me/vendor-assets';
-                var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
-                if (filterCat) url += '?category_key=' + encodeURIComponent(filterCat);
-                var r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+                var r = await fetch('/api/me/vendor-assets', { headers: { Authorization: 'Bearer ' + token } });
                 var d = await r.json();
-                materials = d.items || [];
+                materialsAll = (d.items || []).map(function (m) {
+                    m.asset_kind = normalizeKind(m.asset_kind);
+                    return m;
+                });
                 renderGrid();
             } catch (e) {
-                grid.innerHTML = '<div class="col-12"><div class="alert alert-danger">載入失敗：' + esc(e.message) + '</div></div>';
+                grid.innerHTML = '<div class="col-12"><div class="alert alert-danger">' + esc(e.message) + '</div></div>';
             }
         }
 
         function renderGrid() {
             var grid = document.getElementById('materials-grid');
-            var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
-            var list = filterCat ? materials.filter(function (m) { return (m.category_key || '') === filterCat; }) : materials;
+            var list = itemsForActiveKind();
             var catNames = {};
             categories.forEach(function (c) { catNames[c.key] = c.name || c.key; });
+            var addLabel = activeKind === 'material' ? tr('baseModels.uploadMaterial', '上傳材料') : tr('baseModels.uploadPrototype', '上傳原型');
             var html = '';
             if (!isSeedVendor) {
-                html += '<div class="col-sm-6 col-md-4 col-lg-3"><div class="add-card" id="grid-add-card" role="button" tabindex="0">' +
-                    '<i class="bi bi-cloud-upload fs-2 mb-2"></i><span class="fw-semibold">上傳數位版型</span></div></div>';
+                html += '<div class="col-sm-6 col-md-4 col-lg-3"><div class="add-card grid-add-card" role="button" tabindex="0">' +
+                    '<i class="bi bi-cloud-upload fs-2 mb-2"></i><span class="fw-semibold">' + esc(addLabel) + '</span></div></div>';
             }
             if (!list.length && isSeedVendor) {
-                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">尚無數位版型。種子廠商由平台代為維護，請聯絡管理員協助上傳。</p></div>';
+                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">—</p></div>';
                 return;
             }
             if (!list.length && !isSeedVendor) {
-                grid.innerHTML = html + '<div class="col-12"><p class="text-muted mb-0 mt-2">尚無已上傳項目，請使用上方<strong>上傳區</strong>或點此卡片開始上傳。</p></div>';
+                grid.innerHTML = html + '<div class="col-12"><p class="text-muted mb-0 mt-2">—</p></div>';
                 bindGridAddCard();
                 return;
             }
             html += list.map(function (m) {
                 var catName = catNames[m.category_key] || m.category_key || '—';
-                var usageLabel = '供設計者參考';
-                var actionBtns = isSeedVendor
-                    ? '<span class="text-muted small">由平台代為維護</span>'
-                    : ('<button class="btn btn-outline-primary btn-sm flex-fill" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i>編輯</button>' +
-                       '<button class="btn btn-outline-danger btn-sm" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
+                var kindBadge = m.asset_kind === 'material'
+                    ? '<span class="badge bg-light text-success border mb-2">' + esc(tr('baseModels.tabMaterial', '材料')) + '</span> '
+                    : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ';
+                var actionBtns = isSeedVendor ? '<span class="text-muted small">—</span>'
+                    : ('<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i></button>' +
+                       '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<img src="' + esc(m.image_url) + '" class="material-img" loading="lazy" alt="">' : '') +
-                    '<div class="card-body p-3">' +
+                    '<div class="card-body p-3">' + kindBadge +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
-                    '<div class="text-muted small mb-2">' + esc(catName) + ' · ' + usageLabel + '</div>' +
-                    tagsHtml +
+                    '<div class="text-muted small mb-2">' + esc(catName) + '</div>' + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
             grid.innerHTML = html;
             bindGridAddCard();
-            if (!isSeedVendor) grid.querySelectorAll('button[data-id]').forEach(function (btn) {
-                if (btn.classList.contains('btn-outline-danger')) {
+            if (!isSeedVendor) {
+                grid.querySelectorAll('.btn-del').forEach(function (btn) {
                     btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
-                } else {
+                });
+                grid.querySelectorAll('.btn-edit').forEach(function (btn) {
                     btn.addEventListener('click', function () { openEditModal(btn.dataset.id); });
-                }
-            });
+                });
+            }
         }
 
         function bindGridAddCard() {
-            var card = document.getElementById('grid-add-card');
+            var card = document.querySelector('.grid-add-card');
             if (!card || isSeedVendor) return;
-            function go() { openAddForm(true); }
+            function go() {
+                var panel = document.getElementById(activeKind === 'material' ? 'add-form-panel-material' : 'add-form-panel-prototype');
+                if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
             card.addEventListener('click', go);
             card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
         }
 
-        function openAddForm(scrollTo) {
-            var panel = document.getElementById('add-form-panel');
-            panel.classList.remove('d-none');
-            fillCategorySelect('add-category');
-            fillSubcategorySelect('add-subcategory', null);
-            document.getElementById('add-form').reset();
-            document.getElementById('add-usage-type').value = 'reference_only';
-            document.getElementById('add-form-msg').textContent = '';
-            pendingAiTags = null;
-            pendingSemanticsJson = null;
-            document.getElementById('add-tags-panel').classList.add('d-none');
-            document.getElementById('btn-preview-tags').disabled = true;
-            if (scrollTo) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-
-        document.getElementById('add-image').addEventListener('change', function () {
-            document.getElementById('btn-preview-tags').disabled = !this.files || !this.files[0];
-            pendingAiTags = null;
-            pendingSemanticsJson = null;
-            document.getElementById('add-tags-panel').classList.add('d-none');
-        });
-
-        document.getElementById('btn-preview-tags').addEventListener('click', async function () {
-            var file = document.getElementById('add-image').files[0];
-            var categoryKey = document.getElementById('add-category').value;
-            if (!file) { showToast('請先選擇圖片', 'warning'); return; }
-            if (!categoryKey) { showToast('請先選擇主分類', 'warning'); return; }
-            var btn = document.getElementById('btn-preview-tags');
-            btn.disabled = true;
-            try {
-                var fd = new FormData();
-                fd.append('image', file);
-                fd.append('category_key', categoryKey);
-                fd.append('title', document.getElementById('add-title').value || '');
-                fd.append('description', document.getElementById('add-description').value || '');
-                var r = await fetch('/api/me/vendor-assets/generate-tags', {
-                    method: 'POST',
-                    headers: { Authorization: 'Bearer ' + token },
-                    body: fd
-                });
-                var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) { showToast(data.error || '標籤產生失敗', 'danger'); return; }
-                pendingAiTags = data.ai_tags || [];
-                pendingSemanticsJson = data.image_semantics_json || null;
-                showPendingTags(pendingAiTags, '模型：' + (data.model || ''));
-                showToast('已產生 ' + pendingAiTags.length + ' 個標籤');
-            } catch (err) {
-                showToast(err.message || '標籤產生失敗', 'danger');
-            } finally {
-                btn.disabled = false;
-            }
-        });
-
-        document.getElementById('btn-add-open').addEventListener('click', function () { openAddForm(true); });
-        var collapseBtn = document.getElementById('btn-add-collapse');
-        if (collapseBtn) {
-            collapseBtn.classList.remove('d-none');
-            collapseBtn.addEventListener('click', function () {
-                var body = document.querySelector('#add-form-panel .card-body');
-                var form = document.getElementById('add-form');
-                if (!body) return;
-                var hidden = body.classList.toggle('d-none');
-                collapseBtn.textContent = hidden ? '展開上傳區' : '收合';
+        function switchKind(kind) {
+            activeKind = normalizeKind(kind);
+            document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-kind') === activeKind);
             });
+            document.getElementById('panel-prototype').classList.toggle('d-none', activeKind !== 'prototype');
+            document.getElementById('panel-material').classList.toggle('d-none', activeKind !== 'material');
+            if (!isSeedVendor) {
+                document.getElementById('add-form-panel-prototype').classList.toggle('d-none', activeKind !== 'prototype');
+                document.getElementById('add-form-panel-material').classList.toggle('d-none', activeKind !== 'material');
+            }
+            renderGrid();
         }
 
-        document.getElementById('add-category').addEventListener('change', function () {
-            fillSubcategorySelect('add-subcategory', this.value);
+        document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
+            btn.addEventListener('click', function () { switchKind(btn.getAttribute('data-kind')); });
         });
 
-        document.getElementById('add-form').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            var msgEl = document.getElementById('add-form-msg');
-            var categoryKey = document.getElementById('add-category').value;
-            if (!categoryKey) { msgEl.textContent = '請選擇主分類'; return; }
-            var file = document.getElementById('add-image').files[0];
-            if (!file) { msgEl.textContent = '請選擇圖片'; return; }
-            msgEl.textContent = '';
-            var formData = new FormData();
-            formData.append('category_key', categoryKey);
-            formData.append('subcategory_key', document.getElementById('add-subcategory').value || '');
-            formData.append('title', document.getElementById('add-title').value || '');
-            formData.append('description', document.getElementById('add-description').value || '');
-            formData.append('usage_type', document.getElementById('add-usage-type').value || 'reference_only');
-            formData.append('image', file);
-            if (pendingAiTags && pendingAiTags.length) {
-                formData.append('ai_tags', JSON.stringify(pendingAiTags));
-                if (pendingSemanticsJson) {
-                    formData.append('image_semantics_json', JSON.stringify(pendingSemanticsJson));
+        document.querySelectorAll('.add-form').forEach(function (form) {
+            var kind = form.getAttribute('data-kind');
+            var catSel = form.querySelector('.add-category');
+            var subSel = form.querySelector('.add-subcategory');
+            var imgInput = form.querySelector('.add-image');
+            var previewBtn = form.querySelector('.btn-preview-tags');
+
+            catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
+
+            imgInput.addEventListener('change', function () {
+                previewBtn.disabled = !imgInput.files || !imgInput.files[0];
+                getFormPending(form).tags = null;
+                form.querySelector('.add-tags-panel').classList.add('d-none');
+            });
+
+            previewBtn.addEventListener('click', async function () {
+                var file = imgInput.files[0];
+                if (!file || !catSel.value) { showToast(tr('baseModels.needCategory', '請選擇主分類與圖片'), 'warning'); return; }
+                previewBtn.disabled = true;
+                try {
+                    var fd = new FormData();
+                    fd.append('image', file);
+                    fd.append('category_key', catSel.value);
+                    fd.append('title', form.querySelector('.add-title').value || '');
+                    fd.append('description', form.querySelector('.add-description').value || '');
+                    var r = await fetch('/api/me/vendor-assets/generate-tags', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
+                    var p = getFormPending(form);
+                    p.tags = data.ai_tags || [];
+                    p.semantics = data.image_semantics_json || null;
+                    showPendingTags(form, p.tags, '');
+                    showToast('OK');
+                } finally { previewBtn.disabled = false; }
+            });
+
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var msgEl = form.querySelector('.add-form-msg');
+                if (!catSel.value) { msgEl.textContent = '—'; return; }
+                var file = imgInput.files[0];
+                if (!file) { msgEl.textContent = '—'; return; }
+                msgEl.textContent = '';
+                var fd = new FormData();
+                fd.append('asset_kind', kind);
+                fd.append('category_key', catSel.value);
+                fd.append('subcategory_key', subSel.value || '');
+                fd.append('title', form.querySelector('.add-title').value || '');
+                fd.append('description', form.querySelector('.add-description').value || '');
+                fd.append('usage_type', 'reference_only');
+                fd.append('image', file);
+                var matKey = form.querySelector('.add-material-key');
+                if (matKey && matKey.value) fd.append('material_key', matKey.value);
+                var p = getFormPending(form);
+                if (p.tags && p.tags.length) {
+                    fd.append('ai_tags', JSON.stringify(p.tags));
+                    if (p.semantics) fd.append('image_semantics_json', JSON.stringify(p.semantics));
                 }
-            }
-            var btn = document.getElementById('btn-add-submit');
-            btn.disabled = true;
-            var btnHtml = btn.innerHTML;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>正在產生 AI 標籤並上傳…';
-            try {
-                var r = await fetch('/api/me/vendor-assets', {
-                    method: 'POST',
-                    headers: { Authorization: 'Bearer ' + token },
-                    body: formData
-                });
-                var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) { msgEl.textContent = data.error || '上傳失敗'; return; }
-                var tagMsg = (data.ai_tags && data.ai_tags.length) ? '（' + data.ai_tags.length + ' 個 AI 標籤）' : '';
-                showToast('已上傳數位版型' + tagMsg);
-                pendingAiTags = null;
-                pendingSemanticsJson = null;
-                loadMaterials();
-            } catch (err) {
-                msgEl.textContent = err.message || '上傳失敗';
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = btnHtml;
-            }
+                var btn = form.querySelector('.btn-add-submit');
+                btn.disabled = true;
+                try {
+                    var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (!r.ok) { msgEl.textContent = data.error || 'failed'; return; }
+                    showToast('OK');
+                    p.tags = null; p.semantics = null;
+                    form.reset();
+                    form.querySelector('.add-tags-panel').classList.add('d-none');
+                    previewBtn.disabled = true;
+                    await loadMaterials();
+                    switchKind(kind);
+                } catch (err) {
+                    msgEl.textContent = err.message || 'failed';
+                } finally { btn.disabled = false; }
+            });
         });
 
         function openEditModal(id) {
-            if (isSeedVendor) { alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。'); return; }
-            var m = materials.find(function (x) { return x.id === id; });
+            if (isSeedVendor) return;
+            var m = materialsAll.find(function (x) { return x.id === id; });
             if (!m) return;
             document.getElementById('edit-id').value = m.id;
+            document.getElementById('edit-asset-kind').value = m.asset_kind;
             document.getElementById('edit-title').value = m.title || '';
             document.getElementById('edit-description').value = m.description || '';
-            document.getElementById('edit-usage-type').value = m.usage_type || 'reference_only';
             document.getElementById('edit-image').value = '';
-            fillCategorySelect('edit-category', m.category_key);
-            fillSubcategorySelect('edit-subcategory', m.category_key, m.subcategory_key);
+            fillCategorySelect(document.getElementById('edit-category'), m.category_key);
+            fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
+            var wrap = document.getElementById('edit-material-key-wrap');
+            wrap.classList.toggle('d-none', m.asset_kind !== 'material');
+            document.getElementById('edit-material-key').value = m.material_key || '';
             editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
             editModalEl.show();
         }
 
         document.getElementById('btn-edit-save').addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
-            var categoryKey = document.getElementById('edit-category').value;
-            if (!categoryKey) { showToast('請選擇主分類', 'warning'); return; }
-            var formData = new FormData();
-            formData.append('category_key', categoryKey);
-            formData.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
-            formData.append('title', document.getElementById('edit-title').value || '');
-            formData.append('description', document.getElementById('edit-description').value || '');
-            formData.append('usage_type', document.getElementById('edit-usage-type').value || 'reference_only');
+            var fd = new FormData();
+            fd.append('category_key', document.getElementById('edit-category').value);
+            fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
+            fd.append('title', document.getElementById('edit-title').value || '');
+            fd.append('description', document.getElementById('edit-description').value || '');
+            fd.append('usage_type', 'reference_only');
+            fd.append('asset_kind', document.getElementById('edit-asset-kind').value);
+            var mk = document.getElementById('edit-material-key').value;
+            if (mk) fd.append('material_key', mk);
             var file = document.getElementById('edit-image').files[0];
-            if (file) formData.append('image', file);
+            if (file) fd.append('image', file);
             try {
-                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), {
-                    method: 'PUT',
-                    headers: { Authorization: 'Bearer ' + token },
-                    body: formData
-                });
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                 var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) { showToast(data.error || '更新失敗', 'danger'); return; }
-                showToast('已更新');
+                if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
+                showToast('OK');
                 if (editModalEl) editModalEl.hide();
                 loadMaterials();
-            } catch (err) {
-                showToast(err.message || '更新失敗', 'danger');
-            }
+            } catch (err) { showToast(err.message, 'danger'); }
         });
 
         function openDeleteModal(id, title) {
-            if (isSeedVendor) { alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。'); return; }
+            if (isSeedVendor) return;
             deleteTargetId = id;
-            document.getElementById('delete-confirm-text').textContent = '確定要刪除「' + (title || '此素材') + '」？';
+            document.getElementById('delete-confirm-text').textContent = (title || id);
             deleteModalEl = new bootstrap.Modal(document.getElementById('delete-modal'));
             deleteModalEl.show();
         }
@@ -515,60 +499,43 @@
         document.getElementById('btn-delete-confirm').addEventListener('click', async function () {
             if (!deleteTargetId) return;
             try {
-                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(deleteTargetId), {
-                    method: 'DELETE',
-                    headers: { Authorization: 'Bearer ' + token }
-                });
-                if (!r.ok) {
-                    var d = await r.json().catch(function () { return {}; });
-                    showToast(d.error || '刪除失敗', 'danger');
-                    return;
-                }
-                showToast('已刪除');
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(deleteTargetId), { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+                if (!r.ok) { var d = await r.json().catch(function () { return {}; }); showToast(d.error || 'failed', 'danger'); return; }
+                showToast('OK');
                 if (deleteModalEl) deleteModalEl.hide();
                 deleteTargetId = null;
                 loadMaterials();
-            } catch (err) {
-                showToast(err.message || '刪除失敗', 'danger');
-            }
+            } catch (err) { showToast(err.message, 'danger'); }
         });
 
         document.getElementById('edit-category').addEventListener('change', function () {
-            fillSubcategorySelect('edit-subcategory', this.value);
+            fillSubcategorySelect(document.getElementById('edit-subcategory'), this.value);
         });
-        document.getElementById('filter-category').addEventListener('change', loadMaterials);
+        document.getElementById('filter-category').addEventListener('change', renderGrid);
 
         async function init() {
+            var localeReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+            await localeReady;
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            document.title = tr('baseModels.pageTitle', document.title);
+
             token = await getToken();
-            if (!token) {
-                document.getElementById('auth-alert').classList.remove('d-none');
-                return;
-            }
+            if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
             try {
                 var mfrRes = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
-                if (mfrRes.status === 404) {
-                    document.getElementById('no-mfr-alert').classList.remove('d-none');
-                    return;
-                }
-                if (!mfrRes.ok) throw new Error('載入廠商失敗');
+                if (mfrRes.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
+                if (!mfrRes.ok) throw new Error('load failed');
                 var mfrData = await mfrRes.json();
                 isSeedVendor = (mfrData.vendor_source === 'seed');
                 if (isSeedVendor) {
                     document.getElementById('seed-vendor-banner').classList.remove('d-none');
-                    document.getElementById('btn-add-open').classList.add('d-none');
-                    document.getElementById('add-form-panel').classList.add('d-none');
-                    var hint = document.getElementById('upload-hint-text');
-                    if (hint) hint.innerHTML = '您為<strong>種子廠商</strong>：數位版型由平台代為維護，此頁僅供預覽已發布項目。';
-                } else {
-                    var collapseBtnInit = document.getElementById('btn-add-collapse');
-                    if (collapseBtnInit) collapseBtnInit.classList.remove('d-none');
+                    document.querySelectorAll('.upload-panel').forEach(function (el) { el.classList.add('d-none'); });
                 }
                 document.getElementById('main-content').classList.remove('d-none');
                 await loadCategories();
                 await loadMaterials();
-            } catch (e) {
-                showToast(e.message, 'danger');
-            }
+                switchKind('prototype');
+            } catch (e) { showToast(e.message, 'danger'); }
         }
         init();
     })();

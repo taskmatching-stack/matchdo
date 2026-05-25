@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title data-i18n="supplierPortal.pageTitle">產業供應商入口 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="/js/i18n.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container py-5" style="max-width: 720px;">
+        <h4 class="fw-bold mb-3" data-i18n="supplierPortal.heading">產業供應商（B 線）</h4>
+        <p class="text-muted" data-i18n="supplierPortal.intro">此角色與「入駐製造商」不同：供應商維護產業級原型組與材料目錄，供平台媒合使用。功能規劃中，上線後將由此入口管理。</p>
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold"><i class="bi bi-box-seam me-2 text-primary"></i><span data-i18n="nav.supplierPrototypeLib">原型組目錄</span></h6>
+                <p class="small text-muted mb-0" data-i18n="supplierPortal.prototypeHint">上傳可組合的原型組，供設計流程引用（尚未開放）。</p>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <h6 class="fw-semibold"><i class="bi bi-palette me-2 text-success"></i><span data-i18n="nav.supplierMaterialLib">材料目錄</span></h6>
+                <p class="small text-muted mb-0" data-i18n="supplierPortal.materialHint">上傳材料樣本與規格參考（尚未開放）。</p>
+            </div>
+        </div>
+        <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回製造商控制台</span></a>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+    (function () {
+        var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+        ready.then(function () {
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+        });
+    })();
+    </script>
+</body>
+</html>
