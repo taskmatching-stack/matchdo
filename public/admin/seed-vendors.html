@@ -77,6 +77,7 @@
           </div>
         </div>
 
+        <div id="opResult" class="alert d-none mb-3 py-2 small" role="alert"></div>
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
           <label class="form-label small mb-0">篩選</label>
           <select class="form-select form-select-sm" id="filterType" style="width:auto;">
@@ -85,6 +86,7 @@
           </select>
           <button type="button" class="btn btn-sm btn-outline-secondary" id="btnReload"><i class="bi bi-arrow-clockwise me-1"></i>重新載入</button>
         </div>
+        <p class="text-muted small mb-2">轉換成功後：<strong>類型</strong>應變為「官方範例」或「一般／付費」，<strong>剩餘天數</strong>與<strong>到期日</strong>應為「—」；若仍顯示「種子」與倒數，代表尚未寫入成功，請看上方綠色／紅色提示。</p>
 
         <div class="card">
           <div class="card-header bg-white py-2"><strong>已建立的廠商</strong> <span class="text-muted small">— 步驟二：點「上傳素材」可代為上傳該廠商的數位版型（素材）</span></div>
@@ -263,28 +265,56 @@
     } catch (e) { return iso; }
   }
 
-  function patchManufacturer(id, body, confirmMsg) {
+  function showOpResult(ok, message) {
+    var el = document.getElementById('opResult');
+    if (!el) return;
+    el.classList.remove('d-none', 'alert-success', 'alert-danger');
+    el.classList.add(ok ? 'alert-success' : 'alert-danger');
+    el.textContent = message;
+  }
+
+  function vendorTypeLabel(vs) {
+    if (vs === 'seed') return '種子';
+    if (vs === 'platform') return '官方範例';
+    return '一般／付費';
+  }
+
+  function patchManufacturer(id, body, confirmMsg, successHint) {
     if (confirmMsg && !confirm(confirmMsg)) return;
+    showOpResult(true, '處理中…');
     getToken().then(function(token) {
-      if (!token) { alert('請先登入'); return; }
+      if (!token) { showOpResult(false, '請先登入'); return; }
       fetch('/api/admin/manufacturers/' + encodeURIComponent(id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify(body)
-      }).then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
-        .then(function(result) {
-          if (result.ok) loadList(document.getElementById('filterType').value === 'seed');
-          else alert(result.data.error || '更新失敗');
-        })
-        .catch(function() { alert('網路錯誤'); });
+      }).then(function(r) {
+        return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data }; })
+          .catch(function() { return { ok: r.ok, status: r.status, data: {} }; });
+      }).then(function(result) {
+        if (!result.ok) {
+          showOpResult(false, (result.data && result.data.error) || ('更新失敗（HTTP ' + result.status + '）'));
+          return;
+        }
+        var d = result.data || {};
+        var vs = d.vendor_source;
+        var msg = (successHint || '已更新') + ' 目前類型：「' + vendorTypeLabel(vs) + '」';
+        msg += '；到期日：' + (d.expires_at ? formatDate(d.expires_at) : '已清除（無種子倒數）');
+        showOpResult(true, msg);
+        document.getElementById('filterType').value = '';
+        loadList(false);
+      }).catch(function(err) {
+        showOpResult(false, '網路錯誤：' + (err.message || ''));
+      });
     });
   }
 
   function renderTable(list) {
     var tbody = document.getElementById('tableBody');
     tbody.innerHTML = list.map(function(m) {
-      var isSeed = m.is_seed || (m.vendor_source === 'seed');
-      var isPlatform = m.is_platform || (m.vendor_source === 'platform');
+      var vs = m.vendor_source || (m.is_seed ? 'seed' : (m.is_platform ? 'platform' : null));
+      var isSeed = vs === 'seed';
+      var isPlatform = vs === 'platform';
       var typeLabel = '';
       if (m.is_active === false) typeLabel += '<span class="badge bg-secondary me-1">已下架</span>';
       if (isSeed) typeLabel += '<span class="badge bg-primary">種子</span>';
@@ -294,7 +324,7 @@
       if (isSeed && m.remaining_days !== null) {
         daysCell = m.remaining_days === 0 ? '<span class="text-danger">已過期</span>' : (m.remaining_days + ' 天');
       }
-      var expiresCell = m.expires_at ? formatDate(m.expires_at) : '—';
+      var expiresCell = isSeed && m.expires_at ? formatDate(m.expires_at) : '—';
       var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(m.id);
       var createdCell = formatDate(m.created_at);
       var mfrName = (m.name || '').replace(/"/g, '&quot;');
@@ -328,14 +358,16 @@
       if (action === 'convert-paid') {
         btn.addEventListener('click', function() {
           patchManufacturer(id, { vendor_source: null, expires_at: null, is_active: true },
-            '確定將「' + name + '」轉為付費廠商？轉換後可自行編輯，素材對訂製者顯示。');
+            '確定將「' + name + '」轉為付費廠商？轉換後可自行編輯，素材對訂製者顯示。',
+            '「' + name + '」已轉為付費');
         });
         return;
       }
       if (action === 'convert-platform') {
         btn.addEventListener('click', function() {
           patchManufacturer(id, { vendor_source: 'platform', expires_at: null, is_active: true },
-            '確定將「' + name + '」轉為官方範例？將解除種子 90 天限制，可自行編輯；素材供訂製者參考。');
+            '確定將「' + name + '」轉為官方範例？將解除種子 90 天限制，可自行編輯；素材供訂製者參考。',
+            '「' + name + '」已轉為官方範例');
         });
         return;
       }

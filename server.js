@@ -1674,7 +1674,12 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
             console.error('PATCH /api/admin/manufacturers/:id:', error);
             return res.status(500).json({ error: error.message || '更新失敗' });
         }
-        res.json(updated);
+        const vs = updated.vendor_source || null;
+        const kind = vs === 'seed' ? '種子' : (vs === 'platform' ? '官方範例' : '一般／付費');
+        res.json({
+            ...updated,
+            message: `已更新。目前類型：${kind}；${updated.expires_at ? '到期日：' + updated.expires_at : '已清除種子到期日（無倒數）'}`
+        });
     } catch (e) {
         console.error('PATCH /api/admin/manufacturers/:id 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
