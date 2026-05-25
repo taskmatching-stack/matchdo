@@ -54,7 +54,7 @@
   "baseModels.addTagBtn": "Add",
   "baseModels.tagsHint": "Remove or add tags before uploading",
   "baseModels.optimizeProduct": "Product photo AI redraw (includes AI tags)",
-  "baseModels.optimizePrototypeHint": "Uses the selected category prompt from admin to output one 2×2 four-panel neutral digital prototype for designers.",
+  "baseModels.optimizePrototypeHint": "Four panels follow that category's admin prompt only (subcategory first). AI redraw is blocked if the prompt is empty. Outputs one 2×2 image.",
   "baseModels.optimizeMaterial": "Material swatch AI redraw (includes AI tags)",
   "baseModels.uploadOnlyPoints": "Upload with AI tags only:",
   "baseModels.pointsUnit": "pts",

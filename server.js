@@ -489,48 +489,77 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-/** 數位原型 AI 重繪：強制 2×2 四格輸出（與訂製分類四視角提示詞搭配） */
+/** 數位原型 AI 重繪：僅讀後台分類提示詞（子分類優先，再主分類）；不內建任何品類的四個角度 */
+async function loadVendorAssetCategoryPrompt(categoryKey, subcategoryKey) {
+    const main = (categoryKey || '').trim();
+    const sub = (subcategoryKey || '').trim();
+    if (sub) {
+        let q = supabase.from('custom_product_subcategories').select('prompt, category_key').eq('key', sub).eq('is_active', true);
+        if (main) q = q.eq('category_key', main);
+        const { data: subRow, error: subErr } = await q.maybeSingle();
+        if (!subErr && subRow && (subRow.prompt || '').trim()) return subRow.prompt.trim();
+    }
+    if (main) {
+        const { data: mainRow, error: mainErr } = await supabase
+            .from('custom_product_categories')
+            .select('prompt')
+            .eq('key', main)
+            .eq('is_active', true)
+            .maybeSingle();
+        if (!mainErr && mainRow && (mainRow.prompt || '').trim()) return mainRow.prompt.trim();
+    }
+    return '';
+}
+
+const VENDOR_ASSET_MISSING_CATEGORY_PROMPT = 'MISSING_CATEGORY_PROMPT';
+
+/** 只規定 2×2 版面；四格「畫什麼角度」完全依上方後台分類提示詞，禁止擅自改成通用前後側視圖 */
 function buildCatalog2x2GridSuffix(hasRefs) {
     const lines = [
-        '\n\n[CATALOG 2x2 GRID — MANDATORY OUTPUT FORMAT]',
-        '- Output exactly ONE image: a 2-column × 2-row grid of FOUR equal square panels with thin white or light gray gutters between panels.',
-        '- FIXED panel assignment (do NOT shuffle): top-left = panel 1, top-right = panel 2, bottom-left = panel 3, bottom-right = panel 4.',
-        '- Follow the four view descriptions in the prompt above for panels 1–4 in that order.',
-        '- The SAME product in all four panels (identical shape and proportions); solid or neutral color digital prototype styling as a base model for custom product design.',
-        '- Plain white or light gray studio background in every panel; no lifestyle clutter.',
-        '- No human models, logos, watermarks, price tags, or text on the image.'
+        '\n\n[CATALOG 2x2 GRID — OUTPUT FORMAT ONLY]',
+        '- Output exactly ONE image: 2 columns × 2 rows, four equal square panels, thin white or light gray gutters.',
+        '- Fixed placement: top-left = view 1, top-right = view 2, bottom-left = view 3, bottom-right = view 4.',
+        '- Each panel MUST follow ONLY the matching view in the category system prompt above (e.g. Split-view 1 → top-left). Do NOT invent generic front/back/side/three-quarter views unless the category prompt explicitly defines them.',
+        '- The same product in all four panels; only change angle, pose, or content per panel as specified in that category prompt.',
+        '- No logos or watermarks unless the category prompt above requires them.'
     ];
     if (hasRefs) {
-        lines.push('- Reference input defines product shape and proportions ONLY. You MUST synthesize a brand-new four-panel composite; NEVER return the reference image unchanged, upscaled, or as a single full-frame photo.');
+        lines.push('- Reference image defines shape/proportions only. Synthesize a new four-panel composite; never return the reference unchanged or as a single full-frame photo.');
     }
     lines.push(']');
     return lines.join(' ');
 }
 
-/** 數位原型 AI 重繪：優先使用 custom_product_categories 提示詞，否則依標題產生四視角 fallback */
+/** 數位原型 AI 重繪：必須有後台分類提示詞（各品類自行定義四格內容） */
 async function buildVendorAssetPrototypeOptimizePrompt({ categoryKey, subcategoryKey, title, description }) {
-    const keys = [categoryKey, subcategoryKey].map((k) => (k || '').trim()).filter(Boolean);
-    let base = keys.length ? (await buildPromptFromCategoryKeys(keys, '')).trim() : '';
+    const base = await loadVendorAssetCategoryPrompt(categoryKey, subcategoryKey);
+    if (!base) {
+        const err = new Error(VENDOR_ASSET_MISSING_CATEGORY_PROMPT);
+        throw err;
+    }
     const titleLine = (title || '').trim();
     const descLine = (description || '').trim();
-    if (!base) {
-        const product = titleLine || 'product';
-        base = [
-            `Professional digital prototype reference for custom ${product} manufacturing.`,
-            'Split-view 1 (top-left): front view, product centered, plain white or light gray background.',
-            'Split-view 2 (top-right): back view, same product and neutral solid colors.',
-            'Split-view 3 (bottom-left): side or 45-degree view showing thickness and silhouette.',
-            'Split-view 4 (bottom-right): three-quarter catalog angle, same solid or neutral styling.'
-        ].join('\n');
-    }
     const extra = [
-        titleLine ? `Product / variant name: ${titleLine}` : '',
-        descLine ? `Vendor notes: ${descLine}` : ''
+        titleLine ? `Product / variant name (supplement only): ${titleLine}` : '',
+        descLine ? `Vendor notes (supplement only): ${descLine}` : ''
     ].filter(Boolean).join('\n');
     let prompt = base;
     if (extra) prompt += '\n\n' + extra;
     prompt += buildCatalog2x2GridSuffix(true);
     return prompt;
+}
+
+function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
+    if (optErr && optErr.message === VENDOR_ASSET_MISSING_CATEGORY_PROMPT) {
+        return {
+            status: 400,
+            body: {
+                error: '此主分類或子分類尚無「提示詞（AI 設計用）」。請至後台訂製品廠商分類為該品類填寫專用四格視角（如 Split-view 1～4 對應左上／右上／左下／右下），再勾選 AI 重繪。'
+            }
+        };
+    }
+    const failLabel = normalizeVendorAssetKind(assetKind) === 'material' ? '材質圖 AI 重繪失敗' : '產品圖 AI 重繪失敗';
+    return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
 /** 材料參考「材質圖 AI 重繪」提示詞；以呈現材質紋理與色彩為主 */
@@ -9911,8 +9940,8 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
                 };
             } catch (optErr) {
                 console.error('vendor-assets image optimize:', optErr);
-                const failLabel = assetKind === 'material' ? '材質圖優化失敗' : '產品圖優化失敗';
-                return res.status(503).json({ error: optErr.message || `${failLabel}，請稍後重試` });
+                const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
+                return res.status(mapped.status).json(mapped.body);
             }
         }
 
@@ -10101,8 +10130,8 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                     };
                 } catch (optErr) {
                     console.error('PUT vendor-assets image optimize:', optErr);
-                    const failLabel = assetKind === 'material' ? '材質圖優化失敗' : '產品圖優化失敗';
-                    return res.status(503).json({ error: optErr.message || `${failLabel}，請稍後重試` });
+                    const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
+                    return res.status(mapped.status).json(mapped.body);
                 }
             }
 
