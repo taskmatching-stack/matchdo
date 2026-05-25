@@ -352,6 +352,8 @@
   "customProduct.materialAll": "Material — all",
   "customProduct.vendorAssetsEmptyFiltered": "No assets match these filters. Adjust filters or clear and try again.",
   "customProduct.vendorFallback": "Vendor",
+  "customProduct.vendorAssetPickHint": "Click image to add reference",
+  "customProduct.vendorProfileLink": "Open vendor profile",
   "customProduct.refSlotsFull": "Reference slots full (max 8).",
   "customProduct.multiVendorWarning": "References include multiple vendors ({names}). Mixing vendors may mean no single vendor can produce the design. Prefer one vendor's parts and materials.",
   "customProduct.multiVendorConfirm": "References already include another vendor. Adding \"{name}\" may not be producible by one vendor. Add anyway?",

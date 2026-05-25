@@ -352,6 +352,8 @@
   "customProduct.materialAll": "材質 — 全部",
   "customProduct.vendorAssetsEmptyFiltered": "此條件下尚無符合的素材，請調整篩選或清除後重試。",
   "customProduct.vendorFallback": "廠商",
+  "customProduct.vendorAssetPickHint": "點圖片加入參考圖",
+  "customProduct.vendorProfileLink": "開啟廠商頁",
   "customProduct.refSlotsFull": "參考圖已滿（最多 8 張）",
   "customProduct.multiVendorWarning": "您已選用多家廠商的素材（{names}）。混用可能導致部分廠商無法生產同款，建議改為同一家廠商的零件與材料。",
   "customProduct.multiVendorConfirm": "參考圖已含其他廠商素材，再加入「{name}」可能無法由單一廠商生產。仍要加入？",

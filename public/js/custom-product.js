@@ -403,19 +403,32 @@ $(document).ready(function () {
         } else if (item.asset_kind === 'prototype') {
             meta += '<span class="badge bg-primary-subtle text-primary border mb-1">' + (t('customProduct.assetKindPrototype') || '數位原型') + '</span> ';
         }
-        return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;"' +
+        var pickHint = (t('customProduct.vendorAssetPickHint') || '點圖片加入參考圖').replace(/"/g, '&quot;');
+        return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
             ' data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
             ' data-asset-kind="' + assetKind + '">' +
-            '<img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;">' +
-            '<div class="card-body p-2">' + meta +
-            '<div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div>' +
-            '<a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>';
+            '<div class="vendor-asset-pick-zone" role="button" tabindex="0" title="' + pickHint + '">' +
+            '<img class="card-img-top vendor-asset-pick-img" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;">' +
+            '</div>' +
+            '<div class="card-body p-2 vendor-asset-card-meta">' + meta +
+            '<div class="fw-semibold small text-truncate vendor-asset-title" title="' + title + '">' + title + '</div>' +
+            '<div class="d-flex align-items-center gap-1 mt-1">' +
+            '<span class="small text-primary vendor-asset-mfr-name text-truncate flex-grow-1" title="' + mfrName + '">' + mfrName + '</span>' +
+            '<a href="' + profileUrl + '" class="small vendor-asset-mfr-link text-muted flex-shrink-0" target="_blank" rel="noopener" title="' +
+            (t('customProduct.vendorProfileLink') || '廠商頁').replace(/"/g, '&quot;') + '"><i class="bi bi-box-arrow-up-right"></i></a>' +
+            '</div></div></div></div>';
     }
 
     function bindVendorAssetCardClicks($list, modalEl) {
-        $list.find('.vendor-asset-card').off('click').on('click', function () {
-            var $c = $(this);
+        $list.find('.vendor-asset-card-meta, .vendor-asset-mfr-name, .vendor-asset-mfr-link, .vendor-asset-title').off('mousedown click pointerdown')
+            .on('mousedown click pointerdown', function (e) { e.stopPropagation(); });
+        $list.find('.vendor-asset-pick-zone, .vendor-asset-pick-img').off('click keydown').on('click keydown', function (e) {
+            if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+            if (e.type === 'keydown') e.preventDefault();
+            var sel = window.getSelection && window.getSelection();
+            if (sel && sel.toString && sel.toString().trim()) return;
+            var $c = $(this).closest('.vendor-asset-card');
             var u = $c.attr('data-image-url');
             if (!u) return;
             var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
