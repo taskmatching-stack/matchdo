@@ -347,22 +347,24 @@
         return list;
     }
 
+    /** 與 portfolioMatchesCategory 相同欄位邏輯（素材列也有 category_key / subcategory_key） */
+    function assetMatchesCategory(a) {
+        if (!selCat && !selSub) return true;
+        if (selSub) {
+            const subPrimary = String(selSub).split('&')[0].trim() || selSub;
+            return (a.subcategory_key === selSub || a.subcategory_key === subPrimary) ||
+                (a.category_key === selSub || a.category_key === subPrimary);
+        }
+        const keys = getCategoryKeysToMatch();
+        if (a.category_key && keys.includes(a.category_key)) return true;
+        if (a.subcategory_key && keys.includes(a.subcategory_key)) return true;
+        return false;
+    }
+
     function filterAssetItems(source) {
         const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
         let list = source || [];
-        const catKeys = getCategoryKeysToMatch();
-        if (catKeys.length) {
-            list = list.filter(a => a.category_key && catKeys.includes(a.category_key));
-        }
-        if (selSub) {
-            const subPrimary = String(selSub).split('&')[0].trim() || selSub;
-            const strict = list.filter(a =>
-                a.subcategory_key === selSub ||
-                a.subcategory_key === subPrimary ||
-                !a.subcategory_key
-            );
-            if (strict.length) list = strict;
-        }
+        if (selCat || selSub) list = list.filter(assetMatchesCategory);
         if (selAreaCodes.length) list = list.filter(a => locMatchArea(a.manufacturer_location));
         if (kw) {
             list = list.filter(a =>
@@ -378,31 +380,11 @@
 
     async function fetchVendorAssetsForGallery() {
         if (!selCat) return [];
-        const tryKeys = [...new Set([
-            categoryKeyForUiActive(),
-            String(selCat).split('&')[0].trim(),
-            selCat,
-            ...getCategoryKeysToMatch()
-        ].filter(Boolean))];
-        const subKey = selSub ? (String(selSub).split('&')[0].trim() || selSub) : '';
-        async function once(catKey, sub) {
-            let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
-            if (sub) url += '&subcategory_key=' + encodeURIComponent(sub);
-            const r = await fetch(url);
-            const d = await r.json();
-            return (d.items || []).filter(x => x && x.image_url);
-        }
-        const seen = {};
-        let merged = [];
-        for (const catKey of tryKeys) {
-            let items = await once(catKey, subKey);
-            if (!items.length && subKey) items = await once(catKey, '');
-            items.forEach(x => {
-                if (x && x.id && !seen[x.id]) { seen[x.id] = true; merged.push(x); }
-            });
-            if (merged.length) break;
-        }
-        return merged;
+        const catKey = categoryKeyForUiActive() || String(selCat).split('&')[0].trim() || selCat;
+        const url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
+        const r = await fetch(url);
+        const d = await r.json();
+        return (d.items || []).filter(x => x && x.image_url);
     }
 
     function updateFilterUi(portCount, assetCount) {
