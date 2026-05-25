@@ -10190,7 +10190,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         const mfrIds = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))];
         let mfrMap = {};
         if (mfrIds.length) {
-            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, vendor_source, contact_json, location').in('id', mfrIds).eq('is_active', true);
+            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, vendor_source, contact_json, location, user_id').in('id', mfrIds).eq('is_active', true);
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
         }
         if (manufacturerNameQ) {
@@ -10239,7 +10239,11 @@ app.get('/api/vendor-assets', async (req, res) => {
                 color_label: r.color_key ? vendorColorKeyLabel(r.color_key, lang) : null,
                 asset_kind: kind,
                 manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
-                manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null
+                manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
+                manufacturer_location: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].location) ? mfrMap[r.manufacturer_id].location : '',
+                manufacturer_user_id: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].user_id) ? mfrMap[r.manufacturer_id].user_id : null,
+                manufacturer_contact: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].contact_json) ? mfrMap[r.manufacturer_id].contact_json : null,
+                ai_tags: r.ai_tags || []
             };
         });
         let itemsOut = items;

@@ -193,6 +193,11 @@
         areaIsland:     'Islands',
         areaOverseas:   'Overseas',
         kwPlaceholder:  'Search title, tags…',
+        assetsOnlyIntro:  'No portfolio images in this category yet. Browse vendor assets below.',
+        assetPrototype:   'Prototype',
+        assetMaterial:    'Material',
+        redesignAsset:    'Design with this asset',
+        modalAssetTitle:  'Vendor asset',
     } : {
         modalTitle:     '作品詳情',
         highlight:      '作品重點',
@@ -216,6 +221,11 @@
         areaIsland:     '離島',
         areaOverseas:   '海外',
         kwPlaceholder:  '搜尋標題、標籤…',
+        assetsOnlyIntro:  '此分類尚無作品展示圖，您可先瀏覽以下廠商上傳的數位原型與材料參考。',
+        assetPrototype:   '數位原型',
+        assetMaterial:    '材料參考',
+        redesignAsset:    '用此素材設計',
+        modalAssetTitle:  '廠商素材',
     };
 
     // 套用所有靜態文字（filter 區 + modal）
@@ -240,8 +250,10 @@
     }
 
     // ── 狀態 ──────────────────────────────────────────────────────────────
-    let _rawItems = [];          // 原始資料，永不修改
-    let categoryList = [];       // [{key, name, subcategories:[{key,name}]}]
+    let _rawItems = [];
+    let _lastAssetItems = [];
+    let _applyFiltersGen = 0;
+    let categoryList = [];
     let selCat = '';             // 選中的大分類 key
     let selSub = '';             // 選中的小分類 key
     let selArea = '';            // 選中的地區
@@ -267,51 +279,167 @@
         return selAreaCodes.some(code => l.includes(code.toLowerCase()));
     }
 
-    // ── 全過濾（大分類 + 小分類 + 地區 + 關鍵字，全部疊加）────────────────
-    function applyFilters() {
+    /** 僅供按鈕亮起：不改 selCat（篩選仍用 URL 原值，與 01a1053 相同） */
+    function categoryKeyForUiActive() {
+        if (!selCat) return '';
+        if (categoryList.some(c => c.key === selCat)) return selCat;
+        const first = String(selCat).split('&')[0].trim();
+        if (first && categoryList.some(c => c.key === first)) return first;
+        return selCat;
+    }
+
+    function subcategoryKeyForUiActive() {
+        if (!selSub) return '';
+        const uiCat = categoryKeyForUiActive();
+        const cat = categoryList.find(c => c.key === uiCat);
+        const subs = (cat && cat.subcategories) || [];
+        if (subs.some(s => s.key === selSub)) return selSub;
+        const first = String(selSub).split('&')[0].trim();
+        if (first && subs.some(s => s.key === first)) return first;
+        return selSub;
+    }
+
+    /** 與首頁媒體牆一致：主分類 + 子分類 key，並比對作品列上的 category_key（舊資料常只有作品有分類） */
+    function getCategoryKeysToMatch() {
+        if (!selCat) return [];
+        const primary = String(selCat).split('&')[0].trim() || selCat;
+        const keys = new Set([selCat, primary]);
+        const cat = categoryList.find(c => c.key === primary || c.key === selCat);
+        if (cat && cat.subcategories) {
+            cat.subcategories.forEach(s => { if (s.key) keys.add(s.key); });
+        }
+        return [...keys];
+    }
+
+    function portfolioMatchesCategory(p) {
+        if (!selCat && !selSub) return true;
+        const mfrCats = p.categories || [];
+        if (selSub) {
+            const subPrimary = String(selSub).split('&')[0].trim() || selSub;
+            return (p.subcategory_key === selSub || p.subcategory_key === subPrimary) ||
+                (p.category_key === selSub || p.category_key === subPrimary) ||
+                mfrCats.includes(selSub) || mfrCats.includes(subPrimary) ||
+                (p.tags || []).some(t => String(t).toLowerCase() === selSub.toLowerCase());
+        }
+        const keys = getCategoryKeysToMatch();
+        if (p.category_key && keys.includes(p.category_key)) return true;
+        if (p.subcategory_key && keys.includes(p.subcategory_key)) return true;
+        if (mfrCats.includes(selCat) || keys.some(k => mfrCats.includes(k))) return true;
+        return false;
+    }
+
+    function filterPortfolioItems() {
         const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
         let list = _rawItems;
-
-        // 1. 大分類：直接比對廠商 categories 陣列（key 就是廠商自己存的值）
-        if (selCat) {
-            list = list.filter(p => (p.categories||[]).includes(selCat));
-        }
-        // 2. 小分類：先比對 subcategory_key，再比對 tags
-        if (selSub) {
-            list = list.filter(p =>
-                (p.subcategory_key && p.subcategory_key === selSub) ||
-                (p.tags||[]).some(t => String(t).toLowerCase() === selSub.toLowerCase())
-            );
-        }
-        // 3. 地區（比對城市 code 或名稱）
+        if (list.some(x => x && x.id !== 'demo-1')) list = list.filter(x => x && x.id !== 'demo-1');
+        if (selCat || selSub) list = list.filter(portfolioMatchesCategory);
         if (selAreaCodes.length) {
             list = list.filter(p => locMatchArea(p.manufacturer_location));
         }
-        // 4. 關鍵字
         if (kw) {
             list = list.filter(p =>
-                (p.title||'').toLowerCase().includes(kw) ||
-                (p.manufacturer_name||'').toLowerCase().includes(kw) ||
-                (p.manufacturer_location||'').toLowerCase().includes(kw) ||
-                (p.tags||[]).some(t=>String(t).toLowerCase().includes(kw))
+                (p.title || '').toLowerCase().includes(kw) ||
+                (p.manufacturer_name || '').toLowerCase().includes(kw) ||
+                (p.manufacturer_location || '').toLowerCase().includes(kw) ||
+                (p.tags || []).some(t => String(t).toLowerCase().includes(kw))
             );
         }
+        return list;
+    }
 
-        renderGrid(list);
-        // 結果數
+    function filterAssetItems(source) {
+        const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
+        let list = source || [];
+        if (selSub) {
+            list = list.filter(a =>
+                a.subcategory_key === selSub ||
+                (a.subcategory_key && String(a.subcategory_key).split('&')[0].trim() === String(selSub).split('&')[0].trim())
+            );
+        }
+        if (selAreaCodes.length) list = list.filter(a => locMatchArea(a.manufacturer_location));
+        if (kw) {
+            list = list.filter(a =>
+                (a.title || '').toLowerCase().includes(kw) ||
+                (a.description || '').toLowerCase().includes(kw) ||
+                (a.manufacturer_name || '').toLowerCase().includes(kw) ||
+                (a.manufacturer_location || '').toLowerCase().includes(kw) ||
+                (a.ai_tags || []).some(t => String(t).toLowerCase().includes(kw))
+            );
+        }
+        return list;
+    }
+
+    async function fetchVendorAssetsForGallery() {
+        const catKey = String(selCat).split('&')[0].trim() || selCat;
+        if (!catKey) return [];
+        const subKey = selSub ? (String(selSub).split('&')[0].trim() || selSub) : '';
+        async function once(sub) {
+            let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
+            if (sub) url += '&subcategory_key=' + encodeURIComponent(sub);
+            const r = await fetch(url);
+            const d = await r.json();
+            return (d.items || []).filter(x => x && x.image_url);
+        }
+        let items = await once(subKey);
+        if (!items.length && subKey) items = await once('');
+        return items;
+    }
+
+    function updateFilterUi(portCount, assetCount) {
+        const total = portCount + assetCount;
+        const kw = ($keyword ? $keyword.value : '').trim();
         const countEl = document.getElementById('filterResultCount');
-        if (countEl) countEl.textContent = list.length < _rawItems.length ? '共 '+list.length+' 件符合' : '';
+        if (countEl) {
+            if (!total) countEl.textContent = _isEn ? '0 matches' : '共 0 件符合';
+            else if (portCount && assetCount) {
+                countEl.textContent = (_isEn ? '' : '共 ') + portCount + (_isEn ? ' works · ' : ' 件作品 · ') + assetCount + (_isEn ? ' assets' : ' 件素材');
+            } else {
+                countEl.textContent = (_isEn ? '' : '共 ') + total + (_isEn ? ' matches' : ' 件符合');
+            }
+        }
         const statusRow = document.getElementById('filterStatusRow');
-        if (statusRow) statusRow.style.display = (selCat||selSub||selAreaCodes.length||kw) ? 'flex' : 'none';
-        if ($grid) $grid.classList.toggle('d-none', list.length===0);
-        if ($empty) $empty.classList.toggle('d-none', list.length>0);
+        if (statusRow) statusRow.style.display = (selCat || selSub || selAreaCodes.length || kw) ? 'flex' : 'none';
+        if ($grid) $grid.classList.toggle('d-none', total === 0);
+        if ($empty) $empty.classList.toggle('d-none', total > 0);
+    }
+
+    // 作品篩選不變；僅在無作品且已選大分類時，額外顯示素材庫
+    async function applyFilters() {
+        const gen = ++_applyFiltersGen;
+        const portList = filterPortfolioItems();
+        let assetList = [];
+
+        if (selCat && portList.length === 0) {
+            try {
+                const raw = await fetchVendorAssetsForGallery();
+                if (gen !== _applyFiltersGen) return;
+                assetList = filterAssetItems(raw);
+                _lastAssetItems = assetList;
+            } catch (_) {
+                _lastAssetItems = [];
+            }
+        } else {
+            _lastAssetItems = [];
+        }
+
+        if (gen !== _applyFiltersGen) return;
+
+        if (portList.length) {
+            renderGrid(portList);
+        } else if (assetList.length) {
+            renderAssetGrid(assetList);
+        } else {
+            if ($grid) $grid.innerHTML = '';
+        }
+        updateFilterUi(portList.length, assetList.length);
     }
 
     // ── 大分類按鈕 ────────────────────────────────────────────────────────
     function renderCategoryButtons() {
-        let html = `<button type="button" class="area-btn${selCat==='' ? ' active':''}" data-cat-key="">${T.filterAll}</button>`;
+        const uiCat = categoryKeyForUiActive();
+        let html = `<button type="button" class="area-btn${!selCat ? ' active':''}" data-cat-key="">${T.filterAll}</button>`;
         categoryList.forEach(c => {
-            html += `<button type="button" class="area-btn${selCat===c.key?' active':''}" data-cat-key="${esc(c.key)}">${esc(c.name)}</button>`;
+            html += `<button type="button" class="area-btn${uiCat===c.key?' active':''}" data-cat-key="${esc(c.key)}">${esc(c.name)}</button>`;
         });
         $cats.innerHTML = html;
         $cats.querySelectorAll('button').forEach(btn => {
@@ -320,7 +448,7 @@
                 selSub = '';  // 換大分類時重置小分類
                 renderCategoryButtons();
                 renderSubcategoryRow();
-                applyFilters();
+                void applyFilters();
             });
         });
     }
@@ -331,14 +459,15 @@
         const container = document.getElementById('gallerySubcategories');
         if (!wrapper || !container) return;
         if (!selCat) { wrapper.classList.add('d-none'); container.innerHTML=''; return; }
-        const cat = categoryList.find(c=>c.key===selCat);
-        const subs = (cat&&cat.subcategories)||[];
+        const cat = categoryList.find(c => c.key === categoryKeyForUiActive());
+        const subs = (cat && cat.subcategories) || [];
         if (!subs.length) { wrapper.classList.add('d-none'); container.innerHTML=''; return; }
 
+        const uiSub = subcategoryKeyForUiActive();
         wrapper.classList.remove('d-none');
-        let html = `<button type="button" class="area-btn${selSub===''?' active':''}" data-sub-key="">${T.filterAll}</button>`;
+        let html = `<button type="button" class="area-btn${!selSub?' active':''}" data-sub-key="">${T.filterAll}</button>`;
         subs.forEach(s => {
-            html += `<button type="button" class="area-btn${selSub===s.key?' active':''}" data-sub-key="${esc(s.key)}">${esc(s.name)}</button>`;
+            html += `<button type="button" class="area-btn${uiSub===s.key?' active':''}" data-sub-key="${esc(s.key)}">${esc(s.name)}</button>`;
         });
         container.innerHTML = html;
         container.querySelectorAll('button').forEach(btn => {
@@ -346,7 +475,7 @@
                 selSub = btn.dataset.subKey || '';
                 container.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
                 btn.classList.add('active');
-                applyFilters();
+                void applyFilters();
             });
         });
     }
@@ -458,7 +587,7 @@
                 if (gc) localStorage.setItem('gallery_area_pref', gc);
                 container.querySelectorAll('.area-btn').forEach(b=>b.classList.remove('active'));
                 this.classList.add('active');
-                applyFilters();
+                void applyFilters();
             });
         });
     }
@@ -487,6 +616,36 @@
         }).join('');
         $grid.querySelectorAll('.gallery-card').forEach(el => {
             el.addEventListener('click', () => openModal(el.dataset.id));
+        });
+    }
+
+    function renderAssetGrid(items) {
+        if (!$grid) return;
+        const intro = `<div class="col-12"><div class="alert alert-info py-2 small mb-2">${esc(T.assetsOnlyIntro)}</div></div>`;
+        const cards = (items || []).map(a => {
+            const title = esc(a.title || T.modalAssetTitle);
+            const mfr = esc(a.manufacturer_name || '');
+            const loc = esc(a.manufacturer_location || '');
+            const img = a.image_url ? esc(a.image_url) : '';
+            const kindLabel = a.asset_kind === 'material' ? T.assetMaterial : T.assetPrototype;
+            const tags = (a.ai_tags || []).slice(0, 3).map(t => `<span class="badge bg-light text-dark me-1">${esc(t)}</span>`).join('');
+            return `<div class="col-sm-6 col-md-4 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm gallery-card gallery-card-asset" data-id="${esc(a.id)}" style="cursor:pointer;">
+                    <div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">
+                        ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt='無圖';" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
+                    </div>
+                    <div class="card-body py-2">
+                        <span class="badge bg-success-subtle text-success border mb-1">${esc(kindLabel)}</span>
+                        <h6 class="card-title small text-truncate mb-0">${title}</h6>
+                        <p class="card-text small text-muted mb-0">${mfr}${loc ? ' <span class="text-secondary">· ' + loc + '</span>' : ''}</p>
+                        ${tags ? `<div class="mt-1">${tags}</div>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+        $grid.innerHTML = intro + cards;
+        $grid.querySelectorAll('.gallery-card-asset').forEach(el => {
+            el.addEventListener('click', () => openAssetModal(el.dataset.id));
         });
     }
 
@@ -549,6 +708,39 @@
         modal.show();
     }
 
+    function openAssetModal(assetId) {
+        const a = (_lastAssetItems || []).find(i => String(i && i.id) === String(assetId || ''));
+        if (!a) return;
+        const modal = new bootstrap.Modal(document.getElementById('galleryModal'));
+        document.getElementById('galleryModalLabel').textContent = T.modalAssetTitle;
+        document.getElementById('modalImage').src = a.image_url || '';
+        document.getElementById('modalTitle').textContent = a.title || T.modalAssetTitle;
+        document.getElementById('modalDescription').textContent = a.description || '';
+        document.getElementById('modalDesignHighlightBlock').classList.add('d-none');
+        document.getElementById('modalMfrName').textContent = a.manufacturer_name || '';
+        document.getElementById('modalMfrLocation').textContent = a.manufacturer_location || '—';
+        const contact = a.manufacturer_contact || {};
+        let ch = '';
+        if (contact.email) ch += `<div><i class="bi bi-envelope me-1"></i><a href="mailto:${esc(contact.email)}">${esc(contact.email)}</a></div>`;
+        if (contact.phone) ch += `<div><i class="bi bi-telephone me-1"></i><a href="tel:${esc(contact.phone)}">${esc(contact.phone)}</a></div>`;
+        document.getElementById('modalContact').innerHTML = ch || `<span class="text-muted">${T.noContact}</span>`;
+        document.getElementById('modalTags').innerHTML = (a.ai_tags || []).map(t => `<span class="badge bg-secondary me-1">${esc(t)}</span>`).join('');
+        const profileBtn = document.getElementById('modalBtnVendorProfile');
+        const browseBtn = document.getElementById('modalBtnBrowse');
+        const mfrId = a.manufacturer_id || null;
+        if (mfrId) {
+            profileBtn.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+            profileBtn.classList.remove('d-none');
+        } else profileBtn.classList.add('d-none');
+        browseBtn.href = '/vendors.html';
+        document.getElementById('modalBtnRedesign').href =
+            '/custom-product.html?from_gallery=1&image_url=' + encodeURIComponent(a.image_url || '') +
+            (mfrId ? '&manufacturer_id=' + encodeURIComponent(mfrId) : '');
+        const redesignLabel = document.getElementById('modalBtnRedesignText');
+        if (redesignLabel) redesignLabel.textContent = T.redesignAsset;
+        modal.show();
+    }
+
     // key → 中文名（全部從資料庫 custom_product_categories 取）
     let catNameMap = {};
 
@@ -606,20 +798,18 @@
 
             // 4. 完全沒資料才顯示 demo
             if (!_rawItems.length) _rawItems = [DEMO_ITEM];
-            applyFilters();
         } catch(err) {
             console.error('圖庫載入失敗', err);
             _rawItems = [DEMO_ITEM];
-            applyFilters();
         } finally {
             if ($loading) $loading.classList.add('d-none');
         }
     }
 
     // ── 鍵盤輸入 ──────────────────────────────────────────────────────────
-    if ($keyword) $keyword.addEventListener('input', ()=>{ clearTimeout(kwTimer); kwTimer=setTimeout(applyFilters,300); });
+    if ($keyword) $keyword.addEventListener('input', () => { clearTimeout(kwTimer); kwTimer = setTimeout(() => void applyFilters(), 300); });
 
-    // ── 初始化（支援 URL ?category_key= & subcategory_key= 預選主/子分類）──
+    // ── 初始化（與 01a1053 相同：URL 原樣寫入 selCat/selSub；最後只篩選一次）──
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
         applyModalI18n();
@@ -632,8 +822,8 @@
             selSub = urlSub;
             renderCategoryButtons();
             renderSubcategoryRow();
-            applyFilters();
         }
+        await applyFilters();
     }
 
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
