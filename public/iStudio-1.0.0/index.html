@@ -218,13 +218,19 @@
                 .mw-layout-filter { cursor: pointer; font-size: 0.875rem; padding: 0.25rem 0.5rem; border-radius: 6px; border: 1px solid #dee2e6; background: #fff; }
                 .mw-layout-filter:hover, .mw-layout-filter.active { border-color: #445D7E; color: #445D7E; }
                 .mw-layout-filter.active { background: #e8ecf0; }
+                #media-wall-active-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.35rem; margin-bottom: 0.5rem; }
+                #media-wall-active-filters.d-none { display: none !important; }
+                .mw-active-filter-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.45rem; font-size: 0.75rem; border-radius: 6px; background: #e8ecf0; color: #445D7E; border: 1px solid #c5d0dc; }
+                .mw-active-filter-chip button { border: none; background: transparent; color: #666; cursor: pointer; padding: 0 0.15rem; line-height: 1; font-size: 0.9rem; }
+                .mw-tags-panel .badge.mw-tag-filter-pick { cursor: pointer; border: 1px solid #dde4ec; background: #f0f4f8; }
+                .mw-tags-panel .badge.mw-tag-filter-pick.active { background: #445D7E; color: #fff; border-color: #445D7E; }
             </style>
             <div class="text-center py-2 mb-2" id="home-help-cta">
                 <span class="text-muted small" data-i18n="home.helpCtaPrefix">第一次來？</span>
                 <a href="/help/" data-i18n="home.helpCtaLink">了解怎麼設計與找廠商</a>
             </div>
             <div class="d-flex flex-wrap align-items-center justify-content-center gap-2 mb-2">
-                <input type="search" id="media-wall-search" class="form-control form-control-sm" data-i18n-placeholder="home.searchPlaceholder" placeholder="搜尋作品（標題或提示詞）" style="max-width: 280px;" autocomplete="off">
+                <input type="search" id="media-wall-search" class="form-control form-control-sm" data-i18n-placeholder="home.searchPlaceholder" placeholder="搜尋作品（標題、提示詞或標籤）" style="max-width: 280px;" autocomplete="off">
                 <button type="button" id="media-wall-search-btn" class="btn btn-sm btn-outline-primary" data-i18n="home.searchBtn">搜尋</button>
                 <button type="button" id="mw-fav-filter-btn" class="btn btn-sm btn-outline-secondary" title="只顯示我的收藏作品">
                     <i class="bi bi-heart me-1"></i><span data-i18n="home.myFavorites">我的收藏</span><span class="fav-count"></span>
@@ -239,6 +245,7 @@
                 <div id="media-wall-filter-main" class="filter-row"></div>
                 <div id="media-wall-filter-sub" class="filter-row d-none"></div>
             </div>
+            <div id="media-wall-active-filters" class="d-none" aria-live="polite"></div>
             <!-- 我的最愛縮圖列已移除，改由「我的收藏」過濾按鈕控制格線顯示 -->
             <div id="media-wall-grid-wrap">
                 <div id="media-wall-grid">
@@ -532,11 +539,12 @@
             // 「我的收藏」過濾：只顯示已收藏作品（可疊加 layout 類型篩選）
             function renderFavoritesGrid() {
                 var favs = loadFavs();
-                if (currentLayoutType) {
+                if (currentLayoutType || currentQ || currentTagFilters.length || currentCategoryKey || currentSubcategoryKey) {
                     favs = favs.filter(function (f) {
                         var item = f.item || {};
                         var t = item.type || (item.manufacturer_id ? (item.image_url_before ? 'comparison' : 'series') : 'user_design');
-                        return t === currentLayoutType;
+                        item.type = item.type || t;
+                        return itemMatchesWallFilters(item);
                     });
                 }
                 grid.innerHTML = '';
@@ -709,8 +717,55 @@
             /* ═══ 結束 我的最愛 ═══ */
             var currentPage = 1;
             var currentQ = '';
+            var currentTagFilters = [];
             var perPage = 48;
             var isLoading = false;
+            function itemMatchesTagFilters(item, tagFilters) {
+                if (!tagFilters || !tagFilters.length) return true;
+                var tags = getDisplayTags(item).map(function (t) { return String(t).trim().toLowerCase(); });
+                return tagFilters.every(function (tf) {
+                    var needle = String(tf).trim().toLowerCase();
+                    if (!needle) return true;
+                    return tags.some(function (t) { return t === needle || t.indexOf(needle) >= 0 || needle.indexOf(t) >= 0; });
+                });
+            }
+            function itemMatchesSearchQ(item, q) {
+                if (!q) return true;
+                var hay = [
+                    item.title, item.description, item.generation_prompt, item.design_highlight,
+                    item.category_key, item.subcategory_key, item.owner_display
+                ].concat(getDisplayTags(item)).filter(Boolean).join(' ').toLowerCase();
+                return hay.indexOf(q.toLowerCase()) >= 0;
+            }
+            function categoryKeysForMain(key) {
+                var keys = [key];
+                (categoriesData.categories || []).forEach(function (c) {
+                    if ((c.key || '') !== key) return;
+                    (c.subcategories || []).forEach(function (s) { if (s.key) keys.push(s.key); });
+                });
+                return keys;
+            }
+            function itemMatchesWallFilters(item) {
+                if (!item) return false;
+                if (currentLayoutType && (item.type || '') !== currentLayoutType) return false;
+                if (currentSubcategoryKey && (item.subcategory_key || '') !== currentSubcategoryKey) return false;
+                if (currentCategoryKey && !currentSubcategoryKey) {
+                    var ck = item.category_key || item.category || '';
+                    if (categoryKeysForMain(currentCategoryKey).indexOf(ck) < 0) return false;
+                }
+                if (!itemMatchesTagFilters(item, currentTagFilters)) return false;
+                if (!itemMatchesSearchQ(item, currentQ)) return false;
+                return true;
+            }
+            function getActiveSearchQ() {
+                var fromInput = searchInput ? searchInput.value.trim() : '';
+                return fromInput || currentQ || '';
+            }
+            function reloadMediaWall(page, append) {
+                currentQ = getActiveSearchQ();
+                if (searchInput) searchInput.value = currentQ;
+                loadMediaWall(page || 1, currentQ, !!append, adminOpts);
+            }
             function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
             function escAttr(s) { return (s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
             /** Supabase 圖片改為自家網域可分享網址（複製圖片網址／開新分頁時顯示 matchdo.cc） */
@@ -730,7 +785,10 @@
                 return out;
             }
             function buildTagsBadgesHtml(tags) {
-                return (tags || []).map(function (t) { return '<span class="badge">' + esc(t) + '</span>'; }).join('');
+                return (tags || []).map(function (t) {
+                    var active = currentTagFilters.indexOf(t) >= 0;
+                    return '<button type="button" class="badge mw-tag-filter-pick' + (active ? ' active' : '') + '" data-tag="' + escAttr(t) + '">' + esc(t) + '</button>';
+                }).join('');
             }
             function imageSrcForShare(url) {
                 if (!url || typeof url !== 'string') return url || '';
@@ -827,13 +885,16 @@
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
                     else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
                     var itemId = String(p.id || (p.title + p.type));
-                    var inspirationHref = '/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(itemId);
+                    var inspirationHref = (p.inspiration_url && String(p.inspiration_url).trim())
+                        || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(itemId));
+                    dataItem.inspiration_url = inspirationHref;
                     var seoDescSpan = shortDesc ? ('<span class="media-wall-seo-desc">\u63cf\u8ff0\uff1a' + esc(shortDesc) + '</span>') : '';
                     var seoTagsSpan = displayTags.length ? ('<span class="media-wall-seo-desc">\u6a19\u7c64\uff1a' + esc(displayTags.join(' ')) + '</span>') : '';
                     var tagsBtnHtml = displayTags.length
                         ? ('<button type="button" class="mw-tags-btn" title="' + escAttr((window.i18n && window.i18n.t) ? window.i18n.t('home.tags') : '標籤') + '" aria-expanded="false"><i class="bi bi-tags"></i><span class="mw-tags-count">' + displayTags.length + '</span></button><div class="mw-tags-panel" role="region" aria-hidden="true">' + buildTagsBadgesHtml(displayTags) + '</div>')
                         : '';
-                    wrap.innerHTML = '<article class="card"><a href="' + escAttr(inspirationHref) + '" class="media-wall-card-link text-decoration-none text-dark"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay"><h2>' + title + '</h2></div>' + seoDescSpan + seoTagsSpan + '</div></a>' + tagsBtnHtml + '<button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(itemId) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></article>';
+                    // 站內：點卡片開 lightbox；永久連結僅供分享（見 dataItem.inspiration_url）
+                    wrap.innerHTML = '<article class="card"><a href="#" class="media-wall-card-link text-decoration-none text-dark" data-permalink="' + escAttr(inspirationHref) + '"><div class="card-img-wrap' + wrapExtra + '">' + typeBadge + content + '<div class="card-title-overlay"><h2>' + title + '</h2></div>' + seoDescSpan + seoTagsSpan + '</div></a>' + tagsBtnHtml + '<button type="button" class="mw-fav-btn' + (isFaved ? ' active' : '') + '" title="' + (isFaved ? '已加入收藏' : '加入收藏') + '" data-fav-id="' + escAttr(itemId) + '"><i class="bi ' + (isFaved ? 'bi-heart-fill' : 'bi-heart') + '"></i></button></article>';
                     // 愛心按鈕事件
                     var favBtn = wrap.querySelector('.mw-fav-btn');
                     var tagsBtn = wrap.querySelector('.mw-tags-btn');
@@ -852,6 +913,13 @@
                             }
                         });
                     }
+                    wrap.querySelectorAll('.mw-tag-filter-pick').forEach(function (btn) {
+                        btn.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleTagFilter(btn.getAttribute('data-tag') || '');
+                        });
+                    });
                     if (favBtn) {
                         favBtn.addEventListener('click', function(e) {
                             e.preventDefault(); e.stopPropagation();
@@ -964,6 +1032,10 @@
             var currentLayoutType = '';
 
             // ── 網址與篩選狀態綁定（SEO／分享／返回） ──
+            function parseTagFiltersParam(raw) {
+                if (!raw) return [];
+                return raw.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+            }
             function applyStateFromURL() {
                 var p = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
                 var layout = (p.get('layout_type') || '').trim();
@@ -971,6 +1043,7 @@
                 currentCategoryKey = (p.get('category_key') || '').trim();
                 currentSubcategoryKey = (p.get('subcategory_key') || '').trim();
                 currentQ = (p.get('q') || '').trim();
+                currentTagFilters = parseTagFiltersParam(p.get('tag') || '');
                 if (searchInput) searchInput.value = currentQ;
             }
             function updateMediaWallURL(overrides) {
@@ -980,13 +1053,72 @@
                 var cat = overrides.category_key !== undefined ? overrides.category_key : currentCategoryKey;
                 var sub = overrides.subcategory_key !== undefined ? overrides.subcategory_key : currentSubcategoryKey;
                 var q = overrides.q !== undefined ? overrides.q : currentQ;
+                var tags = overrides.tag !== undefined ? overrides.tag : currentTagFilters;
+                if (Array.isArray(tags)) tags = tags.join(',');
                 if (layout) p.set('layout_type', layout); else p.delete('layout_type');
                 if (cat) p.set('category_key', cat); else p.delete('category_key');
                 if (sub) p.set('subcategory_key', sub); else p.delete('subcategory_key');
                 if (q) p.set('q', q); else p.delete('q');
+                if (tags && String(tags).trim()) p.set('tag', String(tags).trim()); else p.delete('tag');
                 var search = p.toString();
                 var url = (window.location.pathname || '/') + (search ? '?' + search : '') + (window.location.hash || '');
                 if (window.history && window.history.pushState) window.history.pushState(null, '', url);
+            }
+            function toggleTagFilter(tag) {
+                tag = String(tag || '').trim();
+                if (!tag) return;
+                var idx = currentTagFilters.indexOf(tag);
+                if (idx >= 0) currentTagFilters.splice(idx, 1);
+                else currentTagFilters.push(tag);
+                updateMediaWallURL({ tag: currentTagFilters.join(',') });
+                renderActiveFilterChips();
+                if (showingFavoritesOnly) renderFavoritesGrid();
+                else reloadMediaWall(1, false);
+            }
+            function renderActiveFilterChips() {
+                var el = document.getElementById('media-wall-active-filters');
+                if (!el) return;
+                var chips = [];
+                if (currentQ) {
+                    chips.push({ kind: 'q', label: '\u641c\u7d22\uff1a' + currentQ, clear: function () {
+                        currentQ = '';
+                        if (searchInput) searchInput.value = '';
+                        updateMediaWallURL({ q: '' });
+                        reloadMediaWall(1, false);
+                    } });
+                }
+                currentTagFilters.forEach(function (t) {
+                    chips.push({ kind: 'tag', label: '\u6a19\u7c64\uff1a' + t, clear: function () { toggleTagFilter(t); } });
+                });
+                if (currentLayoutType) {
+                    var layoutLabels = { user_design: '\u8a2d\u8a08\u5716', comparison: '\u5c0d\u7167\u5716', series: '\u7cfb\u5217\u5716' };
+                    chips.push({ kind: 'layout', label: layoutLabels[currentLayoutType] || currentLayoutType, clear: function () { setLayoutType(''); } });
+                }
+                if (currentCategoryKey) {
+                    var catName = currentCategoryKey;
+                    (categoriesData.categories || []).forEach(function (c) {
+                        if ((c.key || '') === currentCategoryKey) catName = c.name || catName;
+                    });
+                    chips.push({ kind: 'cat', label: catName, clear: function () { runFilterMain(''); } });
+                }
+                if (currentSubcategoryKey) {
+                    var subName = currentSubcategoryKey;
+                    (categoriesData.categories || []).forEach(function (c) {
+                        (c.subcategories || []).forEach(function (s) {
+                            if ((s.key || '') === currentSubcategoryKey) subName = s.name || subName;
+                        });
+                    });
+                    chips.push({ kind: 'sub', label: subName, clear: function () { runFilterSub(''); } });
+                }
+                if (!chips.length) { el.classList.add('d-none'); el.innerHTML = ''; return; }
+                el.classList.remove('d-none');
+                el.innerHTML = chips.map(function (c) {
+                    return '<span class="mw-active-filter-chip">' + esc(c.label) + '<button type="button" aria-label="\u79fb\u9664\u7be9\u9078">&times;</button></span>';
+                }).join('');
+                el.querySelectorAll('.mw-active-filter-chip').forEach(function (chip, i) {
+                    var btn = chip.querySelector('button');
+                    if (btn && chips[i]) btn.addEventListener('click', chips[i].clear);
+                });
             }
             applyStateFromURL();
 
@@ -1003,7 +1135,7 @@
                     if (showingFavoritesOnly) {
                         renderFavoritesGrid();
                     } else {
-                        loadMediaWall(1, searchInput ? searchInput.value.trim() : '', false, adminOpts);
+                        reloadMediaWall(1, false);
                     }
                 });
             }
@@ -1017,12 +1149,9 @@
                     var btnType = (btn.getAttribute('data-layout-type') || '').trim();
                     btn.classList.toggle('active', btnType === currentLayoutType);
                 });
-                if (showingFavoritesOnly) {
-                    renderFavoritesGrid();
-                } else {
-                    var q = (searchInput && searchInput.value.trim()) ? searchInput.value.trim() : (currentQ || '');
-                    loadMediaWall(1, q, false, adminOpts);
-                }
+                renderActiveFilterChips();
+                if (showingFavoritesOnly) renderFavoritesGrid();
+                else reloadMediaWall(1, false);
             }
             (function () {
                 var buttons = document.querySelectorAll('.mw-layout-filter');
@@ -1059,7 +1188,7 @@
                                     var icon = favFilterBtn.querySelector('i');
                                     if (icon) icon.className = 'bi bi-heart me-1';
                                 }
-                                loadMediaWall(1, '', false, adminOpts);
+                                reloadMediaWall(1, false);
                             }
                         }
                     });
@@ -1070,6 +1199,7 @@
             var categoriesLang = '';
             function buildMediaWallUrl(page, q) {
                 var url = '/api/media-wall?per_page=' + perPage + '&page=' + page + (q ? '&q=' + encodeURIComponent(q) : '');
+                if (currentTagFilters.length) url += '&tag=' + encodeURIComponent(currentTagFilters.join(','));
                 if (currentCategoryKey) url += '&category_key=' + encodeURIComponent(currentCategoryKey);
                 if (currentSubcategoryKey) url += '&subcategory_key=' + encodeURIComponent(currentSubcategoryKey);
                 if (currentLayoutType) url += '&layout_type=' + encodeURIComponent(currentLayoutType);
@@ -1083,7 +1213,9 @@
                     var name = (p.title || '').trim();
                     var desc = ((p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt) : p.description) || p.title || '';
                     var img = (p.image_url || p.cover_image_url || '').trim();
-                    var item = { '@type': 'CreativeWork', name: name || '\u4f5c\u54c1' };
+                    var pagePath = (p.inspiration_url && String(p.inspiration_url).trim())
+                        || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(p.id || ''));
+                    var item = { '@type': 'CreativeWork', name: name || '\u4f5c\u54c1', url: baseUrl + pagePath };
                     if (desc) item.description = (desc + '').slice(0, 200);
                     if (img) item.image = img.indexOf('http') === 0 ? img : (baseUrl + (img.indexOf('/') === 0 ? '' : '/') + img);
                     return { '@type': 'ListItem', position: i + 1, item: item };
@@ -1153,6 +1285,7 @@
                     currentPage = page;
                     currentQ = q;
                     renderFavSection();
+                    renderActiveFilterChips();
                     if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', page < 2 || items.length < perPage);
                 }).catch(function () {
                     if (thisRequestId !== loadMediaWallRequestId) return;
@@ -1161,7 +1294,8 @@
                 }).finally(function () { if (thisRequestId === loadMediaWallRequestId) isLoading = false; });
             }
             // 立即載入靈感牆，不等待 Auth / 分類 API，避免首次進入頁面時因非同步延遲而空白
-            loadMediaWall(1, currentQ, false, adminOpts);
+            reloadMediaWall(1, false);
+            renderActiveFilterChips();
             function runFilterMain(key) {
                 currentCategoryKey = key || '';
                 currentSubcategoryKey = '';
@@ -1169,13 +1303,17 @@
                 var subRowEl = document.getElementById('media-wall-filter-sub');
                 if (subRowEl) { subRowEl.classList.add('d-none'); subRowEl.innerHTML = ''; }
                 renderFilterTags();
-                loadMediaWall(1, currentQ, false, adminOpts);
+                renderActiveFilterChips();
+                if (showingFavoritesOnly) renderFavoritesGrid();
+                else reloadMediaWall(1, false);
             }
             function runFilterSub(subKey) {
                 currentSubcategoryKey = subKey || '';
                 updateMediaWallURL();
                 renderFilterTags();
-                loadMediaWall(1, currentQ, false, adminOpts);
+                renderActiveFilterChips();
+                if (showingFavoritesOnly) renderFavoritesGrid();
+                else reloadMediaWall(1, false);
             }
             function renderFilterTags() {
                 var mainRow = document.getElementById('media-wall-filter-main');
@@ -1272,22 +1410,25 @@
                     if (catJson && catJson.categories && catJson.categories.length) categoriesData = catJson;
                 } catch (e) {}
                 renderFilterTags();
+                renderActiveFilterChips();
                 // 靈感牆已在上方同步載入，此處僅更新篩選標籤，不再重複請求
             })();
             if (searchBtn && searchInput) {
                 searchBtn.addEventListener('click', function () {
-                    var q = searchInput.value.trim();
-                    currentQ = q;
-                    updateMediaWallURL({ q: q });
-                    loadMediaWall(1, currentQ, false, adminOpts);
+                    currentQ = searchInput.value.trim();
+                    updateMediaWallURL({ q: currentQ });
+                    renderActiveFilterChips();
+                    if (showingFavoritesOnly) renderFavoritesGrid();
+                    else reloadMediaWall(1, false);
                 });
                 searchInput.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        var q = searchInput.value.trim();
-                        currentQ = q;
-                        updateMediaWallURL({ q: q });
-                        loadMediaWall(1, currentQ, false, adminOpts);
+                        currentQ = searchInput.value.trim();
+                        updateMediaWallURL({ q: currentQ });
+                        renderActiveFilterChips();
+                        if (showingFavoritesOnly) renderFavoritesGrid();
+                        else reloadMediaWall(1, false);
                     }
                 });
             }
@@ -1295,15 +1436,17 @@
                 applyStateFromURL();
                 document.querySelectorAll('.mw-layout-filter').forEach(function (t) { t.classList.toggle('active', (t.getAttribute('data-layout-type') || '').trim() === currentLayoutType); });
                 renderFilterTags();
-                loadMediaWall(1, currentQ, false, adminOpts);
+                renderActiveFilterChips();
+                if (showingFavoritesOnly) renderFavoritesGrid();
+                else reloadMediaWall(1, false);
             });
-            if (loadMoreBtn) loadMoreBtn.addEventListener('click', function () { loadMediaWall(currentPage + 1, currentQ, true, adminOpts); });
+            if (loadMoreBtn) loadMoreBtn.addEventListener('click', function () { reloadMediaWall(currentPage + 1, true); });
             var sentinel = document.getElementById('media-wall-sentinel');
             if (sentinel && typeof IntersectionObserver !== 'undefined') {
                 var io = new IntersectionObserver(function (entries) {
                     if (!entries[0] || !entries[0].isIntersecting) return;
                     if (showingFavoritesOnly || isLoading || currentPage !== 1) return;
-                    loadMediaWall(2, currentQ, true, adminOpts);
+                    reloadMediaWall(2, true);
                 }, { root: null, rootMargin: '0px', threshold: 0 });
                 io.observe(sentinel);
             }
