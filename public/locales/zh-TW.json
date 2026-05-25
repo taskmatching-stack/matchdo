@@ -331,6 +331,7 @@
   "customProduct.colorPlaceholder": "例：白、米白、黑（可輸入中文或英文）",
   "customProduct.vendorNamePlaceholder": "輸入廠商名稱關鍵字",
   "customProduct.serviceAreaAll": "服務區域 — 全部",
+  "customProduct.serviceAreaTaiwan": "台灣",
   "customProduct.clearFilter": "清除",
   "customProduct.assetKindAll": "類型 — 全部",
   "customProduct.partAll": "部位 — 全部",

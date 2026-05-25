@@ -296,23 +296,64 @@ $(document).ready(function () {
         $('#vendorAssetsAssetKind').val('');
     }
 
+    function vendorPickerTr(key, fb) {
+        var v = t(key);
+        return (v && v !== key) ? v : fb;
+    }
+
+    function vendorPickerIsEn() {
+        var lang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+        return String(lang || '').toLowerCase().indexOf('zh') !== 0;
+    }
+
+    function vendorPickerAreaLabel(zh, en) {
+        var isEn = vendorPickerIsEn();
+        return isEn ? (en || zh || '') : (zh || en || '');
+    }
+
+    function appendVendorAreaTreeOptions($og, nodes, depth) {
+        (nodes || []).forEach(function (node) {
+            if (!node || !node.code) return;
+            if (node.children && node.children.length) {
+                appendVendorAreaTreeOptions($og, node.children, depth + 1);
+            } else {
+                var pad = depth > 0 ? Array(Math.min(depth, 2) + 1).join('\u3000') : '';
+                $og.append($('<option></option>').val(node.code).text(pad + vendorPickerAreaLabel(node.zh, node.en) || node.code));
+            }
+        });
+    }
+
     function fillVendorServiceAreaSelect() {
-        if (window.__vendorServiceAreasLoaded) return Promise.resolve();
         var $sel = $('#vendorAssetsServiceArea');
         if (!$sel.length) return Promise.resolve();
-        var allLabel = t('customProduct.serviceAreaAll') || '服務區域 — 全部';
+        var prev = $sel.val();
         return fetch('/api/service-areas').then(function (r) { return r.json(); }).then(function (data) {
-            $sel.find('option:not(:first)').remove();
-            $sel.find('option:first').text(allLabel);
+            $sel.empty();
+            $sel.append($('<option value=""></option>').text(vendorPickerTr('customProduct.serviceAreaAll', '服務區域 — 全部')));
             (data.taiwan_groups || []).forEach(function (g) {
-                var $og = $('<optgroup></optgroup>').attr('label', g.zh || g.en || '');
+                var $og = $('<optgroup></optgroup>').attr('label', vendorPickerAreaLabel(g.zh, g.en) || vendorPickerTr('customProduct.serviceAreaTaiwan', '台灣'));
                 (g.cities || []).forEach(function (c) {
-                    $og.append($('<option></option>').val(c.code).text(c.zh || c.en || c.code));
+                    $og.append($('<option></option>').val(c.code).text(vendorPickerAreaLabel(c.zh, c.en) || c.code));
                 });
                 if ($og.children().length) $sel.append($og);
             });
-            window.__vendorServiceAreasLoaded = true;
-        }).catch(function () { window.__vendorServiceAreasLoaded = true; });
+            (data.countries || []).filter(function (c) { return c && c.code && c.code !== 'TW'; }).forEach(function (country) {
+                var $og = $('<optgroup></optgroup>').attr('label', vendorPickerAreaLabel(country.zh, country.en) || country.code);
+                if (country.children && country.children.length) {
+                    $og.append($('<option></option>').val(country.code).text(
+                        vendorPickerAreaLabel(country.zh, country.en) + (vendorPickerIsEn() ? ' (nationwide)' : '（全國）')
+                    ));
+                    appendVendorAreaTreeOptions($og, country.children, 1);
+                } else {
+                    $og.append($('<option></option>').val(country.code).text(vendorPickerAreaLabel(country.zh, country.en) || country.code));
+                }
+                $sel.append($og);
+            });
+            if (prev) $sel.val(prev);
+        }).catch(function () {
+            $sel.empty();
+            $sel.append($('<option value=""></option>').text(vendorPickerTr('customProduct.serviceAreaAll', '服務區域 — 全部')));
+        });
     }
 
     function setVendorPickerMfrScopedMode(locked) {
@@ -473,8 +514,6 @@ $(document).ready(function () {
             $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
         });
     }
-
-    fillVendorServiceAreaSelect();
 
     $('#vendorAssetsClearFilter').on('click', function () {
         resetVendorAssetFilters();
