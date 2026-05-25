@@ -483,6 +483,18 @@ function parseAiTagsFromBody(body) {
     }
 }
 
+function parseTruthyBody(val) {
+    if (val === true || val === 1) return true;
+    const s = String(val || '').trim().toLowerCase();
+    return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
+/** 廠商素材「產品圖優化」Flux 提示詞；產品名稱取自標題欄位 */
+function buildVendorAssetProductOptimizePrompt(title) {
+    const product = (title || '').trim() || 'product';
+    return `A standalone smartphone with a ${product} sitting on a clean luxury product display stand, sharp studio lighting, minimalism, soft clean neutral background, perfect symmetrical composition, professional e-commerce product photography, 8k resolution`;
+}
+
 async function recordVisualSemanticsEvent(row) {
     try {
         const { error } = await supabase.from('visual_semantics_events').insert(row);
@@ -4734,6 +4746,17 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
+/** 廠商素材產品圖優化：以參考圖 + 標題組提示詞，Flux 2 Pro 圖生圖 */
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title) {
+    if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
+    const prompt = buildVendorAssetProductOptimizePrompt(title);
+    const mime = mimeType || 'image/jpeg';
+    const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
+    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], null, 'jpeg');
+    if (!buf || !buf.length) throw new Error('產品圖優化服務未設定或暫時無法使用（BFL_API_KEY）');
+    return buf;
+}
+
 /** 通用 BFL 文生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
 async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed, outputFormat, BFL_API_KEY) {
     const body = {
@@ -5387,6 +5410,54 @@ async function getPointsImageToImage() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_image_to_image');
     const v = (rows && rows[0]) ? rows[0].value : null;
     return Math.max(0, parseInt(v, 10) || 20);
+}
+
+// 廠商素材上傳（含 AI 標籤，預設 5 點）
+async function getPointsVendorAssetUpload() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_upload');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 5);
+}
+
+// 廠商素材上傳 + 產品圖優化（含標籤，預設 15 點）
+async function getPointsVendorAssetOptimize() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_optimize');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 15);
+}
+
+async function checkUserCreditsBalance(userId, required) {
+    const { data: credRow } = await supabase.from('user_credits').select('balance').eq('user_id', userId).maybeSingle();
+    const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
+    return { balance, sufficient: balance >= required };
+}
+
+/** 扣點；餘額不足回傳 { ok: false } */
+async function consumeUserCredits(userId, points, source, description, metadata = {}) {
+    if (!userId || points <= 0) return { ok: true, balance_after: null, skipped: true };
+    const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', userId).maybeSingle();
+    const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
+    if (balance < points) return { ok: false, error: '點數不足', balance, required: points };
+    const balanceAfter = balance - points;
+    const totalSpent = (credRow ? (credRow.total_spent || 0) : 0) + points;
+    const now = new Date().toISOString();
+    const { error: upErr } = await supabase.from('user_credits').upsert({
+        user_id: userId,
+        balance: balanceAfter,
+        total_spent: totalSpent,
+        updated_at: now
+    }, { onConflict: 'user_id' });
+    if (upErr) return { ok: false, error: upErr.message || '扣點失敗' };
+    await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        type: 'consumed',
+        amount: -points,
+        balance_after: balanceAfter,
+        source: source || 'consumed',
+        description: description || '',
+        metadata: metadata || {}
+    });
+    return { ok: true, balance_after: balanceAfter };
 }
 // 讀取 points_ai_upscale（供扣點用）
 async function getPointsAIUpscale() {
@@ -9588,6 +9659,22 @@ app.get('/api/me/vendor-assets', async (req, res) => {
     }
 });
 
+// GET /api/me/vendor-assets/upload-pricing — 上傳扣點說明（預覽標籤不扣點）
+app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        res.json({
+            points_upload: await getPointsVendorAssetUpload(),
+            points_optimize: await getPointsVendorAssetOptimize(),
+            optimize_includes_tags: true
+        });
+    } catch (e) {
+        console.error('GET /api/me/vendor-assets/upload-pricing:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // POST /api/me/vendor-assets/generate-tags — 上傳前預覽 AI 標籤（Gemini 讀圖）
 app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (req, res) => {
     try {
@@ -9640,12 +9727,28 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         const file = req.file;
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
 
+        const wantsOptimize = parseTruthyBody(body.optimize_product_image);
+        const pointsRequired = wantsOptimize
+            ? await getPointsVendorAssetOptimize()
+            : await getPointsVendorAssetUpload();
+
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
         const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
         let ownerId = null;
         if (token) {
             const { data: { user } } = await supabase.auth.getUser(token);
             ownerId = user?.id || null;
+        }
+        let isAdmin = false;
+        if (ownerId) {
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+            isAdmin = profile?.role === 'admin';
+        }
+        if (!isAdmin && ownerId && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
         }
 
         let tags = parseAiTagsFromBody(body);
@@ -9676,7 +9779,22 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
             tagsSource = semanticsJson ? 'gemini' : 'manual';
         }
 
-        const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
+        let uploadFile = file;
+        if (wantsOptimize) {
+            try {
+                const optimizedBuf = await optimizeVendorAssetImageWithFlux(file.buffer, file.mimetype, title);
+                uploadFile = {
+                    buffer: optimizedBuf,
+                    mimetype: 'image/jpeg',
+                    originalname: (file.originalname || 'image.jpg').replace(/\.[^.]+$/, '') + '.jpg'
+                };
+            } catch (optErr) {
+                console.error('vendor-assets product optimize:', optErr);
+                return res.status(503).json({ error: optErr.message || '產品圖優化失敗，請稍後重試' });
+            }
+        }
+
+        const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, uploadFile);
         const insertPayload = {
             manufacturer_id: manufacturerId,
             category_key: categoryKey,
@@ -9729,7 +9847,27 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
             owner_id: ownerId,
             category_key: categoryKey
         });
-        res.status(201).json(inserted);
+        let balanceAfter = null;
+        if (!isAdmin && ownerId && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                wantsOptimize ? 'vendor_asset_optimize' : 'vendor_asset_upload',
+                wantsOptimize ? `廠商素材上傳＋產品圖優化（${pointsRequired} 點）` : `廠商素材上傳（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, optimize: wantsOptimize }
+            );
+            if (!consumed.ok) {
+                console.warn('vendor-assets 扣點失敗（已上傳）:', consumed.error);
+            } else {
+                balanceAfter = consumed.balance_after;
+            }
+        }
+        res.status(201).json({
+            ...inserted,
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter,
+            product_optimized: wantsOptimize
+        });
     } catch (e) {
         console.error('POST /api/me/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });

@@ -80,9 +80,24 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" placeholder=""></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
-                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i>先預覽 AI 標籤</button></div>
-                                <div class="col-12 d-none add-tags-panel"><div class="add-tags-list d-flex flex-wrap gap-1"></div><p class="text-muted small mb-0 mt-1 add-tags-hint"></p></div>
-                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳並發布</button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
+                                <div class="col-12 d-none add-tags-panel">
+                                    <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
+                                    <div class="add-tags-list d-flex flex-wrap gap-1 mb-2"></div>
+                                    <div class="input-group input-group-sm mb-1" style="max-width: 320px;">
+                                        <input type="text" class="form-control add-tag-input" data-i18n-placeholder="baseModels.tagInputPlaceholder" placeholder="新增標籤">
+                                        <button type="button" class="btn btn-outline-secondary btn-add-tag" data-i18n="baseModels.addTagBtn">加入</button>
+                                    </div>
+                                    <p class="text-muted small mb-0 add-tags-hint"></p>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-prototype">
+                                        <label class="form-check-label" for="add-optimize-prototype"><span data-i18n="baseModels.optimizeProduct">產品圖優化（Flux 重繪，含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                    </div>
+                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                                </div>
+                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
                         </form>
                     </div>
@@ -116,9 +131,24 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.materialCategory">材質分類（選填）</label><select class="form-select add-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" placeholder=""></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
-                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i>先預覽 AI 標籤</button></div>
-                                <div class="col-12 d-none add-tags-panel"><div class="add-tags-list d-flex flex-wrap gap-1"></div><p class="text-muted small mb-0 mt-1 add-tags-hint"></p></div>
-                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i>上傳並發布</button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
+                                <div class="col-12 d-none add-tags-panel">
+                                    <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
+                                    <div class="add-tags-list d-flex flex-wrap gap-1 mb-2"></div>
+                                    <div class="input-group input-group-sm mb-1" style="max-width: 320px;">
+                                        <input type="text" class="form-control add-tag-input" data-i18n-placeholder="baseModels.tagInputPlaceholder" placeholder="新增標籤">
+                                        <button type="button" class="btn btn-outline-secondary btn-add-tag" data-i18n="baseModels.addTagBtn">加入</button>
+                                    </div>
+                                    <p class="text-muted small mb-0 add-tags-hint"></p>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
+                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeProduct">產品圖優化（Flux 重繪，含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                    </div>
+                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                                </div>
+                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
                         </form>
                     </div>
@@ -204,6 +234,7 @@
         var pendingByForm = {};
         var capabilities = null;
         var supplierImportModal = null;
+        var uploadPricing = { points_upload: 5, points_optimize: 15 };
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) {
@@ -281,16 +312,64 @@
             return pendingByForm[key];
         }
 
-        function showPendingTags(form, tags, hint) {
+        function renderEditableTags(form) {
             var p = getFormPending(form);
-            p.tags = tags;
+            var tags = p.tags || [];
             var panel = form.querySelector('.add-tags-panel');
             var list = form.querySelector('.add-tags-list');
-            var hintEl = form.querySelector('.add-tags-hint');
-            if (!tags || !tags.length) { panel.classList.add('d-none'); return; }
+            if (!tags.length) { panel.classList.add('d-none'); return; }
             panel.classList.remove('d-none');
-            list.innerHTML = renderTagBadges(tags);
-            hintEl.textContent = hint || '';
+            list.innerHTML = tags.map(function (t, i) {
+                return '<span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1 mb-1">' +
+                    esc(t) + '<button type="button" class="btn-close btn-close-sm add-tag-remove" style="font-size:0.45rem;padding:0.15rem" data-idx="' + i + '" aria-label="remove"></button></span>';
+            }).join('');
+            list.querySelectorAll('.add-tag-remove').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var idx = parseInt(btn.getAttribute('data-idx'), 10);
+                    if (!isNaN(idx)) { p.tags.splice(idx, 1); renderEditableTags(form); }
+                });
+            });
+        }
+
+        function showPendingTags(form, tags, hint) {
+            var p = getFormPending(form);
+            p.tags = tags || [];
+            var hintEl = form.querySelector('.add-tags-hint');
+            if (hintEl) hintEl.textContent = hint || tr('baseModels.tagsHint', '可刪除或新增標籤後再上傳');
+            renderEditableTags(form);
+        }
+
+        function addTagToForm(form) {
+            var input = form.querySelector('.add-tag-input');
+            if (!input) return;
+            var val = (input.value || '').trim();
+            if (!val) return;
+            var p = getFormPending(form);
+            if (!p.tags) p.tags = [];
+            if (p.tags.indexOf(val) === -1) p.tags.push(val);
+            input.value = '';
+            showPendingTags(form, p.tags, '');
+        }
+
+        function applyUploadPricingToForms() {
+            document.querySelectorAll('.add-form').forEach(function (form) {
+                var baseEl = form.querySelector('.add-points-base');
+                var optEl = form.querySelector('.add-points-optimize');
+                if (baseEl) baseEl.textContent = String(uploadPricing.points_upload);
+                if (optEl) optEl.textContent = String(uploadPricing.points_optimize);
+            });
+        }
+
+        async function loadUploadPricing() {
+            try {
+                var r = await fetch('/api/me/vendor-assets/upload-pricing', { headers: { Authorization: 'Bearer ' + token } });
+                var d = await r.json().catch(function () { return {}; });
+                if (r.ok) {
+                    uploadPricing.points_upload = d.points_upload != null ? d.points_upload : 5;
+                    uploadPricing.points_optimize = d.points_optimize != null ? d.points_optimize : 15;
+                }
+            } catch (_) {}
+            applyUploadPricingToForms();
         }
 
         async function loadCategories() {
@@ -414,9 +493,17 @@
 
             catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
 
+            var tagInput = form.querySelector('.add-tag-input');
+            var addTagBtn = form.querySelector('.btn-add-tag');
+            if (addTagBtn) addTagBtn.addEventListener('click', function () { addTagToForm(form); });
+            if (tagInput) tagInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); addTagToForm(form); }
+            });
+
             imgInput.addEventListener('change', function () {
                 previewBtn.disabled = !imgInput.files || !imgInput.files[0];
                 getFormPending(form).tags = null;
+                getFormPending(form).semantics = null;
                 form.querySelector('.add-tags-panel').classList.add('d-none');
             });
 
@@ -463,15 +550,26 @@
                     fd.append('ai_tags', JSON.stringify(p.tags));
                     if (p.semantics) fd.append('image_semantics_json', JSON.stringify(p.semantics));
                 }
+                var optimizeChk = form.querySelector('.add-optimize-product');
+                if (optimizeChk && optimizeChk.checked) fd.append('optimize_product_image', '1');
                 var btn = form.querySelector('.btn-add-submit');
                 btn.disabled = true;
                 try {
                     var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
                     var data = await r.json().catch(function () { return {}; });
+                    if (r.status === 402) {
+                        msgEl.textContent = (data.error || tr('baseModels.insufficientPoints', '點數不足')) +
+                            ' (' + tr('baseModels.needPoints', '需要') + ' ' + (data.required || '') + ')';
+                        return;
+                    }
                     if (!r.ok) { msgEl.textContent = data.error || 'failed'; return; }
-                    showToast('OK');
+                    var okMsg = tr('baseModels.uploadSuccess', '上傳成功');
+                    if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                    if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
+                    showToast(okMsg);
                     p.tags = null; p.semantics = null;
                     form.reset();
+                    applyUploadPricingToForms();
                     form.querySelector('.add-tags-panel').classList.add('d-none');
                     previewBtn.disabled = true;
                     await loadMaterials();
@@ -684,6 +782,7 @@
                 document.getElementById('main-content').classList.remove('d-none');
                 await loadCategories();
                 await loadCapabilities();
+                await loadUploadPricing();
                 await loadMaterials();
                 switchKind('prototype');
             } catch (e) { showToast(e.message, 'danger'); }
