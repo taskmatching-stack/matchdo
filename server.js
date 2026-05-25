@@ -489,10 +489,20 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-/** 廠商素材「產品圖優化」Flux 提示詞；產品名稱取自標題欄位 */
+/** 廠商素材「產品圖優化」Flux 提示詞；產品名稱取自標題欄位（通用品類、僅主體無雜物） */
 function buildVendorAssetProductOptimizePrompt(title) {
     const product = (title || '').trim() || 'product';
-    return `A standalone smartphone with a ${product} sitting on a clean luxury product display stand, sharp studio lighting, minimalism, soft clean neutral background, perfect symmetrical composition, professional e-commerce product photography, 8k resolution`;
+    return [
+        `Professional e-commerce product photo of a single ${product},`,
+        'the product is the only subject in frame, centered, full product visible,',
+        'isolated on a plain seamless neutral white or light gray studio background,',
+        'no props, no accessories, no extra objects, no hands, no people, no pets,',
+        'no text, no watermark, no logo overlay, no packaging box, no gift wrap,',
+        'no plants, no fabric swatches, no tools, no scene decoration, no lifestyle clutter,',
+        'clean minimalist catalog shot, sharp focus on product, soft even studio lighting,',
+        'subtle natural shadow under product only, symmetrical balanced composition,',
+        'ultra high detail, 8k resolution'
+    ].join(' ');
 }
 
 async function recordVisualSemanticsEvent(row) {
