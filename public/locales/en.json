@@ -138,7 +138,8 @@
   "nav.makerSection": "Makers",
   "nav.demands": "Demands",
 
-  "home.searchPlaceholder": "Search works (title or prompt)",
+  "home.searchPlaceholder": "Search works (title, prompt, or tags)",
+  "home.tags": "Tags",
   "home.searchBtn": "Search",
   "home.loadMore": "Load more",
   "home.emptyPrefix": "No works yet. Try ",

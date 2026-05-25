@@ -138,7 +138,8 @@
   "nav.makerSection": "製作方",
   "nav.demands": "訂製需求",
 
-  "home.searchPlaceholder": "搜尋作品（標題或提示詞）",
+  "home.searchPlaceholder": "搜尋作品（標題、提示詞或標籤）",
+  "home.tags": "標籤",
   "home.searchBtn": "搜尋",
   "home.loadMore": "載入更多",
   "home.emptyPrefix": "目前尚無作品展示，歡迎來",

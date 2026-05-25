@@ -136,6 +136,54 @@ function getVisualSemanticsDeps() {
     };
 }
 
+/** 合併手動 tags、ai_tags、image_semantics_json.tags（靈感牆／SEO／搜尋用） */
+function displayTagsForRow(row) {
+    if (!row) return [];
+    const manual = Array.isArray(row.tags) ? row.tags : [];
+    const ai = Array.isArray(row.ai_tags) ? row.ai_tags : [];
+    let semTags = [];
+    const sem = row.image_semantics_json;
+    if (sem && typeof sem === 'object' && Array.isArray(sem.tags)) semTags = sem.tags;
+    else if (typeof sem === 'string' && sem.trim()) {
+        try {
+            const o = JSON.parse(sem);
+            if (o && Array.isArray(o.tags)) semTags = o.tags;
+        } catch (_) {}
+    }
+    return visualSemantics.mergeTags(manual, ai, semTags);
+}
+
+function attachDisplayTags(item) {
+    if (!item || typeof item !== 'object') return item;
+    item.display_tags = displayTagsForRow(item);
+    return item;
+}
+
+function mediaWallItemSearchHaystack(item) {
+    if (!item) return '';
+    const tags = item.display_tags || displayTagsForRow(item);
+    return [
+        item.title,
+        item.description,
+        item.generation_prompt,
+        item.design_highlight,
+        item.category_key,
+        item.subcategory_key,
+        item.owner_display,
+        ...(tags || [])
+    ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function escapeHtmlAttr(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
+function buildInspirationTagsBlockHtml(tags) {
+    if (!tags || !tags.length) return '';
+    const inner = tags.map((t) => '<span class="inspiration-tag">' + escapeHtmlAttr(t) + '</span>').join('');
+    return '<details class="inspiration-tags-details"><summary><i class="bi bi-tags" aria-hidden="true"></i> 標籤（' + tags.length + '）</summary><div class="inspiration-tags-list">' + inner + '</div></details>';
+}
+
 function parseAiTagsFromBody(body) {
     const raw = body && body.ai_tags;
     if (raw == null || raw === '') return null;
@@ -579,8 +627,14 @@ app.get('/inspiration/:type/:id', async (req, res) => {
             res.status(404).send('找不到該作品');
             return;
         }
+        attachDisplayTags(item);
+        const displayTags = item.display_tags || [];
+        const tagsKeywords = displayTags.slice(0, 24).join(', ');
         const title = (item.title || '作品').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-        const desc = (item.description || (item.generation_prompt || item.title) || 'MATCHDO 靈感牆作品').toString().slice(0, 160).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        let descRaw = (item.description || item.generation_prompt || item.title || 'MATCHDO 靈感牆作品').toString();
+        if (tagsKeywords) descRaw = (descRaw + ' — ' + tagsKeywords).slice(0, 300);
+        const desc = descRaw.slice(0, 160).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const metaKeywords = tagsKeywords.replace(/</g, '&lt;').replace(/"/g, '&quot;');
         const img = item.image_url || item.cover_image_url || '';
         let imgUrl = '';
         if (img) {
@@ -603,6 +657,7 @@ app.get('/inspiration/:type/:id', async (req, res) => {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} - MATCHDO 靈感牆</title>
 <meta name="description" content="${desc}">
+${metaKeywords ? `<meta name="keywords" content="${metaKeywords}">` : ''}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MATCHDO 合做">
 <meta property="og:title" content="${title} - MATCHDO 靈感牆">
@@ -618,15 +673,33 @@ ${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')
     '@context': 'https://schema.org',
     '@type': 'CreativeWork',
     name: item.title || '作品',
-    description: (item.description || item.generation_prompt || item.title || '').toString().slice(0, 200),
+    description: descRaw.slice(0, 200),
     ...(imgUrl ? { image: imgUrl } : {}),
-    url: pageUrl
+    url: pageUrl,
+    ...(displayTags.length ? { keywords: displayTags.slice(0, 30).join(', ') } : {})
 }).replace(/</g, '\\u003c')}</script>
+<style>
+.inspiration-page{max-width:720px;margin:1.5rem auto;padding:0 1rem;font-family:system-ui,sans-serif}
+.inspiration-page h1{font-size:1.25rem;margin:0 0 .75rem}
+.inspiration-page .inspiration-img{max-width:100%;height:auto;border-radius:8px}
+.inspiration-tags-details{margin:1rem 0;font-size:.875rem}
+.inspiration-tags-details summary{cursor:pointer;color:#445D7E;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:.35rem}
+.inspiration-tags-details summary::-webkit-details-marker{display:none}
+.inspiration-tags-list{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.inspiration-tag{display:inline-block;padding:.2rem .5rem;background:#f0f4f8;border-radius:4px;font-size:.75rem;color:#333}
+.inspiration-open-btn{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#445D7E;color:#fff!important;text-decoration:none;border-radius:6px;font-size:.9rem}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
-<p>正在開啟作品…</p>
-<script>window.location.replace(${JSON.stringify(redirectUrl)});</script>
-<noscript><a href="${redirectUrl.replace(/"/g, '&quot;')}">前往靈感牆</a></noscript>
+<article class="inspiration-page">
+<h1>${title}</h1>
+${imgUrl ? `<img class="inspiration-img" src="${imgUrl.replace(/"/g, '&quot;')}" alt="${title}">` : ''}
+${buildInspirationTagsBlockHtml(displayTags)}
+<p><a class="inspiration-open-btn" href="${redirectUrl.replace(/"/g, '&quot;')}">在靈感牆中開啟</a></p>
+</article>
+<script>setTimeout(function(){window.location.replace(${JSON.stringify(redirectUrl)});},3500);</script>
+<noscript><p><a href="${redirectUrl.replace(/"/g, '&quot;')}">前往靈感牆</a></p></noscript>
 </body>
 </html>`;
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -6839,7 +6912,7 @@ app.get('/api/media-wall', async (req, res) => {
         if (!layoutOnly || layoutOnly === 'user_design') {
         let userQuery = supabase
             .from('custom_products')
-            .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage')
+            .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json')
             .not('ai_generated_image_url', 'eq', null)
             .or('show_on_homepage.eq.true,show_on_homepage.is.null');
         if (categoryKeysToMatch && categoryKeysToMatch.length) userQuery = userQuery.in('category', categoryKeysToMatch);
@@ -6861,14 +6934,6 @@ app.get('/api/media-wall', async (req, res) => {
             userRows = (fallback.data && fallback.data.length) ? fallback.data : [];
             if (filterSubcategoryKey && userRows.length) userRows = userRows.filter(p => (p.subcategory_key || '') === filterSubcategoryKey);
         }
-        if (searchQ && userRows.length) {
-            const q = searchQ.toLowerCase();
-            userRows = userRows.filter(p => {
-                const title = (p.title || '').toLowerCase();
-                const prompt = ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || '').toString().toLowerCase();
-                return title.includes(q) || prompt.includes(q);
-            });
-        }
         let ownerDisplayMap = {};
         if (userRows && userRows.length) {
             const ownerIds = [...new Set(userRows.map(p => p.owner_id).filter(Boolean))];
@@ -6883,7 +6948,7 @@ app.get('/api/media-wall', async (req, res) => {
                 let aj = p.analysis_json;
                 if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
                 const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
-                out.push({
+                const userItem = attachDisplayTags({
                     ...p,
                     analysis_json: aj || null,
                     generation_seed: seed != null && seed !== '' ? seed : null,
@@ -6896,6 +6961,7 @@ app.get('/api/media-wall', async (req, res) => {
                     category_key: p.category || null,
                     subcategory_key: p.subcategory_key || null
                 });
+                out.push(userItem);
             });
         }
         }
@@ -6904,7 +6970,7 @@ app.get('/api/media-wall', async (req, res) => {
         // 篩選「對照圖」時只查有 image_url_before 的項目，沒傳對照圖的不能出現在對照圖區
         let compRows = [];
         if (!layoutOnly || layoutOnly === 'comparison') {
-        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until, series_image_urls';
+        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until, series_image_urls';
         if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
             let compQuery = supabase
                 .from('manufacturer_portfolio')
@@ -6963,7 +7029,7 @@ app.get('/api/media-wall', async (req, res) => {
                 // 有 image_url_before 才是對照圖（設計圖+作品圖）；否則為系列圖（多張或單張）
                 const itemType = imageUrlBefore ? 'comparison' : 'series';
                 const mfrUserId = compMfrMap[p.manufacturer_id] || null;
-                const payload = {
+                const payload = attachDisplayTags({
                     type: itemType,
                     size: '1x1',
                     id: p.id,
@@ -6973,11 +7039,13 @@ app.get('/api/media-wall', async (req, res) => {
                     image_url: imageUrl,
                     design_highlight: p.design_highlight || null,
                     tags: Array.isArray(p.tags) ? p.tags : [],
+                    ai_tags: Array.isArray(p.ai_tags) ? p.ai_tags : [],
+                    image_semantics_json: p.image_semantics_json || null,
                     description: p.description || null,
                     category_key: p.category_key || null,
                     subcategory_key: p.subcategory_key || null,
                     link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html'
-                };
+                });
                 if (itemType === 'comparison') payload.image_url_before = imageUrlBefore;
                 if (itemType === 'series' && seriesUrls.length) payload.series_image_urls = seriesUrls;
                 // 篩選「對照圖」時只回傳真正的對照圖（有設計圖），不把系列圖塞進對照圖區
@@ -6992,7 +7060,7 @@ app.get('/api/media-wall', async (req, res) => {
         let seriesRows = [];
         if ((layoutOnly === 'series' || layoutOnly === 'collection') && nSeriesLimit > 0) {
             try {
-                const seriesSelect = 'id, manufacturer_id, title, image_url, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls';
+                const seriesSelect = 'id, manufacturer_id, title, image_url, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls';
                 if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
                     let seriesQuery = supabase
                         .from('manufacturer_portfolio')
@@ -7055,7 +7123,7 @@ app.get('/api/media-wall', async (req, res) => {
                 const imageUrl = seriesExpired ? null : (p.image_url || null);
                 const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
                 const mfrUserId = seriesMfrMap[p.manufacturer_id] || null;
-                out.push({
+                out.push(attachDisplayTags({
                     type: 'series',
                     size: '1x2',
                     id: p.id,
@@ -7065,12 +7133,14 @@ app.get('/api/media-wall', async (req, res) => {
                     image_url: imageUrl,
                     design_highlight: p.design_highlight || null,
                     tags: Array.isArray(p.tags) ? p.tags : [],
+                    ai_tags: Array.isArray(p.ai_tags) ? p.ai_tags : [],
+                    image_semantics_json: p.image_semantics_json || null,
                     description: p.description || null,
                     category_key: p.category_key || null,
                     subcategory_key: p.subcategory_key || null,
                     link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html',
                     series_image_urls: seriesUrls
-                });
+                }));
             });
         }
 
@@ -7161,6 +7231,11 @@ app.get('/api/media-wall', async (req, res) => {
             items = out.filter(function (item) { return item.type === 'series'; });
         } else if (layoutOnly === 'collection') {
             items = out.filter(function (item) { return item.type === 'collection'; });
+        }
+
+        if (searchQ) {
+            const qLower = searchQ.toLowerCase();
+            items = items.filter(function (item) { return mediaWallItemSearchHaystack(item).includes(qLower); });
         }
 
         res.set('Cache-Control', 'public, max-age=120');
@@ -7274,7 +7349,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
         if (type === 'user_design') {
             const { data: row, error } = await supabase
                 .from('custom_products')
-                .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage')
+                .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json')
                 .eq('id', id)
                 .maybeSingle();
             if (error || !row) return res.status(404).json({ error: '找不到該作品' });
@@ -7287,7 +7362,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             let aj = row.analysis_json;
             if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
             const seed = row.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
-            const item = {
+            const item = attachDisplayTags({
                 ...row,
                 analysis_json: aj || null,
                 generation_seed: seed != null && seed !== '' ? seed : null,
@@ -7299,13 +7374,13 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 owner_display: ownerDisplay || null,
                 category_key: row.category || null,
                 subcategory_key: row.subcategory_key || null
-            };
+            });
             return res.set('Cache-Control', 'public, max-age=120').json({ item });
         }
         if (type === 'comparison' || type === 'series') {
             const { data: row, error } = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until, min_order_quantity')
+                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until, min_order_quantity')
                 .eq('id', id)
                 .maybeSingle();
             if (error || !row) return res.status(404).json({ error: '找不到該作品' });
@@ -7322,7 +7397,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             const imageUrl = seriesExpired ? null : (row.image_url || null);
             const imageUrlBefore = row.image_url_before || null;
             const seriesUrls = (Array.isArray(row.series_image_urls) && row.series_image_urls.length) ? (seriesExpired ? [] : row.series_image_urls) : (imageUrl ? [imageUrl] : []);
-            const item = {
+            const item = attachDisplayTags({
                 type: type,
                 size: '1x1',
                 id: row.id,
@@ -7332,12 +7407,14 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 image_url: imageUrl,
                 design_highlight: row.design_highlight || null,
                 tags: Array.isArray(row.tags) ? row.tags : [],
+                ai_tags: Array.isArray(row.ai_tags) ? row.ai_tags : [],
+                image_semantics_json: row.image_semantics_json || null,
                 description: row.description || null,
                 category_key: row.category_key || null,
                 subcategory_key: row.subcategory_key || null,
                 link: row.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) : '/custom/gallery.html',
                 min_order_quantity: (row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity))) ? Number(row.min_order_quantity) : null
-            };
+            });
             if (type === 'comparison') item.image_url_before = imageUrlBefore;
             if (type === 'series' && seriesUrls.length) item.series_image_urls = seriesUrls;
             return res.set('Cache-Control', 'public, max-age=120').json({ item });
