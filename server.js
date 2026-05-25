@@ -1643,6 +1643,25 @@ app.post('/api/admin/seed-manufacturer', express.json(), async (req, res) => {
     }
 });
 
+const MFR_ADMIN_ROW_SELECT = 'id, name, description, location, contact_json, categories, is_active, verified, expires_at, vendor_source';
+
+function isMissingManufacturerColumnError(err, colName) {
+    const msg = String((err && err.message) || '');
+    return err && err.code === '42703' && (!colName || msg.includes(colName));
+}
+
+async function updateManufacturerAdminRow(manufacturerId, updates) {
+    let payload = { ...updates };
+    let selectCols = MFR_ADMIN_ROW_SELECT;
+    if (payload.logo_url !== undefined) selectCols = MFR_ADMIN_ROW_SELECT.replace('categories,', 'categories, logo_url,');
+    let { data, error } = await supabase.from('manufacturers').update(payload).eq('id', manufacturerId).select(selectCols).single();
+    if (error && isMissingManufacturerColumnError(error, 'logo_url')) {
+        delete payload.logo_url;
+        ({ data, error } = await supabase.from('manufacturers').update(payload).eq('id', manufacturerId).select(MFR_ADMIN_ROW_SELECT).single());
+    }
+    return { data, error };
+}
+
 // PATCH /api/admin/manufacturers/:id — 管理員代為編輯任意廠商資料（名稱、描述、聯絡等）；用於種子廠商維護
 app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
     try {
@@ -1669,9 +1688,12 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
             else updates.vendor_source = String(vs).trim();
         }
         if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
-        const { data: updated, error } = await supabase.from('manufacturers').update(updates).eq('id', manufacturerId).select('id, name, description, location, contact_json, categories, logo_url, is_active, verified, expires_at, vendor_source').single();
+        const { data: updated, error } = await updateManufacturerAdminRow(manufacturerId, updates);
         if (error) {
             console.error('PATCH /api/admin/manufacturers/:id:', error);
+            if (isMissingManufacturerColumnError(error)) {
+                return res.status(500).json({ error: '資料庫缺少欄位，請於 Supabase 執行 docs/add-manufacturer-logo.sql（或相關 migration）' });
+            }
             return res.status(500).json({ error: error.message || '更新失敗' });
         }
         const vs = updated.vendor_source || null;
