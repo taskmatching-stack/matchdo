@@ -117,6 +117,16 @@
             margin-bottom: 0.75rem;
         }
         .card-section { background: #fff; border-radius: 12px; padding: 1.25rem 1.5rem; border: 1px solid rgba(68,93,126,.12); margin-bottom: 1.25rem; }
+        .catalog-pill {
+            display: inline-block; padding: 0.35rem 0.85rem; border-radius: 20px;
+            font-size: 0.82rem; border: 1px solid rgba(68,93,126,.25); background: #fff;
+            color: #445D7E; cursor: pointer; transition: all .15s;
+        }
+        .catalog-pill:hover, .catalog-pill.active { background: #445D7E; color: #fff; border-color: #445D7E; }
+        .vendor-asset-thumb {
+            width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px;
+            background: #f0f4f8; display: block;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -210,6 +220,17 @@
                     <p class="mt-3">此廠商尚未上傳作品。</p>
                 </div>
                 <div id="portfolioGrid" class="row g-3"></div>
+
+                <div class="mt-4 pt-2" id="sectionVendorAssets" style="display:none;">
+                    <div class="section-title"><i class="bi bi-folder2-open me-1"></i><span data-i18n="vendor.materialLibrary">素材庫</span></div>
+                    <p class="text-muted small mb-2" data-i18n="vendor.materialLibraryHint">依廠商自訂分類瀏覽數位原型與材料參考（與網站訂製分類無關）。</p>
+                    <div id="vendorCatalogNav" class="d-flex flex-wrap gap-2 mb-3"></div>
+                    <div id="vendorAssetsEmpty" class="text-center py-4 text-muted d-none">
+                        <i class="bi bi-image"></i>
+                        <p class="mb-0 mt-2 small" data-i18n="vendor.materialLibraryEmpty">此分類尚無公開素材。</p>
+                    </div>
+                    <div id="vendorAssetsGrid" class="row g-3"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -538,6 +559,86 @@
                     grid.appendChild(col);
                 });
             }
+
+            loadVendorMaterialLibrary(v.id);
+        }
+
+        var vendorAssetsCatalogFlat = [];
+        var vendorAssetsActiveGroupId = '';
+
+        function loadVendorMaterialLibrary(mfrId) {
+            var section = document.getElementById('sectionVendorAssets');
+            if (!section || !mfrId) return;
+            Promise.all([
+                fetch('/api/manufacturers/' + encodeURIComponent(mfrId) + '/catalog-groups').then(function (r) { return r.json(); }),
+                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId)).then(function (r) { return r.json(); })
+            ]).then(function (results) {
+                var cg = results[0] || {};
+                var assets = results[1] || {};
+                vendorAssetsCatalogFlat = cg.flat || [];
+                var items = assets.items || [];
+                if (!items.length && !vendorAssetsCatalogFlat.length) return;
+                section.style.display = '';
+                vendorAssetsActiveGroupId = '';
+                renderVendorCatalogNav(mfrId);
+                renderVendorAssetsGrid(items);
+            }).catch(function () {});
+        }
+
+        function renderVendorCatalogNav(mfrId) {
+            var nav = document.getElementById('vendorCatalogNav');
+            if (!nav) return;
+            var allLabel = (window.i18n && typeof window.i18n.t === 'function')
+                ? (window.i18n.t('vendor.catalogAll') || '全部')
+                : '全部';
+            var html = '<button type="button" class="catalog-pill' + (!vendorAssetsActiveGroupId ? ' active' : '') + '" data-group="">' + escHtml(allLabel) + '</button>';
+            vendorAssetsCatalogFlat.forEach(function (g) {
+                var active = vendorAssetsActiveGroupId === g.id ? ' active' : '';
+                html += '<button type="button" class="catalog-pill' + active + '" data-group="' + escHtml(g.id) + '">' +
+                    escHtml(g.name) + (g.asset_count ? ' (' + g.asset_count + ')' : '') + '</button>';
+            });
+            nav.innerHTML = html;
+            nav.querySelectorAll('.catalog-pill').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    vendorAssetsActiveGroupId = btn.getAttribute('data-group') || '';
+                    renderVendorCatalogNav(mfrId);
+                    var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
+                    if (vendorAssetsActiveGroupId) url += '&catalog_group_id=' + encodeURIComponent(vendorAssetsActiveGroupId);
+                    fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+                        renderVendorAssetsGrid((data && data.items) ? data.items : []);
+                    }).catch(function () { renderVendorAssetsGrid([]); });
+                });
+            });
+        }
+
+        function renderVendorAssetsGrid(items) {
+            var grid = document.getElementById('vendorAssetsGrid');
+            var empty = document.getElementById('vendorAssetsEmpty');
+            if (!grid || !empty) return;
+            grid.innerHTML = '';
+            if (!items.length) {
+                empty.classList.remove('d-none');
+                return;
+            }
+            empty.classList.add('d-none');
+            items.forEach(function (item) {
+                var col = document.createElement('div');
+                col.className = 'col-6 col-md-4 col-lg-3';
+                var kindLabel = item.asset_kind === 'material' ? '材料' : '原型';
+                var cats = (item.catalog_groups || []).map(function (g) {
+                    return '<span class="badge bg-light text-primary border border-primary border-opacity-25 me-1 mb-1" style="font-size:.65rem;">' + escHtml(g.name) + '</span>';
+                }).join('');
+                col.innerHTML = '<div class="portfolio-card h-100">' +
+                    (item.image_url
+                        ? '<img src="' + escHtml(item.image_url) + '" class="vendor-asset-thumb" loading="lazy" alt="">'
+                        : '<div class="portfolio-no-img" style="aspect-ratio:1;"><i class="bi bi-image"></i></div>') +
+                    '<div class="p-2">' +
+                    '<span class="badge bg-light text-secondary border mb-1" style="font-size:.65rem;">' + escHtml(kindLabel) + '</span>' +
+                    (item.title ? '<div class="fw-semibold small text-truncate" style="color:#2d4059">' + escHtml(item.title) + '</div>' : '') +
+                    (cats ? '<div class="mt-1">' + cats + '</div>' : '') +
+                    '</div></div>';
+                grid.appendChild(col);
+            });
         }
 
         function escHtml(s) {

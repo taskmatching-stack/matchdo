@@ -104,7 +104,7 @@
                             <div class="detail-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="pastItemModalSeed" class="detail-value"></span></div>
                             <div class="detail-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="pastItemModalOwner" class="detail-value"></span></div>
                         </div>
-                        <div id="pastItemModalRefSources" class="d-none mt-2 px-2 pb-2" style="background: rgba(0,0,0,.1); border-radius: 8px;"><span class="detail-label d-block small mb-1">引用來源</span><div id="pastItemModalRefSourcesInner" class="d-flex flex-wrap gap-2"></div></div>
+                        <div id="pastItemModalRefSources" class="d-none mt-2 px-3 pb-2 text-start past-item-ref-sources"><span class="detail-label d-block small mb-1" data-i18n="customProduct.refSourcesTitle">引用廠商原型</span><div id="pastItemModalRefSourcesInner"></div></div>
                     </div>
                     <div id="pastItemModalShowSection" class="d-none">
                         <label class="d-flex align-items-center gap-2 mb-0">
@@ -200,6 +200,12 @@
                                 <label class="form-label small text-muted mb-0" for="vendorAssetsServiceArea" data-i18n="customProduct.filterServiceArea">服務區域</label>
                                 <select class="form-select form-select-sm" id="vendorAssetsServiceArea">
                                     <option value="">服務區域 — 全部</option>
+                                </select>
+                            </div>
+                            <div class="col-6 col-md-4 vendor-picker-catalog-cell d-none">
+                                <label class="form-label small text-muted mb-0" for="vendorAssetsCatalogGroup" data-i18n="customProduct.filterVendorCatalog">廠商分類</label>
+                                <select class="form-select form-select-sm" id="vendorAssetsCatalogGroup">
+                                    <option value="" data-i18n="customProduct.vendorCatalogAll">廠商分類 — 全部</option>
                                 </select>
                             </div>
                             <div class="col-12 col-md-4 d-flex gap-2 align-items-end">
@@ -430,6 +436,8 @@
         #pastItemModal .modal-content { width: 100%; max-width: 100%; max-height: 90vh; border-radius: 12px; border: none; box-shadow: 0 12px 40px rgba(0,0,0,.2); overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
         #pastItemModal .modal-header { padding: 0.75rem 1rem; background: #f0f4f8; border-bottom: 2px solid #445D7E; }
         #pastItemModal .modal-title { font-size: 1rem; font-weight: 600; color: #445D7E; }
+        #pastItemModal .past-item-ref-sources { background: rgba(68,93,126,.08); border-radius: 8px; }
+        #pastItemModal .past-ref-mfr-group:last-child { border-bottom: none !important; margin-bottom: 0 !important; padding-bottom: 0 !important; }
         #pastItemModal .modal-body { padding: 0; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; background: #f5f7fa; text-align: center; position: relative; display: flex; flex-direction: column; align-items: stretch; max-width: 100%; box-sizing: border-box; }
         #pastItemModal #pastItemModalBody { flex: 1; min-height: 200px; padding: 0.5rem; display: flex; align-items: center; justify-content: center; position: relative; max-width: 100%; overflow: hidden; box-sizing: border-box; }
         #pastItemModal #pastItemModalBodyInner { width: 100%; max-width: 100%; height: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; box-sizing: border-box; }
@@ -855,7 +863,7 @@
 
     <!-- Template Javascript -->
     <script src="js/site-common.js"></script>
-    <script src="js/custom-product.js?v=5"></script>
+    <script src="js/custom-product.js?v=6"></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 

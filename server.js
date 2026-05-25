@@ -9852,6 +9852,263 @@ app.delete('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', async (r
     }
 });
 
+// ---------- 廠商自訂分類（獨立於網站 category_key）----------
+function slugifyVendorCatalogGroupName(name) {
+    const s = String(name || '').trim().toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w\u4e00-\u9fff-]+/g, '')
+        .slice(0, 48);
+    return s || 'group';
+}
+
+function parseCatalogGroupIdsFromBody(body) {
+    const ids = new Set();
+    const raw = body && body.catalog_group_ids;
+    if (raw) {
+        try {
+            const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (Array.isArray(arr)) arr.forEach((id) => { if (id) ids.add(String(id).trim()); });
+        } catch (_) {}
+    }
+    const single = body && (body.catalog_group_id || '').trim();
+    if (single) ids.add(single);
+    return [...ids];
+}
+
+async function vendorCatalogGroupsTableReady() {
+    const { error } = await supabase.from('vendor_catalog_groups').select('id').limit(1);
+    return !error || error.code !== '42P01';
+}
+
+async function getAssetIdsForCatalogGroup(catalogGroupId, manufacturerId) {
+    if (!catalogGroupId) return { assetIds: null, error: null };
+    const { data: grp, error: grpErr } = await supabase
+        .from('vendor_catalog_groups')
+        .select('id, manufacturer_id')
+        .eq('id', catalogGroupId)
+        .maybeSingle();
+    if (grpErr && grpErr.code === '42P01') return { assetIds: null, error: 'no_table' };
+    if (grpErr) throw grpErr;
+    if (!grp) return { assetIds: [], error: 'not_found' };
+    if (manufacturerId && grp.manufacturer_id !== manufacturerId) return { assetIds: [], error: 'mismatch' };
+    const { data: links, error: linkErr } = await supabase
+        .from('vendor_asset_group_links')
+        .select('asset_id')
+        .eq('group_id', catalogGroupId);
+    if (linkErr && linkErr.code === '42P01') return { assetIds: null, error: 'no_table' };
+    if (linkErr) throw linkErr;
+    return { assetIds: (links || []).map((r) => r.asset_id), group: grp };
+}
+
+async function buildVendorCatalogGroupsPayload(manufacturerId) {
+    const { data: groups, error } = await supabase
+        .from('vendor_catalog_groups')
+        .select('id, manufacturer_id, name, slug, parent_id, sort_order, created_at, updated_at')
+        .eq('manufacturer_id', manufacturerId)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+    if (error) throw error;
+    const list = groups || [];
+    const groupIds = list.map((g) => g.id);
+    let countMap = {};
+    if (groupIds.length) {
+        const { data: links } = await supabase.from('vendor_asset_group_links').select('group_id').in('group_id', groupIds);
+        (links || []).forEach((l) => { countMap[l.group_id] = (countMap[l.group_id] || 0) + 1; });
+    }
+    const byId = {};
+    list.forEach((g) => {
+        byId[g.id] = { ...g, asset_count: countMap[g.id] || 0, children: [] };
+    });
+    const roots = [];
+    list.forEach((g) => {
+        const node = byId[g.id];
+        if (g.parent_id && byId[g.parent_id]) byId[g.parent_id].children.push(node);
+        else roots.push(node);
+    });
+    function flatten(nodes, depth, out) {
+        nodes.sort((a, b) => (a.sort_order - b.sort_order) || String(a.name).localeCompare(String(b.name), 'zh-Hant'));
+        nodes.forEach((n) => {
+            const pad = depth > 0 ? '\u3000'.repeat(Math.min(depth, 3)) : '';
+            out.push({
+                id: n.id,
+                name: n.name,
+                slug: n.slug,
+                parent_id: n.parent_id,
+                sort_order: n.sort_order,
+                asset_count: n.asset_count,
+                depth,
+                label: pad + n.name + (n.asset_count ? ` (${n.asset_count})` : '')
+            });
+            if (n.children && n.children.length) flatten(n.children, depth + 1, out);
+        });
+    }
+    const flat = [];
+    flatten(roots, 0, flat);
+    return { tree: roots, flat };
+}
+
+async function setVendorAssetCatalogGroups(assetId, manufacturerId, groupIds) {
+    if (!(await vendorCatalogGroupsTableReady())) return;
+    const ids = [...new Set((groupIds || []).map((id) => String(id).trim()).filter(Boolean))];
+    if (ids.length) {
+        const { data: owned } = await supabase
+            .from('vendor_catalog_groups')
+            .select('id')
+            .eq('manufacturer_id', manufacturerId)
+            .in('id', ids);
+        const allowed = new Set((owned || []).map((g) => g.id));
+        const valid = ids.filter((id) => allowed.has(id));
+        await supabase.from('vendor_asset_group_links').delete().eq('asset_id', assetId);
+        if (valid.length) {
+            await supabase.from('vendor_asset_group_links').insert(valid.map((group_id) => ({ asset_id: assetId, group_id })));
+        }
+    } else {
+        await supabase.from('vendor_asset_group_links').delete().eq('asset_id', assetId);
+    }
+}
+
+async function attachCatalogGroupIdsToAssets(items) {
+    if (!(await vendorCatalogGroupsTableReady()) || !items || !items.length) return items;
+    const assetIds = items.map((r) => r.id).filter(Boolean);
+    if (!assetIds.length) return items;
+    const { data: links } = await supabase
+        .from('vendor_asset_group_links')
+        .select('asset_id, group_id, vendor_catalog_groups(id, name, parent_id)')
+        .in('asset_id', assetIds);
+    const map = {};
+    (links || []).forEach((l) => {
+        if (!map[l.asset_id]) map[l.asset_id] = [];
+        const g = l.vendor_catalog_groups;
+        if (g) map[l.asset_id].push({ id: g.id, name: g.name });
+    });
+    return items.map((r) => ({
+        ...r,
+        catalog_group_ids: (map[r.id] || []).map((g) => g.id),
+        catalog_groups: map[r.id] || []
+    }));
+}
+
+// GET /api/me/vendor-catalog-groups — 廠商自己的分類樹
+app.get('/api/me/vendor-catalog-groups', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        if (!(await vendorCatalogGroupsTableReady())) {
+            return res.json({ tree: [], flat: [], message: '請執行 docs/add-vendor-catalog-groups.sql' });
+        }
+        const payload = await buildVendorCatalogGroupsPayload(manufacturerId);
+        res.json(payload);
+    } catch (e) {
+        console.error('GET /api/me/vendor-catalog-groups:', e);
+        res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// POST /api/me/vendor-catalog-groups — 新增分類
+app.post('/api/me/vendor-catalog-groups', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        if (!(await vendorCatalogGroupsTableReady())) {
+            return res.status(500).json({ error: '請執行 docs/add-vendor-catalog-groups.sql' });
+        }
+        const body = req.body || {};
+        const name = (body.name || '').trim();
+        if (!name) return res.status(400).json({ error: '請填寫分類名稱' });
+        const parentId = (body.parent_id || '').trim() || null;
+        if (parentId) {
+            const { data: parent } = await supabase.from('vendor_catalog_groups').select('id').eq('id', parentId).eq('manufacturer_id', manufacturerId).maybeSingle();
+            if (!parent) return res.status(400).json({ error: '上層分類不存在' });
+        }
+        let slug = (body.slug || '').trim() || slugifyVendorCatalogGroupName(name);
+        const row = {
+            manufacturer_id: manufacturerId,
+            name,
+            slug,
+            parent_id: parentId,
+            sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0
+        };
+        const { data, error } = await supabase.from('vendor_catalog_groups').insert(row).select().single();
+        if (error) {
+            console.error('POST /api/me/vendor-catalog-groups:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        res.status(201).json(data);
+    } catch (e) {
+        console.error('POST /api/me/vendor-catalog-groups 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/me/vendor-catalog-groups/:id
+app.put('/api/me/vendor-catalog-groups/:id', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const id = (req.params.id || '').trim();
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.name !== undefined) updates.name = (body.name || '').trim() || null;
+        if (body.slug !== undefined) updates.slug = (body.slug || '').trim() || null;
+        if (body.sort_order !== undefined) updates.sort_order = parseInt(body.sort_order, 10) || 0;
+        if (body.parent_id !== undefined) {
+            const pid = (body.parent_id || '').trim() || null;
+            if (pid === id) return res.status(400).json({ error: '不可將自己設為上層' });
+            if (pid) {
+                const { data: parent } = await supabase.from('vendor_catalog_groups').select('id').eq('id', pid).eq('manufacturer_id', manufacturerId).maybeSingle();
+                if (!parent) return res.status(400).json({ error: '上層分類不存在' });
+            }
+            updates.parent_id = pid;
+        }
+        const { data, error } = await supabase
+            .from('vendor_catalog_groups')
+            .update(updates)
+            .eq('id', id)
+            .eq('manufacturer_id', manufacturerId)
+            .select()
+            .single();
+        if (error) return res.status(500).json({ error: '更新失敗' });
+        if (!data) return res.status(404).json({ error: '找不到分類' });
+        res.json(data);
+    } catch (e) {
+        console.error('PUT /api/me/vendor-catalog-groups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/me/vendor-catalog-groups/:id
+app.delete('/api/me/vendor-catalog-groups/:id', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const id = (req.params.id || '').trim();
+        const { error } = await supabase.from('vendor_catalog_groups').delete().eq('id', id).eq('manufacturer_id', manufacturerId);
+        if (error) return res.status(500).json({ error: '刪除失敗' });
+        res.status(204).send();
+    } catch (e) {
+        console.error('DELETE /api/me/vendor-catalog-groups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/manufacturers/:id/catalog-groups — 公開：廠商頁／素材庫依廠商分類瀏覽
+app.get('/api/manufacturers/:id/catalog-groups', async (req, res) => {
+    try {
+        const manufacturerId = (req.params.id || '').trim();
+        if (!manufacturerId) return res.status(400).json({ error: '缺少廠商 id' });
+        if (!(await vendorCatalogGroupsTableReady())) {
+            return res.json({ tree: [], flat: [], manufacturer_id: manufacturerId });
+        }
+        const { data: mfr } = await supabase.from('manufacturers').select('id, name, is_active').eq('id', manufacturerId).eq('is_active', true).maybeSingle();
+        if (!mfr) return res.status(404).json({ error: '找不到廠商' });
+        const payload = await buildVendorCatalogGroupsPayload(manufacturerId);
+        res.json({ ...payload, manufacturer_id: manufacturerId, manufacturer_name: mfr.name });
+    } catch (e) {
+        console.error('GET /api/manufacturers/:id/catalog-groups:', e);
+        res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
 // ---------- 廠商素材庫（設計端參考圖來源；依設計當下分類載入；必顯示廠商名稱與連結）----------
 // GET /api/vendor-assets — 設計端選圖用。分類素材池：必傳 category_key；個別廠商版型庫：可只傳 manufacturer_id
 // 一般使用者不顯示種子廠商素材（智慧財產權）；僅管理員可見
@@ -9863,14 +10120,26 @@ app.get('/api/vendor-assets', async (req, res) => {
         const styleKey = normalizeVendorStyleKey(req.query.style_key) || null;
         const materialKey = normalizeVendorMaterialKey(req.query.material_key) || null;
         const colorQ = (req.query.color || req.query.color_key || '').trim().toLowerCase() || null;
-        const manufacturerId = (req.query.manufacturer_id || '').trim() || null;
+        let manufacturerId = (req.query.manufacturer_id || '').trim() || null;
         const manufacturerNameQ = (req.query.manufacturer_name || req.query.q || '').trim() || null;
         const serviceAreaCode = (req.query.service_area || '').trim() || null;
         const searchQ = (req.query.q || req.query.search || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
         const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material') ? assetKindQ : null;
         const manufacturersOnly = parseTruthyBody(req.query.manufacturers_only);
+        const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         if (!categoryKey && !manufacturerId) return res.status(400).json({ error: '請傳入 category_key（分類素材池）或 manufacturer_id（個別廠商版型庫）' });
+
+        let catalogGroupAssetIds = null;
+        if (catalogGroupId) {
+            const cg = await getAssetIdsForCatalogGroup(catalogGroupId, manufacturerId);
+            if (cg.error === 'no_table') catalogGroupAssetIds = null;
+            else if (cg.error === 'not_found' || cg.error === 'mismatch') return res.json({ items: [], manufacturers: [] });
+            else {
+                catalogGroupAssetIds = new Set(cg.assetIds || []);
+                if (!manufacturerId && cg.group) manufacturerId = cg.group.manufacturer_id;
+            }
+        }
 
         const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json';
         async function runQuery(cols) {
@@ -9918,6 +10187,9 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (searchQ) {
             list = list.filter((r) => vendorAssetMatchesSearch(r, mfrMap[r.manufacturer_id], searchQ));
         }
+        if (catalogGroupAssetIds) {
+            list = list.filter((r) => catalogGroupAssetIds.has(r.id));
+        }
         if (!isAdmin) list = list.filter(r => {
             const mfr = mfrMap[r.manufacturer_id];
             return !mfr || mfr.vendor_source !== 'seed';
@@ -9955,7 +10227,11 @@ app.get('/api/vendor-assets', async (req, res) => {
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null
             };
         });
-        res.json({ items, manufacturers });
+        let itemsOut = items;
+        if (items.length && (await vendorCatalogGroupsTableReady())) {
+            itemsOut = await attachCatalogGroupIdsToAssets(items);
+        }
+        res.json({ items: itemsOut, manufacturers, catalog_group_id: catalogGroupId || null });
     } catch (e) {
         console.error('GET /api/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -9968,6 +10244,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
         const categoryKey = (req.query.category_key || '').trim() || null;
+        const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
         const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material') ? assetKindQ : null;
         async function runList(selectCols) {
@@ -9994,7 +10271,15 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         if (assetKindFilter && list && list.length && list[0].asset_kind == null) {
             list = list.filter((row) => normalizeVendorAssetKind(row.asset_kind) === assetKindFilter);
         }
+        if (catalogGroupId) {
+            const cg = await getAssetIdsForCatalogGroup(catalogGroupId, manufacturerId);
+            if (cg.assetIds) {
+                const idSet = new Set(cg.assetIds);
+                list = (list || []).filter((row) => idSet.has(row.id));
+            }
+        }
         list = await enrichVendorAssetsWithSupplierMeta(manufacturerId, list || []);
+        if (list && list.length) list = await attachCatalogGroupIdsToAssets(list);
         res.json({ items: list || [] });
     } catch (e) {
         console.error('GET /api/me/vendor-assets 異常:', e);
@@ -10198,6 +10483,7 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
             console.error('POST /api/me/vendor-assets 失敗:', error);
             return res.status(500).json({ error: '新增素材失敗' });
         }
+        await setVendorAssetCatalogGroups(inserted.id, manufacturerId, parseCatalogGroupIdsFromBody(body));
         await recordVisualSemanticsEvent({
             source_type: 'vendor_asset',
             source_id: inserted.id,
@@ -10385,6 +10671,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (error) {
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
+        }
+        if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
+            await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
         }
         res.json({
             ...updated,

@@ -79,6 +79,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
@@ -145,6 +146,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.materialCategory">材質分類（選填）</label><select class="form-select add-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
@@ -186,9 +188,28 @@
                 <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料參考</div>
             </div>
 
-            <div class="mb-3 d-flex flex-wrap align-items-center gap-2">
-                <label class="form-label small text-muted mb-0">依分類篩選</label>
-                <select class="form-select form-select-sm" id="filter-category" style="max-width: 240px;"><option value="">全部</option></select>
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                        <div>
+                            <h6 class="fw-semibold mb-1" data-i18n="baseModels.myCatalogTitle">我的素材分類</h6>
+                            <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-catalog-group"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                    </div>
+                    <div id="catalog-groups-list" class="d-flex flex-wrap gap-2 small"></div>
+                    <p id="catalog-groups-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請先新增。</p>
+                </div>
+            </div>
+            <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
+                <div>
+                    <label class="form-label small text-muted mb-0" data-i18n="baseModels.filterMyCatalog">依我的分類</label>
+                    <select class="form-select form-select-sm" id="filter-vendor-catalog" style="min-width: 12rem;"><option value="" data-i18n="baseModels.filterMyCatalogAll">全部分類</option></select>
+                </div>
+                <div>
+                    <label class="form-label small text-muted mb-0" data-i18n="baseModels.filterSiteCategory">平台媒合分類</label>
+                    <select class="form-select form-select-sm" id="filter-category" style="min-width: 12rem;"><option value="" data-i18n="baseModels.filterSiteCategoryAll">全部</option></select>
+                </div>
             </div>
             <div id="materials-grid" class="row g-3"></div>
         </div>
@@ -205,6 +226,7 @@
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
                         <div class="mb-3"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
                         <div class="mb-3 d-none" id="edit-material-key-wrap"><label class="form-label" data-i18n="baseModels.materialCategory">材質分類</label><select class="form-select" id="edit-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
+                        <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3"><label class="form-label">簡短說明</label><textarea class="form-control" id="edit-description" rows="2"></textarea></div>
                         <div class="mb-3"><label class="form-label">更換圖片（選填）</label><input type="file" class="form-control" id="edit-image" accept="image/*"><button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
@@ -294,6 +316,7 @@
         var supplierImportModal = null;
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10 };
         var editPending = { tags: null, semantics: null };
+        var catalogGroupsFlat = [];
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) {
@@ -535,11 +558,141 @@
             initCategorySelects();
         }
 
+        function getSelectedCatalogGroupIds(container) {
+            if (!container) return [];
+            return Array.prototype.slice.call(container.querySelectorAll('input[type=checkbox][data-group-id]:checked'))
+                .map(function (el) { return el.getAttribute('data-group-id'); })
+                .filter(Boolean);
+        }
+
+        function renderCatalogGroupCheckboxes(container, selectedIds) {
+            if (!container) return;
+            var sel = new Set((selectedIds || []).map(String));
+            if (!catalogGroupsFlat.length) {
+                container.innerHTML = '<span class="text-muted small">' + esc(tr('baseModels.catalogGroupsEmpty', '尚無自訂分類')) + '</span>';
+                return;
+            }
+            container.innerHTML = catalogGroupsFlat.map(function (g) {
+                var checked = sel.has(String(g.id)) ? ' checked' : '';
+                return '<label class="form-check form-check-inline mb-0">' +
+                    '<input class="form-check-input" type="checkbox" data-group-id="' + esc(g.id) + '"' + checked + '>' +
+                    '<span class="form-check-label">' + esc(g.name) + '</span></label>';
+            }).join('');
+        }
+
+        function fillVendorCatalogFilterSelect() {
+            var sel = document.getElementById('filter-vendor-catalog');
+            if (!sel) return;
+            var prev = sel.value;
+            sel.innerHTML = '<option value="">' + esc(tr('baseModels.filterMyCatalogAll', '全部分類')) + '</option>';
+            catalogGroupsFlat.forEach(function (g) {
+                var opt = document.createElement('option');
+                opt.value = g.id;
+                opt.textContent = g.label || g.name;
+                sel.appendChild(opt);
+            });
+            if (prev) sel.value = prev;
+        }
+
+        function renderCatalogGroupsList() {
+            var list = document.getElementById('catalog-groups-list');
+            var empty = document.getElementById('catalog-groups-empty');
+            if (!list) return;
+            if (!catalogGroupsFlat.length) {
+                list.innerHTML = '';
+                if (empty) empty.classList.remove('d-none');
+                return;
+            }
+            if (empty) empty.classList.add('d-none');
+            list.innerHTML = catalogGroupsFlat.map(function (g) {
+                return '<span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-2 px-2">' +
+                    esc(g.name) + (g.asset_count ? ' <span class="text-muted">(' + g.asset_count + ')</span>' : '') +
+                    '<button type="button" class="btn btn-link btn-sm p-0 text-secondary catalog-group-rename" data-id="' + esc(g.id) + '" title="rename"><i class="bi bi-pencil"></i></button>' +
+                    '<button type="button" class="btn btn-link btn-sm p-0 text-danger catalog-group-del" data-id="' + esc(g.id) + '" title="delete"><i class="bi bi-x-lg"></i></button>' +
+                    '</span>';
+            }).join('');
+            list.querySelectorAll('.catalog-group-rename').forEach(function (btn) {
+                btn.addEventListener('click', function () { renameCatalogGroup(btn.getAttribute('data-id')); });
+            });
+            list.querySelectorAll('.catalog-group-del').forEach(function (btn) {
+                btn.addEventListener('click', function () { deleteCatalogGroup(btn.getAttribute('data-id')); });
+            });
+        }
+
+        async function loadCatalogGroups() {
+            try {
+                var r = await fetch('/api/me/vendor-catalog-groups', { headers: { Authorization: 'Bearer ' + token } });
+                var d = await r.json().catch(function () { return {}; });
+                catalogGroupsFlat = d.flat || [];
+            } catch (e) {
+                catalogGroupsFlat = [];
+            }
+            renderCatalogGroupsList();
+            fillVendorCatalogFilterSelect();
+            document.querySelectorAll('.add-catalog-groups').forEach(function (el) {
+                renderCatalogGroupCheckboxes(el, []);
+            });
+            renderCatalogGroupCheckboxes(document.getElementById('edit-catalog-groups'), []);
+        }
+
+        async function createCatalogGroup() {
+            var name = window.prompt(tr('baseModels.catalogGroupNamePrompt', '新分類名稱（例：領型庫、2025春夏）'));
+            if (!name || !(name = name.trim())) return;
+            try {
+                var r = await fetch('/api/me/vendor-catalog-groups', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { showToast(d.error || 'failed', 'danger'); return; }
+                showToast(tr('baseModels.catalogGroupCreated', '已新增分類'));
+                await loadCatalogGroups();
+            } catch (e) { showToast(e.message, 'danger'); }
+        }
+
+        async function renameCatalogGroup(id) {
+            var g = catalogGroupsFlat.find(function (x) { return x.id === id; });
+            var name = window.prompt(tr('baseModels.catalogGroupRenamePrompt', '分類名稱'), g ? g.name : '');
+            if (!name || !(name = name.trim())) return;
+            try {
+                var r = await fetch('/api/me/vendor-catalog-groups/' + encodeURIComponent(id), {
+                    method: 'PUT',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { showToast(d.error || 'failed', 'danger'); return; }
+                await loadCatalogGroups();
+            } catch (e) { showToast(e.message, 'danger'); }
+        }
+
+        async function deleteCatalogGroup(id) {
+            var g = catalogGroupsFlat.find(function (x) { return x.id === id; });
+            if (!window.confirm(tr('baseModels.catalogGroupDeleteConfirm', '刪除此分類？素材不會刪除，僅解除分類連結。') + (g ? '\n「' + g.name + '」' : ''))) return;
+            try {
+                var r = await fetch('/api/me/vendor-catalog-groups/' + encodeURIComponent(id), {
+                    method: 'DELETE',
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { showToast(d.error || 'failed', 'danger'); return; }
+                showToast(tr('baseModels.catalogGroupDeleted', '已刪除分類'));
+                await loadCatalogGroups();
+                await loadMaterials();
+            } catch (e) { showToast(e.message, 'danger'); }
+        }
+
         function itemsForActiveKind() {
             var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
+            var filterGrp = document.getElementById('filter-vendor-catalog') && document.getElementById('filter-vendor-catalog').value;
             return materialsAll.filter(function (m) {
                 if (normalizeKind(m.asset_kind) !== activeKind) return false;
                 if (filterCat && (m.category_key || '') !== filterCat) return false;
+                if (filterGrp) {
+                    var ids = (m.catalog_group_ids || []).map(String);
+                    if (ids.indexOf(String(filterGrp)) === -1) return false;
+                }
                 return true;
             });
         }
@@ -592,11 +745,15 @@
                     : ('<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
+                var myCats = (m.catalog_groups && m.catalog_groups.length)
+                    ? '<div class="mb-2">' + m.catalog_groups.map(function (g) {
+                        return '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 me-1 mb-1">' + esc(g.name) + '</span>';
+                    }).join('') + '</div>' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<img src="' + esc(m.image_url) + '" class="material-img" loading="lazy" alt="">' : '') +
                     '<div class="card-body p-3">' + kindBadge +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
-                    '<div class="text-muted small mb-2">' + esc(catName) + '</div>' + tagsHtml +
+                    '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + myCats + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
             grid.innerHTML = html;
@@ -714,6 +871,8 @@
                     fd.append('optimize_product_image', '1');
                     fd.append('optimize_background', getOptimizeBackgroundValue(form));
                 }
+                var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups'));
+                if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
                 var btn = form.querySelector('.btn-add-submit');
                 btn.disabled = true;
                 try {
@@ -763,6 +922,7 @@
             var wrap = document.getElementById('edit-material-key-wrap');
             wrap.classList.toggle('d-none', m.asset_kind !== 'material');
             document.getElementById('edit-material-key').value = m.material_key || '';
+            renderCatalogGroupCheckboxes(document.getElementById('edit-catalog-groups'), m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; }));
             editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
             editModalEl.show();
         }
@@ -840,6 +1000,8 @@
                     fd.append('optimize_background', getOptimizeBackgroundValue(document.getElementById('edit-form')));
                 }
             }
+            var editGrpIds = getSelectedCatalogGroupIds(document.getElementById('edit-catalog-groups'));
+            fd.append('catalog_group_ids', JSON.stringify(editGrpIds));
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                 var data = await r.json().catch(function () { return {}; });
@@ -883,6 +1045,13 @@
             fillSubcategorySelect(document.getElementById('edit-subcategory'), this.value);
         });
         document.getElementById('filter-category').addEventListener('change', renderGrid);
+        var filterVendorCatalog = document.getElementById('filter-vendor-catalog');
+        if (filterVendorCatalog) filterVendorCatalog.addEventListener('change', renderGrid);
+        var btnAddCatalogGroup = document.getElementById('btn-add-catalog-group');
+        if (btnAddCatalogGroup) btnAddCatalogGroup.addEventListener('click', function () {
+            if (isSeedVendor) return;
+            createCatalogGroup();
+        });
 
         function updateSupplierImportUi() {
             var btn = document.getElementById('btn-open-supplier-import');
@@ -1019,6 +1188,7 @@
                 }
                 document.getElementById('main-content').classList.remove('d-none');
                 await loadCategories();
+                await loadCatalogGroups();
                 await loadCapabilities();
                 await loadUploadPricing();
                 await loadMaterials();
