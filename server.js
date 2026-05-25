@@ -489,20 +489,48 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
-/** 數位原型「產品圖 AI 重繪」提示詞；名稱取自標題（通用品類、僅主體無雜物，單張白底） */
-function buildVendorAssetProductOptimizePrompt(title) {
-    const product = (title || '').trim() || 'product';
-    return [
-        `Professional e-commerce product photo of a single ${product},`,
-        'the product is the only subject in frame, centered, full product visible,',
-        'isolated on a plain seamless neutral white or light gray studio background,',
-        'no props, no accessories, no extra objects, no hands, no people, no pets,',
-        'no text, no watermark, no logo overlay, no packaging box, no gift wrap,',
-        'no plants, no fabric swatches, no tools, no scene decoration, no lifestyle clutter,',
-        'clean minimalist catalog shot, sharp focus on product, soft even studio lighting,',
-        'subtle natural shadow under product only, symmetrical balanced composition,',
-        'ultra high detail, 8k resolution'
-    ].join(' ');
+/** 數位原型 AI 重繪：強制 2×2 四格輸出（與訂製分類四視角提示詞搭配） */
+function buildCatalog2x2GridSuffix(hasRefs) {
+    const lines = [
+        '\n\n[CATALOG 2x2 GRID — MANDATORY OUTPUT FORMAT]',
+        '- Output exactly ONE image: a 2-column × 2-row grid of FOUR equal square panels with thin white or light gray gutters between panels.',
+        '- FIXED panel assignment (do NOT shuffle): top-left = panel 1, top-right = panel 2, bottom-left = panel 3, bottom-right = panel 4.',
+        '- Follow the four view descriptions in the prompt above for panels 1–4 in that order.',
+        '- The SAME product in all four panels (identical shape and proportions); solid or neutral color digital prototype styling as a base model for custom product design.',
+        '- Plain white or light gray studio background in every panel; no lifestyle clutter.',
+        '- No human models, logos, watermarks, price tags, or text on the image.'
+    ];
+    if (hasRefs) {
+        lines.push('- Reference input defines product shape and proportions ONLY. You MUST synthesize a brand-new four-panel composite; NEVER return the reference image unchanged, upscaled, or as a single full-frame photo.');
+    }
+    lines.push(']');
+    return lines.join(' ');
+}
+
+/** 數位原型 AI 重繪：優先使用 custom_product_categories 提示詞，否則依標題產生四視角 fallback */
+async function buildVendorAssetPrototypeOptimizePrompt({ categoryKey, subcategoryKey, title, description }) {
+    const keys = [categoryKey, subcategoryKey].map((k) => (k || '').trim()).filter(Boolean);
+    let base = keys.length ? (await buildPromptFromCategoryKeys(keys, '')).trim() : '';
+    const titleLine = (title || '').trim();
+    const descLine = (description || '').trim();
+    if (!base) {
+        const product = titleLine || 'product';
+        base = [
+            `Professional digital prototype reference for custom ${product} manufacturing.`,
+            'Split-view 1 (top-left): front view, product centered, plain white or light gray background.',
+            'Split-view 2 (top-right): back view, same product and neutral solid colors.',
+            'Split-view 3 (bottom-left): side or 45-degree view showing thickness and silhouette.',
+            'Split-view 4 (bottom-right): three-quarter catalog angle, same solid or neutral styling.'
+        ].join('\n');
+    }
+    const extra = [
+        titleLine ? `Product / variant name: ${titleLine}` : '',
+        descLine ? `Vendor notes: ${descLine}` : ''
+    ].filter(Boolean).join('\n');
+    let prompt = base;
+    if (extra) prompt += '\n\n' + extra;
+    prompt += buildCatalog2x2GridSuffix(true);
+    return prompt;
 }
 
 /** 材料參考「材質圖 AI 重繪」提示詞；以呈現材質紋理與色彩為主 */
@@ -520,12 +548,6 @@ function buildVendorAssetMaterialOptimizePrompt(title, materialKey) {
         'no packaging, no text, no watermark, no logo, no scene decoration,',
         'photorealistic macro detail showing fiber structure and true color, 8k resolution'
     ].join(' ');
-}
-
-function buildVendorAssetOptimizePrompt(title, assetKind, materialKey) {
-    return normalizeVendorAssetKind(assetKind) === 'material'
-        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey)
-        : buildVendorAssetProductOptimizePrompt(title);
 }
 
 async function recordVisualSemanticsEvent(row) {
@@ -4779,10 +4801,17 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材圖優化：以參考圖 + 標題／asset_kind 組提示詞，Flux 2 Pro 圖生圖 */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey) {
+/** 廠商素材 AI 重繪：數位原型＝依分類提示詞輸出 2×2 四格；材料＝單張材質圖 */
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey, categoryKey, subcategoryKey, description) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
-    const prompt = buildVendorAssetOptimizePrompt(title, assetKind, materialKey);
+    const prompt = normalizeVendorAssetKind(assetKind) === 'material'
+        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey)
+        : await buildVendorAssetPrototypeOptimizePrompt({
+            categoryKey: (categoryKey || '').trim(),
+            subcategoryKey: (subcategoryKey || '').trim() || null,
+            title,
+            description
+        });
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], null, 'jpeg');
@@ -9872,7 +9901,9 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         let uploadFile = file;
         if (wantsOptimize) {
             try {
-                const optimizedBuf = await optimizeVendorAssetImageWithFlux(file.buffer, file.mimetype, title, assetKind, materialKey);
+                const optimizedBuf = await optimizeVendorAssetImageWithFlux(
+                    file.buffer, file.mimetype, title, assetKind, materialKey, categoryKey, subcategoryKey, description
+                );
                 uploadFile = {
                     buffer: optimizedBuf,
                     mimetype: 'image/jpeg',
@@ -10059,7 +10090,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             if (wantsOptimize) {
                 try {
                     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt
+                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt,
+                        categoryKeyForTags, (updates.subcategory_key != null ? updates.subcategory_key : row.subcategory_key),
+                        updates.description !== undefined ? updates.description : row.description
                     );
                     uploadFile = {
                         buffer: optimizedBuf,
