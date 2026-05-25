@@ -69,6 +69,23 @@
                 </li>
             </ul>
 
+            <div class="card border-0 shadow-sm mb-3 border-start border-primary border-4" id="catalog-groups-card">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                        <div>
+                            <h6 class="fw-semibold mb-1" data-i18n="baseModels.myCatalogTitle">我的素材分類</h6>
+                            <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                        <input type="text" class="form-control form-control-sm" id="new-catalog-group-name" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholder" placeholder="輸入分類名稱（例：領型庫）">
+                        <button type="button" class="btn btn-sm btn-primary" id="btn-add-catalog-group"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                    </div>
+                    <div id="catalog-groups-list" class="d-flex flex-wrap gap-2 small"></div>
+                    <p id="catalog-groups-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請在上方輸入名稱後按「新增分類」。</p>
+                </div>
+            </div>
+
             <div id="panel-prototype" class="asset-kind-panel">
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供設計者選用。</p>
                 <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4 upload-panel">
@@ -79,7 +96,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
-                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 min-h-32"></div></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
@@ -146,7 +163,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.materialCategory">材質分類（選填）</label><select class="form-select add-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
-                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 min-h-32"></div></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
@@ -188,19 +205,6 @@
                 <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料參考</div>
             </div>
 
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body py-3">
-                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-                        <div>
-                            <h6 class="fw-semibold mb-1" data-i18n="baseModels.myCatalogTitle">我的素材分類</h6>
-                            <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
-                        </div>
-                        <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-catalog-group"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
-                    </div>
-                    <div id="catalog-groups-list" class="d-flex flex-wrap gap-2 small"></div>
-                    <p id="catalog-groups-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請先新增。</p>
-                </div>
-            </div>
             <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
                 <div>
                     <label class="form-label small text-muted mb-0" data-i18n="baseModels.filterMyCatalog">依我的分類</label>
@@ -226,7 +230,7 @@
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
                         <div class="mb-3"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
                         <div class="mb-3 d-none" id="edit-material-key-wrap"><label class="form-label" data-i18n="baseModels.materialCategory">材質分類</label><select class="form-select" id="edit-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
-                        <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 min-h-32"></div></div>
+                        <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3"><label class="form-label">簡短說明</label><textarea class="form-control" id="edit-description" rows="2"></textarea></div>
                         <div class="mb-3"><label class="form-label">更換圖片（選填）</label><input type="file" class="form-control" id="edit-image" accept="image/*"><button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
@@ -317,6 +321,7 @@
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10 };
         var editPending = { tags: null, semantics: null };
         var catalogGroupsFlat = [];
+        var catalogGroupsDbReady = true;
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) {
@@ -568,8 +573,16 @@
         function renderCatalogGroupCheckboxes(container, selectedIds) {
             if (!container) return;
             var sel = new Set((selectedIds || []).map(String));
+            if (!catalogGroupsDbReady) {
+                container.innerHTML = '<span class="text-danger small">' + esc(tr('baseModels.catalogDbMissing', '請先於 Supabase 執行 docs/add-vendor-catalog-groups.sql')) + '</span>';
+                return;
+            }
             if (!catalogGroupsFlat.length) {
-                container.innerHTML = '<span class="text-muted small">' + esc(tr('baseModels.catalogGroupsEmpty', '尚無自訂分類')) + '</span>';
+                container.innerHTML = '<span class="text-muted small me-2">' + esc(tr('baseModels.catalogGroupsEmpty', '尚無自訂分類')) + '</span>' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary btn-inline-add-catalog">' + esc(tr('baseModels.catalogAddFirstBtn', '新增第一個分類')) + '</button>';
+                container.querySelectorAll('.btn-inline-add-catalog').forEach(function (btn) {
+                    btn.addEventListener('click', function () { createCatalogGroup(); });
+                });
                 return;
             }
             container.innerHTML = catalogGroupsFlat.map(function (g) {
@@ -624,6 +637,8 @@
                 var r = await fetch('/api/me/vendor-catalog-groups', { headers: { Authorization: 'Bearer ' + token } });
                 var d = await r.json().catch(function () { return {}; });
                 catalogGroupsFlat = d.flat || [];
+                catalogGroupsDbReady = !(d.message && String(d.message).indexOf('add-vendor-catalog-groups') !== -1);
+                if (!catalogGroupsDbReady) showToast(tr('baseModels.catalogDbMissing', '請先執行 docs/add-vendor-catalog-groups.sql'), 'warning');
             } catch (e) {
                 catalogGroupsFlat = [];
             }
@@ -635,9 +650,17 @@
             renderCatalogGroupCheckboxes(document.getElementById('edit-catalog-groups'), []);
         }
 
-        async function createCatalogGroup() {
-            var name = window.prompt(tr('baseModels.catalogGroupNamePrompt', '新分類名稱（例：領型庫、2025春夏）'));
-            if (!name || !(name = name.trim())) return;
+        async function createCatalogGroup(presetName) {
+            var name = (presetName || '').trim();
+            if (!name) {
+                var inputEl = document.getElementById('new-catalog-group-name');
+                if (inputEl && inputEl.value.trim()) name = inputEl.value.trim();
+            }
+            if (!name) {
+                name = window.prompt(tr('baseModels.catalogGroupNamePrompt', '新分類名稱（例：領型庫、2025春夏）')) || '';
+                name = name.trim();
+            }
+            if (!name) return;
             try {
                 var r = await fetch('/api/me/vendor-catalog-groups', {
                     method: 'POST',
@@ -647,6 +670,8 @@
                 var d = await r.json().catch(function () { return {}; });
                 if (!r.ok) { showToast(d.error || 'failed', 'danger'); return; }
                 showToast(tr('baseModels.catalogGroupCreated', '已新增分類'));
+                var inputEl2 = document.getElementById('new-catalog-group-name');
+                if (inputEl2) inputEl2.value = '';
                 await loadCatalogGroups();
             } catch (e) { showToast(e.message, 'danger'); }
         }
@@ -1052,6 +1077,12 @@
             if (isSeedVendor) return;
             createCatalogGroup();
         });
+        var newCatalogNameInput = document.getElementById('new-catalog-group-name');
+        if (newCatalogNameInput) {
+            newCatalogNameInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); if (!isSeedVendor) createCatalogGroup(); }
+            });
+        }
 
         function updateSupplierImportUi() {
             var btn = document.getElementById('btn-open-supplier-import');
