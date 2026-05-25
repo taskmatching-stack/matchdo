@@ -78,7 +78,8 @@
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填品類名稱（如：托特包）"></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                                 <div class="col-12 d-none add-tags-panel">
@@ -699,6 +700,8 @@
                 fd.append('description', form.querySelector('.add-description').value || '');
                 fd.append('usage_type', 'reference_only');
                 fd.append('image', file);
+                var styleKey = form.querySelector('.add-style-key');
+                if (styleKey && styleKey.value) fd.append('style_key', styleKey.value);
                 var matKey = form.querySelector('.add-material-key');
                 if (matKey && matKey.value) fd.append('material_key', matKey.value);
                 var p = getFormPending(form);

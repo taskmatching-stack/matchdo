@@ -183,6 +183,7 @@ $(document).ready(function () {
                     refSources[i] = null;
                     renderRefSlots();
                     renderRefCards();
+                    updateMultiVendorRefWarning();
                 }));
                 slot.on('click', function (ev) {
                     var idx = parseInt($(this).data('slot'), 10);
@@ -232,6 +233,7 @@ $(document).ready(function () {
             var firstFilled = refDataUrls.findIndex(Boolean);
             if (firstFilled >= 0 && !refDataUrls[selectedRefIndex]) selectedRefIndex = firstFilled;
             updateRefSelection();
+            updateMultiVendorRefWarning();
         } catch (err) {
             console.error('renderRefCards error:', err);
         }
@@ -284,6 +286,201 @@ $(document).ready(function () {
         e.target.value = '';
     });
 
+    function resetVendorAssetFilters() {
+        $('#vendorAssetsStyleKey').val('');
+        $('#vendorAssetsMaterialKey').val('');
+        $('#vendorAssetsColor').val('');
+        $('#vendorAssetsSearch').val('');
+        $('#vendorAssetsManufacturerName').val('');
+        $('#vendorAssetsServiceArea').val('');
+        $('#vendorAssetsAssetKind').val('');
+    }
+
+    function fillVendorServiceAreaSelect() {
+        if (window.__vendorServiceAreasLoaded) return Promise.resolve();
+        var $sel = $('#vendorAssetsServiceArea');
+        if (!$sel.length) return Promise.resolve();
+        var allLabel = t('customProduct.serviceAreaAll') || '服務區域 — 全部';
+        return fetch('/api/service-areas').then(function (r) { return r.json(); }).then(function (data) {
+            $sel.find('option:not(:first)').remove();
+            $sel.find('option:first').text(allLabel);
+            (data.taiwan_groups || []).forEach(function (g) {
+                var $og = $('<optgroup></optgroup>').attr('label', g.zh || g.en || '');
+                (g.cities || []).forEach(function (c) {
+                    $og.append($('<option></option>').val(c.code).text(c.zh || c.en || c.code));
+                });
+                if ($og.children().length) $sel.append($og);
+            });
+            window.__vendorServiceAreasLoaded = true;
+        }).catch(function () { window.__vendorServiceAreasLoaded = true; });
+    }
+
+    function setVendorPickerMfrScopedMode(locked) {
+        $('.vendor-picker-mfr-name-cell, .vendor-picker-area-cell').toggleClass('d-none', !!locked);
+    }
+
+    function updateMultiVendorRefWarning() {
+        ensureRefArrays();
+        var $el = $('#refMultiVendorWarning');
+        if (!$el.length) return;
+        var byId = {};
+        refSources.forEach(function (s) {
+            if (s && s.manufacturer_id) {
+                byId[s.manufacturer_id] = (s.manufacturer_name || '').trim() || (t('customProduct.vendorFallback') || '廠商');
+            }
+        });
+        var keys = Object.keys(byId);
+        if (keys.length <= 1) {
+            $el.addClass('d-none').empty();
+            return;
+        }
+        var names = keys.map(function (k) { return byId[k]; }).join('、');
+        var tpl = t('customProduct.multiVendorWarning') || '您已選用多家廠商的素材（{names}）。混用可能導致部分廠商無法生產同款，建議改為同一家廠商的零件與材料。';
+        $el.removeClass('d-none').text(tpl.replace('{names}', names));
+    }
+
+    function buildVendorAssetCardHtml(item) {
+        var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
+        var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
+        var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
+        var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
+        var assetKind = (item.asset_kind || 'prototype').replace(/"/g, '&quot;');
+        var meta = '';
+        if (item.style_label) {
+            meta += '<span class="badge bg-light text-secondary border mb-1">' + item.style_label + '</span> ';
+        }
+        if (item.material_label) {
+            meta += '<span class="badge bg-light text-secondary border mb-1">' + item.material_label + '</span> ';
+        }
+        if (item.color_label) {
+            meta += '<span class="badge bg-light text-secondary border mb-1">' + item.color_label + '</span> ';
+        }
+        if (item.asset_kind === 'material') {
+            meta += '<span class="badge bg-success-subtle text-success border mb-1">' + (t('customProduct.assetKindMaterial') || '材料') + '</span> ';
+        } else if (item.asset_kind === 'prototype') {
+            meta += '<span class="badge bg-primary-subtle text-primary border mb-1">' + (t('customProduct.assetKindPrototype') || '數位原型') + '</span> ';
+        }
+        return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;"' +
+            ' data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
+            ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
+            ' data-asset-kind="' + assetKind + '">' +
+            '<img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;">' +
+            '<div class="card-body p-2">' + meta +
+            '<div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div>' +
+            '<a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>';
+    }
+
+    function bindVendorAssetCardClicks($list, modalEl) {
+        $list.find('.vendor-asset-card').off('click').on('click', function () {
+            var $c = $(this);
+            var u = $c.attr('data-image-url');
+            if (!u) return;
+            var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
+            var existingIds = {};
+            refSources.forEach(function (s) {
+                if (s && s.manufacturer_id) existingIds[s.manufacturer_id] = true;
+            });
+            var existingKeys = Object.keys(existingIds);
+            if (newMfrId && existingKeys.length && existingKeys.indexOf(newMfrId) === -1) {
+                var mfrLabel = ($c.attr('data-manufacturer-name') || '').trim() || (t('customProduct.vendorFallback') || '廠商');
+                var cmsg = (t('customProduct.multiVendorConfirm') || '參考圖已含其他廠商素材，再加入「{name}」可能無法由單一廠商生產。仍要加入？').replace('{name}', mfrLabel);
+                if (!window.confirm(cmsg)) return;
+            }
+            fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
+                return new Promise(function (resolve, reject) {
+                    var reader = new FileReader();
+                    reader.onload = function () { resolve(reader.result); };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            }).then(function (dataUrl) {
+                ensureRefArrays();
+                var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
+                if (firstEmpty < 0) {
+                    alert(t('customProduct.refSlotsFull') || '參考圖已滿（最多 8 張）');
+                    return;
+                }
+                refDataUrls[firstEmpty] = dataUrl;
+                refSources[firstEmpty] = {
+                    vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
+                    manufacturer_id: $c.attr('data-manufacturer-id') || null,
+                    manufacturer_name: $c.attr('data-manufacturer-name') || '',
+                    manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
+                    image_url: u,
+                    asset_kind: $c.attr('data-asset-kind') || 'prototype'
+                };
+                renderRefSlots();
+                renderRefCards();
+                updateMultiVendorRefWarning();
+                if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
+            }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+        });
+    }
+
+    function buildVendorAssetsFetchUrl(params) {
+        var url = '';
+        if (params.mode === 'category' && params.mainKey) {
+            url = '/api/vendor-assets?category_key=' + encodeURIComponent(params.mainKey);
+            if (params.subKey) url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+        } else if (params.mode === 'manufacturer' && params.manufacturerId) {
+            url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(params.manufacturerId);
+        }
+        var styleKey = ($('#vendorAssetsStyleKey').val() || '').trim();
+        if (styleKey) url += '&style_key=' + encodeURIComponent(styleKey);
+        var materialKey = ($('#vendorAssetsMaterialKey').val() || '').trim();
+        if (materialKey) url += '&material_key=' + encodeURIComponent(materialKey);
+        var colorQ = ($('#vendorAssetsColor').val() || '').trim();
+        if (colorQ) url += '&color=' + encodeURIComponent(colorQ);
+        var keyword = ($('#vendorAssetsSearch').val() || '').trim();
+        if (keyword) url += '&q=' + encodeURIComponent(keyword);
+        if (params.mode === 'category') {
+            var mfrName = ($('#vendorAssetsManufacturerName').val() || '').trim();
+            if (mfrName) url += '&manufacturer_name=' + encodeURIComponent(mfrName);
+            var areaCode = ($('#vendorAssetsServiceArea').val() || '').trim();
+            if (areaCode) url += '&service_area=' + encodeURIComponent(areaCode);
+        }
+        var assetKind = ($('#vendorAssetsAssetKind').val() || '').trim();
+        if (assetKind) url += '&asset_kind=' + encodeURIComponent(assetKind);
+        return url;
+    }
+
+    function loadVendorAssetsPickerList() {
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        if (!params) return;
+        var url = buildVendorAssetsFetchUrl(params);
+        if (!url) return;
+        var $list = $('#vendorAssetsList');
+        var $empty = $('#vendorAssetsEmpty');
+        var $loading = $('#vendorAssetsLoading');
+        var modalEl = document.getElementById('vendorAssetsPickerModal');
+        $list.empty().addClass('d-none');
+        $empty.addClass('d-none');
+        $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            $loading.addClass('d-none');
+            var items = (data && data.items) ? data.items : [];
+            if (!items.length) {
+                $empty.removeClass('d-none').text(t('customProduct.vendorAssetsEmptyFiltered') || '此條件下尚無符合的素材，請調整篩選或清除後重試。');
+                return;
+            }
+            $list.removeClass('d-none');
+            items.forEach(function (item) { $list.append(buildVendorAssetCardHtml(item)); });
+            bindVendorAssetCardClicks($list, modalEl);
+        }).catch(function () {
+            $loading.addClass('d-none');
+            $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
+        });
+    }
+
+    fillVendorServiceAreaSelect();
+
+    $('#vendorAssetsClearFilter').on('click', function () {
+        resetVendorAssetFilters();
+        loadVendorAssetsPickerList();
+    });
+
     // 從廠商素材庫選擇：依設計當下主分類載入，選圖加入參考圖（必顯示廠商名稱與連結）
     $('#btnRefFromVendorAssets').on('click', function () {
         var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
@@ -292,221 +489,38 @@ $(document).ready(function () {
             return;
         }
         var subKey = ($('#imageCategorySubSelect').val() || '').trim();
-        var $list = $('#vendorAssetsList');
-        var $empty = $('#vendorAssetsEmpty');
-        var $loading = $('#vendorAssetsLoading');
-        $list.empty().addClass('d-none');
-        $empty.addClass('d-none');
-        $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
+        resetVendorAssetFilters();
+        setVendorPickerMfrScopedMode(false);
         $('#vendorAssetsPickerLabel').text(t('customProduct.selectFromVendorAssets') || '從廠商素材庫選擇');
-        $('#vendorAssetsCategoryHint').text(t('customProduct.categoryBaseHint') || '素材依您目前選擇的主分類載入；點選圖片即加入參考圖。');
+        $('#vendorAssetsCategoryHint').text(t('customProduct.vendorPickerHint') || '可用關鍵字搜尋（如尖領、丹寧），或依造型、材質、色彩、廠商、服務區域篩選後按「套用」。');
         var modalEl = document.getElementById('vendorAssetsPickerModal');
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
         }
-        var styleKey = ($('#vendorAssetsStyleKey').val() || '').trim();
-        var materialKey = ($('#vendorAssetsMaterialKey').val() || '').trim();
-        var url = '/api/vendor-assets?category_key=' + encodeURIComponent(mainKey);
-        if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
-        if (styleKey) url += '&style_key=' + encodeURIComponent(styleKey);
-        if (materialKey) url += '&material_key=' + encodeURIComponent(materialKey);
         try { window.__vendorAssetsFetchParams = { mode: 'category', mainKey: mainKey, subKey: subKey }; } catch (e) {}
-        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
-            $loading.addClass('d-none');
-            var items = (data && data.items) ? data.items : [];
-            if (!items.length) {
-                $empty.removeClass('d-none');
-                return;
-            }
-            $list.removeClass('d-none');
-            items.forEach(function (item) {
-                var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
-                var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
-                var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
-                var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
-                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '" data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
-                $card.find('.vendor-asset-card').on('click', function () {
-                    var $c = $(this);
-                    var u = $c.attr('data-image-url');
-                    if (!u) return;
-                    fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
-                        return new Promise(function (resolve, reject) {
-                            var reader = new FileReader();
-                            reader.onload = function () { resolve(reader.result); };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                        });
-                    }).then(function (dataUrl) {
-                        ensureRefArrays();
-                        var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
-                        if (firstEmpty >= 0) {
-                            refDataUrls[firstEmpty] = dataUrl;
-                            refSources[firstEmpty] = {
-                                vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
-                                manufacturer_id: $c.attr('data-manufacturer-id') || null,
-                                manufacturer_name: $c.attr('data-manufacturer-name') || '',
-                                manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
-                                image_url: u
-                            };
-                            renderRefSlots();
-                            renderRefCards();
-                        }
-                        if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
-                    }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
-                });
-                $list.append($card);
-            });
-        }).catch(function () {
-            $loading.addClass('d-none').text('');
-            $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
-        });
+        fillVendorServiceAreaSelect().then(function () { loadVendorAssetsPickerList(); });
     });
 
-    // 素材池篩選「套用」：依目前造型/材質重新載入列表（需先開過素材庫或廠商版型庫）
     $('#vendorAssetsApplyFilter').on('click', function () {
-        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
-        if (!params) return;
-        var styleKey = ($('#vendorAssetsStyleKey').val() || '').trim();
-        var materialKey = ($('#vendorAssetsMaterialKey').val() || '').trim();
-        var url = '';
-        if (params.mode === 'category' && params.mainKey) {
-            url = '/api/vendor-assets?category_key=' + encodeURIComponent(params.mainKey);
-            if (params.subKey) url += '&subcategory_key=' + encodeURIComponent(params.subKey);
-        } else if (params.mode === 'manufacturer' && params.manufacturerId) {
-            url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(params.manufacturerId);
-        } else return;
-        if (styleKey) url += '&style_key=' + encodeURIComponent(styleKey);
-        if (materialKey) url += '&material_key=' + encodeURIComponent(materialKey);
-        var $list = $('#vendorAssetsList');
-        var $empty = $('#vendorAssetsEmpty');
-        var $loading = $('#vendorAssetsLoading');
-        var modalEl = document.getElementById('vendorAssetsPickerModal');
-        $list.empty().addClass('d-none');
-        $empty.addClass('d-none');
-        $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
-        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
-            $loading.addClass('d-none');
-            var items = (data && data.items) ? data.items : [];
-            if (!items.length) {
-                $empty.removeClass('d-none').text(params.mode === 'manufacturer' ? (t('customProduct.vendorBaseEmpty') || '此廠商尚無版型素材。') : '此分類下尚無符合條件的素材。');
-                return;
-            }
-            $list.removeClass('d-none');
-            items.forEach(function (item) {
-                var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
-                var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
-                var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
-                var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
-                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '" data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
-                $card.find('.vendor-asset-card').on('click', function () {
-                    var $c = $(this);
-                    var u = $c.attr('data-image-url');
-                    if (!u) return;
-                    fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
-                        return new Promise(function (resolve, reject) {
-                            var reader = new FileReader();
-                            reader.onload = function () { resolve(reader.result); };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                        });
-                    }).then(function (dataUrl) {
-                        ensureRefArrays();
-                        var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
-                        if (firstEmpty >= 0) {
-                            refDataUrls[firstEmpty] = dataUrl;
-                            refSources[firstEmpty] = { vendor_asset_id: $c.attr('data-vendor-asset-id') || null, manufacturer_id: $c.attr('data-manufacturer-id') || null, manufacturer_name: $c.attr('data-manufacturer-name') || '', manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '', image_url: u };
-                            renderRefSlots();
-                            renderRefCards();
-                        }
-                        if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
-                    }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
-                });
-                $list.append($card);
-            });
-        }).catch(function () { $loading.addClass('d-none'); $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗'); });
+        loadVendorAssetsPickerList();
     });
 
-    // 從此廠商版型庫選擇：僅當 URL 帶 manufacturer_id 時顯示按鈕，依廠商載入其版型後選圖加入參考圖
+    // 從此廠商版型庫選擇：僅當 URL 帶 manufacturer_id 時顯示按鈕
     $('#btnRefFromThisVendorAssets').on('click', function () {
         if (!refVendorMfrId) return;
-        var $list = $('#vendorAssetsList');
-        var $empty = $('#vendorAssetsEmpty');
-        var $loading = $('#vendorAssetsLoading');
-        var $hint = $('#vendorAssetsCategoryHint');
-        var $label = $('#vendorAssetsPickerLabel');
-        $list.empty().addClass('d-none');
-        $empty.addClass('d-none');
-        $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
+        resetVendorAssetFilters();
+        setVendorPickerMfrScopedMode(true);
         var labelText = refVendorName
             ? ((t('customProduct.selectFromVendorBasePrefix') || '從 ') + refVendorName + (t('customProduct.selectFromVendorBaseSuffix') || ' 版型庫選擇'))
             : (t('customProduct.selectFromThisVendorBase') || '從此廠商版型庫選擇');
-        if ($label.length) $label.text(labelText);
-        if ($hint.length) $hint.text(t('customProduct.vendorBaseHint') || '點選圖片即加入參考圖。');
+        $('#vendorAssetsPickerLabel').text(labelText);
+        $('#vendorAssetsCategoryHint').text(t('customProduct.vendorPickerHintOneMfr') || '已鎖定此廠商；可再用造型、材質、色彩篩選後按「套用」。');
         var modalEl = document.getElementById('vendorAssetsPickerModal');
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
         }
-        var styleKey = ($('#vendorAssetsStyleKey').val() || '').trim();
-        var materialKey = ($('#vendorAssetsMaterialKey').val() || '').trim();
-        var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(refVendorMfrId);
-        if (styleKey) url += '&style_key=' + encodeURIComponent(styleKey);
-        if (materialKey) url += '&material_key=' + encodeURIComponent(materialKey);
         try { window.__vendorAssetsFetchParams = { mode: 'manufacturer', manufacturerId: refVendorMfrId }; } catch (e) {}
-        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
-            $loading.addClass('d-none');
-            var items = (data && data.items) ? data.items : [];
-            if (!items.length) {
-                $empty.removeClass('d-none').text(t('customProduct.vendorBaseEmpty') || '此廠商尚無版型素材。');
-                return;
-            }
-            $list.removeClass('d-none');
-            items.forEach(function (item) {
-                var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
-                var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
-                var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
-                var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
-                var $card = $('<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card" style="cursor:pointer;" data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '" data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"><img class="card-img-top" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;"><div class="card-body p-2"><div class="fw-semibold small text-truncate" title="' + title + '">' + title + '</div><a href="' + profileUrl + '" class="small text-primary text-decoration-none" target="_blank" rel="noopener" onclick="event.stopPropagation();">' + mfrName + '</a></div></div></div>');
-                $card.find('.vendor-asset-card').on('click', function () {
-                    var $c = $(this);
-                    var u = $c.attr('data-image-url');
-                    if (!u) return;
-                    fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
-                        return new Promise(function (resolve, reject) {
-                            var reader = new FileReader();
-                            reader.onload = function () { resolve(reader.result); };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                        });
-                    }).then(function (dataUrl) {
-                        ensureRefArrays();
-                        var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
-                        if (firstEmpty >= 0) {
-                            refDataUrls[firstEmpty] = dataUrl;
-                            refSources[firstEmpty] = {
-                                vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
-                                manufacturer_id: $c.attr('data-manufacturer-id') || null,
-                                manufacturer_name: $c.attr('data-manufacturer-name') || '',
-                                manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
-                                image_url: u
-                            };
-                            renderRefSlots();
-                            renderRefCards();
-                        }
-                        if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
-                    }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
-                });
-                $list.append($card);
-            });
-        }).catch(function () {
-            $loading.addClass('d-none').text('');
-            $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
-        });
+        loadVendorAssetsPickerList();
     });
 
     async function describeOneImage(index, btn, descArea) {

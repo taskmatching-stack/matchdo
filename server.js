@@ -405,7 +405,185 @@ function normalizeVendorAssetKind(raw) {
     return k === 'material' ? 'material' : 'prototype';
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, asset_kind, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+/** 數位原型部位（選填、不強制枚舉）；材料參考一律 null */
+function normalizeVendorPartKey(raw, assetKind) {
+    if (normalizeVendorAssetKind(assetKind) === 'material') return null;
+    const k = String(raw || '').trim().toLowerCase();
+    if (!k) return null;
+    return k.slice(0, 64);
+}
+
+function vendorAssetMatchesSearch(row, mfr, searchQ) {
+    if (!searchQ) return true;
+    const q = String(searchQ).trim().toLowerCase();
+    if (!q) return true;
+    const title = (row.title || '').toLowerCase();
+    const desc = (row.description || '').toLowerCase();
+    const tags = Array.isArray(row.ai_tags) ? row.ai_tags.join(' ').toLowerCase() : '';
+    const mfrName = (mfr && mfr.name) ? String(mfr.name).toLowerCase() : '';
+    const sem = row.image_semantics_json;
+    let semText = '';
+    if (sem && typeof sem === 'object') {
+        const parts = []
+            .concat(sem.tags || [], sem.style_keywords || [], sem.materials || [], sem.colors || [], sem.structure || [])
+            .map(String);
+        semText = parts.join(' ').toLowerCase();
+    }
+    return title.includes(q) || desc.includes(q) || tags.includes(q) || mfrName.includes(q) || semText.includes(q);
+}
+
+const VENDOR_STYLE_KEYS = new Set(['silhouette', 'accessories', 'furniture', 'bags', 'shoes', 'other']);
+const VENDOR_MATERIAL_KEYS = new Set(['fabric', 'leather', 'metal', 'wood', 'plastic', 'ceramic', 'other']);
+const VENDOR_COLOR_KEYS = new Set([
+    'white', 'black', 'gray', 'red', 'blue', 'green', 'brown', 'beige',
+    'yellow', 'orange', 'purple', 'pink', 'gold', 'silver', 'multi', 'other'
+]);
+
+const VENDOR_COLOR_ALIASES = {
+    white: ['白', 'white', 'off-white', '米白', '象牙', '乳白'],
+    black: ['黑', 'black'],
+    gray: ['灰', 'gray', 'grey', '銀灰'],
+    red: ['紅', 'red', '酒紅', '玫紅'],
+    blue: ['藍', 'blue', 'navy', '藏青'],
+    green: ['綠', 'green', '墨綠'],
+    brown: ['棕', '褐', 'brown', '咖啡', '焦糖'],
+    beige: ['米', 'beige', '杏', '駝'],
+    yellow: ['黃', 'yellow'],
+    orange: ['橙', '橘', 'orange'],
+    purple: ['紫', 'purple'],
+    pink: ['粉', 'pink', '玫瑰'],
+    gold: ['金', 'gold'],
+    silver: ['銀', 'silver'],
+    multi: ['多色', '撞色', 'multi', 'color block', 'colorblock']
+};
+
+function normalizeVendorStyleKey(raw) {
+    const k = String(raw || '').trim().toLowerCase();
+    return VENDOR_STYLE_KEYS.has(k) ? k : null;
+}
+
+function normalizeVendorMaterialKey(raw) {
+    const k = String(raw || '').trim().toLowerCase();
+    return VENDOR_MATERIAL_KEYS.has(k) ? k : null;
+}
+
+function matchColorKeyFromText(text) {
+    const t = String(text || '').trim().toLowerCase();
+    if (!t) return null;
+    for (const [key, aliases] of Object.entries(VENDOR_COLOR_ALIASES)) {
+        if (aliases.some((a) => t.includes(String(a).toLowerCase()))) return key;
+    }
+    if (VENDOR_COLOR_KEYS.has(t)) return t;
+    return null;
+}
+
+function normalizeVendorColorKey(raw, semanticsJson) {
+    const k = String(raw || '').trim().toLowerCase();
+    if (VENDOR_COLOR_KEYS.has(k)) return k;
+    return deriveColorKeyFromSemantics(semanticsJson);
+}
+
+function deriveColorKeyFromSemantics(semanticsJson) {
+    const sem = semanticsJson && typeof semanticsJson === 'object' ? semanticsJson : null;
+    const colors = sem && Array.isArray(sem.colors) ? sem.colors : [];
+    for (const c of colors) {
+        const key = matchColorKeyFromText(c);
+        if (key) return key;
+    }
+    return null;
+}
+
+function vendorStyleKeyLabel(styleKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const map = {
+        silhouette: isEn ? 'Apparel silhouette' : '服裝輪廓',
+        accessories: isEn ? 'Accessories' : '配件',
+        furniture: isEn ? 'Furniture' : '家具',
+        bags: isEn ? 'Bags' : '包袋',
+        shoes: isEn ? 'Footwear' : '鞋類',
+        other: isEn ? 'Other style' : '其他造型'
+    };
+    return map[styleKey] || styleKey || '';
+}
+
+function vendorMaterialKeyLabel(materialKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const map = {
+        fabric: isEn ? 'Fabric' : '布料',
+        leather: isEn ? 'Leather' : '皮革',
+        metal: isEn ? 'Metal' : '金屬',
+        wood: isEn ? 'Wood' : '木材',
+        plastic: isEn ? 'Plastic' : '塑料',
+        ceramic: isEn ? 'Ceramic' : '陶瓷',
+        other: isEn ? 'Other material' : '其他材質'
+    };
+    return map[materialKey] || materialKey || '';
+}
+
+function vendorColorKeyLabel(colorKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const map = {
+        white: isEn ? 'White' : '白',
+        black: isEn ? 'Black' : '黑',
+        gray: isEn ? 'Gray' : '灰',
+        red: isEn ? 'Red' : '紅',
+        blue: isEn ? 'Blue' : '藍',
+        green: isEn ? 'Green' : '綠',
+        brown: isEn ? 'Brown' : '棕',
+        beige: isEn ? 'Beige' : '米／杏',
+        yellow: isEn ? 'Yellow' : '黃',
+        orange: isEn ? 'Orange' : '橙',
+        purple: isEn ? 'Purple' : '紫',
+        pink: isEn ? 'Pink' : '粉',
+        gold: isEn ? 'Gold' : '金',
+        silver: isEn ? 'Silver' : '銀',
+        multi: isEn ? 'Multi-color' : '多色',
+        other: isEn ? 'Other color' : '其他色'
+    };
+    return map[colorKey] || colorKey || '';
+}
+
+function vendorAssetMatchesColor(row, colorQ) {
+    if (!colorQ) return true;
+    const q = String(colorQ).trim().toLowerCase();
+    if (!q) return true;
+    const ck = row.color_key ? String(row.color_key).toLowerCase() : '';
+    if (ck && (ck === q || ck.includes(q))) return true;
+    const sem = row.image_semantics_json;
+    if (sem && Array.isArray(sem.colors)) {
+        if (sem.colors.some((c) => String(c).toLowerCase().includes(q))) return true;
+        if (sem.colors.some((c) => matchColorKeyFromText(c) === q)) return true;
+    }
+    if (Array.isArray(row.ai_tags)) {
+        if (row.ai_tags.some((t) => String(t).toLowerCase().includes(q))) return true;
+    }
+    return false;
+}
+
+function manufacturerNameMatches(mfr, nameQ) {
+    if (!nameQ || !mfr) return !nameQ;
+    const n = String(mfr.name || '').toLowerCase();
+    return n.includes(String(nameQ).trim().toLowerCase());
+}
+
+function manufacturerMatchesServiceArea(mfr, areaCode) {
+    if (!areaCode || !mfr) return !areaCode;
+    const code = String(areaCode).trim().toLowerCase();
+    const contact = mfr.contact_json && typeof mfr.contact_json === 'object' ? mfr.contact_json : {};
+    let areas = contact.service_area;
+    if (!areas && mfr.location) areas = [mfr.location];
+    if (!areas) return false;
+    if (typeof areas === 'string') {
+        areas = areas.split(/[,，、\s]+/).map((s) => s.trim()).filter(Boolean);
+    }
+    if (!Array.isArray(areas)) return false;
+    return areas.some((a) => {
+        const s = String(a).trim().toLowerCase();
+        return s === code || s.includes(code) || code.includes(s);
+    });
+}
+
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 
 /** 依廠商 id + 素材 id 查一筆；缺欄位時自動降級（與 GET 列表一致，避免 DELETE 誤判 404） */
@@ -9682,56 +9860,102 @@ app.get('/api/vendor-assets', async (req, res) => {
         const isAdmin = await getRequestAdminFlag(req);
         const categoryKey = (req.query.category_key || '').trim() || null;
         const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
-        const styleKey = (req.query.style_key || '').trim() || null;
-        const materialKey = (req.query.material_key || '').trim() || null;
+        const styleKey = normalizeVendorStyleKey(req.query.style_key) || null;
+        const materialKey = normalizeVendorMaterialKey(req.query.material_key) || null;
+        const colorQ = (req.query.color || req.query.color_key || '').trim().toLowerCase() || null;
         const manufacturerId = (req.query.manufacturer_id || '').trim() || null;
+        const manufacturerNameQ = (req.query.manufacturer_name || req.query.q || '').trim() || null;
+        const serviceAreaCode = (req.query.service_area || '').trim() || null;
+        const searchQ = (req.query.q || req.query.search || '').trim() || null;
+        const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
+        const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material') ? assetKindQ : null;
+        const manufacturersOnly = parseTruthyBody(req.query.manufacturers_only);
         if (!categoryKey && !manufacturerId) return res.status(400).json({ error: '請傳入 category_key（分類素材池）或 manufacturer_id（個別廠商版型庫）' });
 
-        let query = supabase
-            .from('vendor_assets')
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key')
-            .eq('is_public', true)
-            .order('sort_order', { ascending: true })
-            .order('created_at', { ascending: false });
-        if (categoryKey) query = query.eq('category_key', categoryKey);
-        if (subcategoryKey) query = query.eq('subcategory_key', subcategoryKey);
-        if (styleKey) query = query.eq('style_key', styleKey);
-        if (materialKey) query = query.eq('material_key', materialKey);
-        if (manufacturerId) query = query.eq('manufacturer_id', manufacturerId);
-
-        const { data: rows, error } = await query;
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json';
+        async function runQuery(cols) {
+            let q = supabase
+                .from('vendor_assets')
+                .select(cols)
+                .eq('is_public', true)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false });
+            if (categoryKey) q = q.eq('category_key', categoryKey);
+            if (subcategoryKey) q = q.eq('subcategory_key', subcategoryKey);
+            if (styleKey) q = q.eq('style_key', styleKey);
+            if (materialKey) q = q.eq('material_key', materialKey);
+            if (manufacturerId) q = q.eq('manufacturer_id', manufacturerId);
+            if (assetKindFilter && cols.includes('asset_kind')) q = q.eq('asset_kind', assetKindFilter);
+            return q;
+        }
+        let { data: rows, error } = await runQuery(selectCols);
+        if (error && error.code === '42703') {
+            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key').join(', ');
+            ({ data: rows, error } = await runQuery(legacyCols));
+        }
         if (error) {
-            if (error.code === '42P01') return res.status(200).json({ items: [], message: '尚未建立廠商素材表，請執行 docs/vendor-assets-schema.sql' });
+            if (error.code === '42P01') return res.status(200).json({ items: [], manufacturers: [], message: '尚未建立廠商素材表，請執行 docs/vendor-assets-schema.sql' });
             console.error('GET /api/vendor-assets 失敗:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
         let list = rows || [];
+        if (assetKindFilter && list.length && list[0].asset_kind == null) {
+            list = list.filter((r) => normalizeVendorAssetKind(r.asset_kind) === assetKindFilter);
+        }
+        if (colorQ) list = list.filter((r) => vendorAssetMatchesColor(r, colorQ));
         const mfrIds = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))];
         let mfrMap = {};
         if (mfrIds.length) {
-            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, vendor_source').in('id', mfrIds).eq('is_active', true);
+            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, vendor_source, contact_json, location').in('id', mfrIds).eq('is_active', true);
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
+        }
+        if (manufacturerNameQ) {
+            list = list.filter((r) => manufacturerNameMatches(mfrMap[r.manufacturer_id], manufacturerNameQ));
+        }
+        if (serviceAreaCode) {
+            list = list.filter((r) => manufacturerMatchesServiceArea(mfrMap[r.manufacturer_id], serviceAreaCode));
+        }
+        if (searchQ) {
+            list = list.filter((r) => vendorAssetMatchesSearch(r, mfrMap[r.manufacturer_id], searchQ));
         }
         if (!isAdmin) list = list.filter(r => {
             const mfr = mfrMap[r.manufacturer_id];
             return !mfr || mfr.vendor_source !== 'seed';
         });
-        const items = list.map(r => ({
-            id: r.id,
-            manufacturer_id: r.manufacturer_id,
-            category_key: r.category_key,
-            subcategory_key: r.subcategory_key,
-            title: r.title,
-            description: r.description,
-            image_url: r.image_url,
-            usage_type: r.usage_type,
-            sort_order: r.sort_order,
-            style_key: r.style_key || null,
-            material_key: r.material_key || null,
-            manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
-            manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null
-        }));
-        res.json({ items });
+        const lang = (req.query.lang || '').trim();
+        const manufacturers = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))].map((id) => ({
+            id,
+            name: (mfrMap[id] && mfrMap[id].name) ? mfrMap[id].name : '廠商',
+            profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
+        })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
+        if (manufacturersOnly) {
+            return res.json({ manufacturers });
+        }
+        const items = list.map(r => {
+            const kind = normalizeVendorAssetKind(r.asset_kind);
+            const pk = kind === 'material' ? null : (r.part_key || null);
+            return {
+                id: r.id,
+                manufacturer_id: r.manufacturer_id,
+                category_key: r.category_key,
+                subcategory_key: r.subcategory_key,
+                title: r.title,
+                description: r.description,
+                image_url: r.image_url,
+                usage_type: r.usage_type,
+                sort_order: r.sort_order,
+                style_key: r.style_key || null,
+                style_label: r.style_key ? vendorStyleKeyLabel(r.style_key, lang) : null,
+                material_key: r.material_key || null,
+                material_label: r.material_key ? vendorMaterialKeyLabel(r.material_key, lang) : null,
+                color_key: r.color_key || null,
+                color_label: r.color_key ? vendorColorKeyLabel(r.color_key, lang) : null,
+                asset_kind: kind,
+                manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
+                manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null
+            };
+        });
+        res.json({ items, manufacturers });
     } catch (e) {
         console.error('GET /api/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -9935,17 +10159,32 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
             tags_source: tagsSource
         };
         if (semanticsJson) insertPayload.image_semantics_json = semanticsJson;
-        if (styleKey) insertPayload.style_key = styleKey;
-        if (materialKey) insertPayload.material_key = materialKey;
+        if (styleKey) insertPayload.style_key = normalizeVendorStyleKey(styleKey);
+        if (materialKey) insertPayload.material_key = normalizeVendorMaterialKey(materialKey);
+        const colorKeyBody = (body.color_key || '').trim() || null;
+        const colorKeyDerived = normalizeVendorColorKey(colorKeyBody, semanticsJson) || deriveColorKeyFromSemantics(semanticsJson);
+        if (colorKeyDerived) insertPayload.color_key = colorKeyDerived;
         insertPayload.asset_kind = assetKind;
+        const partKeyNorm = normalizeVendorPartKey(body.part_key, assetKind);
+        if (partKeyNorm) insertPayload.part_key = partKeyNorm;
         const { data: inserted, error } = await supabase
             .from('vendor_assets')
             .insert(insertPayload)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, ai_tags, image_semantics_json, tags_source, created_at')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
             .single();
         if (error) {
+            if (error.code === '42703' && String(error.message || '').includes('part_key')) {
+                delete insertPayload.part_key;
+                const retryPk = await supabase.from('vendor_assets').insert(insertPayload)
+                    .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, ai_tags, image_semantics_json, tags_source, created_at')
+                    .single();
+                if (!retryPk.error) {
+                    return res.status(201).json({ ...retryPk.data, asset_kind: normalizeVendorAssetKind(body.asset_kind), part_key: null });
+                }
+            }
             if (error.code === '42703' && String(error.message || '').includes('asset_kind')) {
                 delete insertPayload.asset_kind;
+                delete insertPayload.part_key;
                 const retry = await supabase.from('vendor_assets').insert(insertPayload)
                     .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, ai_tags, image_semantics_json, tags_source, created_at').single();
                 if (retry.error) {
@@ -10033,6 +10272,10 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.style_key !== undefined) updates.style_key = (body.style_key || '').trim() || null;
         if (body.material_key !== undefined) updates.material_key = (body.material_key || '').trim() || null;
         if (body.asset_kind !== undefined) updates.asset_kind = normalizeVendorAssetKind(body.asset_kind);
+        const assetKindForPart = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
+        if (body.part_key !== undefined && assetKindForPart === 'prototype') {
+            updates.part_key = normalizeVendorPartKey(body.part_key, assetKindForPart);
+        }
 
         const file = req.file;
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
