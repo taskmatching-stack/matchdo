@@ -823,6 +823,7 @@
   "aiEdit.emptyStateSteps": "Upload or select an image, then follow the tool steps and click Generate.",
   "vendor.serviceArea": "Service Area",
   "vendor.designWithBaseModels": "Design with this vendor's base models",
+  "vendor.scrollToPortfolio": "View portfolio below",
   "vendor.materialLibrary": "Asset library",
   "vendor.materialLibraryHint": "Browse digital prototypes and material references by this vendor's own categories (not site product categories).",
   "vendor.materialLibraryEmpty": "No public assets in this category yet.",

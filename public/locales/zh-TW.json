@@ -809,6 +809,7 @@
   "aiEdit.emptyStateSteps": "上傳或選擇圖片後，依工具說明操作並點擊生成。",
   "vendor.serviceArea": "服務地區",
   "vendor.designWithBaseModels": "用此廠商版型設計",
+  "vendor.scrollToPortfolio": "查看下方作品集",
   "vendor.materialLibrary": "素材庫",
   "vendor.materialLibraryHint": "依廠商自訂分類瀏覽數位原型與材料參考（與網站訂製分類無關）。",
   "vendor.materialLibraryEmpty": "此分類尚無公開素材。",

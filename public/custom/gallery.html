@@ -273,6 +273,23 @@
     const $cats     = document.getElementById('galleryCategories');
     const $keyword  = document.getElementById('galleryKeyword');
 
+    function applyScopedGalleryUi(vendorLabel) {
+        const label = vendorLabel || '此廠商';
+        const scopeBanner = document.getElementById('galleryVendorScopeBanner');
+        if (scopeBanner) {
+            scopeBanner.innerHTML = '目前僅顯示「' + esc(label) + '」的作品與素材。' +
+                ' <a href="/vendor-profile.html?id=' + encodeURIComponent(scopeMfrId) + '" class="alert-link">返回廠商頁</a>';
+            scopeBanner.classList.remove('d-none');
+        }
+        const h1 = document.querySelector('h1 span[data-i18n="gallery.title"]');
+        if (h1) h1.textContent = label + ' 的作品圖庫';
+        const desc = document.querySelector('p[data-i18n="gallery.desc"]');
+        if (desc) desc.textContent = '瀏覽此廠商的作品與素材，可用關鍵字或分類篩選；點選可聯繫廠商或加入再設計。';
+        const areaRow = document.querySelector('#galleryAreaBtns') && document.querySelector('#galleryAreaBtns').closest('.col-12');
+        if (areaRow) areaRow.classList.add('d-none');
+        document.title = label + ' 的作品圖庫 - MATCHDO 合做';
+    }
+
     // ── 工具 ──────────────────────────────────────────────────────────────
     function esc(s){ if(s==null)return''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
@@ -839,11 +856,7 @@
         scopeMfrId = (params.get('manufacturer_id') || '').trim();
         try { scopeMfrName = decodeURIComponent(params.get('vendor_name') || ''); } catch (_) { scopeMfrName = params.get('vendor_name') || ''; }
         const scopeBanner = document.getElementById('galleryVendorScopeBanner');
-        if (scopeBanner && scopeMfrId) {
-            const label = scopeMfrName || '此廠商';
-            scopeBanner.textContent = '目前僅顯示「' + label + '」的作品與素材。';
-            scopeBanner.classList.remove('d-none');
-        }
+        if (scopeMfrId) applyScopedGalleryUi(scopeMfrName);
         await Promise.all([loadPortfolio(), loadCategories(), loadAndBindAreaButtons()]);
         const urlCat = params.get('category_key') || '';
         const urlSub = params.get('subcategory_key') || '';

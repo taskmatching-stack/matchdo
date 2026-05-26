@@ -180,8 +180,8 @@
                         <a id="btnDesignWithVendorBase" href="#" class="btn btn-primary btn-sm d-none">
                             <i class="bi bi-palette2 me-1"></i><span data-i18n="vendor.designWithBaseModels">用此廠商版型設計</span>
                         </a>
-                        <a id="btnViewPortfolio" href="/custom/gallery.html" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-images me-1"></i>瀏覽作品圖庫
+                        <a id="btnViewPortfolio" href="#sectionPortfolio" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-images me-1"></i><span data-i18n="vendor.scrollToPortfolio">查看下方作品集</span>
                         </a>
                     </div>
                 </div>
@@ -213,7 +213,7 @@
             </div>
 
             <!-- 右欄：作品集 -->
-            <div class="col-lg-8">
+            <div class="col-lg-8" id="sectionPortfolio">
                 <div class="section-title"><i class="bi bi-images me-1"></i>作品集</div>
                 <div id="portfolioEmpty" class="text-center py-5 text-muted d-none">
                     <i class="bi bi-image display-4"></i>
@@ -392,9 +392,14 @@
                 btnDesignBase.classList.remove('d-none');
             }
             var btnGallery = document.getElementById('btnViewPortfolio');
-            if (btnGallery && v.id) {
-                btnGallery.href = '/custom/gallery.html?manufacturer_id=' + encodeURIComponent(v.id) +
-                    (v.name ? '&vendor_name=' + encodeURIComponent(v.name) : '');
+            if (btnGallery) {
+                btnGallery.href = '#sectionPortfolio';
+                btnGallery.addEventListener('click', function (e) {
+                    var target = document.getElementById('sectionPortfolio');
+                    if (!target) return;
+                    e.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
             }
 
             // Hero（頭像：有 logo_url 顯示圖片，否則顯示預設圖示）
