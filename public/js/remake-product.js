@@ -458,7 +458,7 @@ $(document).ready(function () {
                 }); })
                 .then(function (r) {
                     if (r.ok && r.data && r.data.success) {
-                        alert('已儲存至「我的訂製產品」。');
+                        alert('已儲存至「我的設計風向」。可從選單「設計風向 → 我的設計風向」查看。');
                         try { refreshPastGeneratedGallery(); } catch (e) { console.warn(e); }
                     } else {
                         alert(r.data && r.data.error ? r.data.error : '儲存失敗');

@@ -163,6 +163,26 @@ GROUP BY 1;
 
 設計風向線若仍會生圖並寫入 `custom_products`，**同樣套用 §2 血緣判定**；`product_line='design_direction'` 與 `is_vendor_self_serve` 可交叉篩選（例如：只看非廠商自產的設計風向樣本）。
 
+### 3.5 風向分析用時間與語意欄位（已確認可抓）
+
+**專檔**：`docs/design-direction-analysis-time-fields.md`
+
+| 用途 | 欄位／表 |
+|------|----------|
+| 作品建立時間 | `custom_products.created_at` |
+| 最後更新 | `custom_products.updated_at` |
+| AI 語意／標籤分析完成 | `custom_products.semantics_generated_at`（需 semantics migration） |
+| 單次解析事件時間 | `visual_semantics_events.created_at` |
+| 風格／材質等分維 | `ai_tags_by_dimension`、`image_semantics_json` |
+| 地區（內部） | `designer_country_code` 等（需 designer-region migration） |
+
+無 `design_time` 專欄；未儲存前的生圖不進庫。前台列表目前只顯示 `created_at` 日期。
+
+### 3.6 Design Signals（趨勢報表與付費牆，待開發）
+
+**專檔**：`docs/design-signals-tiered-access-plan.md`  
+四階會員解鎖（免費 Top3 → $300 排名 → $900 折線 → $1,800 地圖／儀表板／警報）、`daily_trend_stats` 預聚合、**DS-0～DS-7**。與 §3.3 D 系列（產品流程）分開排程。
+
 ---
 
 ## 四、設計者國家／地區（規劃）
