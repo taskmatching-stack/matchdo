@@ -15,6 +15,7 @@ $(document).ready(function () {
         $('#btnRefFromThisVendorAssets').removeClass('d-none');
         if (refVendorName) $('#btnRefFromThisVendorAssets').text((t('customProduct.selectFromVendorBasePrefix') || '從 ') + refVendorName + (t('customProduct.selectFromVendorBaseSuffix') || ' 版型庫選擇'));
         else $('#btnRefFromThisVendorAssets').text(t('customProduct.selectFromThisVendorBase') || '從此廠商版型庫選擇');
+        $('#btnRefFromVendorAssets').addClass('d-none');
     }
     let lastGeneratedImageUrl = null;  // 最近一次生成的圖 URL（供儲存到後端）
     let lastGeneratedPrompt = null;    // 最近一次前端輸入的提示詞（必存）

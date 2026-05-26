@@ -27,6 +27,9 @@
         .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 14px; border-left: 3px solid #0d6efd; padding-left: 10px; }
         .img-preview { max-height: 180px; object-fit: contain; border-radius: 8px; border: 1px solid #dee2e6; background: #f8f9fa; }
         #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+        .portfolio-sort-col.dragging { opacity: 0.55; }
+        .portfolio-sort-handle { cursor: grab; user-select: none; }
+        .portfolio-sort-handle:active { cursor: grabbing; }
     </style>
 </head>
 <body>
@@ -172,6 +175,7 @@
             </div>
 
             <!-- 作品列表 -->
+            <p id="portfolio-sort-hint" class="text-muted small mb-2 d-none" data-i18n="portfolio.sortOrderHint">拖曳作品左上角的把手可調整在廠商頁「作品集」的顯示順序。</p>
             <div id="portfolio-grid" class="row g-3"></div>
         </div>
     </div>
@@ -513,22 +517,33 @@
 
         function renderGrid() {
             var grid = document.getElementById('portfolio-grid');
+            var sortHint = document.getElementById('portfolio-sort-hint');
             if (!portfolioItems.length) {
+                if (sortHint) sortHint.classList.add('d-none');
                 grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + tr('portfolio.noWorksYet') + '</p></div>';
                 if (!isSeedVendor) openAddForm();
                 return;
             }
+            if (sortHint) sortHint.classList.toggle('d-none', isSeedVendor || portfolioItems.length < 2);
             var unnamed = tr('portfolio.unnamed');
             var editLabel = tr('portfolio.edit');
             var publicLabel = tr('portfolio.publicBadge');
                 var privateLabel = tr('portfolio.privateBadge');
+            var dragTitle = tr('portfolio.sortDrag', '拖曳排序');
             grid.innerHTML = portfolioItems.map(function (p) {
                 var pubBadge = (p.show_on_media_wall !== false) ? ('<span class="badge bg-success me-1">' + publicLabel + '</span>') : ('<span class="badge bg-secondary me-1">' + privateLabel + '</span>');
                 var moqN = p.min_order_quantity;
                 var moqLine = (moqN != null && moqN !== '' && Number(moqN) >= 1)
                     ? esc(String(tr('portfolio.moqLine')).replace(/\{n\}/g, String(moqN)))
                     : '';
-                return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="portfolio-card h-100">' +
+                var sortAttrs = (!isSeedVendor && portfolioItems.length > 1)
+                    ? ' class="col-sm-6 col-md-4 col-lg-3 portfolio-sort-col" draggable="true" data-id="' + esc(p.id) + '"'
+                    : ' class="col-sm-6 col-md-4 col-lg-3"';
+                var sortHandle = (!isSeedVendor && portfolioItems.length > 1)
+                    ? '<div class="d-flex align-items-center gap-1 px-2 pt-2 pb-0"><span class="portfolio-sort-handle text-muted" title="' + esc(dragTitle) + '"><i class="bi bi-grip-vertical"></i></span><span class="text-muted small">' + esc(dragTitle) + '</span></div>'
+                    : '';
+                return '<div' + sortAttrs + '><div class="portfolio-card h-100">' +
+                    sortHandle +
                     (p.image_url ? '<img src="' + esc(p.image_url) + '" class="portfolio-img" loading="lazy" alt="' + esc(p.title || '') + '">' : '<div class="portfolio-img-placeholder"><i class="bi bi-image"></i></div>') +
                     '<div class="p-3">' +
                     '<div class="fw-semibold text-truncate mb-1">' + pubBadge + esc(p.title || unnamed) + '</div>' +
@@ -540,6 +555,60 @@
                     '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || unnamed).replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>')) +
                     '</div></div></div></div>';
             }).join('');
+            if (!isSeedVendor && portfolioItems.length > 1) bindPortfolioDragSort(grid);
+        }
+
+        var portfolioDragId = null;
+
+        function bindPortfolioDragSort(grid) {
+            if (!grid) return;
+            grid.querySelectorAll('.portfolio-sort-col').forEach(function (col) {
+                col.addEventListener('dragstart', function (e) {
+                    portfolioDragId = col.getAttribute('data-id');
+                    col.classList.add('dragging');
+                    if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'move';
+                        try { e.dataTransfer.setData('text/plain', portfolioDragId); } catch (_) {}
+                    }
+                });
+                col.addEventListener('dragend', function () {
+                    col.classList.remove('dragging');
+                    portfolioDragId = null;
+                });
+                col.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    if (!portfolioDragId || portfolioDragId === col.getAttribute('data-id')) return;
+                    var dragEl = grid.querySelector('.portfolio-sort-col[data-id="' + portfolioDragId + '"]');
+                    if (!dragEl || dragEl === col) return;
+                    var rect = col.getBoundingClientRect();
+                    var after = (e.clientX - rect.left) > rect.width / 2;
+                    if (after) grid.insertBefore(dragEl, col.nextSibling);
+                    else grid.insertBefore(dragEl, col);
+                });
+                col.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    persistPortfolioOrder(grid);
+                });
+            });
+        }
+
+        async function persistPortfolioOrder(grid) {
+            if (!grid || !mfrId) return;
+            var order = Array.from(grid.querySelectorAll('.portfolio-sort-col')).map(function (el) { return el.getAttribute('data-id'); }).filter(Boolean);
+            if (!order.length) return;
+            var tok = await getToken();
+            if (!tok) return;
+            try {
+                var r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/reorder', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: order })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { showToast(d.error || tr('portfolio.sortSaveFailed', '排序儲存失敗'), 'danger'); return; }
+                portfolioItems = d.items || portfolioItems;
+                showToast(tr('portfolio.sortOrderSaved', '作品順序已儲存'));
+            } catch (e) { showToast(e.message, 'danger'); }
         }
 
         function openAddForm() {

@@ -391,6 +391,11 @@
                 btnDesignBase.href = '/custom-product.html?manufacturer_id=' + encodeURIComponent(v.id) + '&vendor_name=' + encodeURIComponent(v.name || '');
                 btnDesignBase.classList.remove('d-none');
             }
+            var btnGallery = document.getElementById('btnViewPortfolio');
+            if (btnGallery && v.id) {
+                btnGallery.href = '/custom/gallery.html?manufacturer_id=' + encodeURIComponent(v.id) +
+                    (v.name ? '&vendor_name=' + encodeURIComponent(v.name) : '');
+            }
 
             // Hero（頭像：有 logo_url 顯示圖片，否則顯示預設圖示）
             var heroAvatar = document.getElementById('heroAvatar');

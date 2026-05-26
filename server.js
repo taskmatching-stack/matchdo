@@ -9783,6 +9783,54 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
     }
 });
 
+// POST /api/manufacturers/:manufacturerId/portfolio/reorder — 拖曳排序後批次更新 sort_order（廠商頁作品集順序）
+app.post('/api/manufacturers/:manufacturerId/portfolio/reorder', express.json(), async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const { manufacturerId } = req.params;
+        const { data: mfrRow } = await supabase.from('manufacturers').select('user_id, vendor_source').eq('id', manufacturerId).single();
+        if (!mfrRow) return res.status(404).json({ error: '找不到該廠商' });
+        const isAdmin = await isAdminUserId(user.id);
+        if (mfrRow.user_id !== user.id && !isAdmin) return res.status(403).json({ error: '僅廠商本人或管理員可調整作品順序' });
+        if (mfrRow.vendor_source === 'seed' && mfrRow.user_id === user.id) {
+            return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。' });
+        }
+        const order = req.body && req.body.order;
+        if (!Array.isArray(order) || !order.length) {
+            return res.status(400).json({ error: '請提供 order 陣列（作品 id 順序）' });
+        }
+        const ids = order.map((id) => String(id).trim()).filter(Boolean);
+        const { data: existing } = await supabase
+            .from('manufacturer_portfolio')
+            .select('id')
+            .eq('manufacturer_id', manufacturerId);
+        const allowed = new Set((existing || []).map((r) => r.id));
+        if (!ids.every((id) => allowed.has(id))) {
+            return res.status(400).json({ error: 'order 含有不屬於此廠商的作品' });
+        }
+        for (let i = 0; i < ids.length; i++) {
+            const { error } = await supabase
+                .from('manufacturer_portfolio')
+                .update({ sort_order: i, updated_at: new Date().toISOString() })
+                .eq('id', ids[i])
+                .eq('manufacturer_id', manufacturerId);
+            if (error) return res.status(500).json({ error: '排序儲存失敗' });
+        }
+        const { data: items, error: listErr } = await supabase
+            .from('manufacturer_portfolio')
+            .select(MANUFACTURER_PORTFOLIO_SELECT_BASE)
+            .eq('manufacturer_id', manufacturerId)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (listErr) return res.status(500).json({ error: '讀取作品失敗' });
+        res.json({ success: true, items: items || [] });
+    } catch (e) {
+        console.error('POST /api/manufacturers/:manufacturerId/portfolio/reorder:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // PUT /api/manufacturers/:id/portfolio/:portfolioId — 更新廠商作品（作品重點、主圖／第二張圖）
 app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'image_before', maxCount: 1 }]), async (req, res) => {
     try {
@@ -10138,6 +10186,43 @@ app.put('/api/me/vendor-catalog-groups/:id', express.json(), async (req, res) =>
         res.json(data);
     } catch (e) {
         console.error('PUT /api/me/vendor-catalog-groups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/vendor-catalog-groups/reorder — 拖曳排序後批次更新 sort_order
+app.post('/api/me/vendor-catalog-groups/reorder', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        if (!(await vendorCatalogGroupsTableReady())) {
+            return res.status(500).json({ error: '請執行 docs/add-vendor-catalog-groups.sql' });
+        }
+        const order = req.body && req.body.order;
+        if (!Array.isArray(order) || !order.length) {
+            return res.status(400).json({ error: '請提供 order 陣列（分類 id 順序）' });
+        }
+        const ids = order.map((id) => String(id).trim()).filter(Boolean);
+        const { data: existing } = await supabase
+            .from('vendor_catalog_groups')
+            .select('id')
+            .eq('manufacturer_id', manufacturerId);
+        const allowed = new Set((existing || []).map((r) => r.id));
+        if (!ids.every((id) => allowed.has(id))) {
+            return res.status(400).json({ error: 'order 含有不屬於此廠商的分類' });
+        }
+        for (let i = 0; i < ids.length; i++) {
+            const { error } = await supabase
+                .from('vendor_catalog_groups')
+                .update({ sort_order: i, updated_at: new Date().toISOString() })
+                .eq('id', ids[i])
+                .eq('manufacturer_id', manufacturerId);
+            if (error) return res.status(500).json({ error: '排序儲存失敗' });
+        }
+        const payload = await buildVendorCatalogGroupsPayload(manufacturerId);
+        res.json({ success: true, ...payload });
+    } catch (e) {
+        console.error('POST /api/me/vendor-catalog-groups/reorder:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

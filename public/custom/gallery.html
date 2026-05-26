@@ -58,6 +58,7 @@
     <div class="container py-4">
         <h1 class="mb-2"><i class="bi bi-images me-2"></i><span data-i18n="gallery.title">圖庫找廠商</span></h1>
         <p class="text-muted mb-4" data-i18n="gallery.desc">瀏覽廠商作品，用關鍵字或分類篩選；點選作品可查看廠商資訊、聯繫廠商或加入再設計。</p>
+        <div id="galleryVendorScopeBanner" class="alert alert-primary py-2 small d-none mb-3" role="status"></div>
 
         <!-- 篩選列 -->
         <div class="filter-section">
@@ -263,6 +264,8 @@
     // selAreaCodes：目前選中群組的所有城市 code 陣列（空陣列 = 全部）
     let _areaGroups = [];   // [{code, label, cityCodes:[]}]
     let selAreaCodes = [];  // 空=全部，否則為城市 code 列表
+    let scopeMfrId = '';    // 從廠商頁帶入時僅顯示該廠商作品
+    let scopeMfrName = '';
 
     const $loading  = document.getElementById('galleryLoading');
     const $empty    = document.getElementById('galleryEmpty');
@@ -332,6 +335,7 @@
         const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
         let list = _rawItems;
         if (list.some(x => x && x.id !== 'demo-1')) list = list.filter(x => x && x.id !== 'demo-1');
+        if (scopeMfrId) list = list.filter(p => (p.manufacturer_id || '') === scopeMfrId);
         if (selCat || selSub) list = list.filter(portfolioMatchesCategory);
         if (selAreaCodes.length) {
             list = list.filter(p => locMatchArea(p.manufacturer_location));
@@ -378,6 +382,14 @@
         return list;
     }
 
+    async function fetchVendorAssetsForManufacturer(mfrId) {
+        if (!mfrId) return [];
+        const url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
+        const r = await fetch(url);
+        const d = await r.json();
+        return (d.items || []).filter(x => x && x.image_url);
+    }
+
     async function fetchVendorAssetsForGallery() {
         if (!selCat) return [];
         const catKey = categoryKeyForUiActive() || String(selCat).split('&')[0].trim() || selCat;
@@ -411,9 +423,11 @@
         const portList = filterPortfolioItems();
         let assetList = [];
 
-        if (selCat && portList.length === 0) {
+        if (portList.length === 0 && (selCat || scopeMfrId)) {
             try {
-                const raw = await fetchVendorAssetsForGallery();
+                const raw = scopeMfrId && !selCat
+                    ? await fetchVendorAssetsForManufacturer(scopeMfrId)
+                    : await fetchVendorAssetsForGallery();
                 if (gen !== _applyFiltersGen) return;
                 assetList = filterAssetItems(raw);
                 _lastAssetItems = assetList;
@@ -781,17 +795,21 @@
                 return;
             }
             // 1. portfolio 作品（含 categories 欄位）
-            const portRes = await fetch('/api/manufacturer-portfolio');
+            let portUrl = '/api/manufacturer-portfolio';
+            if (scopeMfrId) portUrl += '?manufacturer_id=' + encodeURIComponent(scopeMfrId);
+            const portRes = await fetch(portUrl);
             let portItems = [];
             try { const d = await portRes.json(); portItems = (d.items||[]).filter(x=>x.manufacturer_id); } catch(_){}
 
-            // 2. comparison 對比作品（補充）
+            // 2. comparison 對比作品（補充；限定單一廠商時不混其他廠）
             let compItems = [];
-            try {
-                const cr = await fetch('/api/gallery-items');
-                const cd = await cr.json();
-                compItems = (cd.items||[]).filter(x=>x.manufacturer_id);
-            } catch(_){}
+            if (!scopeMfrId) {
+                try {
+                    const cr = await fetch('/api/gallery-items');
+                    const cd = await cr.json();
+                    compItems = (cd.items||[]).filter(x=>x.manufacturer_id);
+                } catch(_){}
+            }
 
             // 3. 合併（portfolio 優先，不重複）
             const seen = {};
@@ -817,8 +835,16 @@
     async function init() {
         if (!document.getElementById('galleryGrid')) return;
         applyModalI18n();
-        await Promise.all([loadPortfolio(), loadCategories(), loadAndBindAreaButtons()]);
         const params = new URLSearchParams(window.location.search);
+        scopeMfrId = (params.get('manufacturer_id') || '').trim();
+        try { scopeMfrName = decodeURIComponent(params.get('vendor_name') || ''); } catch (_) { scopeMfrName = params.get('vendor_name') || ''; }
+        const scopeBanner = document.getElementById('galleryVendorScopeBanner');
+        if (scopeBanner && scopeMfrId) {
+            const label = scopeMfrName || '此廠商';
+            scopeBanner.textContent = '目前僅顯示「' + label + '」的作品與素材。';
+            scopeBanner.classList.remove('d-none');
+        }
+        await Promise.all([loadPortfolio(), loadCategories(), loadAndBindAreaButtons()]);
         const urlCat = params.get('category_key') || '';
         const urlSub = params.get('subcategory_key') || '';
         if (urlCat || urlSub) {

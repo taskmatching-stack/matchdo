@@ -26,6 +26,10 @@
         #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
         #asset-kind-tabs .nav-link { font-weight: 600; }
         #asset-kind-tabs .nav-link.active { color: #0d6efd; border-color: #dee2e6 #dee2e6 #fff; }
+        .catalog-group-row { cursor: default; background: #fff; }
+        .catalog-group-row.dragging { opacity: 0.55; }
+        .catalog-group-drag { cursor: grab; user-select: none; }
+        .catalog-group-drag:active { cursor: grabbing; }
     </style>
 </head>
 <body>
@@ -81,7 +85,8 @@
                         <input type="text" class="form-control form-control-sm" id="new-catalog-group-name" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholder" placeholder="輸入分類名稱（例：領型庫）">
                         <button type="button" class="btn btn-sm btn-primary" id="btn-add-catalog-group"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
                     </div>
-                    <div id="catalog-groups-list" class="d-flex flex-wrap gap-2 small"></div>
+                    <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHint">拖曳左側把手可調整順序；順序會顯示在廠商頁「素材庫」標籤列。</p>
+                    <ul id="catalog-groups-list" class="list-unstyled mb-0 catalog-groups-sortable"></ul>
                     <p id="catalog-groups-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請在上方輸入名稱後按「新增分類」。</p>
                 </div>
             </div>
@@ -641,11 +646,12 @@
             }
             if (empty) empty.classList.add('d-none');
             list.innerHTML = catalogGroupsFlat.map(function (g) {
-                return '<span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-2 px-2">' +
-                    esc(g.name) + (g.asset_count ? ' <span class="text-muted">(' + g.asset_count + ')</span>' : '') +
+                return '<li class="catalog-group-row d-flex align-items-center gap-2 mb-2 p-2 border rounded" draggable="true" data-id="' + esc(g.id) + '">' +
+                    '<span class="catalog-group-drag text-muted" title="' + esc(tr('baseModels.catalogGroupsDrag', '拖曳排序')) + '"><i class="bi bi-grip-vertical"></i></span>' +
+                    '<span class="flex-grow-1">' + esc(g.name) + (g.asset_count ? ' <span class="text-muted">(' + g.asset_count + ')</span>' : '') + '</span>' +
                     '<button type="button" class="btn btn-link btn-sm p-0 text-secondary catalog-group-rename" data-id="' + esc(g.id) + '" title="rename"><i class="bi bi-pencil"></i></button>' +
                     '<button type="button" class="btn btn-link btn-sm p-0 text-danger catalog-group-del" data-id="' + esc(g.id) + '" title="delete"><i class="bi bi-x-lg"></i></button>' +
-                    '</span>';
+                    '</li>';
             }).join('');
             list.querySelectorAll('.catalog-group-rename').forEach(function (btn) {
                 btn.addEventListener('click', function () { renameCatalogGroup(btn.getAttribute('data-id')); });
@@ -653,6 +659,59 @@
             list.querySelectorAll('.catalog-group-del').forEach(function (btn) {
                 btn.addEventListener('click', function () { deleteCatalogGroup(btn.getAttribute('data-id')); });
             });
+            bindCatalogGroupDragSort(list);
+        }
+
+        var catalogGroupDragId = null;
+
+        function bindCatalogGroupDragSort(list) {
+            if (!list) return;
+            list.querySelectorAll('.catalog-group-row').forEach(function (row) {
+                row.addEventListener('dragstart', function (e) {
+                    catalogGroupDragId = row.getAttribute('data-id');
+                    row.classList.add('dragging');
+                    if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'move';
+                        try { e.dataTransfer.setData('text/plain', catalogGroupDragId); } catch (_) {}
+                    }
+                });
+                row.addEventListener('dragend', function () {
+                    row.classList.remove('dragging');
+                    catalogGroupDragId = null;
+                });
+                row.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    if (!catalogGroupDragId || catalogGroupDragId === row.getAttribute('data-id')) return;
+                    var dragEl = list.querySelector('.catalog-group-row[data-id="' + catalogGroupDragId + '"]');
+                    if (!dragEl || dragEl === row) return;
+                    var rect = row.getBoundingClientRect();
+                    var after = (e.clientY - rect.top) > rect.height / 2;
+                    if (after) list.insertBefore(dragEl, row.nextSibling);
+                    else list.insertBefore(dragEl, row);
+                });
+                row.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    persistCatalogGroupOrder(list);
+                });
+            });
+        }
+
+        async function persistCatalogGroupOrder(list) {
+            if (!list) return;
+            var order = Array.from(list.querySelectorAll('.catalog-group-row')).map(function (el) { return el.getAttribute('data-id'); }).filter(Boolean);
+            if (!order.length) return;
+            try {
+                var r = await fetch('/api/me/vendor-catalog-groups/reorder', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order: order })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { showToast(d.error || '排序儲存失敗', 'danger'); return; }
+                catalogGroupsFlat = d.flat || catalogGroupsFlat;
+                fillVendorCatalogFilterSelect();
+                showToast(tr('baseModels.catalogGroupsOrderSaved', '分類順序已儲存'));
+            } catch (e) { showToast(e.message, 'danger'); }
         }
 
         async function loadCatalogGroups() {
