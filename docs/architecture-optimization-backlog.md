@@ -213,11 +213,12 @@ draft →（付費或預設）→ wall_visible（show_on_homepage）
 
 ```text
 server.js                 # listen、global middleware、掛載 routes
+lib/media-wall.js         # 靈感牆標籤／搜尋共用（attachDisplayTags 等）
 routes/
-  sitemap.js              # Step 1：/sitemap*.xml、robots 若在同區
-  inspiration.js          # Step 5：GET /inspiration/:type/:id
-  media-wall.js           # GET /api/media-wall、media-wall-item
-  vendor-pages.js         # vendor-profile 動態 OG
+  sitemap.js              # Step 1：/sitemap*.xml、robots
+  inspiration.js          # Step 5a：GET /inspiration/:type/:id
+  media-wall.js           # Step 5c：GET /api/media-wall、media-wall-item
+  vendor-pages.js         # Step 5b：vendor-profile 動態 OG
   custom-products.js      # 訂製 CRUD、enrich 觸發（後續）
 lib/                      # 已有 visual-semantics、lineage…
 ```
@@ -312,7 +313,7 @@ lib/                      # 已有 visual-semantics、lineage…
 | 2 | 索引政策／products sitemap 決策 | 2026-05-26 | 已自 `/sitemap.xml` 移除 products |
 | 3 | capabilities + header 加法 | 2026-05-26 | zones/nav；③ 區暫隱 |
 | 4 | visibility 與 canonical 對齊 | 2026-05-26 | 廢止 visibility；detail canonical |
-| 5 | 續拆 inspiration / media-wall | | |
+| 5 | 續拆 inspiration / media-wall | 2026-05-26 | lib/media-wall + 3 routes |
 
 ---
 
@@ -325,3 +326,4 @@ lib/                      # 已有 visual-semantics、lineage…
 | 2026-05-26 | **Step 2 完成**：`/sitemap.xml` 不再索引 `sitemap-products`；`SEO-PROGRESS.md`、`sitemap.md` 政策更新 |
 | 2026-05-26 | **Step 3 完成**：`GET /api/me/capabilities` 加 `zones`／`nav`；header 依 `show_supplier_zone` 隱藏 ③ 區 |
 | 2026-05-26 | **Step 4 完成**：detail `canonical`+`noindex`；`sitemap-products` 改 inspiration URL；文件廢止 `visibility` |
+| 2026-05-26 | **Step 5 完成**：`routes/inspiration.js`、`routes/vendor-pages.js`、`routes/media-wall.js`；共用 `lib/media-wall.js` |
