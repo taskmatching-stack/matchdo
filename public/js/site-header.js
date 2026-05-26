@@ -247,7 +247,7 @@ async function renderHeader(headerContainer, user, config) {
             document.head.appendChild(link);
         }
     }
-    // 登入即顯示「我的功能」。一律只顯示訂製品（訂製者+製作方），每頁選單相同。
+    // 登入即顯示「我的功能」：僅放頂部選單沒有的工作入口（不重複客製產品／設計風向 ▾）。
     const showMyFeaturesDropdown = !!user;
     var meCapabilities = null;
     if (user) {
@@ -305,21 +305,9 @@ async function renderHeader(headerContainer, user, config) {
                         <div class="nav-item dropdown">
                             <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" title="` + t('nav.myFeaturesTitle') + `" style="display:inline-flex;align-items:center;">` + t('nav.myFeatures') + `<span class="nav-hover-caret">▾</span></a>
                             <div class="dropdown-menu bg-light m-0">
-                                <h6 class="dropdown-header text-muted small">` + t('nav.dropdownCustom') + ` · ` + t('nav.dropdownRoles') + `</h6>
+                                <h6 class="dropdown-header text-muted small">` + t('nav.myFeaturesTitle') + `</h6>
                                 <h6 class="dropdown-header"><i class="bi bi-pencil-square me-2"></i>` + t('nav.customizerSection') + `</h6>
-                                <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-pencil-square me-2"></i>` + t('nav.designSection') + `</a>
                                 <a href="/client/dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.clientDashboard') + `</a>
-                                <a href="/custom/" class="dropdown-item"><i class="bi bi-house me-2"></i>` + t('nav.customHome') + `</a>
-                                <a href="/custom-product.html" class="dropdown-item"><i class="bi bi-plus-circle me-2"></i>` + t('nav.createProduct') + `</a>
-                                <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.myCustomProducts') + `</a>
-                                <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.galleryFindVendor') + `</a>
-                                <a href="/client/find-makers.html" class="dropdown-item"><i class="bi bi-shop me-2"></i>` + t('nav.findMakers') + `</a>
-                                <div class="dropdown-divider"></div>
-                                <h6 class="dropdown-header"><i class="bi bi-compass me-2"></i>` + t('nav.remakeSection') + `</h6>
-                                <a href="/remake/" class="dropdown-item"><i class="bi bi-house me-2"></i>` + t('nav.remakeHome') + `</a>
-                                <a href="/remake-product.html" class="dropdown-item"><i class="bi bi-lightbulb me-2"></i>` + t('nav.remakeAnalysis') + `</a>
-                                <a href="/client/my-custom-products.html?view=design-direction" class="dropdown-item"><i class="bi bi-collection me-2"></i>` + t('nav.remakeMyDesigns') + `</a>
-                                <a href="/custom/gallery.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.remakeGallery') + `</a>
                                 <a href="/client/messages.html" class="dropdown-item"><i class="bi bi-chat-dots me-2"></i>` + t('nav.myMessages') + `</a>
                                 <a href="/credits.html" class="dropdown-item"><i class="bi bi-currency-exchange me-2"></i>` + t('nav.myCredits') + `</a>
                                 <a href="/client/ai-edit.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.aiEditArea') + `</a>
