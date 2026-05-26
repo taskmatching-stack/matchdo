@@ -66,6 +66,12 @@
         </div>
 
         <div id="main-content" class="d-none">
+            <div class="alert alert-light border mb-3 py-2 small">
+                <i class="bi bi-info-circle text-primary me-1"></i>
+                此頁素材會顯示在公開廠商頁「<strong>素材庫</strong>」；展示案例（系列／對照圖）請至
+                <a href="/client/manufacturer-portfolio.html" class="alert-link">上傳展示案例</a>。
+                <a href="#" id="link-public-vendor-page-mat" class="alert-link ms-1" target="_blank" rel="noopener noreferrer">開啟廠商首頁</a>
+            </div>
             <ul class="nav nav-tabs mb-3" id="asset-kind-tabs" role="tablist">
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" type="button" data-kind="prototype" id="tab-prototype" role="tab">
@@ -1412,6 +1418,8 @@
                 if (mfrRes.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
                 if (!mfrRes.ok) throw new Error('load failed');
                 var mfrData = await mfrRes.json();
+                var linkPubMat = document.getElementById('link-public-vendor-page-mat');
+                if (linkPubMat && mfrData.id) linkPubMat.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrData.id);
                 isSeedVendor = (mfrData.vendor_source === 'seed');
                 if (isSeedVendor) {
                     document.getElementById('seed-vendor-banner').classList.remove('d-none');

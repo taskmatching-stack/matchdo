@@ -1,18 +1,18 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-05-25
+更新日期：2026-05-21
 
 ---
 
 ## 接下來執行進度（建議順序）
 
-> **你現在在這裡**：程式已 push；雲端需 **部署 + Supabase SQL** 後，分析欄位才會真的寫入。
+> **你現在在這裡**：廠商後台導覽與說明已更新（見下方「2026-05-21 廠商 IA」）；請 **push 後部署**，並確認 Supabase SQL 是否已跑完。
 
 | 順序 | 做什麼 | 誰做 | 完成標準 |
 |------|--------|------|----------|
 | **1** | **Supabase 執行 SQL** | 你 | 依下方「待執行 SQL」至少跑完：`semantics` → `semantics-taxonomy` → `data-lineage` → `designer-region`；有廠商自訂分類則加 `vendor-catalog-groups` |
 | **2** | **Cloud Run 部署** | 你（Cloud Shell） | `git fetch && reset --hard origin/main` 後 `gcloud run deploy …`（見 `.cursor/rules/deployment.mdc`） |
-| **3** | **冒煙測試** | 你 | ① 產品設計生圖→儲存→Supabase 該列有 `ai_tags_by_dimension`、`designer_country_code`（可為 TW 等）② 從素材庫引用自己廠素材→`is_vendor_self_serve=true`（僅 DB 看，前台無提示）③ 圖庫首頁帶分類仍正常 |
+| **3** | **冒煙測試** | 你 | ① 廠商：控制台→「開啟廠商首頁」、上傳展示案例／數位版型、選單「我的廠商首頁」② 產品設計生圖→儲存→`ai_tags_by_dimension` ③ 圖庫帶分類仍正常 |
 | **4** | **全站 E2E** | 你 | 訂製六步、素材庫、廠商頁、對話、點數；問題清單回報再改 |
 | **5** | **分析／報表（可選）** | 開發排程 | 媒體牆 API `exclude_vendor_self_serve`；依國家／分維 tag 聚合（R5） |
 | **6** | **舊資料補跑（可選）** | 開發排程 | 血緣 backfill；舊圖重跑 Gemini 補 `ai_tags_by_dimension`（耗 API） |
@@ -35,6 +35,17 @@
 | **本檔 §6「視覺語意庫・Gemini 標籤／提示詞／生成圖解析」** | 上傳與生圖時以 **`gemini-3.1-flash-lite`** 解讀圖與提示詞，累積 **`visual_semantics`** 供搜尋與日後售前風格意圖／流行預測；首頁靈感牆標籤搜尋；**規劃中**。 |
 
 ---
+
+## 近期完成（2026-05-21 廠商後台導覽與 IA）
+
+| 項目 | 說明 |
+|------|------|
+| **公開頁 vs 後台** | 訪客首頁 = `vendor-profile.html?id=…`；管理 = `manufacturer-dashboard.html`。控制台頂部藍卡「我的廠商首頁」+ 標題列按鈕；快速入口第一項同義；複製網址區文案對齊。 |
+| **頂部選單** | 「我的功能 → 製造商」新增 **我的廠商首頁（公開）**（登入且有廠商資料時顯示）；「訂製需求」與控制台快速入口對齊；「瀏覽所有廠商」降為次要連結。 |
+| **文案釐清** | `manufacturer-portfolio.html` 改稱 **上傳展示案例**（非訂製者 AI 設計稿）；`manufacturer-materials.html` 頁頂說明對應素材庫；`demands.html` 麵包屑與說明改為接案用。 |
+| **廠商頁按鈕** | 「瀏覽作品圖庫」改 **查看下方作品集**（同頁捲動）；從廠商頁進圖庫仍可用 `manufacturer_id` 限定單廠（標題改為「○○ 的作品圖庫」）。 |
+| **素材分類 UI** | `manufacturer-materials.html`「我的素材分類」可收起／展開；「預設收起」存本機 `localStorage`（≥5 類首次自動收起）。 |
+| **commits** | `4688e7c`、`5d074b5`；本批 IA 與文件見本次 commit。 |
 
 ## 近期完成（2026-05-20 圖庫分類・廠商素材）
 
@@ -1019,11 +1030,12 @@
 
 | 子區 | 功能 | 現有路徑 | 資料線 |
 |------|------|----------|--------|
-| **接單與曝光** | 廠商控制台 | `/client/manufacturer-dashboard.html` | |
-| | 我的作品 | `/client/manufacturer-portfolio.html` | 作品集 |
-| | 訂製需求列表 | `/client/demands.html` | |
+| **接單與曝光** | 廠商控制台（後台） | `/client/manufacturer-dashboard.html` | 非公開頁 |
+| | **我的廠商首頁（公開）** | `/vendor-profile.html?id=…` | 訪客／分享用；控制台與選單可一鍵開啟 |
+| | 上傳展示案例 | `/client/manufacturer-portfolio.html` | → 公開頁「作品集」 |
+| | 訂製需求（接案） | `/client/demands.html` | 查訂製者開放製造的設計 |
 | | 詢價／聯絡 | `/client/manufacturer-inquiries.html` | |
-| **對外・A 線** | 我的數位版型（給訂製者選） | `/client/manufacturer-materials.html` | `vendor_assets` |
+| **對外・A 線** | 上傳數位版型（素材庫） | `/client/manufacturer-materials.html` | `vendor_assets` → 公開頁「素材庫」 |
 | **採購・B 線** | 產業供應商目錄 | `/client/supplier-catalog.html`（新） | 規劃 §4 |
 | | 我的原型組庫 | `/client/my-prototype-imports.html`（新） | 導入 `prototype_set` |
 | | 我的材料庫 | `/client/my-material-imports.html`（新） | 導入 `material` |

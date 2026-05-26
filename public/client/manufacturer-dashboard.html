@@ -37,9 +37,14 @@
                     <h4 class="mb-0 fw-bold">廠商控制台</h4>
                     <small class="text-muted" id="mfr-name">載入中…</small>
                 </div>
-                <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-primary" id="btn-edit-mfr">
-                    <i class="bi bi-pencil me-1"></i>編輯廠商資料
-                </a>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="#" class="btn btn-sm btn-primary d-none" id="btn-open-public-page" target="_blank" rel="noopener noreferrer">
+                        <i class="bi bi-house-door me-1"></i>開啟我的廠商首頁
+                    </a>
+                    <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-primary" id="btn-edit-mfr">
+                        <i class="bi bi-pencil me-1"></i>編輯廠商資料
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -49,7 +54,27 @@
     </div>
 
     <div class="container py-4">
-        <p class="vendor-flow-steps text-muted small mb-3" style="padding-left:0.5rem;border-left:3px solid #0d6efd;">步驟：上傳作品與數位版型 → 設定聯絡方式 → 設計者從靈感牆或廠商頁與您聯絡。<strong class="text-body">平台不代為報價、收款或接單。</strong></p>
+        <p class="vendor-flow-steps text-muted small mb-3" style="padding-left:0.5rem;border-left:3px solid #0d6efd;">
+            <strong class="text-body">① 開啟下方「我的廠商首頁」</strong>（訪客看到的公開頁）→
+            <strong class="text-body">② 上傳展示案例與數位版型</strong> →
+            <strong class="text-body">③ 設定聯絡方式</strong> →
+            設計者可從靈感牆／廠商頁聯絡您，或至「訂製需求」找接案機會。
+            <span class="d-block mt-1">平台不代為報價、收款或接單。</span>
+        </p>
+        <div id="public-page-card" class="card border-primary border-2 shadow-sm mb-4 d-none">
+            <div class="card-body py-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                    <div>
+                        <h5 class="card-title mb-1"><i class="bi bi-house-door text-primary me-2"></i>我的廠商首頁（公開）</h5>
+                        <p class="text-muted small mb-0">訪客從靈感牆「廠商詳情」、分享連結看到的頁面。<strong>不是</strong>此控制台；上傳內容會顯示在該頁的「作品集」「素材庫」。</p>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="#" id="btn-public-page-open" class="btn btn-primary btn-sm" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1"></i>開啟廠商首頁</a>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="btn-public-page-copy"><i class="bi bi-clipboard me-1"></i>複製網址</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- 未建立廠商資料：建立表單（僅在 404 時顯示） -->
         <div id="no-mfr-create" class="card border-0 shadow-sm mb-4 d-none">
             <div class="card-body p-4">
@@ -123,57 +148,52 @@
         <div class="row g-4">
             <!-- 快速入口 -->
             <div class="col-md-5">
-                <div class="section-title">快速入口</div>
+                <div class="section-title">管理內容（寫入公開廠商頁）</div>
                 <div class="d-flex flex-column gap-2">
+                    <a href="#" id="link-preview" class="quick-link border-primary" style="background:#f0f7ff;">
+                        <div class="icon bg-primary text-white"><i class="bi bi-house-door"></i></div>
+                        <div>
+                            <div class="fw-semibold">我的廠商首頁（公開）</div>
+                            <div class="text-muted small">訪客看到的廠商頁：作品集、素材庫、聯絡方式</div>
+                        </div>
+                        <i class="bi bi-box-arrow-up-right ms-auto text-primary"></i>
+                    </a>
                     <a href="/client/manufacturer-portfolio.html" class="quick-link">
                         <div class="icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-images"></i></div>
                         <div>
-                            <div class="fw-semibold">我的廠商作品</div>
-                            <div class="text-muted small">新增、管理、刪除作品圖</div>
+                            <div class="fw-semibold">上傳展示案例</div>
+                            <div class="text-muted small">系列圖／對照圖 → 顯示於廠商頁「作品集」與靈感牆（非訂製者設計稿）</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                     <a href="/client/manufacturer-materials.html" class="quick-link">
                         <div class="icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-folder2-open"></i></div>
                         <div>
-                            <div class="fw-semibold">上傳數位版型 (Base Models)</div>
-                            <div class="text-muted small">上傳造型／結構參考圖，供設計者在產品設計頁選用（會顯示您的廠商名稱與連結）</div>
+                            <div class="fw-semibold">上傳數位版型</div>
+                            <div class="text-muted small">原型／材料參考 → 顯示於廠商頁「素材庫」，設計者可選為參考圖</div>
+                        </div>
+                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
+                    </a>
+                    <a href="/client/demands.html" class="quick-link">
+                        <div class="icon bg-info bg-opacity-10 text-info"><i class="bi bi-inbox"></i></div>
+                        <div>
+                            <div class="fw-semibold">訂製需求（接案）</div>
+                            <div class="text-muted small">依分類查看訂製者開放的設計，主動聯絡洽談</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                     <a href="/profile/contact-info.html" class="quick-link">
                         <div class="icon bg-success bg-opacity-10 text-success"><i class="bi bi-chat-dots"></i></div>
                         <div>
-                            <div class="fw-semibold">聯絡方式（與設計者溝通）</div>
-                            <div class="text-muted small">填寫 Email、電話、LINE、社群；設計者從廠商頁聯絡您，平台不介入交易</div>
-                        </div>
-                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
-                    </a>
-                    <a href="/profile/contact-info.html" class="quick-link">
-                        <div class="icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-person-vcard"></i></div>
-                        <div>
-                            <div class="fw-semibold">廠商資料設定</div>
-                            <div class="text-muted small">更新名稱、描述、服務地區與分類</div>
-                        </div>
-                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
-                    </a>
-                    <a href="/vendor-profile.html?preview=1" id="link-preview" class="quick-link">
-                        <div class="icon bg-info bg-opacity-10 text-info"><i class="bi bi-eye"></i></div>
-                        <div>
-                            <div class="fw-semibold">預覽廠商頁面</div>
-                            <div class="text-muted small">查看公開呈現的廠商資料</div>
-                        </div>
-                        <i class="bi bi-chevron-right ms-auto text-muted"></i>
-                    </a>
-                    <a href="/vendors.html" class="quick-link">
-                        <div class="icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-grid"></i></div>
-                        <div>
-                            <div class="fw-semibold">瀏覽所有廠商</div>
-                            <div class="text-muted small">查看平台上的其他廠商</div>
+                            <div class="fw-semibold">聯絡方式與廠商資料</div>
+                            <div class="text-muted small">名稱、簡介、服務地區、Email／LINE／社群（顯示於公開廠商頁）</div>
                         </div>
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                 </div>
+                <p class="text-muted small mt-3 mb-0">
+                    <a href="/vendors.html" class="text-muted">瀏覽平台廠商列表</a>（參考其他廠商如何呈現，非您的管理首頁）
+                </p>
             </div>
 
             <!-- 廠商資料摘要 -->
@@ -186,10 +206,10 @@
                 </div>
 
                 <!-- 我的廠商頁網址（靈感牆「廠商詳情」連到這裡） -->
-                <div class="section-title mt-4">我的廠商頁網址</div>
+                <div class="section-title mt-4">公開廠商頁網址（可分享）</div>
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body py-2">
-                        <p class="small text-muted mb-2">訪客從首頁靈感牆點「廠商詳情」會開啟此連結，可複製分享。</p>
+                        <p class="small text-muted mb-2">與上方「開啟廠商首頁」相同；靈感牆「廠商詳情」、Google 分享皆用此連結。</p>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <input type="text" class="form-control form-control-sm font-monospace" id="mfr-profile-url" readonly placeholder="建立廠商資料後會顯示" style="max-width:100%;">
                             <button type="button" class="btn btn-sm btn-outline-primary" id="btn-copy-profile-url" title="複製連結">
@@ -304,7 +324,19 @@
                 const mfr = await res.json();
                 mfrId = mfr.id;
                 document.getElementById('mfr-name').textContent = mfr.name || '廠商';
-                document.getElementById('link-preview').href = '/vendor-profile.html?id=' + mfrId;
+                var publicUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+                document.getElementById('link-preview').href = publicUrl;
+                document.getElementById('link-preview').setAttribute('target', '_blank');
+                document.getElementById('link-preview').setAttribute('rel', 'noopener noreferrer');
+                var publicCard = document.getElementById('public-page-card');
+                if (publicCard) publicCard.classList.remove('d-none');
+                var btnOpenPublic = document.getElementById('btn-open-public-page');
+                if (btnOpenPublic) {
+                    btnOpenPublic.href = publicUrl;
+                    btnOpenPublic.classList.remove('d-none');
+                }
+                var btnPubOpen = document.getElementById('btn-public-page-open');
+                if (btnPubOpen) btnPubOpen.href = publicUrl;
                 if (mfr.vendor_source === 'seed') {
                     document.getElementById('seed-vendor-banner').classList.remove('d-none');
                     var btnEdit = document.getElementById('btn-edit-mfr');
@@ -531,31 +563,30 @@
             }
 
             // 複製廠商頁網址
-            var btnCopyProfileUrl = document.getElementById('btn-copy-profile-url');
             var copyProfileUrlMsg = document.getElementById('copy-profile-url-msg');
-            if (btnCopyProfileUrl) {
-                btnCopyProfileUrl.addEventListener('click', function () {
-                    var input = document.getElementById('mfr-profile-url');
-                    var url = (input && input.value || '').trim();
-                    if (!url) return;
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(url).then(function () {
-                            if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
-                        }).catch(function () {
-                            fallbackCopy(url);
-                        });
-                    } else {
-                        fallbackCopy(url);
-                    }
-                    function fallbackCopy(text) {
-                        try {
-                            input.select();
-                            document.execCommand('copy');
-                            if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
-                        } catch (e) {}
-                    }
-                });
+            function copyPublicProfileUrl() {
+                var input = document.getElementById('mfr-profile-url');
+                var url = (input && input.value || '').trim();
+                if (!url) return;
+                function fallbackCopy() {
+                    try {
+                        input.select();
+                        document.execCommand('copy');
+                        if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
+                    } catch (e) {}
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(function () {
+                        if (copyProfileUrlMsg) { copyProfileUrlMsg.classList.remove('d-none'); copyProfileUrlMsg.textContent = '已複製到剪貼簿'; setTimeout(function () { copyProfileUrlMsg.classList.add('d-none'); }, 2000); }
+                    }).catch(fallbackCopy);
+                } else {
+                    fallbackCopy();
+                }
             }
+            var btnCopyProfileUrl = document.getElementById('btn-copy-profile-url');
+            if (btnCopyProfileUrl) btnCopyProfileUrl.addEventListener('click', copyPublicProfileUrl);
+            var btnPublicPageCopy = document.getElementById('btn-public-page-copy');
+            if (btnPublicPageCopy) btnPublicPageCopy.addEventListener('click', copyPublicProfileUrl);
 
             if (typeof AuthService !== 'undefined') {
                 AuthService.onAuthStateChange(function (event, session) {

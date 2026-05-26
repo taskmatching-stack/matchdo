@@ -291,12 +291,15 @@ async function renderHeader(headerContainer, user, config) {
                                 <a href="/client/ai-edit.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.aiEditArea') + `</a>
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header"><i class="bi bi-shop me-2"></i>` + t('nav.manufacturerSection') + `</h6>
-                                <a href="/client/manufacturer-dashboard.html" class="dropdown-item"><i class="bi bi-building-add me-2"></i>` + t('nav.createVendor') + `</a>
-                                <a href="/client/demands.html" class="dropdown-item"><i class="bi bi-list-ul me-2"></i>` + t('nav.demands') + `</a>
                                 <a href="/client/manufacturer-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.vendorDashboard') + `</a>
+                                <a href="#" id="nav-my-vendor-home" class="dropdown-item d-none"><i class="bi bi-house-door me-2"></i>` + t('nav.myVendorPublicPage') + `</a>
                                 <a href="/client/manufacturer-portfolio.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.vendorPortfolio') + `</a>
                                 <a href="/client/manufacturer-materials.html" class="dropdown-item"><i class="bi bi-folder2-open me-2"></i>` + t('nav.vendorBaseModels') + `</a>
+                                <a href="/client/demands.html" class="dropdown-item"><i class="bi bi-inbox me-2"></i>` + t('nav.demands') + `</a>
                                 <a href="/profile/contact-info.html" class="dropdown-item"><i class="bi bi-chat-dots me-2"></i>` + t('nav.vendorContact') + `</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="/client/manufacturer-dashboard.html" class="dropdown-item text-muted small"><i class="bi bi-building-add me-2"></i>` + t('nav.createVendor') + `</a>
+                                <a href="/vendors.html" class="dropdown-item text-muted small"><i class="bi bi-grid me-2"></i>` + t('nav.browseAllVendors') + `</a>
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
                                 <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierPortal') + `</a>
@@ -389,6 +392,7 @@ async function renderHeader(headerContainer, user, config) {
     if (user && typeof AuthService !== 'undefined' && AuthService.getSession) {
         loadRenewalReminderBanner(headerContainer);
         loadHeaderCredits(headerContainer);
+        loadHeaderManufacturerNavLinks(headerContainer);
     }
 
     var langLinks = headerContainer.querySelectorAll('.lang-link');
@@ -403,6 +407,29 @@ async function renderHeader(headerContainer, user, config) {
     if (user && window.AuthService) {
         updateUserInfo(user);
     }
+}
+
+/** 已登入且有廠商資料時，顯示「我的廠商首頁（公開）」連結 */
+function loadHeaderManufacturerNavLinks(headerContainer) {
+    if (!headerContainer || typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return;
+    window.AuthService.getSession().then(function (session) {
+        if (!session || !session.access_token) return;
+        var link = headerContainer.querySelector('#nav-my-vendor-home');
+        if (!link) return;
+        fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + session.access_token } })
+            .then(function (r) {
+                if (r.status === 404) return null;
+                return r.ok ? r.json() : null;
+            })
+            .then(function (mfr) {
+                if (!mfr || !mfr.id) return;
+                link.href = '/vendor-profile.html?id=' + encodeURIComponent(mfr.id);
+                link.classList.remove('d-none');
+                link.setAttribute('target', '_blank');
+                link.setAttribute('rel', 'noopener noreferrer');
+            })
+            .catch(function () {});
+    }).catch(function () {});
 }
 
 /** 取得點數餘額並更新 header 內桌機／手機點數顯示（僅在已登入時呼叫） */
