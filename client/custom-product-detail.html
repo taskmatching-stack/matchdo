@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>產品詳情 - MatchDO 合做</title>
+    <meta name="description" content="訂製產品詳情與媒合廠商（登入後）">
+    <meta name="robots" content="noindex, follow">
+    <link rel="canonical" id="cp-canonical" href="">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="/css/style.css" rel="stylesheet">
@@ -261,6 +264,28 @@
             return (window.location.origin || '') + (url.startsWith('/') ? '' : '/') + url;
         }
 
+        /** 可對外收錄／分享的 SSR 頁（與 sitemap-inspiration 一致） */
+        function getInspirationUrl(product) {
+            if (!product || !product.id) return null;
+            if (!product.ai_generated_image_url && !product.reference_image_url) return null;
+            return '/inspiration/user_design/' + encodeURIComponent(product.id);
+        }
+
+        function applyProductSeoMeta(product) {
+            var canonEl = document.getElementById('cp-canonical');
+            var inspPath = getInspirationUrl(product);
+            if (canonEl) {
+                if (inspPath) {
+                    canonEl.href = (window.location.origin || '') + inspPath;
+                } else {
+                    canonEl.removeAttribute('href');
+                }
+            }
+            if (product && product.title) {
+                document.title = product.title + ' - MatchDO 合做';
+            }
+        }
+
         function renderProductDetail(product) {
             // 主圖：優先 image_urls[0]，其次 ai_generated / reference，並轉為絕對網址
             let imageUrl = '';
@@ -312,6 +337,8 @@
                 renderAnalysis(product.analysis_json);
             }
 
+            applyProductSeoMeta(product);
+
             // 操作按鈕
             renderActionButtons(product);
         }
@@ -357,6 +384,14 @@
         function renderActionButtons(product) {
             const container = document.getElementById('actionButtons');
             let html = '';
+            const inspPath = getInspirationUrl(product);
+            if (inspPath) {
+                html += `
+                    <a href="${inspPath}" class="btn btn-outline-secondary btn-lg" target="_blank" rel="noopener noreferrer">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>公開作品頁（可分享）
+                    </a>
+                `;
+            }
 
             if (product.status === 'draft') {
                 html = `

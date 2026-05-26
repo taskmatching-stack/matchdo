@@ -46,7 +46,7 @@
 
 | 欄位 | 型別 | 說明 |
 |------|------|------|
-| reference_sources | JSONB | 再設計時引用之廠商素材來源陣列，每項含 vendor_asset_id, manufacturer_id, manufacturer_name, manufacturer_profile_url, image_url |
+| reference_sources | JSONB | 再設計時引用之廠商素材來源陣列，每項含 vendor_asset_id, manufacturer_id, manufacturer_name, manufacturer_profile_url, image_url 等；**設計分析**應能由此 JOIN `vendor_assets` 做**材料回推需求**（規劃見 `docs/design-analysis-material-backtrace.md`，與 `ai_tags` 分離） |
 
 來源：`docs/add-custom-products-semantics.sql`（語意／標籤，分析用）
 
@@ -82,6 +82,16 @@
 | designer_region_source | TEXT | `ip` 或 `unknown` |
 | designer_ui_locale | TEXT | 儲存當下介面語系（輔助，不作國家） |
 | designer_region_json | JSONB | 內部：推斷方式、遮罩 IP（不含完整 IP） |
+
+## 不使用 `visibility`（SEO／公開狀態，2026-05-26）
+
+| 概念 | 實際欄位／URL |
+|------|----------------|
+| 靈感牆展示 | `show_on_homepage`（見 migration） |
+| 搜尋引擎可索引 | `/inspiration/user_design/{id}`（SSR，`sitemap-inspiration`） |
+| 登入後找廠／媒合 | `/client/custom-product-detail.html?id=`（`noindex` + `canonical` → inspiration） |
+
+**勿新增** `visibility` 欄位除非產品重新表決；`sitemap-products.xml` 已改輸出 inspiration URL，且不在 `/sitemap.xml` 索引內。
 
 ---
 

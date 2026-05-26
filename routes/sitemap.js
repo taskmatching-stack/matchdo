@@ -113,7 +113,7 @@ function registerSitemapRoutes(app, deps) {
         res.send(xml);
     });
 
-    // Legacy：CSR 詳情頁（visibility 欄位未齊）；已自 /sitemap.xml 索引移除，Step 4 前勿擴充
+    // Legacy：已自 /sitemap.xml 索引移除；若直接請求則輸出與 inspiration 相同條件的 /inspiration/user_design/*（不用 visibility）
     app.get('/sitemap-products.xml', async (req, res) => {
         const base = (BASE_URL || '').replace(/\/$/, '');
         const today = new Date().toISOString().slice(0, 10);
@@ -122,10 +122,13 @@ function registerSitemapRoutes(app, deps) {
             const { data: rows } = await supabase
                 .from('custom_products')
                 .select('id, updated_at, created_at')
-                .eq('visibility', 'public');
+                .not('ai_generated_image_url', 'is', null)
+                .or('show_on_homepage.eq.true,show_on_homepage.is.null')
+                .order('created_at', { ascending: false })
+                .limit(50);
             for (const r of (rows || [])) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
-                urls.push('  <url><loc>' + escapeXml(base + '/custom-product-detail.html?id=' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
+                urls.push('  <url><loc>' + escapeXml(base + '/inspiration/user_design/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
             }
         } catch (e) {
             console.error('sitemap-products:', e);

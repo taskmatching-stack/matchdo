@@ -33,7 +33,8 @@
 | 移除殼頁 | 從 `SITEMAP_PAGES` 移除無實際內容的 iStudio 範本頁：`service`、`feature`、`project`、`testimonial`、`team` |
 | 新增 `sitemap-collections.xml` | 動態查詢 `media_collections`（`is_active=true`），自動收錄所有作品系列頁 `/custom/collection.html?slug=XXX` |
 | sitemap 索引更新 | `/sitemap.xml` 現含**五個**子 sitemap：pages、categories、vendors、collections、**inspiration**（靈感牆獨立 URL） |
-| **UGC 可索引 URL（2026-05-26）** | 客製作品對外收錄為 `https://matchdo.cc/inspiration/user_design/{id}`（SSR）；`/client/custom-product-detail.html` 僅供登入後找廠。**`sitemap-products` 已自索引移除**（路由仍 200，待 visibility／canonical Step 4） |
+| **UGC 可索引 URL（2026-05-26）** | 客製作品對外收錄為 `https://matchdo.cc/inspiration/user_design/{id}`（SSR）；`/client/custom-product-detail.html` 僅供登入後找廠。**`sitemap-products` 已自索引移除**（路由仍 200） |
+| **Step 4 canonical（2026-05-26）** | `custom-product-detail` 設 `noindex, follow` + `canonical` → `/inspiration/user_design/{id}`（有生成圖或參考圖時）；`sitemap-products.xml` legacy 改輸出 inspiration URL（不再查 `visibility`） |
 | **首頁篩選 URL（2026-03-04）** | 首頁網址狀態可**疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`。Sitemap 收錄主要 landing，不列所有組合。 |
 | **首頁四種「類型」** | **全部**＝`/`；**設計圖／對照圖／系列圖**＝`/?layout_type=user_design|comparison|collection`（共 4 筆在 `sitemap-pages.xml`） |
 | **中英文** | `sitemap-pages.xml` 另加 4 筆：`/?lang=en`、`/?layout_type=user_design&lang=en`、`/?layout_type=comparison&lang=en`、`/?layout_type=collection&lang=en`，與頁面 hreflang 對應 |
@@ -49,7 +50,7 @@
 | `sitemap-vendors.xml` | `manufacturers` 表（`is_active=true`） | ✅ 自動 | ✅ |
 | `sitemap-collections.xml` | `media_collections` 表（`is_active=true`） | ✅ 自動 | ✅ |
 | `sitemap-inspiration.xml` | 靈感牆項目（user_design / comparison / series / collection） | ✅ 自動（2026-03-05） | ✅ |
-| `sitemap-products.xml` | `custom_products`（`visibility='public'`）→ CSR detail | 路由保留 | ❌ 2026-05-26 起不索引 |
+| `sitemap-products.xml` | 同 inspiration 條件 → `/inspiration/user_design/*`（legacy，不查 `visibility`） | 路由保留 | ❌ 2026-05-26 起不索引 |
 
 ### ✅ Phase SEO-3：JSON-LD 結構化資料（主要頁面完成）
 

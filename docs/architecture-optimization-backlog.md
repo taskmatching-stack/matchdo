@@ -311,7 +311,7 @@ lib/                      # 已有 visual-semantics、lineage…
 | 1 | `routes/sitemap.js` 上線 | 2026-05-26 | |
 | 2 | 索引政策／products sitemap 決策 | 2026-05-26 | 已自 `/sitemap.xml` 移除 products |
 | 3 | capabilities + header 加法 | 2026-05-26 | zones/nav；③ 區暫隱 |
-| 4 | visibility 與 canonical 對齊 | | |
+| 4 | visibility 與 canonical 對齊 | 2026-05-26 | 廢止 visibility；detail canonical |
 | 5 | 續拆 inspiration / media-wall | | |
 
 ---
@@ -324,3 +324,4 @@ lib/                      # 已有 visual-semantics、lineage…
 | 2026-05-26 | **Step 0 完成**：`/client` 分流表、`show_on_homepage` 實際規則、`visibility` 缺口、§4.5 判斷與 Step 2 定案建議 |
 | 2026-05-26 | **Step 2 完成**：`/sitemap.xml` 不再索引 `sitemap-products`；`SEO-PROGRESS.md`、`sitemap.md` 政策更新 |
 | 2026-05-26 | **Step 3 完成**：`GET /api/me/capabilities` 加 `zones`／`nav`；header 依 `show_supplier_zone` 隱藏 ③ 區 |
+| 2026-05-26 | **Step 4 完成**：detail `canonical`+`noindex`；`sitemap-products` 改 inspiration URL；文件廢止 `visibility` |
