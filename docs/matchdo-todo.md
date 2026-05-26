@@ -6,8 +6,8 @@
 
 ## 接下來執行進度（建議順序）
 
-> **架構優化 Step 0～5 主線**：✅ **已完成**（2026-05-26，已 push `main`）。摘要見下方「近期完成」與 **`docs/architecture-optimization-backlog.md` §十一**；操作紀錄見 **`docs/architecture-optimization-runbook.md`**。  
-> **第二輪**（拆 `custom-products` API、admin 路由等）：見本檔 **「架構優化第二輪（待排）」**，與 SQL／功能開發並行排程即可。
+> **架構優化 Step 0～4 + Step 1～2**：✅ **已完成**（2026-05-26）。**Step 5 路由拆分已還原**（`605dca4` 導致啟動時 `express is not defined`、全站 500；已恢復 Step 4 的 `server.js`）。  
+> **第二輪**（含 **重做 Step 5**、拆 `custom-products` API）：見 **「架構優化第二輪」**。
 
 > **你現在在這裡**：若架構主線已部署，請以 **SQL → 部署 → 冒煙／E2E** 為主（下表 1～4）；架構第二輪非阻塞。
 
@@ -32,6 +32,7 @@
 
 | 代號 | 待辦 | 優先 | 完成標準 |
 |------|------|------|----------|
+| **A5r** | **重做 Step 5**（`inspiration`／`media-wall`／`vendor-pages`） | 高 | 拆檔時 **`routes/media-wall.js` 須 `require('express')`**；admin 路由勿誤搬；`node -e "require('./server.js')"` 通過後再部署 |
 | **A6** | 拆 **`routes/custom-products.js`**（或 `lib/custom-products.js` + 路由） | 中 | `POST/PATCH/GET /api/custom-products*`、生圖相關路由搬出 `server.js`；行為不變 |
 | **A7** | 拆 **admin 靈感牆**（`PATCH/DELETE /api/admin/media-wall-item`、`requireMediaWallDelete`） | 中 | 權限與刪除流程冒煙通過 |
 | **A8** | B 線 P2：開放 **`nav.show_supplier_zone`** | 低 | `industry_suppliers` 綁帳後；header 顯示 ③ 區 |
@@ -65,7 +66,9 @@
 
 ---
 
-## 近期完成（2026-05-26 架構優化 Step 0～5 主線）
+## 近期完成（2026-05-26 架構優化 Step 0～4 主線；Step 5 已還原）
+
+> **2026-05-26 晚**：Step 5（`605dca4`）上線後全站 HTTP 500，已 **還原 `server.js` 至 Step 4**（`7033fe3` 版路由本體），刪除 `lib/media-wall.js`、`routes/inspiration.js` 等。請重新部署後驗證首頁。
 
 | 項目 | 說明 |
 |------|------|
@@ -74,13 +77,12 @@
 | **Step 2** | `/sitemap.xml` 改 5 子索引；廢止 products 索引；`SEO-PROGRESS.md` |
 | **Step 3** | `GET /api/me/capabilities` 加 `zones`、`nav`；產業供應商 ③ 區選單暫隱 |
 | **Step 4** | 廢止 `visibility`；`custom-product-detail`：`noindex` + canonical → `/inspiration/...` |
-| **Step 5** | `lib/media-wall.js`；`routes/inspiration.js`、`vendor-pages.js`、`media-wall.js` |
+| **Step 5** | ~~已拆路由~~ → **已還原**（見上；第二輪 **A5r** 重做） |
 | **導覽 UX** | 「我的功能」移除與頂部「客製產品／設計風向」重複的連結 |
 
 **新增／主要變更檔案**：
 
-- `routes/sitemap.js`、`routes/inspiration.js`、`routes/vendor-pages.js`、`routes/media-wall.js`
-- `lib/media-wall.js`
+- `routes/sitemap.js`
 - `public/js/site-header.js`、`client/custom-product-detail.html`
 - `docs/custom-products-db-columns.md`、`docs/SEO-PROGRESS.md`、`docs/sitemap.md`
 

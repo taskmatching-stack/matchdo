@@ -1,7 +1,7 @@
 # 架構優化 · 逐步執行手冊（Runbook）
 
 更新日期：2026-05-26  
-**用途**：Step 0～5 **主線已完成**；本檔保留操作紀錄與冒煙清單。第二輪見 backlog **§十一**、`matchdo-todo.md`。  
+**用途**：Step 0～4 **主線已完成**；**Step 5 已還原**（見 backlog §11.5）。本檔保留操作紀錄與冒煙清單；重做 Step 5 見 `matchdo-todo.md` **A5r**。  
 **背景與判斷**：`docs/architecture-optimization-backlog.md`  
 **原則**：`docs/STABLE-BASELINE.md` — 不改首頁靈感牆核心；每步部署後跑冒煙（§六）。
 
@@ -282,6 +282,8 @@ feat: extend /api/me/capabilities with zones; header additive nav
 | 5c | `routes/media-wall.js` | `/api/media-wall`、`/api/media-wall-item` | 改動前跑完整牆冒煙 |
 
 每步重複 Step 1 流程：`registerXxxRoutes(app, deps)` + 本機 sitemap／inspiration／首頁驗證。
+
+> **2026-05-26 還原**：`605dca4` 上線後全站 500。根因：`routes/media-wall.js` 使用 `express.json()` 但未 `require('express')`。已恢復 Step 4 的 `server.js`。重做時務必執行：`node -e "require('./server.js')"`（應能 listen，勿出現 ReferenceError）。
 
 ---
 

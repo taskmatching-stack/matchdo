@@ -78,11 +78,6 @@ const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
-const { registerInspirationRoutes } = require('./routes/inspiration');
-const { registerVendorPageRoutes } = require('./routes/vendor-pages');
-const { registerMediaWallRoutes } = require('./routes/media-wall');
-const mediaWallLib = require('./lib/media-wall');
-
 const { registerSitemapRoutes } = require('./routes/sitemap');
 
 function mergeDesignerRegionIntoPayload(payload, req, uiLocale) {
@@ -101,12 +96,6 @@ function stripInternalCustomProductInsertColumns(payload) {
     return p;
 }
 // Gemini API 排隊：多人同時用時依序送出
-const {
-    attachDisplayTags,
-    buildInspirationTagsBlockHtml,
-    displayTagsForRow
-} = mediaWallLib;
-
 let _geminiQueueTail = Promise.resolve();
 function runInGeminiQueue(fn) {
     const p = _geminiQueueTail.then(() => fn());
@@ -128,7 +117,6 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 const upload = multer({ storage: multer.memoryStorage() });
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 const supabase = createClient(process.env.SUPABASE_URL, SUPABASE_KEY);
-mediaWallLib.init({ supabase });
 
 // Cloud Run：必須在時限內 listen，故在載入後續路由前先綁定 port
 const PORT = process.env.PORT || 3000;
@@ -168,6 +156,269 @@ function getVisualSemanticsDeps() {
     };
 }
 
+/** 合併手動 tags、ai_tags、image_semantics_json.tags（靈感牆／SEO／搜尋用） */
+function displayTagsForRow(row) {
+    if (!row) return [];
+    const manual = Array.isArray(row.tags) ? row.tags : [];
+    const ai = Array.isArray(row.ai_tags) ? row.ai_tags : [];
+    let semTags = [];
+    const sem = row.image_semantics_json;
+    if (sem && typeof sem === 'object' && Array.isArray(sem.tags)) semTags = sem.tags;
+    else if (typeof sem === 'string' && sem.trim()) {
+        try {
+            const o = JSON.parse(sem);
+            if (o && Array.isArray(o.tags)) semTags = o.tags;
+        } catch (_) {}
+    }
+    return visualSemantics.mergeTags(manual, ai, semTags);
+}
+
+function attachDisplayTags(item) {
+    if (!item || typeof item !== 'object') return item;
+    item.display_tags = displayTagsForRow(item);
+    return item;
+}
+
+function mediaWallItemSearchHaystack(item) {
+    if (!item) return '';
+    const tags = item.display_tags || displayTagsForRow(item);
+    return [
+        item.title,
+        item.description,
+        item.generation_prompt,
+        item.design_highlight,
+        item.category_key,
+        item.subcategory_key,
+        item.owner_display,
+        ...(tags || [])
+    ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function parseMediaWallTagFilters(raw) {
+    if (raw == null || raw === '') return [];
+    const s = String(raw).trim();
+    if (!s) return [];
+    return [...new Set(s.split(',').map((t) => t.trim()).filter(Boolean))];
+}
+
+/** 多個 tag 參數須全部符合（AND），可與 q／category／layout_type 疊加 */
+function mediaWallItemMatchesTagFilters(item, tagFilters) {
+    if (!tagFilters || !tagFilters.length) return true;
+    attachDisplayTags(item);
+    const tags = (item.display_tags || displayTagsForRow(item) || []).map((t) => String(t).trim().toLowerCase());
+    return tagFilters.every((tf) => {
+        const needle = String(tf).trim().toLowerCase();
+        if (!needle) return true;
+        return tags.some((t) => t === needle || t.includes(needle) || needle.includes(t));
+    });
+}
+
+function escapeForIlike(q) {
+    return String(q || '').replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+function applyMediaWallCategoryFilters(query, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey }) {
+    if (categoryKeysToMatch && categoryKeysToMatch.length) query = query.in('category_key', categoryKeysToMatch);
+    else if (filterCategoryKey) query = query.eq('category_key', filterCategoryKey);
+    if (filterSubcategoryKey) query = query.eq('subcategory_key', filterSubcategoryKey);
+    return query;
+}
+
+function applyCustomProductCategoryFilters(query, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey }) {
+    if (categoryKeysToMatch && categoryKeysToMatch.length) query = query.in('category', categoryKeysToMatch);
+    else if (filterCategoryKey) query = query.eq('category', filterCategoryKey);
+    if (filterSubcategoryKey) query = query.eq('subcategory_key', filterSubcategoryKey);
+    return query;
+}
+
+async function fetchOwnerDisplayMap(ownerIds) {
+    const ownerDisplayMap = {};
+    if (!ownerIds || !ownerIds.length) return ownerDisplayMap;
+    try {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', ownerIds);
+        (profs || []).forEach((pr) => { ownerDisplayMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
+    } catch (_) {}
+    return ownerDisplayMap;
+}
+
+function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
+    let aj = p.analysis_json;
+    if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
+    const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
+    const id = p.id;
+    return attachDisplayTags({
+        ...p,
+        analysis_json: aj || null,
+        generation_seed: seed != null && seed !== '' ? seed : null,
+        type: 'user_design',
+        size: '1x1',
+        title: p.title || '未命名',
+        image_url: p.ai_generated_image_url || p.reference_image_url,
+        link: '/custom/gallery.html',
+        inspiration_url: id ? `/inspiration/user_design/${id}` : null,
+        owner_display: ownerDisplayMap[p.owner_id] || null,
+        category_key: p.category || null,
+        subcategory_key: p.subcategory_key || null
+    });
+}
+
+function mapPortfolioRowToMediaWallItem(p, compMfrMap) {
+    const nowIso = new Date().toISOString();
+    const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
+    const imageUrl = seriesExpired ? null : (p.image_url || null);
+    const imageUrlBefore = p.image_url_before || null;
+    const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length)
+        ? (seriesExpired ? [] : p.series_image_urls)
+        : (imageUrl ? [imageUrl] : []);
+    const itemType = imageUrlBefore ? 'comparison' : 'series';
+    const mfrUserId = compMfrMap[p.manufacturer_id] || null;
+    const item = attachDisplayTags({
+        type: itemType,
+        size: '1x1',
+        id: p.id,
+        manufacturer_id: p.manufacturer_id,
+        manufacturer_user_id: mfrUserId,
+        title: p.title || '廠商作品',
+        image_url: imageUrl,
+        design_highlight: p.design_highlight || null,
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        ai_tags: Array.isArray(p.ai_tags) ? p.ai_tags : [],
+        image_semantics_json: p.image_semantics_json || null,
+        description: p.description || null,
+        category_key: p.category_key || null,
+        subcategory_key: p.subcategory_key || null,
+        link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html',
+        inspiration_url: p.id ? `/inspiration/${itemType}/${p.id}` : null,
+        created_at: p.created_at
+    });
+    if (itemType === 'comparison') item.image_url_before = imageUrlBefore;
+    if (itemType === 'series' && seriesUrls.length) item.series_image_urls = seriesUrls;
+    return item;
+}
+
+/** 站內搜尋：查已公開作品池（非僅首頁最新一頁），含標題／提示詞／AI 標籤 */
+async function loadMediaWallSearchResults(searchQ, opts) {
+    const {
+        page, perPage, offset, layoutOnly,
+        categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey
+    } = opts;
+    const qLower = searchQ.toLowerCase();
+    const pattern = `%${escapeForIlike(searchQ)}%`;
+    const pool = Math.min(500, Math.max(perPage * 10, 150));
+    const merged = [];
+    const userSelect = 'id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json';
+    const portfolioSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, created_at';
+
+    const pushIfMatch = (item, createdAt) => {
+        if (!item || !mediaWallItemSearchHaystack(item).includes(qLower)) return;
+        if (layoutOnly === 'user_design' && (item.type !== 'user_design' || item.manufacturer_id)) return;
+        if (layoutOnly === 'comparison' && item.type !== 'comparison') return;
+        if (layoutOnly === 'series' && item.type !== 'series') return;
+        if (layoutOnly === 'collection' && item.type !== 'collection') return;
+        merged.push({ item, created_at: createdAt || item.created_at || '' });
+    };
+
+    if (!layoutOnly || layoutOnly === 'user_design') {
+        const seen = new Set();
+        const ingestUsers = async (rows) => {
+            if (!rows || !rows.length) return;
+            const ownerMap = await fetchOwnerDisplayMap([...new Set(rows.map((p) => p.owner_id).filter(Boolean))]);
+            rows.forEach((p) => {
+                if (!p || !p.id || seen.has(p.id)) return;
+                const item = mapUserRowToMediaWallItem(p, ownerMap);
+                if (!mediaWallItemSearchHaystack(item).includes(qLower)) return;
+                seen.add(p.id);
+                merged.push({ item, created_at: p.created_at || '' });
+            });
+        };
+        let qText = supabase.from('custom_products').select(userSelect)
+            .not('ai_generated_image_url', 'is', null)
+            .or('show_on_homepage.eq.true,show_on_homepage.is.null')
+            .or(`title.ilike.${pattern},generation_prompt.ilike.${pattern},description.ilike.${pattern}`);
+        qText = applyCustomProductCategoryFilters(qText, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
+        const textRes = await qText.order('created_at', { ascending: false }).limit(pool);
+        await ingestUsers(textRes.data);
+        let qPool = supabase.from('custom_products').select(userSelect)
+            .not('ai_generated_image_url', 'is', null)
+            .or('show_on_homepage.eq.true,show_on_homepage.is.null');
+        qPool = applyCustomProductCategoryFilters(qPool, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
+        const poolRes = await qPool.order('created_at', { ascending: false }).limit(pool);
+        await ingestUsers(poolRes.data);
+    }
+
+    if (!layoutOnly || layoutOnly === 'comparison' || layoutOnly === 'series') {
+        const seenP = new Set();
+        const ingestPortfolio = async (rows) => {
+            if (!rows || !rows.length) return;
+            const mfrIds = [...new Set(rows.map((p) => p.manufacturer_id).filter(Boolean))];
+            const mfrMap = {};
+            if (mfrIds.length) {
+                const { data: mfrs } = await supabase.from('manufacturers').select('id, user_id').in('id', mfrIds).eq('is_active', true);
+                (mfrs || []).forEach((m) => { mfrMap[m.id] = m.user_id || null; });
+            }
+            rows.forEach((p) => {
+                if (!p || !p.id || seenP.has(p.id)) return;
+                const item = mapPortfolioRowToMediaWallItem(p, mfrMap);
+                if (!mediaWallItemSearchHaystack(item).includes(qLower)) return;
+                seenP.add(p.id);
+                merged.push({ item, created_at: p.created_at || '' });
+            });
+        };
+        let qText = supabase.from('manufacturer_portfolio').select(portfolioSelect)
+            .eq('show_on_media_wall', true)
+            .or(`title.ilike.${pattern},description.ilike.${pattern},design_highlight.ilike.${pattern}`);
+        qText = applyMediaWallCategoryFilters(qText, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
+        if (layoutOnly === 'comparison') qText = qText.not('image_url_before', 'is', null);
+        if (layoutOnly === 'series') qText = qText.is('image_url_before', null);
+        const textRes = await qText.order('created_at', { ascending: false }).limit(pool);
+        await ingestPortfolio(textRes.data);
+        let qPool = supabase.from('manufacturer_portfolio').select(portfolioSelect).eq('show_on_media_wall', true);
+        qPool = applyMediaWallCategoryFilters(qPool, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
+        if (layoutOnly === 'comparison') qPool = qPool.not('image_url_before', 'is', null);
+        if (layoutOnly === 'series') qPool = qPool.is('image_url_before', null);
+        const poolRes = await qPool.order('created_at', { ascending: false }).limit(pool);
+        await ingestPortfolio(poolRes.data);
+    }
+
+    if (!layoutOnly || layoutOnly === 'collection') {
+        let collQ = supabase.from('media_collections').select('id, title, slug, cover_image_url, image_urls, description, category_keys, manufacturer_id, created_at')
+            .eq('is_active', true)
+            .or(`title.ilike.${pattern},description.ilike.${pattern}`);
+        const collRes = await collQ.order('created_at', { ascending: false }).limit(pool);
+        (collRes.data || []).forEach((row) => {
+            if (filterCategoryKey && row.category_keys && Array.isArray(row.category_keys) && row.category_keys.indexOf(filterCategoryKey) === -1) return;
+            const cover = row.cover_image_url || null;
+            const imageUrls = (row.image_urls && Array.isArray(row.image_urls) && row.image_urls.length) ? row.image_urls : (cover ? [cover] : []);
+            const item = attachDisplayTags({
+                type: 'collection',
+                size: '1x2',
+                id: row.id,
+                title: row.title || '系列',
+                slug: row.slug,
+                cover_image_url: cover,
+                series_image_urls: imageUrls,
+                description: row.description || null,
+                link: row.slug ? '/custom/collection.html?slug=' + encodeURIComponent(row.slug) : '/custom/gallery.html',
+                inspiration_url: row.id ? `/inspiration/collection/${row.id}` : null,
+                created_at: row.created_at
+            });
+            pushIfMatch(item, row.created_at);
+        });
+    }
+
+    merged.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return merged.slice(offset, offset + perPage).map((x) => x.item);
+}
+
+function escapeHtmlAttr(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
+function buildInspirationTagsBlockHtml(tags) {
+    if (!tags || !tags.length) return '';
+    const inner = tags.map((t) => '<span class="inspiration-tag">' + escapeHtmlAttr(t) + '</span>').join('');
+    return '<details class="inspiration-tags-details"><summary><i class="bi bi-tags" aria-hidden="true"></i> 標籤（' + tags.length + '）</summary><div class="inspiration-tags-list">' + inner + '</div></details>';
+}
 
 function normalizeVendorAssetKind(raw) {
     const k = String(raw || '').trim().toLowerCase();
@@ -939,10 +1190,113 @@ app.get('/', (req, res) => {
 app.get(['/iStudio-1.0.0', '/iStudio-1.0.0/', '/iStudio-1.0.0/index.html'], (req, res) => {
     res.redirect(302, '/');
 });
-registerMediaWallRoutes(app, { supabase });
-registerInspirationRoutes(app, { BASE_URL, fetch: globalThis.fetch });
 
-
+// 靈感牆單一作品獨立 URL：穩定落地頁（SEO／分享）；?open=1 可選導向首頁 lightbox
+app.get('/inspiration/:type/:id', async (req, res) => {
+    const type = (req.params.type || '').trim();
+    const id = (req.params.id || '').trim();
+    if (!['user_design', 'comparison', 'series', 'collection'].includes(type) || !id) {
+        res.status(400).send('Invalid type or id');
+        return;
+    }
+    try {
+        const origin = (req.get('x-forwarded-proto') && req.get('host')) ? `${req.get('x-forwarded-proto')}://${req.get('host')}` : null;
+        const base = origin || BASE_URL;
+        const apiRes = await fetch(`${base}/api/media-wall-item/${encodeURIComponent(type)}/${encodeURIComponent(id)}`, { headers: { accept: 'application/json' } });
+        if (!apiRes.ok) {
+            res.status(apiRes.status === 404 ? 404 : 500).send(apiRes.status === 404 ? '找不到該作品' : '暫時無法載入');
+            return;
+        }
+        const { item } = await apiRes.json();
+        if (!item) {
+            res.status(404).send('找不到該作品');
+            return;
+        }
+        attachDisplayTags(item);
+        const displayTags = item.display_tags || [];
+        const tagsKeywords = displayTags.slice(0, 24).join(', ');
+        const title = (item.title || '作品').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        let descRaw = (item.description || item.generation_prompt || item.title || 'MATCHDO 靈感牆作品').toString();
+        if (tagsKeywords) descRaw = (descRaw + ' — ' + tagsKeywords).slice(0, 300);
+        const desc = descRaw.slice(0, 160).replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const metaKeywords = tagsKeywords.replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const img = item.image_url || item.cover_image_url || '';
+        let imgUrl = '';
+        if (img) {
+            const supabaseOrigin = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+            if (img.startsWith('http')) {
+                imgUrl = (supabaseOrigin && img.startsWith(supabaseOrigin + '/'))
+                    ? (base + '/api/proxy-image?url=' + encodeURIComponent(img))
+                    : img;
+            } else {
+                imgUrl = base + (img.startsWith('/') ? '' : '/') + img;
+            }
+        }
+        const pageUrl = `${base}/inspiration/${encodeURIComponent(type)}/${encodeURIComponent(id)}`;
+        const itemParam = `${encodeURIComponent(type)}-${encodeURIComponent(id)}`;
+        const lightboxUrl = `${base}/?item=${itemParam}`;
+        const openLightbox = req.query.open === '1' || req.query.open === 'true';
+        const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} - MATCHDO 靈感牆</title>
+<meta name="description" content="${desc}">
+${metaKeywords ? `<meta name="keywords" content="${metaKeywords}">` : ''}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MATCHDO 合做">
+<meta property="og:title" content="${title} - MATCHDO 靈感牆">
+<meta property="og:description" content="${desc}">
+<meta property="og:url" content="${pageUrl}">
+<link rel="canonical" href="${pageUrl.replace(/"/g, '&quot;')}">
+${imgUrl ? `<meta property="og:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${title} - MATCHDO 靈感牆">
+<meta name="twitter:description" content="${desc}">
+${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'CreativeWork',
+    name: item.title || '作品',
+    description: descRaw.slice(0, 200),
+    ...(imgUrl ? { image: imgUrl } : {}),
+    url: pageUrl,
+    ...(displayTags.length ? { keywords: displayTags.slice(0, 30).join(', ') } : {})
+}).replace(/</g, '\\u003c')}</script>
+<style>
+.inspiration-page{max-width:720px;margin:1.5rem auto;padding:0 1rem;font-family:system-ui,sans-serif}
+.inspiration-page h1{font-size:1.25rem;margin:0 0 .75rem}
+.inspiration-page .inspiration-img{max-width:100%;height:auto;border-radius:8px}
+.inspiration-tags-details{margin:1rem 0;font-size:.875rem}
+.inspiration-tags-details summary{cursor:pointer;color:#445D7E;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:.35rem}
+.inspiration-tags-details summary::-webkit-details-marker{display:none}
+.inspiration-tags-list{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.inspiration-tag{display:inline-block;padding:.2rem .5rem;background:#f0f4f8;border-radius:4px;font-size:.75rem;color:#333}
+.inspiration-open-btn{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#445D7E;color:#fff!important;text-decoration:none;border-radius:6px;font-size:.9rem}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+<article class="inspiration-page">
+<h1>${title}</h1>
+${imgUrl ? `<img class="inspiration-img" src="${imgUrl.replace(/"/g, '&quot;')}" alt="${title}">` : ''}
+${buildInspirationTagsBlockHtml(displayTags)}
+<p class="inspiration-url-hint"><small>永久連結：</small> <a href="${pageUrl.replace(/"/g, '&quot;')}">${pageUrl.replace(/</g, '&lt;')}</a></p>
+<p><a class="inspiration-open-btn" href="${lightboxUrl.replace(/"/g, '&quot;')}">在首頁靈感牆中開啟</a></p>
+</article>
+${openLightbox ? `<script>setTimeout(function(){window.location.replace(${JSON.stringify(lightboxUrl)});},800);</script>` : ''}
+<noscript><p><a href="${lightboxUrl.replace(/"/g, '&quot;')}">前往靈感牆</a></p></noscript>
+</body>
+</html>`;
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=120');
+        res.send(html);
+    } catch (e) {
+        console.error('GET /inspiration/:type/:id 異常:', e);
+        if (!res.headersSent) res.status(500).send('暫時無法載入');
+    }
+});
 // 單一入口：產品設計表單與客戶端頁面（只維護 public/custom-product.html、client/*，舊網址導向正式路徑）
 app.get('/iStudio-1.0.0/custom-product.html', (req, res) => res.redirect(302, '/custom-product.html'));
 app.get('/iStudio-1.0.0/client/my-custom-products.html', (req, res) => res.redirect(302, '/client/my-custom-products.html'));
@@ -3244,10 +3598,52 @@ app.get('/img/favicon.ico', (req, res) => sendIcon(req, res, 'favicon.ico'));
 app.get('/img/favicon-32x32.png', (req, res) => sendIcon(req, res, 'favicon-32x32.png'));
 app.get('/img/favicon-16x16.png', (req, res) => sendIcon(req, res, 'favicon-16x16.png'));
 app.get('/img/apple-touch-icon.png', (req, res) => sendIcon(req, res, 'apple-touch-icon.png'));
-// vendor-profile 動態 OG（見 routes/vendor-pages.js）
-registerVendorPageRoutes(app, { supabase, BASE_URL, rootDir: __dirname });
 
-
+// vendor-profile 動態 OG：有 ?id= 時依廠商資料輸出 meta，供社群爬蟲與分享預覽
+app.get('/vendor-profile.html', async (req, res, next) => {
+    const id = (req.query.id || '').trim();
+    if (!id) return next();
+    try {
+        const { data: mfr } = await supabase.from('manufacturers').select('id, name, description, logo_url').eq('id', id).maybeSingle();
+        if (!mfr) return next();
+        let coverUrl = mfr.logo_url || null;
+        if (!coverUrl) {
+            const { data: first } = await supabase.from('manufacturer_portfolio').select('image_url').eq('manufacturer_id', id).order('sort_order', { ascending: true }).limit(1).maybeSingle();
+            if (first && first.image_url) coverUrl = first.image_url;
+        }
+        const origin = (req.get('x-forwarded-proto') && req.get('host')) ? `${req.get('x-forwarded-proto')}://${req.get('host')}` : null;
+        const base = origin || BASE_URL;
+        const pageUrl = base + '/vendor-profile.html?id=' + encodeURIComponent(id);
+        const supabaseOrigin = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+        if (coverUrl && coverUrl.startsWith('http') && supabaseOrigin && coverUrl.startsWith(supabaseOrigin + '/')) {
+            coverUrl = base + '/api/proxy-image?url=' + encodeURIComponent(coverUrl);
+        }
+        const name = (mfr.name || '廠商').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const desc = ((mfr.description || '') + ' - MATCHDO 合做').trim().slice(0, 160).replace(/</g, '&lt;').replace(/"/g, '&quot;') || (name + ' - 在 MATCHDO 合做瀏覽廠商作品與聯繫方式');
+        const htmlPath = path.join(__dirname, 'public', 'vendor-profile.html');
+        if (!fs.existsSync(htmlPath)) return next();
+        let html = fs.readFileSync(htmlPath, 'utf8');
+        html = html.replace(/<title>[^<]*<\/title>/, '<title>' + name + ' - MATCHDO 合做</title>');
+        html = html.replace(/<meta name="description" content="[^"]*">/, '<meta name="description" content="' + desc + '">');
+        html = html.replace(/<meta property="og:title" content="[^"]*">/, '<meta property="og:title" content="' + name + ' - MATCHDO 合做">');
+        html = html.replace(/<meta property="og:description" content="[^"]*">/, '<meta property="og:description" content="' + desc + '">');
+        html = html.replace(/<meta property="og:image" content="[^"]*">/, '<meta property="og:image" content="' + (coverUrl || (base + '/img/og-vendors.jpg')) + '">');
+        html = html.replace(/<meta property="og:url" content="[^"]*">/, '<meta property="og:url" content="' + pageUrl.replace(/"/g, '&quot;') + '">');
+        html = html.replace(/<meta name="twitter:title" content="[^"]*">/, '<meta name="twitter:title" content="' + name + ' - MATCHDO 合做">');
+        html = html.replace(/<meta name="twitter:description" content="[^"]*">/, '<meta name="twitter:description" content="' + desc + '">');
+        html = html.replace(/<meta name="twitter:image" content="[^"]*">/, '<meta name="twitter:image" content="' + (coverUrl || (base + '/img/og-vendors.jpg')) + '">');
+        html = html.replace(/<link rel="canonical" href="[^"]*" id="canonicalTag">/, '<link rel="canonical" href="' + pageUrl.replace(/"/g, '&quot;') + '" id="canonicalTag">');
+        html = html.replace(/<link rel="alternate" hreflang="zh-TW" href="[^"]*" id="hreflangZh">/, '<link rel="alternate" hreflang="zh-TW" href="' + pageUrl.replace(/"/g, '&quot;') + '" id="hreflangZh">');
+        html = html.replace(/<link rel="alternate" hreflang="en" href="[^"]*" id="hreflangEn">/, '<link rel="alternate" hreflang="en" href="' + pageUrl.replace(/"/g, '&quot;') + '&lang=en" id="hreflangEn">');
+        html = html.replace(/<link rel="alternate" hreflang="x-default" href="[^"]*">/, '<link rel="alternate" hreflang="x-default" href="' + pageUrl.replace(/"/g, '&quot;') + '">');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.send(html);
+    } catch (e) {
+        console.error('GET /vendor-profile.html 動態 OG 異常:', e && e.message);
+        next();
+    }
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 // 錯誤連結修正：/public/custom/* → /custom/*
@@ -6986,6 +7382,662 @@ app.patch('/api/custom-products/:id/manufacturing', express.json(), async (req, 
     }
 });
 
+// GET /api/media-wall - 首頁媒體牆三類型混合（不設比例，每類型各取 perPage）
+// 「一頁」= 一次請求回傳的筆數：由 query per_page（預設 48，上限 100）與 page（第 1 頁為最新）決定；前端「載入更多」即請求 page=2,3…
+// 回傳單一陣列，每筆含 type('user_design'|'comparison'|'collection'), size('1x1'|'2x2'), 與對應欄位
+// ?per_page=48&page=1&q=關鍵字&tag=標籤1,標籤2&category_key=主分類&subcategory_key=子分類&layout_type=（可疊加）
+app.get('/api/media-wall', async (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const perPage = Math.min(100, Math.max(10, parseInt(req.query.per_page, 10) || 48));
+    const offset = (page - 1) * perPage;
+    const searchQ = (req.query.q && String(req.query.q).trim()) || '';
+    const tagFilters = parseMediaWallTagFilters(req.query.tag);
+    const filterCategoryKey = (req.query.category_key && String(req.query.category_key).trim()) || '';
+    const filterSubcategoryKey = (req.query.subcategory_key && String(req.query.subcategory_key).trim()) || '';
+    const filterLayoutType = (req.query.layout_type && String(req.query.layout_type).trim()) || '';
+    const layoutOnly = ['user_design', 'comparison', 'collection', 'series'].includes(filterLayoutType) ? filterLayoutType : null;
+
+    const out = [];
+    const hasCategoryFilter = !!(filterCategoryKey || filterSubcategoryKey);
+    const clientFilterActive = !!(searchQ || tagFilters.length);
+    // 有 q 或 tag 時多取一批，再與分類／類型條件 AND 後分頁
+    const searchPool = clientFilterActive ? Math.min(100, Math.max(offset + perPage * 2, perPage * 2)) : 0;
+    const dbOffset = clientFilterActive ? 0 : offset;
+    const nUserLimit = (layoutOnly === 'user_design' || layoutOnly === null) ? (clientFilterActive ? searchPool : perPage) : 0;
+    const nComparisonLimit = (layoutOnly === 'comparison' || layoutOnly === null) ? (clientFilterActive ? searchPool : perPage) : 0;
+    const nSeriesLimit = (layoutOnly === 'series' || layoutOnly === 'collection') ? (clientFilterActive ? searchPool : perPage) : 0;
+    // 混合模式時 1x2 只取少數，避免壓過 1x1；篩選「系列／資料夾」時才取滿一頁
+    const nCollectionLimit = (layoutOnly === 'series' || layoutOnly === 'collection')
+        ? Math.max(1, Math.floor((clientFilterActive ? searchPool : perPage) / 2))
+        : (layoutOnly === null ? (clientFilterActive ? Math.min(12, Math.max(6, Math.floor(searchPool / 8))) : 6) : 0);
+
+    try {
+        {
+        // 主分類篩選時：custom_products.category 可能存「主分類 key」或「子分類 key」（表單只送一個欄位），故需包含該主分類下所有子分類 key
+        let categoryKeysToMatch = filterCategoryKey ? [filterCategoryKey] : null;
+        if (filterCategoryKey) {
+            try {
+                const { data: subRows } = await supabase
+                    .from('custom_product_subcategories')
+                    .select('key')
+                    .eq('category_key', filterCategoryKey);
+                if (subRows && subRows.length) {
+                    categoryKeysToMatch = [filterCategoryKey, ...subRows.map(r => r.key).filter(Boolean)];
+                }
+            } catch (_) {}
+        }
+
+        // 用戶設計：只查「有圖」且允許顯示在首頁的；可依 category / subcategory_key 篩選
+        let userRows = [];
+        if (!layoutOnly || layoutOnly === 'user_design') {
+        let userQuery = supabase
+            .from('custom_products')
+            .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json')
+            .not('ai_generated_image_url', 'eq', null)
+            .or('show_on_homepage.eq.true,show_on_homepage.is.null');
+        if (categoryKeysToMatch && categoryKeysToMatch.length) userQuery = userQuery.in('category', categoryKeysToMatch);
+        else if (filterCategoryKey) userQuery = userQuery.eq('category', filterCategoryKey);
+        if (filterSubcategoryKey) userQuery = userQuery.eq('subcategory_key', filterSubcategoryKey);
+        userQuery = userQuery.order('created_at', { ascending: false }).range(dbOffset, dbOffset + (hasCategoryFilter && !clientFilterActive ? perPage : nUserLimit) - 1);
+        const userRes = await userQuery;
+        if (!userRes.error) userRows = userRes.data || [];
+        if (userRes.error && userRes.error.code !== '42703') console.warn('GET /api/media-wall 用戶設計查詢失敗:', userRes.error.message);
+        if (userRes.error && /column.*show_on_homepage|column.*subcategory_key|42703/i.test(userRes.error.message || userRes.error.code)) {
+            let fallbackQuery = supabase
+                .from('custom_products')
+                .select('id, title, category, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed')
+                .not('ai_generated_image_url', 'eq', null);
+            if (categoryKeysToMatch && categoryKeysToMatch.length) fallbackQuery = fallbackQuery.in('category', categoryKeysToMatch);
+            else if (filterCategoryKey) fallbackQuery = fallbackQuery.eq('category', filterCategoryKey);
+            fallbackQuery = fallbackQuery.order('created_at', { ascending: false }).range(dbOffset, dbOffset + (hasCategoryFilter && !clientFilterActive ? perPage : nUserLimit) - 1);
+            const fallback = await fallbackQuery;
+            userRows = (fallback.data && fallback.data.length) ? fallback.data : [];
+            if (filterSubcategoryKey && userRows.length) userRows = userRows.filter(p => (p.subcategory_key || '') === filterSubcategoryKey);
+        }
+        let ownerDisplayMap = {};
+        if (userRows && userRows.length) {
+            const ownerIds = [...new Set(userRows.map(p => p.owner_id).filter(Boolean))];
+            if (ownerIds.length > 0) {
+                try {
+                    const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', ownerIds);
+                    if (profs) profs.forEach(pr => { ownerDisplayMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
+                } catch (_) {}
+            }
+            // 照抄 GET /api/custom-products 的 product 形狀；確保 analysis_json 為物件，且 generation_seed 從 analysis_json 帶出
+            userRows.forEach(p => {
+                let aj = p.analysis_json;
+                if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
+                const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
+                const userItem = attachDisplayTags({
+                    ...p,
+                    analysis_json: aj || null,
+                    generation_seed: seed != null && seed !== '' ? seed : null,
+                    type: 'user_design',
+                    size: '1x1',
+                    title: p.title || '未命名',
+                    image_url: p.ai_generated_image_url || p.reference_image_url,
+                    link: '/custom/gallery.html',
+                    inspiration_url: p.id ? `/inspiration/user_design/${p.id}` : null,
+                    owner_display: ownerDisplayMap[p.owner_id] || null,
+                    category_key: p.category || null,
+                    subcategory_key: p.subcategory_key || null
+                });
+                out.push(userItem);
+            });
+        }
+        }
+
+        // 廠商對比：有分類篩選時只回傳該分類的對比圖，無篩選時回傳 show_on_media_wall 的項目（需 category_key 欄位請執行 docs/add-manufacturer-portfolio-category-fields.sql）
+        // 篩選「對照圖」時只查有 image_url_before 的項目，沒傳對照圖的不能出現在對照圖區
+        let compRows = [];
+        if (!layoutOnly || layoutOnly === 'comparison') {
+        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until, series_image_urls, created_at';
+        if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
+            let compQuery = supabase
+                .from('manufacturer_portfolio')
+                .select(compSelect)
+                .eq('show_on_media_wall', true)
+                .in('category_key', categoryKeysToMatch)
+                .order('created_at', { ascending: false })
+                .range(dbOffset, dbOffset + nComparisonLimit - 1);
+            if (layoutOnly === 'comparison') compQuery = compQuery.not('image_url_before', 'is', null);
+            if (filterSubcategoryKey) compQuery = compQuery.eq('subcategory_key', filterSubcategoryKey);
+            const compRes = await compQuery;
+            if (!compRes.error) compRows = compRes.data || [];
+            if (compRes.error && compRes.error.code !== '42703') console.warn('GET /api/media-wall 廠商對比（依分類）查詢:', compRes.error.message);
+        } else {
+            let compQuery = supabase
+                .from('manufacturer_portfolio')
+                .select(compSelect)
+                .eq('show_on_media_wall', true)
+                .order('created_at', { ascending: false })
+                .range(dbOffset, dbOffset + nComparisonLimit - 1);
+            if (layoutOnly === 'comparison') compQuery = compQuery.not('image_url_before', 'is', null);
+            const compRes = await compQuery;
+            if (!compRes.error) compRows = compRes.data || [];
+            if (compRes.error && compRes.error.code !== '42703') console.warn('GET /api/media-wall 廠商對比查詢:', compRes.error.message);
+            if (compRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(compRes.error.message || compRes.error.code)) {
+                let fallbackQuery = supabase
+                    .from('manufacturer_portfolio')
+                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, series_image_valid_until, before_image_valid_until, series_image_urls')
+                    .order('created_at', { ascending: false })
+                    .range(dbOffset, dbOffset + nComparisonLimit - 1);
+                if (layoutOnly === 'comparison') fallbackQuery = fallbackQuery.not('image_url_before', 'is', null);
+                const fallback = await fallbackQuery;
+                compRows = fallback.data || [];
+            }
+        }
+        }
+        if (compRows && compRows.length) {
+            // Batch-fetch manufacturer user_id so the lightbox can offer in-app contact
+            const compMfrIds = [...new Set(compRows.map(p => p.manufacturer_id).filter(Boolean))];
+            let compMfrMap = {};
+            if (compMfrIds.length) {
+                const { data: compMfrs } = await supabase
+                    .from('manufacturers')
+                    .select('id, user_id')
+                    .in('id', compMfrIds)
+                    .eq('is_active', true);
+                (compMfrs || []).forEach(m => { compMfrMap[m.id] = m.user_id || null; });
+            }
+            const nowIso = new Date().toISOString();
+            compRows.forEach(p => {
+                const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
+                const imageUrl = seriesExpired ? null : (p.image_url || null);
+                // 舊圖（設計圖）一律回傳，不因 before_image_valid_until 過期而隱藏，否則首頁對照圖左半不顯示
+                const imageUrlBefore = (p.image_url_before || null);
+                const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
+                // 有 image_url_before 才是對照圖（設計圖+作品圖）；否則為系列圖（多張或單張）
+                const itemType = imageUrlBefore ? 'comparison' : 'series';
+                const mfrUserId = compMfrMap[p.manufacturer_id] || null;
+                const payload = attachDisplayTags({
+                    type: itemType,
+                    size: '1x1',
+                    id: p.id,
+                    manufacturer_id: p.manufacturer_id,
+                    manufacturer_user_id: mfrUserId,
+                    title: p.title || '廠商作品',
+                    image_url: imageUrl,
+                    design_highlight: p.design_highlight || null,
+                    tags: Array.isArray(p.tags) ? p.tags : [],
+                    ai_tags: Array.isArray(p.ai_tags) ? p.ai_tags : [],
+                    image_semantics_json: p.image_semantics_json || null,
+                    description: p.description || null,
+                    category_key: p.category_key || null,
+                    subcategory_key: p.subcategory_key || null,
+                    link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html',
+                    inspiration_url: p.id ? `/inspiration/${itemType}/${p.id}` : null,
+                    created_at: p.created_at || null
+                });
+                if (itemType === 'comparison') payload.image_url_before = imageUrlBefore;
+                if (itemType === 'series' && seriesUrls.length) payload.series_image_urls = seriesUrls;
+                // 篩選「對照圖」時只回傳真正的對照圖（有設計圖），不把系列圖塞進對照圖區
+                if (layoutOnly === 'comparison' && itemType !== 'comparison') return;
+                out.push(payload);
+            });
+        }
+        // 沒有對比圖時不顯示對比（不塞 demo），每種類型都要有分類
+        }
+
+        // 系列圖專用：篩選「系列圖」或「資料夾」時皆查 image_url_before 為 null 的廠商作品（與資料夾整合為同一種）
+        let seriesRows = [];
+        if ((layoutOnly === 'series' || layoutOnly === 'collection') && nSeriesLimit > 0) {
+            try {
+                const seriesSelect = 'id, manufacturer_id, title, image_url, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, created_at';
+                if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
+                    let seriesQuery = supabase
+                        .from('manufacturer_portfolio')
+                        .select(seriesSelect)
+                        .eq('show_on_media_wall', true)
+                        .is('image_url_before', null)
+                        .in('category_key', categoryKeysToMatch)
+                        .order('created_at', { ascending: false })
+                        .range(dbOffset, dbOffset + nSeriesLimit - 1);
+                    if (filterSubcategoryKey) seriesQuery = seriesQuery.eq('subcategory_key', filterSubcategoryKey);
+                    const seriesRes = await seriesQuery;
+                    if (!seriesRes.error) seriesRows = seriesRes.data || [];
+                    if (seriesRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(String(seriesRes.error.message || seriesRes.error.code))) {
+                        let fallbackQuery = supabase
+                            .from('manufacturer_portfolio')
+                            .select('id, manufacturer_id, title, image_url, design_highlight, series_image_valid_until, series_image_urls')
+                            .is('image_url_before', null)
+                            .order('created_at', { ascending: false })
+                            .range(dbOffset, dbOffset + nSeriesLimit - 1);
+                        const fallbackRes = await fallbackQuery;
+                        seriesRows = (fallbackRes.data || []).map(r => ({ ...r, tags: [], description: null, category_key: null, subcategory_key: null }));
+                    }
+                } else {
+                    const seriesRes = await supabase
+                        .from('manufacturer_portfolio')
+                        .select(seriesSelect)
+                        .eq('show_on_media_wall', true)
+                        .is('image_url_before', null)
+                        .order('created_at', { ascending: false })
+                        .range(dbOffset, dbOffset + nSeriesLimit - 1);
+                    if (!seriesRes.error) seriesRows = seriesRes.data || [];
+                    if (seriesRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(String(seriesRes.error.message || seriesRes.error.code))) {
+                        const fallbackRes = await supabase
+                            .from('manufacturer_portfolio')
+                            .select('id, manufacturer_id, title, image_url, design_highlight, series_image_valid_until, series_image_urls')
+                            .is('image_url_before', null)
+                            .order('created_at', { ascending: false })
+                            .range(dbOffset, dbOffset + nSeriesLimit - 1);
+                        seriesRows = (fallbackRes.data || []).map(r => ({ ...r, tags: [], description: null, category_key: null, subcategory_key: null }));
+                    }
+                }
+            } catch (seriesErr) {
+                console.warn('GET /api/media-wall 系列圖查詢:', seriesErr && seriesErr.message);
+            }
+        }
+        if (seriesRows && seriesRows.length) {
+            const seriesMfrIds = [...new Set(seriesRows.map(p => p.manufacturer_id).filter(Boolean))];
+            let seriesMfrMap = {};
+            if (seriesMfrIds.length) {
+                const { data: seriesMfrs } = await supabase
+                    .from('manufacturers')
+                    .select('id, user_id')
+                    .in('id', seriesMfrIds)
+                    .eq('is_active', true);
+                (seriesMfrs || []).forEach(m => { seriesMfrMap[m.id] = m.user_id || null; });
+            }
+            const nowIso = new Date().toISOString();
+            seriesRows.forEach(p => {
+                const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
+                const imageUrl = seriesExpired ? null : (p.image_url || null);
+                const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
+                const mfrUserId = seriesMfrMap[p.manufacturer_id] || null;
+                out.push(attachDisplayTags({
+                    type: 'series',
+                    size: '1x2',
+                    id: p.id,
+                    manufacturer_id: p.manufacturer_id,
+                    manufacturer_user_id: mfrUserId,
+                    title: p.title || '廠商作品',
+                    image_url: imageUrl,
+                    design_highlight: p.design_highlight || null,
+                    tags: Array.isArray(p.tags) ? p.tags : [],
+                    ai_tags: Array.isArray(p.ai_tags) ? p.ai_tags : [],
+                    image_semantics_json: p.image_semantics_json || null,
+                    description: p.description || null,
+                    category_key: p.category_key || null,
+                    subcategory_key: p.subcategory_key || null,
+                    link: p.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(p.manufacturer_id) : '/custom/gallery.html',
+                    inspiration_url: p.id ? `/inspiration/series/${p.id}` : null,
+                    created_at: p.created_at || null,
+                    series_image_urls: seriesUrls
+                }));
+            });
+        }
+
+        // 資料夾：與系列圖整合為同一種，回傳 type=series；篩選「系列圖」或「資料夾」時皆會查
+        let collRows = [];
+        if (!layoutOnly || layoutOnly === 'collection' || layoutOnly === 'series') {
+        const collLimit = hasCategoryFilter ? Math.min(nCollectionLimit * 3, 30) : nCollectionLimit;
+        if (collLimit > 0) {
+            const collRes = await supabase
+                .from('media_collections')
+                .select('id, title, slug, cover_image_url, image_urls, description, category_keys, manufacturer_id, created_at')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false })
+                .range(dbOffset, dbOffset + collLimit - 1);
+            let raw = (collRes.data || []);
+            let canFilterByCategory = true;
+            if (collRes.error && /column|42703/i.test(String(collRes.error.message || collRes.error.code))) {
+                const simple = await supabase.from('media_collections').select('id, title, slug, cover_image_url, description, created_at').eq('is_active', true).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).range(dbOffset, dbOffset + collLimit - 1);
+                raw = (simple.data || []).map(r => ({ ...r, manufacturer_id: null }));
+                canFilterByCategory = false;
+            }
+            if (hasCategoryFilter && filterCategoryKey) {
+                if (!canFilterByCategory || !raw.length) {
+                    collRows = [];
+                } else {
+                    // 只顯示 category_keys 含有該主分類 key 的資料夾；沒設分類的資料夾一律不顯示
+                    collRows = raw.filter(function (p) {
+                        const keys = p.category_keys;
+                        if (!keys || !Array.isArray(keys) || keys.length === 0) return false;
+                        return keys.indexOf(filterCategoryKey) !== -1;
+                    }).slice(0, nCollectionLimit);
+                }
+            } else {
+                collRows = raw.slice(0, nCollectionLimit);
+            }
+        }
+        }
+        // Batch-fetch manufacturer user_id for collections that have manufacturer_id
+        const collMfrIds = [...new Set(collRows.map(p => p.manufacturer_id).filter(Boolean))];
+        let collMfrMap = {};
+        if (collMfrIds.length) {
+            const { data: collMfrs } = await supabase
+                .from('manufacturers')
+                .select('id, user_id')
+                .in('id', collMfrIds)
+                .eq('is_active', true);
+            (collMfrs || []).forEach(m => { collMfrMap[m.id] = m.user_id || null; });
+        }
+        // 資料夾（media_collections）用 type=collection，與廠商系列圖 type=series 區分，前端篩選「系列圖／資料夾」才正確
+        collRows.forEach(p => {
+            const cover = p.cover_image_url || null;
+            const imageUrls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0) ? p.image_urls : (cover ? [cover] : []);
+            const mfrId = p.manufacturer_id || null;
+            const mfrUserId = collMfrMap[mfrId] || null;
+            out.push({
+                type: 'collection',
+                size: '1x2',
+                id: p.id,
+                title: p.title || '系列',
+                slug: p.slug,
+                cover_image_url: cover,
+                series_image_urls: imageUrls,
+                description: p.description || null,
+                manufacturer_id: mfrId,
+                manufacturer_user_id: mfrUserId,
+                link: mfrId ? '/vendor-profile.html?id=' + encodeURIComponent(mfrId) : (p.slug ? '/custom/collection.html?slug=' + encodeURIComponent(p.slug) : '/custom/gallery.html'),
+                inspiration_url: p.id ? `/inspiration/collection/${p.id}` : null,
+                created_at: p.created_at || null,
+                category_keys: (p.category_keys && Array.isArray(p.category_keys)) ? p.category_keys : []
+            });
+        });
+
+        // 防呆：API 回傳絕不把廠商作品當設計圖（設計圖只准 AI 生成寫入 custom_products，廠商圖絕不當設計圖）
+        out.forEach(function (item) {
+            if (item.manufacturer_id && item.type === 'user_design') {
+                item.type = (item.image_url_before ? 'comparison' : 'series');
+                if (item.type === 'series' && (!item.series_image_urls || !item.series_image_urls.length) && item.image_url) {
+                    item.series_image_urls = [item.image_url];
+                }
+            }
+        });
+        // 篩選類型時只回傳該類型：設計圖＝僅 AI 生成；對照圖／系列圖／資料夾＝依 type 篩選（勿對 const out 重新賦值）
+        let items = out;
+        if (layoutOnly === 'user_design') {
+            items = out.filter(function (item) { return item.type === 'user_design' && !item.manufacturer_id; });
+        } else if (layoutOnly === 'comparison') {
+            items = out.filter(function (item) { return item.type === 'comparison'; });
+        } else if (layoutOnly === 'series') {
+            items = out.filter(function (item) { return item.type === 'series'; });
+        } else if (layoutOnly === 'collection') {
+            items = out.filter(function (item) { return item.type === 'collection'; });
+        }
+
+        if (clientFilterActive) {
+            if (tagFilters.length) {
+                items = items.filter(function (item) { return mediaWallItemMatchesTagFilters(item, tagFilters); });
+            }
+            if (searchQ) {
+                const qLower = searchQ.toLowerCase();
+                items = items.filter(function (item) { return mediaWallItemSearchHaystack(item).includes(qLower); });
+            }
+            items.sort(function (a, b) { return new Date(b.created_at || 0) - new Date(a.created_at || 0); });
+            items = items.slice(offset, offset + perPage);
+        }
+
+        res.set('Cache-Control', 'public, max-age=120');
+        res.json({ items: items, page, per_page: perPage, filtered: clientFilterActive, tags: tagFilters });
+    } catch (e) {
+        console.error('GET /api/media-wall 異常:', e);
+        res.set('Cache-Control', 'public, max-age=60');
+        res.status(200).json({ items: [], page, per_page: perPage });
+    }
+});
+
+// 首頁靈感牆刪除/隱藏：與 GET /api/me/profile 共用查詢（id 優先，再以 email 對應舊列）
+/** 首頁靈感牆刪除／隱藏：僅 profiles.role = admin */
+function profileCanDeleteMediaWall(profile) {
+    if (!profile) return false;
+    return String(profile.role || '').trim().toLowerCase() === 'admin';
+}
+
+async function resolveProfileForAuthUser(user) {
+    if (!user?.id) return { profile: null, error: null };
+    const normEmail = String(user.email || '').trim().toLowerCase();
+    async function loadById(uid) {
+        let { data, error } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+        if (error && error.code === '42703' && String(error.message || '').includes('can_delete_media_wall')) {
+            const retry = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+            data = retry.data;
+            error = retry.error;
+        }
+        return { data, error };
+    }
+    let { data: profile, error } = await loadById(user.id);
+    let byEmail = null;
+    if (normEmail) {
+        const emailRes = await supabase.from('profiles').select('*').eq('email', normEmail).maybeSingle();
+        if (!emailRes.error) byEmail = emailRes.data;
+    }
+    if (!profile && byEmail) {
+        profile = { ...byEmail, id: user.id };
+        error = null;
+    } else if (
+        profile && byEmail && normEmail
+        && String(byEmail.email || '').trim().toLowerCase() === normEmail
+        && profileCanDeleteMediaWall(byEmail) && !profileCanDeleteMediaWall(profile)
+    ) {
+        // Google 登入 id 與舊 Email 註冊列不同時，同 email 的管理員權限對齊
+        profile = { ...byEmail, id: user.id };
+    }
+    if (profile && profile.can_delete_media_wall == null) profile.can_delete_media_wall = false;
+    return { profile, error };
+}
+
+async function requireMediaWallDelete(req, res) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        res.status(401).json({ error: '未授權' });
+        return null;
+    }
+    const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+        res.status(401).json({ error: 'token 無效' });
+        return null;
+    }
+    const { profile, error: profErr } = await resolveProfileForAuthUser(user);
+    if (profErr) {
+        console.error('requireMediaWallDelete profile:', profErr);
+        res.status(500).json({ error: '查詢權限失敗' });
+        return null;
+    }
+    if (!profileCanDeleteMediaWall(profile)) {
+        res.status(403).json({
+            error: '僅管理員可操作首頁靈感牆刪除／隱藏',
+            hint: '請確認 Supabase profiles 中此帳號 role 為 admin（見 docs/fix-admin-media-wall-delete.sql）。'
+        });
+        return null;
+    }
+    return user;
+}
+
+// PATCH /api/admin/media-wall-item — 管理員在首頁關閉/開啟個別項目顯示
+app.patch('/api/admin/media-wall-item', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireMediaWallDelete(req, res);
+        if (!adminUser) return;
+        const { type, id, show } = req.body || {};
+        if (!type || !id || typeof show !== 'boolean') {
+            return res.status(400).json({ error: '請提供 type（user_design|comparison|collection）、id、show（boolean）' });
+        }
+        const tid = String(type).toLowerCase();
+        if (tid === 'user_design') {
+            const { error } = await supabase.from('custom_products').update({ show_on_homepage: show }).eq('id', id);
+            if (error) {
+                if (/column.*show_on_homepage/i.test(error.message)) return res.status(503).json({ error: '請先執行 docs/add-custom-products-show-on-homepage.sql' });
+                return res.status(500).json({ error: error.message });
+            }
+        } else if (tid === 'comparison' || tid === 'series') {
+            const { error } = await supabase.from('manufacturer_portfolio').update({ show_on_media_wall: show }).eq('id', id);
+            if (error) {
+                if (/column.*show_on_media_wall/i.test(error.message)) return res.status(503).json({ error: '請先執行媒體牆說明文件中 manufacturer_portfolio.show_on_media_wall 的 SQL' });
+                return res.status(500).json({ error: error.message });
+            }
+        } else if (tid === 'collection') {
+            const { error } = await supabase.from('media_collections').update({ is_active: show }).eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+        } else {
+            return res.status(400).json({ error: 'type 須為 user_design、comparison、series 或 collection' });
+        }
+        res.json({ success: true, show });
+    } catch (e) {
+        console.error('PATCH /api/admin/media-wall-item 異常:', e);
+        if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/media-wall-item — 管理員永久移除項目（user_design 刪除資料；comparison/collection 僅隱藏）
+app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireMediaWallDelete(req, res);
+        if (!adminUser) return;
+        const type = (req.body && req.body.type) || req.query.type;
+        const id = (req.body && req.body.id) || req.query.id;
+        if (!type || !id) {
+            return res.status(400).json({ error: '請提供 type（user_design|comparison|series|collection）與 id' });
+        }
+        const tid = String(type).toLowerCase();
+        if (tid === 'user_design') {
+            const { error } = await supabase.from('custom_products').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.json({ success: true, deleted: true });
+        }
+        if (tid === 'comparison' || tid === 'series') {
+            const { error } = await supabase.from('manufacturer_portfolio').update({ show_on_media_wall: false }).eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.json({ success: true, deleted: false, hidden: true });
+        }
+        if (tid === 'collection') {
+            const { error } = await supabase.from('media_collections').update({ is_active: false }).eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.json({ success: true, deleted: false, hidden: true });
+        }
+        return res.status(400).json({ error: 'type 須為 user_design、comparison、series 或 collection' });
+    } catch (e) {
+        console.error('DELETE /api/admin/media-wall-item 異常:', e);
+        if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/media-wall-item/:type/:id — 單一靈感牆作品（供獨立 URL 頁與 lightbox 使用）
+const MEDIA_WALL_ITEM_TYPES = ['user_design', 'comparison', 'series', 'collection'];
+app.get('/api/media-wall-item/:type/:id', async (req, res) => {
+    const type = (req.params.type || '').trim();
+    const id = (req.params.id || '').trim();
+    if (!MEDIA_WALL_ITEM_TYPES.includes(type) || !id) {
+        return res.status(400).json({ error: 'type 須為 user_design、comparison、series、collection，且 id 必填' });
+    }
+    try {
+        if (type === 'user_design') {
+            const { data: row, error } = await supabase
+                .from('custom_products')
+                .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json')
+                .eq('id', id)
+                .maybeSingle();
+            if (error || !row) return res.status(404).json({ error: '找不到該作品' });
+            if (!row.ai_generated_image_url && !row.reference_image_url) return res.status(404).json({ error: '找不到該作品' });
+            let ownerDisplay = '';
+            if (row.owner_id) {
+                const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.owner_id).maybeSingle();
+                if (prof) ownerDisplay = (prof.full_name && prof.full_name.trim()) || prof.email || '';
+            }
+            let aj = row.analysis_json;
+            if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
+            const seed = row.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
+            const item = attachDisplayTags({
+                ...row,
+                analysis_json: aj || null,
+                generation_seed: seed != null && seed !== '' ? seed : null,
+                type: 'user_design',
+                size: '1x1',
+                title: row.title || '未命名',
+                image_url: row.ai_generated_image_url || row.reference_image_url,
+                link: '/custom/gallery.html',
+                inspiration_url: `/inspiration/user_design/${id}`,
+                owner_display: ownerDisplay || null,
+                category_key: row.category || null,
+                subcategory_key: row.subcategory_key || null
+            });
+            return res.set('Cache-Control', 'public, max-age=120').json({ item });
+        }
+        if (type === 'comparison' || type === 'series') {
+            const { data: row, error } = await supabase
+                .from('manufacturer_portfolio')
+                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until, min_order_quantity')
+                .eq('id', id)
+                .maybeSingle();
+            if (error || !row) return res.status(404).json({ error: '找不到該作品' });
+            const isComparison = !!row.image_url_before;
+            if (type === 'comparison' && !isComparison) return res.status(404).json({ error: '找不到該對照圖' });
+            if (type === 'series' && isComparison) return res.status(404).json({ error: '找不到該系列圖' });
+            let mfrUserId = null;
+            if (row.manufacturer_id) {
+                const { data: mfr } = await supabase.from('manufacturers').select('user_id').eq('id', row.manufacturer_id).eq('is_active', true).maybeSingle();
+                if (mfr) mfrUserId = mfr.user_id || null;
+            }
+            const nowIso = new Date().toISOString();
+            const seriesExpired = row.series_image_valid_until && row.series_image_valid_until < nowIso;
+            const imageUrl = seriesExpired ? null : (row.image_url || null);
+            const imageUrlBefore = row.image_url_before || null;
+            const seriesUrls = (Array.isArray(row.series_image_urls) && row.series_image_urls.length) ? (seriesExpired ? [] : row.series_image_urls) : (imageUrl ? [imageUrl] : []);
+            const item = attachDisplayTags({
+                type: type,
+                size: '1x1',
+                id: row.id,
+                manufacturer_id: row.manufacturer_id,
+                manufacturer_user_id: mfrUserId,
+                title: row.title || '廠商作品',
+                image_url: imageUrl,
+                design_highlight: row.design_highlight || null,
+                tags: Array.isArray(row.tags) ? row.tags : [],
+                ai_tags: Array.isArray(row.ai_tags) ? row.ai_tags : [],
+                image_semantics_json: row.image_semantics_json || null,
+                description: row.description || null,
+                category_key: row.category_key || null,
+                subcategory_key: row.subcategory_key || null,
+                link: row.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) : '/custom/gallery.html',
+                inspiration_url: `/inspiration/${type}/${id}`,
+                min_order_quantity: (row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity))) ? Number(row.min_order_quantity) : null
+            });
+            if (type === 'comparison') item.image_url_before = imageUrlBefore;
+            if (type === 'series' && seriesUrls.length) item.series_image_urls = seriesUrls;
+            return res.set('Cache-Control', 'public, max-age=120').json({ item });
+        }
+        if (type === 'collection') {
+            const { data: row, error } = await supabase
+                .from('media_collections')
+                .select('id, title, slug, cover_image_url, image_urls, description, category_keys, manufacturer_id')
+                .eq('id', id)
+                .eq('is_active', true)
+                .maybeSingle();
+            if (error || !row) return res.status(404).json({ error: '找不到該系列' });
+            let mfrUserId = null;
+            if (row.manufacturer_id) {
+                const { data: mfr } = await supabase.from('manufacturers').select('user_id').eq('id', row.manufacturer_id).eq('is_active', true).maybeSingle();
+                if (mfr) mfrUserId = mfr.user_id || null;
+            }
+            const cover = row.cover_image_url || null;
+            const imageUrls = (row.image_urls && Array.isArray(row.image_urls) && row.image_urls.length) ? row.image_urls : (cover ? [cover] : []);
+            const item = {
+                type: 'collection',
+                size: '1x2',
+                id: row.id,
+                title: row.title || '系列',
+                slug: row.slug,
+                cover_image_url: cover,
+                series_image_urls: imageUrls,
+                description: row.description || null,
+                manufacturer_id: row.manufacturer_id || null,
+                manufacturer_user_id: mfrUserId,
+                link: row.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) : (row.slug ? '/custom/collection.html?slug=' + encodeURIComponent(row.slug) : '/custom/gallery.html'),
+                category_keys: Array.isArray(row.category_keys) ? row.category_keys : []
+            };
+            return res.set('Cache-Control', 'public, max-age=120').json({ item });
+        }
+        return res.status(400).json({ error: '不支援的 type' });
+    } catch (e) {
+        console.error('GET /api/media-wall-item 異常:', e);
+        if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });
+    }
+});
 
 // ---------- 靈感牆資料夾編輯（1800 方案專用） ----------
 const MEDIA_FOLDER_PLAN_KEY = '1800'; // 方案代碼，具此方案或管理員可編輯 media_collections

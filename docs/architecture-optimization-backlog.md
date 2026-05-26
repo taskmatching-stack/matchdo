@@ -61,9 +61,9 @@
 | **Step 2** | 暫停 `sitemap-products` 索引 + `SEO-PROGRESS.md` | 小 | 第 1 天下午 |
 | **Step 3** | 擴充 `GET /api/me/capabilities` + 選單「只加不減」 | 小 | 第 2 天 |
 | **Step 4** | `visibility` migration（若需要）+ canonical | 中 | 第 3～4 天（可選） |
-| **Step 5** | 續拆 `routes/inspiration.js`、`routes/media-wall.js`… | ✅ 2026-05-26 | — |
+| **Step 5** | 續拆 `routes/inspiration.js`、`routes/media-wall.js`… | ⚠️ **已還原** | 見 §十一.5 |
 
-**主線 Step 0～5 已結案**；Step 4 採「廢止 `visibility` + detail canonical」，未做 DB migration。
+**主線 Step 0～4 + Step 1～2 已結案**；Step 5 曾完成但 **2026-05-26 因啟動錯誤還原**。Step 4 採「廢止 `visibility` + detail canonical」，未做 DB migration。
 
 **不要**在未定案前做大規模 `visibility` 資料批次更新。
 
@@ -328,7 +328,8 @@ lib/                      # 已有 visual-semantics、lineage…
 | 2026-05-26 | **Step 2 完成**：`/sitemap.xml` 不再索引 `sitemap-products`；`SEO-PROGRESS.md`、`sitemap.md` 政策更新 |
 | 2026-05-26 | **Step 3 完成**：`GET /api/me/capabilities` 加 `zones`／`nav`；header 依 `show_supplier_zone` 隱藏 ③ 區 |
 | 2026-05-26 | **Step 4 完成**：detail `canonical`+`noindex`；`sitemap-products` 改 inspiration URL；文件廢止 `visibility` |
-| 2026-05-26 | **Step 5 完成**：`routes/inspiration.js`、`routes/vendor-pages.js`、`routes/media-wall.js`；共用 `lib/media-wall.js` |
+| 2026-05-26 | **Step 5 完成**（後已還原）：拆路由；`routes/media-wall.js` 缺 `require('express')` 致全站 500 |
+| 2026-05-26 | **Step 5 還原**：恢復 Step 4 的 `server.js`；刪除 `lib/media-wall.js`、`routes/inspiration.js` 等 |
 
 ---
 
@@ -343,7 +344,7 @@ lib/                      # 已有 visual-semantics、lineage…
 | 2 | `/sitemap.xml` 不再索引 products；UGC 以 inspiration 為準 | `routes/sitemap.js`、`docs/SEO-PROGRESS.md` |
 | 3 | `GET /api/me/capabilities` 加 `zones`／`nav`；③ 區選單暫隱 | `server.js`、`public/js/site-header.js` |
 | 4 | 廢止 `visibility`；detail `noindex` + canonical → inspiration | `client/custom-product-detail.html`、`routes/sitemap.js`、`docs/custom-products-db-columns.md` |
-| 5 | SSR／靈感牆 API／廠商 OG 拆路由 | `lib/media-wall.js`、`routes/inspiration.js`、`routes/vendor-pages.js`、`routes/media-wall.js` |
+| 5 | SSR／靈感牆 API／廠商 OG 拆路由 | ⚠️ **已還原**；見 §十一.5、第二輪 **A5r** |
 | UX | 「我的功能」去重（不重複頂部客製／設計風向連結） | `public/js/site-header.js` |
 
 **`server.js` 仍保留**：訂製 CRUD、生圖、`PATCH/DELETE /api/admin/media-wall-item`、金流、管理後台等（見 §十一.2）。
@@ -352,12 +353,15 @@ lib/                      # 已有 visual-semantics、lineage…
 
 ```text
 server.js
-  registerMediaWallRoutes()      → routes/media-wall.js
-  registerInspirationRoutes()  → routes/inspiration.js
   registerSitemapRoutes()      → routes/sitemap.js
-  registerVendorPageRoutes()   → routes/vendor-pages.js（static 之前）
-lib/media-wall.js              → attachDisplayTags、牆上搜尋共用
+  （其餘靈感牆／inspiration／vendor OG 仍在 server.js 本體，Step 5 已還原）
 ```
+
+### 11.5 Step 5 還原說明（2026-05-26）
+
+- **現象**：部署 `605dca4` 後 `https://matchdo.cc/` 等全路徑 **HTTP 500**；Chrome 可能顯示 `chrome-error://chromewebdata/` 與 iframe 同源警告（實為頁面載入失敗的副訊息）。
+- **根因**：`routes/media-wall.js` 內 `app.patch(..., express.json(), ...)` **未** `require('express')`，`registerMediaWallRoutes()` 在載入時拋 `ReferenceError`，後續路由未註冊。
+- **處置**：`server.js` 還原至 Step 4（`7033fe3`）；刪除拆出的四個檔。重做時見 **`matchdo-todo.md` A5r**。
 
 ### 11.3 SEO／公開 URL 政策（定案）
 
@@ -371,6 +375,7 @@ lib/media-wall.js              → attachDisplayTags、牆上搜尋共用
 
 | 代號 | 內容 | 說明 |
 |------|------|------|
+| **A5r** | **重做 Step 5**（拆 inspiration／media-wall／vendor-pages） | 拆檔須 `require('express')`；admin 路由留在 `server.js` 或 A7；部署前 `require('./server.js')` 冒煙 |
 | **A6** | 拆 `routes/custom-products.js` | `POST/PATCH/GET /api/custom-products*`、生圖儲存、`enrich` 觸發 |
 | **A7** | 拆 `routes/admin-media-wall.js`（或 admin 子目錄） | `PATCH/DELETE /api/admin/media-wall-item` 與權限 helper |
 | **A8** | B 線就緒後開 `nav.show_supplier_zone` | `industry_suppliers.user_id` 綁定後改 `server.js` 常數 |
