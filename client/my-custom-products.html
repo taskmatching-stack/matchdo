@@ -74,6 +74,7 @@
                         <i class="bi bi-plus-lg me-1"></i><span id="btnCreateDesignText">建立新設計</span>
                     </a>
                 </div>
+                <div id="designDirectionAdvisorTeaser" class="alert alert-light border small mb-3 d-none" role="note"></div>
                 <div id="loadingSpinner" class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-3 text-muted">載入中...</p>
@@ -133,37 +134,65 @@
             return v === 'design-direction' || v === 'design_direction' || v === 'remake';
         })();
 
+        var designDirectionCopyZh = {
+            title: '我的設計風向',
+            intro: '設計意圖分析與生圖的儲存紀錄；可開放廠商搜尋。',
+            filterNote: '目前顯示帳號內所有設計紀錄；僅顯示設計風向作品的篩選即將推出。',
+            advisorTeaser: '🪄 AI 產品顧問（籌備中）：日後可診斷您的設計是否貼合市場熱門風向。基礎廠商 ($300) 開通後預計每次 10 點；免費會員可先瀏覽首頁各分類熱門標籤。',
+            emptyTitle: '尚無設計風向紀錄',
+            emptyDesc: '完成設計意圖分析並儲存後，作品會顯示於此。',
+            btnCreate: '開始設計意圖分析'
+        };
+        var designDirectionCopyEn = {
+            title: 'My design directions',
+            intro: 'Saved intent analyses and generated designs; optional open-for-makers search.',
+            filterNote: 'Showing all designs on your account; design-direction-only filter coming soon.',
+            advisorTeaser: 'AI product advisor (coming soon): diagnose fit with market trends. Basic ($300) est. 10 credits per run; free users can preview homepage Top 3 tags.',
+            emptyTitle: 'No design directions yet',
+            emptyDesc: 'Complete intent analysis and save; items appear here.',
+            btnCreate: 'Start intent analysis'
+        };
+
         function applyDesignDirectionView() {
             if (!isDesignDirectionView) return;
+            var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+            var c = (lang === 'en') ? designDirectionCopyEn : designDirectionCopyZh;
             document.documentElement.setAttribute('data-theme', 'remake');
-            document.title = '我的設計風向 - MatchDO 合做';
+            document.title = c.title + ' - MatchDO 合做';
             const icon = document.getElementById('pageHeadingIcon');
             if (icon) { icon.className = 'bi bi-compass me-2'; }
             const setText = function (id, text) { const el = document.getElementById(id); if (el) el.textContent = text; };
-            setText('pageHeadingText', '我的設計風向');
+            setText('pageHeadingText', c.title);
             const bc = document.getElementById('pageBreadcrumb');
             if (bc) {
-                bc.innerHTML = '<li class="breadcrumb-item"><a href="/index.html">首頁</a></li>'
-                    + '<li class="breadcrumb-item"><a href="/remake/">設計風向</a></li>'
-                    + '<li class="breadcrumb-item active">我的設計風向</li>';
+                var homeLabel = lang === 'en' ? 'Home' : '首頁';
+                var sectionLabel = lang === 'en' ? 'Design Direction' : '設計風向';
+                bc.innerHTML = '<li class="breadcrumb-item"><a href="/index.html">' + homeLabel + '</a></li>'
+                    + '<li class="breadcrumb-item"><a href="/remake/">' + sectionLabel + '</a></li>'
+                    + '<li class="breadcrumb-item active">' + c.title + '</li>';
             }
             const tabIcon = document.getElementById('tabDesignsIcon');
             if (tabIcon) { tabIcon.className = 'bi bi-collection me-1'; }
-            setText('tabDesignsLabel', '我的設計風向');
-            setText('designsIntro', '設計意圖分析與生圖的儲存紀錄；可開放廠商搜尋。');
+            setText('tabDesignsLabel', c.title);
+            setText('designsIntro', c.intro);
             const note = document.getElementById('designDirectionFilterNote');
             if (note) {
-                note.textContent = '目前列表顯示您帳號下所有設計紀錄；設計風向專屬篩選將於 product_line 上線後啟用。';
+                note.textContent = c.filterNote;
                 note.classList.remove('d-none');
+            }
+            const advisorBox = document.getElementById('designDirectionAdvisorTeaser');
+            if (advisorBox) {
+                advisorBox.textContent = c.advisorTeaser;
+                advisorBox.classList.remove('d-none');
             }
             const createBtn = document.getElementById('btnCreateDesign');
             if (createBtn) createBtn.href = '/remake-product.html';
-            setText('btnCreateDesignText', '開始設計意圖分析');
-            setText('emptyTitle', '尚無設計風向紀錄');
-            setText('emptyDesc', '從設計意圖分析上傳參考圖並儲存後，會顯示於此。');
+            setText('btnCreateDesignText', c.btnCreate);
+            setText('emptyTitle', c.emptyTitle);
+            setText('emptyDesc', c.emptyDesc);
             const emptyBtn = document.getElementById('emptyCreateBtn');
             if (emptyBtn) emptyBtn.href = '/remake-product.html';
-            setText('emptyCreateBtnText', '開始設計意圖分析');
+            setText('emptyCreateBtnText', c.btnCreate);
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
