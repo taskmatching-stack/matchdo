@@ -10687,6 +10687,19 @@ app.get('/api/me/capabilities', async (req, res) => {
         const isSeed = mfr && mfr.vendor_source === 'seed';
         const catalogReady = await supplierCatalogTablesReady();
         const canImport = catalogReady && hasManufacturer && !isSeed && portfolioCount >= 1;
+        let isIndustrySupplier = false;
+        if (catalogReady) {
+            try {
+                const { data: indRow } = await supabase
+                    .from('industry_suppliers')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+                isIndustrySupplier = !!indRow;
+            } catch (_) { /* 表未建時忽略 */ }
+        }
+        // B 線 P2 前會員端不顯示 ③ 區；改 true 時需同步 site-header nav.show_supplier_zone
+        const showSupplierZone = false;
         res.json({
             has_manufacturer: hasManufacturer,
             manufacturer_id: mfr ? mfr.id : null,
@@ -10694,7 +10707,16 @@ app.get('/api/me/capabilities', async (req, res) => {
             vendor_source: mfr ? mfr.vendor_source : null,
             supplier_catalog_ready: catalogReady,
             can_use_supplier_catalog: canImport,
-            can_import_supplier_catalog: canImport
+            can_import_supplier_catalog: canImport,
+            zones: {
+                design: true,
+                manufacturer: hasManufacturer,
+                industry_supplier: isIndustrySupplier
+            },
+            nav: {
+                show_supplier_zone: showSupplierZone,
+                show_industry_catalog: canImport
+            }
         });
     } catch (e) {
         console.error('GET /api/me/capabilities:', e);

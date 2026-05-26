@@ -322,7 +322,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 | 0 | 稽核與判斷 | 2026-05-26 | — |
 | 1 | `routes/sitemap.js` | 2026-05-26 | |
 | 2 | 暫停 products 索引 + SEO 文件 | 2026-05-26 | |
-| 3 | capabilities + header | | |
+| 3 | capabilities + header | 2026-05-26 | |
 | 4 | visibility／canonical | | |
 | 5 | inspiration / media-wall 拆分 | | |
 

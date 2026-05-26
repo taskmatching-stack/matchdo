@@ -68,6 +68,22 @@ function getPublicConfig() {
     });
 }
 
+/** 登入後會員三區能力（additive；失敗時回 null，header 維持舊行為） */
+async function fetchMeCapabilities() {
+    if (typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return null;
+    try {
+        var session = await window.AuthService.getSession();
+        if (!session || !session.access_token) return null;
+        var r = await fetch('/api/me/capabilities', {
+            headers: { Authorization: 'Bearer ' + session.access_token }
+        });
+        if (!r.ok) return null;
+        return await r.json();
+    } catch (e) {
+        return null;
+    }
+}
+
 function ensureNavLocaleReady() {
     if (window.i18n && window.i18n.ready) return window.i18n.ready;
     var lang = 'zh-TW';
@@ -233,6 +249,16 @@ async function renderHeader(headerContainer, user, config) {
     }
     // 登入即顯示「我的功能」。一律只顯示訂製品（訂製者+製作方），每頁選單相同。
     const showMyFeaturesDropdown = !!user;
+    var meCapabilities = null;
+    if (user) {
+        meCapabilities = await fetchMeCapabilities();
+        try {
+            window.__ME_CAPABILITIES__ = meCapabilities;
+        } catch (eCap) {}
+    }
+    var showSupplierZone = meCapabilities
+        ? !!(meCapabilities.nav && meCapabilities.nav.show_supplier_zone)
+        : true;
     var rawT = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
     var navLang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : ((window.__I18N__ && window.__I18N__.lang) || 'zh-TW');
     var navFallbackZh = { 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.remake': '設計風向', 'nav.remakeSection': '設計風向', 'nav.remakeHome': '設計風向首頁', 'nav.remakeAnalysis': '設計意圖分析', 'nav.remakeDesign': '設計意圖分析', 'nav.remakeMyDesigns': '我的設計風向', 'nav.remakeGallery': '圖庫找靈感', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '依角色分類', 'nav.customizerSection': '訂製者', 'nav.manufacturerSection': '製造商', 'nav.supplierSection': '產業供應商', 'nav.supplierPortal': '供應商入口', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '我的廠商作品', 'nav.vendorBaseModels': '我的數位版型 (Base Models)', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式（與設計者溝通）', 'nav.myCredits': '我的點數', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '發案控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區' };
@@ -308,11 +334,13 @@ async function renderHeader(headerContainer, user, config) {
                                 <div class="dropdown-divider"></div>
                                 <a href="/client/manufacturer-dashboard.html" class="dropdown-item text-muted small"><i class="bi bi-building-add me-2"></i>` + t('nav.createVendor') + `</a>
                                 <a href="/vendors.html" class="dropdown-item text-muted small"><i class="bi bi-grid me-2"></i>` + t('nav.browseAllVendors') + `</a>
+                                ${showSupplierZone ? `
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
                                 <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierPortal') + `</a>
                                 <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-layers me-2"></i>` + t('nav.supplierPrototypeLib') + `</a>
                                 <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.supplierMaterialLib') + `</a>
+                                ` : ''}
                             </div>
                         </div>
                     ` : ''}
