@@ -35,7 +35,7 @@ function registerSitemapRoutes(app, deps) {
     function escapeXml(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
     }
-    // Sitemap 索引：列出五個子 sitemap（pages / categories / vendors / products / collections）
+    // Sitemap 索引：pages / categories / vendors / collections / inspiration（2026-05-26 起不列入 products，見 docs/SEO-PROGRESS.md）
     app.get('/sitemap.xml', (req, res) => {
         const base = (BASE_URL || '').replace(/\/$/, '');
         const now = new Date().toISOString().slice(0, 10);
@@ -43,7 +43,7 @@ function registerSitemapRoutes(app, deps) {
             '<sitemap><loc>' + escapeXml(base + '/sitemap-pages.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
             '<sitemap><loc>' + escapeXml(base + '/sitemap-categories.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
             '<sitemap><loc>' + escapeXml(base + '/sitemap-vendors.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
-            '<sitemap><loc>' + escapeXml(base + '/sitemap-products.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
+            // sitemap-products.xml 路由保留（舊連結），但不納入索引；UGC 以 sitemap-inspiration + /inspiration/* 為準
             '<sitemap><loc>' + escapeXml(base + '/sitemap-collections.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
             '<sitemap><loc>' + escapeXml(base + '/sitemap-inspiration.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>'
         ];
@@ -113,7 +113,7 @@ function registerSitemapRoutes(app, deps) {
         res.send(xml);
     });
 
-    // 動態：公開客製作品詳情頁（custom_products 表，visibility = 'public'）
+    // Legacy：CSR 詳情頁（visibility 欄位未齊）；已自 /sitemap.xml 索引移除，Step 4 前勿擴充
     app.get('/sitemap-products.xml', async (req, res) => {
         const base = (BASE_URL || '').replace(/\/$/, '');
         const today = new Date().toISOString().slice(0, 10);

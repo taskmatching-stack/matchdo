@@ -1,6 +1,6 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-03-05  
+> **更新日期**：2026-05-26  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
 > **推送／部署步驟**：見下方「四、部署流程」
@@ -32,23 +32,24 @@
 |---------|------|
 | 移除殼頁 | 從 `SITEMAP_PAGES` 移除無實際內容的 iStudio 範本頁：`service`、`feature`、`project`、`testimonial`、`team` |
 | 新增 `sitemap-collections.xml` | 動態查詢 `media_collections`（`is_active=true`），自動收錄所有作品系列頁 `/custom/collection.html?slug=XXX` |
-| sitemap 索引更新 | `/sitemap.xml` 現含六個子 sitemap：pages、categories、vendors、products、collections、**inspiration**（靈感牆獨立 URL） |
+| sitemap 索引更新 | `/sitemap.xml` 現含**五個**子 sitemap：pages、categories、vendors、collections、**inspiration**（靈感牆獨立 URL） |
+| **UGC 可索引 URL（2026-05-26）** | 客製作品對外收錄為 `https://matchdo.cc/inspiration/user_design/{id}`（SSR）；`/client/custom-product-detail.html` 僅供登入後找廠。**`sitemap-products` 已自索引移除**（路由仍 200，待 visibility／canonical Step 4） |
 | **首頁篩選 URL（2026-03-04）** | 首頁網址狀態可**疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`。Sitemap 收錄主要 landing，不列所有組合。 |
 | **首頁四種「類型」** | **全部**＝`/`；**設計圖／對照圖／系列圖**＝`/?layout_type=user_design|comparison|collection`（共 4 筆在 `sitemap-pages.xml`） |
 | **中英文** | `sitemap-pages.xml` 另加 4 筆：`/?lang=en`、`/?layout_type=user_design&lang=en`、`/?layout_type=comparison&lang=en`、`/?layout_type=collection&lang=en`，與頁面 hreflang 對應 |
 | **分類** | 動態 `sitemap-categories.xml`：從 `ai_categories` 查主分類，產出 `/?category_key=xxx`（與 layout_type／lang 可疊加，sitemap 只列主分類 landing） |
 | **Canonical** | 首頁有篩選參數時 canonical 為目前完整網址；無參數時為 `https://matchdo.cc/`（見 `index.html` 內 `#mw-canonical`） |
 
-**目前六個子 sitemap 更新機制：**
+**目前子 sitemap 更新機制（索引內 5 個 + legacy 1 個）：**
 
-| Sitemap | 來源 | 更新方式 |
-|---------|------|---------|
-| `sitemap-pages.xml` | `SITEMAP_PAGES` 陣列（`server.js`） | 新增靜態頁或首頁篩選 URL 需手動補 |
-| `sitemap-categories.xml` | `ai_categories` 表（主分類 key） | ✅ 自動 |
-| `sitemap-vendors.xml` | `manufacturers` 表（`is_active=true`） | ✅ 自動 |
-| `sitemap-products.xml` | `custom_products` 表（`visibility='public'`） | ✅ 自動 |
-| `sitemap-collections.xml` | `media_collections` 表（`is_active=true`） | ✅ 自動 |
-| `sitemap-inspiration.xml` | 靈感牆項目（user_design / comparison / series / collection） | ✅ 自動（2026-03-05） |
+| Sitemap | 來源 | 更新方式 | 在 `/sitemap.xml` 索引 |
+|---------|------|---------|------------------------|
+| `sitemap-pages.xml` | `SITEMAP_PAGES` 陣列（`routes/sitemap.js`） | 新增靜態頁或首頁篩選 URL 需手動補 | ✅ |
+| `sitemap-categories.xml` | `ai_categories` 表（主分類 key） | ✅ 自動 | ✅ |
+| `sitemap-vendors.xml` | `manufacturers` 表（`is_active=true`） | ✅ 自動 | ✅ |
+| `sitemap-collections.xml` | `media_collections` 表（`is_active=true`） | ✅ 自動 | ✅ |
+| `sitemap-inspiration.xml` | 靈感牆項目（user_design / comparison / series / collection） | ✅ 自動（2026-03-05） | ✅ |
+| `sitemap-products.xml` | `custom_products`（`visibility='public'`）→ CSR detail | 路由保留 | ❌ 2026-05-26 起不索引 |
 
 ### ✅ Phase SEO-3：JSON-LD 結構化資料（主要頁面完成）
 
