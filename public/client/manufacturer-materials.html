@@ -30,6 +30,12 @@
         .catalog-group-row.dragging { opacity: 0.55; }
         .catalog-group-drag { cursor: grab; user-select: none; }
         .catalog-group-drag:active { cursor: grabbing; }
+        #catalog-groups-panel.catalog-groups-panel--collapsed { display: none; }
+        #catalog-groups-list.catalog-groups-list--scroll {
+            max-height: 16rem;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
     </style>
 </head>
 <body>
@@ -75,19 +81,35 @@
 
             <div class="card border-0 shadow-sm mb-3 border-start border-primary border-4" id="catalog-groups-card">
                 <div class="card-body py-3">
-                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
-                        <div>
-                            <h6 class="fw-semibold mb-1" data-i18n="baseModels.myCatalogTitle">我的素材分類</h6>
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-0">
+                        <div class="flex-grow-1 min-w-0">
+                            <h6 class="fw-semibold mb-1">
+                                <span data-i18n="baseModels.myCatalogTitle">我的素材分類</span>
+                                <span id="catalog-groups-count" class="badge bg-light text-secondary border fw-normal d-none"></span>
+                            </h6>
                             <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
+                            <p id="catalog-groups-collapsed-summary" class="text-muted small mb-0 mt-1 d-none"></p>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
+                            <label class="form-check form-check-inline small text-muted mb-0" title="">
+                                <input class="form-check-input" type="checkbox" id="catalog-groups-pref-collapsed">
+                                <span data-i18n="baseModels.catalogGroupsDefaultCollapsed">預設收起</span>
+                            </label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-catalog-groups-toggle" aria-expanded="true" aria-controls="catalog-groups-panel">
+                                <i class="bi bi-chevron-up" id="catalog-groups-toggle-icon"></i>
+                                <span id="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsCollapse">收起</span>
+                            </button>
                         </div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-                        <input type="text" class="form-control form-control-sm" id="new-catalog-group-name" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholder" placeholder="輸入分類名稱（例：領型庫）">
-                        <button type="button" class="btn btn-sm btn-primary" id="btn-add-catalog-group"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                    <div id="catalog-groups-panel" class="mt-2">
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <input type="text" class="form-control form-control-sm" id="new-catalog-group-name" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholder" placeholder="輸入分類名稱（例：領型庫）">
+                            <button type="button" class="btn btn-sm btn-primary" id="btn-add-catalog-group"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                        </div>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHint">拖曳左側把手可調整順序；順序會顯示在廠商頁「素材庫」標籤列。</p>
+                        <ul id="catalog-groups-list" class="list-unstyled mb-0 catalog-groups-sortable"></ul>
+                        <p id="catalog-groups-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請在上方輸入名稱後按「新增分類」。</p>
                     </div>
-                    <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHint">拖曳左側把手可調整順序；順序會顯示在廠商頁「素材庫」標籤列。</p>
-                    <ul id="catalog-groups-list" class="list-unstyled mb-0 catalog-groups-sortable"></ul>
-                    <p id="catalog-groups-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請在上方輸入名稱後按「新增分類」。</p>
                 </div>
             </div>
 
@@ -327,6 +349,10 @@
         var editPending = { tags: null, semantics: null };
         var catalogGroupsFlat = [];
         var catalogGroupsDbReady = true;
+        var CATALOG_GROUPS_PREF_KEY = 'matchdo.catalogGroupsDefaultCollapsed';
+        var CATALOG_GROUPS_COLLAPSE_AT = 5;
+        var catalogGroupsCollapsed = false;
+        var catalogGroupsCollapseInited = false;
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) {
@@ -635,16 +661,105 @@
             if (prev) sel.value = prev;
         }
 
+        function getCatalogGroupsPrefCollapsed() {
+            try {
+                var v = localStorage.getItem(CATALOG_GROUPS_PREF_KEY);
+                if (v === '1') return true;
+                if (v === '0') return false;
+            } catch (_) {}
+            return null;
+        }
+
+        function resolveCatalogGroupsCollapsed() {
+            var pref = getCatalogGroupsPrefCollapsed();
+            if (pref !== null) return pref;
+            return catalogGroupsFlat.length >= CATALOG_GROUPS_COLLAPSE_AT;
+        }
+
+        function setCatalogGroupsCollapsed(collapsed) {
+            catalogGroupsCollapsed = !!collapsed;
+            var panel = document.getElementById('catalog-groups-panel');
+            var btn = document.getElementById('btn-catalog-groups-toggle');
+            var icon = document.getElementById('catalog-groups-toggle-icon');
+            var label = document.getElementById('catalog-groups-toggle-label');
+            var summary = document.getElementById('catalog-groups-collapsed-summary');
+            if (panel) panel.classList.toggle('catalog-groups-panel--collapsed', catalogGroupsCollapsed);
+            if (btn) btn.setAttribute('aria-expanded', catalogGroupsCollapsed ? 'false' : 'true');
+            if (icon) {
+                icon.className = catalogGroupsCollapsed ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+            }
+            if (label) {
+                label.textContent = catalogGroupsCollapsed
+                    ? tr('baseModels.catalogGroupsExpand', '展開')
+                    : tr('baseModels.catalogGroupsCollapse', '收起');
+            }
+            if (summary) {
+                if (catalogGroupsCollapsed && catalogGroupsFlat.length) {
+                    summary.textContent = String(tr('baseModels.catalogGroupsCollapsedSummary', '共 {n} 個分類 · 點「展開」可新增、拖曳排序'))
+                        .replace(/\{n\}/g, String(catalogGroupsFlat.length));
+                    summary.classList.remove('d-none');
+                } else {
+                    summary.classList.add('d-none');
+                    summary.textContent = '';
+                }
+            }
+        }
+
+        function updateCatalogGroupsCountBadge() {
+            var badge = document.getElementById('catalog-groups-count');
+            if (!badge) return;
+            if (!catalogGroupsFlat.length) {
+                badge.classList.add('d-none');
+                badge.textContent = '';
+                return;
+            }
+            badge.textContent = String(catalogGroupsFlat.length);
+            badge.classList.remove('d-none');
+        }
+
+        function initCatalogGroupsCollapse() {
+            if (catalogGroupsCollapseInited) {
+                setCatalogGroupsCollapsed(catalogGroupsCollapsed);
+                updateCatalogGroupsCountBadge();
+                return;
+            }
+            catalogGroupsCollapseInited = true;
+            var prefCb = document.getElementById('catalog-groups-pref-collapsed');
+            var toggleBtn = document.getElementById('btn-catalog-groups-toggle');
+            var pref = getCatalogGroupsPrefCollapsed();
+            if (prefCb) {
+                prefCb.checked = pref === true || (pref === null && catalogGroupsFlat.length >= CATALOG_GROUPS_COLLAPSE_AT);
+                prefCb.addEventListener('change', function () {
+                    try {
+                        localStorage.setItem(CATALOG_GROUPS_PREF_KEY, prefCb.checked ? '1' : '0');
+                    } catch (_) {}
+                    setCatalogGroupsCollapsed(prefCb.checked);
+                });
+            }
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function () {
+                    setCatalogGroupsCollapsed(!catalogGroupsCollapsed);
+                });
+            }
+            setCatalogGroupsCollapsed(resolveCatalogGroupsCollapsed());
+            updateCatalogGroupsCountBadge();
+        }
+
         function renderCatalogGroupsList() {
             var list = document.getElementById('catalog-groups-list');
             var empty = document.getElementById('catalog-groups-empty');
             if (!list) return;
             if (!catalogGroupsFlat.length) {
                 list.innerHTML = '';
+                list.classList.remove('catalog-groups-list--scroll');
                 if (empty) empty.classList.remove('d-none');
+                updateCatalogGroupsCountBadge();
+                initCatalogGroupsCollapse();
+                if (catalogGroupsCollapsed) setCatalogGroupsCollapsed(false);
                 return;
             }
             if (empty) empty.classList.add('d-none');
+            list.classList.toggle('catalog-groups-list--scroll', catalogGroupsFlat.length >= CATALOG_GROUPS_COLLAPSE_AT);
             list.innerHTML = catalogGroupsFlat.map(function (g) {
                 return '<li class="catalog-group-row d-flex align-items-center gap-2 mb-2 p-2 border rounded" draggable="true" data-id="' + esc(g.id) + '">' +
                     '<span class="catalog-group-drag text-muted" title="' + esc(tr('baseModels.catalogGroupsDrag', '拖曳排序')) + '"><i class="bi bi-grip-vertical"></i></span>' +
@@ -660,6 +775,8 @@
                 btn.addEventListener('click', function () { deleteCatalogGroup(btn.getAttribute('data-id')); });
             });
             bindCatalogGroupDragSort(list);
+            updateCatalogGroupsCountBadge();
+            initCatalogGroupsCollapse();
         }
 
         var catalogGroupDragId = null;
