@@ -1,7 +1,7 @@
 # 架構優化執行清單（邊界清晰 · 漸進式）
 
 更新日期：2026-05-26  
-狀態：**Step 0 已完成（程式稽核 2026-05-26）**；Step 1 起待執行  
+狀態：**Step 0～5 主線已完成**（已部署驗證後請勾 §九）；第二輪見 **§十一**  
 原則：依 **`docs/STABLE-BASELINE.md`** — 加法優先、小步提交、**不更動首頁靈感牆核心**（篩選、卡片、lightbox 互動邏輯）。
 
 ---
@@ -61,9 +61,11 @@
 | **Step 2** | 暫停 `sitemap-products` 索引 + `SEO-PROGRESS.md` | 小 | 第 1 天下午 |
 | **Step 3** | 擴充 `GET /api/me/capabilities` + 選單「只加不減」 | 小 | 第 2 天 |
 | **Step 4** | `visibility` migration（若需要）+ canonical | 中 | 第 3～4 天（可選） |
-| **Step 5** | 續拆 `routes/inspiration.js`、`routes/media-wall.js`… | 中 | 持續 |
+| **Step 5** | 續拆 `routes/inspiration.js`、`routes/media-wall.js`… | ✅ 2026-05-26 | — |
 
-**不要**在 Step 0～2 完成前做 Step 4 的大規模資料批次更新。
+**主線 Step 0～5 已結案**；Step 4 採「廢止 `visibility` + detail canonical」，未做 DB migration。
+
+**不要**在未定案前做大規模 `visibility` 資料批次更新。
 
 ---
 
@@ -300,7 +302,7 @@ lib/                      # 已有 visual-semantics、lineage…
 | `docs/supplier-reverse-intent-discovery-plan.md` | 新供應商功能掛在 capabilities ③ 區 |
 | `docs/design-analysis-material-backtrace.md` | 語意／引用；不阻塞本 backlog Step 0～3 |
 | `docs/matchdo-todo.md` | 總待辦；本檔為架構專線 |
-| **`docs/architecture-optimization-runbook.md`** | **逐步執行手冊**（明天照勾選做） |
+| **`docs/architecture-optimization-runbook.md`** | **逐步手冊**（Step 0～5 已完成；§十 上線驗證） |
 
 ---
 
@@ -327,3 +329,52 @@ lib/                      # 已有 visual-semantics、lineage…
 | 2026-05-26 | **Step 3 完成**：`GET /api/me/capabilities` 加 `zones`／`nav`；header 依 `show_supplier_zone` 隱藏 ③ 區 |
 | 2026-05-26 | **Step 4 完成**：detail `canonical`+`noindex`；`sitemap-products` 改 inspiration URL；文件廢止 `visibility` |
 | 2026-05-26 | **Step 5 完成**：`routes/inspiration.js`、`routes/vendor-pages.js`、`routes/media-wall.js`；共用 `lib/media-wall.js` |
+
+---
+
+## 十一、主線交付摘要（Step 0～5）
+
+### 11.1 程式與文件變更（已上線 main）
+
+| Step | 重點 | 主要檔案／commit 參考 |
+|------|------|----------------------|
+| 0 | URL／`show_on_homepage` 稽核、§4.5 判斷 | 本檔、runbook |
+| 1 | Sitemap 拆模組 | `routes/sitemap.js` |
+| 2 | `/sitemap.xml` 不再索引 products；UGC 以 inspiration 為準 | `routes/sitemap.js`、`docs/SEO-PROGRESS.md` |
+| 3 | `GET /api/me/capabilities` 加 `zones`／`nav`；③ 區選單暫隱 | `server.js`、`public/js/site-header.js` |
+| 4 | 廢止 `visibility`；detail `noindex` + canonical → inspiration | `client/custom-product-detail.html`、`routes/sitemap.js`、`docs/custom-products-db-columns.md` |
+| 5 | SSR／靈感牆 API／廠商 OG 拆路由 | `lib/media-wall.js`、`routes/inspiration.js`、`routes/vendor-pages.js`、`routes/media-wall.js` |
+| UX | 「我的功能」去重（不重複頂部客製／設計風向連結） | `public/js/site-header.js` |
+
+**`server.js` 仍保留**：訂製 CRUD、生圖、`PATCH/DELETE /api/admin/media-wall-item`、金流、管理後台等（見 §十一.2）。
+
+### 11.2 現行路由模組結構
+
+```text
+server.js
+  registerMediaWallRoutes()      → routes/media-wall.js
+  registerInspirationRoutes()  → routes/inspiration.js
+  registerSitemapRoutes()      → routes/sitemap.js
+  registerVendorPageRoutes()   → routes/vendor-pages.js（static 之前）
+lib/media-wall.js              → attachDisplayTags、牆上搜尋共用
+```
+
+### 11.3 SEO／公開 URL 政策（定案）
+
+| 用途 | URL |
+|------|-----|
+| 搜尋引擎收錄 UGC | `/inspiration/user_design/{id}`（SSR） |
+| 登入後找廠／媒合 | `/client/custom-product-detail.html?id=`（`noindex`，canonical 指 inspiration） |
+| Sitemap 索引 | 5 子檔：pages、categories、vendors、collections、**inspiration**（無 products） |
+
+### 11.4 第二輪待辦（另開排程，非主線）
+
+| 代號 | 內容 | 說明 |
+|------|------|------|
+| **A6** | 拆 `routes/custom-products.js` | `POST/PATCH/GET /api/custom-products*`、生圖儲存、`enrich` 觸發 |
+| **A7** | 拆 `routes/admin-media-wall.js`（或 admin 子目錄） | `PATCH/DELETE /api/admin/media-wall-item` 與權限 helper |
+| **A8** | B 線就緒後開 `nav.show_supplier_zone` | `industry_suppliers.user_id` 綁定後改 `server.js` 常數 |
+| **A9** | 可選：`media-wall-item` 擋未上牆作品 | 改變「知道 id 即可開」行為，需產品確認 |
+| **A10** | 可選：統一 `show_on_homepage` 寫入規則 | 手動儲存 vs 自動生圖不一致（§4.3） |
+
+詳見 **`docs/matchdo-todo.md`**「架構優化第二輪」。

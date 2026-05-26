@@ -1,12 +1,15 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-05-21
+更新日期：2026-05-26
 
 ---
 
 ## 接下來執行進度（建議順序）
 
-> **你現在在這裡**：廠商後台導覽與說明已更新（見下方「2026-05-21 廠商 IA」）；請 **push 後部署**，並確認 Supabase SQL 是否已跑完。
+> **架構優化 Step 0～5 主線**：✅ **已完成**（2026-05-26，已 push `main`）。摘要見下方「近期完成」與 **`docs/architecture-optimization-backlog.md` §十一**；操作紀錄見 **`docs/architecture-optimization-runbook.md`**。  
+> **第二輪**（拆 `custom-products` API、admin 路由等）：見本檔 **「架構優化第二輪（待排）」**，與 SQL／功能開發並行排程即可。
+
+> **你現在在這裡**：若架構主線已部署，請以 **SQL → 部署 → 冒煙／E2E** 為主（下表 1～4）；架構第二輪非阻塞。
 
 | 順序 | 做什麼 | 誰做 | 完成標準 |
 |------|--------|------|----------|
@@ -19,7 +22,23 @@
 | **7** | **設計風向改版** | 另開分支 | D0–D7，與圖庫／分析分開 PR（見下方規劃） |
 | **8** | **廠商 slug 短網址**（選用） | 擇期 | 見 `docs/vendor-profile-slug-plan.md`；現行 `vendor-profile.html?id=` 維持 |
 
-**暫緩／後排**：強制填設計者地區、圖庫作品+素材並列、產業供應商 B 線、會員三區 IA、**廠商公開頁自訂 slug 短網址**（見 `docs/vendor-profile-slug-plan.md`，非迫切）。
+**暫緩／後排**：強制填設計者地區、圖庫作品+素材並列、產業供應商 B 線、**廠商公開頁自訂 slug 短網址**（見 `docs/vendor-profile-slug-plan.md`，非迫切）。
+
+---
+
+## 架構優化第二輪（待排，2026-05-26）
+
+主線 Step 0～5 已結案；以下**另開一輪**，勿與主線混在同一 PR。
+
+| 代號 | 待辦 | 優先 | 完成標準 |
+|------|------|------|----------|
+| **A6** | 拆 **`routes/custom-products.js`**（或 `lib/custom-products.js` + 路由） | 中 | `POST/PATCH/GET /api/custom-products*`、生圖相關路由搬出 `server.js`；行為不變 |
+| **A7** | 拆 **admin 靈感牆**（`PATCH/DELETE /api/admin/media-wall-item`、`requireMediaWallDelete`） | 中 | 權限與刪除流程冒煙通過 |
+| **A8** | B 線 P2：開放 **`nav.show_supplier_zone`** | 低 | `industry_suppliers` 綁帳後；header 顯示 ③ 區 |
+| **A9** | 可選：`media-wall-item` 未上牆即 404 | 低 | 產品確認後再做 |
+| **A10** | 可選：統一 **`show_on_homepage` 寫入**（手動儲存 vs 生圖） | 低 | API 與文件一致 |
+
+**參考**：`docs/architecture-optimization-backlog.md` §十一.4。
 
 ---
 
@@ -31,12 +50,41 @@
 | **`docs/設計與開店路徑-廠商素材庫規格.md`** | ① 操作流程更清晰（導覽語意、各功能頁內步驟提示與建議下一步；**首頁靈感牆不變動**）。② 廠商素材庫：資料模型、廠商端上傳與分類、設計端「從廠商素材庫選參考圖」、權限與實作順序。已部分實作（見 `vendor_assets`）。 |
 | **`docs/design-lineage-and-design-direction-plan.md`** | **訂製生圖資料血緣**（生圖帳號 vs 素材廠商帳號、`is_vendor_self_serve`）；**再製→設計風向**（設計意圖分析）分階段實作。 |
 | **`docs/design-signals-tiered-access-plan.md`** | **待開發**：Design Signals 四階付費牆（0／300／900／1800）、`daily_trend_stats` 預聚合、DS-0～DS-7。 |
+| **`docs/design-direction-ai-advisor-plan.md`** | **待開發**：設計風向 × **AI 產品顧問**（四階餵料、10 點/次診斷、報告模板）、AD-0～AD-8；現行設計風向差距與調整建議 §四。 |
 | **`docs/design-direction-analysis-time-fields.md`** | 風向分析可撈的時間／語意／地區欄位（`custom_products` 等）。 |
 | **`docs/vendor-profile-slug-plan.md`** | **選用／後排**：廠商公開頁自訂網址（`/vendor/{slug}`），取代或並存 `vendor-profile.html?id=UUID`；實作清單與工時見該檔。 |
+| **`docs/admin-ai-settings-models.md`** | **後台 AI 模型設定**：`/admin/ai-settings.html` 三槽（翻譯／讀圖分析／標籤讀圖）、API 與 `payment_config`；**暫定**讀圖分析 → `gemini-3.1-pro-preview`，標籤維持 `gemini-3.1-flash-lite`。 |
+| **`docs/design-analysis-material-backtrace.md`** | **待開發**：設計分析須能從 `reference_sources`／`vendor_assets`（材料、版型）**回推訂製需求**；與成品 `ai_tags` 分離，見 MB-0～MB-4。 |
+| **`docs/supplier-reverse-intent-discovery-plan.md`** | **待開發（已評估）**：L0 逆向檢索；商機＝引用→**通知**+**引用製造商清單頁**（§3.3）；不做合作意向；RI-0～RI-6。 |
+| **`docs/architecture-optimization-backlog.md`** | **架構優化執行清單**：Step 0～5 **主線已完成**；URL 對照、風險、§十一 交付摘要與第二輪代辦 A6～A10。 |
+| **`docs/architecture-optimization-runbook.md`** | **逐步手冊與冒煙清單**（Step 0～5 操作紀錄；§十 上線驗證勾選）。 |
 | **`docs/三角色架構與AB線說明.md`** | **對外說明用**：訂製者／製造商／產業供應商三角色、**A 線**（`vendor_assets`）與 **B 線**（原型組＋材料）流程圖與對照表；含官方帳號與 A 線測試摘要。 |
 | **本檔 §4「產業供應商、製造商採購庫」** | 供應商上架分兩類：**數位原型組**（一組多圖）、**材料**；製造商後台分別**導入**至原型組庫／材料庫（B2B；**不用「收藏」**）；**不**接入訂製者設計頁；另含線下店家、官方虛擬廠商；**暫不實作**。 |
 | **本檔 §5「會員後台・三角色介面分離」** | 會員中心 IA、導覽三區、頁面對照、capabilities 顯示；與 `/admin/` 分工；**規劃中**。 |
 | **本檔 §6「視覺語意庫・Gemini 標籤／提示詞／生成圖解析」** | 上傳與生圖時以 **`gemini-3.1-flash-lite`** 解讀圖與提示詞，累積 **`visual_semantics`** 供搜尋與日後售前風格意圖／流行預測；首頁靈感牆標籤搜尋；**規劃中**。 |
+
+---
+
+## 近期完成（2026-05-26 架構優化 Step 0～5 主線）
+
+| 項目 | 說明 |
+|------|------|
+| **Step 0** | `/client` 分流、`show_on_homepage`／`visibility` 稽核；可索引 URL 定案 |
+| **Step 1** | `routes/sitemap.js`（sitemap + robots） |
+| **Step 2** | `/sitemap.xml` 改 5 子索引；廢止 products 索引；`SEO-PROGRESS.md` |
+| **Step 3** | `GET /api/me/capabilities` 加 `zones`、`nav`；產業供應商 ③ 區選單暫隱 |
+| **Step 4** | 廢止 `visibility`；`custom-product-detail`：`noindex` + canonical → `/inspiration/...` |
+| **Step 5** | `lib/media-wall.js`；`routes/inspiration.js`、`vendor-pages.js`、`media-wall.js` |
+| **導覽 UX** | 「我的功能」移除與頂部「客製產品／設計風向」重複的連結 |
+
+**新增／主要變更檔案**：
+
+- `routes/sitemap.js`、`routes/inspiration.js`、`routes/vendor-pages.js`、`routes/media-wall.js`
+- `lib/media-wall.js`
+- `public/js/site-header.js`、`client/custom-product-detail.html`
+- `docs/custom-products-db-columns.md`、`docs/SEO-PROGRESS.md`、`docs/sitemap.md`
+
+**仍留在 `server.js`（第二輪可拆）**：訂製產品 CRUD、生圖 API、admin 靈感牆刪除、金流、其餘 `/api/*`。
 
 ---
 
@@ -168,6 +216,19 @@
 | 資料源 | 時間／主+子分類／`ai_tags_by_dimension`／`designer_country_code`（見 time-fields 專檔） |
 | 待建表 | `daily_trend_stats`（每日 Cron 預聚合，禁止即時掃 JSONB） |
 | 實作階段 | **DS-0～DS-7**（見規劃書 §六）；與 D0–D7 產品線可並行 |
+
+### 待開發：AI 產品顧問（設計風向 × Gemini 診斷）— 2026-05-21
+
+**狀態**：📋 僅規劃，**不執行**。完整規格：`docs/design-direction-ai-advisor-plan.md`
+
+| 摘要 | 內容 |
+|------|------|
+| 免費 | 首頁分類 Top3 標籤；作品旁灰階 **🪄 讓 AI 診斷…** → 升級 $300 彈窗 |
+| $300 | 顧問開啟，**10 點/次**；餵 **7 天** tag 排名 → 短期戰術報告 + 結尾引導升 $900 |
+| $900 | **10 點/次**（或月 5 次免費深度）；餵 **3～6 月折線** + 材料庫 → 生命週期／供應鏈建議 |
+| $1,800 | 吃到飽或大批量；餵 **全局 + IP 地理** → 產能／外銷報告 |
+| 實作階段 | **AD-0～AD-8**；依賴 **DS-2** 聚合表、**D1 `product_line`** |
+| **設計風向現況調整** | 見顧問規劃書 **§四**：優先 `product_line`、列表篩選、意圖分析頁加報告區、顧問按鈕；首頁 Top3 屬 DS 非 remake 本體 |
 
 ### 待辦（分階段）
 
@@ -688,6 +749,8 @@
 | 已完成 | **設計者國家（僅 IP 快照）** | `lib/designer-region-from-ip.js`；見上方「設計者國家／地區」；報表 R5 待做 |
 | 後排 | **再製方案 → 設計風向（設計意圖分析）** | 見上方「規劃：再製→設計風向」；整線改版，分 D0–D7 |
 | 後排 | **Design Signals 數據付費牆** | `docs/design-signals-tiered-access-plan.md`；DS-0～DS-7；$300/$900/$1800 分層 |
+| 後排 | **供應商逆向意圖檢索** | `docs/supplier-reverse-intent-discovery-plan.md`；依 DS 預聚合 + B 線；RI-0～RI-6 |
+| 後排 | **AI 產品顧問（設計風向）** | `docs/design-direction-ai-advisor-plan.md`；AD-0～AD-8；10 點/次、四階餵料 |
 | 已完成 | **廠商的資料夾功能** | 見本檔下方「廠商資料夾」相關紀錄。 |
 
 **目前建議進度**（2026-05-20）：**圖庫**已可從首頁帶入分類，且分類下無作品時會顯示同分類**廠商素材**（`vendor_assets`）。請**繼續測其它功能**（產品設計、素材庫選圖、廠商頁、對話、點數等），有問題再回報逐項改。若尚未跑過訂製品線 E2E 六步，仍可依「接下來工作步驟」1.2 補跑；再製 E2E、會員與金流驗證為後續步驟。
@@ -1081,6 +1144,8 @@
 | 上架數位原型組 | 表單：一組多圖 | `item_kind = prototype_set` |
 | 上架材料 | 表單：規格＋主圖 | `item_kind = material` |
 | 聯絡與公司資料 | 同控制台 | `industry_suppliers` |
+| **引用我的製造商**（清單） | `/member/supplier/referencing-manufacturers.html`（新） | 誰曾導入／引用本供應商材料；見 `supplier-reverse-intent-discovery-plan.md` §3.3、RI-4 |
+| 逆向意圖檢索（可選） | 同控制台子頁 | 材料 tag → 品類趨勢；見 RI-2～RI-3 |
 
 **誰會看到 ③**：`industry_suppliers.user_id = 我`（或 `supplier_staff` 表，第二階段）；一般製造商**不**看到 ③，只看到 ② 內的「瀏覽產業目錄／導入」。
 
@@ -1102,6 +1167,7 @@
 │    產業目錄、我的原型組庫、我的材料庫
 └─ 【產業供應商】          ← ③ is_industry_supplier（規劃）
      供應商控制台、上架原型組、上架材料
+     引用我的製造商（清單）、逆向意圖檢索（可選）
 ```
 
 **共通（下拉底或帳戶區）**：帳號資訊、聯絡設定、我的點數、方案與定價、登出。  
@@ -1186,6 +1252,7 @@
    - **提示詞解析（必要）**：儲存或生圖時，對 `generation_prompt`（及可選 `analysis_json`）做 **Gemini 文字解析** → `prompt_semantics_json`（意圖、品類、風格、材質、場景等）。  
    - **生成圖解析（必要）**：`POST /api/generate-product-image` 成功後，對 **`ai_generated_image_url`** 再跑 **Gemini 讀圖** → `image_semantics_json`（視覺風格、配色、結構、氛圍標籤）；與提示詞語意分開存，便於日後比對「意圖 vs 成品」。  
    - **參考圖（建議）**：若有 `reference_image_url`，同樣讀圖寫入語意庫（來源標記 `reference`）。  
+   - **設計分析・材料回推需求（待實作，2026-05-26 紀錄）**：當有 `reference_sources`（廠商素材庫選料／版型）時，設計分析（`analyze-custom-product`、設計風向意圖分析、日後 AI 顧問）須能依 **`vendor_assets`**（`asset_kind`、`material_key`、`ai_tags`、`image_semantics_json`）**回推**材質、工藝、結構約束與可製性等需求；**不必**把素材 tags 併入對外搜尋用 `ai_tags`。規格：**`docs/design-analysis-material-backtrace.md`**（MB-0～MB-4）。  
 3. **首頁靈感牆**（`/` 媒體牆）：搜尋框輸入文字時，可**以標籤／語意欄位**比對篩選（含 portfolio、`user_design` 的 tags + prompt + 生成圖語意）；**卡片版面不變**，僅在卡片加**小圖示**（例：`bi-tags`），點擊／hover 才顯示標籤全文。  
 4. **資料累積**：每筆解析寫入**中央語意表**（見 §6.2），保留 `model`、`prompt_version`、`created_at`，供日後聚合（熱門 tag、分類×風格矩陣、時間序列）而不必每次重跑 Gemini。
 
@@ -1195,8 +1262,8 @@
 
 | 項目 | 規劃 |
 |------|------|
-| 預設模型 | **標籤用讀圖**（`gemini_model_tagging`）→ **`gemini-3.1-flash-lite`**；**一般讀圖／分析**（`gemini_model_read`）→ 預設 `gemini-3-flash-preview`；**翻譯** → `gemini-2.5-flash-lite` |
-| 後台設定 | `/admin/ai-settings.html` → **三欄分開**儲存，互不覆寫 |
+| 預設模型 | **標籤用讀圖**（`gemini_model_tagging`）→ **`gemini-3.1-flash-lite`**；**一般讀圖／分析**（`gemini_model_read`）→ 程式預設 `gemini-3-flash-preview`；**營運暫定**改為 **`gemini-3.1-pro-preview`**（見 `docs/admin-ai-settings-models.md`）；**翻譯** → `gemini-2.5-flash-lite` |
+| 後台設定 | `/admin/ai-settings.html` → **三欄分開**儲存，互不覆寫；規格見 **`docs/admin-ai-settings-models.md`** |
 | 程式 | `getTaggingModelName()` 僅用於 §6 素材標籤／語意；`getReadModelName()` 用於客製分析、首頁識別等 |
 | 管理頁 | `/admin/ai-settings.html`：翻譯／讀圖分析／標籤用讀圖模型 + **標籤用讀圖系統提示詞**（`GET/PATCH /api/admin/semantics-prompts`）；種子 SQL：`docs/seed-semantics-prompts.sql` |
 | 成本 | 上傳／生圖**同步**解析可能略增延遲；大量舊資料用 **T6 補跑腳本** 離峰執行 |
@@ -1216,6 +1283,7 @@
 | **首頁搜尋 `?q=`** | `GET /api/media-wall`；placeholder「搜尋作品（標題或提示詞）」 | ⚠️ **僅**在後端過濾 **`user_design`**（`custom_products` 的 title、generation_prompt）；**未**搜尋 portfolio 標籤／`image_semantics`／`prompt_semantics` |
 | **首頁卡片 UI** | 對照／系列圖 lightbox 內有「標籤」列（`media-wall-lightbox-tags`） | ❌ 牆上卡片**未**顯示標籤小圖示；搜尋也不含廠商作品標籤 |
 | **`custom_products` 語意** | 有 `generation_prompt`、`analysis_json`（analyze 時寫入） | ❌ 生圖後**未**對生成圖做 Gemini 視覺解析；❌ 提示詞**未**結構化為可搜尋 `ai_tags` |
+| **設計分析・材料回推** | `reference_sources` 已存；`vendor_assets` 可有 `ai_tags`／`material_key` | ❌ 分析 API **未**依引用素材回推需求（見 `design-analysis-material-backtrace.md`） |
 | **語意累積／趨勢用** | 無中央表 | ❌ 無法跨來源聚合 tag 頻率、時間序列 |
 
 **相關檔案**：`server.js`（`GET /api/media-wall`、`POST /api/generate-product-image`、`POST /api/analyze-custom-product`、`vendor-assets`）、`public/client/manufacturer-materials.html`、`public/client/manufacturer-portfolio.html`、`public/custom-product.html`、`public/admin/seed-vendors.html`、`public/admin/ai-settings.html`、`public/iStudio-1.0.0/index.html`（`#media-wall-search`）。

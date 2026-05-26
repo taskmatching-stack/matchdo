@@ -1,8 +1,8 @@
 # 架構優化 · 逐步執行手冊（Runbook）
 
 更新日期：2026-05-26  
-**用途**：明天起**一天一步**（或半天一步），照勾選框做即可。  
-**背景與判斷**：`docs/architecture-optimization-backlog.md`（Step 0 已完成）  
+**用途**：Step 0～5 **主線已完成**；本檔保留操作紀錄與冒煙清單。第二輪見 backlog **§十一**、`matchdo-todo.md`。  
+**背景與判斷**：`docs/architecture-optimization-backlog.md`  
 **原則**：`docs/STABLE-BASELINE.md` — 不改首頁靈感牆核心；每步部署後跑冒煙（§六）。
 
 ---
@@ -345,3 +345,18 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 | 日期 | 說明 |
 |------|------|
 | 2026-05-26 | 初版：Step 1～5 逐步指令、驗證、commit、部署、回滾 |
+| 2026-05-26 | 主線 Step 0～5 結案；勾選總表 §八 已填 |
+
+---
+
+## 十、主線完成後：部署驗證勾選
+
+主線程式已 merge 至 `main`（約 `5a7d97d`～`605dca4` 一帶）。上線後請勾：
+
+- [ ] Cloud Shell 部署（§六指令）
+- [ ] 首頁靈感牆 + `/inspiration/user_design/{id}`
+- [ ] `/sitemap.xml` 僅 5 個子 sitemap
+- [ ] 「我的功能」無重複的設計風向／客製連結
+- [ ] 產品 detail 頁有「公開作品頁」與 canonical
+
+**第二輪（待排）**：拆 `custom-products` API、admin 靈感牆路由 → `matchdo-todo.md`。
