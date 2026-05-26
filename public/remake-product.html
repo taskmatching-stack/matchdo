@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  【再製設計表單】分類來自 /admin/remake-categories，AI 必須有參考圖。
+  【設計風向／設計意圖分析】分類來自 /admin/remake-categories，須有參考圖。
   頁面：public/remake-product.html，JS：public/js/remake-product.js
 -->
 <html lang="zh-TW" data-theme="remake">
@@ -9,14 +9,14 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>再製設計 - MATCHDO 合做</title>
+    <title data-i18n="remakeProduct.pageTitle">設計意圖分析 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta name="keywords" content="再製設計,改裝,AI設計,廠商媒合,MATCHDO">
-    <meta name="description" content="上傳現有品圖片，選擇再製分類，AI 依分類改裝設計並生成草圖，媒合改製廠商一站式生產。">
+    <meta name="keywords" content="設計風向,設計意圖,AI設計,廠商媒合,MATCHDO">
+    <meta name="description" content="從參考圖與描述分析設計意圖與風格方向。詳細說明規劃中。">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="MATCHDO 合做">
-    <meta property="og:title" content="再製設計 - MATCHDO 合做">
-    <meta property="og:description" content="上傳現有品圖片，選擇再製分類，AI 改裝設計並生成草圖，媒合改製廠商一站式生產。">
+    <meta property="og:title" content="設計意圖分析 - MATCHDO 合做">
+    <meta property="og:description" content="從參考圖與描述分析設計意圖與風格方向。詳細說明規劃中。">
     <meta property="og:image" content="https://matchdo.cc/img/og-remake.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
@@ -24,15 +24,15 @@
     <meta property="og:locale" content="zh_TW">
     <meta property="og:locale:alternate" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="再製設計 - MATCHDO 合做">
-    <meta name="twitter:description" content="上傳現有品圖片，AI 改裝設計，媒合改製廠商一站式生產。">
+    <meta name="twitter:title" content="設計意圖分析 - MATCHDO 合做">
+    <meta name="twitter:description" content="從參考圖與描述分析設計意圖與風格方向。詳細說明規劃中。">
     <meta name="twitter:image" content="https://matchdo.cc/img/og-remake.jpg">
     <link rel="canonical" href="https://matchdo.cc/remake-product.html">
     <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/remake-product.html">
     <link rel="alternate" hreflang="en" href="https://matchdo.cc/remake-product.html?lang=en">
     <link rel="alternate" hreflang="x-default" href="https://matchdo.cc/remake-product.html">
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首頁","item":"https://matchdo.cc/"},{"@type":"ListItem","position":2,"name":"再製方案","item":"https://matchdo.cc/remake/"},{"@type":"ListItem","position":3,"name":"再製設計","item":"https://matchdo.cc/remake-product.html"}]}
+    {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"首頁","item":"https://matchdo.cc/"},{"@type":"ListItem","position":2,"name":"設計風向","item":"https://matchdo.cc/remake/"},{"@type":"ListItem","position":3,"name":"設計意圖分析","item":"https://matchdo.cc/remake-product.html"}]}
     </script>
 
     <!-- Favicon -->
@@ -358,10 +358,10 @@
         <div class="container">
             <div id="custom-product" class="py-2">
                 <div class="alert alert-info py-2 small mb-3" role="status">
-                    <i class="bi bi-info-circle me-2"></i><span data-i18n="remake.testingNotice">再製方案目前為測試階段，歡迎試用並回饋意見。</span>
+                    <i class="bi bi-info-circle me-2"></i><span data-i18n="remake.testingNotice">設計風向目前為測試階段，歡迎試用並回饋意見。</span>
                 </div>
-                <h1 class="page-title">再製設計</h1>
-                <p class="page-sub">必須上傳至少一張參考圖，選擇再製分類（後台「再製分類」管理）後生成</p>
+                <h1 class="page-title" data-i18n="remakeProduct.pageHeading">設計意圖分析</h1>
+                <p class="page-sub" data-i18n="remakeProduct.pageSub">請上傳至少一張參考圖。（詳細流程規劃中）</p>
 
                 <form id="customProductForm">
                     <div class="create-panel">
@@ -391,7 +391,7 @@
                             </button>
 
                             <div class="form-row full">
-                                <span class="label">參考圖 <span class="text-danger">（再製必填）</span></span>
+                                <span class="label"><span data-i18n="remakeProduct.refImageLabel">參考圖</span> <span class="text-danger">（<span data-i18n="remakeProduct.refRequired">必填</span>）</span></span>
                                 <div id="referenceImagesSlots" class="ref-slots"></div>
                                 <input type="file" id="referenceImageFile" accept="image/*" class="file-input-hidden">
                                 <div class="ref-cards-wrap">

@@ -5097,7 +5097,7 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
     return base ? base + '\n\n' + userPrompt : userPrompt;
 }
 
-// 再製分類：從 remake_categories / remake_subcategories 取 prompt（供 /api/generate-product-image?categorySource=remake）
+// 設計風向分類：從 remake_categories / remake_subcategories 取 prompt（供 /api/generate-product-image?categorySource=remake）
 async function buildPromptFromRemakeCategoryKeys(categoryKeys, userPrompt) {
     if (!categoryKeys || !Array.isArray(categoryKeys) || categoryKeys.length === 0)
         return userPrompt;
@@ -5412,7 +5412,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         const useRemake = (categorySource === 'remake' || categorySource === 'remake_categories');
         const hasRefs = referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0;
         if (useRemake && !hasRefs) {
-            return res.status(400).json({ success: false, error: '再製方案必須上傳至少一張參考圖，AI 依圖改裝' });
+            return res.status(400).json({ success: false, error: '設計風向須上傳至少一張參考圖' });
         }
 
         // ── 步驟 1：取得使用者資訊，在生圖前先確認點數夠（避免 BFL 費用白花）──
@@ -11891,8 +11891,8 @@ app.delete('/api/admin/custom-product-subcategories/:category_key/:key', async (
     }
 });
 
-// ——— 再製分類（改裝現有品服務）：公開 API ———
-// GET /api/remake-categories — 再製主分類＋子分類（僅啟用），供前台下拉；支援 ?lang=en|ja|es|de|fr 多語系
+// ——— 設計風向分類（remake 表）：公開 API ———
+// GET /api/remake-categories — 設計風向主分類＋子分類（僅啟用），供前台下拉；支援 ?lang=en|ja|es|de|fr 多語系
 const REMake_CAT_LOCALE_COL = { en: 'name_en', ja: 'name_ja', es: 'name_es', de: 'name_de', fr: 'name_fr' };
 app.get('/api/remake-categories', async (req, res) => {
     try {
@@ -11938,7 +11938,7 @@ app.get('/api/remake-categories', async (req, res) => {
     }
 });
 
-// ——— 再製分類：後台 API ———
+// ——— 設計風向分類：後台 API ———
 app.get('/api/admin/remake-categories', async (req, res) => {
     try {
         const user = await requireAdmin(req, res);

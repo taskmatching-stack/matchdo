@@ -1,5 +1,5 @@
 /**
- * 再製設計表單 - 分類來自 /api/remake-categories（後台「再製分類」），AI 必須有參考圖
+ * 設計風向表單 - 分類來自 /api/remake-categories，須有參考圖
  * 檔案：public/js/remake-product.js，頁面：public/remake-product.html
  */
 $(document).ready(function () {
@@ -272,7 +272,7 @@ $(document).ready(function () {
         $('#productPrompt').val(merged || current);
     });
 
-    // AI 生成圖片：再製方案必須有參考圖，分類來自 remake_categories
+    // AI 生成圖片：設計風向須有參考圖，分類來自 remake_categories
     $('#generateImageBtn').click(async function () {
         if (typeof window.gtag === 'function') { window.gtag('event', 'remake_generate_click', {}); }
         const prompt = $('#productPrompt').val().trim();
@@ -281,7 +281,7 @@ $(document).ready(function () {
             return;
         }
         if (refDataUrls.filter(Boolean).length === 0) {
-            alert('再製方案必須上傳至少一張參考圖，AI 依圖改裝');
+            alert((window.i18n && window.i18n.t && window.i18n.t('remakeProduct.refRequiredNotice')) || '設計風向須上傳至少一張參考圖');
             return;
         }
         const mainKey = $('#imageCategoryMainSelect').val();

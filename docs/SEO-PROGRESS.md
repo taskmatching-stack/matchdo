@@ -99,7 +99,7 @@
 | `og-home.jpg` | 首頁 OG 圖 |
 | `og-custom.jpg` | 客製產品頁 OG 圖 |
 | `og-design.jpg` | 產品設計頁 OG 圖 |
-| `og-remake.jpg` | 再製方案頁 OG 圖 |
+| `og-remake.jpg` | 設計風向頁 OG 圖 |
 | `og-plans.jpg` | 訂閱方案頁 OG 圖 |
 | `og-vendors.jpg` | 廠商列表頁 OG 圖 |
 
@@ -169,7 +169,7 @@
 
 | 項目 | 說明 |
 |------|------|
-| **BreadcrumbList JSON-LD** | 已加至：首頁／客製產品、產品設計、圖庫找廠商、廠商列表、廠商詳情、再製方案、再製設計、方案與定價。 |
+| **BreadcrumbList JSON-LD** | 已加至：首頁／客製產品、產品設計、圖庫找廠商、廠商列表、廠商詳情、設計風向、設計意圖分析、方案與定價。 |
 | **vendor-profile 動態 OG** | `GET /vendor-profile.html?id=xxx` 由 server.js 依廠商 ID 查 DB，輸出動態 title／description／og:image（logo 或首張作品圖）、canonical／hreflang；無 id 時仍走靜態檔。 |
 | **GA4 自訂事件** | 已加：`contact_vendor`（廠商頁／列表／圖庫 modal／系列頁）、`subscribe_plan_click`、`design_generate_click`、`remake_generate_click`。 |
 | **次要頁面 meta** | collection.html、remake-product.html、login、register、no-access、404 已補 description／canonical；remake-product 與 collection 另補 OG／Twitter。 |
@@ -198,7 +198,8 @@
 
 **其餘待做（已紀錄）**  
 - **① 標題格式**：可選將 og:title 改為「MatchDO｜{標題或分類}」格式（一行級）。  
-- **② 語意化網址**：中長期，如 `/design/bespoke-oxford-shoes-9527`，需新路徑、slug 來源、301、前端與 sitemap 全面改。  
+- **② 語意化網址**：中長期，如 `/design/bespoke-oxford-shoes-9527`，需新路徑、slug 來源、301、前端與 sitemap 全面改。
+- **②b 廠商公開頁 slug**（選用、可獨立於 ②）：`/vendor/{slug}` 取代長 UUID 查詢字串；規劃見 **`docs/vendor-profile-slug-plan.md`**（非迫切，舊 `?id=` 須永久相容）。  
 - **③b Sitemap 高品質優先**：需「再設計點擊」埋點與儲存，再依計數排序／篩選 sitemap 收錄。
 
 #### 次要頁面 meta 檢查結果（2026-03-05，已補齊）

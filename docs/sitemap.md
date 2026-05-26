@@ -18,13 +18,13 @@
 | `/custom-product.html` | `public/custom-product.html` | 產品設計表單（訂製分類） | ✅ 存在 |
 | `/custom-product.html?tab=scene-sim` | 同上 | 產品設計頁「實境模擬」分頁 | ✅ 動態網址 |
 | `/custom-product.html?tab=pattern-extract` | 同上 | 產品設計頁「圖樣提取」分頁 | ✅ 動態網址 |
-| `/remake/` | `public/remake/index.html` | 再製方案首頁（改裝現有品、必填參考圖） | ✅ 存在 |
-| `/remake-product.html` | `public/remake-product.html` | 再製設計表單（再製分類，後台 remake-categories） | ✅ 存在 |
+| `/remake/` | `public/remake/index.html` | 設計風向首頁（設計意圖分析、必填參考圖） | ✅ 存在 |
+| `/remake-product.html` | `public/remake-product.html` | 設計意圖分析表單（設計風向分類，後台 remake-categories） | ✅ 存在 |
 | `/credits.html` | `public/credits.html` | 我的點數／儲值／訂閱付款 | ✅ 存在 |
 
 ### 多語系與 Sitemap
 - **目前行為**：`/sitemap-pages.xml` 僅列出固定路徑（如 `/remake/`、`/custom/`），**不依語系重複列出**；多語系由**同一 URL** 加 `?lang=en`（或 localStorage）與前台 i18n 切換，搜尋引擎可抓取同一 URL。
-- **分類多語系**：訂製／再製分類名稱由 API 支援 `?lang=en|ja|es|de|fr`（`/api/custom-product-categories`、`/api/remake-categories`），前台依語系請求即可顯示對應名稱；sitemap 未單獨列出「分類頁」URL。
+- **分類多語系**：訂製／設計風向分類名稱由 API 支援 `?lang=en|ja|es|de|fr`（`/api/custom-product-categories`、`/api/remake-categories`），前台依語系請求即可顯示對應名稱；sitemap 未單獨列出「分類頁」URL。
 - **若需擴充**：可產出 `xhtml:link rel="alternate" hreflang` 或依語系拆成多個 sitemap（如 `sitemap-pages-en.xml`），再於 `sitemap.xml` 索引中列入。
 
 ---

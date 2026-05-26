@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>再製分類（改裝現有品）- MATCHDO 後台</title>
+  <title>設計風向分類 - MATCHDO 後台</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
 </head>
@@ -13,8 +13,8 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-3">再製分類（改裝現有品服務）</h4>
-        <p class="text-muted small mb-3">建立並管理「再製／改裝現有品」服務使用的分類（如服裝改製、家具翻新、皮件保養等），供前台與廠商對齊。key 請用英文或數字（會自動轉小寫、空格改底線）。</p>
+        <h4 class="mb-3">設計風向分類</h4>
+        <p class="text-muted small mb-3">建立並管理前台「設計風向」使用的分類與 AI 提示詞，供設計意圖分析與廠商作品集對齊。分類語意與範例內容規劃中。key 請用英文或數字（會自動轉小寫、空格改底線）。</p>
         <p class="text-muted small mb-3">若要儲存「英文名」與其他語系欄位，請先在 Supabase SQL Editor 執行 <code>docs/add-remake-categories-multilang.sql</code>，執行後重新整理本頁即可。</p>
 
         <!-- 登入狀態：讓使用者清楚知道是否已登入 -->
@@ -45,11 +45,11 @@
               </div>
               <div class="col-md-2">
                 <label class="form-label small mb-0">顯示名稱</label>
-                <input type="text" id="newName" class="form-control form-control-sm" placeholder="例：服裝改製" />
+                <input type="text" id="newName" class="form-control form-control-sm" placeholder="例：風格方向" />
               </div>
               <div class="col-md-2">
                 <label class="form-label small mb-0">顯示名稱（英文）</label>
-                <input type="text" id="newNameEn" class="form-control form-control-sm" placeholder="例：Apparel Remake" title="選填，前台 lang=en 時顯示" />
+                <input type="text" id="newNameEn" class="form-control form-control-sm" placeholder="例：Style direction" title="選填，前台 lang=en 時顯示" />
               </div>
               <div class="col-md-4">
                 <label class="form-label small mb-0">其他語系（選填，預留）</label>
