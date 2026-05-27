@@ -492,11 +492,35 @@ $(document).ready(function () {
         }
     }
 
+    function openImageLightbox(src, caption) {
+        if (!src) return false;
+        if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.open === 'function') {
+            window.MatchdoImageLightbox.open({ src: src, caption: caption || '', alt: caption || '' });
+            return true;
+        }
+        return false;
+    }
+
+    function vendorAssetCardImageUrl($c) {
+        if (!$c || !$c.length) return '';
+        var u = ($c.attr('data-image-url') || '').trim();
+        if (u) return u;
+        var img = $c.find('.vendor-asset-pick-img')[0];
+        return (img && img.src) ? img.src : '';
+    }
+
+    function vendorAssetCardCaption($c) {
+        if (!$c || !$c.length) return '';
+        return ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+    }
+
     function openRefImagePreviewModal(slotIndex) {
         var url = refDataUrls[slotIndex];
         if (!url) return;
         var src = refSources[slotIndex];
         var label = vendorPickerTr('customProduct.refPreviewTitle', '參考圖') + ' ' + (slotIndex + 1);
+        if (src && src.title) label += ' · ' + src.title;
+        if (openImageLightbox(url, label)) return;
         $('#pastItemModal').data('redesignCategoryKey', ($('#imageCategoryMainSelect').val() || '').trim())
             .data('redesignSubcategoryKey', ($('#imageCategorySubSelect').val() || '').trim());
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
@@ -539,14 +563,15 @@ $(document).ready(function () {
         } else if (item.asset_kind === 'prototype') {
             meta += '<span class="badge bg-primary-subtle text-primary border mb-1">' + (t('customProduct.assetKindPrototype') || '數位原型') + '</span> ';
         }
-        var pickHint = (t('customProduct.vendorAssetPickHint') || '點圖片加入參考圖').replace(/"/g, '&quot;');
+        var pickHint = (t('customProduct.vendorAssetPickHint') || '單擊加入參考圖；雙擊或按 🔍 放大').replace(/"/g, '&quot;');
+        var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');
         return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
             ' data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
             ' data-asset-kind="' + assetKind + '" data-title="' + title + '">' +
             '<div class="vendor-asset-pick-zone" role="button" tabindex="0" title="' + pickHint + '">' +
-            '<button type="button" class="vendor-asset-zoom-btn" title="' + (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;') + '" aria-label="' + (t('customProduct.zoomImage') || '放大').replace(/"/g, '&quot;') + '"><i class="bi bi-zoom-in"></i></button>' +
-            '<img class="card-img-top vendor-asset-pick-img" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;">' +
+            '<button type="button" class="vendor-asset-zoom-btn" title="' + zoomTitle + '" aria-label="' + zoomTitle + '"><i class="bi bi-zoom-in"></i></button>' +
+            '<img class="card-img-top vendor-asset-pick-img" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;" title="' + zoomTitle + '">' +
             '</div>' +
             '<div class="card-body p-2 vendor-asset-card-meta">' + meta +
             '<div class="fw-semibold small text-truncate vendor-asset-title" title="' + title + '">' + title + '</div>' +
@@ -561,13 +586,16 @@ $(document).ready(function () {
         $list.find('.vendor-asset-zoom-btn').off('click').on('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
             var $c = $(this).closest('.vendor-asset-card');
-            var u = $c.attr('data-image-url');
-            var cap = ($c.attr('data-title') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').trim();
-            if (!u) return;
-            if (window.MatchdoImageLightbox) {
-                window.MatchdoImageLightbox.open({ src: u, caption: cap, alt: cap });
-            }
+            openImageLightbox(vendorAssetCardImageUrl($c), vendorAssetCardCaption($c));
+        });
+        $list.find('.vendor-asset-pick-img').off('dblclick').on('dblclick', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            var $c = $(this).closest('.vendor-asset-card');
+            openImageLightbox(vendorAssetCardImageUrl($c), vendorAssetCardCaption($c));
         });
         $list.find('.vendor-asset-card-meta, .vendor-asset-mfr-link, .vendor-asset-mfr-search-btn, .vendor-asset-title').off('mousedown click pointerdown')
             .on('mousedown click pointerdown', function (e) { e.stopPropagation(); });
@@ -590,10 +618,12 @@ $(document).ready(function () {
         $list.find('.vendor-asset-pick-zone, .vendor-asset-pick-img').off('click keydown').on('click keydown', function (e) {
             if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
             if (e.type === 'keydown') e.preventDefault();
+            if (e.type === 'click' && (e.detail > 1 || e.defaultPrevented)) return;
+            if ($(e.target).closest('.vendor-asset-zoom-btn').length) return;
             var sel = window.getSelection && window.getSelection();
             if (sel && sel.toString && sel.toString().trim()) return;
             var $c = $(this).closest('.vendor-asset-card');
-            var u = $c.attr('data-image-url');
+            var u = vendorAssetCardImageUrl($c);
             if (!u) return;
             var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
             var existingIds = {};
@@ -1810,12 +1840,20 @@ $(document).ready(function () {
                         var title = (p.title || p.generation_prompt || '').toString().substring(0, 40);
                         var $col = $('<div class="col-6 col-md-4 col-lg-3"></div>');
                         var $card = $('<div class="card border scene-sim-asset-item" style="cursor:pointer;"></div>').attr('data-image-url', url);
-                        $card.append($('<img class="card-img-top" style="height:120px;object-fit:cover;">').attr('src', url).attr('alt', title));
+                        var $img = $('<img class="card-img-top scene-sim-asset-img" style="height:120px;object-fit:cover;cursor:zoom-in;">').attr('src', url).attr('alt', title).attr('title', t('customProduct.zoomImage') || '點擊放大');
+                        $card.append($img);
                         $card.append($('<div class="card-body py-1"><p class="small text-muted mb-0 text-truncate">').text(title || t('customProduct.noTitle')));
                         $col.append($card);
                         $list.append($col);
                     });
-                    $list.find('.scene-sim-asset-item').on('click', function () {
+                    $list.find('.scene-sim-asset-img').on('dblclick', function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var u = $(this).attr('src');
+                        if (u) openImageLightbox(u, $(this).attr('alt') || '');
+                    });
+                    $list.find('.scene-sim-asset-item').on('click', function (e) {
+                        if (e.detail > 1) return;
                         var u = $(this).attr('data-image-url');
                         if (u) {
                             if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);

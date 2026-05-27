@@ -21,6 +21,7 @@
         .material-card { border-radius: 12px; border: 1px solid #e9ecef; overflow: hidden; transition: box-shadow .15s; }
         .material-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); }
         .material-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #f0f0f0; display: block; cursor: zoom-in; }
+        .add-image-preview img, #edit-current-image { cursor: zoom-in; max-height: 200px; max-width: 100%; width: auto; height: auto; object-fit: contain; }
         .add-card { border: 2px dashed #cdd4dc; border-radius: 12px; cursor: pointer; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9ab0; transition: border-color .15s, color .15s, background .15s; }
         .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
         .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 14px; border-left: 3px solid #0d6efd; padding-left: 10px; }
@@ -133,7 +134,7 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">上傳或「先預覽 AI 標籤」時，若留空將自動產生中英文說明（含在上傳扣點內）。</p></div>
-                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
+                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><div class="add-image-preview mt-2 d-none"></div><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><p class="form-text text-muted small mb-1" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                                 <div class="col-12 d-none add-tags-panel">
                                     <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
                                     <div class="add-tags-list d-flex flex-wrap gap-1 mb-2"></div>
@@ -200,7 +201,7 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">上傳或「先預覽 AI 標籤」時，若留空將自動產生中英文說明（含在上傳扣點內）。</p></div>
-                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
+                                <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><div class="add-image-preview mt-2 d-none"></div><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><p class="form-text text-muted small mb-1" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                                 <div class="col-12 d-none add-tags-panel">
                                     <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
                                     <div class="add-tags-list d-flex flex-wrap gap-1 mb-2"></div>
@@ -275,7 +276,15 @@
                             </button>
                             <p class="form-text text-muted small mb-0" data-i18n="baseModels.generateDescriptionEditHint">依目前圖片產生中英文各一段；換圖後請重新產生。上傳區則含在上傳／預覽標籤流程內，不另扣點。</p>
                         </div>
-                        <div class="mb-3"><label class="form-label">更換圖片（選填）</label><input type="file" class="form-control" id="edit-image" accept="image/*"><button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
+                        <div class="mb-3">
+                            <label class="form-label">參考圖</label>
+                            <div id="edit-current-image-wrap" class="mb-2 d-none"><img id="edit-current-image" src="" alt="" class="rounded border matchdo-enlarge-trigger" title="點擊放大"></div>
+                            <label class="form-label small text-muted mb-1">更換圖片（選填）</label>
+                            <input type="file" class="form-control" id="edit-image" accept="image/*">
+                            <div id="edit-new-image-preview" class="add-image-preview mt-2 d-none"></div>
+                            <p class="form-text text-muted small mb-1" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button>
+                        </div>
                         <div id="edit-tags-panel" class="mb-3 d-none">
                             <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
                             <div id="edit-tags-list" class="d-flex flex-wrap gap-1 mb-2"></div>
@@ -388,6 +397,32 @@
         }
 
         function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        function revokePreviewObjectUrl(container) {
+            if (!container || !container._previewObjectUrl) return;
+            try { URL.revokeObjectURL(container._previewObjectUrl); } catch (e) { /* ignore */ }
+            container._previewObjectUrl = null;
+        }
+
+        function showLocalImagePreview(container, file) {
+            if (!container) return;
+            revokePreviewObjectUrl(container);
+            if (!file) {
+                container.classList.add('d-none');
+                container.innerHTML = '';
+                return;
+            }
+            var url = URL.createObjectURL(file);
+            container._previewObjectUrl = url;
+            container.classList.remove('d-none');
+            container.innerHTML = '';
+            var img = document.createElement('img');
+            img.src = url;
+            img.className = 'rounded border matchdo-enlarge-trigger';
+            img.alt = '';
+            img.title = tr('baseModels.clickImageEnlarge', '點擊放大');
+            container.appendChild(img);
+        }
         function showToast(msg, type) {
             type = type || 'success';
             var area = document.getElementById('toast-area');
@@ -1002,7 +1037,6 @@
             }).join('');
             grid.innerHTML = html;
             bindGridAddCard();
-            bindMaterialImageEnlarge(grid);
             if (!isSeedVendor) {
                 grid.querySelectorAll('.btn-del').forEach(function (btn) {
                     btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
@@ -1011,23 +1045,6 @@
                     btn.addEventListener('click', function () { openEditModal(btn.dataset.id); });
                 });
             }
-        }
-
-        function bindMaterialImageEnlarge(container) {
-            if (!container || !window.MatchdoImageLightbox) return;
-            container.querySelectorAll('.material-img.matchdo-enlarge-trigger').forEach(function (img) {
-                img.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var title = '';
-                    var card = img.closest('.material-card');
-                    if (card) {
-                        var t = card.querySelector('.fw-semibold');
-                        if (t) title = t.textContent.trim();
-                    }
-                    window.MatchdoImageLightbox.open({ src: img.src, caption: title, alt: title });
-                });
-            });
         }
 
         function bindGridAddCard() {
@@ -1076,8 +1093,11 @@
                 if (e.key === 'Enter') { e.preventDefault(); addTagToForm(form); }
             });
 
+            var previewWrap = form.querySelector('.add-image-preview');
             imgInput.addEventListener('change', function () {
-                previewBtn.disabled = !imgInput.files || !imgInput.files[0];
+                var file = imgInput.files && imgInput.files[0];
+                previewBtn.disabled = !file;
+                showLocalImagePreview(previewWrap, file);
                 getFormPending(form).tags = null;
                 getFormPending(form).semantics = null;
                 form.querySelector('.add-tags-panel').classList.add('d-none');
@@ -1156,6 +1176,7 @@
                     showToast(okMsg);
                     p.tags = null; p.semantics = null;
                     form.reset();
+                    showLocalImagePreview(form.querySelector('.add-image-preview'), null);
                     applyUploadPricingToForms();
                     form.querySelector('.add-tags-panel').classList.add('d-none');
                     previewBtn.disabled = true;
@@ -1176,6 +1197,17 @@
             document.getElementById('edit-title').value = m.title || '';
             document.getElementById('edit-description').value = m.description || '';
             document.getElementById('edit-image').value = '';
+            showLocalImagePreview(document.getElementById('edit-new-image-preview'), null);
+            var editImgWrap = document.getElementById('edit-current-image-wrap');
+            var editImg = document.getElementById('edit-current-image');
+            if (m.image_url && editImgWrap && editImg) {
+                editImgWrap.classList.remove('d-none');
+                editImg.src = m.image_url;
+                editImg.alt = m.title || '';
+            } else if (editImgWrap) {
+                editImgWrap.classList.add('d-none');
+                if (editImg) editImg.src = '';
+            }
             document.getElementById('edit-optimize-image').checked = false;
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
             editPending.semantics = m.image_semantics_json || null;
@@ -1194,9 +1226,11 @@
         }
 
         document.getElementById('edit-image').addEventListener('change', function () {
-            var hasFile = this.files && this.files[0];
+            var file = this.files && this.files[0];
+            var hasFile = !!file;
+            showLocalImagePreview(document.getElementById('edit-new-image-preview'), file);
             document.getElementById('btn-edit-preview-tags').disabled = !hasFile;
-            toggleEditImageOptions(!!hasFile);
+            toggleEditImageOptions(hasFile);
             if (!hasFile) {
                 renderEditTags(true);
             }
@@ -1432,7 +1466,6 @@
                         '<p class="small text-muted mb-2">' + esc(item.description || specLine || '') + '</p>' +
                         btn + '</div></div></div>';
                 }).join('');
-                bindMaterialImageEnlarge(list);
                 list.querySelectorAll('.btn-import-supplier').forEach(function (b) {
                     b.addEventListener('click', function () { importSupplierMaterial(b.getAttribute('data-id')); });
                 });

@@ -40,11 +40,21 @@
         return root;
     }
 
+    function stackZIndexAboveModals() {
+        var top = 1040;
+        document.querySelectorAll('.modal.show, .modal-backdrop.show').forEach(function (el) {
+            var zi = parseInt(window.getComputedStyle(el).zIndex, 10);
+            if (!isNaN(zi) && zi > top) top = zi;
+        });
+        return Math.max(10060, top + 20);
+    }
+
     function open(opts) {
         opts = opts || {};
         var src = (opts.src || '').trim();
         if (!src) return;
         ensureRoot();
+        root.style.zIndex = String(stackZIndexAboveModals());
         imgEl.src = src;
         imgEl.alt = opts.alt || opts.caption || '';
         capEl.textContent = opts.caption || '';
@@ -66,6 +76,35 @@
     function openFromImg(img, caption) {
         if (!img || !img.src) return;
         open({ src: img.src, caption: caption || img.alt || '', alt: img.alt || '' });
+    }
+
+    function captionFromImg(img) {
+        if (!img) return '';
+        var card = img.closest('.material-card, .portfolio-card, .card');
+        if (card) {
+            var t = card.querySelector('.fw-semibold');
+            if (t) return t.textContent.trim();
+        }
+        return img.getAttribute('title') || img.alt || '';
+    }
+
+    function bindDelegatedClicks() {
+        document.addEventListener('click', function (e) {
+            var img = e.target.closest('img.matchdo-enlarge-trigger, img.js-preview-enlarge');
+            if (!img || !img.src) return;
+            if (/placehold\.co/i.test(img.src)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openFromImg(img, captionFromImg(img));
+        });
+    }
+
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindDelegatedClicks);
+        } else {
+            bindDelegatedClicks();
+        }
     }
 
     global.MatchdoImageLightbox = { open: open, close: close, openFromImg: openFromImg };

@@ -86,7 +86,7 @@
     position: absolute;
     top: 6px;
     right: 6px;
-    z-index: 2;
+    z-index: 3;
     width: 2rem;
     height: 2rem;
     padding: 0;
@@ -94,18 +94,17 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid rgba(68, 93, 126, 0.25);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
-.vendor-asset-card:hover .vendor-asset-zoom-btn,
-.vendor-asset-zoom-btn:focus {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(68, 93, 126, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
     opacity: 1;
+    cursor: pointer;
 }
-@media (hover: none) {
-    .vendor-asset-zoom-btn {
-        opacity: 1;
-    }
+.vendor-asset-zoom-btn:hover {
+    background: #445d7e;
+    color: #fff;
+    border-color: #445d7e;
+}
+#vendorAssetsPickerModal .vendor-asset-pick-img {
+    cursor: pointer;
 }
