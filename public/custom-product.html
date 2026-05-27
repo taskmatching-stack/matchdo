@@ -232,11 +232,11 @@
                                 </div>
                                 <div class="col-12">
                                     <span class="form-label small text-muted d-block mb-1" data-i18n="customProduct.filterCustomization">訂製程度</span>
-                                    <div id="vendorAssetsCustomizationLevels" class="d-flex flex-wrap gap-2">
-                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="mono_graphic" id="vaf-cl-mono"><label class="form-check-label small" for="vaf-cl-mono" data-i18n="customProduct.customLevelMonoGraphic">單色圖文</label></div>
-                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="color_graphic" id="vaf-cl-color"><label class="form-check-label small" for="vaf-cl-color" data-i18n="customProduct.customLevelColorGraphic">彩色圖文</label></div>
-                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="color_material" id="vaf-cl-mat"><label class="form-check-label small" for="vaf-cl-mat" data-i18n="customProduct.customLevelColorMaterial">顏色／材質</label></div>
-                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="form_structure" id="vaf-cl-form"><label class="form-check-label small" for="vaf-cl-form" data-i18n="customProduct.customLevelFormStructure">造型／結構</label></div>
+                                    <div id="vendorAssetsCustomizationLevels" class="d-flex flex-wrap gap-2 border rounded p-2">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="mono_graphic" aria-pressed="false" data-i18n="customProduct.customLevelMonoGraphic">單色圖文</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="color_graphic" aria-pressed="false" data-i18n="customProduct.customLevelColorGraphic">彩色圖文</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="color_material" aria-pressed="false" data-i18n="customProduct.customLevelColorMaterial">顏色／材質</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="form_structure" aria-pressed="false" data-i18n="customProduct.customLevelFormStructure">造型／結構</button>
                                     </div>
                                 </div>
                             </div>
@@ -266,6 +266,9 @@
 
 
     <style>
+        .vendor-customization-filter { border-radius: 999px; font-weight: 500; }
+        .vendor-customization-filter.active { color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
+        .vendor-customization-filter.active:hover { color: #fff; background-color: #0b5ed7; border-color: #0a58ca; }
         #custom-product { max-width: 1200px; margin: 0 auto; }
         #custom-product .create-panel {
             display: grid;
@@ -882,7 +885,7 @@
     <!-- Template Javascript -->
     <script src="js/site-common.js"></script>
     <script src="/js/image-lightbox.js"></script>
-    <script src="js/custom-product.js?v=9"></script>
+    <script src="js/custom-product.js?v=10"></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 

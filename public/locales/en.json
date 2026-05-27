@@ -41,7 +41,7 @@
   "baseModels.minOrderQty": "Minimum order (pcs)",
   "baseModels.minOrderQtyPlaceholder": "e.g. 50",
   "baseModels.customizationLevels": "Customization level",
-  "baseModels.customizationLevelsHint": "Select at least one (multiple allowed).",
+  "baseModels.customizationLevelsHint": "Select at least one (multiple allowed). Tap buttons to toggle.",
   "baseModels.customLevelMonoGraphic": "Mono graphic",
   "baseModels.customLevelColorGraphic": "Color graphic",
   "baseModels.customLevelColorMaterial": "Color / material",

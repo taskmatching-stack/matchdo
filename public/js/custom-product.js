@@ -317,17 +317,23 @@ $(document).ready(function () {
         $('#vendorAssetsAssetKind').val('');
         $('#vendorAssetsCatalogGroup').val('');
         $('#vendorAssetsMoq').val('');
-        $('.vendor-customization-filter').prop('checked', false);
+        $('.vendor-customization-filter').removeClass('active').attr('aria-pressed', 'false');
     }
 
     function getVendorCustomizationFilterKeys() {
         var keys = [];
-        $('.vendor-customization-filter:checked').each(function () {
-            var v = ($(this).val() || '').trim();
+        $('.vendor-customization-filter.active').each(function () {
+            var v = ($(this).attr('data-level') || '').trim();
             if (v && keys.indexOf(v) < 0) keys.push(v);
         });
         return keys;
     }
+
+    $(document).on('click', '.vendor-customization-filter', function () {
+        var $btn = $(this);
+        $btn.toggleClass('active');
+        $btn.attr('aria-pressed', $btn.hasClass('active') ? 'true' : 'false');
+    });
 
     function fillVendorCatalogGroupSelect(manufacturerId) {
         var $sel = $('#vendorAssetsCatalogGroup');

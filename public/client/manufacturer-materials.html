@@ -33,6 +33,9 @@
         #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
         #asset-kind-tabs .nav-link { font-weight: 600; }
         #asset-kind-tabs .nav-link.active { color: #0d6efd; border-color: #dee2e6 #dee2e6 #fff; }
+        .customization-level-btn { border-radius: 999px; font-weight: 500; }
+        .customization-level-btn.active { color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
+        .customization-level-btn.active:hover { color: #fff; background-color: #0b5ed7; border-color: #0a58ca; }
         .catalog-group-row { cursor: default; background: #fff; }
         .catalog-group-row.dragging { opacity: 0.55; }
         .catalog-group-drag { cursor: grab; user-select: none; }
@@ -137,7 +140,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control add-min-order-qty" min="1" step="1" inputmode="numeric" required data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
-                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項。</p><div class="add-customization-levels border rounded p-2 d-flex flex-wrap gap-3"></div></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div class="add-customization-levels border rounded p-2 d-flex flex-wrap gap-2"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
@@ -258,7 +261,7 @@
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3 d-none" id="edit-prototype-meta-wrap">
                             <div class="mb-3"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control" id="edit-min-order-qty" min="1" step="1" inputmode="numeric" data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
-                            <div><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項。</p><div id="edit-customization-levels" class="border rounded p-2 d-flex flex-wrap gap-3"></div></div>
+                            <div><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div id="edit-customization-levels" class="border rounded p-2 d-flex flex-wrap gap-2"></div></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">簡短說明</label>
@@ -415,34 +418,44 @@
             { key: 'form_structure', i18n: 'baseModels.customLevelFormStructure', fb: '造型／結構' }
         ];
 
-        function renderCustomizationLevelCheckboxes(container, selectedKeys) {
+        function bindCustomizationLevelButtons(container) {
+            if (!container || container._clBtnBound) return;
+            container._clBtnBound = true;
+            container.addEventListener('click', function (e) {
+                var btn = e.target.closest('.customization-level-btn');
+                if (!btn || !container.contains(btn)) return;
+                btn.classList.toggle('active');
+                btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+            });
+        }
+
+        function renderCustomizationLevelButtons(container, selectedKeys) {
             if (!container) return;
+            bindCustomizationLevelButtons(container);
             var selected = {};
             (selectedKeys || []).forEach(function (k) { selected[String(k)] = true; });
             container.innerHTML = CUSTOMIZATION_LEVEL_OPTIONS.map(function (opt) {
-                var id = 'cl-' + opt.key + '-' + Math.random().toString(36).slice(2, 8);
                 var label = tr(opt.i18n, opt.fb);
-                var checked = selected[opt.key] ? ' checked' : '';
-                return '<div class="form-check form-check-inline mb-0">' +
-                    '<input class="form-check-input customization-level-cb" type="checkbox" value="' + esc(opt.key) + '" id="' + id + '"' + checked + '>' +
-                    '<label class="form-check-label" for="' + id + '">' + esc(label) + '</label></div>';
+                var on = !!selected[opt.key];
+                return '<button type="button" class="btn btn-sm btn-outline-secondary customization-level-btn' + (on ? ' active' : '') + '" data-level="' + esc(opt.key) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(label) + '</button>';
             }).join('');
         }
 
         function getSelectedCustomizationLevels(container) {
             if (!container) return [];
             var out = [];
-            container.querySelectorAll('.customization-level-cb:checked').forEach(function (cb) {
-                if (cb.value && out.indexOf(cb.value) < 0) out.push(cb.value);
+            container.querySelectorAll('.customization-level-btn.active').forEach(function (btn) {
+                var v = btn.getAttribute('data-level');
+                if (v && out.indexOf(v) < 0) out.push(v);
             });
             return out;
         }
 
         function initPrototypeMetaFields() {
             document.querySelectorAll('.add-customization-levels').forEach(function (el) {
-                renderCustomizationLevelCheckboxes(el, []);
+                renderCustomizationLevelButtons(el, []);
             });
-            renderCustomizationLevelCheckboxes(document.getElementById('edit-customization-levels'), []);
+            renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), []);
         }
 
         function assetImageUrls(m) {
@@ -1339,7 +1352,7 @@
             if (isProto) {
                 var moqEdit = document.getElementById('edit-min-order-qty');
                 if (moqEdit) moqEdit.value = (m.min_order_quantity != null && m.min_order_quantity !== '') ? String(m.min_order_quantity) : '';
-                renderCustomizationLevelCheckboxes(document.getElementById('edit-customization-levels'), m.customization_levels || []);
+                renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), m.customization_levels || []);
             }
             document.getElementById('edit-image').value = '';
             var editProtoInput = document.getElementById('edit-image-prototype');
