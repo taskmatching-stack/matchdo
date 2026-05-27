@@ -546,7 +546,16 @@ function assetSupportsCustomizationLevel(storedLevels, filterKey) {
 
 function parseCustomizationLevelsFromBody(body) {
     if (!body || body.customization_levels === undefined) return null;
-    return sanitizeCustomizationLevelsForStorage(body.customization_levels);
+    return normalizeCustomizationLevels(body.customization_levels);
+}
+
+/** 原型訂製程度驗證（至少一項；圖文互斥由前端 UI 保證，後端僅正規化舊資料） */
+function validatePrototypeCustomizationLevels(raw) {
+    const levels = sanitizeCustomizationLevelsForStorage(raw);
+    if (!levels.length) {
+        return { error: '請至少選擇一項訂製程度' };
+    }
+    return { levels: levels };
 }
 
 /** @param {unknown} raw @param {{ required?: boolean }} [opts] */
@@ -567,9 +576,9 @@ function parseVendorAssetPrototypeMoq(raw, opts) {
 function vendorCustomizationLevelLabel(levelKey, lang) {
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
     const map = {
-        mono_graphic: isEn ? 'Mono graphic' : '單色圖文',
-        color_graphic: isEn ? 'Color graphic' : '彩色圖文',
-        color_material: isEn ? 'Color / material' : '顏色／材質',
+        mono_graphic: isEn ? 'Mono surface graphics' : '單色表面圖文',
+        color_graphic: isEn ? 'Multi-color surface graphics' : '彩色表面圖文',
+        color_material: isEn ? 'Body color / material' : '主體顏色／材質',
         size_part: isEn ? 'Size / parts' : '尺寸／零件',
         form_structure: isEn ? 'Form / structure' : '造型／結構'
     };
@@ -582,63 +591,65 @@ function vendorAssetCustomizationLevelLabels(levels, lang) {
     });
 }
 
-function vendorCustomizationLevelPromptRule(levelKey, lang) {
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const map = {
-        mono_graphic: isEn
-            ? 'Graphics: monochrome only (single-color print, embroidery, or heat transfer). No multi-color artwork, gradients, or full-color prints.'
-            : '圖文：僅單色圖案或文字（如單色印花、刺繡、燙印），不得多色、漸層或全彩印刷。',
-        color_graphic: isEn
-            ? 'Graphics: multi-color artwork, illustrations, and logos are allowed.'
-            : '圖文：可含多色圖案、插畫、Logo 等彩色元素。'
-    };
-    return map[levelKey] || '';
-}
-
-/** 材質／尺寸／造型：未勾選者以負面限制寫入提示詞 */
-function vendorCustomizationLevelNegativeRule(levelKey, lang) {
+/** 未勾選或互斥未選：製造限制句（併入 FLUX 同一個 prompt，非獨立 negative_prompt） */
+function vendorCustomizationLevelConstraintRule(levelKey, lang) {
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
     const map = {
         color_material: isEn
-            ? 'Do not change body color, material texture, surface finish, or hue from the reference prototype.'
-            : '勿變更主體顏色、材質質感、表面處理或色相（維持參考原型）。',
+            ? 'Do not change the product body color, fabric/material hue, texture, or surface finish from the reference.'
+            : '勿變更產品主體顏色、布料／材質色相、質感或表面處理（維持參考原型）。',
+        mono_graphic: isEn
+            ? 'Do not add engraving, embroidery, print, or other applied surface graphics on the product.'
+            : '勿在產品表面添加雕刻、刺繡、印花等圖文。',
+        color_graphic: isEn
+            ? 'Do not use full-color printing, multi-color stickers/decals, or multi-color surface graphics.'
+            : '不要使用任何彩色印刷、多色貼紙或彩色圖形。',
         size_part: isEn
-            ? 'Do not change dimensions, scale, proportions, or part configuration from the reference prototype.'
-            : '勿變更尺寸比例、零部件配置或可替換零件（維持參考原型）。',
+            ? 'Keep all physical dimensions, zippers, hardware, trims, and stitch positions exactly as in the reference—no scaling or part changes.'
+            : '嚴格保持產品的所有物理尺寸、拉鍊、扣環、金屬零件與縫線位置完全不變。',
         form_structure: isEn
-            ? 'Do not change silhouette, structure, openings, or construction from the reference prototype.'
-            : '勿變更輪廓、結構、開合方式或整體造型（維持參考原型）。'
+            ? 'Do not modify the product overall geometry, outer silhouette, or physical structure.'
+            : '不允許修改產品的整體幾何形狀、輪廓外觀或物理結構。'
     };
     return map[levelKey] || '';
 }
 
-/** 圖文擇一正面規則；其餘三項僅對「未勾選」輸出負面限制 */
+/** 未勾選（及圖文互斥未選）之製造限制句，供 append 至同一 fullPrompt */
 function buildCustomizationPromptLinesForLevels(levelKeys, lang) {
-    const levels = sanitizeCustomizationLevelsForStorage(levelKeys);
-    const lines = [];
-    if (levels.indexOf('mono_graphic') >= 0) {
-        const rule = vendorCustomizationLevelPromptRule('mono_graphic', lang);
-        if (rule) lines.push('• ' + rule);
-    } else if (levels.indexOf('color_graphic') >= 0) {
-        const rule = vendorCustomizationLevelPromptRule('color_graphic', lang);
-        if (rule) lines.push('• ' + rule);
-    }
+    const levelSet = new Set(sanitizeCustomizationLevelsForStorage(levelKeys));
+    const constraints = [];
+    const hasMono = levelSet.has('mono_graphic');
+    const hasColor = levelSet.has('color_graphic');
+
     VENDOR_CUSTOMIZATION_SCOPE_KEYS.forEach(function (k) {
-        if (levels.indexOf(k) >= 0) return;
-        const neg = vendorCustomizationLevelNegativeRule(k, lang);
-        if (neg) lines.push('• ' + neg);
+        if (levelSet.has(k)) return;
+        const line = vendorCustomizationLevelConstraintRule(k, lang);
+        if (line) constraints.push('• ' + line);
     });
-    return lines;
+
+    if (!hasMono && !hasColor) {
+        ['mono_graphic', 'color_graphic'].forEach(function (k) {
+            const line = vendorCustomizationLevelConstraintRule(k, lang);
+            if (line) constraints.push('• ' + line);
+        });
+    } else if (hasMono && !hasColor) {
+        const line = vendorCustomizationLevelConstraintRule('color_graphic', lang);
+        if (line) constraints.push('• ' + line);
+    }
+
+    return constraints;
 }
 
-/** 依參考之數位原型組裝生圖提示詞附錄（訂製程度 + 可選 MOQ 提示） */
+/** 依參考原型組裝製造限制段落，append 至 fullPrompt（BFL 僅單一 prompt 欄位，無 negative_prompt） */
 function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
     const assets = Array.isArray(prototypeAssets) ? prototypeAssets : [];
     if (!assets.length) return '';
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
     const header = isEn
-        ? '\n\n[Digital prototype customization constraints — must comply]\n'
-        : '\n\n【數位原型訂製程度限制 — 生成結果必須符合】\n';
+        ? '\n\n[Manufacturing constraints — same single prompt as above; FLUX has no separate negative prompt field]\n'
+        + 'Follow the user product description first. Include these constraint sentences in this same prompt. They describe what this prototype cannot manufacture (unchecked capabilities):\n'
+        : '\n\n【製造限制 — 與上文同一組提示詞；FLUX 無獨立負向提示詞欄位】\n'
+        + '請優先依前文使用者產品描述創作。以下限制句皆寫在同一組 prompt 內，說明此原型未支援的訂製程度：\n';
     const lines = [];
     assets.forEach(function (asset, idx) {
         const title = (asset.title || '').trim();
@@ -646,7 +657,7 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
         if (!levelKeys.length) return;
         const label = title || (isEn ? ('Prototype ' + (idx + 1)) : ('參考原型 ' + (idx + 1)));
         const levelNames = levelKeys.map(function (k) { return vendorCustomizationLevelLabel(k, lang); }).join(isEn ? ', ' : '、');
-        lines.push(isEn ? ('Reference: ' + label + ' (capabilities: ' + levelNames + ')') : ('參考原型「' + label + '」可訂製：' + levelNames));
+        lines.push(isEn ? ('Reference: ' + label + ' (supports: ' + levelNames + ')') : ('參考原型「' + label + '」支援：' + levelNames));
         buildCustomizationPromptLinesForLevels(levelKeys, lang).forEach(function (line) { lines.push(line); });
         if (asset.min_order_quantity != null && Number(asset.min_order_quantity) >= 1) {
             const moqLine = isEn
@@ -663,13 +674,13 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
         });
         if (crossGraphicTier === 1 && hasColorCapable) {
             lines.push(isEn
-                ? '• Multiple prototypes referenced: graphic output must use the strictest shared limit — monochrome graphics only (no full-color prints), even if another reference supports color graphics.'
-                : '• 同時參考多個原型時，圖文須採交集之最嚴限制：僅單色圖文（不得全彩），即使另有原型支援彩色圖文。');
+                ? '• Multiple prototypes: do not use multi-color surface graphics (strictest reference is monochrome-only).'
+                : '• 多原型並用：不得使用全彩表面圖文（以最嚴之單色原型為準）。');
         }
     }
     const footer = isEn
-        ? 'The generated design must satisfy every referenced prototype: listed capabilities are allowed; listed restrictions must not be violated; when multiple prototypes conflict, use the strictest limit.'
-        : '生成設計須同時符合各參考原型：已勾選能力可運用；未勾選項目之限制不得違反；多原型衝突時採最嚴限制。';
+        ? 'Obey all restrictions above while fulfilling the user design. When prototypes conflict, use the strictest limit.'
+        : '在實現使用者設計的前提下遵守以上限制；多原型衝突時採最嚴限制。';
     return header + lines.join('\n') + '\n' + footer;
 }
 
@@ -5123,7 +5134,7 @@ async function pollBflResult(createData, BFL_API_KEY) {
     throw new Error('FLUX 逾時');
 }
 
-/** FLUX 2.0 PRO 純文字生圖（Text-to-Image）。seed 可選；outputFormat 可為 'jpeg'|'png'，預設 jpeg */
+/** FLUX 2.0 PRO 純文字生圖；BFL 僅 body.prompt（無 negative_prompt），prompt 可含製造限制句 */
 async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY) return null;
@@ -5150,7 +5161,7 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) 
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** FLUX 2.0 PRO 參考圖編輯（Image Editing）。seed 可選；outputFormat 可為 'jpeg'|'png'，預設 jpeg */
+/** FLUX 2.0 PRO 參考圖編輯；BFL 僅 body.prompt（無 negative_prompt） */
 async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !referenceImages || referenceImages.length === 0) return null;
@@ -5624,7 +5635,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         if (hasRefs) {
             const prototypeAssets = await resolvePrototypeAssetsForPrompt(referenceSources || []);
             const appendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
-            if (appendix) fullPrompt = (fullPrompt || '').trim() + appendix;
+            if (appendix) fullPrompt = (fullPrompt || '').trim() + appendix; // 併入同一 prompt 字串後送 BFL
         }
         // 使用者未填 seed 時由後端產生隨機 seed，傳給 FLUX 並寫入 DB，方便重現與顯示
         let seedNum = (seed != null && seed !== '' && Number.isInteger(Number(seed))) ? Number(seed) : null;
@@ -10867,10 +10878,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             const moqParsed = parseVendorAssetPrototypeMoq(body.min_order_quantity, { required: true });
             if (moqParsed.error) return res.status(400).json({ error: moqParsed.error });
             prototypeMoqValue = moqParsed.value;
-            prototypeCustomizationLevels = parseCustomizationLevelsFromBody(body) || [];
-            if (!prototypeCustomizationLevels.length) {
-                return res.status(400).json({ error: '請至少選擇一項訂製程度' });
-            }
+            const clValid = validatePrototypeCustomizationLevels(body.customization_levels);
+            if (clValid.error) return res.status(400).json({ error: clValid.error });
+            prototypeCustomizationLevels = clValid.levels;
         }
 
         const fileFromFields = (req.files && req.files.image && req.files.image[0]) ? req.files.image[0] : req.file;
@@ -11220,9 +11230,14 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             const moqParsed = parseVendorAssetPrototypeMoq(moqIn, { required: true });
             if (moqParsed.error) return res.status(400).json({ error: moqParsed.error });
             updates.min_order_quantity = moqParsed.value;
-            const levels = body.customization_levels !== undefined
-                ? (parseCustomizationLevelsFromBody(body) || [])
-                : sanitizeCustomizationLevelsForStorage(row.customization_levels);
+            let levels;
+            if (body.customization_levels !== undefined) {
+                const clValid = validatePrototypeCustomizationLevels(body.customization_levels);
+                if (clValid.error) return res.status(400).json({ error: clValid.error });
+                levels = clValid.levels;
+            } else {
+                levels = sanitizeCustomizationLevelsForStorage(row.customization_levels);
+            }
             if (!levels.length) return res.status(400).json({ error: '請至少選擇一項訂製程度' });
             updates.customization_levels = levels;
         }

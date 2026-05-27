@@ -140,7 +140,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control add-min-order-qty" min="1" step="1" inputmode="numeric" required data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
-                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div class="add-customization-levels border rounded p-2 d-flex flex-wrap gap-2"></div></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div class="add-customization-levels border rounded p-2"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
@@ -261,7 +261,7 @@
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3 d-none" id="edit-prototype-meta-wrap">
                             <div class="mb-3"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control" id="edit-min-order-qty" min="1" step="1" inputmode="numeric" data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
-                            <div><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div id="edit-customization-levels" class="border rounded p-2 d-flex flex-wrap gap-2"></div></div>
+                            <div><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div id="edit-customization-levels" class="border rounded p-2"></div></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">簡短說明</label>
@@ -412,21 +412,33 @@
 
         var PROTOTYPE_MAX_IMAGES = 12;
         var CUSTOMIZATION_LEVEL_OPTIONS = [
-            { key: 'mono_graphic', i18n: 'baseModels.customLevelMonoGraphic', fb: '單色圖文' },
-            { key: 'color_graphic', i18n: 'baseModels.customLevelColorGraphic', fb: '彩色圖文' },
-            { key: 'color_material', i18n: 'baseModels.customLevelColorMaterial', fb: '顏色／材質' },
+            { key: 'mono_graphic', i18n: 'baseModels.customLevelMonoGraphic', fb: '單色表面圖文' },
+            { key: 'color_graphic', i18n: 'baseModels.customLevelColorGraphic', fb: '彩色表面圖文' },
+            { key: 'color_material', i18n: 'baseModels.customLevelColorMaterial', fb: '主體顏色／材質' },
             { key: 'size_part', i18n: 'baseModels.customLevelSizePart', fb: '尺寸／零件' },
             { key: 'form_structure', i18n: 'baseModels.customLevelFormStructure', fb: '造型／結構' }
         ];
 
         var GRAPHIC_CUSTOMIZATION_LEVELS = ['mono_graphic', 'color_graphic'];
 
+        function hasBothGraphicLevels(keys) {
+            var out = keys || [];
+            return out.indexOf('mono_graphic') >= 0 && out.indexOf('color_graphic') >= 0;
+        }
+
         function sanitizeGraphicLevelsClient(keys) {
             var out = (keys || []).slice();
-            if (out.indexOf('mono_graphic') >= 0 && out.indexOf('color_graphic') >= 0) {
+            if (hasBothGraphicLevels(out)) {
                 out = out.filter(function (k) { return k !== 'mono_graphic'; });
             }
             return out;
+        }
+
+        function renderLevelButton(opt, selected) {
+            var label = tr(opt.i18n, opt.fb);
+            var on = !!selected[opt.key];
+            var graphicAttr = GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(opt.key) >= 0 ? ' data-graphic-mutex="1"' : '';
+            return '<button type="button" class="btn btn-sm btn-outline-secondary customization-level-btn' + (on ? ' active' : '') + '" data-level="' + esc(opt.key) + '"' + graphicAttr + ' aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(label) + '</button>';
         }
 
         function bindCustomizationLevelButtons(container) {
@@ -436,15 +448,24 @@
                 var btn = e.target.closest('.customization-level-btn');
                 if (!btn || !container.contains(btn)) return;
                 var level = btn.getAttribute('data-level');
+                var isGraphic = btn.getAttribute('data-graphic-mutex') === '1';
+                if (isGraphic) {
+                    var willActivate = !btn.classList.contains('active');
+                    if (willActivate) {
+                        container.querySelectorAll('.customization-level-btn[data-graphic-mutex="1"]').forEach(function (gBtn) {
+                            gBtn.classList.remove('active');
+                            gBtn.setAttribute('aria-pressed', 'false');
+                        });
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    } else {
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-pressed', 'false');
+                    }
+                    return;
+                }
                 btn.classList.toggle('active');
                 btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
-                if (GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(level) >= 0 && btn.classList.contains('active')) {
-                    var other = level === 'mono_graphic' ? 'color_graphic' : 'mono_graphic';
-                    container.querySelectorAll('.customization-level-btn[data-level="' + other + '"]').forEach(function (otherBtn) {
-                        otherBtn.classList.remove('active');
-                        otherBtn.setAttribute('aria-pressed', 'false');
-                    });
-                }
             });
         }
 
@@ -453,11 +474,14 @@
             bindCustomizationLevelButtons(container);
             var selected = {};
             sanitizeGraphicLevelsClient(selectedKeys || []).forEach(function (k) { selected[String(k)] = true; });
-            container.innerHTML = CUSTOMIZATION_LEVEL_OPTIONS.map(function (opt) {
-                var label = tr(opt.i18n, opt.fb);
-                var on = !!selected[opt.key];
-                return '<button type="button" class="btn btn-sm btn-outline-secondary customization-level-btn' + (on ? ' active' : '') + '" data-level="' + esc(opt.key) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(label) + '</button>';
-            }).join('');
+            var graphicOpts = CUSTOMIZATION_LEVEL_OPTIONS.filter(function (o) { return GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(o.key) >= 0; });
+            var otherOpts = CUSTOMIZATION_LEVEL_OPTIONS.filter(function (o) { return GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(o.key) < 0; });
+            var graphicHtml = graphicOpts.map(function (opt) { return renderLevelButton(opt, selected); }).join('');
+            var otherHtml = otherOpts.map(function (opt) { return renderLevelButton(opt, selected); }).join('');
+            container.innerHTML =
+                '<div class="w-100"><span class="small text-muted">' + esc(tr('baseModels.surfaceGraphicPickOne', '表面圖文（擇一，可不選）')) + '</span></div>' +
+                '<div class="d-flex flex-wrap gap-2 mb-2 pt-1">' + graphicHtml + '</div>' +
+                '<div class="d-flex flex-wrap gap-2">' + otherHtml + '</div>';
         }
 
         function getSelectedCustomizationLevels(container) {
@@ -467,7 +491,13 @@
                 var v = btn.getAttribute('data-level');
                 if (v && out.indexOf(v) < 0) out.push(v);
             });
-            return sanitizeGraphicLevelsClient(out);
+            return out;
+        }
+
+        function validateCustomizationLevelsSelection(levels) {
+            if (!levels || !levels.length) return tr('baseModels.needCustomizationLevel', '請至少選擇一項訂製程度');
+            if (hasBothGraphicLevels(levels)) return tr('baseModels.graphicMutexError', '單色表面圖文與彩色表面圖文只能擇一');
+            return '';
         }
 
         function initPrototypeMetaFields() {
@@ -1295,8 +1325,9 @@
                         return;
                     }
                     var clBox = form.querySelector('.add-customization-levels');
-                    if (!getSelectedCustomizationLevels(clBox).length) {
-                        msgEl.textContent = tr('baseModels.needCustomizationLevel', '請至少選擇一項訂製程度');
+                    var clErr = validateCustomizationLevelsSelection(getSelectedCustomizationLevels(clBox));
+                    if (clErr) {
+                        msgEl.textContent = clErr;
                         return;
                     }
                 }
@@ -1513,8 +1544,9 @@
                     return;
                 }
                 var editLevels = getSelectedCustomizationLevels(document.getElementById('edit-customization-levels'));
-                if (!editLevels.length) {
-                    showToast(tr('baseModels.needCustomizationLevel', '請至少選擇一項訂製程度'), 'warning');
+                var editClErr = validateCustomizationLevelsSelection(editLevels);
+                if (editClErr) {
+                    showToast(editClErr, 'warning');
                     return;
                 }
                 fd.append('min_order_quantity', moqStr);
