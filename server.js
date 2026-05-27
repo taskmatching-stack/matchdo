@@ -78,7 +78,13 @@ const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
+const { normalizeVendorUploadFile } = require('./lib/resize-upload-image');
 const { registerSitemapRoutes } = require('./routes/sitemap');
+
+async function vendorAssetFileFromMulter(file) {
+    if (!file) return null;
+    return normalizeVendorUploadFile(file);
+}
 
 function mergeDesignerRegionIntoPayload(payload, req, uiLocale) {
     const region = designerRegionFromIp.resolveDesignerRegionFromRequest(req, { uiLocale });
@@ -1887,7 +1893,7 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
         const description = (body.description || '').trim() || null;
         const styleKey = (body.style_key || '').trim() || null;
         const materialKey = (body.material_key || '').trim() || null;
-        const file = req.file;
+        let file = await vendorAssetFileFromMulter(req.file);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
         const insertPayload = {
@@ -10268,7 +10274,7 @@ app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (r
         if (!manufacturerId) return;
         const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
         if (mfrVa && mfrVa.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
-        const file = req.file;
+        const file = await vendorAssetFileFromMulter(req.file);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
         const body = req.body || {};
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
@@ -10329,10 +10335,15 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
                 image_url: row.image_url
             };
             const deps = getVisualSemanticsDeps();
-            const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, row.image_url);
-            const result = await visualSemantics.analyzeImageSemantics(deps, imagePart, context);
-            const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(result.semantics);
-            if (!description) return res.status(503).json({ error: '無法產生說明，請稍後重試' });
+            const resImg = await deps.fetch(row.image_url, { redirect: 'follow' });
+            if (!resImg.ok) return res.status(503).json({ error: '無法讀取素材圖片' });
+            const imgBuf = Buffer.from(await resImg.arrayBuffer());
+            const imgMime = (resImg.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+            imageFile = await normalizeVendorUploadFile({
+                buffer: imgBuf,
+                mimetype: imgMime,
+                originalname: 'asset.jpg'
+            });
             const authHeader = req.headers.authorization || req.headers['x-auth-token'];
             const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
             let ownerId = null;
@@ -10340,6 +10351,9 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
                 const { data: { user } } = await supabase.auth.getUser(token);
                 ownerId = user?.id || null;
             }
+            const result = await runVendorAssetImageSemantics(imageFile, context, ownerId);
+            const description = result.description || visualSemantics.buildVendorAssetDescriptionFromSemantics(result.semantics);
+            if (!description) return res.status(503).json({ error: '無法產生說明，請稍後重試' });
             const pointsRequired = await getPointsVendorAssetDescription();
             let isAdmin = false;
             if (ownerId) {
@@ -10366,19 +10380,6 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
                 balanceAfter = consumed.balance_after;
                 pointsDeducted = pointsRequired;
             }
-            await recordVisualSemanticsEvent({
-                source_type: 'vendor_asset',
-                source_id: assetId,
-                image_url: row.image_url,
-                text_input: null,
-                semantics_kind: 'image',
-                ai_tags: result.tags,
-                semantics_json: result.semantics,
-                model: result.model,
-                prompt_version: result.prompt_version,
-                owner_id: ownerId || null,
-                category_key: context.category_key || null
-            });
             return res.json({
                 description,
                 product_description_zh: result.semantics?.product_description_zh || null,
@@ -10388,6 +10389,7 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
             });
         }
         if (!imageFile) return res.status(400).json({ error: '請上傳圖片或提供素材 id' });
+        imageFile = await vendorAssetFileFromMulter(imageFile);
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
         const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
         let ownerId = null;
@@ -10456,7 +10458,7 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         const materialKey = (body.material_key || '').trim() || null;
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
 
-        const file = req.file;
+        let file = await vendorAssetFileFromMulter(req.file);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
 
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
@@ -10669,7 +10671,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             updates.part_key = normalizeVendorPartKey(body.part_key, assetKindForPart);
         }
 
-        const file = req.file;
+        let file = req.file ? await vendorAssetFileFromMulter(req.file) : null;
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
         const assetKind = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
         const titleForPrompt = updates.title !== undefined ? updates.title : row.title;
