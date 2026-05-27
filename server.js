@@ -474,7 +474,7 @@ function getVendorAssetAllImageUrls(row) {
     return urls;
 }
 
-const VENDOR_CUSTOMIZATION_LEVEL_KEYS = new Set(['mono_graphic', 'color_graphic', 'color_material', 'form_structure']);
+const VENDOR_CUSTOMIZATION_LEVEL_KEYS = new Set(['mono_graphic', 'color_graphic', 'color_material', 'size_part', 'form_structure']);
 
 function normalizeCustomizationLevels(raw) {
     let arr = raw;
@@ -495,7 +495,7 @@ function normalizeCustomizationLevels(raw) {
         const k = String(item || '').trim().toLowerCase();
         if (VENDOR_CUSTOMIZATION_LEVEL_KEYS.has(k) && out.indexOf(k) < 0) out.push(k);
     });
-    const order = ['mono_graphic', 'color_graphic', 'color_material', 'form_structure'];
+    const order = ['mono_graphic', 'color_graphic', 'color_material', 'size_part', 'form_structure'];
     out.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
     return out;
 }
@@ -526,6 +526,7 @@ function vendorCustomizationLevelLabel(levelKey, lang) {
         mono_graphic: isEn ? 'Mono graphic' : '單色圖文',
         color_graphic: isEn ? 'Color graphic' : '彩色圖文',
         color_material: isEn ? 'Color / material' : '顏色／材質',
+        size_part: isEn ? 'Size / parts' : '尺寸／零件',
         form_structure: isEn ? 'Form / structure' : '造型／結構'
     };
     return map[levelKey] || levelKey || '';
