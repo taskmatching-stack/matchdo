@@ -10610,6 +10610,17 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                     pointsDeducted = pointsRequired;
                 }
             }
+        } else if (body.ai_tags !== undefined) {
+            const tags = parseAiTagsFromBody(body);
+            updates.ai_tags = tags || [];
+            updates.tags_source = 'manual';
+            if (body.image_semantics_json) {
+                try {
+                    updates.image_semantics_json = typeof body.image_semantics_json === 'string'
+                        ? JSON.parse(body.image_semantics_json)
+                        : body.image_semantics_json;
+                } catch (_) {}
+            }
         }
 
         const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, asset_kind, ai_tags, updated_at').single();

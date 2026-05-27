@@ -552,11 +552,11 @@
             if (editOpt) editOpt.textContent = String(optimizePointsForKind(assetKind));
         }
 
-        function renderEditTags() {
+        function renderEditTags(alwaysShowPanel) {
             var tags = editPending.tags || [];
             var panel = document.getElementById('edit-tags-panel');
             var list = document.getElementById('edit-tags-list');
-            if (!tags.length) { panel.classList.add('d-none'); return; }
+            if (!tags.length && !alwaysShowPanel) { panel.classList.add('d-none'); return; }
             panel.classList.remove('d-none');
             list.innerHTML = tags.map(function (t, i) {
                 return '<span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1 mb-1">' +
@@ -1142,9 +1142,9 @@
             document.getElementById('edit-description').value = m.description || '';
             document.getElementById('edit-image').value = '';
             document.getElementById('edit-optimize-image').checked = false;
-            editPending.tags = null;
-            editPending.semantics = null;
-            document.getElementById('edit-tags-panel').classList.add('d-none');
+            editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
+            editPending.semantics = m.image_semantics_json || null;
+            renderEditTags(true);
             document.getElementById('btn-edit-preview-tags').disabled = true;
             toggleEditImageOptions(false);
             updateEditOptimizeLabel(m.asset_kind);
@@ -1163,9 +1163,7 @@
             document.getElementById('btn-edit-preview-tags').disabled = !hasFile;
             toggleEditImageOptions(!!hasFile);
             if (!hasFile) {
-                editPending.tags = null;
-                editPending.semantics = null;
-                document.getElementById('edit-tags-panel').classList.add('d-none');
+                renderEditTags(true);
             }
         });
         document.getElementById('edit-optimize-image').addEventListener('change', syncEditOptimizeBgWrap);
@@ -1220,12 +1218,10 @@
             var mk = document.getElementById('edit-material-key').value;
             if (mk) fd.append('material_key', mk);
             var file = document.getElementById('edit-image').files[0];
+            fd.append('ai_tags', JSON.stringify(editPending.tags || []));
+            if (editPending.semantics) fd.append('image_semantics_json', JSON.stringify(editPending.semantics));
             if (file) {
                 fd.append('image', file);
-                if (editPending.tags && editPending.tags.length) {
-                    fd.append('ai_tags', JSON.stringify(editPending.tags));
-                    if (editPending.semantics) fd.append('image_semantics_json', JSON.stringify(editPending.semantics));
-                }
                 if (document.getElementById('edit-optimize-image').checked) {
                     fd.append('optimize_product_image', '1');
                     fd.append('optimize_background', getOptimizeBackgroundValue(document.getElementById('edit-form')));
