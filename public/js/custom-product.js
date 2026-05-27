@@ -509,6 +509,30 @@ $(document).ready(function () {
         return (img && img.src) ? img.src : '';
     }
 
+    function vendorAssetCardImageUrls($c) {
+        if (!$c || !$c.length) return [];
+        var raw = $c.attr('data-image-urls');
+        if (raw) {
+            try {
+                var parsed = JSON.parse(raw.replace(/&quot;/g, '"'));
+                if (Array.isArray(parsed) && parsed.length) return parsed.filter(Boolean);
+            } catch (e) { /* ignore */ }
+        }
+        var u = vendorAssetCardImageUrl($c);
+        return u ? [u] : [];
+    }
+
+    function fetchUrlAsDataUrl(url) {
+        return fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
+            return new Promise(function (resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function () { resolve(reader.result); };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        });
+    }
+
     function vendorAssetCardCaption($c) {
         if (!$c || !$c.length) return '';
         return ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
@@ -565,11 +589,16 @@ $(document).ready(function () {
         }
         var pickHint = (t('customProduct.vendorAssetPickHint') || '單擊加入參考圖；雙擊或按 🔍 放大').replace(/"/g, '&quot;');
         var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');
+        var imageUrls = (item.image_urls && item.image_urls.length) ? item.image_urls : (item.image_url ? [item.image_url] : []);
+        var imageUrlsJson = JSON.stringify(imageUrls).replace(/"/g, '&quot;');
+        var multiBadge = (item.asset_kind === 'prototype' && imageUrls.length > 1)
+            ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
-            ' data-image-url="' + imgUrl + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
+            ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
             ' data-asset-kind="' + assetKind + '" data-title="' + title + '">' +
-            '<div class="vendor-asset-pick-zone" role="button" tabindex="0" title="' + pickHint + '">' +
+            '<div class="vendor-asset-pick-zone position-relative" role="button" tabindex="0" title="' + pickHint + '">' +
+            multiBadge +
             '<button type="button" class="vendor-asset-zoom-btn" title="' + zoomTitle + '" aria-label="' + zoomTitle + '"><i class="bi bi-zoom-in"></i></button>' +
             '<img class="card-img-top vendor-asset-pick-img" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;" title="' + zoomTitle + '">' +
             '</div>' +
@@ -623,8 +652,10 @@ $(document).ready(function () {
             var sel = window.getSelection && window.getSelection();
             if (sel && sel.toString && sel.toString().trim()) return;
             var $c = $(this).closest('.vendor-asset-card');
-            var u = vendorAssetCardImageUrl($c);
-            if (!u) return;
+            var urls = vendorAssetCardImageUrls($c);
+            if (!urls.length) return;
+            var assetKind = ($c.attr('data-asset-kind') || 'prototype').trim();
+            var isPrototypeMulti = assetKind === 'prototype' && urls.length > 1;
             var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
             var existingIds = {};
             refSources.forEach(function (s) {
@@ -636,35 +667,49 @@ $(document).ready(function () {
                 var cmsg = (t('customProduct.multiVendorConfirm') || '參考圖已含其他廠商素材，再加入「{name}」可能無法由單一廠商生產。仍要加入？').replace('{name}', mfrLabel);
                 if (!window.confirm(cmsg)) return;
             }
-            fetch(u).then(function (r) { return r.blob(); }).then(function (blob) {
-                return new Promise(function (resolve, reject) {
-                    var reader = new FileReader();
-                    reader.onload = function () { resolve(reader.result); };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-            }).then(function (dataUrl) {
-                ensureRefArrays();
-                var firstEmpty = refDataUrls.findIndex(function (x) { return !x; });
-                if (firstEmpty < 0) {
-                    alert(t('customProduct.refSlotsFull') || '參考圖已滿（最多 8 張）');
-                    return;
-                }
-                refDataUrls[firstEmpty] = dataUrl;
-                refSources[firstEmpty] = {
-                    vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
-                    manufacturer_id: $c.attr('data-manufacturer-id') || null,
-                    manufacturer_name: $c.attr('data-manufacturer-name') || '',
-                    manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
-                    image_url: u,
-                    asset_kind: $c.attr('data-asset-kind') || 'prototype',
-                    title: ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').trim()
-                };
-                renderRefSlots();
-                renderRefCards();
-                updateMultiVendorRefWarning();
-                if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
-            }).catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+            ensureRefArrays();
+            var emptySlots = [];
+            for (var si = 0; si < MAX_REF_IMAGES; si++) {
+                if (!refDataUrls[si]) emptySlots.push(si);
+            }
+            var toImport = isPrototypeMulti ? urls : [urls[0]];
+            if (toImport.length > emptySlots.length) {
+                var partialMsg = (t('customProduct.refSlotsPartialImport') || '參考圖空位僅 {empty} 格，將加入前 {n} 張（共 {total} 張）。')
+                    .replace('{empty}', String(emptySlots.length))
+                    .replace('{n}', String(emptySlots.length))
+                    .replace('{total}', String(toImport.length));
+                if (!window.confirm(partialMsg)) return;
+                toImport = toImport.slice(0, emptySlots.length);
+            }
+            if (!toImport.length) {
+                alert(t('customProduct.refSlotsFull') || '參考圖已滿（最多 8 張）');
+                return;
+            }
+            if (isPrototypeMulti) {
+                var confirmMulti = (t('customProduct.importPrototypeAngles') || '將加入此原型的 {n} 張多角度圖為參考圖。').replace('{n}', String(toImport.length));
+                if (!window.confirm(confirmMulti)) return;
+            }
+            var baseMeta = {
+                vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
+                manufacturer_id: $c.attr('data-manufacturer-id') || null,
+                manufacturer_name: $c.attr('data-manufacturer-name') || '',
+                manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
+                asset_kind: assetKind,
+                title: ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').trim()
+            };
+            Promise.all(toImport.map(function (u) { return fetchUrlAsDataUrl(u); }))
+                .then(function (dataUrls) {
+                    dataUrls.forEach(function (dataUrl, idx) {
+                        var slot = emptySlots[idx];
+                        refDataUrls[slot] = dataUrl;
+                        refSources[slot] = Object.assign({}, baseMeta, { image_url: toImport[idx] });
+                    });
+                    renderRefSlots();
+                    renderRefCards();
+                    updateMultiVendorRefWarning();
+                    if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
+                })
+                .catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
         });
     }
 
