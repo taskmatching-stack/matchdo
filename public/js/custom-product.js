@@ -671,12 +671,18 @@ $(document).ready(function () {
         var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');
         var imageUrls = (item.image_urls && item.image_urls.length) ? item.image_urls : (item.image_url ? [item.image_url] : []);
         var imageUrlsJson = JSON.stringify(imageUrls).replace(/"/g, '&quot;');
+        var clLevelsJson = (item.customization_levels && item.customization_levels.length)
+            ? JSON.stringify(item.customization_levels).replace(/"/g, '&quot;') : '';
+        var moqAttr = (item.min_order_quantity != null && Number(item.min_order_quantity) >= 1)
+            ? String(item.min_order_quantity) : '';
         var multiBadge = (item.asset_kind === 'prototype' && imageUrls.length > 1)
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
             ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
-            ' data-asset-kind="' + assetKind + '" data-title="' + title + '">' +
+            ' data-asset-kind="' + assetKind + '" data-title="' + title + '"' +
+            (clLevelsJson ? ' data-customization-levels="' + clLevelsJson + '"' : '') +
+            (moqAttr ? ' data-min-order-quantity="' + moqAttr + '"' : '') + '>' +
             '<div class="vendor-asset-pick-zone position-relative" role="button" tabindex="0" title="' + pickHint + '">' +
             multiBadge +
             '<button type="button" class="vendor-asset-zoom-btn" title="' + zoomTitle + '" aria-label="' + zoomTitle + '"><i class="bi bi-zoom-in"></i></button>' +
@@ -769,13 +775,23 @@ $(document).ready(function () {
                 var confirmMulti = (t('customProduct.importPrototypeAngles') || '將加入此原型的 {n} 張多角度圖為參考圖。').replace('{n}', String(toImport.length));
                 if (!window.confirm(confirmMulti)) return;
             }
+            var clRaw = $c.attr('data-customization-levels');
+            var clLevels = [];
+            if (clRaw) {
+                try { clLevels = JSON.parse(clRaw.replace(/&quot;/g, '"')); } catch (e) { /* ignore */ }
+            }
+            if (!Array.isArray(clLevels)) clLevels = [];
+            var moqRaw = ($c.attr('data-min-order-quantity') || '').trim();
+            var moqNum = moqRaw ? parseInt(moqRaw, 10) : null;
             var baseMeta = {
                 vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
                 manufacturer_id: $c.attr('data-manufacturer-id') || null,
                 manufacturer_name: $c.attr('data-manufacturer-name') || '',
                 manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
                 asset_kind: assetKind,
-                title: ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').trim()
+                title: ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').trim(),
+                customization_levels: clLevels,
+                min_order_quantity: (moqNum != null && moqNum >= 1) ? moqNum : null
             };
             Promise.all(toImport.map(function (u) { return fetchUrlAsDataUrl(u); }))
                 .then(function (dataUrls) {
@@ -988,7 +1004,12 @@ $(document).ready(function () {
                 output_format: 'jpeg'
             };
             if (referenceImages.length > 0) payload.referenceImages = referenceImages;
+            var refSourcesList = (typeof refSources !== 'undefined' && Array.isArray(refSources)) ? refSources.filter(Boolean) : [];
+            if (refSourcesList.length) payload.referenceSources = refSourcesList;
             if (seedNum != null) payload.seed = seedNum;
+            try {
+                if (window.i18n && typeof window.i18n.getLang === 'function') payload.ui_locale = window.i18n.getLang();
+            } catch (e) { /* ignore */ }
 
             var headers = { 'Content-Type': 'application/json' };
             try {

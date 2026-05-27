@@ -32,6 +32,7 @@
   - `customization_levels`：逗號分隔，**OR**（任一符合即顯示）
   - 有篩選時：未填 MOQ／訂製程度的舊原型會被排除
 - **選訂製程度／MOQ 後自動重載列表**（不必只依賴「套用」）
+- **生圖提示詞**（2026-05-26）：圖生圖且 `reference_sources` 含數位原型時，後端依原型 `customization_levels`（DB 為準）附加【訂製程度限制】至 `POST /api/generate-product-image` 的完整 prompt
 
 ### 與展示案例 MOQ 的差異
 

@@ -538,6 +538,117 @@ function vendorAssetCustomizationLevelLabels(levels, lang) {
     });
 }
 
+function vendorCustomizationLevelPromptRule(levelKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const map = {
+        mono_graphic: isEn
+            ? 'Only monochrome graphics or text (single-color print, embroidery, or heat transfer). Do not add multi-color artwork, gradients, or full-color prints.'
+            : '僅允許單色圖案或文字（如單色印花、刺繡、燙印），不得出現多色複雜彩圖、漸層或全彩印刷效果。',
+        color_graphic: isEn
+            ? 'Multi-color graphics, illustrations, and logos are allowed.'
+            : '可包含多色圖案、插畫、Logo 等彩色圖文元素。',
+        color_material: isEn
+            ? 'Color and material appearance may be customized (hue, fabric/leather grain, finish), without changing the product category or core silhouette.'
+            : '允許調整主體顏色與材質質感（花色、布紋、皮革紋、塗層等），但勿改變產品品類或基本輪廓定位。',
+        size_part: isEn
+            ? 'Dimensions, scale, and part configuration may be adjusted within reason; do not redesign into a completely different product.'
+            : '允許在合理範圍內調整尺寸比例、零部件配置或可替換零件，勿完全變成另一款產品。',
+        form_structure: isEn
+            ? 'Silhouette, structure, and construction may be adjusted while keeping the same product type and intended use as the reference prototype.'
+            : '允許調整輪廓、結構、開合方式等造型，但需維持與參考原型相同的產品品類與用途。'
+    };
+    return map[levelKey] || '';
+}
+
+/** 依參考之數位原型組裝生圖提示詞附錄（訂製程度 + 可選 MOQ 提示） */
+function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
+    const assets = Array.isArray(prototypeAssets) ? prototypeAssets : [];
+    if (!assets.length) return '';
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const header = isEn
+        ? '\n\n[Digital prototype customization constraints — must comply]\n'
+        : '\n\n【數位原型訂製程度限制 — 生成結果必須符合】\n';
+    const lines = [];
+    assets.forEach(function (asset, idx) {
+        const title = (asset.title || '').trim();
+        const levelKeys = normalizeCustomizationLevels(asset.customization_levels);
+        if (!levelKeys.length) return;
+        const label = title || (isEn ? ('Prototype ' + (idx + 1)) : ('參考原型 ' + (idx + 1)));
+        const levelNames = levelKeys.map(function (k) { return vendorCustomizationLevelLabel(k, lang); }).join(isEn ? ', ' : '、');
+        lines.push(isEn ? ('Reference: ' + label + ' (levels: ' + levelNames + ')') : ('參考原型「' + label + '」訂製程度：' + levelNames));
+        levelKeys.forEach(function (k) {
+            const rule = vendorCustomizationLevelPromptRule(k, lang);
+            if (rule) lines.push('• ' + rule);
+        });
+        if (asset.min_order_quantity != null && Number(asset.min_order_quantity) >= 1) {
+            const moqLine = isEn
+                ? ('Minimum order quantity for this prototype: ' + asset.min_order_quantity + ' units (for manufacturing context; do not depict MOQ in the image).')
+                : ('此原型最小訂購量：' + asset.min_order_quantity + ' 件（製造背景資訊，勿在圖中標示 MOQ）。');
+            lines.push('• ' + moqLine);
+        }
+    });
+    if (!lines.length) return '';
+    const footer = isEn
+        ? 'The generated design must stay within the customization scope of every referenced digital prototype. Do not exceed what those prototypes support (e.g. do not add full-color graphics when a reference is mono-graphic only).'
+        : '生成設計必須落在各參考數位原型所標示的訂製能力範圍內，勿超出其可支援範圍（例如：僅標示單色圖文的原型不得改為全彩複雜印刷）。';
+    return header + lines.join('\n') + '\n' + footer;
+}
+
+/** 從 reference_sources 解析數位原型訂製程度（以 DB 為準補齊） */
+async function resolvePrototypeAssetsForPrompt(referenceSourcesRaw) {
+    const list = Array.isArray(referenceSourcesRaw) ? referenceSourcesRaw : [];
+    const byAssetId = new Map();
+    list.forEach(function (s) {
+        if (!s || !s.vendor_asset_id) return;
+        const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
+        if (kind !== 'prototype') return;
+        const id = String(s.vendor_asset_id).trim();
+        if (!id) return;
+        if (!byAssetId.has(id)) {
+            byAssetId.set(id, {
+                id: id,
+                title: (s.title || '').trim() || null,
+                customization_levels: [],
+                min_order_quantity: null
+            });
+        }
+        const entry = byAssetId.get(id);
+        if (s.title && String(s.title).trim()) entry.title = String(s.title).trim();
+        const fromClient = normalizeCustomizationLevels(s.customization_levels);
+        if (fromClient.length) entry.customization_levels = fromClient;
+        if (s.min_order_quantity != null && Number.isFinite(Number(s.min_order_quantity)) && Number(s.min_order_quantity) >= 1) {
+            entry.min_order_quantity = Number(s.min_order_quantity);
+        }
+    });
+    const ids = [...byAssetId.keys()];
+    if (!ids.length) return [];
+    const needDb = ids.filter(function (id) {
+        const e = byAssetId.get(id);
+        return !e.customization_levels || !e.customization_levels.length;
+    });
+    if (needDb.length) {
+        const { data: rows, error } = await supabase
+            .from('vendor_assets')
+            .select('id, title, asset_kind, customization_levels, min_order_quantity')
+            .in('id', needDb);
+        if (!error && rows) {
+            rows.forEach(function (row) {
+                if (!row || !row.id || normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return;
+                const e = byAssetId.get(row.id);
+                if (!e) return;
+                if (!e.title && row.title) e.title = row.title;
+                e.customization_levels = normalizeCustomizationLevels(row.customization_levels);
+                if (e.min_order_quantity == null && row.min_order_quantity != null && Number(row.min_order_quantity) >= 1) {
+                    e.min_order_quantity = Number(row.min_order_quantity);
+                }
+            });
+        }
+    }
+    return ids.map(function (id) { return byAssetId.get(id); }).filter(function (e) {
+        return e && e.customization_levels && e.customization_levels.length;
+    });
+}
+
 function vendorAssetMatchesMoqFilter(row, moqN) {
     if (!moqN) return true;
     if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return false;
@@ -5357,7 +5468,7 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
 // categorySource: 'remake' 時使用 remake_categories 的 prompt，否則使用訂製分類
 app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (req, res) => {
     try {
-        const { prompt, categoryKeys, aspectRatio = '1:1', resolution = '2K', referenceImages, seed, categorySource, output_format } = req.body;
+        const { prompt, categoryKeys, aspectRatio = '1:1', resolution = '2K', referenceImages, referenceSources, seed, categorySource, output_format } = req.body;
         const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';
         if (!prompt) {
             return res.status(400).json({ success: false, error: '請提供產品描述' });
@@ -5402,9 +5513,15 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             }
         }
 
-        const fullPrompt = useRemake
+        let fullPrompt = useRemake
             ? await buildPromptFromRemakeCategoryKeys(categoryKeys, prompt)
             : await buildPromptFromCategoryKeys(categoryKeys, prompt);
+        const uiLang = (req.body.ui_locale || req.body.lang || '').trim() || null;
+        if (hasRefs) {
+            const prototypeAssets = await resolvePrototypeAssetsForPrompt(referenceSources || []);
+            const appendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
+            if (appendix) fullPrompt = (fullPrompt || '').trim() + appendix;
+        }
         // 使用者未填 seed 時由後端產生隨機 seed，傳給 FLUX 並寫入 DB，方便重現與顯示
         let seedNum = (seed != null && seed !== '' && Number.isInteger(Number(seed))) ? Number(seed) : null;
         if (seedNum == null) seedNum = Math.floor(Math.random() * 2147483647);
