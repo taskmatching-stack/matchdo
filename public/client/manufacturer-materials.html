@@ -131,7 +131,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
+                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">上傳或「先預覽 AI 標籤」時，若留空將自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                                 <div class="col-12 d-none add-tags-panel">
                                     <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
@@ -198,7 +198,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.materialCategory">材質分類（選填）</label><select class="form-select add-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div class="add-catalog-groups border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="2"></textarea></div>
+                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">上傳或「先預覽 AI 標籤」時，若留空將自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">本欄每次上傳一張圖檔；訂製者在產品設計頁可從素材庫另選多張參考圖。</p><button type="button" class="btn btn-sm btn-outline-secondary mt-2 btn-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                                 <div class="col-12 d-none add-tags-panel">
                                     <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
@@ -265,7 +265,15 @@
                         <div class="mb-3 d-none" id="edit-material-key-wrap"><label class="form-label" data-i18n="baseModels.materialCategory">材質分類</label><select class="form-select" id="edit-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
                         <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
-                        <div class="mb-3"><label class="form-label">簡短說明</label><textarea class="form-control" id="edit-description" rows="2"></textarea></div>
+                        <div class="mb-3">
+                            <label class="form-label">簡短說明</label>
+                            <textarea class="form-control" id="edit-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-generate-description">
+                                <i class="bi bi-card-text me-1"></i><span data-i18n="baseModels.generateDescription">AI 產生說明</span>
+                                — <span id="edit-points-description" class="fw-semibold text-primary">1</span> <span data-i18n="baseModels.pointsUnit">點</span>
+                            </button>
+                            <p class="form-text text-muted small mb-0" data-i18n="baseModels.generateDescriptionEditHint">依目前圖片產生中英文各一段；換圖後請重新產生。上傳區則含在上傳／預覽標籤流程內，不另扣點。</p>
+                        </div>
                         <div class="mb-3"><label class="form-label">更換圖片（選填）</label><input type="file" class="form-control" id="edit-image" accept="image/*"><button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-preview-tags" disabled><i class="bi bi-tags me-1"></i><span data-i18n="baseModels.previewTags">先預覽 AI 標籤</span></button></div>
                         <div id="edit-tags-panel" class="mb-3 d-none">
                             <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
@@ -351,7 +359,7 @@
         var pendingByForm = {};
         var capabilities = null;
         var supplierImportModal = null;
-        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10 };
+        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_description: 1 };
         var editPending = { tags: null, semantics: null };
         var catalogGroupsFlat = [];
         var catalogGroupsDbReady = true;
@@ -550,6 +558,8 @@
             var editOpt = document.getElementById('edit-points-optimize');
             if (editBase) editBase.textContent = String(uploadPricing.points_upload);
             if (editOpt) editOpt.textContent = String(optimizePointsForKind(assetKind));
+            var editDescPts = document.getElementById('edit-points-description');
+            if (editDescPts) editDescPts.textContent = String(uploadPricing.points_description != null ? uploadPricing.points_description : 1);
         }
 
         function renderEditTags(alwaysShowPanel) {
@@ -588,6 +598,7 @@
                     uploadPricing.points_upload = d.points_upload != null ? d.points_upload : 5;
                     uploadPricing.points_optimize = d.points_optimize != null ? d.points_optimize : 15;
                     uploadPricing.points_optimize_material = d.points_optimize_material != null ? d.points_optimize_material : 10;
+                    uploadPricing.points_description = d.points_description != null ? d.points_description : 1;
                 }
             } catch (_) {}
             applyUploadPricingToForms();
@@ -1069,6 +1080,10 @@
                     p.tags = data.ai_tags || [];
                     p.semantics = data.image_semantics_json || null;
                     showPendingTags(form, p.tags, '');
+                    if (data.description) {
+                        var descEl = form.querySelector('.add-description');
+                        if (descEl && !(descEl.value || '').trim()) descEl.value = data.description;
+                    }
                     showToast('OK');
                 } finally { previewBtn.disabled = false; }
             });
@@ -1169,6 +1184,43 @@
         document.getElementById('edit-optimize-image').addEventListener('change', syncEditOptimizeBgWrap);
         document.getElementById('edit-optimize-bg').addEventListener('change', function () {
             syncOptimizeBgCustomInput(document.getElementById('edit-form'));
+        });
+
+        document.getElementById('btn-edit-generate-description').addEventListener('click', async function () {
+            var id = document.getElementById('edit-id').value;
+            var fileInput = document.getElementById('edit-image');
+            var file = fileInput.files && fileInput.files[0];
+            var cat = document.getElementById('edit-category').value;
+            if (file && !cat) {
+                showToast(tr('baseModels.needCategory', '請選擇主分類與圖片'), 'warning');
+                return;
+            }
+            if (!file && !id) return;
+            var btn = document.getElementById('btn-edit-generate-description');
+            btn.disabled = true;
+            try {
+                var fd = new FormData();
+                fd.append('category_key', cat || '');
+                fd.append('title', document.getElementById('edit-title').value || '');
+                if (file) fd.append('image', file);
+                else fd.append('asset_id', id);
+                var r = await fetch('/api/me/vendor-assets/generate-description', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token },
+                    body: fd
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    showToast((data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
+                    return;
+                }
+                if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
+                if (data.description) document.getElementById('edit-description').value = data.description;
+                var okMsg = tr('baseModels.descriptionGenerated', '已產生說明');
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
+                showToast(okMsg);
+            } finally { btn.disabled = false; }
         });
 
         document.getElementById('btn-edit-preview-tags').addEventListener('click', async function () {

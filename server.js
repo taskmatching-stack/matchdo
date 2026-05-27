@@ -886,7 +886,12 @@ async function runVendorAssetImageSemantics(file, context, ownerId) {
         owner_id: ownerId || null,
         category_key: context.category_key || null
     });
-    return result;
+    const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(result.semantics);
+    return { ...result, description };
+}
+
+function vendorAssetDescriptionFromSemantics(semanticsJson) {
+    return visualSemantics.buildVendorAssetDescriptionFromSemantics(semanticsJson) || null;
 }
 
 // === 翻譯：送什麼 / 回什麼（就一件事）===
@@ -5507,6 +5512,12 @@ async function getPointsVendorAssetOptimizeForKind(assetKind) {
     return normalizeVendorAssetKind(assetKind) === 'material'
         ? getPointsVendorAssetMaterialOptimize()
         : getPointsVendorAssetOptimize();
+}
+
+async function getPointsVendorAssetDescription() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_description');
+    const v = rows && rows[0] && rows[0].value != null ? parseInt(rows[0].value, 10) : NaN;
+    return Number.isFinite(v) && v >= 0 ? v : 1;
 }
 
 async function checkUserCreditsBalance(userId, required) {
@@ -10241,6 +10252,7 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
             points_upload: await getPointsVendorAssetUpload(),
             points_optimize: await getPointsVendorAssetOptimize(),
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
+            points_description: await getPointsVendorAssetDescription(),
             optimize_includes_tags: true
         });
     } catch (e) {
@@ -10274,11 +10286,156 @@ app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (r
         res.json({
             ai_tags: result.tags,
             image_semantics_json: result.semantics,
+            description: result.description || null,
             model: result.model
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/generate-tags:', e);
         res.status(503).json({ error: e.message || 'AI 標籤產生失敗，請稍後重試' });
+    }
+});
+
+// POST /api/me/vendor-assets/generate-description — 編輯區讀圖產生簡短說明（扣點，預覽標籤不扣點）
+app.post('/api/me/vendor-assets/generate-description', upload.single('image'), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+        if (mfrVa && mfrVa.vendor_source === 'seed') {
+            return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        }
+        const body = req.body || {};
+        const assetId = (body.asset_id || '').trim();
+        const file = req.file;
+        let imageFile = file;
+        let context = {
+            category_key: (body.category_key || '').trim(),
+            title: (body.title || '').trim(),
+            description: (body.description || '').trim()
+        };
+        if (!imageFile && assetId) {
+            const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
+                assetId, manufacturerId, 'id, image_url, category_key, title, description, asset_kind'
+            );
+            if (rowErr) {
+                console.error('generate-description select:', rowErr);
+                return res.status(500).json({ error: '查詢失敗' });
+            }
+            if (!row || !row.image_url) return res.status(404).json({ error: '找不到該素材或無圖片' });
+            context = {
+                category_key: context.category_key || row.category_key || '',
+                title: context.title || row.title || '',
+                description: context.description || row.description || '',
+                image_url: row.image_url
+            };
+            const deps = getVisualSemanticsDeps();
+            const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, row.image_url);
+            const result = await visualSemantics.analyzeImageSemantics(deps, imagePart, context);
+            const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(result.semantics);
+            if (!description) return res.status(503).json({ error: '無法產生說明，請稍後重試' });
+            const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+            const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+            let ownerId = null;
+            if (token) {
+                const { data: { user } } = await supabase.auth.getUser(token);
+                ownerId = user?.id || null;
+            }
+            const pointsRequired = await getPointsVendorAssetDescription();
+            let isAdmin = false;
+            if (ownerId) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+                isAdmin = profile?.role === 'admin';
+            }
+            let balanceAfter = null;
+            let pointsDeducted = 0;
+            if (!isAdmin && ownerId && pointsRequired > 0) {
+                const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+                if (!sufficient) {
+                    return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+                }
+                const consumed = await consumeUserCredits(
+                    ownerId,
+                    pointsRequired,
+                    'vendor_asset_description',
+                    '素材庫 AI 產生簡短說明',
+                    { manufacturer_id: manufacturerId, vendor_asset_id: assetId }
+                );
+                if (!consumed.ok) {
+                    return res.status(402).json({ error: consumed.error || '扣點失敗', balance: consumed.balance });
+                }
+                balanceAfter = consumed.balance_after;
+                pointsDeducted = pointsRequired;
+            }
+            await recordVisualSemanticsEvent({
+                source_type: 'vendor_asset',
+                source_id: assetId,
+                image_url: row.image_url,
+                text_input: null,
+                semantics_kind: 'image',
+                ai_tags: result.tags,
+                semantics_json: result.semantics,
+                model: result.model,
+                prompt_version: result.prompt_version,
+                owner_id: ownerId || null,
+                category_key: context.category_key || null
+            });
+            return res.json({
+                description,
+                product_description_zh: result.semantics?.product_description_zh || null,
+                product_description_en: result.semantics?.product_description_en || null,
+                points_deducted: pointsDeducted,
+                balance_after: balanceAfter
+            });
+        }
+        if (!imageFile) return res.status(400).json({ error: '請上傳圖片或提供素材 id' });
+        const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+        const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+        let ownerId = null;
+        if (token) {
+            const { data: { user } } = await supabase.auth.getUser(token);
+            ownerId = user?.id || null;
+        }
+        const pointsRequired = await getPointsVendorAssetDescription();
+        let isAdmin = false;
+        if (ownerId) {
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+            isAdmin = profile?.role === 'admin';
+        }
+        if (!isAdmin && ownerId && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        const result = await runVendorAssetImageSemantics(imageFile, context, ownerId);
+        const description = result.description || vendorAssetDescriptionFromSemantics(result.semantics);
+        if (!description) return res.status(503).json({ error: '無法產生說明，請稍後重試' });
+        let balanceAfter = null;
+        let pointsDeducted = 0;
+        if (!isAdmin && ownerId && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'vendor_asset_description',
+                '素材庫 AI 產生簡短說明（編輯換圖）',
+                { manufacturer_id: manufacturerId, vendor_asset_id: assetId || null }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: consumed.error || '扣點失敗', balance: consumed.balance });
+            }
+            balanceAfter = consumed.balance_after;
+            pointsDeducted = pointsRequired;
+        }
+        res.json({
+            description,
+            product_description_zh: result.semantics?.product_description_zh || null,
+            product_description_en: result.semantics?.product_description_en || null,
+            points_deducted: pointsDeducted,
+            balance_after: balanceAfter
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/generate-description:', e);
+        res.status(503).json({ error: e.message || 'AI 說明產生失敗，請稍後重試' });
     }
 });
 
@@ -10294,7 +10451,7 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
         if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
         const subcategoryKey = (body.subcategory_key || '').trim() || null;
         const title = (body.title || '').trim() || null;
-        const description = (body.description || '').trim() || null;
+        let description = (body.description || '').trim() || null;
         const styleKey = (body.style_key || '').trim() || null;
         const materialKey = (body.material_key || '').trim() || null;
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
@@ -10346,12 +10503,16 @@ app.post('/api/me/vendor-assets', upload.single('image'), async (req, res) => {
                 tags = sem.tags;
                 semanticsJson = sem.semantics;
                 tagsSource = 'gemini';
+                if (!description && sem.description) description = sem.description;
             } catch (semErr) {
                 console.error('vendor-assets semantics:', semErr);
                 return res.status(503).json({ error: semErr.message || 'AI 標籤產生失敗，請稍後重試' });
             }
         } else {
             tagsSource = semanticsJson ? 'gemini' : 'manual';
+            if (!description && semanticsJson) {
+                description = vendorAssetDescriptionFromSemantics(semanticsJson);
+            }
         }
 
         let uploadFile = file;
@@ -10568,6 +10729,11 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             updates.ai_tags_generated_at = new Date().toISOString();
             updates.tags_source = semanticsJson ? 'gemini' : (parseAiTagsFromBody(body) ? 'manual' : 'gemini');
             if (semanticsJson) updates.image_semantics_json = semanticsJson;
+            const bodyDesc = (body.description || '').trim();
+            if (!bodyDesc && semanticsJson) {
+                const autoDesc = vendorAssetDescriptionFromSemantics(semanticsJson);
+                if (autoDesc) updates.description = autoDesc;
+            }
 
             let uploadFile = file;
             if (wantsOptimize) {
