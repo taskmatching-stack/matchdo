@@ -316,6 +316,17 @@ $(document).ready(function () {
         $('#vendorAssetsServiceArea').val('');
         $('#vendorAssetsAssetKind').val('');
         $('#vendorAssetsCatalogGroup').val('');
+        $('#vendorAssetsMoq').val('');
+        $('.vendor-customization-filter').prop('checked', false);
+    }
+
+    function getVendorCustomizationFilterKeys() {
+        var keys = [];
+        $('.vendor-customization-filter:checked').each(function () {
+            var v = ($(this).val() || '').trim();
+            if (v && keys.indexOf(v) < 0) keys.push(v);
+        });
+        return keys;
     }
 
     function fillVendorCatalogGroupSelect(manufacturerId) {
@@ -586,6 +597,14 @@ $(document).ready(function () {
             meta += '<span class="badge bg-success-subtle text-success border mb-1">' + (t('customProduct.assetKindMaterial') || '材料') + '</span> ';
         } else if (item.asset_kind === 'prototype') {
             meta += '<span class="badge bg-primary-subtle text-primary border mb-1">' + (t('customProduct.assetKindPrototype') || '數位原型') + '</span> ';
+            if (item.min_order_quantity != null && Number(item.min_order_quantity) >= 1) {
+                var moqBadge = (t('customProduct.moqBadge') || 'MOQ {n}').replace(/\{n\}/g, String(item.min_order_quantity));
+                meta += '<span class="badge bg-light text-dark border mb-1">' + moqBadge.replace(/</g, '&lt;') + '</span> ';
+            }
+            var clLabels = item.customization_level_labels || [];
+            clLabels.forEach(function (lbl) {
+                meta += '<span class="badge bg-light text-secondary border mb-1">' + String(lbl).replace(/</g, '&lt;') + '</span> ';
+            });
         }
         var pickHint = (t('customProduct.vendorAssetPickHint') || '單擊加入參考圖；雙擊或按 🔍 放大').replace(/"/g, '&quot;');
         var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');
@@ -740,6 +759,14 @@ $(document).ready(function () {
         if (params.mode === 'manufacturer') {
             var catalogGroupId = ($('#vendorAssetsCatalogGroup').val() || '').trim();
             if (catalogGroupId) url += '&catalog_group_id=' + encodeURIComponent(catalogGroupId);
+        }
+        var moqExact = ($('#vendorAssetsMoq').val() || '').trim();
+        if (moqExact && parseInt(moqExact, 10) >= 1) {
+            url += '&min_order_quantity=' + encodeURIComponent(moqExact);
+        }
+        var customKeys = getVendorCustomizationFilterKeys();
+        if (customKeys.length) {
+            url += '&customization_levels=' + encodeURIComponent(customKeys.join(','));
         }
         return url;
     }

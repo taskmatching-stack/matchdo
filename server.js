@@ -474,7 +474,94 @@ function getVendorAssetAllImageUrls(row) {
     return urls;
 }
 
-function mapVendorAssetForApi(row) {
+const VENDOR_CUSTOMIZATION_LEVEL_KEYS = new Set(['mono_graphic', 'color_graphic', 'color_material', 'form_structure']);
+
+function normalizeCustomizationLevels(raw) {
+    let arr = raw;
+    if (raw == null || raw === '') return [];
+    if (typeof raw === 'string') {
+        const t = raw.trim();
+        if (!t) return [];
+        try { arr = JSON.parse(t); } catch (_) { arr = t.split(/[,，]/); }
+    }
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    arr.forEach(function (item) {
+        const k = String(item || '').trim().toLowerCase();
+        if (VENDOR_CUSTOMIZATION_LEVEL_KEYS.has(k) && out.indexOf(k) < 0) out.push(k);
+    });
+    const order = ['mono_graphic', 'color_graphic', 'color_material', 'form_structure'];
+    out.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
+    return out;
+}
+
+function parseCustomizationLevelsFromBody(body) {
+    if (!body || body.customization_levels === undefined) return null;
+    return normalizeCustomizationLevels(body.customization_levels);
+}
+
+/** @param {unknown} raw @param {{ required?: boolean }} [opts] */
+function parseVendorAssetPrototypeMoq(raw, opts) {
+    const required = opts && opts.required;
+    const s = raw === undefined || raw === null ? '' : String(raw).trim();
+    if (!s) {
+        if (required) return { error: '請填寫最小訂購量（件）' };
+        return { value: null };
+    }
+    const n = parseInt(s, 10);
+    if (!Number.isFinite(n) || n < 1) {
+        return { error: '最小訂購量須為 1 以上的整數' };
+    }
+    return { value: n };
+}
+
+function vendorCustomizationLevelLabel(levelKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const map = {
+        mono_graphic: isEn ? 'Mono graphic' : '單色圖文',
+        color_graphic: isEn ? 'Color graphic' : '彩色圖文',
+        color_material: isEn ? 'Color / material' : '顏色／材質',
+        form_structure: isEn ? 'Form / structure' : '造型／結構'
+    };
+    return map[levelKey] || levelKey || '';
+}
+
+function vendorAssetCustomizationLevelLabels(levels, lang) {
+    return normalizeCustomizationLevels(levels).map(function (k) {
+        return { key: k, label: vendorCustomizationLevelLabel(k, lang) };
+    });
+}
+
+function vendorAssetMatchesMoqFilter(row, moqN) {
+    if (!moqN) return true;
+    if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return false;
+    const moq = row.min_order_quantity;
+    if (moq == null || !Number.isFinite(Number(moq))) return false;
+    return Number(moq) === moqN;
+}
+
+function vendorAssetMatchesCustomizationFilter(row, filterKeys) {
+    if (!filterKeys || !filterKeys.length) return true;
+    if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return false;
+    const levels = normalizeCustomizationLevels(row.customization_levels);
+    if (!levels.length) return false;
+    return filterKeys.some(function (k) { return levels.indexOf(k) >= 0; });
+}
+
+function enrichVendorAssetPrototypeFields(row, lang) {
+    const kind = normalizeVendorAssetKind(row.asset_kind);
+    const moq = (kind === 'prototype' && row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity)))
+        ? Number(row.min_order_quantity) : null;
+    const levels = kind === 'prototype' ? normalizeCustomizationLevels(row.customization_levels) : [];
+    const levelLabels = vendorAssetCustomizationLevelLabels(levels, lang);
+    return {
+        min_order_quantity: moq,
+        customization_levels: levels,
+        customization_level_labels: levelLabels.map(function (x) { return x.label; })
+    };
+}
+
+function mapVendorAssetForApi(row, lang) {
     if (!row) return row;
     const kind = normalizeVendorAssetKind(row.asset_kind);
     const gallery = kind === 'prototype' ? parseGalleryImages(row.gallery_images) : [];
@@ -484,7 +571,8 @@ function mapVendorAssetForApi(row) {
         asset_kind: kind,
         gallery_images: gallery,
         image_urls: imageUrls,
-        image_count: imageUrls.length
+        image_count: imageUrls.length,
+        ...enrichVendorAssetPrototypeFields(row, lang)
     };
 }
 
@@ -670,7 +758,7 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
     });
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 
 /** 依廠商 id + 素材 id 查一筆；缺欄位時自動降級（與 GET 列表一致，避免 DELETE 誤判 404） */
@@ -10147,6 +10235,14 @@ app.get('/api/vendor-assets', async (req, res) => {
         const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material') ? assetKindQ : null;
         const manufacturersOnly = parseTruthyBody(req.query.manufacturers_only);
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
+        const moqFilterRaw = (req.query.min_order_quantity != null ? String(req.query.min_order_quantity) : '').trim();
+        const moqFilter = moqFilterRaw ? parseInt(moqFilterRaw, 10) : null;
+        if (moqFilterRaw && (!Number.isFinite(moqFilter) || moqFilter < 1)) {
+            return res.status(400).json({ error: 'min_order_quantity 須為 1 以上的整數' });
+        }
+        const customFilterKeys = normalizeCustomizationLevels(
+            (req.query.customization_levels || '').trim().split(/[,，]/).filter(Boolean)
+        );
         if (!categoryKey && !manufacturerId) return res.status(400).json({ error: '請傳入 category_key（分類素材池）或 manufacturer_id（個別廠商版型庫）' });
 
         let catalogGroupAssetIds = null;
@@ -10160,7 +10256,7 @@ app.get('/api/vendor-assets', async (req, res) => {
             }
         }
 
-        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json';
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json, min_order_quantity, customization_levels';
         async function runQuery(cols) {
             let q = supabase
                 .from('vendor_assets')
@@ -10178,7 +10274,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         }
         let { data: rows, error } = await runQuery(selectCols);
         if (error && error.code === '42703') {
-            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key').join(', ');
+            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key' && c !== 'min_order_quantity' && c !== 'customization_levels').join(', ');
             ({ data: rows, error } = await runQuery(legacyCols));
         }
         if (error) {
@@ -10209,6 +10305,12 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (catalogGroupAssetIds) {
             list = list.filter((r) => catalogGroupAssetIds.has(r.id));
         }
+        if (moqFilter != null) {
+            list = list.filter((r) => vendorAssetMatchesMoqFilter(r, moqFilter));
+        }
+        if (customFilterKeys.length) {
+            list = list.filter((r) => vendorAssetMatchesCustomizationFilter(r, customFilterKeys));
+        }
         if (!isAdmin) list = list.filter(r => {
             const mfr = mfrMap[r.manufacturer_id];
             return !mfr || mfr.vendor_source !== 'seed';
@@ -10225,7 +10327,8 @@ app.get('/api/vendor-assets', async (req, res) => {
         const items = list.map(r => {
             const kind = normalizeVendorAssetKind(r.asset_kind);
             const pk = kind === 'material' ? null : (r.part_key || null);
-            const mapped = mapVendorAssetForApi(r);
+            const mapped = mapVendorAssetForApi(r, lang);
+            const protoMeta = enrichVendorAssetPrototypeFields(r, lang);
             return {
                 id: r.id,
                 manufacturer_id: r.manufacturer_id,
@@ -10247,6 +10350,9 @@ app.get('/api/vendor-assets', async (req, res) => {
                 color_label: r.color_key ? vendorColorKeyLabel(r.color_key, lang) : null,
                 asset_kind: kind,
                 part_key: pk,
+                min_order_quantity: protoMeta.min_order_quantity,
+                customization_levels: protoMeta.customization_levels,
+                customization_level_labels: protoMeta.customization_level_labels,
                 manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
                 manufacturer_location: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].location) ? mfrMap[r.manufacturer_id].location : '',
@@ -10528,6 +10634,17 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const styleKey = (body.style_key || '').trim() || null;
         const materialKey = (body.material_key || '').trim() || null;
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
+        let prototypeMoqValue = null;
+        let prototypeCustomizationLevels = [];
+        if (assetKind === 'prototype') {
+            const moqParsed = parseVendorAssetPrototypeMoq(body.min_order_quantity, { required: true });
+            if (moqParsed.error) return res.status(400).json({ error: moqParsed.error });
+            prototypeMoqValue = moqParsed.value;
+            prototypeCustomizationLevels = parseCustomizationLevelsFromBody(body) || [];
+            if (!prototypeCustomizationLevels.length) {
+                return res.status(400).json({ error: '請至少選擇一項訂製程度' });
+            }
+        }
 
         const fileFromFields = (req.files && req.files.image && req.files.image[0]) ? req.files.image[0] : req.file;
         let file = await vendorAssetFileFromMulter(fileFromFields);
@@ -10639,7 +10756,12 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         insertPayload.asset_kind = assetKind;
         const partKeyNorm = normalizeVendorPartKey(body.part_key, assetKind);
         if (partKeyNorm) insertPayload.part_key = partKeyNorm;
+        if (assetKind === 'prototype') {
+            insertPayload.min_order_quantity = prototypeMoqValue;
+            insertPayload.customization_levels = prototypeCustomizationLevels;
+        }
         let galleryMigrationRequired = false;
+        let prototypeMetaMigrationRequired = false;
         let inserted = null;
         let insertError = null;
         ({ data: inserted, error: insertError } = await supabase
@@ -10652,6 +10774,17 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             galleryMigrationRequired = galleryImages.length > 0;
             ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
                 .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
+                .single());
+        }
+        if (insertError && insertError.code === '42703' && (
+            String(insertError.message || '').includes('min_order_quantity') ||
+            String(insertError.message || '').includes('customization_levels')
+        )) {
+            delete insertPayload.min_order_quantity;
+            delete insertPayload.customization_levels;
+            prototypeMetaMigrationRequired = assetKind === 'prototype';
+            ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
+                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
                 .single());
         }
         if (insertError) {
@@ -10720,7 +10853,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             product_optimized: wantsOptimize,
-            gallery_migration_required: galleryMigrationRequired
+            gallery_migration_required: galleryMigrationRequired,
+            prototype_meta_migration_required: prototypeMetaMigrationRequired
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets 異常:', e);
@@ -10831,7 +10965,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         const id = (req.params.id || '').trim();
         const body = req.body || {};
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, category_key, title, description, asset_kind, material_key'
+            id, manufacturerId, 'id, image_url, category_key, title, description, asset_kind, material_key, min_order_quantity, customization_levels'
         );
         if (rowErr) {
             console.error('PUT /api/me/vendor-assets/:id select:', rowErr);
@@ -10853,10 +10987,21 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.part_key !== undefined && assetKindForPart === 'prototype') {
             updates.part_key = normalizeVendorPartKey(body.part_key, assetKindForPart);
         }
+        const assetKind = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
+        if (assetKind === 'prototype') {
+            const moqIn = body.min_order_quantity !== undefined ? body.min_order_quantity : row.min_order_quantity;
+            const moqParsed = parseVendorAssetPrototypeMoq(moqIn, { required: true });
+            if (moqParsed.error) return res.status(400).json({ error: moqParsed.error });
+            updates.min_order_quantity = moqParsed.value;
+            const levels = body.customization_levels !== undefined
+                ? (parseCustomizationLevelsFromBody(body) || [])
+                : normalizeCustomizationLevels(row.customization_levels);
+            if (!levels.length) return res.status(400).json({ error: '請至少選擇一項訂製程度' });
+            updates.customization_levels = levels;
+        }
 
         let file = req.file ? await vendorAssetFileFromMulter(req.file) : null;
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
-        const assetKind = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
         const titleForPrompt = updates.title !== undefined ? updates.title : row.title;
         const materialKeyForPrompt = updates.material_key !== undefined ? updates.material_key : row.material_key;
         const categoryKeyForTags = updates.category_key || row.category_key;
@@ -10974,7 +11119,14 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             }
         }
 
-        const { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, style_key, material_key, asset_kind, ai_tags, updated_at').single();
+        const putSelectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, style_key, material_key, asset_kind, ai_tags, min_order_quantity, customization_levels, updated_at';
+        let { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select(putSelectCols).single();
+        if (error && error.code === '42703' && (
+            String(error.message || '').includes('min_order_quantity') ||
+            String(error.message || '').includes('customization_levels')
+        )) {
+            return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-prototype-moq-customization.sql' });
+        }
         if (error) {
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
@@ -10983,7 +11135,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
         }
         res.json({
-            ...updated,
+            ...mapVendorAssetForApi(updated),
             points_deducted: pointsDeducted,
             balance_after: balanceAfter,
             product_optimized: file ? wantsOptimize : false

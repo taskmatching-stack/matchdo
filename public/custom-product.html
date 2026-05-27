@@ -215,7 +215,7 @@
                                 <button type="button" class="btn btn-link btn-sm text-muted px-0" id="vendorAssetsClearFilter" data-i18n="customProduct.clearFilter">清除</button>
                             </div>
                         </div>
-                        <details class="small mt-2 vendor-picker-advanced">
+                        <details class="small mt-2 vendor-picker-advanced" open>
                             <summary class="text-muted" data-i18n="customProduct.filterAdvanced">進階（素材類型）</summary>
                             <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
                                 <select class="form-select form-select-sm" id="vendorAssetsAssetKind" style="width:auto;">
@@ -223,6 +223,22 @@
                                     <option value="prototype" data-i18n="customProduct.assetKindPrototype">數位原型</option>
                                     <option value="material" data-i18n="customProduct.assetKindMaterial">材料參考</option>
                                 </select>
+                            </div>
+                            <p class="text-muted small mb-2 mt-2" data-i18n="customProduct.filterPrototypeOnly">以下篩選僅適用數位原型</p>
+                            <div class="row g-2 align-items-end vendor-picker-prototype-filters">
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label small text-muted mb-0" for="vendorAssetsMoq" data-i18n="customProduct.filterMoq">最小訂購量（件）</label>
+                                    <input type="number" class="form-control form-control-sm" id="vendorAssetsMoq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="customProduct.filterMoqPlaceholder" placeholder="精確比對，例：50">
+                                </div>
+                                <div class="col-12">
+                                    <span class="form-label small text-muted d-block mb-1" data-i18n="customProduct.filterCustomization">訂製程度</span>
+                                    <div id="vendorAssetsCustomizationLevels" class="d-flex flex-wrap gap-2">
+                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="mono_graphic" id="vaf-cl-mono"><label class="form-check-label small" for="vaf-cl-mono" data-i18n="customProduct.customLevelMonoGraphic">單色圖文</label></div>
+                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="color_graphic" id="vaf-cl-color"><label class="form-check-label small" for="vaf-cl-color" data-i18n="customProduct.customLevelColorGraphic">彩色圖文</label></div>
+                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="color_material" id="vaf-cl-mat"><label class="form-check-label small" for="vaf-cl-mat" data-i18n="customProduct.customLevelColorMaterial">顏色／材質</label></div>
+                                        <div class="form-check form-check-inline mb-0"><input class="form-check-input vendor-customization-filter" type="checkbox" value="form_structure" id="vaf-cl-form"><label class="form-check-label small" for="vaf-cl-form" data-i18n="customProduct.customLevelFormStructure">造型／結構</label></div>
+                                    </div>
+                                </div>
                             </div>
                         </details>
                     </div>
@@ -866,7 +882,7 @@
     <!-- Template Javascript -->
     <script src="js/site-common.js"></script>
     <script src="/js/image-lightbox.js"></script>
-    <script src="js/custom-product.js?v=8"></script>
+    <script src="js/custom-product.js?v=9"></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 
