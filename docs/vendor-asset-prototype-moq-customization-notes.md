@@ -15,8 +15,8 @@
 
 | slug | 顯示 |
 |------|------|
-| `mono_graphic` | 單色圖文 |
-| `color_graphic` | 彩色圖文 |
+| `mono_graphic` | 單色圖文（與 `color_graphic` **互斥**，只能擇一） |
+| `color_graphic` | 彩色圖文（與 `mono_graphic` **互斥**） |
 | `color_material` | 顏色／材質 |
 | `size_part` | 尺寸／零件 |
 | `form_structure` | 造型／結構 |
@@ -29,10 +29,10 @@
 - **設計頁素材庫篩選**：`public/custom-product.html` + `public/js/custom-product.js`
 - **公開 API**：`GET /api/vendor-assets`
   - `min_order_quantity`：**精確相等**（訂製者輸入 N → 只顯示 MOQ = N 的原型）
-  - `customization_levels`：逗號分隔，**OR**（任一符合即顯示）
+  - `customization_levels`：逗號分隔，**OR**（任一符合即顯示；篩「單色圖文」時亦會包含僅勾彩色的原型）
   - 有篩選時：未填 MOQ／訂製程度的舊原型會被排除
 - **選訂製程度／MOQ 後自動重載列表**（不必只依賴「套用」）
-- **生圖提示詞**（2026-05-26）：圖生圖且 `reference_sources` 含數位原型時，後端依原型 `customization_levels`（DB 為準）附加【訂製程度限制】至 `POST /api/generate-product-image` 的完整 prompt
+- **生圖提示詞**：圖生圖且含數位原型時附加限制至 `POST /api/generate-product-image`。**圖文**：單色／彩色擇一，寫正面規則。**材質／尺寸／造型**：僅對**未勾選**項寫負面限制（勿變更…）。多原型時圖文取交集最嚴。送 FLUX 前整段 Gemini 英譯。
 
 ### 與展示案例 MOQ 的差異
 
@@ -103,8 +103,16 @@ ORDER BY min_order_quantity;
 ## 產品決策紀錄（篩選行為）
 
 - MOQ 篩選：**正好等於 N**（非 ≤ N）
-- 訂製程度篩選：**OR**
+- 訂製程度篩選：**OR**（篩「單色圖文」時亦含僅勾彩色的原型，因實務可做單色）
 - 舊資料：有篩選條件時排除未填欄位者；**編輯原型可補填** MOQ 與訂製程度
+
+## 生圖提示詞邏輯（2026-05）
+
+| 類別 | UI | 提示詞 |
+|------|-----|--------|
+| 單色／彩色圖文 | 互斥，擇一 | 僅寫所選圖文之**正面**規則 |
+| 材質、尺寸、造型 | 可複選 | **未勾選**者寫「勿變更…」負面限制；勾選者不寫負面 |
+| 多個參考原型 | — | 各原型分開列出；圖文能力取交集（最嚴） |
 
 ---
 

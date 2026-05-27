@@ -41,7 +41,7 @@
   "baseModels.minOrderQty": "最小訂購量（件）",
   "baseModels.minOrderQtyPlaceholder": "例：50",
   "baseModels.customizationLevels": "訂製程度",
-  "baseModels.customizationLevelsHint": "可複選，至少一項；點擊按鈕切換選取。",
+  "baseModels.customizationLevelsHint": "至少一項。單色圖文與彩色圖文只能擇一；顏色／材質、尺寸／零件、造型／結構可複選，未勾選者生圖時會列為不可變更。",
   "baseModels.customLevelMonoGraphic": "單色圖文",
   "baseModels.customLevelColorGraphic": "彩色圖文",
   "baseModels.customLevelColorMaterial": "顏色／材質",

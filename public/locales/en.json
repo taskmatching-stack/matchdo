@@ -41,7 +41,7 @@
   "baseModels.minOrderQty": "Minimum order (pcs)",
   "baseModels.minOrderQtyPlaceholder": "e.g. 50",
   "baseModels.customizationLevels": "Customization level",
-  "baseModels.customizationLevelsHint": "Select at least one (multiple allowed). Tap buttons to toggle.",
+  "baseModels.customizationLevelsHint": "Select at least one. Mono vs color graphics: pick one only. Material, size, and form: multi-select; unselected items become do-not-change rules in AI prompts.",
   "baseModels.customLevelMonoGraphic": "Mono graphic",
   "baseModels.customLevelColorGraphic": "Color graphic",
   "baseModels.customLevelColorMaterial": "Color / material",

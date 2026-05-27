@@ -475,6 +475,8 @@ function getVendorAssetAllImageUrls(row) {
 }
 
 const VENDOR_CUSTOMIZATION_LEVEL_KEYS = new Set(['mono_graphic', 'color_graphic', 'color_material', 'size_part', 'form_structure']);
+const VENDOR_CUSTOMIZATION_GRAPHIC_KEYS = ['mono_graphic', 'color_graphic'];
+const VENDOR_CUSTOMIZATION_SCOPE_KEYS = ['color_material', 'size_part', 'form_structure'];
 
 function normalizeCustomizationLevels(raw) {
     let arr = raw;
@@ -500,9 +502,51 @@ function normalizeCustomizationLevels(raw) {
     return out;
 }
 
+/** 圖文能力階層：0=無、1=僅單色、2=含彩色（涵蓋單色） */
+function graphicCustomizationTier(levels) {
+    const set = new Set(normalizeCustomizationLevels(levels));
+    if (set.has('color_graphic')) return 2;
+    if (set.has('mono_graphic')) return 1;
+    return 0;
+}
+
+/** 圖文：單色與彩色只能擇一（舊資料若兩者皆有則保留彩色） */
+function sanitizeCustomizationLevelsForStorage(levels) {
+    const out = normalizeCustomizationLevels(levels);
+    const hasMono = out.indexOf('mono_graphic') >= 0;
+    const hasColor = out.indexOf('color_graphic') >= 0;
+    if (hasMono && hasColor) {
+        return out.filter(function (k) { return k !== 'mono_graphic'; });
+    }
+    return out;
+}
+
+/** 多個參考原型：圖文能力取交集（最嚴） */
+function intersectGraphicCustomizationTier(prototypeAssets) {
+    const assets = Array.isArray(prototypeAssets) ? prototypeAssets : [];
+    let minTier = 2;
+    let any = false;
+    assets.forEach(function (asset) {
+        const t = graphicCustomizationTier(asset && asset.customization_levels);
+        if (t < 1) return;
+        any = true;
+        if (t < minTier) minTier = t;
+    });
+    return any ? minTier : 0;
+}
+
+function assetSupportsCustomizationLevel(storedLevels, filterKey) {
+    const levels = new Set(normalizeCustomizationLevels(storedLevels));
+    const key = String(filterKey || '').trim().toLowerCase();
+    if (!key || !levels.size) return false;
+    if (levels.has(key)) return true;
+    if (key === 'mono_graphic' && levels.has('color_graphic')) return true;
+    return false;
+}
+
 function parseCustomizationLevelsFromBody(body) {
     if (!body || body.customization_levels === undefined) return null;
-    return normalizeCustomizationLevels(body.customization_levels);
+    return sanitizeCustomizationLevelsForStorage(body.customization_levels);
 }
 
 /** @param {unknown} raw @param {{ required?: boolean }} [opts] */
@@ -542,22 +586,49 @@ function vendorCustomizationLevelPromptRule(levelKey, lang) {
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
     const map = {
         mono_graphic: isEn
-            ? 'Only monochrome graphics or text (single-color print, embroidery, or heat transfer). Do not add multi-color artwork, gradients, or full-color prints.'
-            : '僅允許單色圖案或文字（如單色印花、刺繡、燙印），不得出現多色複雜彩圖、漸層或全彩印刷效果。',
+            ? 'Graphics: monochrome only (single-color print, embroidery, or heat transfer). No multi-color artwork, gradients, or full-color prints.'
+            : '圖文：僅單色圖案或文字（如單色印花、刺繡、燙印），不得多色、漸層或全彩印刷。',
         color_graphic: isEn
-            ? 'Multi-color graphics, illustrations, and logos are allowed.'
-            : '可包含多色圖案、插畫、Logo 等彩色圖文元素。',
-        color_material: isEn
-            ? 'Color and material appearance may be customized (hue, fabric/leather grain, finish), without changing the product category or core silhouette.'
-            : '允許調整主體顏色與材質質感（花色、布紋、皮革紋、塗層等），但勿改變產品品類或基本輪廓定位。',
-        size_part: isEn
-            ? 'Dimensions, scale, and part configuration may be adjusted within reason; do not redesign into a completely different product.'
-            : '允許在合理範圍內調整尺寸比例、零部件配置或可替換零件，勿完全變成另一款產品。',
-        form_structure: isEn
-            ? 'Silhouette, structure, and construction may be adjusted while keeping the same product type and intended use as the reference prototype.'
-            : '允許調整輪廓、結構、開合方式等造型，但需維持與參考原型相同的產品品類與用途。'
+            ? 'Graphics: multi-color artwork, illustrations, and logos are allowed.'
+            : '圖文：可含多色圖案、插畫、Logo 等彩色元素。'
     };
     return map[levelKey] || '';
+}
+
+/** 材質／尺寸／造型：未勾選者以負面限制寫入提示詞 */
+function vendorCustomizationLevelNegativeRule(levelKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const map = {
+        color_material: isEn
+            ? 'Do not change body color, material texture, surface finish, or hue from the reference prototype.'
+            : '勿變更主體顏色、材質質感、表面處理或色相（維持參考原型）。',
+        size_part: isEn
+            ? 'Do not change dimensions, scale, proportions, or part configuration from the reference prototype.'
+            : '勿變更尺寸比例、零部件配置或可替換零件（維持參考原型）。',
+        form_structure: isEn
+            ? 'Do not change silhouette, structure, openings, or construction from the reference prototype.'
+            : '勿變更輪廓、結構、開合方式或整體造型（維持參考原型）。'
+    };
+    return map[levelKey] || '';
+}
+
+/** 圖文擇一正面規則；其餘三項僅對「未勾選」輸出負面限制 */
+function buildCustomizationPromptLinesForLevels(levelKeys, lang) {
+    const levels = sanitizeCustomizationLevelsForStorage(levelKeys);
+    const lines = [];
+    if (levels.indexOf('mono_graphic') >= 0) {
+        const rule = vendorCustomizationLevelPromptRule('mono_graphic', lang);
+        if (rule) lines.push('• ' + rule);
+    } else if (levels.indexOf('color_graphic') >= 0) {
+        const rule = vendorCustomizationLevelPromptRule('color_graphic', lang);
+        if (rule) lines.push('• ' + rule);
+    }
+    VENDOR_CUSTOMIZATION_SCOPE_KEYS.forEach(function (k) {
+        if (levels.indexOf(k) >= 0) return;
+        const neg = vendorCustomizationLevelNegativeRule(k, lang);
+        if (neg) lines.push('• ' + neg);
+    });
+    return lines;
 }
 
 /** 依參考之數位原型組裝生圖提示詞附錄（訂製程度 + 可選 MOQ 提示） */
@@ -571,15 +642,12 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
     const lines = [];
     assets.forEach(function (asset, idx) {
         const title = (asset.title || '').trim();
-        const levelKeys = normalizeCustomizationLevels(asset.customization_levels);
+        const levelKeys = sanitizeCustomizationLevelsForStorage(asset.customization_levels);
         if (!levelKeys.length) return;
         const label = title || (isEn ? ('Prototype ' + (idx + 1)) : ('參考原型 ' + (idx + 1)));
         const levelNames = levelKeys.map(function (k) { return vendorCustomizationLevelLabel(k, lang); }).join(isEn ? ', ' : '、');
-        lines.push(isEn ? ('Reference: ' + label + ' (levels: ' + levelNames + ')') : ('參考原型「' + label + '」訂製程度：' + levelNames));
-        levelKeys.forEach(function (k) {
-            const rule = vendorCustomizationLevelPromptRule(k, lang);
-            if (rule) lines.push('• ' + rule);
-        });
+        lines.push(isEn ? ('Reference: ' + label + ' (capabilities: ' + levelNames + ')') : ('參考原型「' + label + '」可訂製：' + levelNames));
+        buildCustomizationPromptLinesForLevels(levelKeys, lang).forEach(function (line) { lines.push(line); });
         if (asset.min_order_quantity != null && Number(asset.min_order_quantity) >= 1) {
             const moqLine = isEn
                 ? ('Minimum order quantity for this prototype: ' + asset.min_order_quantity + ' units (for manufacturing context; do not depict MOQ in the image).')
@@ -588,9 +656,20 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
         }
     });
     if (!lines.length) return '';
+    if (assets.length > 1) {
+        const crossGraphicTier = intersectGraphicCustomizationTier(assets);
+        const hasColorCapable = assets.some(function (a) {
+            return graphicCustomizationTier(a.customization_levels) >= 2;
+        });
+        if (crossGraphicTier === 1 && hasColorCapable) {
+            lines.push(isEn
+                ? '• Multiple prototypes referenced: graphic output must use the strictest shared limit — monochrome graphics only (no full-color prints), even if another reference supports color graphics.'
+                : '• 同時參考多個原型時，圖文須採交集之最嚴限制：僅單色圖文（不得全彩），即使另有原型支援彩色圖文。');
+        }
+    }
     const footer = isEn
-        ? 'The generated design must stay within the customization scope of every referenced digital prototype. Do not exceed what those prototypes support (e.g. do not add full-color graphics when a reference is mono-graphic only).'
-        : '生成設計必須落在各參考數位原型所標示的訂製能力範圍內，勿超出其可支援範圍（例如：僅標示單色圖文的原型不得改為全彩複雜印刷）。';
+        ? 'The generated design must satisfy every referenced prototype: listed capabilities are allowed; listed restrictions must not be violated; when multiple prototypes conflict, use the strictest limit.'
+        : '生成設計須同時符合各參考原型：已勾選能力可運用；未勾選項目之限制不得違反；多原型衝突時採最嚴限制。';
     return header + lines.join('\n') + '\n' + footer;
 }
 
@@ -637,7 +716,7 @@ async function resolvePrototypeAssetsForPrompt(referenceSourcesRaw) {
                 const e = byAssetId.get(row.id);
                 if (!e) return;
                 if (!e.title && row.title) e.title = row.title;
-                e.customization_levels = normalizeCustomizationLevels(row.customization_levels);
+                e.customization_levels = sanitizeCustomizationLevelsForStorage(row.customization_levels);
                 if (e.min_order_quantity == null && row.min_order_quantity != null && Number(row.min_order_quantity) >= 1) {
                     e.min_order_quantity = Number(row.min_order_quantity);
                 }
@@ -662,14 +741,14 @@ function vendorAssetMatchesCustomizationFilter(row, filterKeys) {
     if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return false;
     const levels = normalizeCustomizationLevels(row.customization_levels);
     if (!levels.length) return false;
-    return filterKeys.some(function (k) { return levels.indexOf(k) >= 0; });
+    return filterKeys.some(function (k) { return assetSupportsCustomizationLevel(levels, k); });
 }
 
 function enrichVendorAssetPrototypeFields(row, lang) {
     const kind = normalizeVendorAssetKind(row.asset_kind);
     const moq = (kind === 'prototype' && row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity)))
         ? Number(row.min_order_quantity) : null;
-    const levels = kind === 'prototype' ? normalizeCustomizationLevels(row.customization_levels) : [];
+    const levels = kind === 'prototype' ? sanitizeCustomizationLevelsForStorage(row.customization_levels) : [];
     const levelLabels = vendorAssetCustomizationLevelLabels(levels, lang);
     return {
         min_order_quantity: moq,
@@ -1172,15 +1251,14 @@ function vendorAssetDescriptionFromSemantics(semanticsJson) {
 // 回：{ candidates: [ { content: { parts: [ { text: "英文結果" } ] } } ] } 或 { error: { code, message } }
 // 我們只從回傳裡取出 candidates[0].content.parts[0].text 當翻譯結果。
 
-async function translatePromptToEnglish(text) {
-    if (!text || !String(text).trim()) return '';
-    const t = String(text).trim();
-    if (process.env.ENABLE_PROMPT_TRANSLATION === 'false' || process.env.ENABLE_PROMPT_TRANSLATION === '0') return t;
-    if (!looksLikeNonEnglish(t)) return t;
+/** @param {string} instruction @param {string} text */
+async function geminiTranslateWithInstruction(instruction, text) {
+    const raw = String(text);
+    if (!raw.trim()) return '';
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return t;
+    if (!apiKey) return raw.trim();
     return runInGeminiQueue(async () => {
-        const promptText = `Translate to English only, one line, no explanation:\n\n${t}`;
+        const promptText = `${instruction}\n\n${raw}`;
         let model = await getTranslationModelName();
         const modelsToTry = model === 'gemini-2.5-flash-lite' ? ['gemini-2.5-flash-lite', 'gemini-2.5-flash'] : [model];
         for (const m of modelsToTry) {
@@ -1194,19 +1272,39 @@ async function translatePromptToEnglish(text) {
                         continue;
                     }
                     console.error('Gemini 翻譯錯誤', data.error.code || res.status, data.error.message, 'model=', m);
-                    return t;
+                    return raw.trim();
                 }
                 const out = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (out != null && String(out).trim()) return String(out).trim();
                 const finishReason = data.candidates?.[0]?.finishReason;
-                if (finishReason && finishReason !== 'STOP') console.warn('translatePromptToEnglish 未完成:', finishReason);
+                if (finishReason && finishReason !== 'STOP') console.warn('geminiTranslateWithInstruction 未完成:', finishReason);
             } catch (e) {
-                console.error('translatePromptToEnglish:', e.message);
-                return t;
+                console.error('geminiTranslateWithInstruction:', e.message);
+                return raw.trim();
             }
         }
-        return t;
+        return raw.trim();
     });
+}
+
+async function translatePromptToEnglish(text) {
+    if (!text || !String(text).trim()) return '';
+    const t = String(text).trim();
+    if (process.env.ENABLE_PROMPT_TRANSLATION === 'false' || process.env.ENABLE_PROMPT_TRANSLATION === '0') return t;
+    if (!looksLikeNonEnglish(t)) return t;
+    return geminiTranslateWithInstruction('Translate to English only, one line, no explanation:', t);
+}
+
+/** 送 BFL／FLUX 前：含多段／條列的完整 prompt，保留換行與結構 */
+async function translatePromptToEnglishForFlux(text) {
+    if (!text || !String(text).trim()) return '';
+    const t = String(text);
+    if (process.env.ENABLE_PROMPT_TRANSLATION === 'false' || process.env.ENABLE_PROMPT_TRANSLATION === '0') return t.trim();
+    if (!looksLikeNonEnglish(t)) return t.trim();
+    return geminiTranslateWithInstruction(
+        'Translate the following to English for an image generation API. Preserve all line breaks, bullet points, brackets, and section structure. Output only the translation, no explanation:',
+        t
+    );
 }
 
 /** 有 prompt + negativePrompt 時一次送、一次回，只打 1 次 API */
@@ -5029,6 +5127,7 @@ async function pollBflResult(createData, BFL_API_KEY) {
 async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY) return null;
+    prompt = await translatePromptToEnglishForFlux(prompt);
     const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
     const body = {
         prompt,
@@ -5055,6 +5154,7 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) 
 async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !referenceImages || referenceImages.length === 0) return null;
+    prompt = await translatePromptToEnglishForFlux(prompt);
     const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
     const maxImages = 8;
     const images = referenceImages.slice(0, maxImages).map((img) => {
@@ -5096,6 +5196,7 @@ async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, ass
 
 /** 通用 BFL 文生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
 async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed, outputFormat, BFL_API_KEY) {
+    prompt = await translatePromptToEnglishForFlux(prompt);
     const body = {
         prompt,
         width: Math.min(2048, Math.max(512, Number(width) || 1024)),
@@ -5119,6 +5220,7 @@ async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed
 
 /** 通用 BFL 圖生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
 async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, width, height, seed, outputFormat, BFL_API_KEY) {
+    prompt = await translatePromptToEnglishForFlux(prompt);
     const images = referenceImages.slice(0, 8).map((img) => {
         if (typeof img === 'string' && img.startsWith('data:')) {
             const m = img.match(/^data:image\/\w+;base64,(.+)$/);
@@ -5239,9 +5341,10 @@ async function generateSceneSimulateImage(environmentImageBase64, productImageBa
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !environmentImageBase64 || !productImageBase64) return null;
     const systemPrompt = await getSceneSimSystemPrompt();
-    const prompt = (userPrompt && String(userPrompt).trim())
+    let prompt = (userPrompt && String(userPrompt).trim())
         ? systemPrompt + '\n\nUser instruction: ' + String(userPrompt).trim()
         : systemPrompt;
+    prompt = await translatePromptToEnglishForFlux(prompt);
     const body = {
         prompt,
         output_format: 'jpeg',
@@ -5274,6 +5377,7 @@ async function generatePatternExtractImage(imageBase64, userPrompt, seamless, se
     let prompt = (userPrompt && String(userPrompt).trim())
         ? systemPrompt + '\n\nUser instruction: ' + String(userPrompt).trim()
         : systemPrompt;
+    prompt = await translatePromptToEnglishForFlux(prompt);
     const w = Math.min(2048, Math.max(512, parseInt(width, 10) || 1024));
     const h = Math.min(2048, Math.max(512, parseInt(height, 10) || 1024));
     const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
@@ -11118,7 +11222,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             updates.min_order_quantity = moqParsed.value;
             const levels = body.customization_levels !== undefined
                 ? (parseCustomizationLevelsFromBody(body) || [])
-                : normalizeCustomizationLevels(row.customization_levels);
+                : sanitizeCustomizationLevelsForStorage(row.customization_levels);
             if (!levels.length) return res.status(400).json({ error: '請至少選擇一項訂製程度' });
             updates.customization_levels = levels;
         }

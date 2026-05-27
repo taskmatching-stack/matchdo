@@ -419,14 +419,32 @@
             { key: 'form_structure', i18n: 'baseModels.customLevelFormStructure', fb: '造型／結構' }
         ];
 
+        var GRAPHIC_CUSTOMIZATION_LEVELS = ['mono_graphic', 'color_graphic'];
+
+        function sanitizeGraphicLevelsClient(keys) {
+            var out = (keys || []).slice();
+            if (out.indexOf('mono_graphic') >= 0 && out.indexOf('color_graphic') >= 0) {
+                out = out.filter(function (k) { return k !== 'mono_graphic'; });
+            }
+            return out;
+        }
+
         function bindCustomizationLevelButtons(container) {
             if (!container || container._clBtnBound) return;
             container._clBtnBound = true;
             container.addEventListener('click', function (e) {
                 var btn = e.target.closest('.customization-level-btn');
                 if (!btn || !container.contains(btn)) return;
+                var level = btn.getAttribute('data-level');
                 btn.classList.toggle('active');
                 btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+                if (GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(level) >= 0 && btn.classList.contains('active')) {
+                    var other = level === 'mono_graphic' ? 'color_graphic' : 'mono_graphic';
+                    container.querySelectorAll('.customization-level-btn[data-level="' + other + '"]').forEach(function (otherBtn) {
+                        otherBtn.classList.remove('active');
+                        otherBtn.setAttribute('aria-pressed', 'false');
+                    });
+                }
             });
         }
 
@@ -434,7 +452,7 @@
             if (!container) return;
             bindCustomizationLevelButtons(container);
             var selected = {};
-            (selectedKeys || []).forEach(function (k) { selected[String(k)] = true; });
+            sanitizeGraphicLevelsClient(selectedKeys || []).forEach(function (k) { selected[String(k)] = true; });
             container.innerHTML = CUSTOMIZATION_LEVEL_OPTIONS.map(function (opt) {
                 var label = tr(opt.i18n, opt.fb);
                 var on = !!selected[opt.key];
@@ -449,7 +467,7 @@
                 var v = btn.getAttribute('data-level');
                 if (v && out.indexOf(v) < 0) out.push(v);
             });
-            return out;
+            return sanitizeGraphicLevelsClient(out);
         }
 
         function initPrototypeMetaFields() {
