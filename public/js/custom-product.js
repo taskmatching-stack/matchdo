@@ -320,6 +320,23 @@ $(document).ready(function () {
         $('.vendor-customization-filter').removeClass('active').attr('aria-pressed', 'false');
     }
 
+    function parseCustomizationLevelsClient(raw) {
+        if (raw == null || raw === '') return [];
+        if (Array.isArray(raw)) return raw.slice();
+        var t = String(raw).trim();
+        if (!t) return [];
+        if (t.charAt(0) === '{' && t.charAt(t.length - 1) === '}') {
+            var inner = t.slice(1, -1).trim();
+            if (!inner) return [];
+            return inner.split(',').map(function (s) { return s.trim().replace(/^"|"$/g, ''); }).filter(Boolean);
+        }
+        try {
+            var parsed = JSON.parse(t);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) { /* ignore */ }
+        return t.split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+
     function getVendorCustomizationFilterKeys() {
         var keys = [];
         $('.vendor-customization-filter.active').each(function () {
@@ -329,10 +346,48 @@ $(document).ready(function () {
         return keys;
     }
 
+    function applyClientVendorAssetFilters(items) {
+        var list = (items || []).slice();
+        var moqRaw = ($('#vendorAssetsMoq').val() || '').trim();
+        var moqN = moqRaw ? parseInt(moqRaw, 10) : null;
+        if (moqRaw && Number.isFinite(moqN) && moqN >= 1) {
+            list = list.filter(function (item) {
+                if ((item.asset_kind || 'prototype') !== 'prototype') return false;
+                var moq = item.min_order_quantity;
+                return moq != null && Number(moq) === moqN;
+            });
+        }
+        var customKeys = getVendorCustomizationFilterKeys();
+        if (customKeys.length) {
+            list = list.filter(function (item) {
+                if ((item.asset_kind || 'prototype') !== 'prototype') return false;
+                var levels = parseCustomizationLevelsClient(item.customization_levels);
+                if (!levels.length) return false;
+                return customKeys.some(function (k) { return levels.indexOf(k) >= 0; });
+            });
+        }
+        return list;
+    }
+
+    var vendorAssetsMoqReloadTimer = null;
+    function scheduleVendorAssetsPickerReload() {
+        if (typeof window.__vendorAssetsFetchParams === 'undefined' || !window.__vendorAssetsFetchParams) return;
+        if (vendorAssetsMoqReloadTimer) clearTimeout(vendorAssetsMoqReloadTimer);
+        vendorAssetsMoqReloadTimer = setTimeout(function () {
+            vendorAssetsMoqReloadTimer = null;
+            loadVendorAssetsPickerList();
+        }, 350);
+    }
+
     $(document).on('click', '.vendor-customization-filter', function () {
         var $btn = $(this);
         $btn.toggleClass('active');
         $btn.attr('aria-pressed', $btn.hasClass('active') ? 'true' : 'false');
+        scheduleVendorAssetsPickerReload();
+    });
+
+    $('#vendorAssetsMoq').on('input change', function () {
+        scheduleVendorAssetsPickerReload();
     });
 
     function fillVendorCatalogGroupSelect(manufacturerId) {
@@ -792,6 +847,7 @@ $(document).ready(function () {
         fetch(url).then(function (r) { return r.json(); }).then(function (data) {
             $loading.addClass('d-none');
             var items = (data && data.items) ? data.items : [];
+            items = applyClientVendorAssetFilters(items);
             if (!items.length) {
                 $empty.removeClass('d-none').text(t('customProduct.vendorAssetsEmptyFiltered') || '此條件下尚無符合的素材，請調整篩選或清除後重試。');
                 return;

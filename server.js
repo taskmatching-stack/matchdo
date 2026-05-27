@@ -482,7 +482,12 @@ function normalizeCustomizationLevels(raw) {
     if (typeof raw === 'string') {
         const t = raw.trim();
         if (!t) return [];
-        try { arr = JSON.parse(t); } catch (_) { arr = t.split(/[,，]/); }
+        if (t.startsWith('{') && t.endsWith('}')) {
+            const inner = t.slice(1, -1).trim();
+            arr = inner ? inner.split(',').map((s) => s.trim().replace(/^"|"$/g, '')) : [];
+        } else {
+            try { arr = JSON.parse(t); } catch (_) { arr = t.split(/[,，]/); }
+        }
     }
     if (!Array.isArray(arr)) return [];
     const out = [];
