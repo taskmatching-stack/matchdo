@@ -369,7 +369,7 @@
   "customProduct.categoryBaseHint": "素材依主分類載入；點選圖片可加入參考圖（可連選多張，最多 8 張）。",
   "customProduct.vendorBaseHint": "點選圖片可加入參考圖（可連選多張，最多 8 張）。",
   "customProduct.vendorBaseEmpty": "此廠商尚無版型素材。",
-  "customProduct.vendorPickerHint": "可用關鍵字搜尋（如尖領、丹寧），或依造型、材質、色彩、廠商、服務區域篩選後按「套用」；建議同一設計僅用一家廠商素材。",
+  "customProduct.vendorPickerHint": "可用關鍵字搜尋（如尖領、丹寧），或依造型、材質、色彩、廠商、服務區域篩選後按「套用」。訂製程度與 MOQ 選取後會自動更新結果。",
   "customProduct.vendorPickerHintOneMfr": "已鎖定此廠商；可依廠商自訂分類、關鍵字或造型、材質、色彩篩選後按「套用」。",
   "customProduct.filterKeyword": "關鍵字",
   "customProduct.keywordPlaceholder": "標題、標籤、說明（如：尖領、丹寧）",
