@@ -62,6 +62,7 @@
     <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
     <!-- 全站共用樣式（含 Navbar Logo 置中） -->
     <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/image-lightbox.css" rel="stylesheet">
 
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
@@ -151,7 +152,7 @@
                 #media-wall-grid .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
                 #media-wall-grid .card .media-wall-card-link { display: flex; flex-direction: column; flex: 1; min-height: 0; text-decoration: none; color: inherit; }
                 #media-wall-grid .card .card-img-wrap { width: 100%; flex: 1; min-height: 0; background: #f0f0f0; position: relative; }
-                #media-wall-grid .card .card-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+                #media-wall-grid .card .card-img-wrap > img { display: block; width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
                 #media-wall-grid .card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.15); pointer-events: none; transition: opacity .2s ease; }
                 #media-wall-grid .card:hover .card-img-wrap::after { opacity: 0; }
                 #media-wall-grid .card .card-title-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px; background: linear-gradient(transparent, rgba(0,0,0,.6)); color: #fff !important; font-size: 0.7rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 1px #445D7E, 0 1px 3px rgba(0,0,0,.9); }
@@ -364,6 +365,7 @@
     <!-- JavaScript Libraries（Bootstrap 需在 site-header 前，供 navbar 使用） -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/image-lightbox.js"></script>
     <!-- Supabase / 登入：放頁尾，不阻塞首屏，登入按鈕已由上方 inline 先畫出 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
@@ -1683,6 +1685,7 @@
                 }
             }
             grid.addEventListener('click', function (e) {
+                if (e.target.closest('.mw-fav-btn, .mw-tags-btn, .media-wall-admin-actions, .comparison-slider-wrap input[type="range"]')) return;
                 var a = e.target.closest('a.media-wall-card-link');
                 if (!a) return;
                 e.preventDefault();
@@ -1691,6 +1694,16 @@
                 if (!data) return;
                 var item = JSON.parse(data);
                 openLightboxWithItem(item);
+            });
+            grid.addEventListener('dblclick', function (e) {
+                if (e.target.closest('.mw-fav-btn, .mw-tags-btn, .media-wall-admin-actions')) return;
+                var img = e.target.closest('.card-img-wrap img');
+                if (!img || !img.src || img.src.indexOf('placehold.co') >= 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (window.MatchdoImageLightbox) {
+                    window.MatchdoImageLightbox.openFromImg(img, img.getAttribute('alt') || '');
+                }
             });
             // 從獨立 URL 導向（/?item=type-id）進入時，取得單一作品並開啟 lightbox
             (function () {

@@ -176,7 +176,13 @@ $(document).ready(function () {
             if (refDataUrls[i]) {
                 slot.addClass('filled');
                 if (i === selectedRefIndex) slot.addClass('selected');
-                slot.append($('<img class="ref-slot-thumb" alt="參考圖 ' + (i + 1) + '">').attr('src', refDataUrls[i]));
+                var slotThumb = $('<img class="ref-slot-thumb" alt="參考圖 ' + (i + 1) + '" title="點擊放大">').attr('src', refDataUrls[i]);
+                slotThumb.on('click', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    openRefImagePreviewModal(i);
+                });
+                slot.append(slotThumb);
                 slot.append($('<button type="button" class="ref-slot-clear" title="移除">×</button>').on('click', function (ev) {
                     ev.stopPropagation();
                     refDataUrls[i] = null;
@@ -222,8 +228,8 @@ $(document).ready(function () {
             for (let i = 0; i < MAX_REF_IMAGES; i++) {
                 if (!refDataUrls[i]) continue;
                 const card = $('<div class="ref-card" data-index="' + i + '"></div>');
-                var thumb = $('<img class="ref-card-thumb" alt="參考圖 ' + (i + 1) + '" title="' + (vendorPickerTr('customProduct.refDblclickPreview', '雙擊縮圖可放大') || '') + '">').attr('src', refDataUrls[i]);
-                thumb.on('dblclick', function (e) { e.preventDefault(); e.stopPropagation(); openRefImagePreviewModal(i); });
+                var thumb = $('<img class="ref-card-thumb" alt="參考圖 ' + (i + 1) + '" title="' + (vendorPickerTr('customProduct.refClickPreview', '點擊縮圖可放大') || '點擊縮圖可放大') + '">').attr('src', refDataUrls[i]);
+                thumb.on('click', function (e) { e.preventDefault(); e.stopPropagation(); openRefImagePreviewModal(i); });
                 card.append(thumb);
                 const right = $('<div class="ref-card-right"></div>');
                 var labelText = '參考圖 ' + (i + 1) + ' · 從此圖產生描述';
@@ -539,6 +545,7 @@ $(document).ready(function () {
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
             ' data-asset-kind="' + assetKind + '" data-title="' + title + '">' +
             '<div class="vendor-asset-pick-zone" role="button" tabindex="0" title="' + pickHint + '">' +
+            '<button type="button" class="vendor-asset-zoom-btn" title="' + (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;') + '" aria-label="' + (t('customProduct.zoomImage') || '放大').replace(/"/g, '&quot;') + '"><i class="bi bi-zoom-in"></i></button>' +
             '<img class="card-img-top vendor-asset-pick-img" src="' + imgUrl + '" alt="" loading="lazy" style="height:120px;object-fit:cover;">' +
             '</div>' +
             '<div class="card-body p-2 vendor-asset-card-meta">' + meta +
@@ -551,6 +558,17 @@ $(document).ready(function () {
     }
 
     function bindVendorAssetCardClicks($list, modalEl) {
+        $list.find('.vendor-asset-zoom-btn').off('click').on('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var $c = $(this).closest('.vendor-asset-card');
+            var u = $c.attr('data-image-url');
+            var cap = ($c.attr('data-title') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').trim();
+            if (!u) return;
+            if (window.MatchdoImageLightbox) {
+                window.MatchdoImageLightbox.open({ src: u, caption: cap, alt: cap });
+            }
+        });
         $list.find('.vendor-asset-card-meta, .vendor-asset-mfr-link, .vendor-asset-mfr-search-btn, .vendor-asset-title').off('mousedown click pointerdown')
             .on('mousedown click pointerdown', function (e) { e.stopPropagation(); });
         $list.find('.vendor-asset-mfr-search-btn').off('click').on('click', function (e) {
@@ -1338,6 +1356,16 @@ $(document).ready(function () {
         refreshPastGeneratedGallery();
     });
 
+    $(document).on('click', '.js-preview-enlarge', function (e) {
+        e.preventDefault();
+        var url = $(this).attr('src');
+        if (!url) return;
+        if (window.MatchdoImageLightbox) {
+            window.MatchdoImageLightbox.open({ src: url, caption: t('customProduct.thisGeneration') || '' });
+            return;
+        }
+    });
+
     // 點擊預覽區的生成圖：開同一 modal 放大顯示（與數位資產一致）
     $(document).on('click', '#generatedImagePreview img', function (e) {
         e.preventDefault();
@@ -2040,7 +2068,7 @@ $(document).ready(function () {
         var wrap = $('#patternExtractResultWrap');
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
-        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.patternExtractTab') || '圖樣提取結果').addClass('img-fluid rounded').css('maxWidth', '100%'));
+        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.patternExtractTab') || '圖樣提取結果').addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
         var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>' + (t('customProduct.downloadImage') || '下載圖片') + '</a>');
         $btn.on('click', function (e) {
             e.preventDefault();
