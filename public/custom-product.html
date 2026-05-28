@@ -139,6 +139,26 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="productPromptHelpModal" tabindex="-1" aria-labelledby="productPromptHelpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="productPromptHelpModalLabel" data-i18n="customProduct.promptHelpTitle">產品描述操作說明</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body small">
+                    <p class="mb-2" data-i18n="customProduct.promptHelpQuote">若要指定印在產品上的文字（中文、英文、品牌字樣等），請用半形雙引號 <strong>" "</strong> 包起來，生圖時會盡量原樣保留引號內文字。</p>
+                    <p class="mb-2 text-muted" data-i18n="customProduct.promptHelpQuoteExample">範例：胸前燙印 "恭喜發財" 四個字，黑底金字</p>
+                    <p class="mb-2" data-i18n="customProduct.promptHelpRest">其餘描述（風格、材質、顏色、位置等）請照常書寫；送出生圖前系統會將整段提示翻譯成英文，但引號內文字不翻譯。</p>
+                    <p class="mb-0" data-i18n="customProduct.promptHelpRef">亦可從下方參考圖「從此圖產生描述」複製句子到本框，再依需要加上引號標示要印的文字。</p>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="vendorAssetsPickerModal" tabindex="-1" aria-labelledby="vendorAssetsPickerLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
             <div class="modal-content">
@@ -486,6 +506,15 @@
         #custom-product .form-row.full { grid-template-columns: 1fr; }
         #custom-product .form-row .label { font-size: 0.875rem; color: #374151; font-weight: 500; }
         #custom-product .form-row .label span { color: #6b7280; font-weight: 400; }
+        #custom-product .prompt-help-btn {
+            width: 1.35rem;
+            height: 1.35rem;
+            padding: 0;
+            line-height: 1.2;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        #custom-product .prompt-label-row .label { margin-bottom: 0; }
         #custom-product .prompt-hero {
             width: 100%; min-height: 90px; padding: 0.875rem 1rem;
             border-radius: 10px; border: 1px solid #e5e7eb;
@@ -641,9 +670,12 @@
                     <div class="create-panel">
                         <div class="create-panel-left">
                             <div class="form-row full">
-                                <label class="label" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
-                                <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="請輸入風格、材質、結構與顏色"></textarea>
-                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">可從下方參考圖的「從此圖產生描述」結果中，選取需要的句子貼到本框使用。</p>
+                                <div class="prompt-label-row d-flex align-items-center gap-2 flex-wrap mb-1">
+                                    <label class="label mb-0" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle prompt-help-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptHelpModal" aria-label="操作說明" title="操作說明" data-i18n-title="customProduct.promptHelpBtnTitle">?</button>
+                                </div>
+                                <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="例：軍綠後背包，正面燙印 &quot;OPEN&quot;"></textarea>
+                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">要印在產品上的字請用半形雙引號 &quot; &quot; 包住；點 ? 看說明。亦可從參考圖「從此圖產生描述」貼上句子。</p>
                             </div>
 
                             <!-- 桌機版：雙面板 -->

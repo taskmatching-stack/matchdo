@@ -1313,7 +1313,9 @@ async function translatePromptToEnglishForFlux(text) {
     if (process.env.ENABLE_PROMPT_TRANSLATION === 'false' || process.env.ENABLE_PROMPT_TRANSLATION === '0') return t.trim();
     if (!looksLikeNonEnglish(t)) return t.trim();
     return geminiTranslateWithInstruction(
-        'Translate the following to English for an image generation API. Preserve all line breaks, bullet points, brackets, and section structure. Output only the translation, no explanation:',
+        'Translate the following to English for an image generation API. Preserve all line breaks, bullet points, brackets, and section structure. '
+        + 'Any text inside straight ASCII double quotes "..." must appear unchanged in the output—do not translate, transliterate, or paraphrase quoted text (e.g. Chinese characters to print on the product). '
+        + 'Output only the translation, no explanation:',
         t
     );
 }
