@@ -1221,12 +1221,14 @@
                     if (m.min_order_quantity != null && Number(m.min_order_quantity) >= 1) {
                         protoMetaHtml += '<div class="text-muted small mb-1">' + esc(String(tr('baseModels.moqLine', 'MOQ：{n} 件')).replace(/\{n\}/g, String(m.min_order_quantity))) + '</div>';
                     }
-                    var clLabels = m.customization_level_labels || [];
-                    if (!clLabels.length && m.customization_levels && m.customization_levels.length) {
+                    var clLabels = [];
+                    if (m.customization_levels && m.customization_levels.length) {
                         clLabels = m.customization_levels.map(function (k) {
                             var opt = CUSTOMIZATION_LEVEL_OPTIONS.find(function (o) { return o.key === k; });
                             return opt ? tr(opt.i18n, opt.fb) : k;
                         });
+                    } else if (m.customization_level_labels && m.customization_level_labels.length) {
+                        clLabels = m.customization_level_labels;
                     }
                     if (clLabels.length) {
                         protoMetaHtml += '<div class="mb-2">' + clLabels.map(function (lbl) {

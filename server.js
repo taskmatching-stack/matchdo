@@ -574,7 +574,8 @@ function parseVendorAssetPrototypeMoq(raw, opts) {
 }
 
 function vendorCustomizationLevelLabel(levelKey, lang) {
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const langStr = (lang != null && typeof lang === 'string') ? lang : '';
+    const isEn = langStr && langStr.toLowerCase().indexOf('zh') !== 0;
     const map = {
         mono_graphic: isEn ? 'Mono surface graphics' : '單色表面圖文',
         color_graphic: isEn ? 'Multi-color surface graphics' : '彩色表面圖文',
@@ -766,6 +767,13 @@ function enrichVendorAssetPrototypeFields(row, lang) {
         customization_levels: levels,
         customization_level_labels: levelLabels.map(function (x) { return x.label; })
     };
+}
+
+function resolveVendorAssetApiLang(req) {
+    const q = (req && req.query && req.query.lang) ? String(req.query.lang).trim() : '';
+    if (q) return q;
+    const accept = (req.headers['accept-language'] || '').split(',')[0].trim();
+    return accept || 'zh-TW';
 }
 
 function mapVendorAssetForApi(row, lang) {
@@ -10654,7 +10662,8 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         }
         list = await enrichVendorAssetsWithSupplierMeta(manufacturerId, list || []);
         if (list && list.length) list = await attachCatalogGroupIdsToAssets(list);
-        res.json({ items: (list || []).map(mapVendorAssetForApi) });
+        const lang = resolveVendorAssetApiLang(req);
+        res.json({ items: (list || []).map(function (row) { return mapVendorAssetForApi(row, lang); }) });
     } catch (e) {
         console.error('GET /api/me/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
