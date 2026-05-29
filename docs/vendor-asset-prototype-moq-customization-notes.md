@@ -1,8 +1,8 @@
-# 數位原型：MOQ 與訂製程度 — 功能說明與統計規劃備忘
+# 廠商素材：數位原型（MOQ／訂製程度）與材料參考生圖 — 功能說明
 
-> 建立：2026-05-26  
-> 相關 migration：`add-vendor-asset-prototype-moq-customization.sql`、`add-vendor-asset-gallery-images.sql`  
-> 上線 commit 參考：`76c2736`（欄位）、`0ff5ec6`（按鈕 UI）、`b71e2b3`（篩選修正）、`5514f1d`（尺寸／零件）
+> 建立：2026-05-26 · 最後更新：2026-05-26  
+> 相關 migration：`docs/add-vendor-asset-prototype-moq-customization.sql`、`docs/add-vendor-asset-gallery-images.sql`  
+> 上線 commit 參考：`76c2736`（欄位）、`0ff5ec6`（按鈕 UI）、`b71e2b3`（篩選修正）、`5514f1d`（尺寸／零件）、`3c15eea`（列表 i18n）、材質紋理附錄（待 push，見下方 §材料）
 
 ## 欄位定義（僅 `asset_kind = prototype`）
 
@@ -115,7 +115,70 @@ ORDER BY min_order_quantity;
 | 單色／彩色表面圖文 | 互斥擇一 | 未選之圖文類型寫禁止（如選單色→禁止全彩） |
 | 附錄開頭 | — | 使用者產品描述為主；下列僅限未支援項目 |
 | 多個參考原型 | — | 各原型分開列出；圖文能力取交集（最嚴） |
+| 材料參考（`material`） | — | 另附「材質紋理參考」段（見 §材料） |
 
 ---
+
+## 材料參考（`asset_kind = material`）生圖提示詞（2026-05-26）
+
+### 觸發條件
+
+- `POST /api/generate-product-image` 且 `referenceImages.length > 0`
+- `reference_sources[]` 中至少一筆 `asset_kind === 'material'`（與 `referenceImages` **同序**：皆為 `filter(Boolean)` 後的陣列，第 N 張圖對第 N 筆來源）
+
+### 與數位原型的分工
+
+| 參考類型 | 決定什麼 | 生圖附錄 |
+|----------|----------|----------|
+| `prototype` | 造型、輪廓、結構；訂製程度／MOQ 限制 | `buildPrototypeCustomizationPromptAppendix` |
+| `material` | 表面色彩、紋理、織法、木紋／金屬質感 | `buildMaterialTexturePromptAppendix` |
+
+兩段附錄皆 **append 至同一 `fullPrompt`**，再經 `translatePromptToEnglishForFlux` 整段英譯（`"..."` 內印刷文字不譯）。
+
+### 材料附錄內容（摘要）
+
+1. **全段規則**（有任一材料參考即加）  
+   - 材質圖不決定產品造型。  
+   - 勿將樣板依長寬比平鋪貼上；整合到產品表面且紋路尺度合理。  
+   - 原型管幾何，材質管本體／布料／金屬／木材表面。
+
+2. **每一張材料參考**  
+   - 標示「參考圖第 N 張」+ 標題 + `material_key` 顯示名（布料／金屬等）。  
+   - 依 `material_key` 一條尺度建議（`materialTextureScaleRuleForKey`）。
+
+3. **可選軟提示**（`inferOptionalMaterialContextHints`）  
+   - 來源：`image_url` **檔名**（去副檔名）、`title`；若 DB 已有 `material_key` 則**不再**用檔名猜材質類型（避免衝突）。  
+   - 例：檔名含 `macro`／`swatch`／`胡桃` → 附加「可選線索…非唯一依據」。  
+   - 附錄結尾明寫：檔名／標題線索 **非強制**。
+
+### 前端配合
+
+- 設計頁從素材庫選材料時，`reference_sources` 帶 `material_key`（`custom-product.js` 卡片 `data-material-key`）。  
+- 缺欄時後端 `resolveMaterialRefsForPrompt` 以 `vendor_asset_id` 查 DB 補齊。
+
+### 已知限制（產品須知）
+
+- 輸出固定 **1024×1024**；材質樣板長寬比不會原樣出現在成品上，但 **紋路粗細無物理尺度保證**，仍建議使用者在描述中寫「細紋／適合手機殼」等。  
+- FLUX 以 `input_image` 為第一張參考；多張混用時順序會影響偏重，宜 **原型在前、材質在後**（目前未自動重排，僅靠使用者選圖順序）。  
+- **未**自動 pad 非正方形參考圖（上傳僅最長邊 ≤1024 等比縮小）。
+
+### 程式位置
+
+| 函式 | 用途 |
+|------|------|
+| `extractImageUrlBasename` | 從 URL 取檔名線索 |
+| `inferOptionalMaterialContextHints` | 檔名／標題軟提示 |
+| `resolveMaterialRefsForPrompt` | 對齊 `reference_sources` 與 DB |
+| `buildMaterialTexturePromptAppendix` | 組裝附錄字串 |
+
+### 日後可選（未排程）
+
+- 送 BFL 前依 `asset_kind` 重排參考圖（原型先、材質後）。  
+- 設計頁 `?` 說明加「材質參考與紋路尺度」段落（i18n）。  
+- 極端長寬比參考圖 pad 至正方形（僅在實測變形時）。
+
+---
+
+## 統計與其他待辦
 
 *待辦（統計相關，未排程）：指標清單、是否做 A/B、是否擴充 `reference_sources` 快照。*

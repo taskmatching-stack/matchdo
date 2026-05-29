@@ -4,7 +4,7 @@
 
 ---
 
-## 接下來執行進度（建議順序）
+## 接下來執行進度（建議順序 · 含廠商素材 MOQ／材質提示）
 
 > **架構優化 Step 0～4 + Step 1～2**：✅ **已完成**（2026-05-26）。**Step 5 路由拆分已還原**（`605dca4` 導致啟動時 `express is not defined`、全站 500；已恢復 Step 4 的 `server.js`）。  
 > **第二輪**（含 **重做 Step 5**、拆 `custom-products` API）：見 **「架構優化第二輪」**。
@@ -13,9 +13,9 @@
 
 | 順序 | 做什麼 | 誰做 | 完成標準 |
 |------|--------|------|----------|
-| **1** | **Supabase 執行 SQL** | 你 | 依下方「待執行 SQL」至少跑完：`semantics` → `semantics-taxonomy` → `data-lineage` → `designer-region`；有廠商自訂分類則加 `vendor-catalog-groups` |
-| **2** | **Cloud Run 部署** | 你（Cloud Shell） | `git fetch && reset --hard origin/main` 後 `gcloud run deploy …`（見 `.cursor/rules/deployment.mdc`） |
-| **3** | **冒煙測試** | 你 | ① 廠商：控制台→「開啟廠商首頁」、上傳展示案例／數位版型、選單「我的廠商首頁」② 產品設計生圖→儲存→`ai_tags_by_dimension` ③ 圖庫帶分類仍正常 |
+| **1** | **Supabase 執行 SQL** | 你 | 依下方「待執行 SQL」至少跑完：`semantics` → `semantics-taxonomy` → `data-lineage` → `designer-region`；有廠商自訂分類則加 `vendor-catalog-groups`；**數位原型 MOQ／訂製程度** → `add-vendor-asset-prototype-moq-customization.sql`；**原型多圖** → `add-vendor-asset-gallery-images.sql` |
+| **2** | **Git push + Cloud Run 部署** | 你 | 確認 `main` 含：MOQ／訂製程度、FLUX 英譯與 `"..."` 保留、材質紋理提示附錄（`server.js`）；Cloud Shell：`git fetch && reset --hard origin/main` 後 `gcloud run deploy …`（見 `.cursor/rules/deployment.mdc`） |
+| **3** | **冒煙測試** | 你 | ① 廠商：上傳**數位原型**（MOQ＋訂製程度、單色／彩色互斥）與**材料參考** ② 設計頁：篩 MOQ／訂製程度、混用原型＋材質參考圖生圖 ③ 儲存→`ai_tags_by_dimension` ④ 圖庫帶分類仍正常 |
 | **4** | **全站 E2E** | 你 | 訂製六步、素材庫、廠商頁、對話、點數；問題清單回報再改 |
 | **5** | **分析／報表（可選）** | 開發排程 | 媒體牆 API `exclude_vendor_self_serve`；依國家／分維 tag 聚合（R5） |
 | **6** | **舊資料補跑（可選）** | 開發排程 | 血緣 backfill；舊圖重跑 Gemini 補 `ai_tags_by_dimension`（耗 API） |
@@ -55,7 +55,8 @@
 | **`docs/design-direction-analysis-time-fields.md`** | 風向分析可撈的時間／語意／地區欄位（`custom_products` 等）。 |
 | **`docs/vendor-profile-slug-plan.md`** | **選用／後排**：廠商公開頁自訂網址（`/vendor/{slug}`），取代或並存 `vendor-profile.html?id=UUID`；實作清單與工時見該檔。 |
 | **`docs/admin-ai-settings-models.md`** | **後台 AI 模型設定**：`/admin/ai-settings.html` 三槽（翻譯／讀圖分析／標籤讀圖）、API 與 `payment_config`；**暫定**讀圖分析 → `gemini-3.1-pro-preview`，標籤維持 `gemini-3.1-flash-lite`。 |
-| **`docs/design-analysis-material-backtrace.md`** | **待開發**：設計分析須能從 `reference_sources`／`vendor_assets`（材料、版型）**回推訂製需求**；與成品 `ai_tags` 分離，見 MB-0～MB-4。 |
+| **`docs/vendor-asset-prototype-moq-customization-notes.md`** | **已實作（文件）**：數位原型 MOQ／訂製程度篩選與生圖製造限制句；**材料參考**紋理尺度附錄（檔名軟提示）。程式見 `server.js`；部署前確認 SQL 已跑。 |
+| **`docs/design-analysis-material-backtrace.md`** | **待開發**：設計分析須能從 `reference_sources`／`vendor_assets`（材料、版型）**回推訂製需求**；與成品 `ai_tags` 分離，見 MB-0～MB-4。（≠ 生圖材質附錄，後者已上程式） |
 | **`docs/supplier-reverse-intent-discovery-plan.md`** | **待開發（已評估）**：L0 逆向檢索；商機＝引用→**通知**+**引用製造商清單頁**（§3.3）；不做合作意向；RI-0～RI-6。 |
 | **`docs/architecture-optimization-backlog.md`** | **架構優化執行清單**：Step 0～5 **主線已完成**；URL 對照、風險、§十一 交付摘要與第二輪代辦 A6～A10。 |
 | **`docs/architecture-optimization-runbook.md`** | **逐步手冊與冒煙清單**（Step 0～5 操作紀錄；§十 上線驗證勾選）。 |
@@ -65,6 +66,30 @@
 | **本檔 §6「視覺語意庫・Gemini 標籤／提示詞／生成圖解析」** | 上傳與生圖時以 **`gemini-3.1-flash-lite`** 解讀圖與提示詞，累積 **`visual_semantics`** 供搜尋與日後售前風格意圖／流行預測；首頁靈感牆標籤搜尋；**規劃中**。 |
 
 ---
+
+## 近期完成（2026-05-26 種子廠商：天數／同意公開／內部預覽／素材上下架）
+
+| 項目 | 說明 |
+|------|------|
+| **SQL** | `docs/add-manufacturers-seed-public-released.sql` |
+| **後台** | `seed-vendors.html`：公開天數、到期日、同意公開／撤回、素材上下架 Modal |
+| **API** | `getRequestInternalPreviewFlag`；種子可見性規則；`PATCH` 素材 `is_public`；admin 素材列表 |
+| **廠商端** | `manufacturer-materials.html`：一般廠商素材上架／下架 |
+| **設計／廠商頁** | 帶 token 請求 `vendor-assets`（admin/tester 可預覽種子） |
+| **文件** | `docs/seed-vendor-admin-and-visibility-plan.md`、`種子廠商入駐操作手冊.md` |
+
+## 近期完成（2026-05-26 數位原型 MOQ／訂製程度 · 材質生圖提示）
+
+| 項目 | 說明 |
+|------|------|
+| **DB** | `min_order_quantity`、`customization_levels`（僅 `prototype`）；migration：`add-vendor-asset-prototype-moq-customization.sql`；多圖：`add-vendor-asset-gallery-images.sql` |
+| **廠商 UI** | `manufacturer-materials.html`：MOQ、訂製程度、單色／彩色表面圖文互斥 |
+| **設計端** | `custom-product`：MOQ 精確篩選、訂製程度 OR 篩選；選圖帶 `material_key` |
+| **生圖 prompt** | 原型：未勾選訂製程度→限制句；材料：`buildMaterialTexturePromptAppendix`（尺度、勿平鋪樣板、檔名可選線索） |
+| **FLUX** | 整段英譯；`"..."` 內印刷文字不譯；設計頁 `?` 說明 |
+| **修復** | `GET /api/me/vendor-assets` 列表第 2 筆起誤顯英文標籤（`3c15eea`） |
+| **文件** | 本檔進度表、`vendor-asset-prototype-moq-customization-notes.md`、`網站完整功能說明.md` |
+| **待你** | **push → 部署 → Supabase SQL**；實測材質＋原型混用生圖效果 |
 
 ## 近期完成（2026-05-26 架構優化 Step 0～4 主線；Step 5 已還原）
 
@@ -147,6 +172,9 @@
 | `docs/add-custom-products-semantics-taxonomy.sql` | 設計圖分維標籤 `ai_tags_by_dimension` |
 | `docs/add-custom-products-data-lineage.sql` | 廠商自產血緣（後端分析用） |
 | `docs/add-custom-products-designer-region.sql` | 設計者國家（僅 IP 快照） |
+| `docs/add-vendor-asset-prototype-moq-customization.sql` | 數位原型 **MOQ**、**訂製程度**（`vendor_assets`，2026-05-26） |
+| `docs/add-vendor-asset-gallery-images.sql` | 數位原型 **多角度** `gallery_images`（2026-05-26） |
+| `docs/add-manufacturers-seed-public-released.sql` | 種子廠商 **已同意公開** `seed_public_released_at`（2026-05-26） |
 
 ---
 

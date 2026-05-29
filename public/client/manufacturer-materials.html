@@ -1212,8 +1212,15 @@
                 if (m.from_supplier_catalog && m.supplier_name) {
                     kindBadge += '<span class="badge bg-light text-dark border mb-2"><i class="bi bi-truck me-1"></i>' + esc(tr('baseModels.fromSupplier', '供應商')) + '：' + esc(m.supplier_name) + '</span> ';
                 }
-                var actionBtns = isSeedVendor ? '<span class="text-muted small">—</span>'
-                    : ('<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil me-1"></i></button>' +
+                var pubBadge = (m.is_public === false)
+                    ? '<span class="badge bg-secondary mb-2 me-1">已下架</span>'
+                    : '<span class="badge bg-success mb-2 me-1">上架中</span>';
+                var togglePubBtn = isSeedVendor ? ''
+                    : ('<button class="btn btn-outline-secondary btn-sm btn-toggle-pub flex-fill" type="button" data-id="' + esc(m.id) + '" data-public="' + (m.is_public === false ? '0' : '1') + '" title="' + esc(tr('baseModels.togglePublish', '上架／下架')) + '"><i class="bi bi-eye' + (m.is_public === false ? '' : '-slash') + '"></i></button>');
+                var actionBtns = isSeedVendor
+                    ? ('<span class="text-muted small">由管理員於種子後台調整上下架</span>')
+                    : (togglePubBtn +
+                       '<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
                 var protoMetaHtml = '';
@@ -1246,7 +1253,7 @@
                     ? '<span class="badge bg-dark material-img-count">' + imgCount + ' ' + esc(tr('baseModels.imageCountUnit', '張')) + '</span>' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="點擊放大"></div>' : '') +
-                    '<div class="card-body p-3">' + kindBadge +
+                    '<div class="card-body p-3">' + kindBadge + pubBadge +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
                     '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + myCats + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
@@ -1259,6 +1266,22 @@
                 });
                 grid.querySelectorAll('.btn-edit').forEach(function (btn) {
                     btn.addEventListener('click', function () { openEditModal(btn.dataset.id); });
+                });
+                grid.querySelectorAll('.btn-toggle-pub').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var id = btn.dataset.id;
+                        var next = btn.dataset.public !== '1';
+                        fetch('/api/me/vendor-assets/' + encodeURIComponent(id), {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                            body: JSON.stringify({ is_public: next })
+                        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                            .then(function (res) {
+                                if (res.ok) loadMaterials();
+                                else alert((res.data && res.data.error) || '更新失敗');
+                            })
+                            .catch(function () { alert('網路錯誤'); });
+                    });
                 });
             }
         }

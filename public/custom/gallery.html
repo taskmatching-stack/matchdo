@@ -399,10 +399,21 @@
         return list;
     }
 
+    async function galleryVendorAssetsFetchOpts() {
+        const opts = {};
+        try {
+            if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
+                const s = await window.AuthService.getSession();
+                if (s && s.access_token) opts.headers = { Authorization: 'Bearer ' + s.access_token };
+            }
+        } catch (e) { /* ignore */ }
+        return opts;
+    }
+
     async function fetchVendorAssetsForManufacturer(mfrId) {
         if (!mfrId) return [];
         const url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
-        const r = await fetch(url);
+        const r = await fetch(url, await galleryVendorAssetsFetchOpts());
         const d = await r.json();
         return (d.items || []).filter(x => x && x.image_url);
     }
@@ -411,7 +422,7 @@
         if (!selCat) return [];
         const catKey = categoryKeyForUiActive() || String(selCat).split('&')[0].trim() || selCat;
         const url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
-        const r = await fetch(url);
+        const r = await fetch(url, await galleryVendorAssetsFetchOpts());
         const d = await r.json();
         return (d.items || []).filter(x => x && x.image_url);
     }

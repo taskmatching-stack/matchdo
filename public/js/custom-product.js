@@ -644,6 +644,7 @@ $(document).ready(function () {
         var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
         var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
         var assetKind = (item.asset_kind || 'prototype').replace(/"/g, '&quot;');
+        var materialKeyAttr = (item.material_key || '').replace(/"/g, '&quot;');
         var meta = '';
         if (item.style_label) {
             meta += '<span class="badge bg-light text-secondary border mb-1">' + item.style_label + '</span> ';
@@ -681,6 +682,7 @@ $(document).ready(function () {
             ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
             ' data-asset-kind="' + assetKind + '" data-title="' + title + '"' +
+            (materialKeyAttr ? ' data-material-key="' + materialKeyAttr + '"' : '') +
             (clLevelsJson ? ' data-customization-levels="' + clLevelsJson + '"' : '') +
             (moqAttr ? ' data-min-order-quantity="' + moqAttr + '"' : '') + '>' +
             '<div class="vendor-asset-pick-zone position-relative" role="button" tabindex="0" title="' + pickHint + '">' +
@@ -783,6 +785,7 @@ $(document).ready(function () {
             if (!Array.isArray(clLevels)) clLevels = [];
             var moqRaw = ($c.attr('data-min-order-quantity') || '').trim();
             var moqNum = moqRaw ? parseInt(moqRaw, 10) : null;
+            var materialKeyPick = ($c.attr('data-material-key') || '').trim();
             var baseMeta = {
                 vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
                 manufacturer_id: $c.attr('data-manufacturer-id') || null,
@@ -790,6 +793,7 @@ $(document).ready(function () {
                 manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
                 asset_kind: assetKind,
                 title: ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').trim(),
+                material_key: materialKeyPick || null,
                 customization_levels: clLevels,
                 min_order_quantity: (moqNum != null && moqNum >= 1) ? moqNum : null
             };
@@ -860,7 +864,16 @@ $(document).ready(function () {
         $list.empty().addClass('d-none');
         $empty.addClass('d-none');
         $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
-        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        var fetchOpts = {};
+        var fetchPromise = (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function')
+            ? window.AuthService.getSession().then(function (session) {
+                if (session && session.access_token) {
+                    fetchOpts.headers = { Authorization: 'Bearer ' + session.access_token };
+                }
+                return fetch(url, fetchOpts);
+            })
+            : fetch(url, fetchOpts);
+        fetchPromise.then(function (r) { return r.json(); }).then(function (data) {
             $loading.addClass('d-none');
             var items = (data && data.items) ? data.items : [];
             items = applyClientVendorAssetFilters(items);

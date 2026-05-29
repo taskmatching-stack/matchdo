@@ -740,6 +740,175 @@ async function resolvePrototypeAssetsForPrompt(referenceSourcesRaw) {
     });
 }
 
+/** 從圖片 URL 取出檔名（不含副檔名），供可選語意線索；不作為唯一判斷依據 */
+function extractImageUrlBasename(url) {
+    const raw = String(url || '').trim();
+    if (!raw) return '';
+    try {
+        const u = new URL(raw, 'https://placeholder.local');
+        const seg = decodeURIComponent((u.pathname || '').split('/').filter(Boolean).pop() || '');
+        return seg.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[-_]+/g, ' ').trim();
+    } catch (_) {
+        const fallback = raw.split('?')[0].split('/').filter(Boolean).pop() || '';
+        return fallback.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[-_]+/g, ' ').trim();
+    }
+}
+
+/** 依檔名／標題／material_key 推斷可選材質線索（軟提示，非強制） */
+function inferOptionalMaterialContextHints(basename, title, materialKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const combined = [basename, title, materialKey].filter(Boolean).join(' ').toLowerCase();
+    if (!combined.trim()) return [];
+    const hints = [];
+    const push = function (line) { if (line && hints.indexOf(line) < 0) hints.push(line); };
+
+    if (/macro|close[\s-]?up|closeup|微距|特寫|細部/.test(combined)) {
+        push(isEn
+            ? 'Optional hint (filename/title, not authoritative): swatch may be macro close-up—use finer grain on the product, avoid oversized repeating texture.'
+            : '可選線索（檔名／標題，非唯一依據）：樣板可能為微距特寫，成品紋路宜較細、勿放大成粗大重複紋。');
+    }
+    if (/swatch|sample|tile|樣板|色卡|布樣/.test(combined)) {
+        push(isEn
+            ? 'Optional hint: flat material swatch—borrow color and surface character only; do not paste the swatch rectangle into the scene.'
+            : '可選線索：平面材質樣板—僅參考色彩與表面質感，勿將樣板矩形貼入畫面。');
+    }
+    const mk = normalizeVendorMaterialKey(materialKey);
+    if (mk) return hints;
+    if (/wood|oak|walnut|teak|birch|木纹|木紋|胡桃|橡木|木材|實木/.test(combined)) {
+        push(isEn
+            ? 'Optional hint (filename/title): possible wood—grain scale should suit the product size.'
+            : '可選線索（檔名／標題）：可能為木材—紋路粗細宜符合成品尺寸。');
+    }
+    if (/metal|brass|steel|aluminum|copper|chrome|金屬|銅|不鏽|鋁|黃銅/.test(combined)) {
+        push(isEn
+            ? 'Optional hint (filename/title): possible metal—keep brush/patina scale realistic for object size.'
+            : '可選線索（檔名／標題）：可能為金屬—拉絲／氧化紋理尺度宜符合物件。');
+    }
+    if (/leather|suede|nubuck|皮革|牛皮|羊皮/.test(combined)) {
+        push(isEn
+            ? 'Optional hint (filename/title): possible leather—pore/crease scale should match the product.'
+            : '可選線索（檔名／標題）：可能為皮革—毛孔／皺褶尺度宜符合產品。');
+    }
+    if (/fabric|linen|cotton|denim|silk|wool|tweed|布|丹寧|棉|麻|織/.test(combined)) {
+        push(isEn
+            ? 'Optional hint (filename/title): possible fabric—weave repeat should suit garment or bag scale.'
+            : '可選線索（檔名／標題）：可能為布料—織紋重複尺度宜符合服飾或包袋。');
+    }
+    return hints;
+}
+
+function materialTextureScaleRuleForKey(materialKey, lang) {
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const mk = normalizeVendorMaterialKey(materialKey);
+    const map = {
+        wood: isEn ? 'Apply wood tone and grain direction with product-appropriate grain density.' : '套用木色與紋理方向，紋路密度須符合成品大小。',
+        metal: isEn ? 'Apply metal color, reflectivity, and micro-texture at object-appropriate scale.' : '套用金屬色、反光與微紋理，尺度須符合物件。',
+        leather: isEn ? 'Apply leather color and natural pore/crease texture at object-appropriate scale.' : '套用皮革色與自然毛孔／皺褶，尺度須符合物件。',
+        fabric: isEn ? 'Apply fabric color and weave/knit at garment- or product-appropriate repeat scale.' : '套用布料色與織紋／針織，重複尺度須符合服飾或產品。',
+        plastic: isEn ? 'Apply plastic hue and subtle surface texture suitable for the part size.' : '套用塑料色與適當細部表面紋理。',
+        ceramic: isEn ? 'Apply ceramic color and glaze character at realistic object scale.' : '套用陶瓷色與釉面質感，尺度須符合物件。',
+        other: isEn ? 'Apply surface color and texture character with realistic scale for the depicted product.' : '套用表面色彩與質感特徵，尺度須符合畫中產品。'
+    };
+    return map[mk] || map.other;
+}
+
+/** 依 reference_sources 順序對齊參考圖，解析材料參考（含 refIndex = 第幾張 input_image） */
+async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
+    const list = Array.isArray(referenceSourcesRaw) ? referenceSourcesRaw : [];
+    const refs = [];
+    const byAssetId = new Map();
+    list.forEach(function (s, idx) {
+        if (!s) return;
+        const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
+        if (kind !== 'material') return;
+        const refIndex = idx + 1;
+        const id = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
+        const imageUrl = (s.image_url || '').trim() || null;
+        const basename = extractImageUrlBasename(imageUrl);
+        const entry = {
+            refIndex: refIndex,
+            vendor_asset_id: id || null,
+            title: (s.title || '').trim() || null,
+            material_key: normalizeVendorMaterialKey(s.material_key) || null,
+            image_url: imageUrl,
+            filename_hint: basename || null
+        };
+        refs.push(entry);
+        if (id && !byAssetId.has(id)) byAssetId.set(id, entry);
+    });
+    if (!refs.length) return [];
+    const needDb = [...byAssetId.keys()].filter(function (id) {
+        const e = byAssetId.get(id);
+        return e && (!e.material_key || !e.title);
+    });
+    if (needDb.length) {
+        const { data: rows, error } = await supabase
+            .from('vendor_assets')
+            .select('id, title, asset_kind, material_key, image_url')
+            .in('id', needDb);
+        if (!error && rows) {
+            rows.forEach(function (row) {
+                if (!row || !row.id || normalizeVendorAssetKind(row.asset_kind) !== 'material') return;
+                const e = byAssetId.get(row.id);
+                if (!e) return;
+                if (!e.title && row.title) e.title = String(row.title).trim();
+                if (!e.material_key && row.material_key) {
+                    e.material_key = normalizeVendorMaterialKey(row.material_key);
+                }
+                if (!e.filename_hint && row.image_url) {
+                    e.filename_hint = extractImageUrlBasename(row.image_url) || e.filename_hint;
+                }
+            });
+        }
+    }
+    refs.forEach(function (e) {
+        if (!e.filename_hint && e.image_url) e.filename_hint = extractImageUrlBasename(e.image_url);
+    });
+    return refs;
+}
+
+/** 材料參考附錄：紋理尺度與用途（併入同一 fullPrompt） */
+function buildMaterialTexturePromptAppendix(materialRefs, lang) {
+    const refs = Array.isArray(materialRefs) ? materialRefs : [];
+    if (!refs.length) return '';
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const header = isEn
+        ? '\n\n[Material texture references — same single prompt as above]\n'
+        + 'Some reference images are material swatches (not product prototypes). Follow the user description first. Rules:\n'
+        + '• Material images are for surface color, texture, weave, grain, and finish only—not for product shape or silhouette.\n'
+        + '• Do not paste or tile the swatch as a flat overlay preserving the swatch aspect ratio; integrate texture onto the product with realistic scale.\n'
+        + '• Prototype references (if any) define geometry; material references define body/fabric/metal/wood surface only.\n'
+        : '\n\n【材質紋理參考 — 與上文同一組提示詞】\n'
+        + '部分參考圖為材質樣板（非數位原型）。請優先依前文使用者描述創作。規則：\n'
+        + '• 材質圖僅供表面色彩、紋理、織法、木紋／金屬質感與塗層參考，不得決定產品造型或輪廓。\n'
+        + '• 勿將樣板整張依其長寬比平鋪貼上；應以符合成品大小的合理紋路尺度整合到產品表面。\n'
+        + '• 若有原型參考，造型以原型為準；材質圖僅影響本體／布料／金屬／木材等表面。\n';
+    const lines = [];
+    refs.forEach(function (ref, idx) {
+        const n = ref.refIndex != null ? ref.refIndex : (idx + 1);
+        const title = (ref.title || '').trim();
+        const label = title || (isEn ? ('Material swatch ' + (idx + 1)) : ('材質樣板 ' + (idx + 1)));
+        const matLabel = ref.material_key ? vendorMaterialKeyLabel(ref.material_key, lang) : null;
+        const head = isEn
+            ? ('Reference image #' + n + ': "' + label + '"' + (matLabel ? (' (' + matLabel + ')') : '') + ' — texture/color reference only.')
+            : ('參考圖第 ' + n + ' 張：「' + label + '」' + (matLabel ? ('（' + matLabel + '）') : '') + ' — 僅作表面紋理／色彩參考。');
+        lines.push('• ' + head);
+        const rule = materialTextureScaleRuleForKey(ref.material_key, lang);
+        if (rule) lines.push('  ◦ ' + rule);
+        const optionalHints = inferOptionalMaterialContextHints(
+            ref.filename_hint || '',
+            ref.title || '',
+            ref.material_key || '',
+            lang
+        );
+        optionalHints.forEach(function (h) { lines.push('  ◦ ' + h); });
+    });
+    const footer = isEn
+        ? 'Filename/title hints above are optional context only—not mandatory rules. Fulfill the user design with believable material scale on the final product.'
+        : '以上檔名／標題線索僅供參考，非強制規則。請在成品上呈現合理、可信的材質紋路尺度。';
+    return header + lines.join('\n') + '\n' + footer;
+}
+
 function vendorAssetMatchesMoqFilter(row, moqN) {
     if (!moqN) return true;
     if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return false;
@@ -1909,6 +2078,59 @@ async function getRequestAdminFlag(req) {
     return profile?.role === 'admin';
 }
 
+async function getRequestUserFromAuthHeader(req) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return null;
+    const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return null;
+    return user;
+}
+
+/** 管理員或測試員（含 ALLOWED_TESTER_EMAILS）：可預覽尚未同意公開的種子廠商與下架素材 */
+async function getRequestInternalPreviewFlag(req) {
+    const user = await getRequestUserFromAuthHeader(req);
+    if (!user) return false;
+    const email = (user.email || '').trim().toLowerCase();
+    const allowedEmails = (process.env.ALLOWED_TESTER_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+    if (allowedEmails.length > 0 && allowedEmails.includes(email)) return true;
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    return profile?.role === 'admin' || profile?.role === 'tester';
+}
+
+function manufacturerIsSeedVendor(mfr) {
+    return !!(mfr && mfr.vendor_source === 'seed');
+}
+
+function manufacturerSeedPublicReleased(mfr) {
+    if (!manufacturerIsSeedVendor(mfr)) return true;
+    return !!(mfr.seed_public_released_at);
+}
+
+/** 種子廠商是否可出現在一般使用者的廠商列表／詳情（不含素材 is_public） */
+function manufacturerVisibleToPublicAudience(mfr) {
+    if (!mfr || mfr.is_active === false) return false;
+    if (!manufacturerIsSeedVendor(mfr)) return true;
+    if (!manufacturerSeedPublicReleased(mfr)) return false;
+    if (mfr.expires_at && new Date(mfr.expires_at) <= new Date()) return false;
+    return true;
+}
+
+function vendorAssetVisibleToPublicAudience(mfr, assetRow) {
+    if (!assetRow || assetRow.is_public === false) return false;
+    return manufacturerVisibleToPublicAudience(mfr);
+}
+
+function parseSeedPublicReleasedAtBody(raw) {
+    if (raw === undefined) return undefined;
+    if (raw === null || raw === '' || raw === false) return null;
+    if (raw === true) return new Date().toISOString();
+    const s = String(raw).trim();
+    if (!s) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 // 廠商公開曝光條件：is_active 且 (expires_at 為空 或 expires_at > 現在)。種子廠商 90 天後不曝光
 function manufacturerVisibleExpiresFilter() {
     return 'expires_at.is.null,expires_at.gt.' + new Date().toISOString();
@@ -2101,7 +2323,9 @@ app.post('/api/admin/seed-manufacturer', express.json(), async (req, res) => {
         if (!name) return res.status(400).json({ error: '請填寫廠商名稱' });
         const { data: existing } = await supabase.from('manufacturers').select('id').eq('user_id', userId).maybeSingle();
         if (existing) return res.status(400).json({ error: '該使用者已綁定廠商，一帳號僅能綁定一間廠商' });
-        const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(); // 種子廠商 90 天公開期
+        const daysRaw = parseInt(body.public_days, 10);
+        const publicDays = (Number.isFinite(daysRaw) && daysRaw >= 1) ? daysRaw : 90;
+        const expiresAt = new Date(Date.now() + publicDays * 24 * 60 * 60 * 1000).toISOString();
         const payload = {
             user_id: userId,
             name,
@@ -2127,7 +2351,7 @@ app.post('/api/admin/seed-manufacturer', express.json(), async (req, res) => {
     }
 });
 
-const MFR_ADMIN_ROW_SELECT = 'id, name, description, location, contact_json, categories, is_active, verified, expires_at, vendor_source';
+const MFR_ADMIN_ROW_SELECT = 'id, name, description, location, contact_json, categories, is_active, verified, expires_at, vendor_source, seed_public_released_at';
 
 function isMissingManufacturerColumnError(err, colName) {
     const msg = String((err && err.message) || '');
@@ -2142,6 +2366,10 @@ async function updateManufacturerAdminRow(manufacturerId, updates) {
     if (error && isMissingManufacturerColumnError(error, 'logo_url')) {
         delete payload.logo_url;
         ({ data, error } = await supabase.from('manufacturers').update(payload).eq('id', manufacturerId).select(MFR_ADMIN_ROW_SELECT).single());
+    }
+    if (error && isMissingManufacturerColumnError(error, 'seed_public_released_at')) {
+        delete payload.seed_public_released_at;
+        ({ data, error } = await supabase.from('manufacturers').update(payload).eq('id', manufacturerId).select(MFR_ADMIN_ROW_SELECT.replace(', seed_public_released_at', '')).single());
     }
     return { data, error };
 }
@@ -2171,6 +2399,8 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
             if (vs === null || vs === '' || vs === 'paid') updates.vendor_source = null;
             else updates.vendor_source = String(vs).trim();
         }
+        const releasedAt = parseSeedPublicReleasedAtBody(body.seed_public_released_at);
+        if (releasedAt !== undefined) updates.seed_public_released_at = releasedAt;
         if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
         const { data: updated, error } = await updateManufacturerAdminRow(manufacturerId, updates);
         if (error) {
@@ -2182,9 +2412,12 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
         }
         const vs = updated.vendor_source || null;
         const kind = vs === 'seed' ? '種子' : (vs === 'platform' ? '官方範例' : '一般／付費');
+        const releasedNote = updated.seed_public_released_at
+            ? '已同意對外公開'
+            : (vs === 'seed' ? '尚未同意對外（僅 admin/tester 可預覽）' : '');
         res.json({
             ...updated,
-            message: `已更新。目前類型：${kind}；${updated.expires_at ? '到期日：' + updated.expires_at : '已清除種子到期日（無倒數）'}`
+            message: `已更新。目前類型：${kind}；${updated.expires_at ? '到期日：' + updated.expires_at : '已清除種子到期日（無倒數）'}${releasedNote ? '；' + releasedNote : ''}`
         });
     } catch (e) {
         console.error('PATCH /api/admin/manufacturers/:id 異常:', e);
@@ -2219,7 +2452,7 @@ app.get('/api/admin/seed-manufacturers', async (req, res) => {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
         const seedOnly = (req.query.seed_only === '1' || req.query.seed_only === 'true');
-        let query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, is_active, location, contact_json, verified, created_at').order('created_at', { ascending: false });
+        let query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, is_active, location, contact_json, verified, created_at, seed_public_released_at').order('created_at', { ascending: false });
         if (seedOnly) query = query.eq('vendor_source', 'seed');
         const { data: rows, error } = await query;
         if (error) {
@@ -2243,6 +2476,8 @@ app.get('/api/admin/seed-manufacturers', async (req, res) => {
                 user_id: m.user_id || null,
                 vendor_source: vs,
                 expires_at: m.expires_at || null,
+                seed_public_released_at: m.seed_public_released_at || null,
+                seed_public_released: !!(m.seed_public_released_at),
                 remaining_days: remainingDays,
                 is_paid: isPaid,
                 is_platform: isPlatform,
@@ -2268,7 +2503,7 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
         if (!adminUser) return;
         const manufacturerId = (req.params.id || '').trim();
         if (!manufacturerId) return res.status(400).json({ error: '請傳入廠商 id' });
-        const { data: mfr } = await supabase.from('manufacturers').select('id').eq('id', manufacturerId).single();
+        const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source').eq('id', manufacturerId).single();
         if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
         const body = req.body || {};
         const categoryKey = (body.category_key || '').trim();
@@ -2281,6 +2516,8 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
         let file = await vendorAssetFileFromMulter(req.file);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, file);
+        const defaultPublic = mfr.vendor_source === 'seed' ? false : true;
+        const isPublic = body.is_public !== undefined ? parseTruthyBody(body.is_public) : defaultPublic;
         const insertPayload = {
             manufacturer_id: manufacturerId,
             category_key: categoryKey,
@@ -2289,7 +2526,7 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
             description: description,
             image_url: publicUrl,
             usage_type: 'reference_only',
-            is_public: true,
+            is_public: isPublic,
             sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0
         };
         if (styleKey) insertPayload.style_key = styleKey;
@@ -2316,6 +2553,59 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
         res.status(201).json(inserted);
     } catch (e) {
         console.error('POST /api/admin/manufacturers/:id/vendor-assets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/manufacturers/:id/vendor-assets — 管理員列出該廠商全部素材（含下架）
+app.get('/api/admin/manufacturers/:id/vendor-assets', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const manufacturerId = (req.params.id || '').trim();
+        if (!manufacturerId) return res.status(400).json({ error: '請傳入廠商 id' });
+        const { data: rows, error } = await supabase
+            .from('vendor_assets')
+            .select('id, title, image_url, asset_kind, is_public, category_key, sort_order, created_at')
+            .eq('manufacturer_id', manufacturerId)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (error) {
+            if (error.code === '42P01') return res.json({ items: [] });
+            return res.status(500).json({ error: error.message || '查詢失敗' });
+        }
+        res.json({ items: rows || [] });
+    } catch (e) {
+        console.error('GET /api/admin/manufacturers/:id/vendor-assets:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/vendor-assets/:id — 管理員更新素材（上下架等）
+app.patch('/api/admin/vendor-assets/:id', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const assetId = (req.params.id || '').trim();
+        if (!assetId) return res.status(400).json({ error: '請傳入素材 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.is_public !== undefined) updates.is_public = !!parseTruthyBody(body.is_public);
+        if (Object.keys(updates).length <= 1) return res.status(400).json({ error: '無可更新的欄位' });
+        const { data: updated, error } = await supabase
+            .from('vendor_assets')
+            .update(updates)
+            .eq('id', assetId)
+            .select('id, manufacturer_id, title, image_url, asset_kind, is_public')
+            .single();
+        if (error) {
+            console.error('PATCH /api/admin/vendor-assets/:id:', error);
+            return res.status(500).json({ error: error.message || '更新失敗' });
+        }
+        if (!updated) return res.status(404).json({ error: '找不到該素材' });
+        res.json(updated);
+    } catch (e) {
+        console.error('PATCH /api/admin/vendor-assets/:id 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -5644,8 +5934,11 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         const uiLang = (req.body.ui_locale || req.body.lang || '').trim() || null;
         if (hasRefs) {
             const prototypeAssets = await resolvePrototypeAssetsForPrompt(referenceSources || []);
-            const appendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
-            if (appendix) fullPrompt = (fullPrompt || '').trim() + appendix; // 併入同一 prompt 字串後送 BFL
+            const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
+            if (protoAppendix) fullPrompt = (fullPrompt || '').trim() + protoAppendix;
+            const materialRefs = await resolveMaterialRefsForPrompt(referenceSources || []);
+            const materialAppendix = buildMaterialTexturePromptAppendix(materialRefs, uiLang);
+            if (materialAppendix) fullPrompt = (fullPrompt || '').trim() + materialAppendix;
         }
         // 使用者未填 seed 時由後端產生隨機 seed，傳給 FLUX 並寫入 DB，方便重現與顯示
         let seedNum = (seed != null && seed !== '' && Number.isInteger(Number(seed))) ? Number(seed) : null;
@@ -9590,10 +9883,18 @@ app.get('/api/manufacturers', async (req, res) => {
         const per_page = Math.min(Math.max(parseInt(req.query.per_page || req.query.perPage, 10) || 12, 1), 50);
         const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
 
-        const baseSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url';
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        const baseSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, vendor_source, expires_at, seed_public_released_at, is_active';
         let manufacturers = [];
         let fromSub = [];
         let fromMain = [];
+
+        function filterMfrListForAudience(list) {
+            return (list || []).filter(function (m) {
+                if (internalPreview) return m.is_active !== false;
+                return manufacturerVisibleToPublicAudience(m);
+            });
+        }
 
         if (category_key || subcategory_key) {
             const expiresFilter = manufacturerVisibleExpiresFilter();
@@ -9610,7 +9911,7 @@ app.get('/api/manufacturers', async (req, res) => {
                 const { data: mainList, error: eMain } = await mainQ;
                 if (!eMain && mainList) fromMain = mainList.filter(m => !subIds.has(m.id));
             }
-            manufacturers = [...fromSub, ...fromMain];
+            manufacturers = filterMfrListForAudience([...fromSub, ...fromMain]);
             // 關鍵字過濾
             if (q) {
                 const ql = q.toLowerCase();
@@ -9629,7 +9930,7 @@ app.get('/api/manufacturers', async (req, res) => {
                 console.error('GET /api/manufacturers 查詢失敗:', error);
                 return res.status(500).json({ error: '查詢廠商失敗' });
             }
-            manufacturers = data || [];
+            manufacturers = filterMfrListForAudience(data || []);
             if (q) {
                 const ql = q.toLowerCase();
                 manufacturers = manufacturers.filter(m =>
@@ -9647,10 +9948,27 @@ app.get('/api/manufacturers', async (req, res) => {
             }
             const { data, error } = await query;
             if (error) {
-                console.error('GET /api/manufacturers 查詢失敗:', error);
-                return res.status(500).json({ error: '查詢廠商失敗' });
+                if (error.code === '42703') {
+                    const fallbackSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, is_active, expires_at';
+                    let q2 = supabase.from('manufacturers').select(fallbackSelect).eq('is_active', true).order('rating', { ascending: false });
+                    try { q2 = q2.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
+                    const r2 = await q2;
+                    if (r2.error) {
+                        console.error('GET /api/manufacturers 查詢失敗:', r2.error);
+                        return res.status(500).json({ error: '查詢廠商失敗' });
+                    }
+                    manufacturers = filterMfrListForAudience((r2.data || []).map(function (m) {
+                        return { ...m, vendor_source: null, seed_public_released_at: null };
+                    }));
+                } else {
+                    console.error('GET /api/manufacturers 查詢失敗:', error);
+                    return res.status(500).json({ error: '查詢廠商失敗' });
+                }
+            } else {
+                manufacturers = filterMfrListForAudience(data || []);
             }
-            manufacturers = (data || []).slice((page - 1) * per_page, page * per_page);
+            const start = (page - 1) * per_page;
+            manufacturers = manufacturers.slice(start, start + per_page);
         }
 
         const ids = manufacturers.map(m => m.id);
@@ -9694,7 +10012,8 @@ app.get('/api/manufacturers', async (req, res) => {
 app.get('/api/manufacturers/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const fullSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, is_active, expires_at';
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        const fullSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, is_active, expires_at, vendor_source, seed_public_released_at';
         let resq = await supabase.from('manufacturers').select(fullSelect).eq('id', id).maybeSingle();
 
         if (resq.error) {
@@ -9715,7 +10034,18 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         }
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '廠商不存在' });
-        if (mfr.expires_at && new Date(mfr.expires_at) <= new Date()) return res.status(404).json({ error: '此廠商已過公開期。如需繼續曝光請至挖貝升級付費方案。' });
+        if (!internalPreview && !manufacturerVisibleToPublicAudience(mfr)) {
+            if (manufacturerIsSeedVendor(mfr) && !manufacturerSeedPublicReleased(mfr)) {
+                return res.status(404).json({ error: '此廠商尚未對外開放展示。' });
+            }
+            if (mfr.is_active === false) return res.status(404).json({ error: '此廠商已下架。' });
+            return res.status(404).json({ error: '找不到廠商' });
+        }
+        if (mfr.expires_at && new Date(mfr.expires_at) <= new Date()) {
+            if (!internalPreview) {
+                return res.status(404).json({ error: '此廠商已過公開期。如需繼續曝光請至挖貝升級付費方案。' });
+            }
+        }
 
         let portfolio = [];
         const portRes = await supabase
@@ -10466,10 +10796,10 @@ app.get('/api/manufacturers/:id/catalog-groups', async (req, res) => {
 
 // ---------- 廠商素材庫（設計端參考圖來源；依設計當下分類載入；必顯示廠商名稱與連結）----------
 // GET /api/vendor-assets — 設計端選圖用。分類素材池：必傳 category_key；個別廠商版型庫：可只傳 manufacturer_id
-// 一般使用者不顯示種子廠商素材（智慧財產權）；僅管理員可見
+// 種子廠商：未同意公開前僅 admin/tester 可見；同意後僅 is_public 素材對一般使用者顯示
 app.get('/api/vendor-assets', async (req, res) => {
     try {
-        const isAdmin = await getRequestAdminFlag(req);
+        const internalPreview = await getRequestInternalPreviewFlag(req);
         const categoryKey = (req.query.category_key || '').trim() || null;
         const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
         const styleKey = normalizeVendorStyleKey(req.query.style_key) || null;
@@ -10509,9 +10839,9 @@ app.get('/api/vendor-assets', async (req, res) => {
             let q = supabase
                 .from('vendor_assets')
                 .select(cols)
-                .eq('is_public', true)
                 .order('sort_order', { ascending: true })
                 .order('created_at', { ascending: false });
+            if (!internalPreview) q = q.eq('is_public', true);
             if (categoryKey) q = q.eq('category_key', categoryKey);
             if (subcategoryKey) q = q.eq('subcategory_key', subcategoryKey);
             if (styleKey) q = q.eq('style_key', styleKey);
@@ -10538,7 +10868,9 @@ app.get('/api/vendor-assets', async (req, res) => {
         const mfrIds = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))];
         let mfrMap = {};
         if (mfrIds.length) {
-            const { data: mfrs } = await supabase.from('manufacturers').select('id, name, vendor_source, contact_json, location, user_id').in('id', mfrIds).eq('is_active', true);
+            let mfrQ = supabase.from('manufacturers').select('id, name, vendor_source, contact_json, location, user_id, is_active, expires_at, seed_public_released_at').in('id', mfrIds);
+            if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
+            const { data: mfrs } = await mfrQ;
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
         }
         if (manufacturerNameQ) {
@@ -10559,9 +10891,11 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (customFilterKeys.length) {
             list = list.filter((r) => vendorAssetMatchesCustomizationFilter(r, customFilterKeys));
         }
-        if (!isAdmin) list = list.filter(r => {
+        list = list.filter(function (r) {
             const mfr = mfrMap[r.manufacturer_id];
-            return !mfr || mfr.vendor_source !== 'seed';
+            if (!mfr) return false;
+            if (internalPreview) return true;
+            return vendorAssetVisibleToPublicAudience(mfr, r);
         });
         const lang = (req.query.lang || '').trim();
         const manufacturers = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))].map((id) => ({
@@ -11203,6 +11537,40 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
     }
 });
 
+// PATCH /api/me/vendor-assets/:id — 上架／下架等輕量更新（僅本人廠商；種子廠商不得操作）
+app.patch('/api/me/vendor-assets/:id', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+        if (mfrVa && mfrVa.vendor_source === 'seed') {
+            return res.status(403).json({ error: '種子廠商由平台代為維護，請由管理員於種子廠商後台調整素材上下架。' });
+        }
+        const id = (req.params.id || '').trim();
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.is_public !== undefined) updates.is_public = !!parseTruthyBody(body.is_public);
+        if (Object.keys(updates).length <= 1) return res.status(400).json({ error: '無可更新的欄位' });
+        const { data: updated, error } = await supabase
+            .from('vendor_assets')
+            .update(updates)
+            .eq('id', id)
+            .eq('manufacturer_id', manufacturerId)
+            .select(VENDOR_ASSET_SELECT_ME)
+            .single();
+        if (error) {
+            console.error('PATCH /api/me/vendor-assets/:id:', error);
+            return res.status(500).json({ error: error.message || '更新失敗' });
+        }
+        if (!updated) return res.status(404).json({ error: '找不到該素材' });
+        const lang = resolveVendorAssetApiLang(req);
+        res.json(mapVendorAssetForApi(updated, lang));
+    } catch (e) {
+        console.error('PATCH /api/me/vendor-assets/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // PUT /api/me/vendor-assets/:id — 更新廠商素材（僅本人廠商）；種子廠商不得編輯
 app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) => {
     try {
@@ -11228,6 +11596,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.description !== undefined) updates.description = (body.description || '').trim() || null;
         if (body.usage_type !== undefined) updates.usage_type = (body.usage_type || 'reference_only').trim() || 'reference_only';
         if (body.sort_order !== undefined) updates.sort_order = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
+        if (body.is_public !== undefined) updates.is_public = !!parseTruthyBody(body.is_public);
         if (body.style_key !== undefined) updates.style_key = (body.style_key || '').trim() || null;
         if (body.material_key !== undefined) updates.material_key = (body.material_key || '').trim() || null;
         if (body.asset_kind !== undefined) updates.asset_kind = normalizeVendorAssetKind(body.asset_kind);

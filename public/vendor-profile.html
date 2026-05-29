@@ -576,12 +576,23 @@
         var vendorAssetsCatalogFlat = [];
         var vendorAssetsActiveGroupId = '';
 
+        function vendorAssetsAuthHeaders() {
+            return (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function')
+                ? window.AuthService.getSession().then(function (s) {
+                    var h = {};
+                    if (s && s.access_token) h.Authorization = 'Bearer ' + s.access_token;
+                    return h;
+                })
+                : Promise.resolve({});
+        }
+
         function loadVendorMaterialLibrary(mfrId) {
             var section = document.getElementById('sectionVendorAssets');
             if (!section || !mfrId) return;
-            Promise.all([
+            vendorAssetsAuthHeaders().then(function (authHdr) {
+            return Promise.all([
                 fetch('/api/manufacturers/' + encodeURIComponent(mfrId) + '/catalog-groups').then(function (r) { return r.json(); }),
-                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId)).then(function (r) { return r.json(); })
+                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId), { headers: authHdr }).then(function (r) { return r.json(); })
             ]).then(function (results) {
                 var cg = results[0] || {};
                 var assets = results[1] || {};
@@ -593,6 +604,7 @@
                 renderVendorCatalogNav(mfrId);
                 renderVendorAssetsGrid(items);
             }).catch(function () {});
+            });
         }
 
         function renderVendorCatalogNav(mfrId) {
@@ -614,9 +626,11 @@
                     renderVendorCatalogNav(mfrId);
                     var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
                     if (vendorAssetsActiveGroupId) url += '&catalog_group_id=' + encodeURIComponent(vendorAssetsActiveGroupId);
-                    fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+                    vendorAssetsAuthHeaders().then(function (authHdr) {
+                    fetch(url, { headers: authHdr }).then(function (r) { return r.json(); }).then(function (data) {
                         renderVendorAssetsGrid((data && data.items) ? data.items : []);
                     }).catch(function () { renderVendorAssetsGrid([]); });
+                    });
                 });
             });
         }

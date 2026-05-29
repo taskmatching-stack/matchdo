@@ -22,7 +22,7 @@
         </div>
 
         <div class="alert alert-warning border-warning mb-3 py-2 small">
-          <strong>官方範例帳號誤設為種子？</strong> 在列表點 <strong>「轉為官方範例」</strong> 或 <strong>「轉為付費」</strong>，即可解除 90 天種子限制，廠商本人可再次自行上傳／編輯。若不要此筆資料，可 <strong>下架</strong> 或 <strong>刪除</strong>。
+          <strong>官方範例帳號誤設為種子？</strong> 點 <strong>「轉為官方範例」</strong> 或 <strong>「轉為付費」</strong>。封測製作中請優先 <strong>下架</strong>（資料保留）；<strong>刪除</strong> 會永久移除廠商與所有作品／素材（CASCADE，無法復原）。
         </div>
         <p class="text-muted small mb-3">
           <strong>步驟一</strong>：下方「代為建立廠商資料」＝替該使用者建立一筆廠商資料（與前台既有廠商資料建立頁同一種資料，只是由管理員代建並設為種子）。<br>
@@ -52,6 +52,11 @@
               <div class="col-md-8">
                 <label class="form-label small mb-0">簡短介紹</label>
                 <input type="text" class="form-control form-control-sm" id="newDescription" placeholder="選填" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">公開天數</label>
+                <input type="number" class="form-control form-control-sm" id="newPublicDays" min="1" value="90" />
+                <div class="form-text small">種子公開期倒數</div>
               </div>
               <div class="col-md-4 d-flex align-items-end gap-2">
                 <div class="form-check mb-2">
@@ -99,13 +104,14 @@
                     <th>類型</th>
                     <th>剩餘天數</th>
                     <th>到期日</th>
+                    <th>同意公開</th>
                     <th>廠商頁</th>
                     <th>建立時間</th>
-                    <th>操作</th>
+                    <th style="min-width:360px">操作</th>
                   </tr>
                 </thead>
                 <tbody id="tableBody">
-                  <tr><td colspan="7" class="text-center text-muted">載入中…</td></tr>
+                  <tr><td colspan="8" class="text-center text-muted">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -183,6 +189,34 @@
             </div>
           </div>
         </div>
+
+        <div class="modal fade" id="editDaysModal" tabindex="-1">
+          <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+              <div class="modal-header py-2"><h6 class="modal-title">編輯公開天數 — <span id="editDaysMfrName"></span></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body">
+                <input type="hidden" id="editDaysMfrId" />
+                <div class="mb-2"><label class="form-label small mb-0">到期日</label><input type="date" class="form-control form-control-sm" id="editDaysExpires" /></div>
+                <div class="mb-2"><label class="form-label small mb-0">或延長（天）</label><input type="number" class="form-control form-control-sm" id="editDaysExtend" min="1" placeholder="例如 30" /></div>
+                <button type="button" class="btn btn-link btn-sm p-0" id="editDaysClear">清除到期日（無倒數）</button>
+              </div>
+              <div class="modal-footer py-2"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-primary btn-sm" id="editDaysSave">儲存</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="assetsModal" tabindex="-1">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header py-2"><h6 class="modal-title">素材上下架 — <span id="assetsMfrName"></span></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body p-0">
+                <input type="hidden" id="assetsMfrId" />
+                <p class="small text-muted px-3 pt-2 mb-0">下架素材僅 admin／tester 可預覽；同意公開後，已上架素材才對一般訂製者顯示。</p>
+                <div id="assetsListWrap" class="table-responsive" style="max-height:420px"><table class="table table-sm mb-0"><thead class="table-light"><tr><th>標題</th><th>類型</th><th>狀態</th><th></th></tr></thead><tbody id="assetsListBody"><tr><td colspan="4" class="text-muted text-center py-3">載入中…</td></tr></tbody></table></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -232,10 +266,10 @@
   function loadList(seedOnly) {
     var tbody = document.getElementById('tableBody');
     var emptyEl = document.getElementById('emptyList');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">載入中…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">載入中…</td></tr>';
     emptyEl.style.display = 'none';
     getToken().then(function(token) {
-      if (!token) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">請先登入</td></tr>'; return; }
+      if (!token) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">請先登入</td></tr>'; return; }
       var url = '/api/admin/seed-manufacturers';
       if (seedOnly) url += '?seed_only=1';
       fetch(url, { headers: { Authorization: 'Bearer ' + token } })
@@ -252,7 +286,7 @@
           }
         })
         .catch(function(err) {
-          tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">' + (err.message || '載入失敗') + '</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">' + (err.message || '載入失敗') + '</td></tr>';
         });
     });
   }
@@ -325,11 +359,26 @@
         daysCell = m.remaining_days === 0 ? '<span class="text-danger">已過期</span>' : (m.remaining_days + ' 天');
       }
       var expiresCell = isSeed && m.expires_at ? formatDate(m.expires_at) : '—';
+      var releasedCell = '—';
+      if (isSeed) {
+        releasedCell = m.seed_public_released
+          ? '<span class="badge bg-success">已同意</span>'
+          : '<span class="badge bg-secondary">未同意</span>';
+      }
       var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(m.id);
       var createdCell = formatDate(m.created_at);
       var mfrName = (m.name || '').replace(/"/g, '&quot;');
       var actionCell = '<div class="d-flex flex-wrap gap-1">';
-      actionCell += '<button type="button" class="btn btn-sm btn-outline-primary" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-upload me-1"></i>上傳素材</button>';
+      actionCell += '<button type="button" class="btn btn-sm btn-outline-primary" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-upload me-1"></i>上傳</button>';
+      actionCell += '<button type="button" class="btn btn-sm btn-outline-dark" data-action="assets" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-images me-1"></i>素材</button>';
+      if (isSeed) {
+        actionCell += '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="edit-days" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-expires="' + escapeHtml(m.expires_at || '') + '"><i class="bi bi-calendar me-1"></i>天數</button>';
+        if (m.seed_public_released) {
+          actionCell += '<button type="button" class="btn btn-sm btn-outline-warning" data-action="revoke-release" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '">撤回同意</button>';
+        } else {
+          actionCell += '<button type="button" class="btn btn-sm btn-outline-success" data-action="mark-release" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '">同意公開</button>';
+        }
+      }
       if (isSeed) {
         actionCell += '<button type="button" class="btn btn-sm btn-outline-info" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-platform"><i class="bi bi-star me-1"></i>轉為官方範例</button>';
         actionCell += '<button type="button" class="btn btn-sm btn-outline-success" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-paid"><i class="bi bi-check-circle me-1"></i>轉為付費</button>';
@@ -346,6 +395,7 @@
         '<td>' + typeLabel + '</td>' +
         '<td>' + daysCell + '</td>' +
         '<td>' + expiresCell + '</td>' +
+        '<td>' + releasedCell + '</td>' +
         '<td><a href="' + profileUrl + '" target="_blank" rel="noopener">開啟廠商頁 <i class="bi bi-box-arrow-up-right small"></i></a></td>' +
         '<td>' + createdCell + '</td>' +
         '<td style="min-width:300px">' + actionCell + '</td>' +
@@ -355,6 +405,37 @@
       var id = btn.dataset.mfrId;
       var name = btn.dataset.mfrName || '';
       var action = btn.dataset.action || '';
+      if (action === 'edit-days') {
+        btn.addEventListener('click', function() {
+          document.getElementById('editDaysMfrId').value = id;
+          document.getElementById('editDaysMfrName').textContent = name;
+          var exp = btn.getAttribute('data-expires') || '';
+          document.getElementById('editDaysExpires').value = exp ? exp.slice(0, 10) : '';
+          document.getElementById('editDaysExtend').value = '';
+          new bootstrap.Modal(document.getElementById('editDaysModal')).show();
+        });
+        return;
+      }
+      if (action === 'mark-release') {
+        btn.addEventListener('click', function() {
+          patchManufacturer(id, { seed_public_released_at: true },
+            '標記「' + name + '」為廠商已同意公開？\n\n一般訂製者仍只會看到「已上架」的素材。',
+            '已標記同意公開');
+        });
+        return;
+      }
+      if (action === 'revoke-release') {
+        btn.addEventListener('click', function() {
+          patchManufacturer(id, { seed_public_released_at: null },
+            '撤回「' + name + '」的對外同意？\n\n一般訂製者將無法再看到其素材。',
+            '已撤回同意公開');
+        });
+        return;
+      }
+      if (action === 'assets') {
+        btn.addEventListener('click', function() { openAssetsModal(id, name); });
+        return;
+      }
       if (action === 'convert-paid') {
         btn.addEventListener('click', function() {
           patchManufacturer(id, { vendor_source: null, expires_at: null, is_active: true },
@@ -511,6 +592,8 @@
     var ig = (document.getElementById('newInstagram').value || '').trim();
     if (ig) contact.instagram = ig;
     if (Object.keys(contact).length) payload.contact_json = contact;
+    var pd = parseInt(document.getElementById('newPublicDays').value, 10);
+    if (Number.isFinite(pd) && pd >= 1) payload.public_days = pd;
     var btn = document.getElementById('btnCreateSeed');
     btn.disabled = true;
     getToken().then(function(token) {
@@ -592,6 +675,79 @@
         .catch(function() { msgEl.textContent = '網路錯誤'; msgEl.style.display = 'block'; })
         .finally(function() { btn.disabled = false; });
     });
+  });
+
+  function openAssetsModal(mfrId, mfrName) {
+    document.getElementById('assetsMfrId').value = mfrId;
+    document.getElementById('assetsMfrName').textContent = mfrName || '';
+    var tbody = document.getElementById('assetsListBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">載入中…</td></tr>';
+    new bootstrap.Modal(document.getElementById('assetsModal')).show();
+    getToken().then(function(token) {
+      if (!token) { tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">請先登入</td></tr>'; return; }
+      fetch('/api/admin/manufacturers/' + encodeURIComponent(mfrId) + '/vendor-assets', { headers: { Authorization: 'Bearer ' + token } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var items = data.items || [];
+          if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">尚無素材</td></tr>';
+            return;
+          }
+          tbody.innerHTML = items.map(function(a) {
+            var kind = a.asset_kind === 'material' ? '材料' : '原型';
+            var st = a.is_public !== false
+              ? '<span class="badge bg-success">上架中</span>'
+              : '<span class="badge bg-secondary">已下架</span>';
+            var next = a.is_public !== false ? false : true;
+            var btnLabel = a.is_public !== false ? '下架' : '上架';
+            return '<tr><td>' + escapeHtml(a.title || '（無標題）') + '</td><td>' + kind + '</td><td>' + st + '</td>' +
+              '<td><button type="button" class="btn btn-sm btn-outline-primary btn-asset-pub" data-id="' + escapeHtml(a.id) + '" data-next="' + (next ? '1' : '0') + '">' + btnLabel + '</button></td></tr>';
+          }).join('');
+          tbody.querySelectorAll('.btn-asset-pub').forEach(function(b) {
+            b.addEventListener('click', function() {
+              var aid = b.getAttribute('data-id');
+              var pub = b.getAttribute('data-next') === '1';
+              getToken().then(function(tok) {
+                fetch('/api/admin/vendor-assets/' + encodeURIComponent(aid), {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+                  body: JSON.stringify({ is_public: pub })
+                }).then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+                  .then(function(res) {
+                    if (res.ok) openAssetsModal(mfrId, mfrName);
+                    else alert(res.data.error || '更新失敗');
+                  });
+              });
+            });
+          });
+        })
+        .catch(function() { tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">載入失敗</td></tr>'; });
+    });
+  }
+
+  document.getElementById('editDaysClear').addEventListener('click', function() {
+    document.getElementById('editDaysExpires').value = '';
+    document.getElementById('editDaysExtend').value = '';
+  });
+
+  document.getElementById('editDaysSave').addEventListener('click', function() {
+    var id = (document.getElementById('editDaysMfrId').value || '').trim();
+    var extendDays = parseInt(document.getElementById('editDaysExtend').value, 10);
+    var body = {};
+    if (Number.isFinite(extendDays) && extendDays >= 1) {
+      var base = new Date();
+      var expInput = document.getElementById('editDaysExpires').value;
+      if (expInput) {
+        var cur = new Date(expInput + 'T12:00:00');
+        if (!isNaN(cur.getTime()) && cur > base) base = cur;
+      }
+      body.expires_at = new Date(base.getTime() + extendDays * 86400000).toISOString();
+    } else {
+      var d = document.getElementById('editDaysExpires').value;
+      body.expires_at = d ? new Date(d + 'T23:59:59').toISOString() : null;
+    }
+    patchManufacturer(id, body, null, '已更新公開天數');
+    bootstrap.Modal.getInstance(document.getElementById('editDaysModal')).hide();
   });
 
   document.getElementById('filterType').addEventListener('change', function() {
