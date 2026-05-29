@@ -21,12 +21,18 @@
           <button type="button" class="btn btn-sm btn-outline-secondary ms-1" id="btnCopyUrl" title="複製網址"><i class="bi bi-clipboard"></i> 複製</button>
         </div>
 
-        <div class="alert alert-warning border-warning mb-3 py-2 small">
-          <strong>官方範例帳號誤設為種子？</strong> 點 <strong>「轉為官方範例」</strong> 或 <strong>「轉為付費」</strong>。封測製作中請優先 <strong>下架</strong>（資料保留）；<strong>刪除</strong> 會永久移除廠商與所有作品／素材（CASCADE，無法復原）。
+        <div class="alert alert-info border-info mb-3 py-2 small">
+          <strong>類型對照：</strong>
+          <ul class="mb-1 ps-3">
+            <li><span class="badge bg-primary">種子</span> — 須用本頁「步驟一」建立，才有 <strong>天數</strong>、<strong>同意公開</strong>、轉官方／轉付費按鈕。</li>
+            <li><span class="badge bg-success">一般／付費</span> — 多半是您或廠商在前台自行建的廠商資料；<strong>沒有</strong>同意公開／90 天欄位（表上顯示「不適用」）。要對外顯示請用 <strong>素材</strong> 上架；要隱藏請用 <strong>下架</strong>。</li>
+            <li><span class="badge bg-info text-dark">官方範例</span> — 操作列可點 <strong>轉為官方範例</strong>（由一般／付費轉換），或建立時即為官方範例。</li>
+          </ul>
+          封測請優先 <strong>下架</strong>（資料保留）；<strong>刪除</strong> 永久移除且無法復原。
         </div>
         <p class="text-muted small mb-3">
-          <strong>步驟一</strong>：下方「代為建立廠商資料」＝替該使用者建立一筆廠商資料（與前台既有廠商資料建立頁同一種資料，只是由管理員代建並設為種子）。<br>
-          <strong>步驟二</strong>：建立後，該廠商會出現在下方列表，再點該列的「上傳素材」即可<strong>代為上傳素材</strong>（數位版型／Base Models）。廠商本人可至前台廠商控制台「查看」，但種子期間不得編輯。
+          <strong>步驟一</strong>：若要封測「平台代維護、同意後才公開」，請用下方表單建立 <strong>種子</strong> 廠商（可設公開天數）。<br>
+          <strong>步驟二</strong>：列表點「上傳」代傳素材；種子另可點「天數」「同意公開」。已存在的示範店若類型為一般／付費，請用「素材」上下架，或點「轉為官方範例」／「轉為種子」。
         </p>
 
         <!-- 步驟一：代為建立廠商資料（新增種子廠商） -->
@@ -91,7 +97,7 @@
           </select>
           <button type="button" class="btn btn-sm btn-outline-secondary" id="btnReload"><i class="bi bi-arrow-clockwise me-1"></i>重新載入</button>
         </div>
-        <p class="text-muted small mb-2">轉換成功後：<strong>類型</strong>應變為「官方範例」或「一般／付費」，<strong>剩餘天數</strong>與<strong>到期日</strong>應為「—」；若仍顯示「種子」與倒數，代表尚未寫入成功，請看上方綠色／紅色提示。</p>
+        <p class="text-muted small mb-2">僅 <strong>種子</strong> 列會顯示剩餘天數與同意公開；<strong>一般／付費</strong>、<strong>官方範例</strong> 該欄為「不適用」屬正常。轉種子／轉官方後請看上方綠色提示確認類型。</p>
 
         <div class="card">
           <div class="card-header bg-white py-2"><strong>已建立的廠商</strong> <span class="text-muted small">— 步驟二：點「上傳素材」可代為上傳該廠商的數位版型（素材）</span></div>
@@ -211,7 +217,7 @@
               <div class="modal-header py-2"><h6 class="modal-title">素材上下架 — <span id="assetsMfrName"></span></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
               <div class="modal-body p-0">
                 <input type="hidden" id="assetsMfrId" />
-                <p class="small text-muted px-3 pt-2 mb-0">下架素材僅 admin／tester 可預覽；同意公開後，已上架素材才對一般訂製者顯示。</p>
+                <p class="small text-muted px-3 pt-2 mb-0" id="assetsModalHint">下架素材僅 admin／tester 可預覽；種子廠商須「同意公開」且素材上架後，一般訂製者才看得到。一般／付費廠商則素材上架即可對外。</p>
                 <div id="assetsListWrap" class="table-responsive" style="max-height:420px"><table class="table table-sm mb-0"><thead class="table-light"><tr><th>標題</th><th>類型</th><th>狀態</th><th></th></tr></thead><tbody id="assetsListBody"><tr><td colspan="4" class="text-muted text-center py-3">載入中…</td></tr></tbody></table></div>
               </div>
             </div>
@@ -354,12 +360,15 @@
       if (isSeed) typeLabel += '<span class="badge bg-primary">種子</span>';
       else if (isPlatform) typeLabel += '<span class="badge bg-info text-dark">官方範例</span>';
       else typeLabel += '<span class="badge bg-success">一般／付費</span>';
-      var daysCell = '—';
+      var naCell = '<span class="text-muted small" title="僅種子廠商適用">不適用</span>';
+      var daysCell = naCell;
       if (isSeed && m.remaining_days !== null) {
         daysCell = m.remaining_days === 0 ? '<span class="text-danger">已過期</span>' : (m.remaining_days + ' 天');
+      } else if (isSeed) {
+        daysCell = '—';
       }
-      var expiresCell = isSeed && m.expires_at ? formatDate(m.expires_at) : '—';
-      var releasedCell = '—';
+      var expiresCell = isSeed && m.expires_at ? formatDate(m.expires_at) : (isSeed ? '—' : naCell);
+      var releasedCell = naCell;
       if (isSeed) {
         releasedCell = m.seed_public_released
           ? '<span class="badge bg-success">已同意</span>'
@@ -370,7 +379,7 @@
       var mfrName = (m.name || '').replace(/"/g, '&quot;');
       var actionCell = '<div class="d-flex flex-wrap gap-1">';
       actionCell += '<button type="button" class="btn btn-sm btn-outline-primary" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-upload me-1"></i>上傳</button>';
-      actionCell += '<button type="button" class="btn btn-sm btn-outline-dark" data-action="assets" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-images me-1"></i>素材</button>';
+      actionCell += '<button type="button" class="btn btn-sm btn-outline-dark" data-action="assets" data-is-seed="' + (isSeed ? '1' : '0') + '" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-images me-1"></i>素材</button>';
       if (isSeed) {
         actionCell += '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="edit-days" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-expires="' + escapeHtml(m.expires_at || '') + '"><i class="bi bi-calendar me-1"></i>天數</button>';
         if (m.seed_public_released) {
@@ -380,8 +389,11 @@
         }
       }
       if (isSeed) {
-        actionCell += '<button type="button" class="btn btn-sm btn-outline-info" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-platform"><i class="bi bi-star me-1"></i>轉為官方範例</button>';
-        actionCell += '<button type="button" class="btn btn-sm btn-outline-success" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-paid"><i class="bi bi-check-circle me-1"></i>轉為付費</button>';
+        actionCell += '<button type="button" class="btn btn-sm btn-outline-info" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-platform"><i class="bi bi-star me-1"></i>轉官方範例</button>';
+        actionCell += '<button type="button" class="btn btn-sm btn-outline-success" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-paid"><i class="bi bi-check-circle me-1"></i>轉付費</button>';
+      } else if (!isPlatform) {
+        actionCell += '<button type="button" class="btn btn-sm btn-outline-info" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-platform"><i class="bi bi-star me-1"></i>轉官方範例</button>';
+        actionCell += '<button type="button" class="btn btn-sm btn-outline-primary" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="convert-seed"><i class="bi bi-seedling me-1"></i>轉種子</button>';
       }
       if (m.is_active !== false) {
         actionCell += '<button type="button" class="btn btn-sm btn-outline-secondary" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-action="deactivate"><i class="bi bi-pause-circle me-1"></i>下架</button>';
@@ -433,7 +445,9 @@
         return;
       }
       if (action === 'assets') {
-        btn.addEventListener('click', function() { openAssetsModal(id, name); });
+        btn.addEventListener('click', function() {
+          openAssetsModal(id, name, btn.getAttribute('data-is-seed') === '1');
+        });
         return;
       }
       if (action === 'convert-paid') {
@@ -446,9 +460,22 @@
       }
       if (action === 'convert-platform') {
         btn.addEventListener('click', function() {
-          patchManufacturer(id, { vendor_source: 'platform', expires_at: null, is_active: true },
-            '確定將「' + name + '」轉為官方範例？將解除種子 90 天限制，可自行編輯；素材供訂製者參考。',
+          patchManufacturer(id, { vendor_source: 'platform', expires_at: null, seed_public_released_at: null, is_active: true },
+            '確定將「' + name + '」轉為官方範例？\n\n解除種子倒數與「同意公開」流程；廠商可自行編輯；已上架素材對訂製者顯示。',
             '「' + name + '」已轉為官方範例');
+        });
+        return;
+      }
+      if (action === 'convert-seed') {
+        btn.addEventListener('click', function() {
+          var daysStr = prompt('轉為種子後可設定公開天數（預設 90）：', '90');
+          if (daysStr === null) return;
+          var days = parseInt(daysStr, 10);
+          if (!Number.isFinite(days) || days < 1) { alert('請輸入 1 以上的天數'); return; }
+          var exp = new Date(Date.now() + days * 86400000).toISOString();
+          patchManufacturer(id, { vendor_source: 'seed', expires_at: exp, seed_public_released_at: null, is_active: true },
+            '確定將「' + name + '」轉為種子？\n\n' + days + ' 天後到期；須「同意公開」且素材上架，一般訂製者才看得到。',
+            '「' + name + '」已轉為種子（' + days + ' 天）');
         });
         return;
       }
@@ -677,9 +704,15 @@
     });
   });
 
-  function openAssetsModal(mfrId, mfrName) {
+  function openAssetsModal(mfrId, mfrName, isSeedVendor) {
     document.getElementById('assetsMfrId').value = mfrId;
     document.getElementById('assetsMfrName').textContent = mfrName || '';
+    var hint = document.getElementById('assetsModalHint');
+    if (hint) {
+      hint.textContent = isSeedVendor
+        ? '種子廠商：須「同意公開」且素材上架，一般訂製者才看得到；下架素材僅 admin／tester 可預覽。'
+        : '一般／官方範例：素材「上架」即對外顯示（廠商須 is_active）；「下架」則僅 admin／tester 可預覽。';
+    }
     var tbody = document.getElementById('assetsListBody');
     tbody.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">載入中…</td></tr>';
     new bootstrap.Modal(document.getElementById('assetsModal')).show();
