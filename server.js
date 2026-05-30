@@ -829,7 +829,9 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
             refIndex: refIndex,
             vendor_asset_id: id || null,
             title: (s.title || '').trim() || null,
-            material_key: normalizeVendorMaterialKey(s.material_key) || null,
+            catalog_group_names: Array.isArray(s.catalog_group_names)
+                ? s.catalog_group_names.map((n) => String(n).trim()).filter(Boolean)
+                : [],
             image_url: imageUrl,
             filename_hint: basename || null
         };
@@ -839,21 +841,22 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
     if (!refs.length) return [];
     const needDb = [...byAssetId.keys()].filter(function (id) {
         const e = byAssetId.get(id);
-        return e && (!e.material_key || !e.title);
+        return e && (!e.title || !e.catalog_group_names.length);
     });
     if (needDb.length) {
         const { data: rows, error } = await supabase
             .from('vendor_assets')
-            .select('id, title, asset_kind, material_key, image_url')
+            .select('id, title, asset_kind, image_url')
             .in('id', needDb);
         if (!error && rows) {
-            rows.forEach(function (row) {
+            const enriched = await attachCatalogGroupIdsToAssets(rows);
+            enriched.forEach(function (row) {
                 if (!row || !row.id || normalizeVendorAssetKind(row.asset_kind) !== 'material') return;
                 const e = byAssetId.get(row.id);
                 if (!e) return;
                 if (!e.title && row.title) e.title = String(row.title).trim();
-                if (!e.material_key && row.material_key) {
-                    e.material_key = normalizeVendorMaterialKey(row.material_key);
+                if (!e.catalog_group_names.length && row.catalog_groups && row.catalog_groups.length) {
+                    e.catalog_group_names = row.catalog_groups.map((g) => String(g.name || '').trim()).filter(Boolean);
                 }
                 if (!e.filename_hint && row.image_url) {
                     e.filename_hint = extractImageUrlBasename(row.image_url) || e.filename_hint;
@@ -888,17 +891,18 @@ function buildMaterialTexturePromptAppendix(materialRefs, lang) {
         const n = ref.refIndex != null ? ref.refIndex : (idx + 1);
         const title = (ref.title || '').trim();
         const label = title || (isEn ? ('Material swatch ' + (idx + 1)) : ('材質樣板 ' + (idx + 1)));
-        const matLabel = ref.material_key ? vendorMaterialKeyLabel(ref.material_key, lang) : null;
+        const catNames = (ref.catalog_group_names || []).filter(Boolean).join(isEn ? ', ' : '、');
+        const matLabel = catNames || null;
         const head = isEn
-            ? ('Reference image #' + n + ': "' + label + '"' + (matLabel ? (' (' + matLabel + ')') : '') + ' — texture/color reference only.')
-            : ('參考圖第 ' + n + ' 張：「' + label + '」' + (matLabel ? ('（' + matLabel + '）') : '') + ' — 僅作表面紋理／色彩參考。');
+            ? ('Reference image #' + n + ': "' + label + '"' + (matLabel ? (' (vendor category: ' + matLabel + ')') : '') + ' — texture/color reference only.')
+            : ('參考圖第 ' + n + ' 張：「' + label + '」' + (matLabel ? ('（自訂分類：' + matLabel + '）') : '') + ' — 僅作表面紋理／色彩參考。');
         lines.push('• ' + head);
-        const rule = materialTextureScaleRuleForKey(ref.material_key, lang);
+        const rule = materialTextureScaleRuleForKey(null, lang);
         if (rule) lines.push('  ◦ ' + rule);
         const optionalHints = inferOptionalMaterialContextHints(
             ref.filename_hint || '',
             ref.title || '',
-            ref.material_key || '',
+            catNames,
             lang
         );
         optionalHints.forEach(function (h) { lines.push('  ◦ ' + h); });
@@ -1338,11 +1342,11 @@ function materialOptimizeTextureDirective(materialKey) {
  * 材料參考「材質圖 AI 優化」— 色卡／滿版圖樣導向，與產品重繪分線（不用棚拍底色）。
  * 規劃：docs/vendor-asset-material-swatch-plan.md
  */
-function buildVendorAssetMaterialOptimizePrompt(title, materialKey) {
-    const mk = normalizeVendorMaterialKey(materialKey);
-    const label = (title || '').trim() || (mk ? vendorMaterialKeyLabel(mk, 'en') : '') || 'material sample';
-    const typeLabel = mk ? vendorMaterialKeyLabel(mk, 'en') : 'material';
-    const textureLine = materialOptimizeTextureDirective(mk || materialKey);
+/** @param {string} catalogHint — 廠商材料自訂分類名稱（逗號串），取代 material_key */
+function buildVendorAssetMaterialOptimizePrompt(title, catalogHint) {
+    const label = (title || '').trim() || (catalogHint || '').trim() || 'material sample';
+    const typeLabel = (catalogHint || '').trim() || 'material';
+    const textureLine = materialOptimizeTextureDirective(null);
     return [
         `Enhance this image as a full-frame material swatch / color-card texture (like a Pantone or fabric swatch scan): "${label}" (${typeLabel}).`,
         'The entire frame should read as continuous material surface—preserve the apparent weave, grain, or pore scale from the reference; do not enlarge texture into oversized repeating blocks.',
@@ -5542,11 +5546,11 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
 }
 
 /** 廠商素材：數位原型＝商品圖重繪（可選底色）；材料＝滿版圖樣優化（不用底色，見 material-swatch-plan） */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey, backgroundColor) {
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
     const prompt = isMaterial
-        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey)
+        ? buildVendorAssetMaterialOptimizePrompt(title, materialCatalogHint)
         : buildVendorAssetProductOptimizePrompt(title, backgroundColor);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
@@ -10558,6 +10562,29 @@ function parseCatalogGroupIdsFromBody(body) {
     return [...ids];
 }
 
+/** 材料自訂分類名稱（供 AI 優化／生圖附錄，取代 material_key） */
+async function vendorCatalogGroupNamesByIds(manufacturerId, groupIds) {
+    const ids = [...new Set((groupIds || []).map((id) => String(id).trim()).filter(Boolean))];
+    if (!ids.length || !manufacturerId) return '';
+    let { data: groups, error } = await supabase
+        .from('vendor_catalog_groups')
+        .select('id, name, asset_kind')
+        .eq('manufacturer_id', manufacturerId)
+        .in('id', ids);
+    if (error && error.code === '42703') {
+        ({ data: groups } = await supabase
+            .from('vendor_catalog_groups')
+            .select('id, name')
+            .eq('manufacturer_id', manufacturerId)
+            .in('id', ids));
+    }
+    return (groups || [])
+        .filter((g) => vendorCatalogGroupRowAssetKind(g) === 'material')
+        .map((g) => String(g.name || '').trim())
+        .filter(Boolean)
+        .join('、');
+}
+
 async function vendorCatalogGroupsTableReady() {
     const { error } = await supabase.from('vendor_catalog_groups').select('id').limit(1);
     return !error || error.code !== '42P01';
@@ -10972,7 +10999,7 @@ app.get('/api/vendor-assets', async (req, res) => {
             if (categoryKey) q = q.eq('category_key', categoryKey);
             if (subcategoryKey && assetKindFilter !== 'material') q = q.eq('subcategory_key', subcategoryKey);
             if (styleKey) q = q.eq('style_key', styleKey);
-            if (materialKey) q = q.eq('material_key', materialKey);
+            if (materialKey && assetKindFilter !== 'material') q = q.eq('material_key', materialKey);
             if (manufacturerId) q = q.eq('manufacturer_id', manufacturerId);
             if (assetKindFilter && cols.includes('asset_kind')) q = q.eq('asset_kind', assetKindFilter);
             return q;
@@ -11059,8 +11086,8 @@ app.get('/api/vendor-assets', async (req, res) => {
                 sort_order: r.sort_order,
                 style_key: r.style_key || null,
                 style_label: r.style_key ? vendorStyleKeyLabel(r.style_key, lang) : null,
-                material_key: r.material_key || null,
-                material_label: r.material_key ? vendorMaterialKeyLabel(r.material_key, lang) : null,
+                material_key: kind === 'material' ? null : (r.material_key || null),
+                material_label: kind === 'material' ? null : (r.material_key ? vendorMaterialKeyLabel(r.material_key, lang) : null),
                 color_key: r.color_key || null,
                 color_label: r.color_key ? vendorColorKeyLabel(r.color_key, lang) : null,
                 asset_kind: kind,
@@ -11349,7 +11376,11 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const title = (body.title || '').trim() || null;
         let description = (body.description || '').trim() || null;
         const styleKey = (body.style_key || '').trim() || null;
-        const materialKey = (body.material_key || '').trim() || null;
+        const catalogGroupIdsEarly = parseCatalogGroupIdsFromBody(body);
+        let materialCatalogHint = '';
+        if (assetKind === 'material' && catalogGroupIdsEarly.length) {
+            materialCatalogHint = await vendorCatalogGroupNamesByIds(manufacturerId, catalogGroupIdsEarly);
+        }
         let prototypeMoqValue = null;
         let prototypeCustomizationLevels = [];
         if (assetKind === 'prototype') {
@@ -11427,7 +11458,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             try {
                 const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
                 const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                    file.buffer, file.mimetype, title, assetKind, materialKey, optimizeBackground
+                    file.buffer, file.mimetype, title, assetKind,
+                    assetKind === 'material' ? materialCatalogHint : ((body.material_key || '').trim() || null),
+                    optimizeBackground
                 );
                 uploadFile = {
                     buffer: optimizedBuf,
@@ -11464,7 +11497,10 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         };
         if (semanticsJson) insertPayload.image_semantics_json = semanticsJson;
         if (styleKey) insertPayload.style_key = normalizeVendorStyleKey(styleKey);
-        if (materialKey) insertPayload.material_key = normalizeVendorMaterialKey(materialKey);
+        if (assetKind !== 'material') {
+            const materialKey = (body.material_key || '').trim() || null;
+            if (materialKey) insertPayload.material_key = normalizeVendorMaterialKey(materialKey);
+        }
         const colorKeyBody = (body.color_key || '').trim() || null;
         const colorKeyDerived = normalizeVendorColorKey(colorKeyBody, semanticsJson) || deriveColorKeyFromSemantics(semanticsJson);
         if (colorKeyDerived) insertPayload.color_key = colorKeyDerived;
@@ -11734,13 +11770,20 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.sort_order !== undefined) updates.sort_order = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
         if (body.is_public !== undefined) updates.is_public = !!parseTruthyBody(body.is_public);
         if (body.style_key !== undefined) updates.style_key = (body.style_key || '').trim() || null;
-        if (body.material_key !== undefined) updates.material_key = (body.material_key || '').trim() || null;
+        if (body.material_key !== undefined) {
+            updates.material_key = assetKindPut === 'material' ? null : ((body.material_key || '').trim() || null);
+        }
         if (body.asset_kind !== undefined) updates.asset_kind = normalizeVendorAssetKind(body.asset_kind);
         const assetKindForPart = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
         if (body.part_key !== undefined && assetKindForPart === 'prototype') {
             updates.part_key = normalizeVendorPartKey(body.part_key, assetKindForPart);
         }
         const assetKind = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
+        const catalogGroupIdsPut = parseCatalogGroupIdsFromBody(body);
+        let materialCatalogHintPut = '';
+        if (assetKind === 'material' && catalogGroupIdsPut.length) {
+            materialCatalogHintPut = await vendorCatalogGroupNamesByIds(manufacturerId, catalogGroupIdsPut);
+        }
         if (assetKind === 'prototype') {
             const moqIn = body.min_order_quantity !== undefined ? body.min_order_quantity : row.min_order_quantity;
             const moqParsed = parseVendorAssetPrototypeMoq(moqIn, { required: true });
@@ -11761,7 +11804,6 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         let file = req.file ? await vendorAssetFileFromMulter(req.file) : null;
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
         const titleForPrompt = updates.title !== undefined ? updates.title : row.title;
-        const materialKeyForPrompt = updates.material_key !== undefined ? updates.material_key : row.material_key;
         const categoryKeyForTags = updates.category_key || row.category_key;
         let balanceAfter = null;
         let pointsDeducted = 0;
@@ -11828,7 +11870,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                 try {
                     const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
                     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                        file.buffer, file.mimetype, titleForPrompt, assetKind, materialKeyForPrompt, optimizeBackground
+                        file.buffer, file.mimetype, titleForPrompt, assetKind,
+                        assetKind === 'material' ? materialCatalogHintPut : ((updates.material_key != null ? updates.material_key : row.material_key) || ''),
+                        optimizeBackground
                     );
                     uploadFile = {
                         buffer: optimizedBuf,
@@ -12088,7 +12132,6 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
         const sup = catalogItem.industry_suppliers;
         const supplier = Array.isArray(sup) ? sup[0] : sup;
         const spec = catalogItem.spec_json && typeof catalogItem.spec_json === 'object' ? catalogItem.spec_json : {};
-        const materialKey = (spec.material_type || spec.material_key || '').trim() || null;
         const categoryKey = (catalogItem.category_key || '').trim() || 'other';
 
         const insertPayload = {
@@ -12104,7 +12147,6 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
             source_catalog_item_id: catalogItem.id,
             tags_source: 'import'
         };
-        if (materialKey) insertPayload.material_key = materialKey;
 
         let inserted;
         let insErr;
