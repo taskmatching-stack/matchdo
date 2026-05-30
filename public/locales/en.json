@@ -138,6 +138,8 @@
   "baseModels.filterSiteCategoryAll": "All",
   "baseModels.myCatalogAssign": "My categories (optional, multi-select)",
   "baseModels.myCatalogAssignHint": "Add a name in My asset categories at the top, then check boxes here.",
+  "baseModels.myCatalogAssignHintPrototype": "Add categories under My asset categories in the Prototypes tab first, then check them here (separate from materials).",
+  "baseModels.myCatalogAssignHintMaterial": "Add categories under My asset categories in the Materials tab first, then check them here (separate from prototypes).",
   "baseModels.catalogGroupNamePlaceholder": "Category name (e.g. collars)",
   "baseModels.catalogAddFirstBtn": "Add first category",
   "baseModels.catalogDbMissing": "Run docs/add-vendor-catalog-groups.sql in Supabase first",
