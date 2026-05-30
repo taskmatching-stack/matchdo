@@ -19,8 +19,8 @@ alwaysApply: false
 </body>
 ```
 
-- **一套邏輯**：首屏與完整選單都在 `public/js/site-header.js`（開頭同步繪製 + `bootSiteHeader` 升級）。勿再新增 `site-header-shell.js` 或伺服器注入。
-- **樣式**：`public/css/style.css` 已 `@import` `site-header-shell.css`。
+- **一套邏輯**：僅 `public/js/site-header.js`（`bootSiteHeader` 首屏 fastFirst → 完整版升級）。勿再畫簡化版 shell HTML（會與雙列 CSS 重疊閃爍）。
+- **樣式**：`style.css` 已 `@import` `site-header-shell.css`（`data-header-ready` 前 `visibility:hidden`）。
 - **勿**在頁面內複製 `<nav>…</nav>`；**勿**把 `site-header.js` 排在 Supabase／i18n 之後並 `defer`（會再次變成選單最後才出現）。
 
 編輯 **site-header.js** 或 **auth-config.js** 時必須遵守以下幾點，已多次因違反而導致選單或登入失效。
