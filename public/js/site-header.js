@@ -2,6 +2,55 @@
  * 網站共用導航系統
  * 修改時注意：勿在同一 function 重複宣告變數；登入連結須帶 returnUrl。詳見 .cursor/rules/site-header-and-auth.mdc
  */
+
+/** 同步首屏導覽（無網路依賴）；bootSiteHeader 載入後升級為完整版 */
+(function paintSiteHeaderFirst() {
+    function navLang() {
+        try {
+            var p = new URLSearchParams(window.location.search || '');
+            if (p.get('lang')) return String(p.get('lang')).toLowerCase() === 'en' ? 'en' : 'zh-TW';
+            var s = localStorage.getItem('lang');
+            if (s && String(s).toLowerCase() === 'en') return 'en';
+        } catch (e) {}
+        return 'zh-TW';
+    }
+    function labels(lang) {
+        if (lang === 'en') {
+            return { customProduct: 'Custom Products', remake: 'Design Direction', plans: 'Plans & Pricing', login: 'Log in', brandAlt: 'MatchDO' };
+        }
+        return { customProduct: '客製產品', remake: '設計風向', plans: '方案與定價', login: '登入', brandAlt: 'MatchDO 合做' };
+    }
+    function paintSiteHeaderShell() {
+        var el = document.getElementById('site-header');
+        if (!el || el.querySelector('nav.navbar')) return;
+        var lang = navLang();
+        var L = labels(lang);
+        var path = (window.location && window.location.pathname) || '';
+        var search = (window.location && window.location.search) || '';
+        var customActive = (path.indexOf('/custom') === 0 || path.indexOf('custom-product') !== -1) ? ' active' : '';
+        var remakeActive = (path.indexOf('/remake') === 0 || path.indexOf('remake-product') !== -1) ? ' active' : '';
+        var loginUrl = '/login.html?returnUrl=' + encodeURIComponent(path + search);
+        el.innerHTML =
+            '<nav class="navbar navbar-expand-lg bg-white navbar-light sticky-top p-0">' +
+            '<a href="/" class="navbar-brand d-flex align-items-center border-end px-4 px-lg-5">' +
+            '<img src="/img/matchdo-logo.png" alt="' + L.brandAlt + '" width="120" height="52" decoding="async">' +
+            '</a>' +
+            '<button type="button" class="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapseShell" aria-label="Menu">' +
+            '<span class="navbar-toggler-icon"></span></button>' +
+            '<div class="collapse navbar-collapse" id="navbarCollapseShell">' +
+            '<div class="navbar-nav ms-auto p-4 p-lg-0">' +
+            '<a href="/custom/" class="nav-item nav-link' + customActive + '">' + L.customProduct + '</a>' +
+            '<a href="/remake/" class="nav-item nav-link' + remakeActive + '">' + L.remake + '</a>' +
+            '<a href="/subscription-plans.html" class="nav-item nav-link">' + L.plans + '</a>' +
+            '</div>' +
+            '<div class="d-flex align-items-center px-4 pb-3 pb-lg-0" id="authSectionShell">' +
+            '<a href="' + loginUrl + '" class="btn btn-primary py-2 px-4"><i class="bi bi-person me-2"></i>' + L.login + '</a>' +
+            '</div></div></nav>';
+        el.setAttribute('data-header-shell', '1');
+    }
+    paintSiteHeaderShell();
+})();
+
 (function () {
     // Bootstrap JS 全站保底載入
     if (typeof window.bootstrap === 'undefined' && !document.getElementById('bs-bundle-js')) {
@@ -113,11 +162,16 @@ function ensureNavLocaleReady() {
 }
 
 var _siteHeaderAuthListenersBound = false;
+var _siteHeaderRetriesScheduled = false;
 
 function bindSiteHeaderAuthListeners(initialSession) {
+    if (!_siteHeaderRetriesScheduled) {
+        _siteHeaderRetriesScheduled = true;
+        scheduleHeaderAuthRetries(initialSession);
+    }
     if (_siteHeaderAuthListenersBound) return;
-    _siteHeaderAuthListenersBound = true;
     if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
+        _siteHeaderAuthListenersBound = true;
         AuthService.onAuthStateChange(function (event, newSession) {
             if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
                 _navFullyRendered = false;
@@ -133,8 +187,13 @@ function bindSiteHeaderAuthListeners(initialSession) {
                 }
             }
         });
+        return;
     }
-    scheduleHeaderAuthRetries(initialSession);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            bindSiteHeaderAuthListeners(initialSession);
+        });
+    }
 }
 
 function bootSiteHeader() {
@@ -161,12 +220,7 @@ function bootSiteHeader() {
 }
 
 if (document.getElementById('site-header')) {
-    if (typeof window.injectSiteHeaderShell === 'function') window.injectSiteHeaderShell();
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootSiteHeader);
-    } else {
-        bootSiteHeader();
-    }
+    bootSiteHeader();
 } else {
     document.addEventListener('DOMContentLoaded', bootSiteHeader);
 }

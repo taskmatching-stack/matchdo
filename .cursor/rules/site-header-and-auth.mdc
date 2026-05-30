@@ -6,6 +6,23 @@ alwaysApply: false
 
 # 選單與登入（修改時必守，否則全站選單／登入會壞）
 
+## 新前台頁面
+
+```html
+<body>
+    <div id="site-header"></div>
+    <!-- 內容多的頁（如 custom-product）：緊接在上一行載入，勿 defer -->
+    <script src="/js/site-header.js"></script>
+    …
+    <div id="site-footer"></div>
+    <script src="/js/site-footer.js"></script>
+</body>
+```
+
+- **一套邏輯**：首屏與完整選單都在 `public/js/site-header.js`（開頭同步繪製 + `bootSiteHeader` 升級）。勿再新增 `site-header-shell.js` 或伺服器注入。
+- **樣式**：`public/css/style.css` 已 `@import` `site-header-shell.css`。
+- **勿**在頁面內複製 `<nav>…</nav>`；**勿**把 `site-header.js` 排在 Supabase／i18n 之後並 `defer`（會再次變成選單最後才出現）。
+
 編輯 **site-header.js** 或 **auth-config.js** 時必須遵守以下幾點，已多次因違反而導致選單或登入失效。
 
 ## 1. 禁止重複宣告同一變數
