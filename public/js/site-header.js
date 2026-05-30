@@ -85,7 +85,12 @@ async function fetchMeCapabilities() {
 }
 
 function ensureNavLocaleReady() {
-    if (window.i18n && window.i18n.ready) return window.i18n.ready;
+    if (window.i18n && window.i18n.ready) {
+        return window.i18n.ready.then(function () {
+            if (window.i18n && window.i18n.t) return window.__I18N__ && window.__I18N__.messages;
+            return {};
+        });
+    }
     var lang = 'zh-TW';
     try {
         var params = new URLSearchParams(window.location.search || '');
@@ -107,39 +112,52 @@ function ensureNavLocaleReady() {
         .catch(function () { return {}; });
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    var headerContainer = document.getElementById('site-header');
-    if (!headerContainer) return;
-    var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || null;
-    var whenReady = ensureNavLocaleReady();
-    whenReady.then(function () {
-        return loadSiteHeader(session);
-    }).then(function () {
-        if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
-            AuthService.onAuthStateChange(function (event, newSession) {
-                if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+var _siteHeaderAuthListenersBound = false;
+
+function bindSiteHeaderAuthListeners(initialSession) {
+    if (_siteHeaderAuthListenersBound) return;
+    _siteHeaderAuthListenersBound = true;
+    if (window.AuthService && typeof AuthService.onAuthStateChange === 'function') {
+        AuthService.onAuthStateChange(function (event, newSession) {
+            if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+                _navFullyRendered = false;
+                loadSiteHeader(newSession);
+                return;
+            }
+            if (event === 'INITIAL_SESSION') {
+                var hadUser = _lastRenderedUserId != null && _lastRenderedUserId !== undefined;
+                var hasUser = newSession && newSession.user;
+                if (hasUser && !hadUser) {
                     _navFullyRendered = false;
                     loadSiteHeader(newSession);
-                    return;
                 }
-                // Supabase 常晚於 DOMContentLoaded 才回傳 session；若先前畫成未登入，必須補畫
-                if (event === 'INITIAL_SESSION') {
-                    var hadUser = _lastRenderedUserId != null && _lastRenderedUserId !== undefined;
-                    var hasUser = newSession && newSession.user;
-                    if (hasUser && !hadUser) {
-                        _navFullyRendered = false;
-                        loadSiteHeader(newSession);
-                    }
-                }
-            });
-        }
-        scheduleHeaderAuthRetries(session);
+            }
+        });
+    }
+    scheduleHeaderAuthRetries(initialSession);
+}
+
+function bootSiteHeader() {
+    var headerContainer = document.getElementById('site-header');
+    if (!headerContainer || headerContainer.getAttribute('data-header-booted') === '1') return;
+    headerContainer.setAttribute('data-header-booted', '1');
+    var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || null;
+    ensureNavLocaleReady().then(function () {
+        return loadSiteHeader(session);
+    }).then(function () {
+        bindSiteHeaderAuthListeners(session);
     }).catch(function (err) {
         console.error('site-header init:', err);
-        loadSiteHeader(session || window.__authSessionForHeader || null);
-        scheduleHeaderAuthRetries(session);
+        loadSiteHeader(session || window.__authSessionForHeader || null).then(function () {
+            bindSiteHeaderAuthListeners(session);
+        });
     });
-});
+}
+
+if (document.getElementById('site-header')) {
+    bootSiteHeader();
+}
+document.addEventListener('DOMContentLoaded', bootSiteHeader);
 
 /** locale 或首次渲染較慢時，稍後再以 session 重畫（避免誤顯示「登入」） */
 function scheduleHeaderAuthRetries(initialSession) {
@@ -165,31 +183,40 @@ function scheduleHeaderAuthRetries(initialSession) {
 
 var _lastRenderedUserId = undefined;
 var _navFullyRendered = false;
+async function resolveHeaderUser(sessionFromEvent) {
+    var user = sessionFromEvent && sessionFromEvent.user ? sessionFromEvent.user : null;
+    if (!user && window.__authSessionForHeader && window.__authSessionForHeader.user) {
+        user = window.__authSessionForHeader.user;
+    }
+    if (!user && window.getSessionFromStorage) {
+        var fromStore = getSessionFromStorage();
+        if (fromStore && fromStore.user) user = fromStore.user;
+    }
+    if (!user && window.AuthService) {
+        try {
+            var session = await AuthService.getSession();
+            user = session && session.user ? session.user : null;
+        } catch (e) {}
+    }
+    return user;
+}
+
 function loadSiteHeader(sessionFromEvent) {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return Promise.resolve();
     return (async function () {
-        var user = sessionFromEvent && sessionFromEvent.user ? sessionFromEvent.user : null;
-        if (!user && window.__authSessionForHeader && window.__authSessionForHeader.user) {
-            user = window.__authSessionForHeader.user;
-        }
-        if (!user && window.getSessionFromStorage) {
-            var fromStore = getSessionFromStorage();
-            if (fromStore && fromStore.user) user = fromStore.user;
-        }
-        if (!user && window.AuthService) {
-            try {
-                var session = await AuthService.getSession();
-                user = session && session.user ? session.user : null;
-            } catch (e) {}
-        }
+        var user = await resolveHeaderUser(sessionFromEvent);
         var uid = user ? (user.id || user.email || 'user') : null;
-        // 已完整渲染且同一 user → 跳過，防止重複觸發（null→登入 會因 uid 不同而重畫）
         if (_navFullyRendered && uid === _lastRenderedUserId) return;
+        var configCaps = await Promise.all([
+            getPublicConfig(),
+            user ? fetchMeCapabilities() : Promise.resolve(null)
+        ]);
+        var config = configCaps[0];
+        var meCapabilities = configCaps[1];
+        await renderHeader(headerContainer, user, config, meCapabilities);
         _lastRenderedUserId = uid;
         _navFullyRendered = true;
-        var config = await getPublicConfig();
-        await renderHeader(headerContainer, user, config);
     })();
 }
 
@@ -207,7 +234,7 @@ function isRemakeSection() {
  * - 本 function 內勿重複宣告同一變數（例如已有 const path 就不要再 var path），否則整支腳本報錯、選單與登入會壞。
  * - loginHref 必須帶 returnUrl 或使用 AuthService.getLoginUrl(path)，不可只寫 '/login.html'。
  */
-async function renderHeader(headerContainer, user, config) {
+async function renderHeader(headerContainer, user, config, meCapabilitiesPreloaded) {
     if (!config) config = { enableServiceMatching: false };
     // 服務媒合選單已廢除，不再顯示（不依 config，避免誤觸或快取導致再次出現）
     // 讀快取名字/頭像，避免顯示「載入中...」
@@ -249,9 +276,11 @@ async function renderHeader(headerContainer, user, config) {
     }
     // 登入即顯示「我的功能」：僅放頂部選單沒有的工作入口（不重複客製產品／設計風向 ▾）。
     const showMyFeaturesDropdown = !!user;
-    var meCapabilities = null;
-    if (user) {
+    var meCapabilities = meCapabilitiesPreloaded != null ? meCapabilitiesPreloaded : null;
+    if (user && meCapabilities == null) {
         meCapabilities = await fetchMeCapabilities();
+    }
+    if (user && meCapabilities) {
         try {
             window.__ME_CAPABILITIES__ = meCapabilities;
         } catch (eCap) {}
