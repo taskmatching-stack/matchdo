@@ -104,6 +104,7 @@
                                 <span id="catalog-groups-count" class="badge bg-light text-secondary border fw-normal d-none"></span>
                             </h6>
                             <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
+                            <p id="catalog-groups-kind-hint" class="text-muted small mb-0 mt-1"></p>
                             <p id="catalog-groups-collapsed-summary" class="text-muted small mb-0 mt-1 d-none"></p>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
@@ -242,7 +243,7 @@
                         <input type="hidden" id="edit-id">
                         <input type="hidden" id="edit-asset-kind">
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
-                        <div class="mb-3"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
+                        <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
                         <div class="mb-3 d-none" id="edit-material-key-wrap"><label class="form-label" data-i18n="baseModels.materialCategory">材質分類</label><select class="form-select" id="edit-material-key"><option value="">—</option><option value="fabric">fabric</option><option value="leather">leather</option><option value="metal">metal</option><option value="wood">wood</option><option value="plastic">plastic</option><option value="ceramic">ceramic</option><option value="other">other</option></select></div>
                         <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
@@ -366,6 +367,7 @@
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_description: 1 };
         var editPending = { tags: null, semantics: null };
         var catalogGroupsFlat = [];
+        var catalogGroupsByKind = { prototype: [], material: [] };
         var catalogGroupsDbReady = true;
         var CATALOG_GROUPS_PREF_KEY = 'matchdo.catalogGroupsDefaultCollapsed';
         var CATALOG_GROUPS_COLLAPSE_AT = 5;
@@ -1068,22 +1070,51 @@
                 });
                 var d = await r.json().catch(function () { return {}; });
                 if (!r.ok) { showToast(d.error || '排序儲存失敗', 'danger'); return; }
-                catalogGroupsFlat = d.flat || catalogGroupsFlat;
+                if (d.flat) {
+                    var proto = [], mat = [];
+                    d.flat.forEach(function (g) {
+                        if (g.asset_kind === 'material') mat.push(g);
+                        else proto.push(g);
+                    });
+                    catalogGroupsByKind.prototype = proto;
+                    catalogGroupsByKind.material = mat;
+                    syncCatalogGroupsFlatFromActiveKind();
+                }
                 fillVendorCatalogFilterSelect();
                 showToast(tr('baseModels.catalogGroupsOrderSaved', '分類順序已儲存'));
             } catch (e) { showToast(e.message, 'danger'); }
         }
 
+        function syncCatalogGroupsFlatFromActiveKind() {
+            catalogGroupsFlat = catalogGroupsByKind[activeKind] || [];
+        }
+
+        function updateCatalogGroupsKindHint() {
+            var el = document.getElementById('catalog-groups-kind-hint');
+            if (!el) return;
+            el.textContent = activeKind === 'material'
+                ? tr('baseModels.myCatalogKindMaterial', '以下分類僅用於「材料參考」，與數位原型分開。')
+                : tr('baseModels.myCatalogKindPrototype', '以下分類僅用於「數位原型」，與材料參考分開。');
+        }
+
         async function loadCatalogGroups() {
+            catalogGroupsByKind = { prototype: [], material: [] };
+            catalogGroupsDbReady = true;
+            var kinds = ['prototype', 'material'];
             try {
-                var r = await fetch('/api/me/vendor-catalog-groups', { headers: { Authorization: 'Bearer ' + token } });
-                var d = await r.json().catch(function () { return {}; });
-                catalogGroupsFlat = d.flat || [];
-                catalogGroupsDbReady = !(d.message && String(d.message).indexOf('add-vendor-catalog-groups') !== -1);
+                for (var ki = 0; ki < kinds.length; ki++) {
+                    var k = kinds[ki];
+                    var r = await fetch('/api/me/vendor-catalog-groups?asset_kind=' + encodeURIComponent(k), { headers: { Authorization: 'Bearer ' + token } });
+                    var d = await r.json().catch(function () { return {}; });
+                    if (d.message && String(d.message).indexOf('add-vendor-catalog-groups') !== -1) catalogGroupsDbReady = false;
+                    catalogGroupsByKind[k] = d.flat || [];
+                }
                 if (!catalogGroupsDbReady) showToast(tr('baseModels.catalogDbMissing', '請先執行 docs/add-vendor-catalog-groups.sql'), 'warning');
             } catch (e) {
-                catalogGroupsFlat = [];
+                catalogGroupsByKind = { prototype: [], material: [] };
             }
+            syncCatalogGroupsFlatFromActiveKind();
+            updateCatalogGroupsKindHint();
             renderCatalogGroupsList();
             fillVendorCatalogFilterSelect();
             document.querySelectorAll('.add-catalog-groups').forEach(function (el) {
@@ -1107,7 +1138,7 @@
                 var r = await fetch('/api/me/vendor-catalog-groups', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: name })
+                    body: JSON.stringify({ name: name, asset_kind: activeKind })
                 });
                 var d = await r.json().catch(function () { return {}; });
                 if (!r.ok) { showToast(d.error || 'failed', 'danger'); return; }
@@ -1304,6 +1335,17 @@
                 document.getElementById('add-form-panel-prototype').classList.toggle('d-none', activeKind !== 'prototype');
                 document.getElementById('add-form-panel-material').classList.toggle('d-none', activeKind !== 'material');
             }
+            syncCatalogGroupsFlatFromActiveKind();
+            updateCatalogGroupsKindHint();
+            var filterSel = document.getElementById('filter-vendor-catalog');
+            if (filterSel && filterSel.value && !catalogGroupsFlat.some(function (g) { return String(g.id) === String(filterSel.value); })) {
+                filterSel.value = '';
+            }
+            renderCatalogGroupsList();
+            fillVendorCatalogFilterSelect();
+            document.querySelectorAll('.add-catalog-groups').forEach(function (el) {
+                renderCatalogGroupCheckboxes(el, []);
+            });
             renderGrid();
         }
 
@@ -1318,7 +1360,7 @@
             var imgInput = form.querySelector('.add-image');
             wireOptimizeBackgroundForm(form);
 
-            catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
+            if (subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
 
             var previewWrap = form.querySelector('.add-image-preview');
             imgInput.addEventListener('change', function () {
@@ -1356,7 +1398,7 @@
                 var fd = new FormData();
                 fd.append('asset_kind', kind);
                 fd.append('category_key', catSel.value);
-                fd.append('subcategory_key', subSel.value || '');
+                if (kind !== 'material' && subSel) fd.append('subcategory_key', subSel.value || '');
                 fd.append('title', form.querySelector('.add-title').value || '');
                 fd.append('description', form.querySelector('.add-description').value || '');
                 fd.append('usage_type', 'reference_only');
@@ -1448,7 +1490,11 @@
             toggleEditImageOptions(false);
             updateEditOptimizeLabel(m.asset_kind);
             fillCategorySelect(document.getElementById('edit-category'), m.category_key);
-            fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
+            var isMaterialEdit = normalizeKind(m.asset_kind) === 'material';
+            var subWrap = document.getElementById('edit-subcategory-wrap');
+            if (subWrap) subWrap.classList.toggle('d-none', isMaterialEdit);
+            if (!isMaterialEdit) fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
+            catalogGroupsFlat = catalogGroupsByKind[isMaterialEdit ? 'material' : 'prototype'] || [];
             var wrap = document.getElementById('edit-material-key-wrap');
             wrap.classList.toggle('d-none', m.asset_kind !== 'material');
             document.getElementById('edit-material-key').value = m.material_key || '';
@@ -1536,7 +1582,7 @@
             var id = document.getElementById('edit-id').value;
             var fd = new FormData();
             fd.append('category_key', document.getElementById('edit-category').value);
-            fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
+            if (editKind !== 'material') fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
             fd.append('title', document.getElementById('edit-title').value || '');
             fd.append('description', document.getElementById('edit-description').value || '');
             fd.append('usage_type', 'reference_only');

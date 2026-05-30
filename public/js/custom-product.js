@@ -814,10 +814,11 @@ $(document).ready(function () {
     }
 
     function buildVendorAssetsFetchUrl(params) {
+        var assetKind = ($('#vendorAssetsAssetKind').val() || '').trim();
         var url = '';
         if (params.mode === 'category' && params.mainKey) {
             url = '/api/vendor-assets?category_key=' + encodeURIComponent(params.mainKey);
-            if (params.subKey) url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+            if (params.subKey && assetKind !== 'material') url += '&subcategory_key=' + encodeURIComponent(params.subKey);
         } else if (params.mode === 'manufacturer' && params.manufacturerId) {
             url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(params.manufacturerId);
         }
@@ -835,7 +836,6 @@ $(document).ready(function () {
             var areaCode = ($('#vendorAssetsServiceArea').val() || '').trim();
             if (areaCode) url += '&service_area=' + encodeURIComponent(areaCode);
         }
-        var assetKind = ($('#vendorAssetsAssetKind').val() || '').trim();
         if (assetKind) url += '&asset_kind=' + encodeURIComponent(assetKind);
         if (params.mode === 'manufacturer') {
             var catalogGroupId = ($('#vendorAssetsCatalogGroup').val() || '').trim();

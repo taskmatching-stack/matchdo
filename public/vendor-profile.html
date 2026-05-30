@@ -607,18 +607,47 @@
             });
         }
 
+        function catalogGroupKind(g) {
+            return (g && g.asset_kind === 'material') ? 'material' : 'prototype';
+        }
+
         function renderVendorCatalogNav(mfrId) {
             var nav = document.getElementById('vendorCatalogNav');
             if (!nav) return;
             var allLabel = (window.i18n && typeof window.i18n.t === 'function')
                 ? (window.i18n.t('vendor.catalogAll') || '全部')
                 : '全部';
+            var protoGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'prototype'; });
+            var matGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'material'; });
+            function pillRow(groups) {
+                var row = '';
+                groups.forEach(function (g) {
+                    var active = vendorAssetsActiveGroupId === g.id ? ' active' : '';
+                    row += '<button type="button" class="catalog-pill' + active + '" data-group="' + escHtml(g.id) + '">' +
+                        escHtml(g.name) + (g.asset_count ? ' (' + g.asset_count + ')' : '') + '</button>';
+                });
+                return row;
+            }
             var html = '<button type="button" class="catalog-pill' + (!vendorAssetsActiveGroupId ? ' active' : '') + '" data-group="">' + escHtml(allLabel) + '</button>';
-            vendorAssetsCatalogFlat.forEach(function (g) {
-                var active = vendorAssetsActiveGroupId === g.id ? ' active' : '';
-                html += '<button type="button" class="catalog-pill' + active + '" data-group="' + escHtml(g.id) + '">' +
-                    escHtml(g.name) + (g.asset_count ? ' (' + g.asset_count + ')' : '') + '</button>';
-            });
+            if (protoGroups.length) {
+                var protoLabel = (window.i18n && typeof window.i18n.t === 'function')
+                    ? (window.i18n.t('vendor.catalogPrototypeGroups') || '數位原型')
+                    : '數位原型';
+                html += '<span class="text-muted small align-self-center ms-1 me-1">' + escHtml(protoLabel) + '</span>' + pillRow(protoGroups);
+            }
+            if (matGroups.length) {
+                var matLabel = (window.i18n && typeof window.i18n.t === 'function')
+                    ? (window.i18n.t('vendor.catalogMaterialGroups') || '材料參考')
+                    : '材料參考';
+                html += '<span class="text-muted small align-self-center ms-2 me-1">' + escHtml(matLabel) + '</span>' + pillRow(matGroups);
+            }
+            if (!protoGroups.length && !matGroups.length) {
+                vendorAssetsCatalogFlat.forEach(function (g) {
+                    var active = vendorAssetsActiveGroupId === g.id ? ' active' : '';
+                    html += '<button type="button" class="catalog-pill' + active + '" data-group="' + escHtml(g.id) + '">' +
+                        escHtml(g.name) + (g.asset_count ? ' (' + g.asset_count + ')' : '') + '</button>';
+                });
+            }
             nav.innerHTML = html;
             nav.querySelectorAll('.catalog-pill').forEach(function (btn) {
                 btn.addEventListener('click', function () {
