@@ -206,22 +206,9 @@
                                 <div class="col-12">
                                     <div class="form-check mb-1">
                                         <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
-                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖 AI 優化（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
                                     </div>
-                                    <div class="add-optimize-bg-wrap d-none mb-2">
-                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
-                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
-                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
-                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
-                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
-                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
-                                            </select>
-                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#f5f5f5" title="自訂底色">
-                                        </div>
-                                        <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">僅在勾選 AI 重繪時套用；自訂色請選「自訂色」後點色票。</p>
-                                    </div>
+                                    <p class="form-text text-muted small mb-2 add-optimize-material-hint" data-i18n="baseModels.optimizeMaterialHint">強化滿版色卡／圖樣（織紋、木紋、金屬質感），不換成商品白底照。請先選材質分類。微距圖請在標題註明，以免生圖時紋路過粗。</p>
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
@@ -778,12 +765,21 @@
         }
 
         function updateEditOptimizeLabel(assetKind) {
+            var isMat = normalizeKind(assetKind) === 'material';
             var labelSpan = document.querySelector('#edit-optimize-label span[data-i18n]');
-            if (!labelSpan) return;
-            var key = normalizeKind(assetKind) === 'material' ? 'baseModels.optimizeMaterial' : 'baseModels.optimizeProduct';
-            var fb = normalizeKind(assetKind) === 'material' ? '材質圖 AI 重繪（含 AI 標籤）' : '產品圖 AI 重繪（含 AI 標籤）';
-            labelSpan.setAttribute('data-i18n', key);
-            labelSpan.textContent = tr(key, fb);
+            if (labelSpan) {
+                var key = isMat ? 'baseModels.optimizeMaterial' : 'baseModels.optimizeProduct';
+                var fb = isMat ? '材質圖 AI 優化（含 AI 標籤）' : '產品圖 AI 重繪（含 AI 標籤）';
+                labelSpan.setAttribute('data-i18n', key);
+                labelSpan.textContent = tr(key, fb);
+            }
+            var bgWrap = document.getElementById('edit-optimize-bg-wrap');
+            if (bgWrap) bgWrap.classList.toggle('d-none', isMat);
+            var bgLabel = document.querySelector('#edit-optimize-bg-wrap label[data-i18n]');
+            if (bgLabel && !isMat) {
+                bgLabel.setAttribute('data-i18n', 'baseModels.optimizeBackgroundLabel');
+                bgLabel.textContent = tr('baseModels.optimizeBackgroundLabel', 'AI 重繪底色');
+            }
             var editBase = document.getElementById('edit-points-base');
             var editOpt = document.getElementById('edit-points-optimize');
             if (editBase) editBase.textContent = String(uploadPricing.points_upload);

@@ -156,6 +156,15 @@ ORDER BY min_order_quantity;
 - 設計頁從素材庫選材料時，`reference_sources` 帶 `material_key`（`custom-product.js` 卡片 `data-material-key`）。  
 - 缺欄時後端 `resolveMaterialRefsForPrompt` 以 `vendor_asset_id` 查 DB 補齊。
 
+### 材料「AI 優化」（與原型分線，見獨立規格）
+
+**主文件：`docs/vendor-asset-material-swatch-plan.md`**（色卡／滿版圖樣、紋理尺度、不共用產品底色）。
+
+- UI：**材質圖 AI 優化**；**無底色選項**（產品重繪才有）。
+- 後端：`buildVendorAssetMaterialOptimizePrompt(title, material_key)` + `materialOptimizeTextureDirective`。
+- 滿板圖 **不能自動推物理尺度** → 標題／`material_key`／設計端附錄；Phase 2 規劃 `texture_scale_hint`。
+- 扣點：`points_optimize_material`（預設 10 點）。
+
 ### 已知限制（產品須知）
 
 - 輸出固定 **1024×1024**；材質樣板長寬比不會原樣出現在成品上，但 **紋路粗細無物理尺度保證**，仍建議使用者在描述中寫「細紋／適合手機殼」等。  

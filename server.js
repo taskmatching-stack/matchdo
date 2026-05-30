@@ -1283,25 +1283,68 @@ function buildVendorAssetProductOptimizePrompt(title, backgroundColor) {
 }
 
 function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
-    const failLabel = normalizeVendorAssetKind(assetKind) === 'material' ? '材質圖 AI 重繪失敗' : '產品圖 AI 重繪失敗';
+    const failLabel = normalizeVendorAssetKind(assetKind) === 'material' ? '材質圖 AI 優化失敗' : '產品圖 AI 重繪失敗';
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
-/** 材料參考「材質圖 AI 重繪」提示詞；以呈現材質紋理與色彩為主 */
-function buildVendorAssetMaterialOptimizePrompt(title, materialKey, backgroundColor) {
-    const label = (title || '').trim() || (materialKey || '').trim() || 'material sample';
-    const typeHint = (materialKey || '').trim() ? `${materialKey} material` : 'material';
-    const bg = normalizeVendorOptimizeBackground(backgroundColor);
+/** 材料 AI 優化：依 material_key 強調該材質應呈現的質感（送 FLUX img2img） */
+function materialOptimizeTextureDirective(materialKey) {
+    const mk = normalizeVendorMaterialKey(materialKey);
+    const map = {
+        fabric: [
+            'Fabric / textile swatch: weave, knit, or thread structure must read clearly;',
+            'show natural fiber texture, yarn direction, and true color;',
+            'soft even lighting; flat lay or gentle fold only—no garment shape implied.'
+        ].join(' '),
+        leather: [
+            'Leather swatch: natural grain, pores, and subtle sheen;',
+            'accurate tan or dye color; supple surface with realistic crease scale;',
+            'macro-friendly detail without plastic-looking smoothness.'
+        ].join(' '),
+        metal: [
+            'Metal surface: brush direction, reflections, and micro-scratches at believable scale;',
+            'realistic metallic sheen without blown highlights;',
+            'show true alloy tone (brass, steel, aluminum, etc.) from the reference.'
+        ].join(' '),
+        wood: [
+            'Wood swatch: grain lines and ring patterns at product-appropriate macro scale;',
+            'warm organic tone and matte or satin finish;',
+            'directional grain must stay consistent across the swatch.'
+        ].join(' '),
+        plastic: [
+            'Plastic / polymer swatch: smooth or lightly textured surface;',
+            'even color, subtle mold texture or matte/satin finish as in reference;',
+            'no fake wood or metal look unless the reference shows it.'
+        ].join(' '),
+        ceramic: [
+            'Ceramic / glaze swatch: glaze depth, subtle surface variation, and body color;',
+            'clean matte or gloss ceramic finish; no metallic sparkle unless glazed that way.'
+        ].join(' '),
+        other: [
+            'Material swatch: authentic surface texture and true color clearly readable;',
+            'believable macro scale for designers selecting materials.'
+        ].join(' ')
+    };
+    return map[mk] || map.other;
+}
+
+/**
+ * 材料參考「材質圖 AI 優化」— 色卡／滿版圖樣導向，與產品重繪分線（不用棚拍底色）。
+ * 規劃：docs/vendor-asset-material-swatch-plan.md
+ */
+function buildVendorAssetMaterialOptimizePrompt(title, materialKey) {
+    const mk = normalizeVendorMaterialKey(materialKey);
+    const label = (title || '').trim() || (mk ? vendorMaterialKeyLabel(mk, 'en') : '') || 'material sample';
+    const typeLabel = mk ? vendorMaterialKeyLabel(mk, 'en') : 'material';
+    const textureLine = materialOptimizeTextureDirective(mk || materialKey);
     return [
-        `Material reference image of ${label}, ${typeHint},`,
-        'visual emphasis on authentic surface texture, weave, grain, sheen, and accurate color reproduction,',
-        'texture and color are the primary focus, clearly readable for designers selecting materials,',
-        'natural soft even lighting that reveals texture without harsh glare or color cast,',
-        'simple flat lay or gentle drape of the material swatch only,',
-        `${bg.prompt},`,
-        'no props, no scissors, no rulers, no tools, no hands, no people, no finished products,',
-        'no packaging, no text, no watermark, no logo, no scene decoration,',
-        'photorealistic macro detail showing fiber structure and true color, 8k resolution'
+        `Enhance this image as a full-frame material swatch / color-card texture (like a Pantone or fabric swatch scan): "${label}" (${typeLabel}).`,
+        'The entire frame should read as continuous material surface—preserve the apparent weave, grain, or pore scale from the reference; do not enlarge texture into oversized repeating blocks.',
+        'Keep the same color family, pattern orientation, and overall crop; only improve clarity, even lighting, and true color.',
+        textureLine,
+        'No finished products, no 3D spheres, no props, no hands, no rulers, no text, no watermark, no logo.',
+        'If non-material edges exist in the source, trim or fade them minimally—do not replace the swatch with a product photo on white seamless backdrop.',
+        'Flat lay or gentle fold only; photorealistic material detail, 8k resolution'
     ].join(' ');
 }
 
@@ -5492,11 +5535,12 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材 AI 重繪：數位原型＝單張商品圖；材料＝單張材質圖（可選底色） */
+/** 廠商素材：數位原型＝商品圖重繪（可選底色）；材料＝滿版圖樣優化（不用底色，見 material-swatch-plan） */
 async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialKey, backgroundColor) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
-    const prompt = normalizeVendorAssetKind(assetKind) === 'material'
-        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey, backgroundColor)
+    const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
+    const prompt = isMaterial
+        ? buildVendorAssetMaterialOptimizePrompt(title, materialKey)
         : buildVendorAssetProductOptimizePrompt(title, backgroundColor);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
