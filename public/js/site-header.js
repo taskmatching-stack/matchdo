@@ -142,16 +142,22 @@ function bootSiteHeader() {
     if (!headerContainer || headerContainer.getAttribute('data-header-booted') === '1') return;
     headerContainer.setAttribute('data-header-booted', '1');
     var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || null;
-    ensureNavLocaleReady().then(function () {
-        return loadSiteHeader(session);
-    }).then(function () {
+    loadSiteHeader(session, { fastFirst: true }).then(function () {
         bindSiteHeaderAuthListeners(session);
     }).catch(function (err) {
         console.error('site-header init:', err);
-        loadSiteHeader(session || window.__authSessionForHeader || null).then(function () {
+        loadSiteHeader(session || window.__authSessionForHeader || null, { fastFirst: true }).then(function () {
             bindSiteHeaderAuthListeners(session);
         });
     });
+    Promise.all([
+        ensureNavLocaleReady(),
+        new Promise(function (resolve) { setTimeout(resolve, 0); })
+    ]).then(function () {
+        var sess = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || session || null;
+        _navFullyRendered = false;
+        return loadSiteHeader(sess, { fastFirst: false });
+    }).catch(function () {});
 }
 
 if (document.getElementById('site-header')) {
@@ -183,7 +189,8 @@ function scheduleHeaderAuthRetries(initialSession) {
 
 var _lastRenderedUserId = undefined;
 var _navFullyRendered = false;
-async function resolveHeaderUser(sessionFromEvent) {
+async function resolveHeaderUser(sessionFromEvent, opts) {
+    opts = opts || {};
     var user = sessionFromEvent && sessionFromEvent.user ? sessionFromEvent.user : null;
     if (!user && window.__authSessionForHeader && window.__authSessionForHeader.user) {
         user = window.__authSessionForHeader.user;
@@ -192,6 +199,7 @@ async function resolveHeaderUser(sessionFromEvent) {
         var fromStore = getSessionFromStorage();
         if (fromStore && fromStore.user) user = fromStore.user;
     }
+    if (!opts.allowNetworkSession) return user;
     if (!user && window.AuthService) {
         try {
             var session = await AuthService.getSession();
@@ -201,20 +209,28 @@ async function resolveHeaderUser(sessionFromEvent) {
     return user;
 }
 
-function loadSiteHeader(sessionFromEvent) {
+function loadSiteHeader(sessionFromEvent, options) {
+    options = options || {};
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return Promise.resolve();
     return (async function () {
-        var user = await resolveHeaderUser(sessionFromEvent);
+        var fastFirst = !!options.fastFirst;
+        var user = await resolveHeaderUser(sessionFromEvent, { allowNetworkSession: !fastFirst });
         var uid = user ? (user.id || user.email || 'user') : null;
         if (_navFullyRendered && uid === _lastRenderedUserId) return;
+
+        if (fastFirst) {
+            await renderHeader(headerContainer, user, { enableServiceMatching: false }, null, { skipProfile: true });
+            _lastRenderedUserId = uid;
+            _navFullyRendered = true;
+            return;
+        }
+
         var configCaps = await Promise.all([
             getPublicConfig(),
             user ? fetchMeCapabilities() : Promise.resolve(null)
         ]);
-        var config = configCaps[0];
-        var meCapabilities = configCaps[1];
-        await renderHeader(headerContainer, user, config, meCapabilities);
+        await renderHeader(headerContainer, user, configCaps[0], configCaps[1], { skipProfile: false });
         _lastRenderedUserId = uid;
         _navFullyRendered = true;
     })();
@@ -234,7 +250,8 @@ function isRemakeSection() {
  * - 本 function 內勿重複宣告同一變數（例如已有 const path 就不要再 var path），否則整支腳本報錯、選單與登入會壞。
  * - loginHref 必須帶 returnUrl 或使用 AuthService.getLoginUrl(path)，不可只寫 '/login.html'。
  */
-async function renderHeader(headerContainer, user, config, meCapabilitiesPreloaded) {
+async function renderHeader(headerContainer, user, config, meCapabilitiesPreloaded, renderOpts) {
+    renderOpts = renderOpts || {};
     if (!config) config = { enableServiceMatching: false };
     // 服務媒合選單已廢除，不再顯示（不依 config，避免誤觸或快取導致再次出現）
     // 讀快取名字/頭像，避免顯示「載入中...」
@@ -245,7 +262,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     var _initAvatarUrl = _nbCacheOk ? _nbCache.avatar : (user && (user.user_metadata?.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(_initDisplayName) + '&background=667eea&color=fff')) || '');
     let isAdmin = false;
     let isTesterOrAdmin = false;
-    if (user && window.AuthService) {
+    if (user && window.AuthService && !renderOpts.skipProfile) {
         try {
             const profile = await AuthService.getUserProfile();
             isAdmin = user.user_metadata?.role === 'admin' || profile?.role === 'admin';
