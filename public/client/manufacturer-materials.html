@@ -1910,7 +1910,8 @@
                 await loadCapabilities();
                 await loadUploadPricing();
                 await loadMaterials();
-                switchKind('prototype');
+                // 保留使用者於載入期間已切換的分頁（勿強制回到原型）
+                switchKind(activeKind);
             } catch (e) { showToast(e.message, 'danger'); }
         }
         init();
