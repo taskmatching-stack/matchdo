@@ -161,9 +161,15 @@ function bootSiteHeader() {
 }
 
 if (document.getElementById('site-header')) {
-    bootSiteHeader();
+    if (typeof window.injectSiteHeaderShell === 'function') window.injectSiteHeaderShell();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootSiteHeader);
+    } else {
+        bootSiteHeader();
+    }
+} else {
+    document.addEventListener('DOMContentLoaded', bootSiteHeader);
 }
-document.addEventListener('DOMContentLoaded', bootSiteHeader);
 
 /** locale 或首次渲染較慢時，稍後再以 session 重畫（避免誤顯示「登入」） */
 function scheduleHeaderAuthRetries(initialSession) {

@@ -1,0 +1,53 @@
+/* 首屏導覽：不依賴 site-header.js 即可顯示（設計頁等） */
+#site-header { min-height: 60px; }
+#site-header .navbar {
+  padding: 15px 0;
+  font-family: "Space Grotesk", "Open Sans", sans-serif;
+  font-size: 18px;
+  border-bottom: 2px solid #445D7E;
+}
+#site-header .navbar .navbar-nav .nav-link {
+  margin-left: 30px;
+  padding: 0;
+  color: #333;
+  text-decoration: none;
+}
+#site-header .navbar .navbar-nav .nav-link:hover,
+#site-header .navbar .navbar-nav .nav-link.active {
+  color: #445D7E !important;
+}
+#site-header .navbar-brand img {
+  height: 52px;
+  width: auto;
+}
+@media (min-width: 992px) {
+  #site-header .navbar { flex-wrap: wrap; }
+  #site-header .navbar-collapse {
+    order: 1;
+    width: 100%;
+    flex-grow: 1;
+    border-bottom: 1px solid #dee2e6;
+  }
+  #site-header .navbar-brand {
+    order: 2;
+    margin: -39px auto 0;
+    position: relative;
+    z-index: 5;
+  }
+  #site-header .navbar-brand img {
+    height: 78px !important;
+    background: #fff;
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+  #site-header #authSectionShell {
+    order: 3;
+    margin-left: auto;
+  }
+}
+@media (max-width: 991.98px) {
+  #site-header .navbar .navbar-nav .nav-link {
+    margin-left: 0;
+    padding: 10px 0;
+  }
+}
