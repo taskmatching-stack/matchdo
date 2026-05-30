@@ -82,10 +82,17 @@
       }
     }
   }
+  /** 頁面已載入 site-header.js 時勿注入舊版 header（避免覆寫成正確選單） */
+  function usesModernSiteHeader() {
+    return !!document.querySelector('script[src*="site-header.js"]');
+  }
+
   document.addEventListener('DOMContentLoaded', async function(){
-    await inject('site-header', '/partials/header.html');
+    if (!usesModernSiteHeader()) {
+      await inject('site-header', '/partials/header.html');
+      await buildMenu();
+    }
     await inject('site-footer', '/partials/footer.html');
-    await buildMenu();
     var ga4 = document.createElement('script');
     ga4.src = '/js/ga4-loader.js';
     ga4.async = true;
