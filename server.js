@@ -10695,14 +10695,20 @@ async function attachCatalogGroupIdsToAssets(items) {
     const groupIds = [...new Set((links || []).map((l) => l.group_id).filter(Boolean))];
     const groupsById = {};
     if (groupIds.length) {
-        const { data: groups, error: grpErr } = await supabase
+        let { data: groups, error: grpErr } = await supabase
             .from('vendor_catalog_groups')
-            .select('id, name, parent_id')
+            .select('id, name, parent_id, asset_kind')
             .in('id', groupIds);
+        if (grpErr && grpErr.code === '42703') {
+            ({ data: groups, error: grpErr } = await supabase
+                .from('vendor_catalog_groups')
+                .select('id, name, parent_id')
+                .in('id', groupIds));
+        }
         if (grpErr) throw grpErr;
         (groups || []).forEach((g) => {
             const name = (g.name != null) ? String(g.name).trim() : '';
-            if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null };
+            if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
         });
     }
     const map = {};
@@ -10711,11 +10717,15 @@ async function attachCatalogGroupIdsToAssets(items) {
         const g = groupsById[l.group_id];
         if (g) map[l.asset_id].push(g);
     });
-    return items.map((r) => ({
-        ...r,
-        catalog_group_ids: (map[r.id] || []).map((g) => g.id),
-        catalog_groups: map[r.id] || []
-    }));
+    return items.map((r) => {
+        const itemKind = normalizeVendorAssetKind(r.asset_kind);
+        const cats = (map[r.id] || []).filter((g) => vendorCatalogGroupRowAssetKind(g) === itemKind);
+        return {
+            ...r,
+            catalog_group_ids: cats.map((g) => g.id),
+            catalog_groups: cats.map((g) => ({ id: g.id, name: g.name, parent_id: g.parent_id }))
+        };
+    });
 }
 
 // GET /api/me/vendor-catalog-groups — 廠商自己的分類樹
@@ -10728,8 +10738,19 @@ app.get('/api/me/vendor-catalog-groups', async (req, res) => {
         }
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
         const assetKindFilter = (assetKindQ === 'material' || assetKindQ === 'prototype') ? assetKindQ : null;
+        let hasAssetKindColumn = true;
+        const probe = await supabase.from('vendor_catalog_groups').select('asset_kind').limit(1);
+        if (probe.error && probe.error.code === '42703') hasAssetKindColumn = false;
+        if (assetKindFilter === 'material' && !hasAssetKindColumn) {
+            return res.json({
+                tree: [],
+                flat: [],
+                asset_kind_split_unavailable: true,
+                message: '請執行 docs/add-vendor-catalog-groups-asset-kind.sql'
+            });
+        }
         const payload = await buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter);
-        res.json(payload);
+        res.json({ ...payload, asset_kind_split_unavailable: false });
     } catch (e) {
         console.error('GET /api/me/vendor-catalog-groups:', e);
         res.status(500).json({ error: '查詢失敗' });
@@ -10764,6 +10785,9 @@ app.post('/api/me/vendor-catalog-groups', express.json(), async (req, res) => {
         };
         let { data, error } = await supabase.from('vendor_catalog_groups').insert(row).select().single();
         if (error && error.code === '42703') {
+            if (catalogKind === 'material') {
+                return res.status(503).json({ error: '請先執行 docs/add-vendor-catalog-groups-asset-kind.sql，材料才能使用獨立分類' });
+            }
             const fallback = { manufacturer_id: manufacturerId, name, slug, parent_id: parentId, sort_order: row.sort_order };
             ({ data, error } = await supabase.from('vendor_catalog_groups').insert(fallback).select().single());
         }
@@ -10827,13 +10851,24 @@ app.post('/api/me/vendor-catalog-groups/reorder', express.json(), async (req, re
             return res.status(400).json({ error: '請提供 order 陣列（分類 id 順序）' });
         }
         const ids = order.map((id) => String(id).trim()).filter(Boolean);
-        const { data: existing } = await supabase
+        const assetKindQ = (req.body.asset_kind || '').trim().toLowerCase();
+        const kindFilter = (assetKindQ === 'material' || assetKindQ === 'prototype') ? assetKindQ : null;
+        let { data: existing, error: existErr } = await supabase
             .from('vendor_catalog_groups')
-            .select('id')
+            .select('id, asset_kind')
             .eq('manufacturer_id', manufacturerId);
-        const allowed = new Set((existing || []).map((r) => r.id));
+        if (existErr && existErr.code === '42703') {
+            ({ data: existing } = await supabase
+                .from('vendor_catalog_groups')
+                .select('id')
+                .eq('manufacturer_id', manufacturerId));
+        }
+        const allowed = new Set((existing || []).filter((r) => {
+            if (!kindFilter) return true;
+            return vendorCatalogGroupRowAssetKind(r) === kindFilter;
+        }).map((r) => r.id));
         if (!ids.every((id) => allowed.has(id))) {
-            return res.status(400).json({ error: 'order 含有不屬於此廠商的分類' });
+            return res.status(400).json({ error: 'order 含有不屬於此廠商或此類型的分類' });
         }
         for (let i = 0; i < ids.length; i++) {
             const { error } = await supabase
@@ -10843,7 +10878,7 @@ app.post('/api/me/vendor-catalog-groups/reorder', express.json(), async (req, re
                 .eq('manufacturer_id', manufacturerId);
             if (error) return res.status(500).json({ error: '排序儲存失敗' });
         }
-        const payload = await buildVendorCatalogGroupsPayload(manufacturerId);
+        const payload = await buildVendorCatalogGroupsPayload(manufacturerId, kindFilter);
         res.json({ success: true, ...payload });
     } catch (e) {
         console.error('POST /api/me/vendor-catalog-groups/reorder:', e);

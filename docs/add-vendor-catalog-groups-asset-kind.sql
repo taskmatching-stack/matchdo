@@ -6,5 +6,5 @@ ALTER TABLE public.vendor_catalog_groups
 
 COMMENT ON COLUMN public.vendor_catalog_groups.asset_kind IS 'prototype | material；NULL 視同 prototype（舊資料）';
 
--- 可選：將既有分類視為原型用
--- UPDATE public.vendor_catalog_groups SET asset_kind = 'prototype' WHERE asset_kind IS NULL;
+-- 既有分類一律視為數位原型（材料需另建專用分類）
+UPDATE public.vendor_catalog_groups SET asset_kind = 'prototype' WHERE asset_kind IS NULL;
