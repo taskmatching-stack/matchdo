@@ -167,88 +167,96 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-2">
-                    <p id="vendorAssetsCategoryHint" class="text-muted small mb-2" data-i18n="customProduct.vendorPickerHint">可用關鍵字搜尋，或依造型、色彩、廠商、服務區域篩選；材料請用廠商自訂分類。</p>
-                    <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊圖片加入參考圖；雙擊圖片或按右上角 🔍 可放大預覽。</p>
+                    <div id="vendorAssetsDesignCategory" class="vendor-picker-category-banner rounded border bg-light px-3 py-2 mb-2">
+                        <span class="text-muted small vendor-picker-cat-label" data-i18n="customProduct.vendorPickerDesignCategory">目前設計分類</span>
+                        <span id="vendorAssetsDesignCategoryText" class="fw-semibold ms-1"></span>
+                    </div>
+                    <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊圖片加入參考圖；雙擊或按 🔍 放大。</p>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-6 col-md-4">
-                                <label class="form-label small text-muted mb-0" for="vendorAssetsStyleKey" data-i18n="customProduct.filterStyle">造型</label>
-                                <select class="form-select form-select-sm" id="vendorAssetsStyleKey">
-                                    <option value="" data-i18n="customProduct.styleAll">造型 — 全部</option>
-                                    <option value="silhouette" data-i18n="customProduct.styleSilhouette">服裝輪廓</option>
-                                    <option value="accessories" data-i18n="customProduct.styleAccessories">配件</option>
-                                    <option value="furniture" data-i18n="customProduct.styleFurniture">家具</option>
-                                    <option value="bags" data-i18n="customProduct.styleBags">包袋</option>
-                                    <option value="shoes" data-i18n="customProduct.styleShoes">鞋類</option>
-                                    <option value="other" data-i18n="customProduct.styleOther">其他造型</option>
-                                </select>
-                            </div>
-                            <div class="col-6 col-md-4">
-                                <label class="form-label small text-muted mb-0" for="vendorAssetsColor" data-i18n="customProduct.filterColor">色彩</label>
-                                <input type="text" class="form-control form-control-sm" id="vendorAssetsColor" list="vendorAssetsColorList" data-i18n-placeholder="customProduct.colorPlaceholder" placeholder="例：白、米白、黑">
-                                <datalist id="vendorAssetsColorList">
-                                    <option value="white" label="白"></option>
-                                    <option value="black" label="黑"></option>
-                                    <option value="gray" label="灰"></option>
-                                    <option value="red" label="紅"></option>
-                                    <option value="blue" label="藍"></option>
-                                    <option value="green" label="綠"></option>
-                                    <option value="brown" label="棕"></option>
-                                    <option value="beige" label="米／杏"></option>
-                                </datalist>
-                            </div>
-                            <div class="col-6 col-md-4">
+                        <div class="row g-2 align-items-end mb-2">
+                            <div class="col-md-8">
                                 <label class="form-label small text-muted mb-0" for="vendorAssetsSearch" data-i18n="customProduct.filterKeyword">關鍵字</label>
                                 <input type="search" class="form-control form-control-sm" id="vendorAssetsSearch" data-i18n-placeholder="customProduct.keywordPlaceholder" placeholder="標題、標籤、說明（如：尖領、丹寧）">
                             </div>
-                            <div class="col-6 col-md-4 vendor-picker-mfr-name-cell">
-                                <label class="form-label small text-muted mb-0" for="vendorAssetsManufacturerName" data-i18n="customProduct.filterVendorName">廠商名稱</label>
-                                <input type="search" class="form-control form-control-sm" id="vendorAssetsManufacturerName" data-i18n-placeholder="customProduct.vendorNamePlaceholder" placeholder="輸入廠商名稱">
-                            </div>
-                            <div class="col-6 col-md-4 vendor-picker-area-cell">
-                                <label class="form-label small text-muted mb-0" for="vendorAssetsServiceArea" data-i18n="customProduct.filterServiceArea">服務區域</label>
-                                <select class="form-select form-select-sm" id="vendorAssetsServiceArea">
-                                    <option value="">服務區域 — 全部</option>
-                                </select>
-                            </div>
-                            <div class="col-6 col-md-4 vendor-picker-catalog-cell d-none">
-                                <label class="form-label small text-muted mb-0" for="vendorAssetsCatalogGroup" data-i18n="customProduct.filterVendorCatalog">廠商分類</label>
-                                <select class="form-select form-select-sm" id="vendorAssetsCatalogGroup">
-                                    <option value="" data-i18n="customProduct.vendorCatalogAll">廠商分類 — 全部</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-md-4 d-flex gap-2 align-items-end">
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="vendorAssetsApplyFilter" data-i18n="customProduct.applyFilter">套用</button>
-                                <button type="button" class="btn btn-link btn-sm text-muted px-0" id="vendorAssetsClearFilter" data-i18n="customProduct.clearFilter">清除</button>
-                            </div>
-                        </div>
-                        <details class="small mt-2 vendor-picker-advanced" open>
-                            <summary class="text-muted" data-i18n="customProduct.filterAdvanced">進階（素材類型）</summary>
-                            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                                <select class="form-select form-select-sm" id="vendorAssetsAssetKind" style="width:auto;">
-                                    <option value="" data-i18n="customProduct.assetKindAll">類型 — 全部</option>
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted mb-0" for="vendorAssetsAssetKind" data-i18n="customProduct.filterAssetKind">素材類型</label>
+                                <select class="form-select form-select-sm" id="vendorAssetsAssetKind">
+                                    <option value="" data-i18n="customProduct.assetKindAll">全部</option>
                                     <option value="prototype" data-i18n="customProduct.assetKindPrototype">數位原型</option>
                                     <option value="material" data-i18n="customProduct.assetKindMaterial">材料參考</option>
                                 </select>
                             </div>
-                            <p class="text-muted small mb-2 mt-2" data-i18n="customProduct.filterPrototypeOnly">以下篩選僅適用數位原型</p>
-                            <div class="row g-2 align-items-end vendor-picker-prototype-filters">
+                        </div>
+                        <details class="small vendor-picker-more-filters">
+                            <summary class="text-muted user-select-none" data-i18n="customProduct.filterMore">更多篩選（選填）</summary>
+                            <div class="row g-2 align-items-end mt-2">
                                 <div class="col-6 col-md-4">
-                                    <label class="form-label small text-muted mb-0" for="vendorAssetsMoq" data-i18n="customProduct.filterMoq">最小訂購量（件）</label>
-                                    <input type="number" class="form-control form-control-sm" id="vendorAssetsMoq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="customProduct.filterMoqPlaceholder" placeholder="精確比對，例：50">
+                                    <label class="form-label small text-muted mb-0" for="vendorAssetsStyleKey" data-i18n="customProduct.filterStyle">造型</label>
+                                    <select class="form-select form-select-sm" id="vendorAssetsStyleKey">
+                                        <option value="" data-i18n="customProduct.styleAll">全部</option>
+                                        <option value="silhouette" data-i18n="customProduct.styleSilhouette">服裝輪廓</option>
+                                        <option value="accessories" data-i18n="customProduct.styleAccessories">配件</option>
+                                        <option value="furniture" data-i18n="customProduct.styleFurniture">家具</option>
+                                        <option value="bags" data-i18n="customProduct.styleBags">包袋</option>
+                                        <option value="shoes" data-i18n="customProduct.styleShoes">鞋類</option>
+                                        <option value="other" data-i18n="customProduct.styleOther">其他造型</option>
+                                    </select>
                                 </div>
-                                <div class="col-12">
-                                    <span class="form-label small text-muted d-block mb-1" data-i18n="customProduct.filterCustomization">訂製程度</span>
-                                    <div id="vendorAssetsCustomizationLevels" class="d-flex flex-wrap gap-2 border rounded p-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="mono_graphic" aria-pressed="false" data-i18n="customProduct.customLevelMonoGraphic">單色表面圖文</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="color_graphic" aria-pressed="false" data-i18n="customProduct.customLevelColorGraphic">彩色表面圖文</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="color_material" aria-pressed="false" data-i18n="customProduct.customLevelColorMaterial">主體顏色／材質</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="size_part" aria-pressed="false" data-i18n="customProduct.customLevelSizePart">尺寸／零件</button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="form_structure" aria-pressed="false" data-i18n="customProduct.customLevelFormStructure">造型／結構</button>
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label small text-muted mb-0" for="vendorAssetsColor" data-i18n="customProduct.filterColor">色彩</label>
+                                    <input type="text" class="form-control form-control-sm" id="vendorAssetsColor" list="vendorAssetsColorList" data-i18n-placeholder="customProduct.colorPlaceholder" placeholder="例：白、米白、黑">
+                                    <datalist id="vendorAssetsColorList">
+                                        <option value="white" label="白"></option>
+                                        <option value="black" label="黑"></option>
+                                        <option value="gray" label="灰"></option>
+                                        <option value="red" label="紅"></option>
+                                        <option value="blue" label="藍"></option>
+                                        <option value="green" label="綠"></option>
+                                        <option value="brown" label="棕"></option>
+                                        <option value="beige" label="米／杏"></option>
+                                    </datalist>
+                                </div>
+                                <div class="col-6 col-md-4 vendor-picker-mfr-name-cell">
+                                    <label class="form-label small text-muted mb-0" for="vendorAssetsManufacturerName" data-i18n="customProduct.filterVendorName">廠商名稱</label>
+                                    <input type="search" class="form-control form-control-sm" id="vendorAssetsManufacturerName" data-i18n-placeholder="customProduct.vendorNamePlaceholder" placeholder="輸入廠商名稱">
+                                </div>
+                                <div class="col-6 col-md-4 vendor-picker-area-cell">
+                                    <label class="form-label small text-muted mb-0" for="vendorAssetsServiceArea" data-i18n="customProduct.filterServiceArea">服務區域</label>
+                                    <select class="form-select form-select-sm" id="vendorAssetsServiceArea">
+                                        <option value="">服務區域 — 全部</option>
+                                    </select>
+                                </div>
+                                <div class="col-6 col-md-4 vendor-picker-catalog-cell d-none">
+                                    <label class="form-label small text-muted mb-0" for="vendorAssetsCatalogGroup" data-i18n="customProduct.filterVendorCatalog">廠商自訂分類</label>
+                                    <select class="form-select form-select-sm" id="vendorAssetsCatalogGroup">
+                                        <option value="" data-i18n="customProduct.vendorCatalogAll">全部</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="vendor-picker-prototype-only mt-2">
+                                <p class="text-muted small mb-2" data-i18n="customProduct.filterPrototypeOnly">以下僅適用數位原型</p>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-6 col-md-4">
+                                        <label class="form-label small text-muted mb-0" for="vendorAssetsMoq" data-i18n="customProduct.filterMoq">最小訂購量（件）</label>
+                                        <input type="number" class="form-control form-control-sm" id="vendorAssetsMoq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="customProduct.filterMoqPlaceholder" placeholder="精確比對，例：50">
+                                    </div>
+                                    <div class="col-12">
+                                        <span class="form-label small text-muted d-block mb-1" data-i18n="customProduct.filterCustomization">訂製程度</span>
+                                        <div id="vendorAssetsCustomizationLevels" class="d-flex flex-wrap gap-2 border rounded p-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="mono_graphic" aria-pressed="false" data-i18n="customProduct.customLevelMonoGraphic">單色表面圖文</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="color_graphic" aria-pressed="false" data-i18n="customProduct.customLevelColorGraphic">彩色表面圖文</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="color_material" aria-pressed="false" data-i18n="customProduct.customLevelColorMaterial">主體顏色／材質</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="size_part" aria-pressed="false" data-i18n="customProduct.customLevelSizePart">尺寸／零件</button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary vendor-customization-filter" data-level="form_structure" aria-pressed="false" data-i18n="customProduct.customLevelFormStructure">造型／結構</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </details>
+                        <div class="d-flex flex-wrap gap-2 mt-3 mb-2 vendor-picker-actions">
+                            <button type="button" class="btn btn-primary btn-sm" id="vendorAssetsApplyFilter" data-i18n="customProduct.applyFilter">套用</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="vendorAssetsClearFilter" data-i18n="customProduct.clearFilter">清除</button>
+                        </div>
                     </div>
                     <div id="vendorAssetsList" class="row g-3"></div>
                     <p id="vendorAssetsEmpty" class="text-muted small mb-0 d-none">此分類下尚無廠商素材。</p>
@@ -570,6 +578,9 @@
         #vendorAssetsPickerModal .vendor-asset-mfr-link { cursor: pointer; }
         #vendorAssetsPickerModal .vendor-asset-mfr-search-btn { line-height: 1; color: #64748b; }
         #vendorAssetsPickerModal .vendor-asset-mfr-search-btn:hover { color: var(--bs-primary, #0d9488); }
+        #vendorAssetsPickerModal .vendor-picker-category-banner { border-color: #e2e8f0 !important; }
+        #vendorAssetsPickerModal .vendor-picker-more-filters summary { cursor: pointer; }
+        #vendorAssetsPickerModal .vendor-picker-more-filters[open] summary { margin-bottom: 0.25rem; }
         #custom-product .ref-cards-wrap { margin-top: 0.5rem; max-height: 200px; overflow-y: auto; }
         #custom-product .ref-cards { display: flex; flex-direction: column; gap: 0.4rem; }
         /* 只顯示選中那張的生成選單，點縮圖即切換 */

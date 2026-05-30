@@ -389,6 +389,18 @@ $(document).ready(function () {
         scheduleVendorAssetsPickerReload();
     });
 
+    $('#vendorAssetsAssetKind').on('change', function () {
+        updateVendorPickerPrototypeFiltersVisibility();
+        scheduleVendorAssetsPickerReload();
+    });
+
+    $('#vendorAssetsSearch').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            loadVendorAssetsPickerList();
+        }
+    });
+
     function fillVendorCatalogGroupSelect(manufacturerId) {
         var $sel = $('#vendorAssetsCatalogGroup');
         if (!$sel.length) return Promise.resolve();
@@ -471,6 +483,50 @@ $(document).ready(function () {
     function setVendorPickerMfrScopedMode(locked) {
         $('.vendor-picker-mfr-name-cell, .vendor-picker-area-cell').toggleClass('d-none', !!locked);
         $('.vendor-picker-catalog-cell').toggleClass('d-none', !locked);
+    }
+
+    function categoryLabelForKey(key, fallback) {
+        if (!key) return fallback || '';
+        var tk = 'category.' + String(key);
+        var translated = t(tk);
+        return (translated && translated !== tk) ? translated : (fallback || key);
+    }
+
+    function getSelectedDesignCategorySummary() {
+        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+        if (!mainKey) return '';
+        var cat = categoriesData.find(function (c) { return String(c.key) === mainKey; });
+        var mainName = cat ? categoryLabelForKey(mainKey, cat.name || mainKey) : mainKey;
+        var parts = [mainName];
+        if (subKey && cat && cat.subcategories && cat.subcategories.length) {
+            var sub = cat.subcategories.find(function (s) { return String(s.key) === subKey; });
+            var subName = sub ? categoryLabelForKey(subKey, sub.name || subKey) : subKey;
+            var subTpl = vendorPickerTr('customProduct.vendorPickerSubLabel', '子：{name}');
+            parts.push(subTpl.replace('{name}', subName));
+        }
+        return parts.join(' · ');
+    }
+
+    function updateVendorPickerDesignCategoryDisplay() {
+        var $label = $('#vendorAssetsDesignCategory .vendor-picker-cat-label');
+        var $text = $('#vendorAssetsDesignCategoryText');
+        if (!$text.length) return;
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        if (params && params.mode === 'manufacturer') {
+            if ($label.length) $label.text(vendorPickerTr('customProduct.vendorPickerLockedVendor', '此廠商'));
+            var vendorLabel = (refVendorName || '').trim() || vendorPickerTr('customProduct.vendorFallback', '廠商');
+            var catSummary = getSelectedDesignCategorySummary();
+            $text.text(catSummary ? (vendorLabel + ' · ' + catSummary) : vendorLabel);
+            return;
+        }
+        if ($label.length) $label.text(vendorPickerTr('customProduct.vendorPickerDesignCategory', '目前設計分類'));
+        $text.text(getSelectedDesignCategorySummary() || '—');
+    }
+
+    function updateVendorPickerPrototypeFiltersVisibility() {
+        var kind = ($('#vendorAssetsAssetKind').val() || '').trim();
+        $('.vendor-picker-prototype-only').toggleClass('d-none', kind === 'material');
     }
 
     function updateMultiVendorRefWarning() {
@@ -735,9 +791,8 @@ $(document).ready(function () {
                 return;
             }
             $input.val(name).trigger('focus');
-            var hint = (t('customProduct.vendorFilledSearch') || '已填入廠商名稱，可按「套用」篩選。');
-            var $hint = $('#vendorAssetsCategoryHint');
-            if ($hint.length) $hint.text(hint);
+            var $more = $('.vendor-picker-more-filters');
+            if ($more.length && !$more[0].open) $more[0].open = true;
         });
         $list.find('.vendor-asset-pick-zone, .vendor-asset-pick-img').off('click keydown').on('click keydown', function (e) {
             if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
@@ -915,8 +970,9 @@ $(document).ready(function () {
         var subKey = ($('#imageCategorySubSelect').val() || '').trim();
         resetVendorAssetFilters();
         setVendorPickerMfrScopedMode(false);
+        updateVendorPickerPrototypeFiltersVisibility();
         $('#vendorAssetsPickerLabel').text(t('customProduct.selectFromVendorAssets') || '從廠商素材庫選擇');
-        $('#vendorAssetsCategoryHint').text(t('customProduct.vendorPickerHint') || '可用關鍵字搜尋，或依造型、色彩、廠商、服務區域篩選；材料請用廠商自訂分類。');
+        updateVendorPickerDesignCategoryDisplay();
         var modalEl = document.getElementById('vendorAssetsPickerModal');
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
@@ -934,16 +990,19 @@ $(document).ready(function () {
         if (!refVendorMfrId) return;
         resetVendorAssetFilters();
         setVendorPickerMfrScopedMode(true);
+        updateVendorPickerPrototypeFiltersVisibility();
         var labelText = refVendorName
             ? ((t('customProduct.selectFromVendorBasePrefix') || '從 ') + refVendorName + (t('customProduct.selectFromVendorBaseSuffix') || ' 版型庫選擇'))
             : (t('customProduct.selectFromThisVendorBase') || '從此廠商版型庫選擇');
         $('#vendorAssetsPickerLabel').text(labelText);
-        $('#vendorAssetsCategoryHint').text(t('customProduct.vendorPickerHintOneMfr') || '已鎖定此廠商；可依廠商自訂分類、關鍵字或造型、色彩篩選後按「套用」。');
+        updateVendorPickerDesignCategoryDisplay();
         var modalEl = document.getElementById('vendorAssetsPickerModal');
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
         }
         try { window.__vendorAssetsFetchParams = { mode: 'manufacturer', manufacturerId: refVendorMfrId }; } catch (e) {}
+        var $moreMfr = document.querySelector('#vendorAssetsPickerModal .vendor-picker-more-filters');
+        if ($moreMfr) $moreMfr.open = true;
         fillVendorCatalogGroupSelect(refVendorMfrId).then(function () { loadVendorAssetsPickerList(); });
     });
 
