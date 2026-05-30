@@ -25,6 +25,7 @@
         _c.id = 'nb-css';
         _c.textContent = [
             '#site-header{min-height:60px;}',
+            '#site-header .dropdown-menu,#site-header .nav-hover-menu{display:none!important;}',
             '.navbar{padding:15px 0;font-family:"Space Grotesk",sans-serif;font-size:18px;border-bottom:2px solid #445D7E;}',
             '.navbar .navbar-nav .nav-link{margin-left:30px;padding:0;outline:none;color:#333;}',
             '.navbar .navbar-nav .nav-link .nav-hover-caret{color:#445D7E;font-size:16px;line-height:1;vertical-align:middle;margin-left:4px;opacity:.6;transition:opacity .15s;}',
@@ -58,6 +59,18 @@
 
 function markSiteHeaderReady(headerContainer) {
     if (headerContainer) headerContainer.setAttribute('data-header-ready', '1');
+}
+
+function getNavLang() {
+    if (window.i18n && window.i18n.getLang) return window.i18n.getLang();
+    if (window.__I18N__ && window.__I18N__.lang) return window.__I18N__.lang;
+    try {
+        var params = new URLSearchParams(window.location.search || '');
+        if (params.get('lang')) return params.get('lang').toLowerCase() === 'en' ? 'en' : 'zh-TW';
+        var stored = localStorage.getItem('lang');
+        if (stored && String(stored).toLowerCase() === 'en') return 'en';
+    } catch (e) {}
+    return 'zh-TW';
 }
 
 function getPublicConfig() {
@@ -155,22 +168,24 @@ function bootSiteHeader() {
     if (!headerContainer || headerContainer.getAttribute('data-header-booted') === '1') return;
     headerContainer.setAttribute('data-header-booted', '1');
     var session = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || null;
-    loadSiteHeader(session, { fastFirst: true }).then(function () {
-        bindSiteHeaderAuthListeners(session);
-    }).catch(function (err) {
-        console.error('site-header init:', err);
-        loadSiteHeader(session || window.__authSessionForHeader || null, { fastFirst: true }).then(function () {
+
+    ensureNavLocaleReady()
+        .then(function () {
+            return loadSiteHeader(session, { fastFirst: true });
+        })
+        .then(function () {
             bindSiteHeaderAuthListeners(session);
+            var sess = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || session || null;
+            if (!sess || !sess.user) return null;
+            _navFullyRendered = false;
+            return loadSiteHeader(sess, { fastFirst: false });
+        })
+        .catch(function (err) {
+            console.error('site-header init:', err);
+            return loadSiteHeader(session || window.__authSessionForHeader || null, { fastFirst: true }).then(function () {
+                bindSiteHeaderAuthListeners(session);
+            });
         });
-    });
-    Promise.all([
-        ensureNavLocaleReady(),
-        new Promise(function (resolve) { setTimeout(resolve, 0); })
-    ]).then(function () {
-        var sess = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || session || null;
-        _navFullyRendered = false;
-        return loadSiteHeader(sess, { fastFirst: false });
-    }).catch(function () {});
 }
 
 if (document.getElementById('site-header')) {
@@ -320,9 +335,9 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
         ? !!(meCapabilities.nav && meCapabilities.nav.show_supplier_zone)
         : true;
     var rawT = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
-    var navLang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : ((window.__I18N__ && window.__I18N__.lang) || 'zh-TW');
-    var navFallbackZh = { 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.remake': '設計風向', 'nav.remakeSection': '設計風向', 'nav.remakeHome': '設計風向首頁', 'nav.remakeAnalysis': '設計意圖分析', 'nav.remakeDesign': '設計意圖分析', 'nav.remakeMyDesigns': '我的設計風向', 'nav.remakeGallery': '圖庫找靈感', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '依角色分類', 'nav.customizerSection': '訂製者', 'nav.manufacturerSection': '製造商', 'nav.supplierSection': '產業供應商', 'nav.supplierPortal': '供應商入口', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '我的廠商作品', 'nav.vendorBaseModels': '我的數位版型 (Base Models)', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式（與設計者溝通）', 'nav.myCredits': '我的點數', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '發案控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區' };
-    var navFallbackEn = { 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.customProduct': 'Custom Products', 'nav.remake': 'Design Direction', 'nav.remakeSection': 'Design Direction', 'nav.remakeHome': 'Design Direction home', 'nav.remakeAnalysis': 'Design intent analysis', 'nav.remakeDesign': 'Design intent analysis', 'nav.remakeMyDesigns': 'My design directions', 'nav.remakeGallery': 'Gallery & inspiration', 'nav.subscriptionPlans': 'Plans & Pricing', 'nav.login': 'Log in', 'nav.myFeatures': 'My Workspace', 'nav.myFeaturesTitle': 'Workspace', 'nav.dropdownCustom': 'Custom products', 'nav.dropdownRoles': 'By role', 'nav.designSection': 'Design / Find vendor', 'nav.customizerSection': 'Customizer', 'nav.manufacturerSection': 'Manufacturer', 'nav.supplierSection': 'Industry supplier', 'nav.supplierPortal': 'Supplier portal', 'nav.supplierPrototypeLib': 'Prototype sets', 'nav.supplierMaterialLib': 'Materials catalog', 'nav.customHome': 'Custom product home', 'nav.createProduct': 'Create product', 'nav.myCustomProducts': 'My digital assets', 'nav.galleryFindVendor': 'Gallery – find vendors', 'nav.findMakers': 'Find makers', 'nav.myMessages': 'My messages', 'nav.myCredits': 'My credits', 'nav.aiEditArea': 'My AI edit area', 'nav.createVendor': 'Create vendor profile', 'nav.demands': 'Customization requests', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'My portfolio', 'nav.vendorBaseModels': 'My base models', 'nav.vendorContact': 'Contact (for designers)', 'nav.clientDashboard': 'Project console', 'nav.accountInfo': 'Account', 'nav.accountSettings': 'Account & settings', 'nav.contactSettings': 'Contact settings', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN' };
+    var navLang = getNavLang();
+    var navFallbackZh = { 'remake.badgeTesting': '測試中', 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.remake': '設計風向', 'nav.remakeSection': '設計風向', 'nav.remakeHome': '設計風向首頁', 'nav.remakeAnalysis': '設計意圖分析', 'nav.remakeDesign': '設計意圖分析', 'nav.remakeMyDesigns': '我的設計風向', 'nav.remakeGallery': '圖庫找靈感', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '依角色分類', 'nav.customizerSection': '訂製者', 'nav.manufacturerSection': '製造商', 'nav.supplierSection': '產業供應商', 'nav.supplierPortal': '供應商入口', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '我的廠商作品', 'nav.vendorBaseModels': '我的數位版型 (Base Models)', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式（與設計者溝通）', 'nav.myCredits': '我的點數', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '發案控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區' };
+    var navFallbackEn = { 'remake.badgeTesting': 'Testing', 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.customProduct': 'Custom Products', 'nav.remake': 'Design Direction', 'nav.remakeSection': 'Design Direction', 'nav.remakeHome': 'Design Direction home', 'nav.remakeAnalysis': 'Design intent analysis', 'nav.remakeDesign': 'Design intent analysis', 'nav.remakeMyDesigns': 'My design directions', 'nav.remakeGallery': 'Gallery & inspiration', 'nav.subscriptionPlans': 'Plans & Pricing', 'nav.login': 'Log in', 'nav.myFeatures': 'My Workspace', 'nav.myFeaturesTitle': 'Workspace', 'nav.dropdownCustom': 'Custom products', 'nav.dropdownRoles': 'By role', 'nav.designSection': 'Design / Find vendor', 'nav.customizerSection': 'Customizer', 'nav.manufacturerSection': 'Manufacturer', 'nav.supplierSection': 'Industry supplier', 'nav.supplierPortal': 'Supplier portal', 'nav.supplierPrototypeLib': 'Prototype sets', 'nav.supplierMaterialLib': 'Materials catalog', 'nav.customHome': 'Custom product home', 'nav.createProduct': 'Create product', 'nav.myCustomProducts': 'My digital assets', 'nav.galleryFindVendor': 'Gallery – find vendors', 'nav.findMakers': 'Find makers', 'nav.myMessages': 'My messages', 'nav.myCredits': 'My credits', 'nav.aiEditArea': 'My AI edit area', 'nav.createVendor': 'Create vendor profile', 'nav.demands': 'Customization requests', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'My portfolio', 'nav.vendorBaseModels': 'My base models', 'nav.vendorContact': 'Contact (for designers)', 'nav.clientDashboard': 'Project console', 'nav.accountInfo': 'Account', 'nav.accountSettings': 'Account & settings', 'nav.contactSettings': 'Contact settings', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN' };
     var navFallback = (navLang === 'en') ? navFallbackEn : navFallbackZh;
     var t = function (k) { var v = rawT(k); return (v && v !== k) ? v : (navFallback[k] || k); };
     var showLangSwitch = path.indexOf('/admin/') === -1;
