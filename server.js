@@ -11384,7 +11384,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const categoryKey = (req.query.category_key || '').trim() || null;
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
-        const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material') ? assetKindQ : null;
+        const assetKindFilter = normalizeVendorCatalogGroupKindFilter(assetKindQ);
         async function runList(selectCols) {
             let query = supabase
                 .from('vendor_assets')
@@ -11419,14 +11419,13 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         list = await enrichVendorAssetsWithSupplierMeta(manufacturerId, list || []);
         if (list && list.length) list = await attachCatalogGroupIdsToAssets(list);
         const lang = resolveVendorAssetApiLang(req);
-        const pageParams = parseVendorAssetsListPageParams(req.query);
         const mapped = (list || []).map(function (row) { return mapVendorAssetForApi(row, lang); });
-        const paged = paginateVendorAssetList(mapped, pageParams);
+        /* 廠商後台依分頁在前端各 Tab 篩選；此處回傳完整列表，避免只取 12 筆導致原型／零件列表空白 */
         res.json({
-            items: paged.items,
-            total: paged.total,
-            limit: paged.limit,
-            offset: paged.offset
+            items: mapped,
+            total: mapped.length,
+            limit: mapped.length,
+            offset: 0
         });
     } catch (e) {
         console.error('GET /api/me/vendor-assets 異常:', e);

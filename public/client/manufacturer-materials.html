@@ -1496,22 +1496,14 @@
             }
             var catNames = {};
             categories.forEach(function (c) { catNames[c.key] = c.name || c.key; });
-            var addLabel = activeKind === 'part'
-                ? tr('baseModels.uploadPart', '上傳零件')
-                : tr('baseModels.uploadPrototype', '上傳原型');
             var html = '';
-            /* 材料參考：上傳表單已在上方，網格不再放佔位卡，素材從第一格起排 */
-            if (!isSeedVendor && activeKind !== 'material') {
-                html += '<div class="col-sm-6 col-md-4 col-lg-3"><div class="add-card grid-add-card" role="button" tabindex="0">' +
-                    '<i class="bi bi-cloud-upload fs-2 mb-2"></i><span class="fw-semibold">' + esc(addLabel) + '</span></div></div>';
-            }
+            /* 上傳表單已在各 Tab 上方，網格僅顯示已上傳素材（不放佔位上傳卡） */
             if (!list.length && isSeedVendor) {
                 grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">—</p></div>';
                 return;
             }
             if (!list.length && !isSeedVendor) {
-                grid.innerHTML = html + '<div class="col-12"><p class="text-muted mb-0 mt-2">—</p></div>';
-                bindGridAddCard();
+                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + esc(tr('baseModels.listEmptyKind', '尚無素材，請使用上方表單上傳。')) + '</p></div>';
                 return;
             }
             html += list.map(function (m) {
@@ -1571,7 +1563,6 @@
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
             grid.innerHTML = html;
-            bindGridAddCard();
             if (!isSeedVendor) {
                 grid.querySelectorAll('.btn-del').forEach(function (btn) {
                     btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
