@@ -245,7 +245,7 @@
         function getReturnUrl() {
             try {
                 var params = new URLSearchParams(window.location.search);
-                var returnUrl = params.get('returnUrl');
+                var returnUrl = params.get('returnUrl') || params.get('redirect');
                 if (returnUrl && returnUrl.startsWith('/')) return returnUrl;
                 if (document.referrer && document.referrer.indexOf(window.location.origin) === 0) {
                     try {
@@ -268,7 +268,7 @@
         window.addEventListener('load', function () {
             if (typeof sessionStorage === 'undefined') return;
             var params = new URLSearchParams(window.location.search);
-            var fromQuery = params.get('returnUrl');
+            var fromQuery = params.get('returnUrl') || params.get('redirect');
             if (fromQuery && fromQuery.startsWith('/') && fromQuery !== '/login.html') {
                 sessionStorage.setItem('auth_return_url', fromQuery);
                 return;

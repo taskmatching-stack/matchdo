@@ -8,6 +8,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
 </head>
 <body>
@@ -98,13 +101,17 @@
             wrap.appendChild(el);
             setTimeout(function () { el.remove(); }, 4000);
         }
-        var token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-        if (!token) {
-            window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
-            return;
-        }
+        var token = null;
         var gateEl = document.getElementById('manage-gate');
         var mainEl = document.getElementById('manage-main');
+
+        async function getToken() {
+            if (typeof AuthService === 'undefined') return null;
+            try {
+                var s = await AuthService.getSession();
+                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
+            } catch (e) { return null; }
+        }
 
         async function loadItems() {
             var loading = document.getElementById('items-loading');
@@ -214,10 +221,22 @@
             }
         });
 
+        async function init() {
+            token = await getToken();
+            if (!token) {
+                var loginUrl = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
+                    ? AuthService.getLoginUrl(window.location.pathname + (window.location.search || ''))
+                    : ('/login.html?returnUrl=' + encodeURIComponent(window.location.pathname));
+                window.location.href = loginUrl;
+                return;
+            }
+            await loadItems();
+        }
+
         var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
         ready.then(function () {
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
-            loadItems();
+            init();
         });
     })();
     </script>

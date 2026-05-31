@@ -1602,8 +1602,21 @@
             card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
         }
 
+        function kindFromLocationHash() {
+            var h = (window.location.hash || '').replace(/^#/, '').toLowerCase();
+            if (h === 'tab-material' || h === 'material') return 'material';
+            if (h === 'tab-part' || h === 'part') return 'part';
+            if (h === 'tab-prototype' || h === 'prototype') return 'prototype';
+            return null;
+        }
+
         function switchKind(kind) {
             activeKind = normalizeKind(kind);
+            try {
+                if (activeKind === 'material') window.location.hash = 'tab-material';
+                else if (activeKind === 'part') window.location.hash = 'tab-part';
+                else window.location.hash = 'tab-prototype';
+            } catch (eHash) {}
             document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
                 btn.classList.toggle('active', btn.getAttribute('data-kind') === activeKind);
             });
@@ -2140,8 +2153,15 @@
                 await loadCapabilities();
                 await loadUploadPricing();
                 await loadMaterials();
-                // 保留使用者於載入期間已切換的分頁（勿強制回到原型）
+                var hashKind = kindFromLocationHash();
+                if (hashKind) activeKind = hashKind;
                 switchKind(activeKind);
+                if (activeKind === 'material') {
+                    setTimeout(function () {
+                        var banner = document.getElementById('supplier-import-banner');
+                        if (banner) banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 200);
+                }
             } catch (e) { showToast(e.message, 'danger'); }
         }
         init();
