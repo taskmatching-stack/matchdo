@@ -12631,6 +12631,96 @@ app.get('/api/me/supplier-catalog-imports', async (req, res) => {
     }
 });
 
+// GET /api/me/industry-supplier — 產業供應商控制台摘要
+app.get('/api/me/industry-supplier', async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const { data: catalogRows } = await supabase
+            .from('supplier_catalog_items')
+            .select('id, is_active')
+            .eq('industry_supplier_id', ctx.supplier.id);
+        const catalogIds = (catalogRows || []).map((r) => r.id);
+        const activeCount = (catalogRows || []).filter((r) => r.is_active).length;
+        let referenceCount = 0;
+        const manufacturerIds = new Set();
+        if (catalogIds.length) {
+            const { data: refs } = await supabase
+                .from('manufacturer_supplier_imports')
+                .select('manufacturer_id')
+                .in('catalog_item_id', catalogIds);
+            (refs || []).forEach((r) => {
+                referenceCount += 1;
+                if (r.manufacturer_id) manufacturerIds.add(r.manufacturer_id);
+            });
+        }
+        res.json({
+            supplier: ctx.supplier,
+            stats: {
+                catalog_count: catalogRows ? catalogRows.length : 0,
+                catalog_active_count: activeCount,
+                reference_count: referenceCount,
+                manufacturer_count: manufacturerIds.size
+            }
+        });
+    } catch (e) {
+        console.error('GET /api/me/industry-supplier:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/me/industry-supplier/recent-references — 哪些製造商引用了我的目錄
+app.get('/api/me/industry-supplier/recent-references', async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.json({ items: [] });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+        const { data: catalogRows } = await supabase
+            .from('supplier_catalog_items')
+            .select('id, title, item_kind')
+            .eq('industry_supplier_id', ctx.supplier.id);
+        const catalogIds = (catalogRows || []).map((r) => r.id);
+        if (!catalogIds.length) return res.json({ items: [] });
+        const titleById = {};
+        (catalogRows || []).forEach((r) => { titleById[r.id] = r.title; });
+        const kindById = {};
+        (catalogRows || []).forEach((r) => { kindById[r.id] = r.item_kind; });
+        const { data: refs, error } = await supabase
+            .from('manufacturer_supplier_imports')
+            .select('id, catalog_item_id, item_kind, imported_at, manufacturer_id, manufacturers(id, name)')
+            .in('catalog_item_id', catalogIds)
+            .order('imported_at', { ascending: false })
+            .limit(limit);
+        if (error) {
+            console.error('GET industry-supplier recent-references:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        const items = (refs || []).map((row) => {
+            const mfr = row.manufacturers;
+            const m = Array.isArray(mfr) ? mfr[0] : mfr;
+            return {
+                import_id: row.id,
+                catalog_item_id: row.catalog_item_id,
+                catalog_title: titleById[row.catalog_item_id] || null,
+                item_kind: row.item_kind || kindById[row.catalog_item_id] || null,
+                manufacturer_id: row.manufacturer_id,
+                manufacturer_name: m ? m.name : null,
+                imported_at: row.imported_at
+            };
+        });
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/me/industry-supplier/recent-references:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/me/industry-supplier/catalog-items — 產業供應商管理自己的目錄
 app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
     try {
