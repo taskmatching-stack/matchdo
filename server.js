@@ -12640,7 +12640,7 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
 
         const { data: catalogItem, error: itemErr } = await supabase
             .from('supplier_catalog_items')
-            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, industry_supplier_id, industry_suppliers(id, name, contact_json)')
+            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, ai_tags, image_semantics_json, tags_source, industry_supplier_id, industry_suppliers(id, name, contact_json)')
             .eq('id', catalogItemId)
             .eq('is_active', true)
             .single();
@@ -12673,6 +12673,13 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
             source_catalog_item_id: catalogItem.id,
             tags_source: 'import'
         };
+        if (Array.isArray(catalogItem.ai_tags) && catalogItem.ai_tags.length) {
+            insertPayload.ai_tags = catalogItem.ai_tags;
+            insertPayload.ai_tags_generated_at = new Date().toISOString();
+        }
+        if (catalogItem.image_semantics_json) {
+            insertPayload.image_semantics_json = catalogItem.image_semantics_json;
+        }
         if (targetKind === 'prototype' || targetKind === 'part') {
             insertPayload.min_order_quantity = 1;
             insertPayload.customization_levels = ['color_material'];
@@ -12893,6 +12900,146 @@ function parseSupplierCatalogSpecJson(itemKind, body) {
     return specJson;
 }
 
+function supplierCatalogItemKindToAssetKind(itemKind) {
+    const k = normalizeSupplierCatalogItemKind(itemKind);
+    if (k === 'material') return 'material';
+    if (k === 'part') return 'part';
+    return 'prototype';
+}
+
+const SUPPLIER_CATALOG_ITEM_SELECT =
+    'id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+
+async function getAuthOwnerIdFromReq(req) {
+    const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+    const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+    if (!token) return null;
+    const { data: { user } } = await supabase.auth.getUser(token);
+    return user?.id || null;
+}
+
+async function isProfileAdminUser(ownerId) {
+    if (!ownerId) return false;
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+    return profile?.role === 'admin';
+}
+
+/** 供應商上架：語意標籤、可選 AI 重繪、點數預檢（與 vendor-assets 相同邏輯） */
+async function processSupplierCatalogImagePipeline({
+    file,
+    body,
+    itemKind,
+    title,
+    description,
+    categoryKey,
+    ownerId,
+    uiLocale
+}) {
+    const assetKind = supplierCatalogItemKindToAssetKind(itemKind);
+    const wantsOptimize = parseTruthyBody(body.optimize_product_image);
+    const pointsRequired = wantsOptimize
+        ? await getPointsVendorAssetOptimizeForKind(assetKind)
+        : await getPointsVendorAssetUpload();
+    const isAdmin = await isProfileAdminUser(ownerId);
+    if (!isAdmin && ownerId && pointsRequired > 0) {
+        const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+        if (!sufficient) {
+            return { error: '點數不足', status: 402, balance, required: pointsRequired };
+        }
+    }
+
+    let tags = parseAiTagsFromBody(body);
+    let semanticsJson = null;
+    let tagsSource = 'gemini';
+    if (body.image_semantics_json) {
+        try {
+            semanticsJson = typeof body.image_semantics_json === 'string'
+                ? JSON.parse(body.image_semantics_json)
+                : body.image_semantics_json;
+        } catch (_) {}
+    }
+    let desc = (description || '').trim() || null;
+    let tit = (title || '').trim() || null;
+
+    if (!tags || !tags.length) {
+        const sem = await runVendorAssetImageSemantics(file, {
+            asset_kind: assetKind,
+            category_key: categoryKey,
+            title: tit,
+            description: desc
+        }, ownerId);
+        tags = sem.tags;
+        semanticsJson = sem.semantics;
+        tagsSource = 'gemini';
+        if (!desc && sem.description) desc = sem.description;
+    } else {
+        tagsSource = semanticsJson ? 'gemini' : 'manual';
+        if (!desc && semanticsJson) desc = vendorAssetDescriptionFromSemantics(semanticsJson);
+    }
+    if (assetKind === 'material' && semanticsJson) {
+        const fin = finalizeVendorAssetSemantics(semanticsJson, tags, assetKind);
+        semanticsJson = fin.semantics;
+        tags = fin.tags;
+    }
+    if (!tit && semanticsJson) {
+        tit = autoVendorAssetTitleFromSemantics(semanticsJson, assetKind, uiLocale, {});
+    }
+
+    let uploadFile = file;
+    if (wantsOptimize) {
+        try {
+            const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+            const optimizedBuf = await optimizeVendorAssetImageWithFlux(
+                file.buffer, file.mimetype, tit, assetKind, null, optimizeBackground
+            );
+            uploadFile = {
+                buffer: optimizedBuf,
+                mimetype: 'image/jpeg',
+                originalname: (file.originalname || 'image.jpg').replace(/\.[^.]+$/, '') + '.jpg'
+            };
+        } catch (optErr) {
+            console.error('supplier-catalog image optimize:', optErr);
+            const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
+            return { error: mapped.body.error || 'AI 重繪失敗', status: mapped.status };
+        }
+    }
+
+    return {
+        uploadFile,
+        tags,
+        semanticsJson,
+        tagsSource,
+        title: tit,
+        description: desc,
+        pointsRequired,
+        wantsOptimize,
+        isAdmin,
+        assetKind
+    };
+}
+
+async function consumeSupplierCatalogUploadPoints(ownerId, isAdmin, pointsRequired, wantsOptimize, assetKind, supplierId, catalogItemId) {
+    if (isAdmin || !ownerId || pointsRequired <= 0) return { balance_after: null, points_deducted: 0 };
+    const consumed = await consumeUserCredits(
+        ownerId,
+        pointsRequired,
+        wantsOptimize ? 'vendor_asset_optimize' : 'vendor_asset_upload',
+        wantsOptimize
+            ? (assetKind === 'material'
+                ? `供應商產品庫上架＋材質圖優化（${pointsRequired} 點）`
+                : `供應商產品庫上架＋產品圖優化（${pointsRequired} 點）`)
+            : (assetKind === 'material'
+                ? `供應商產品庫上架（${pointsRequired} 點）`
+                : `供應商產品庫上架（${pointsRequired} 點）`),
+        { industry_supplier_id: supplierId, catalog_item_id: catalogItemId, optimize: wantsOptimize, asset_kind: assetKind }
+    );
+    if (!consumed.ok) {
+        console.warn('supplier-catalog 扣點失敗（已上架）:', consumed.error);
+        return { balance_after: null, points_deducted: 0 };
+    }
+    return { balance_after: consumed.balance_after, points_deducted: pointsRequired };
+}
+
 async function resolveSupplierCatalogCoverUrl(supplierId, req, existingUrl) {
     const urlFromBody = (req.body && req.body.cover_image_url || '').trim();
     if (req.file) {
@@ -12963,6 +13110,9 @@ app.get('/api/me/industry-supplier', async (req, res) => {
         }
         const ctx = await getMeIndustrySupplier(req, res);
         if (!ctx) return;
+        if (req.query.manage === '1' || req.query.lite === '1') {
+            return res.json({ supplier: ctx.supplier });
+        }
         const { data: catalogRows } = await supabase
             .from('supplier_catalog_items')
             .select('id, is_active')
@@ -13093,6 +13243,103 @@ app.get('/api/me/industry-supplier/recent-references', async (req, res) => {
     }
 });
 
+// GET /api/me/industry-supplier/catalog-items/upload-pricing — 與廠商素材庫相同扣點
+app.get('/api/me/industry-supplier/catalog-items/upload-pricing', async (req, res) => {
+    try {
+        res.json({
+            points_upload: await getPointsVendorAssetUpload(),
+            points_optimize: await getPointsVendorAssetOptimize(),
+            points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
+            points_description: await getPointsVendorAssetDescription()
+        });
+    } catch (e) {
+        console.error('GET industry-supplier catalog upload-pricing:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/industry-supplier/catalog-items/generate-description — 編輯區 AI 說明（扣點）
+app.post('/api/me/industry-supplier/catalog-items/generate-description', supplierCatalogItemUpload, async (req, res) => {
+    try {
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const body = req.body || {};
+        const catalogItemId = (body.catalog_item_id || '').trim();
+        const itemKind = normalizeSupplierCatalogItemKind(body.item_kind || 'material');
+        const assetKind = supplierCatalogItemKindToAssetKind(itemKind);
+        let imageFile = req.file ? await vendorAssetFileFromMulter(req.file) : null;
+        let context = {
+            asset_kind: assetKind,
+            category_key: (body.category_key || '').trim(),
+            title: (body.title || '').trim(),
+            description: (body.description || '').trim()
+        };
+        if (!imageFile && catalogItemId) {
+            const { data: row } = await supabase
+                .from('supplier_catalog_items')
+                .select('id, cover_image_url, category_key, title, description, item_kind')
+                .eq('id', catalogItemId)
+                .eq('industry_supplier_id', ctx.supplier.id)
+                .maybeSingle();
+            if (!row || !row.cover_image_url) return res.status(404).json({ error: '找不到該品項或無圖片' });
+            context = {
+                asset_kind: supplierCatalogItemKindToAssetKind(row.item_kind),
+                category_key: context.category_key || row.category_key || '',
+                title: context.title || row.title || '',
+                description: context.description || row.description || '',
+                image_url: row.cover_image_url
+            };
+            const deps = getVisualSemanticsDeps();
+            const resImg = await deps.fetch(row.cover_image_url, { redirect: 'follow' });
+            if (!resImg.ok) return res.status(503).json({ error: '無法讀取產品圖片' });
+            const imgBuf = Buffer.from(await resImg.arrayBuffer());
+            const imgMime = (resImg.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+            imageFile = await normalizeVendorUploadFile({
+                buffer: imgBuf,
+                mimetype: imgMime,
+                originalname: 'catalog.jpg'
+            });
+        }
+        if (!imageFile) return res.status(400).json({ error: '請上傳圖片或提供品項 id' });
+        const ownerId = await getAuthOwnerIdFromReq(req);
+        const result = await runVendorAssetImageSemantics(imageFile, context, ownerId);
+        const description = result.description || vendorAssetDescriptionFromSemantics(result.semantics);
+        if (!description) return res.status(503).json({ error: '無法產生說明，請稍後重試' });
+        const pointsRequired = await getPointsVendorAssetDescription();
+        const isAdmin = await isProfileAdminUser(ownerId);
+        let balanceAfter = null;
+        let pointsDeducted = 0;
+        if (!isAdmin && ownerId && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'vendor_asset_description',
+                '供應商產品庫 AI 產生說明',
+                { industry_supplier_id: ctx.supplier.id, catalog_item_id: catalogItemId || null }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: consumed.error || '扣點失敗', balance: consumed.balance });
+            }
+            balanceAfter = consumed.balance_after;
+            pointsDeducted = pointsRequired;
+        }
+        res.json({
+            description,
+            product_description_zh: result.semantics?.product_description_zh || null,
+            product_description_en: result.semantics?.product_description_en || null,
+            points_deducted: pointsDeducted,
+            balance_after: balanceAfter
+        });
+    } catch (e) {
+        console.error('POST industry-supplier catalog generate-description:', e);
+        res.status(503).json({ error: e.message || 'AI 說明產生失敗，請稍後重試' });
+    }
+});
+
 // GET /api/me/industry-supplier/catalog-items — 產業供應商管理自己的目錄
 app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
     try {
@@ -13104,19 +13351,31 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
         const itemKind = (req.query.item_kind || '').trim();
         let q = supabase
             .from('supplier_catalog_items')
-            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+            .select(SUPPLIER_CATALOG_ITEM_SELECT)
             .eq('industry_supplier_id', ctx.supplier.id)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
         if (itemKind === 'material' || itemKind === 'prototype_set' || itemKind === 'part') q = q.eq('item_kind', itemKind);
-        const { data: rows, error } = await q;
+        let { data: rows, error } = await q;
+        if (error && error.code === '42703') {
+            const legacySelect = 'id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at';
+            let q2 = supabase
+                .from('supplier_catalog_items')
+                .select(legacySelect)
+                .eq('industry_supplier_id', ctx.supplier.id)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false });
+            if (itemKind === 'material' || itemKind === 'prototype_set' || itemKind === 'part') q2 = q2.eq('item_kind', itemKind);
+            ({ data: rows, error } = await q2);
+        }
         if (error) {
             console.error('GET industry-supplier catalog-items:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
+        const includeRefs = req.query.include_references === '1';
         const catalogIds = (rows || []).map((r) => r.id);
         const refsByCatalog = {};
-        if (catalogIds.length) {
+        if (includeRefs && catalogIds.length) {
             const { data: refs, error: refErr } = await supabase
                 .from('manufacturer_supplier_imports')
                 .select('id, catalog_item_id, manufacturer_id, imported_at, manufacturers(id, name)')
@@ -13141,8 +13400,8 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
             const references = refsByCatalog[row.id] || [];
             return {
                 ...row,
-                reference_count: references.length,
-                references
+                reference_count: includeRefs ? references.length : 0,
+                references: includeRefs ? references : []
             };
         });
         res.json({ supplier: ctx.supplier, items });
@@ -13152,7 +13411,7 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
     }
 });
 
-// POST /api/me/industry-supplier/catalog-items — 上架品項（材料／數位原型／配件零件；支援上傳圖片）
+// POST /api/me/industry-supplier/catalog-items — 上架品項（含 AI 標籤／可選重繪，對稱 vendor-assets）
 app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemUpload, async (req, res) => {
     try {
         if (!(await supplierCatalogTablesReady())) {
@@ -13164,31 +13423,73 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemUpload, a
         if (!ctx) return;
         const body = req.body || {};
         const itemKind = normalizeSupplierCatalogItemKind(body.item_kind);
-        const title = (body.title || '').trim();
-        if (!title) return res.status(400).json({ error: '請填寫產品名稱' });
-        const description = (body.description || '').trim();
-        if (!description) return res.status(400).json({ error: '請填寫產品說明（製造商匯入時會看到）' });
         const categoryKey = (body.category_key || '').trim();
         if (!categoryKey) return res.status(400).json({ error: '請選擇平台主分類' });
-        const coverResolved = await resolveSupplierCatalogCoverUrl(ctx.supplier.id, req, null);
-        if (coverResolved.error) return res.status(400).json({ error: coverResolved.error });
+        let file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return res.status(400).json({ error: '請上傳產品圖片' });
+        const ownerId = uploadUser.id || (await getAuthOwnerIdFromReq(req));
+        const uiLocale = resolveUiLocaleFromRequest(req);
+        const pipeline = await processSupplierCatalogImagePipeline({
+            file,
+            body,
+            itemKind,
+            title: (body.title || '').trim(),
+            description: (body.description || '').trim(),
+            categoryKey,
+            ownerId,
+            uiLocale
+        });
+        if (pipeline.error) {
+            return res.status(pipeline.status || 400).json({
+                error: pipeline.error,
+                balance: pipeline.balance,
+                required: pipeline.required
+            });
+        }
+        const title = pipeline.title;
+        const description = pipeline.description;
+        if (!title) return res.status(400).json({ error: '請填寫產品名稱，或上傳可辨識的圖片以自動產生標題' });
+        if (!description) return res.status(400).json({ error: '請填寫產品說明，或留空由 AI 產生（需可讀圖）' });
+        const { publicUrl } = await uploadToSupabaseStorage(
+            'custom-products',
+            `supplier-catalog/${ctx.supplier.id}`,
+            pipeline.uploadFile
+        );
         const specJson = parseSupplierCatalogSpecJson(itemKind, body);
         const sortOrder = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
-        const { data: inserted, error } = await supabase
+        const insertPayload = {
+            industry_supplier_id: ctx.supplier.id,
+            item_kind: itemKind,
+            title,
+            description,
+            cover_image_url: publicUrl,
+            spec_json: specJson,
+            category_key: categoryKey,
+            is_active: true,
+            sort_order: sortOrder,
+            ai_tags: pipeline.tags,
+            ai_tags_generated_at: new Date().toISOString(),
+            tags_source: pipeline.tagsSource
+        };
+        if (pipeline.semanticsJson) insertPayload.image_semantics_json = pipeline.semanticsJson;
+        let { data: inserted, error } = await supabase
             .from('supplier_catalog_items')
-            .insert({
-                industry_supplier_id: ctx.supplier.id,
-                item_kind: itemKind,
-                title,
-                description,
-                cover_image_url: coverResolved.url,
-                spec_json: specJson,
-                category_key: categoryKey,
-                is_active: true,
-                sort_order: sortOrder
-            })
-            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+            .insert(insertPayload)
+            .select(SUPPLIER_CATALOG_ITEM_SELECT)
             .single();
+        let aiMigrationRequired = false;
+        if (error && error.code === '42703') {
+            delete insertPayload.ai_tags;
+            delete insertPayload.image_semantics_json;
+            delete insertPayload.tags_source;
+            delete insertPayload.ai_tags_generated_at;
+            aiMigrationRequired = true;
+            ({ data: inserted, error } = await supabase
+                .from('supplier_catalog_items')
+                .insert(insertPayload)
+                .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+                .single());
+        }
         if (error) {
             console.error('POST industry-supplier catalog-item:', error);
             if (error.code === '23514') {
@@ -13196,10 +13497,38 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemUpload, a
             }
             return res.status(500).json({ error: '上架失敗' });
         }
-        res.status(201).json({ item: inserted });
+        await recordVisualSemanticsEvent({
+            source_type: 'catalog_item',
+            source_id: inserted.id,
+            image_url: publicUrl,
+            text_input: null,
+            semantics_kind: 'image',
+            ai_tags: pipeline.tags,
+            semantics_json: pipeline.semanticsJson,
+            model: pipeline.tagsSource === 'gemini' ? await getTaggingModelName() : null,
+            prompt_version: visualSemantics.PROMPT_VERSION,
+            owner_id: ownerId,
+            category_key: categoryKey
+        });
+        const pointsMeta = await consumeSupplierCatalogUploadPoints(
+            ownerId,
+            pipeline.isAdmin,
+            pipeline.pointsRequired,
+            pipeline.wantsOptimize,
+            pipeline.assetKind,
+            ctx.supplier.id,
+            inserted.id
+        );
+        res.status(201).json({
+            item: inserted,
+            points_deducted: pointsMeta.points_deducted,
+            balance_after: pointsMeta.balance_after,
+            product_optimized: pipeline.wantsOptimize,
+            ai_migration_required: aiMigrationRequired
+        });
     } catch (e) {
         console.error('POST /api/me/industry-supplier/catalog-items:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });
 
@@ -13215,7 +13544,7 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
         if (!itemId) return res.status(400).json({ error: '缺少 id' });
         const { data: existing } = await supabase
             .from('supplier_catalog_items')
-            .select('id, cover_image_url, item_kind, spec_json')
+            .select('id, cover_image_url, item_kind, spec_json, title, description, category_key, ai_tags, image_semantics_json')
             .eq('id', itemId)
             .eq('industry_supplier_id', ctx.supplier.id)
             .maybeSingle();
@@ -13244,26 +13573,95 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             const baseSpec = (existing.spec_json && typeof existing.spec_json === 'object') ? existing.spec_json : {};
             patch.spec_json = parseSupplierCatalogSpecJson(itemKind, { ...baseSpec, ...body, spec_json: body.spec_json || baseSpec });
         }
-        if (req.file || (body.cover_image_url != null && String(body.cover_image_url).trim())) {
+        const manualTags = parseAiTagsFromBody(body);
+        if (manualTags && manualTags.length) {
+            patch.ai_tags = manualTags;
+            patch.tags_source = body.image_semantics_json ? 'gemini' : 'manual';
+            patch.ai_tags_generated_at = new Date().toISOString();
+        }
+        let pointsMeta = { points_deducted: 0, balance_after: null };
+        let productOptimized = false;
+        if (req.file) {
+            let file = await vendorAssetFileFromMulter(req.file);
+            if (!file) return res.status(400).json({ error: '圖片格式無效' });
+            const ownerId = await getAuthOwnerIdFromReq(req);
+            const uiLocale = resolveUiLocaleFromRequest(req);
+            const pipeline = await processSupplierCatalogImagePipeline({
+                file,
+                body,
+                itemKind,
+                title: patch.title || existing.title,
+                description: patch.description != null ? patch.description : existing.description,
+                categoryKey: patch.category_key || existing.category_key || '',
+                ownerId,
+                uiLocale
+            });
+            if (pipeline.error) {
+                return res.status(pipeline.status || 400).json({
+                    error: pipeline.error,
+                    balance: pipeline.balance,
+                    required: pipeline.required
+                });
+            }
+            const { publicUrl } = await uploadToSupabaseStorage(
+                'custom-products',
+                `supplier-catalog/${ctx.supplier.id}`,
+                pipeline.uploadFile
+            );
+            patch.cover_image_url = publicUrl;
+            patch.ai_tags = pipeline.tags;
+            patch.image_semantics_json = pipeline.semanticsJson;
+            patch.tags_source = pipeline.tagsSource;
+            patch.ai_tags_generated_at = new Date().toISOString();
+            if (!patch.title && pipeline.title) patch.title = pipeline.title;
+            if (!patch.description && pipeline.description) patch.description = pipeline.description;
+            productOptimized = pipeline.wantsOptimize;
+            pointsMeta = await consumeSupplierCatalogUploadPoints(
+                ownerId,
+                pipeline.isAdmin,
+                pipeline.pointsRequired,
+                pipeline.wantsOptimize,
+                pipeline.assetKind,
+                ctx.supplier.id,
+                itemId
+            );
+        } else if (body.cover_image_url != null && String(body.cover_image_url).trim()) {
             const coverResolved = await resolveSupplierCatalogCoverUrl(ctx.supplier.id, req, existing.cover_image_url);
             if (coverResolved.error) return res.status(400).json({ error: coverResolved.error });
             patch.cover_image_url = coverResolved.url;
         }
         patch.updated_at = new Date().toISOString();
-        const { data: updated, error } = await supabase
+        let { data: updated, error } = await supabase
             .from('supplier_catalog_items')
             .update(patch)
             .eq('id', itemId)
-            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+            .select(SUPPLIER_CATALOG_ITEM_SELECT)
             .single();
+        if (error && error.code === '42703') {
+            delete patch.ai_tags;
+            delete patch.image_semantics_json;
+            delete patch.tags_source;
+            delete patch.ai_tags_generated_at;
+            ({ data: updated, error } = await supabase
+                .from('supplier_catalog_items')
+                .update(patch)
+                .eq('id', itemId)
+                .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+                .single());
+        }
         if (error) {
             console.error('PATCH industry-supplier catalog-item:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
-        res.json({ item: updated });
+        res.json({
+            item: updated,
+            points_deducted: pointsMeta.points_deducted,
+            balance_after: pointsMeta.balance_after,
+            product_optimized: productOptimized
+        });
     } catch (e) {
         console.error('PATCH /api/me/industry-supplier/catalog-items/:id:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });
 
