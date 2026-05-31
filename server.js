@@ -10845,8 +10845,14 @@ async function getAssetIdsForCatalogGroup(catalogGroupId, manufacturerId) {
     return { assetIds: (links || []).map((r) => r.asset_id), group: grp };
 }
 
+function normalizeVendorCatalogGroupKindFilter(q) {
+    const k = String(q || '').trim().toLowerCase();
+    if (k === 'material' || k === 'prototype' || k === 'part') return k;
+    return null;
+}
+
 async function buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter) {
-    const kindFilter = (assetKindFilter === 'material' || assetKindFilter === 'prototype') ? assetKindFilter : null;
+    const kindFilter = normalizeVendorCatalogGroupKindFilter(assetKindFilter);
     let { data: groups, error } = await supabase
         .from('vendor_catalog_groups')
         .select('id, manufacturer_id, name, slug, parent_id, sort_order, asset_kind, created_at, updated_at')
@@ -10999,11 +11005,11 @@ app.get('/api/me/vendor-catalog-groups', async (req, res) => {
             return res.json({ tree: [], flat: [], message: '請執行 docs/add-vendor-catalog-groups.sql' });
         }
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
-        const assetKindFilter = (assetKindQ === 'material' || assetKindQ === 'prototype') ? assetKindQ : null;
+        const assetKindFilter = normalizeVendorCatalogGroupKindFilter(assetKindQ);
         let hasAssetKindColumn = true;
         const probe = await supabase.from('vendor_catalog_groups').select('asset_kind').limit(1);
         if (probe.error && probe.error.code === '42703') hasAssetKindColumn = false;
-        if (assetKindFilter === 'material' && !hasAssetKindColumn) {
+        if ((assetKindFilter === 'material' || assetKindFilter === 'part') && !hasAssetKindColumn) {
             return res.json({
                 tree: [],
                 flat: [],
@@ -11113,8 +11119,7 @@ app.post('/api/me/vendor-catalog-groups/reorder', express.json(), async (req, re
             return res.status(400).json({ error: '請提供 order 陣列（分類 id 順序）' });
         }
         const ids = order.map((id) => String(id).trim()).filter(Boolean);
-        const assetKindQ = (req.body.asset_kind || '').trim().toLowerCase();
-        const kindFilter = (assetKindQ === 'material' || assetKindQ === 'prototype') ? assetKindQ : null;
+        const kindFilter = normalizeVendorCatalogGroupKindFilter(req.body.asset_kind);
         let { data: existing, error: existErr } = await supabase
             .from('vendor_catalog_groups')
             .select('id, asset_kind')
@@ -11174,7 +11179,7 @@ app.get('/api/manufacturers/:id/catalog-groups', async (req, res) => {
         const { data: mfr } = await supabase.from('manufacturers').select('id, name, is_active').eq('id', manufacturerId).eq('is_active', true).maybeSingle();
         if (!mfr) return res.status(404).json({ error: '找不到廠商' });
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
-        const assetKindFilter = (assetKindQ === 'material' || assetKindQ === 'prototype') ? assetKindQ : null;
+        const assetKindFilter = normalizeVendorCatalogGroupKindFilter(assetKindQ);
         const payload = await buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter);
         res.json({ ...payload, manufacturer_id: manufacturerId, manufacturer_name: mfr.name });
     } catch (e) {

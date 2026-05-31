@@ -138,13 +138,11 @@
             </div>
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供設計者選用。</p>
                 <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4 upload-panel">
-                    <div class="card-header bg-white"><span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-primary"></i><span data-i18n="baseModels.uploadPrototype">上傳數位原型</span></span></div>
                     <div class="card-body">
                         <form class="add-form" data-kind="prototype" enctype="multipart/form-data">
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control add-min-order-qty" min="1" step="1" inputmode="numeric" required data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div class="add-customization-levels border rounded p-2"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選（與材料參考分開）。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
@@ -193,6 +191,7 @@
                             </h6>
                             <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
                             <p class="text-muted small mb-0 mt-1" data-i18n="baseModels.myCatalogKindPart">以下分類僅用於「配件／零件」，與原型、材料分開。</p>
+                            <p id="catalog-groups-split-warn-part" class="text-danger small mb-0 mt-1 d-none" data-i18n="baseModels.catalogAssetKindSqlRequired">請於 Supabase 執行 docs/add-vendor-catalog-groups-asset-kind.sql，零件才能使用獨立分類（不與原型共用）。</p>
                             <p id="catalog-groups-collapsed-summary-part" class="text-muted small mb-0 mt-1 d-none"></p>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
@@ -219,15 +218,13 @@
             </div>
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintPart">扣具、拉鍊、標章等局部零件參考，供設計者選用（無 MOQ）。</p>
                 <div id="add-form-panel-part" class="card border-0 shadow-sm mb-4 upload-panel">
-                    <div class="card-header bg-white"><span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-warning"></i><span data-i18n="baseModels.uploadPart">上傳配件／零件</span></span></div>
                     <div class="card-body">
                         <form class="add-form" data-kind="part" enctype="multipart/form-data">
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
+                                <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.partMatchHint">媒合僅用平台主分類；零件類型請用上方「配件／零件」專用自訂分類（如：拉鍊、扣具）。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：YKK 5 號拉鍊、金屬 D 扣"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊、金屬 D 扣"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label><input type="file" class="form-control add-image add-image-part" accept="image/*" multiple required><div class="add-image-preview mt-2 d-none"></div><p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張（第一張為封面）；訂製者選用時可帶入多張參考。</p><p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p></div>
                                 <div class="col-12">
@@ -312,7 +309,6 @@
                     </div>
                 </div>
                 <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel">
-                    <div class="card-header bg-white"><span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-success"></i><span data-i18n="baseModels.uploadMaterial">上傳材料參考</span></span></div>
                     <div class="card-body">
                         <form class="add-form" data-kind="material" enctype="multipart/form-data">
                             <div class="row g-3">
@@ -1040,8 +1036,20 @@
             return out;
         }
 
+        function catalogGroupRowKind(g) {
+            if (!g || g.asset_kind == null || String(g.asset_kind).trim() === '') return 'prototype';
+            return normalizeKind(g.asset_kind);
+        }
+
+        function filterCatalogGroupsForKind(flat, kind) {
+            kind = normalizeKind(kind);
+            return (flat || []).filter(function (g) { return catalogGroupRowKind(g) === kind; });
+        }
+
         function groupsForKind(kind) {
-            return catalogGroupsByKind[kind] || [];
+            kind = normalizeKind(kind);
+            if ((kind === 'material' || kind === 'part') && !catalogAssetKindSplitOk) return [];
+            return filterCatalogGroupsForKind(catalogGroupsByKind[kind] || [], kind);
         }
 
         function renderAssignCatalogCheckboxes(kind, selectedIds) {
@@ -1053,12 +1061,12 @@
                 container.innerHTML = '<span class="text-danger small">' + esc(tr('baseModels.catalogDbMissing', '請先於 Supabase 執行 docs/add-vendor-catalog-groups.sql')) + '</span>';
                 return;
             }
-            if (kind === 'material' && !catalogAssetKindSplitOk) {
+            if ((kind === 'material' || kind === 'part') && !catalogAssetKindSplitOk) {
                 container.innerHTML = '<span class="text-danger small">' + esc(tr('baseModels.catalogAssetKindSqlRequired', '請執行 add-vendor-catalog-groups-asset-kind.sql')) + '</span>';
                 return;
             }
-            var emptyKey = kind === 'material' ? 'baseModels.catalogGroupsEmptyMaterial' : 'baseModels.catalogGroupsEmpty';
-            var emptyFb = kind === 'material' ? '尚無材料專用分類' : '尚無自訂分類';
+            var emptyKey = kind === 'material' ? 'baseModels.catalogGroupsEmptyMaterial' : (kind === 'part' ? 'baseModels.catalogGroupsEmptyPart' : 'baseModels.catalogGroupsEmpty');
+            var emptyFb = kind === 'material' ? '尚無材料專用分類' : (kind === 'part' ? '尚無零件專用分類' : '尚無自訂分類');
             if (!flat.length) {
                 container.innerHTML = '<span class="text-muted small me-2">' + esc(tr(emptyKey, emptyFb)) + '</span>' +
                     '<button type="button" class="btn btn-sm btn-outline-primary btn-inline-add-catalog" data-catalog-kind="' + esc(kind) + '">' + esc(tr('baseModels.catalogAddFirstBtn', '新增第一個分類')) + '</button>';
@@ -1086,12 +1094,12 @@
                 container.innerHTML = '<span class="text-danger small">' + esc(tr('baseModels.catalogDbMissing', '請先執行 SQL')) + '</span>';
                 return;
             }
-            if (kind === 'material' && !catalogAssetKindSplitOk) {
+            if ((kind === 'material' || kind === 'part') && !catalogAssetKindSplitOk) {
                 container.innerHTML = '<span class="text-danger small">' + esc(tr('baseModels.catalogAssetKindSqlRequired', '請執行 add-vendor-catalog-groups-asset-kind.sql')) + '</span>';
                 return;
             }
             if (!flat.length) {
-                var emptyKey = kind === 'material' ? 'baseModels.catalogGroupsEmptyMaterial' : 'baseModels.catalogGroupsEmpty';
+                var emptyKey = kind === 'material' ? 'baseModels.catalogGroupsEmptyMaterial' : (kind === 'part' ? 'baseModels.catalogGroupsEmptyPart' : 'baseModels.catalogGroupsEmpty');
                 container.innerHTML = '<span class="text-muted small">' + esc(tr(emptyKey, '尚無分類')) + '</span>';
                 return;
             }
@@ -1314,8 +1322,10 @@
         }
 
         function updateMaterialCatalogSplitWarn() {
-            var warn = document.getElementById('catalog-groups-split-warn-material');
-            if (warn) warn.classList.toggle('d-none', catalogAssetKindSplitOk);
+            var warnMat = document.getElementById('catalog-groups-split-warn-material');
+            var warnPart = document.getElementById('catalog-groups-split-warn-part');
+            if (warnMat) warnMat.classList.toggle('d-none', catalogAssetKindSplitOk);
+            if (warnPart) warnPart.classList.toggle('d-none', catalogAssetKindSplitOk);
         }
 
         async function loadCatalogGroups() {
@@ -1330,12 +1340,12 @@
                     var d = await r.json().catch(function () { return {}; });
                     if (d.message && String(d.message).indexOf('add-vendor-catalog-groups') !== -1) catalogGroupsDbReady = false;
                     if (d.asset_kind_split_unavailable) catalogAssetKindSplitOk = false;
-                    catalogGroupsByKind[k] = d.flat || [];
+                    catalogGroupsByKind[k] = filterCatalogGroupsForKind(d.flat || [], k);
                 }
                 if (!catalogGroupsDbReady) showToast(tr('baseModels.catalogDbMissing', '請先執行 docs/add-vendor-catalog-groups.sql'), 'warning');
                 else if (!catalogAssetKindSplitOk) showToast(tr('baseModels.catalogAssetKindSqlRequired', '請執行 add-vendor-catalog-groups-asset-kind.sql'), 'warning');
             } catch (e) {
-                catalogGroupsByKind = { prototype: [], material: [] };
+                catalogGroupsByKind = { prototype: [], material: [], part: [] };
             }
             syncCatalogGroupsFlatFromActiveKind();
             updateMaterialCatalogSplitWarn();
@@ -1346,7 +1356,7 @@
 
         async function createCatalogGroup(kind, presetName) {
             kind = normalizeKind(kind || activeKind);
-            if (kind === 'material' && !catalogAssetKindSplitOk) {
+            if ((kind === 'material' || kind === 'part') && !catalogAssetKindSplitOk) {
                 showToast(tr('baseModels.catalogAssetKindSqlRequired', '請先執行 add-vendor-catalog-groups-asset-kind.sql'), 'danger');
                 return;
             }
@@ -1644,7 +1654,7 @@
             var imgInput = form.querySelector('.add-image');
             wireOptimizeBackgroundForm(form);
 
-            if (subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
+            if (kind === 'prototype' && subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
 
             var previewWrap = form.querySelector('.add-image-preview');
             imgInput.addEventListener('change', function () {
@@ -1682,7 +1692,7 @@
                 var fd = new FormData();
                 fd.append('asset_kind', kind);
                 fd.append('category_key', catSel.value);
-                if (kind !== 'material' && subSel) fd.append('subcategory_key', subSel.value || '');
+                if (kind === 'prototype' && subSel) fd.append('subcategory_key', subSel.value || '');
                 fd.append('title', form.querySelector('.add-title').value || '');
                 fd.append('description', form.querySelector('.add-description').value || '');
                 fd.append('ui_locale', getUiLocaleForUpload());
@@ -1693,8 +1703,6 @@
                         fd.append('gallery', files[gi]);
                     }
                 }
-                var styleKey = form.querySelector('.add-style-key');
-                if (styleKey && styleKey.value) fd.append('style_key', styleKey.value);
                 var optimizeChk = form.querySelector('.add-optimize-product');
                 if (optimizeChk && optimizeChk.checked) {
                     fd.append('optimize_product_image', '1');
@@ -1776,10 +1784,10 @@
             toggleEditImageOptions(false);
             updateEditOptimizeLabel(m.asset_kind);
             fillCategorySelect(document.getElementById('edit-category'), m.category_key);
-            var isMaterialEdit = normalizeKind(m.asset_kind) === 'material';
+            var hideSubcategoryEdit = kindNorm === 'material' || kindNorm === 'part';
             var subWrap = document.getElementById('edit-subcategory-wrap');
-            if (subWrap) subWrap.classList.toggle('d-none', isMaterialEdit);
-            if (!isMaterialEdit) fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
+            if (subWrap) subWrap.classList.toggle('d-none', hideSubcategoryEdit);
+            if (kindNorm === 'prototype') fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
             renderEditCatalogCheckboxes(m.asset_kind, m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; }));
             editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
             editModalEl.show();
@@ -1865,7 +1873,7 @@
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
             var fd = new FormData();
             fd.append('category_key', document.getElementById('edit-category').value);
-            if (editKind !== 'material') fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
+            if (editKind === 'prototype') fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
             fd.append('title', document.getElementById('edit-title').value || '');
             fd.append('description', document.getElementById('edit-description').value || '');
             fd.append('ui_locale', getUiLocaleForUpload());
@@ -1940,6 +1948,7 @@
         });
 
         document.getElementById('edit-category').addEventListener('change', function () {
+            if (normalizeKind(document.getElementById('edit-asset-kind').value) !== 'prototype') return;
             fillSubcategorySelect(document.getElementById('edit-subcategory'), this.value);
         });
         document.getElementById('filter-category').addEventListener('change', renderGrid);
