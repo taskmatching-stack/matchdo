@@ -100,21 +100,6 @@
                 </li>
             </ul>
 
-            <div id="supplier-import-banner" class="card border-0 shadow-sm mb-3 border-start border-success border-4">
-                <div class="card-body py-3">
-                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
-                        <div>
-                            <h6 class="fw-semibold mb-1"><i class="bi bi-truck me-2 text-success"></i><span id="supplier-import-title" data-i18n="baseModels.importFromSupplier">從產業供應商導入材料</span></h6>
-                            <p class="text-muted small mb-0" id="supplier-import-hint" data-i18n="baseModels.importFromSupplierHint">瀏覽上游供應商材料目錄，一鍵加入您的「材料參考」供訂製者選用。</p>
-                        </div>
-                        <button type="button" class="btn btn-success btn-sm" id="btn-open-supplier-import" disabled>
-                            <i class="bi bi-box-arrow-in-down me-1"></i><span id="supplier-import-btn-label" data-i18n="baseModels.browseSupplierMaterials">瀏覽供應商材料</span>
-                        </button>
-                    </div>
-                    <div id="supplier-import-locked" class="alert alert-warning small py-2 mt-2 mb-0 d-none"></div>
-                </div>
-            </div>
-
             <div id="panel-prototype" class="asset-kind-panel">
             <div class="card border-0 shadow-sm mb-3 border-start border-primary border-4 catalog-groups-card" data-catalog-kind="prototype">
                 <div class="card-body py-3">
@@ -163,6 +148,17 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選（與材料參考分開）。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12 supplier-import-strip" data-import-tab="prototype">
+                                    <div class="border rounded-3 p-3 bg-light">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                            <span class="fw-semibold small"><i class="bi bi-boxes me-1 text-success"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></span>
+                                            <button type="button" class="btn btn-outline-success btn-sm btn-open-supplier-import" disabled><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></button>
+                                        </div>
+                                        <p class="text-muted small mb-0 mt-2 supplier-import-hint-line" data-i18n="baseModels.importSupplierCatalogHintProto">選取上游原型組，加入下方「已上傳的數位原型」並記錄引用來源。</p>
+                                        <div class="supplier-import-locked-line alert alert-warning small py-2 mt-2 mb-0 d-none"></div>
+                                    </div>
+                                    <p class="text-center text-muted small my-2 mb-0" data-i18n="baseModels.orUploadOwn">— 或自行上傳圖片 —</p>
+                                </div>
                                 <div class="col-12"><label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label><input type="file" class="form-control add-image add-image-prototype" accept="image/*" multiple required><div class="add-image-preview mt-2 d-none"></div><p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張（第一張為封面，其餘為多角度）；訂製者選用時可一次帶入多張參考圖。</p><p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p></div>
                                 <div class="col-12">
                                     <div class="form-check mb-1">
@@ -241,6 +237,11 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊、金屬 D 扣"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12 supplier-import-strip supplier-import-strip--part" data-import-tab="part">
+                                    <div class="border rounded-3 p-3 bg-light">
+                                        <p class="text-muted small mb-0" data-i18n="baseModels.importPartNoSupplier">零件分頁請手動上傳；供應商數位產品庫目前以材料與原型組為主。</p>
+                                    </div>
+                                </div>
                                 <div class="col-12"><label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label><input type="file" class="form-control add-image add-image-part" accept="image/*" multiple required><div class="add-image-preview mt-2 d-none"></div><p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張（第一張為封面）；訂製者選用時可帶入多張參考。</p><p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p></div>
                                 <div class="col-12">
                                     <div class="form-check mb-1">
@@ -318,6 +319,17 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料參考」專用的我的素材分類新增名稱，再於此勾選（與數位原型分開）。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12 supplier-import-strip" data-import-tab="material">
+                                    <div class="border rounded-3 p-3 bg-light">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                            <span class="fw-semibold small"><i class="bi bi-boxes me-1 text-success"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></span>
+                                            <button type="button" class="btn btn-outline-success btn-sm btn-open-supplier-import" disabled><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></button>
+                                        </div>
+                                        <p class="text-muted small mb-0 mt-2 supplier-import-hint-line" data-i18n="baseModels.importSupplierCatalogHint">選取上游材料，加入下方「已上傳的材料參考」並記錄引用來源。</p>
+                                        <div class="supplier-import-locked-line alert alert-warning small py-2 mt-2 mb-0 d-none"></div>
+                                    </div>
+                                    <p class="text-center text-muted small my-2 mb-0" data-i18n="baseModels.orUploadOwn">— 或自行上傳圖片 —</p>
+                                </div>
                                 <div class="col-12"><label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label><input type="file" class="form-control add-image" accept="image/*" required><div class="add-image-preview mt-2 d-none"></div><p class="form-text text-muted small mb-1" data-i18n="baseModels.refImageFieldHint">材料參考每次上傳一張圖。</p><p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p></div>
                                 <div class="col-12">
                                     <div class="form-check mb-1">
@@ -333,6 +345,24 @@
                     </div>
                 </div>
                 <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料參考</div>
+            </div>
+
+            <div id="my-supplier-imports-card" class="card border-0 shadow-sm mb-3 d-none">
+                <div class="card-body py-3">
+                    <h6 class="fw-semibold mb-2"><i class="bi bi-link-45deg me-1"></i><span data-i18n="baseModels.mySupplierImportsTitle">我引用的供應商數位產品庫</span></h6>
+                    <p class="text-muted small mb-2" data-i18n="baseModels.mySupplierImportsHint">以下為您自供應商數位產品庫匯入、並納入自家素材庫的品項（與自行上傳並列於下方網格）。</p>
+                    <div id="my-supplier-imports-table-wrap" class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light"><tr>
+                                <th data-i18n="baseModels.importColSupplier">供應商</th>
+                                <th data-i18n="baseModels.importColProduct">品項</th>
+                                <th data-i18n="baseModels.importColKind">類型</th>
+                                <th data-i18n="baseModels.importColWhen">匯入時間</th>
+                            </tr></thead>
+                            <tbody id="my-supplier-imports-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
@@ -463,7 +493,7 @@
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h6 class="modal-title" data-i18n="baseModels.supplierCatalogTitle">產業供應商材料目錄</h6>
+                    <h6 class="modal-title" data-i18n="baseModels.supplierCatalogModalTitle">供應商數位產品庫</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -1515,7 +1545,7 @@
                         ? '<span class="badge bg-light text-warning border mb-2">' + esc(tr('baseModels.tabPart', '零件')) + '</span> '
                         : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ');
                 if (m.from_supplier_catalog && m.supplier_name) {
-                    kindBadge += '<span class="badge bg-light text-dark border mb-2"><i class="bi bi-truck me-1"></i>' + esc(tr('baseModels.fromSupplier', '供應商')) + '：' + esc(m.supplier_name) + '</span> ';
+                    kindBadge += '<span class="badge bg-light text-dark border mb-2"><i class="bi bi-boxes me-1"></i>' + esc(tr('baseModels.fromSupplierCatalog', '供應商數位產品庫')) + '：' + esc(m.supplier_name) + '</span> ';
                 }
                 var pubBadge = (m.is_public === false)
                     ? '<span class="badge bg-secondary mb-2 me-1">已下架</span>'
@@ -1982,53 +2012,59 @@
             return 'material';
         }
 
+        function supplierImportLockedMessage(partTabNoCatalog) {
+            if (!capabilities.supplier_catalog_ready) return tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
+            if (!capabilities.has_manufacturer) return tr('baseModels.needManufacturerForImport', '請先建立廠商資料（製造商控制台）');
+            if ((capabilities.portfolio_count || 0) < 1 && !capabilities.bypass_supplier_portfolio_gate) {
+                return tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品後，才可匯入供應商數位產品庫');
+            }
+            if (partTabNoCatalog) return tr('baseModels.importPartNoSupplier', '零件分頁請手動上傳');
+            if (isSeedVendor) return tr('baseModels.seedNoImport', '種子廠商無法匯入');
+            return tr('baseModels.importLocked', '目前無法匯入');
+        }
+
         function updateSupplierImportUi() {
-            var btn = document.getElementById('btn-open-supplier-import');
-            var locked = document.getElementById('supplier-import-locked');
-            var titleEl = document.getElementById('supplier-import-title');
-            var btnLabel = document.getElementById('supplier-import-btn-label');
-            if (!btn || !capabilities) return;
+            if (!capabilities) return;
             var partTabNoCatalog = activeKind === 'part';
             var can = capabilities.can_import_supplier_catalog && !isSeedVendor && !partTabNoCatalog;
-            btn.disabled = !can;
-            if (titleEl) {
-                if (activeKind === 'prototype') titleEl.textContent = tr('baseModels.importFromSupplierPrototype', '從產業供應商導入數位原型');
-                else if (activeKind === 'part') titleEl.textContent = tr('baseModels.importFromSupplierPart', '從產業供應商導入（零件）');
-                else titleEl.textContent = tr('baseModels.importFromSupplier', '從產業供應商導入材料');
-            }
-            if (btnLabel) {
-                if (activeKind === 'prototype') btnLabel.textContent = tr('baseModels.browseSupplierPrototypes', '瀏覽供應商原型組');
-                else btnLabel.textContent = tr('baseModels.browseSupplierMaterials', '瀏覽供應商材料');
-            }
-            var hintEl = document.getElementById('supplier-import-hint');
-            if (hintEl && can && capabilities.bypass_supplier_portfolio_gate) {
-                hintEl.textContent = tr('baseModels.portfolioBypassStaff', '管理員／測試員帳號：無需作品即可測試瀏覽與導入。');
-            } else if (hintEl && can && activeKind === 'prototype') {
-                hintEl.textContent = tr('baseModels.importFromSupplierHintPrototype', '瀏覽上游原型組目錄，一鍵加入您的「數位原型」供訂製者選用。');
-            } else if (hintEl && can) {
-                hintEl.textContent = tr('baseModels.importFromSupplierHint', '瀏覽上游供應商材料目錄，一鍵加入您的「材料參考」供訂製者選用。');
-            } else if (hintEl && partTabNoCatalog) {
-                hintEl.textContent = tr('baseModels.importPartNoSupplier', '產業供應商目錄目前以材料與原型組為主；零件請於本分頁手動上傳，或至「材料參考」導入材質。');
-            }
-            if (locked) {
-                if (can) {
-                    locked.classList.add('d-none');
-                } else {
-                    locked.classList.remove('d-none');
-                    if (!capabilities.supplier_catalog_ready) {
-                        locked.textContent = tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
-                    } else if (!capabilities.has_manufacturer) {
-                        locked.textContent = tr('baseModels.needManufacturerForImport', '請先建立廠商資料（製造商控制台），即可瀏覽並導入產業供應商材料');
-                    } else if ((capabilities.portfolio_count || 0) < 1 && !capabilities.bypass_supplier_portfolio_gate) {
-                        locked.textContent = tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品後，才可瀏覽並導入產業供應商材料');
-                    } else if (partTabNoCatalog) {
-                        locked.textContent = tr('baseModels.importPartNoSupplier', '產業供應商目錄目前以材料與原型組為主；零件請手動上傳。');
-                    } else if (isSeedVendor) {
-                        locked.textContent = tr('baseModels.seedNoImport', '種子廠商無法導入');
-                    } else {
-                        locked.textContent = tr('baseModels.importLocked', '目前無法導入');
-                    }
+            document.querySelectorAll('.supplier-import-strip').forEach(function (strip) {
+                var isPartStrip = strip.classList.contains('supplier-import-strip--part');
+                var stripCan = can && !isPartStrip;
+                strip.querySelectorAll('.btn-open-supplier-import').forEach(function (btn) { btn.disabled = !stripCan; });
+                var hint = strip.querySelector('.supplier-import-hint-line');
+                if (hint && stripCan && capabilities.bypass_supplier_portfolio_gate) {
+                    hint.textContent = tr('baseModels.portfolioBypassStaff', '管理員／測試員：無需作品即可測試匯入。');
                 }
+                var locked = strip.querySelector('.supplier-import-locked-line');
+                if (!locked || isPartStrip) return;
+                if (stripCan) locked.classList.add('d-none');
+                else {
+                    locked.classList.remove('d-none');
+                    locked.textContent = supplierImportLockedMessage(partTabNoCatalog);
+                }
+            });
+        }
+
+        async function loadMySupplierImports() {
+            var card = document.getElementById('my-supplier-imports-card');
+            var tbody = document.getElementById('my-supplier-imports-tbody');
+            if (!card || !tbody || !token) return;
+            try {
+                var r = await fetch('/api/me/supplier-catalog-imports', { headers: { Authorization: 'Bearer ' + token } });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) { card.classList.add('d-none'); return; }
+                var items = data.items || [];
+                if (!items.length) { card.classList.add('d-none'); return; }
+                card.classList.remove('d-none');
+                tbody.innerHTML = items.map(function (row) {
+                    var kindLabel = row.item_kind === 'prototype_set'
+                        ? tr('baseModels.tabPrototype', '數位原型')
+                        : tr('baseModels.tabMaterial', '材料參考');
+                    var when = row.imported_at ? String(row.imported_at).slice(0, 10) : '—';
+                    return '<tr><td>' + esc(row.supplier_name || '—') + '</td><td>' + esc(row.catalog_title || '—') + '</td><td>' + esc(kindLabel) + '</td><td class="text-muted small">' + esc(when) + '</td></tr>';
+                }).join('');
+            } catch (e) {
+                card.classList.add('d-none');
             }
         }
 
@@ -2055,10 +2091,7 @@
             list.innerHTML = '';
             var catalogKind = supplierImportCatalogKind();
             var modalTitle = document.querySelector('#supplier-import-modal .modal-title');
-            if (modalTitle) {
-                if (catalogKind === 'prototype_set') modalTitle.textContent = tr('baseModels.supplierCatalogTitlePrototype', '產業供應商原型組目錄');
-                else modalTitle.textContent = tr('baseModels.supplierCatalogTitle', '產業供應商材料目錄');
-            }
+            if (modalTitle) modalTitle.textContent = tr('baseModels.supplierCatalogModalTitle', '供應商數位產品庫');
             supplierImportModal.show();
             try {
                 var r = await fetch('/api/me/supplier-catalog-items?item_kind=' + encodeURIComponent(catalogKind), { headers: { Authorization: 'Bearer ' + token } });
@@ -2078,9 +2111,7 @@
                 list.innerHTML = items.map(function (item) {
                     var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
                     var specLine = [spec.material_type, spec.color, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).join(' · ');
-                    var importLabel = catalogKind === 'prototype_set'
-                        ? tr('baseModels.importBtnPrototype', '導入至數位原型')
-                        : tr('baseModels.importBtn', '導入至材料參考');
+                    var importLabel = tr('baseModels.importToMyLibrary', '匯入我的素材庫');
                     var btn = item.already_imported
                         ? '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>' + esc(tr('baseModels.alreadyImported', '已導入')) + '</button>'
                         : '<button type="button" class="btn btn-sm btn-success btn-import-supplier" data-id="' + esc(item.id) + '">' + esc(importLabel) + '</button>';
@@ -2112,22 +2143,21 @@
                     showToast(data.error || tr('baseModels.importFailed', '導入失敗'), 'danger');
                     return;
                 }
-                var successMsg = activeKind === 'prototype'
-                    ? tr('baseModels.importSuccessPrototype', '已導入數位原型')
-                    : tr('baseModels.importSuccess', '已導入材料參考');
-                showToast(successMsg, 'success');
+                showToast(tr('baseModels.importSupplierSuccess', '已匯入供應商數位產品庫，並加入您的素材清單'), 'success');
                 if (supplierImportModal) supplierImportModal.hide();
                 await loadMaterials();
+                await loadMySupplierImports();
                 switchKind(activeKind);
             } catch (err) {
                 showToast(err.message, 'danger');
             }
         }
 
-        var btnSupplierImport = document.getElementById('btn-open-supplier-import');
-        if (btnSupplierImport) {
-            btnSupplierImport.addEventListener('click', function () {
-                if (!capabilities || !capabilities.can_import_supplier_catalog) {
+        var mainContent = document.getElementById('main-content');
+        if (mainContent) {
+            mainContent.addEventListener('click', function (e) {
+                if (!e.target.closest('.btn-open-supplier-import')) return;
+                if (!capabilities || !capabilities.can_import_supplier_catalog || isSeedVendor || activeKind === 'part') {
                     updateSupplierImportUi();
                     return;
                 }
@@ -2189,6 +2219,7 @@
                 await loadCategories();
                 await loadCatalogGroups();
                 await loadCapabilities();
+                await loadMySupplierImports();
                 await loadUploadPricing();
                 await loadMaterials();
                 var hashKind = kindFromLocationHash();

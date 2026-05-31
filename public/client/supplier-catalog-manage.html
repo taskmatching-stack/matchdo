@@ -151,12 +151,30 @@
                     var activeBadge = item.is_active
                         ? '<span class="badge bg-success">' + esc(tr('supplierManage.active', '上架中')) + '</span>'
                         : '<span class="badge bg-secondary">' + esc(tr('supplierManage.inactive', '已下架')) + '</span>';
+                    var refCount = item.reference_count || 0;
+                    var refCountBadge = '<span class="badge bg-light text-dark border">' + esc(String(tr('supplierManage.referenceCount', '{n} 家製造商引用')).replace(/\{n\}/g, String(refCount))) + '</span>';
+                    var refs = item.references || [];
+                    var refsHtml = '';
+                    if (refs.length) {
+                        refsHtml = '<div class="mt-2 pt-2 border-top"><div class="small fw-semibold mb-1">' + esc(tr('supplierManage.referencesTitle', '引用此品的製造商')) + '</div><ul class="small text-muted mb-0 ps-3">' +
+                            refs.map(function (ref) {
+                                var when = ref.imported_at ? String(ref.imported_at).slice(0, 10) : '';
+                                var name = ref.manufacturer_name || tr('supplierManage.unnamedManufacturer', '未命名廠商');
+                                var link = ref.manufacturer_id
+                                    ? ' <a href="/vendor-profile.html?id=' + encodeURIComponent(ref.manufacturer_id) + '" class="text-decoration-none" target="_blank" rel="noopener">' + esc(tr('supplierManage.viewVendor', '廠商頁')) + '</a>'
+                                    : '';
+                                return '<li>' + esc(name) + (when ? ' · ' + esc(when) : '') + link + '</li>';
+                            }).join('') + '</ul></div>';
+                    } else {
+                        refsHtml = '<p class="small text-muted mb-0 mt-2 border-top pt-2">' + esc(tr('supplierManage.noReferences', '尚無製造商引用')) + '</p>';
+                    }
                     return '<div class="col-md-6"><div class="card h-100 border-0 shadow-sm">' +
                         (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top" style="height:120px;object-fit:cover" alt="">' : '') +
-                        '<div class="card-body p-3"><div class="d-flex justify-content-between align-items-start gap-2 mb-1">' +
-                        '<div class="fw-semibold">' + esc(item.title) + '</div>' + activeBadge + '</div>' +
+                        '<div class="card-body p-3"><div class="d-flex justify-content-between align-items-start gap-2 mb-1 flex-wrap">' +
+                        '<div class="fw-semibold">' + esc(item.title) + '</div><div class="d-flex gap-1 flex-wrap">' + activeBadge + refCountBadge + '</div></div>' +
                         '<p class="small text-muted mb-2">' + esc(item.description || specLine || '') + '</p>' +
-                        '<button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-active" data-id="' + esc(item.id) + '" data-active="' + (item.is_active ? '1' : '0') + '">' +
+                        refsHtml +
+                        '<button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-active mt-2" data-id="' + esc(item.id) + '" data-active="' + (item.is_active ? '1' : '0') + '">' +
                         (item.is_active ? esc(tr('supplierManage.deactivate', '下架')) : esc(tr('supplierManage.activate', '重新上架'))) +
                         '</button></div></div></div>';
                 }).join('');

@@ -12590,6 +12590,47 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
     }
 });
 
+// GET /api/me/supplier-catalog-imports — 製造商：我引用的供應商數位產品庫清單
+app.get('/api/me/supplier-catalog-imports', async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.json({ items: [] });
+        }
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const itemKind = (req.query.item_kind || '').trim();
+        let q = supabase
+            .from('manufacturer_supplier_imports')
+            .select('id, catalog_item_id, item_kind, vendor_asset_id, imported_at, snapshot_json')
+            .eq('manufacturer_id', manufacturerId)
+            .order('imported_at', { ascending: false });
+        if (itemKind === 'material' || itemKind === 'prototype_set') q = q.eq('item_kind', itemKind);
+        const { data: rows, error } = await q;
+        if (error) {
+            if (error.code === '42P01') return res.json({ items: [] });
+            console.error('GET supplier-catalog-imports:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        const items = (rows || []).map((row) => {
+            const snap = row.snapshot_json && typeof row.snapshot_json === 'object' ? row.snapshot_json : {};
+            return {
+                id: row.id,
+                catalog_item_id: row.catalog_item_id,
+                item_kind: row.item_kind,
+                vendor_asset_id: row.vendor_asset_id,
+                imported_at: row.imported_at,
+                supplier_name: snap.supplier_name || null,
+                catalog_title: snap.title || null,
+                cover_image_url: snap.cover_image_url || null
+            };
+        });
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/me/supplier-catalog-imports:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/me/industry-supplier/catalog-items — 產業供應商管理自己的目錄
 app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
     try {
@@ -12611,7 +12652,38 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
             console.error('GET industry-supplier catalog-items:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        res.json({ supplier: ctx.supplier, items: rows || [] });
+        const catalogIds = (rows || []).map((r) => r.id);
+        const refsByCatalog = {};
+        if (catalogIds.length) {
+            const { data: refs, error: refErr } = await supabase
+                .from('manufacturer_supplier_imports')
+                .select('id, catalog_item_id, manufacturer_id, imported_at, manufacturers(id, name)')
+                .in('catalog_item_id', catalogIds)
+                .order('imported_at', { ascending: false });
+            if (!refErr && refs) {
+                refs.forEach((ref) => {
+                    const cid = ref.catalog_item_id;
+                    if (!refsByCatalog[cid]) refsByCatalog[cid] = [];
+                    const mfr = ref.manufacturers;
+                    const m = Array.isArray(mfr) ? mfr[0] : mfr;
+                    refsByCatalog[cid].push({
+                        import_id: ref.id,
+                        manufacturer_id: ref.manufacturer_id,
+                        manufacturer_name: m ? m.name : null,
+                        imported_at: ref.imported_at
+                    });
+                });
+            }
+        }
+        const items = (rows || []).map((row) => {
+            const references = refsByCatalog[row.id] || [];
+            return {
+                ...row,
+                reference_count: references.length,
+                references
+            };
+        });
+        res.json({ supplier: ctx.supplier, items });
     } catch (e) {
         console.error('GET /api/me/industry-supplier/catalog-items:', e);
         res.status(500).json({ error: '系統錯誤' });
