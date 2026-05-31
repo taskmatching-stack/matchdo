@@ -3673,6 +3673,11 @@ async function ensureGrantPointsIfEnabled(userId) {
             if (amount > 0) await grantPoints(amount, 'monthly_grant', '每月發點');
         }
     }
+    try {
+        await syncMembershipCatalogVisibility(userId);
+    } catch (syncErr) {
+        console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+    }
 }
 
 // GET /api/me/credits — 查詢當前用戶點數餘額與近期紀錄（若後台開關開啟，會先執行註冊送點／每月發點）
@@ -4076,6 +4081,11 @@ app.post('/api/payment/notify', express.urlencoded({ extended: true }), async (r
                     status: 'active',
                     auto_renew: false
                 });
+                try {
+                    await syncMembershipCatalogVisibility(order.user_id);
+                } catch (syncErr) {
+                    console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+                }
             }
         }
         res.send('1|OK');
@@ -4313,6 +4323,11 @@ app.post('/api/payment/paypal/capture', express.json(), async (req, res) => {
                     status: 'active',
                     auto_renew: false
                 });
+                try {
+                    await syncMembershipCatalogVisibility(order.user_id);
+                } catch (syncErr) {
+                    console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+                }
             }
         }
         res.json({ success: true, balance_after: balanceAfter });
@@ -6195,6 +6210,84 @@ async function hasActivePaidSubscription(userId) {
         .gt('end_date', now);
     if (!rows || rows.length === 0) return false;
     return rows.some(r => (r.subscription_plans && (r.subscription_plans.price || 0) > 0));
+}
+
+const VENDOR_ASSET_MEMBERSHIP_HIDE_COL = 'public_hidden_by_membership';
+const SUPPLIER_CATALOG_MEMBERSHIP_HIDE_COL = 'catalog_hidden_by_membership';
+
+/** 免費會員：下架廠商原型／材料；付費會員：還原先前因降級而自動下架者 */
+async function syncMembershipCatalogVisibility(userId) {
+    if (!userId) return;
+    const paid = await hasActivePaidSubscription(userId);
+    const now = new Date().toISOString();
+    const { data: mfr } = await supabase
+        .from('manufacturers')
+        .select('id, vendor_source')
+        .eq('user_id', userId)
+        .maybeSingle();
+    const isSeed = mfr && mfr.vendor_source === 'seed';
+
+    if (mfr && !isSeed) {
+        if (paid) {
+            const restore = { is_public: true, updated_at: now };
+            restore[VENDOR_ASSET_MEMBERSHIP_HIDE_COL] = false;
+            let q = supabase.from('vendor_assets').update(restore).eq('manufacturer_id', mfr.id).eq(VENDOR_ASSET_MEMBERSHIP_HIDE_COL, true);
+            if (error && error.code === '42703') {
+                console.warn('vendor_assets.public_hidden_by_membership 未建，無法依會員狀態還原上架；請執行 docs/add-membership-catalog-visibility.sql');
+            } else if (error) {
+                console.error('syncMembershipCatalogVisibility restore vendor_assets:', error.message);
+            }
+        } else {
+            const { data: publicRows } = await supabase
+                .from('vendor_assets')
+                .select('id')
+                .eq('manufacturer_id', mfr.id)
+                .eq('is_public', true);
+            const ids = (publicRows || []).map((r) => r.id).filter(Boolean);
+            if (ids.length) {
+                const hide = { is_public: false, updated_at: now };
+                hide[VENDOR_ASSET_MEMBERSHIP_HIDE_COL] = true;
+                let { error } = await supabase.from('vendor_assets').update(hide).in('id', ids);
+                if (error && error.code === '42703') {
+                    await supabase.from('vendor_assets').update({ is_public: false, updated_at: now }).in('id', ids);
+                }
+            }
+        }
+    }
+
+    let industrySupplierId = null;
+    try {
+        const { data: ind } = await supabase.from('industry_suppliers').select('id').eq('user_id', userId).maybeSingle();
+        industrySupplierId = ind && ind.id ? ind.id : null;
+    } catch (_) { /* user_id 欄位未建 */ }
+
+    if (!industrySupplierId) return;
+
+    if (paid) {
+        const restoreCat = { is_active: true, updated_at: now };
+        restoreCat[SUPPLIER_CATALOG_MEMBERSHIP_HIDE_COL] = false;
+        let q = supabase.from('supplier_catalog_items').update(restoreCat)
+            .eq('industry_supplier_id', industrySupplierId)
+            .eq(SUPPLIER_CATALOG_MEMBERSHIP_HIDE_COL, true);
+        const { error } = await q;
+        if (error && error.code === '42703') return;
+    } else {
+        const { data: activeRows } = await supabase
+            .from('supplier_catalog_items')
+            .select('id')
+            .eq('industry_supplier_id', industrySupplierId)
+            .eq('is_active', true);
+        const ids = (activeRows || []).map((r) => r.id).filter(Boolean);
+        if (!ids.length) return;
+        const hideCat = { is_active: false, updated_at: now };
+        hideCat[SUPPLIER_CATALOG_MEMBERSHIP_HIDE_COL] = true;
+        let { error } = await supabase.from('supplier_catalog_items').update(hideCat).in('id', ids);
+        if (error && error.code === '42703') {
+            console.warn('supplier_catalog_items.catalog_hidden_by_membership 未建；請執行 docs/add-membership-catalog-visibility.sql');
+        } else if (error) {
+            console.error('syncMembershipCatalogVisibility hide supplier_catalog:', error.message);
+        }
+    }
 }
 // 是否為有效年繳訂閱（duration_months >= 12，用於生圖 6 折）
 async function hasAnnualSubscription(userId) {
@@ -11117,8 +11210,18 @@ app.get('/api/vendor-assets', async (req, res) => {
 // GET /api/me/vendor-assets — 廠商自己的素材列表（需登入且已建立廠商資料）
 app.get('/api/me/vendor-assets', async (req, res) => {
     try {
-        const manufacturerId = await getMeManufacturerId(req, res);
-        if (!manufacturerId) return;
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        try {
+            await syncMembershipCatalogVisibility(user.id);
+        } catch (syncErr) {
+            console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+        }
+        const { data: mfr } = await supabase.from('manufacturers').select('id').eq('user_id', user.id).maybeSingle();
+        if (!mfr) {
+            return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
+        }
+        const manufacturerId = mfr.id;
         const categoryKey = (req.query.category_key || '').trim() || null;
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
@@ -11988,6 +12091,11 @@ app.get('/api/me/capabilities', async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
+        try {
+            await syncMembershipCatalogVisibility(user.id);
+        } catch (syncErr) {
+            console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+        }
 
         const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source').eq('user_id', user.id).maybeSingle();
         const hasManufacturer = !!mfr;
