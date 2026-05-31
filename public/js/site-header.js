@@ -177,6 +177,10 @@ function bootSiteHeader() {
             bindSiteHeaderAuthListeners(session);
             var sess = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || session || null;
             if (!sess || !sess.user) return null;
+            var p = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
+            if (p.indexOf('/client/industry-supplier') !== -1 || p.indexOf('/client/my-supplier-references') !== -1) {
+                return null;
+            }
             _navFullyRendered = false;
             return loadSiteHeader(sess, { fastFirst: false });
         })

@@ -80,7 +80,17 @@
                 var url = '/api/me/supplier-catalog-items?item_kind=' + encodeURIComponent(activeKind) + '&supplier_id=' + encodeURIComponent(supplierId);
                 var r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
                 var data = await r.json().catch(function () { return {}; });
+                if (r.status === 403 && data.code === 'PORTFOLIO_REQUIRED') {
+                    document.getElementById('gate-alert').innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件啟用中（公開）的作品')) +
+                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '我的廠商作品')) + '</a>';
+                    document.getElementById('gate-alert').classList.remove('d-none');
+                    return;
+                }
                 if (!r.ok) throw new Error(data.error || tr('supplierCatalog.loadFailed', '載入失敗'));
+                if (data.supplier) {
+                    document.getElementById('supplier-title').textContent = data.supplier.name || '—';
+                    document.getElementById('supplier-desc').textContent = data.supplier.description || '';
+                }
                 var items = data.items || [];
                 if (!items.length) empty.classList.remove('d-none');
                 else {
@@ -90,7 +100,7 @@
                             ? '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>' + esc(tr('baseModels.alreadyImported', '已匯入')) + '</button>'
                             : '<button type="button" class="btn btn-sm btn-success btn-import" data-id="' + esc(item.id) + '">' + esc(tr('supplierCatalog.importBtn', '匯入')) + '</button>';
                         return '<div class="col-md-4"><div class="card h-100">' +
-                            (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top" style="height:140px;object-fit:cover" alt="">' : '') +
+                            (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top" style="height:140px;object-fit:cover" alt="" loading="lazy" decoding="async">' : '') +
                             '<div class="card-body p-3"><div class="fw-semibold mb-1">' + esc(item.title || '') + '</div>' +
                             '<p class="small text-muted mb-2">' + esc(item.description || '') + '</p>' + btn + '</div></div></div>';
                     }).join('');
@@ -124,8 +134,6 @@
             } catch (e) { showToast(e.message, 'danger'); }
         }
         async function init() {
-            await ((window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve());
-            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
             if (!supplierId) {
                 window.location.href = '/client/industry-suppliers.html';
                 return;
@@ -137,42 +145,22 @@
                     : '/login.html';
                 return;
             }
-            var gate = document.getElementById('gate-alert');
-            try {
-                var capR = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
-                var cap = await capR.json().catch(function () { return {}; });
-                if (!cap.can_import_supplier_catalog) {
-                    gate.innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件啟用中（公開）的作品')) +
-                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '我的廠商作品')) + '</a>';
-                    gate.classList.remove('d-none');
-                    return;
-                }
-                var supR = await fetch('/api/me/industry-suppliers', { headers: { Authorization: 'Bearer ' + token } });
-                var supData = await supR.json().catch(function () { return {}; });
-                var sup = (supData.items || []).find(function (s) { return s.id === supplierId; });
-                if (sup) {
-                    document.getElementById('supplier-title').textContent = sup.name || '—';
-                    document.getElementById('supplier-desc').textContent = sup.description || '';
-                }
-                var hashKind = (window.location.hash || '').replace('#', '');
-                if (hashKind === 'prototype' || hashKind === 'prototype_set') activeKind = 'prototype_set';
-                else if (hashKind === 'part') activeKind = 'part';
-                else if (hashKind === 'material') activeKind = 'material';
-                document.querySelectorAll('#kind-tabs .nav-link').forEach(function (btn) {
-                    btn.classList.toggle('active', btn.getAttribute('data-kind') === activeKind);
+            var hashKind = (window.location.hash || '').replace('#', '');
+            if (hashKind === 'prototype' || hashKind === 'prototype_set') activeKind = 'prototype_set';
+            else if (hashKind === 'part') activeKind = 'part';
+            else if (hashKind === 'material') activeKind = 'material';
+            document.querySelectorAll('#kind-tabs .nav-link').forEach(function (btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-kind') === activeKind);
+                btn.addEventListener('click', function () {
+                    activeKind = btn.getAttribute('data-kind');
+                    document.querySelectorAll('#kind-tabs .nav-link').forEach(function (b) { b.classList.toggle('active', b === btn); });
+                    loadCatalog();
                 });
-                document.querySelectorAll('#kind-tabs .nav-link').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        activeKind = btn.getAttribute('data-kind');
-                        document.querySelectorAll('#kind-tabs .nav-link').forEach(function (b) { b.classList.toggle('active', b === btn); });
-                        loadCatalog();
-                    });
-                });
-                await loadCatalog();
-            } catch (e) {
-                gate.textContent = e.message;
-                gate.classList.remove('d-none');
-            }
+            });
+            var i18nP = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+            await i18nP;
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            await loadCatalog();
         }
         init();
     })();

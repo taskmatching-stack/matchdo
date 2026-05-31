@@ -58,9 +58,13 @@
                 return (s && (s.access_token || (s.session && s.session.access_token))) || null;
             } catch (e) { return null; }
         }
+        function showPortfolioGate(gate) {
+            gate.innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件啟用中（公開）的作品')) +
+                ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '我的廠商作品')) + '</a>';
+            gate.classList.remove('d-none');
+        }
         async function init() {
-            await ((window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve());
-            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            var i18nP = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
             var loading = document.getElementById('list-loading');
             var gate = document.getElementById('gate-alert');
             var empty = document.getElementById('list-empty');
@@ -72,16 +76,15 @@
                         ? AuthService.getLoginUrl(window.location.pathname) : '/login.html';
                     return;
                 }
-                var capR = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
-                var cap = await capR.json().catch(function () { return {}; });
-                if (!cap.can_import_supplier_catalog) {
-                    gate.innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件啟用中（公開）的作品')) +
-                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '我的廠商作品')) + '</a>';
-                    gate.classList.remove('d-none');
+                var listP = fetch('/api/me/industry-suppliers', { headers: { Authorization: 'Bearer ' + token } });
+                await i18nP;
+                if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                var r = await listP;
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 403 && data.code === 'PORTFOLIO_REQUIRED') {
+                    showPortfolioGate(gate);
                     return;
                 }
-                var r = await fetch('/api/me/industry-suppliers', { headers: { Authorization: 'Bearer ' + token } });
-                var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) {
                     gate.textContent = data.error || tr('industrySuppliers.loadFailed', '載入失敗');
                     gate.classList.remove('d-none');
@@ -95,7 +98,7 @@
                 grid.classList.remove('d-none');
                 grid.innerHTML = items.map(function (s) {
                     var img = s.preview_image_url
-                        ? '<img src="' + esc(s.preview_image_url) + '" class="supplier-cover" alt="">'
+                        ? '<img src="' + esc(s.preview_image_url) + '" class="supplier-cover" alt="" loading="lazy" decoding="async">'
                         : '<div class="supplier-cover d-flex align-items-center justify-content-center text-muted"><i class="bi bi-box-seam fs-1"></i></div>';
                     var countLabel = String(tr('industrySuppliers.itemCount', '{n} 項數位產品')).replace('{n}', String(s.catalog_item_count || 0));
                     var catalogUrl = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(s.id);

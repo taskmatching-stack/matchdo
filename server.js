@@ -1254,9 +1254,22 @@ async function fetchVendorAssetOwnedByManufacturer(assetId, manufacturerId, sele
     return result;
 }
 
+let _supplierCatalogReadyCache = { at: 0, value: false };
+
 async function supplierCatalogTablesReady() {
+    const now = Date.now();
+    if (now - _supplierCatalogReadyCache.at < 120000) return _supplierCatalogReadyCache.value;
     const { error } = await supabase.from('supplier_catalog_items').select('id').limit(1);
-    return !error || error.code !== '42P01';
+    const ready = !error || error.code !== '42P01';
+    _supplierCatalogReadyCache = { at: now, value: ready };
+    return ready;
+}
+
+function portfolioRowIsEnabled(p, nowIso) {
+    if (p.show_on_media_wall === false) return false;
+    const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
+    const hasSeries = !seriesExpired && Array.isArray(p.series_image_urls) && p.series_image_urls.length > 0;
+    return !!(p.image_url || p.image_url_before || hasSeries);
 }
 
 /** 廠商資格：至少 1 件「啟用中」作品（公開且仍有可顯示圖，未過期）。 */
@@ -1266,52 +1279,68 @@ async function countEnabledPortfolioWorks(manufacturerId) {
     const { data: items, error } = await supabase
         .from('manufacturer_portfolio')
         .select('id, image_url, image_url_before, series_image_urls, series_image_valid_until, show_on_media_wall')
-        .eq('manufacturer_id', manufacturerId);
+        .eq('manufacturer_id', manufacturerId)
+        .or('show_on_media_wall.is.null,show_on_media_wall.eq.true')
+        .limit(40);
     if (error) {
         if (error.code !== '42P01') console.error('countEnabledPortfolioWorks:', error);
         return 0;
     }
     let n = 0;
     for (const p of items || []) {
-        if (p.show_on_media_wall === false) continue;
-        const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
-        const hasSeries = !seriesExpired && Array.isArray(p.series_image_urls) && p.series_image_urls.length > 0;
-        const hasImage = !!(p.image_url || p.image_url_before || hasSeries);
-        if (hasImage) n += 1;
+        if (portfolioRowIsEnabled(p, nowIso)) {
+            n += 1;
+            if (n >= 1) return n;
+        }
     }
     return n;
 }
 
+async function hasEnabledPortfolioWork(manufacturerId) {
+    return (await countEnabledPortfolioWorks(manufacturerId)) > 0;
+}
+
 async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } = {}) {
-    const manufacturerId = await getMeManufacturerId(req, res);
-    if (!manufacturerId) return null;
-    const { data: mfr } = await supabase.from('manufacturers').select('vendor_source, is_active').eq('id', manufacturerId).single();
-    if (mfr && mfr.is_active === false) {
+    const user = await getCurrentUser(req, res);
+    if (!user) return null;
+    const { data: mfr, error: mfrErr } = await supabase
+        .from('manufacturers')
+        .select('id, vendor_source, is_active')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (mfrErr) {
+        console.error('getMeManufacturerB2BAccess:', mfrErr);
+        res.status(500).json({ error: '查詢失敗' });
+        return null;
+    }
+    if (!mfr) {
+        res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
+        return null;
+    }
+    if (mfr.is_active === false) {
         res.status(403).json({ error: '廠商資料已停用', code: 'MANUFACTURER_INACTIVE' });
         return null;
     }
-    if (mfr && mfr.vendor_source === 'seed') {
+    if (mfr.vendor_source === 'seed') {
         res.status(403).json({ error: '種子廠商由平台代為維護，無法導入產業供應商材料。' });
         return null;
     }
     if (requirePortfolio) {
-        const user = await getCurrentUser(req, res);
-        if (!user) return null;
         const staffBypass = await isStaffProfileUserId(user.id);
         if (!staffBypass) {
-            const activeCount = await countEnabledPortfolioWorks(manufacturerId);
-            if (activeCount < 1) {
+            const hasWork = await hasEnabledPortfolioWork(mfr.id);
+            if (!hasWork) {
                 res.status(403).json({
                     error: '請先上傳至少 1 件啟用中（公開）的作品後，才可瀏覽並導入產業供應商材料',
                     code: 'PORTFOLIO_REQUIRED',
-                    active_portfolio_count: activeCount,
-                    portfolio_count: activeCount
+                    active_portfolio_count: 0,
+                    portfolio_count: 0
                 });
                 return null;
             }
         }
     }
-    return manufacturerId;
+    return mfr.id;
 }
 
 async function getMeIndustrySupplier(req, res) {
@@ -12378,21 +12407,23 @@ app.get('/api/me/capabilities', async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
-        try {
-            await syncMembershipCatalogVisibility(user.id);
-        } catch (syncErr) {
+        syncMembershipCatalogVisibility(user.id).catch((syncErr) => {
             console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
-        }
+        });
 
-        const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source, is_active').eq('user_id', user.id).maybeSingle();
+        const [mfrRes, staffBypassPortfolio, catalogReady] = await Promise.all([
+            supabase.from('manufacturers').select('id, vendor_source, is_active').eq('user_id', user.id).maybeSingle(),
+            isStaffProfileUserId(user.id),
+            supplierCatalogTablesReady()
+        ]);
+        const mfr = mfrRes.data;
         const hasManufacturer = !!mfr;
         let activePortfolioCount = 0;
         if (mfr && mfr.is_active !== false) {
-            activePortfolioCount = await countEnabledPortfolioWorks(mfr.id);
+            if (staffBypassPortfolio) activePortfolioCount = 1;
+            else activePortfolioCount = (await hasEnabledPortfolioWork(mfr.id)) ? 1 : 0;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
-        const staffBypassPortfolio = await isStaffProfileUserId(user.id);
-        const catalogReady = await supplierCatalogTablesReady();
         // 廠商資格：唯一門檻為至少 1 件啟用中作品；管理員／測試員可略過
         const isQualifiedManufacturer = !!mfr && mfr.is_active !== false && !isSeed
             && (activePortfolioCount >= 1 || staffBypassPortfolio);
@@ -12466,7 +12497,9 @@ app.get('/api/me/industry-suppliers', async (req, res) => {
                 .from('supplier_catalog_items')
                 .select('industry_supplier_id, cover_image_url, sort_order')
                 .in('industry_supplier_id', ids)
-                .eq('is_active', true);
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true })
+                .limit(500);
             (catRows || []).forEach((row) => {
                 countsBySupplier[row.industry_supplier_id] = (countsBySupplier[row.industry_supplier_id] || 0) + 1;
                 if (!previewBySupplier[row.industry_supplier_id] && row.cover_image_url) {
@@ -12504,23 +12537,29 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
         const supplierId = (req.query.supplier_id || '').trim();
         let catQ = supabase
             .from('supplier_catalog_items')
-            .select('id, industry_supplier_id, item_kind, title, description, cover_image_url, spec_json, category_key, sort_order, industry_suppliers(id, name, contact_json)')
+            .select('id, industry_supplier_id, item_kind, title, description, cover_image_url, spec_json, category_key, sort_order, industry_suppliers(id, name, description, contact_json)')
             .eq('item_kind', itemKind)
             .eq('is_active', true)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
         if (supplierId) catQ = catQ.eq('industry_supplier_id', supplierId);
-        const { data: catalogRows, error: catErr } = await catQ;
+        const catalogPromise = catQ;
+        const importsPromise = supabase
+            .from('manufacturer_supplier_imports')
+            .select('catalog_item_id')
+            .eq('manufacturer_id', manufacturerId)
+            .eq('item_kind', itemKind);
+        const supplierMetaPromise = supplierId
+            ? supabase.from('industry_suppliers').select('id, name, description').eq('id', supplierId).eq('is_active', true).maybeSingle()
+            : Promise.resolve({ data: null, error: null });
+        const [catRes, impRes, supMetaRes] = await Promise.all([catalogPromise, importsPromise, supplierMetaPromise]);
+        const { data: catalogRows, error: catErr } = catRes;
         if (catErr) {
             if (catErr.code === '42P01') return res.json({ items: [] });
             console.error('GET supplier-catalog-items:', catErr);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        const { data: imported } = await supabase
-            .from('manufacturer_supplier_imports')
-            .select('catalog_item_id')
-            .eq('manufacturer_id', manufacturerId)
-            .eq('item_kind', itemKind);
+        const { data: imported } = impRes;
         const importedSet = new Set((imported || []).map((r) => r.catalog_item_id));
         const items = (catalogRows || []).map((row) => {
             const sup = row.industry_suppliers;
@@ -12539,7 +12578,10 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
                 already_imported: importedSet.has(row.id)
             };
         });
-        res.json({ items });
+        const supplierHeader = supMetaRes.data
+            ? { id: supMetaRes.data.id, name: supMetaRes.data.name, description: supMetaRes.data.description }
+            : null;
+        res.json({ items, supplier: supplierHeader });
     } catch (e) {
         console.error('GET /api/me/supplier-catalog-items 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
