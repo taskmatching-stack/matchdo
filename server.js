@@ -7747,6 +7747,20 @@ app.post('/api/replace-background-relight-image', replaceBgRelightUpload, async 
     }
 });
 
+/** 參考圖描述：壓到極簡長度（模型偶爾仍會寫太長） */
+function trimReferenceImageDescription(text, useEnglish) {
+    let s = String(text || '').trim().replace(/\s+/g, ' ');
+    if (!s) return s;
+    const maxLen = useEnglish ? 220 : 72;
+    if (s.length <= maxLen) return s;
+    const cut = s.slice(0, maxLen);
+    const punct = useEnglish
+        ? cut.lastIndexOf('. ')
+        : Math.max(cut.lastIndexOf('。'), cut.lastIndexOf('，'));
+    if (punct > 10) return cut.slice(0, punct + 1).trim();
+    return cut.trim() + '…';
+}
+
 // API: 用 Gemini 閱讀參考圖並產生描述詞（輔助用，不生圖）；依 req.body.lang 回傳中文或英文
 app.post('/api/describe-reference-images', express.json(), async (req, res) => {
     try {
@@ -7781,15 +7795,17 @@ app.post('/api/describe-reference-images', express.json(), async (req, res) => {
             return res.status(400).json({ success: false, error: '無法解析圖片格式' });
         }
         const useEnglish = (lang && String(lang).toLowerCase().replace(/-.*$/, '') === 'en');
+        const imgNote = parts.length > 1 ? `the following ${parts.length} reference images` : 'the reference image';
         const textPrompt = useEnglish
-            ? `You are an expert in product design and manufacturing. Based on the following ${parts.length} reference image(s), describe the product's appearance, material, style, structure, or key features in concise English, for use as a prompt for product design sketches. Output only the description text, no title or extra explanation.`
-            : `你是產品設計與製造的專家。請根據以下 ${parts.length} 張參考圖，用簡潔的中文描述產品的外觀、材質、風格、結構或關鍵特徵，方便後續作為「產品設計草圖」的提示詞使用。只輸出描述文字，不要標題或額外說明。`;
+            ? `Look at ${imgNote}. Write a VERY SHORT product highlight for a design prompt: 1–2 sentences, under 35 words total. Cover only product type, key shape, main material/texture, and dominant color—brief phrases, not a catalog. No bullet lists, no paragraphs, no background, no manufacturing tips. Plain text only.`
+            : `請看${parts.length > 1 ? '以下 ' + parts.length + ' 張' : '這張'}參考圖。寫極簡產品特色供「產品設計生圖」使用：全長不超過 50 字，1～2 句。只點到品項、造型輪廓、材質質感、主色即可。禁止條列、禁止長段落、禁止製造建議或背景說明。只輸出描述正文。`;
         const modelName = await getReadModelName();
         const result = await runInGeminiQueue(() => genAI.models.generateContent({
             model: modelName,
             contents: [{ role: 'user', parts: [{ text: textPrompt }, ...parts] }]
         }));
-        const text = (result && result.text != null ? String(result.text) : '')?.trim() || '';
+        let text = (result && result.text != null ? String(result.text) : '')?.trim() || '';
+        text = trimReferenceImageDescription(text, useEnglish);
         if (!text) {
             return res.status(500).json({ success: false, error: '無法產生描述' });
         }

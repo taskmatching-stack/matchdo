@@ -389,6 +389,7 @@
   "customProduct.vendorBaseHint": "Click images to add references (multiple, up to 8).",
   "customProduct.vendorBaseEmpty": "This vendor has no base model assets yet.",
   "customProduct.vendorPickerDesignCategory": "Design category",
+  "customProduct.vendorPickerCategoryMfrHint": "Category changes apply to design generation; the list below stays this vendor's assets.",
   "customProduct.vendorPickerSubLabel": "Sub: {name}",
   "customProduct.vendorPickerLockedVendor": "Vendor",
   "customProduct.filterAssetKind": "Asset type",

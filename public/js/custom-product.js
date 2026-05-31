@@ -543,21 +543,108 @@ $(document).ready(function () {
         return parts.join(' · ');
     }
 
-    function updateVendorPickerDesignCategoryDisplay() {
-        var $label = $('#vendorAssetsDesignCategory .vendor-picker-cat-label');
-        var $text = $('#vendorAssetsDesignCategoryText');
-        if (!$text.length) return;
-        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
-        if (params && params.mode === 'manufacturer') {
-            if ($label.length) $label.text(vendorPickerTr('customProduct.vendorPickerLockedVendor', '此廠商'));
-            var vendorLabel = (refVendorName || '').trim() || vendorPickerTr('customProduct.vendorFallback', '廠商');
-            var catSummary = getSelectedDesignCategorySummary();
-            $text.text(catSummary ? (vendorLabel + ' · ' + catSummary) : vendorLabel);
-            return;
+    function fillVendorPickerSubSelectOptions(mainKey, preferredSubKey) {
+        var $sub = $('#vendorAssetsPickerSubSelect');
+        if (!$sub.length) return '';
+        $sub.empty();
+        var cat = categoriesData.find(function (c) { return String(c.key) === String(mainKey); });
+        if (!cat || !cat.subcategories || !cat.subcategories.length) {
+            $sub.prop('disabled', true);
+            return '';
         }
-        if ($label.length) $label.text(vendorPickerTr('customProduct.vendorPickerDesignCategory', '目前設計分類'));
-        $text.text(getSelectedDesignCategorySummary() || '—');
+        (cat.subcategories || []).forEach(function (sub) {
+            var subKey = (sub.key != null && sub.key !== '') ? String(sub.key) : '';
+            var subName = categoryLabelForKey(subKey, sub.name || sub.key);
+            $sub.append($('<option>').attr('value', subKey).text(subName));
+        });
+        $sub.prop('disabled', false);
+        var subKey = (preferredSubKey || '').trim();
+        if (!subKey || !$sub.find('option').filter(function () { return this.value === subKey; }).length) {
+            subKey = String(cat.subcategories[0].key != null ? cat.subcategories[0].key : '');
+        }
+        $sub.val(subKey);
+        return subKey;
     }
+
+    function populateVendorPickerCategorySelects() {
+        var $main = $('#vendorAssetsPickerMainSelect');
+        var $sub = $('#vendorAssetsPickerSubSelect');
+        if (!$main.length) return;
+        var pageMain = ($('#imageCategoryMainSelect').val() || '').trim();
+        var pageSub = ($('#imageCategorySubSelect').val() || '').trim();
+        $main.empty();
+        categoriesData.forEach(function (c) {
+            var key = (c.key != null && c.key !== '') ? String(c.key) : '';
+            if (!key) return;
+            var name = categoryLabelForKey(key, c.name || key);
+            $main.append($('<option>').attr('value', key).text(name));
+        });
+        if (pageMain && $main.find('option').filter(function () { return this.value === pageMain; }).length) {
+            $main.val(pageMain);
+        } else if (categoriesData.length) {
+            pageMain = String(categoriesData[0].key != null ? categoriesData[0].key : '');
+            $main.val(pageMain);
+        }
+        var subKey = fillVendorPickerSubSelectOptions(pageMain, pageSub);
+        if ($sub.length && !$sub.prop('disabled')) $sub.val(subKey || $sub.val());
+    }
+
+    /** 同步設計頁主／子分類（與素材庫 modal 下拉連動） */
+    function applyDesignCategorySelection(mainKey, subKey) {
+        mainKey = (mainKey || '').trim();
+        subKey = (subKey || '').trim();
+        if (!mainKey) return false;
+        var mainOpt = $('#imageCategoryMainList .cat-option[data-key="' + mainKey.replace(/"/g, '&quot;') + '"]');
+        if (!mainOpt.length) return false;
+        mainOpt.trigger('click');
+        if (subKey) {
+            var subOpt = $('#imageCategorySubList .cat-option[data-key="' + subKey.replace(/"/g, '&quot;') + '"]');
+            if (subOpt.length) {
+                $('#imageCategorySubList .cat-option').removeClass('selected');
+                subOpt.addClass('selected');
+                $('#imageCategorySubSelect').val(subKey);
+            }
+        }
+        return true;
+    }
+
+    function onVendorPickerCategoryChanged(mainKey, subKey) {
+        applyDesignCategorySelection(mainKey, subKey);
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        if (params && params.mode === 'category') {
+            params.mainKey = mainKey;
+            params.subKey = subKey || '';
+            loadVendorAssetsPickerList();
+        }
+    }
+
+    function updateVendorPickerDesignCategoryDisplay() {
+        populateVendorPickerCategorySelects();
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        var $hint = $('#vendorAssetsPickerCategoryMfrHint');
+        if ($hint.length) {
+            if (params && params.mode === 'manufacturer') {
+                $hint.removeClass('d-none').text(vendorPickerTr('customProduct.vendorPickerCategoryMfrHint',
+                    '變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。'));
+            } else {
+                $hint.addClass('d-none');
+            }
+        }
+    }
+
+    $(document).on('change', '#vendorAssetsPickerMainSelect', function () {
+        var mainKey = ($(this).val() || '').trim();
+        if (!mainKey) return;
+        var subKey = fillVendorPickerSubSelectOptions(mainKey, '');
+        onVendorPickerCategoryChanged(mainKey, subKey);
+    });
+
+    $(document).on('change', '#vendorAssetsPickerSubSelect', function () {
+        var mainKey = ($('#vendorAssetsPickerMainSelect').val() || '').trim();
+        var subKey = ($(this).val() || '').trim();
+        if (!mainKey) return;
+        onVendorPickerCategoryChanged(mainKey, subKey);
+    });
 
     function updateVendorPickerPrototypeFiltersVisibility() {
         var kind = ($('#vendorAssetsAssetKind').val() || '').trim();

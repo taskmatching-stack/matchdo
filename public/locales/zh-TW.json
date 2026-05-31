@@ -389,6 +389,7 @@
   "customProduct.vendorBaseHint": "點選圖片可加入參考圖（可連選多張，最多 8 張）。",
   "customProduct.vendorBaseEmpty": "此廠商尚無版型素材。",
   "customProduct.vendorPickerDesignCategory": "目前設計分類",
+  "customProduct.vendorPickerCategoryMfrHint": "變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。",
   "customProduct.vendorPickerSubLabel": "子：{name}",
   "customProduct.vendorPickerLockedVendor": "此廠商",
   "customProduct.filterAssetKind": "素材類型",

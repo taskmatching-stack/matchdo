@@ -170,8 +170,17 @@
                 </div>
                 <div class="modal-body py-2">
                     <div id="vendorAssetsDesignCategory" class="vendor-picker-category-banner rounded border bg-light px-3 py-2 mb-2">
-                        <span class="text-muted small vendor-picker-cat-label" data-i18n="customProduct.vendorPickerDesignCategory">目前設計分類</span>
-                        <span id="vendorAssetsDesignCategoryText" class="fw-semibold ms-1"></span>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-6">
+                                <label class="form-label small text-muted mb-0" for="vendorAssetsPickerMainSelect" data-i18n="customProduct.categoryMainRequired">主分類（必選）</label>
+                                <select class="form-select form-select-sm" id="vendorAssetsPickerMainSelect" aria-label="主分類"></select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted mb-0" for="vendorAssetsPickerSubSelect" data-i18n="customProduct.categorySubRequired">子分類（必選）</label>
+                                <select class="form-select form-select-sm" id="vendorAssetsPickerSubSelect" aria-label="子分類"></select>
+                            </div>
+                        </div>
+                        <p id="vendorAssetsPickerCategoryMfrHint" class="text-muted small mb-0 mt-1 d-none" data-i18n="customProduct.vendorPickerCategoryMfrHint">變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。</p>
                     </div>
                     <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊圖片加入參考圖；雙擊或按 🔍 放大。</p>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
@@ -909,7 +918,7 @@
     <!-- Template Javascript -->
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
-    <script src="js/custom-product.js?v=14" defer></script>
+    <script src="js/custom-product.js?v=15" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 
