@@ -1967,6 +1967,12 @@
             if (!btn || !capabilities) return;
             var can = capabilities.can_import_supplier_catalog && !isSeedVendor;
             btn.disabled = !can;
+            var hintEl = document.getElementById('supplier-import-hint');
+            if (hintEl && can && capabilities.bypass_supplier_portfolio_gate) {
+                hintEl.textContent = tr('baseModels.portfolioBypassStaff', '管理員／測試員帳號：無需作品即可測試導入。');
+            } else if (hintEl && can) {
+                hintEl.textContent = tr('baseModels.importFromSupplierHint', '瀏覽上游供應商材料目錄，一鍵加入您的「材料參考」供訂製者選用。');
+            }
             if (locked) {
                 if (can) {
                     locked.classList.add('d-none');
@@ -1974,7 +1980,7 @@
                     locked.classList.remove('d-none');
                     if (!capabilities.supplier_catalog_ready) {
                         locked.textContent = tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
-                    } else if ((capabilities.portfolio_count || 0) < 1) {
+                    } else if ((capabilities.portfolio_count || 0) < 1 && !capabilities.bypass_supplier_portfolio_gate) {
                         locked.textContent = tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品後，才可從產業供應商導入材料');
                     } else if (isSeedVendor) {
                         locked.textContent = tr('baseModels.seedNoImport', '種子廠商無法導入');

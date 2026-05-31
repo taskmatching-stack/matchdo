@@ -12,21 +12,44 @@
 </head>
 <body>
     <div id="site-header"></div>
-    <div class="container py-5" style="max-width: 720px;">
+    <div class="container py-5" style="max-width: 800px;">
         <h4 class="fw-bold mb-3" data-i18n="supplierPortal.heading">產業供應商（B 線）</h4>
-        <p class="text-muted" data-i18n="supplierPortal.intro">此角色與「入駐製造商」不同：供應商維護產業級原型組與材料目錄，供平台媒合使用。功能規劃中，上線後將由此入口管理。</p>
+        <p class="text-muted" data-i18n="supplierPortal.intro">此角色與「入駐製造商」不同：產業供應商維護上游材料／原型組目錄；製造商在後台「導入」後，才會變成自己對訂製者公開的「材料參考」。訂製者設計頁看不到產業供應商目錄。</p>
+
+        <div class="alert alert-info border-0 small mb-4">
+            <h6 class="alert-heading fw-semibold mb-2" data-i18n="supplierPortal.rolesTitle">兩種角色請分開</h6>
+            <ul class="mb-0 ps-3">
+                <li data-i18n="supplierPortal.roleManufacturer">製造商（接單）：上傳數位版型給訂製者 → <a href="/client/manufacturer-materials.html">/client/manufacturer-materials.html</a></li>
+                <li data-i18n="supplierPortal.roleIndustry">產業供應商（上游）：上架目錄給製造商採購 → 本頁（會員自管尚未開放，見下方）</li>
+            </ul>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold mb-2"><i class="bi bi-download me-2 text-success"></i><span data-i18n="supplierPortal.importTitle">製造商：從產業供應商「導入」材料</span></h6>
+                <p class="small text-muted mb-2" data-i18n="supplierPortal.importSteps">登入製造商帳號 → 開啟「上傳數位版型」→ 切到「材料參考」分頁 → 按「瀏覽供應商材料」→ 選一筆導入。一般製造商需先上傳至少 1 件展示作品；管理員／測試員可免作品門檻。</p>
+                <a href="/client/manufacturer-materials.html" class="btn btn-success btn-sm"><i class="bi bi-box-arrow-in-right me-1"></i><span data-i18n="supplierPortal.openMaterialsPage">開啟上傳數位版型</span></a>
+            </div>
+        </div>
+
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <h6 class="fw-semibold"><i class="bi bi-box-seam me-2 text-primary"></i><span data-i18n="nav.supplierPrototypeLib">原型組目錄</span></h6>
-                <p class="small text-muted mb-0" data-i18n="supplierPortal.prototypeHint">上傳可組合的原型組，供設計流程引用（尚未開放）。</p>
+                <p class="small text-muted mb-0" data-i18n="supplierPortal.prototypeHint">產業供應商上架「一組多圖」原型組（會員後台 P2，尚未開放）。</p>
             </div>
         </div>
-        <div class="card border-0 shadow-sm mb-4">
+        <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <h6 class="fw-semibold"><i class="bi bi-palette me-2 text-success"></i><span data-i18n="nav.supplierMaterialLib">材料目錄</span></h6>
-                <p class="small text-muted mb-0" data-i18n="supplierPortal.materialHint">上傳材料樣本與規格參考（尚未開放）。</p>
+                <p class="small text-muted mb-2" data-i18n="supplierPortal.materialHint">產業供應商上架材料規格（會員後台 P2，尚未開放）。</p>
+                <p class="small text-muted mb-0" data-i18n="supplierPortal.adminSeedHint">目前請由管理員在 Supabase 執行 <code>docs/seed-industry-supplier-materials.sql</code> 建立示範供應商與材料，供製造商測試導入。</p>
             </div>
         </div>
+
+        <p class="small text-muted mb-4">
+            <span data-i18n="supplierPortal.urlLabel">本頁網址：</span>
+            <a href="/client/supplier-portal.html">https://matchdo.cc/client/supplier-portal.html</a>
+        </p>
         <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回製造商控制台</span></a>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>

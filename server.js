@@ -1268,22 +1268,27 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
         return null;
     }
     if (requirePortfolio) {
-        const { count, error: pErr } = await supabase
-            .from('manufacturer_portfolio')
-            .select('id', { count: 'exact', head: true })
-            .eq('manufacturer_id', manufacturerId)
-            .not('image_url', 'is', null);
-        if (pErr && pErr.code !== '42P01') {
-            console.error('portfolio count:', pErr);
-        }
-        const portfolioCount = count || 0;
-        if (portfolioCount < 1) {
-            res.status(403).json({
-                error: '請先上傳至少 1 件作品後，才可從產業供應商導入材料',
-                code: 'PORTFOLIO_REQUIRED',
-                portfolio_count: portfolioCount
-            });
-            return null;
+        const user = await getCurrentUser(req, res);
+        if (!user) return null;
+        const staffBypass = await isStaffProfileUserId(user.id);
+        if (!staffBypass) {
+            const { count, error: pErr } = await supabase
+                .from('manufacturer_portfolio')
+                .select('id', { count: 'exact', head: true })
+                .eq('manufacturer_id', manufacturerId)
+                .not('image_url', 'is', null);
+            if (pErr && pErr.code !== '42P01') {
+                console.error('portfolio count:', pErr);
+            }
+            const portfolioCount = count || 0;
+            if (portfolioCount < 1) {
+                res.status(403).json({
+                    error: '請先上傳至少 1 件作品後，才可從產業供應商導入材料',
+                    code: 'PORTFOLIO_REQUIRED',
+                    portfolio_count: portfolioCount
+                });
+                return null;
+            }
         }
     }
     return manufacturerId;
@@ -12340,8 +12345,9 @@ app.get('/api/me/capabilities', async (req, res) => {
             portfolioCount = count || 0;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
+        const staffBypassPortfolio = await isStaffProfileUserId(user.id);
         const catalogReady = await supplierCatalogTablesReady();
-        const canImport = catalogReady && hasManufacturer && !isSeed && portfolioCount >= 1;
+        const canImport = catalogReady && hasManufacturer && !isSeed && (portfolioCount >= 1 || staffBypassPortfolio);
         let isIndustrySupplier = false;
         if (catalogReady) {
             try {
@@ -12359,6 +12365,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             has_manufacturer: hasManufacturer,
             manufacturer_id: mfr ? mfr.id : null,
             portfolio_count: portfolioCount,
+            bypass_supplier_portfolio_gate: staffBypassPortfolio,
             vendor_source: mfr ? mfr.vendor_source : null,
             supplier_catalog_ready: catalogReady,
             can_use_supplier_catalog: canImport,
