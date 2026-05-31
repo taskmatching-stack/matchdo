@@ -141,6 +141,12 @@ $(document).ready(function () {
 
     // 8 格參考圖：每格獨立加圖；縮圖點擊選取 → 對應卡片高亮並捲動到可見
     const MAX_REF_IMAGES = 8;
+    var VENDOR_PICKER_PAGE_SIZE_KEY = 'matchdo.vendorPickerPageSize';
+    var vendorPickerPageSize = 12;
+    var vendorPickerOffset = 0;
+    var vendorMfrSuggestTimer = null;
+    var vendorMfrSuggestSeq = 0;
+    var vendorPickerLastTotal = 0;
     let refDataUrls = []; // length 8, null = 空
     let refDescs = [];
     let refSources = []; // 與 refDataUrls 對齊，來自廠商素材時存 { vendor_asset_id, manufacturer_id, manufacturer_name, manufacturer_profile_url, image_url }
@@ -347,6 +353,8 @@ $(document).ready(function () {
         $('#vendorAssetsColor').val('');
         $('#vendorAssetsSearch').val('');
         $('#vendorAssetsManufacturerName').val('');
+        $('#vendorAssetsManufacturerId').val('');
+        hideVendorManufacturerSuggest();
         $('#vendorAssetsServiceArea').val('');
         $('#vendorAssetsAssetKind').val('');
         $('#vendorAssetsCatalogGroup').val('');
@@ -409,6 +417,7 @@ $(document).ready(function () {
         if (vendorAssetsMoqReloadTimer) clearTimeout(vendorAssetsMoqReloadTimer);
         vendorAssetsMoqReloadTimer = setTimeout(function () {
             vendorAssetsMoqReloadTimer = null;
+            vendorPickerOffset = 0;
             loadVendorAssetsPickerList();
         }, 350);
     }
@@ -614,6 +623,7 @@ $(document).ready(function () {
         if (params && params.mode === 'category') {
             params.mainKey = mainKey;
             params.subKey = subKey || '';
+            vendorPickerOffset = 0;
             loadVendorAssetsPickerList();
         }
     }
@@ -648,7 +658,132 @@ $(document).ready(function () {
 
     function updateVendorPickerPrototypeFiltersVisibility() {
         var kind = ($('#vendorAssetsAssetKind').val() || '').trim();
-        $('.vendor-picker-prototype-only').toggleClass('d-none', kind === 'material');
+        $('.vendor-picker-prototype-only').toggleClass('d-none', kind === 'material' || kind === 'part');
+    }
+
+    function readVendorPickerPageSize() {
+        try {
+            var v = parseInt(localStorage.getItem(VENDOR_PICKER_PAGE_SIZE_KEY), 10);
+            if (v === 12 || v === 24 || v === 48) return v;
+        } catch (_) {}
+        return 12;
+    }
+
+    function setVendorPickerPageSize(n) {
+        vendorPickerPageSize = n;
+        try { localStorage.setItem(VENDOR_PICKER_PAGE_SIZE_KEY, String(n)); } catch (_) {}
+        $('#vendorAssetsPickerModal .vendor-picker-page-size-btn').removeClass('active');
+        $('#vendorAssetsPickerModal .vendor-picker-page-size-btn[data-size="' + n + '"]').addClass('active');
+    }
+
+    function updateVendorPickerListPager(total, offset, limit) {
+        var $range = $('#vendorAssetsListRange');
+        if (typeof window.MatchdoOffsetPager !== 'undefined' && window.MatchdoOffsetPager.render) {
+            window.MatchdoOffsetPager.render({
+                pagerEl: document.getElementById('vendorAssetsListPager'),
+                prevEl: document.getElementById('vendorAssetsListPrev'),
+                nextEl: document.getElementById('vendorAssetsListNext'),
+                pageNumsEl: document.getElementById('vendorAssetsListPageNums'),
+                infoEl: document.getElementById('vendorAssetsListPageInfo'),
+                total: total,
+                offset: offset,
+                limit: limit,
+                pageInfoTemplate: t('customProduct.listPageInfo') || '第 {page} / {total} 頁',
+                onGoToPage: function (newOffset) {
+                    vendorPickerOffset = newOffset;
+                    loadVendorAssetsPickerList();
+                }
+            });
+        }
+        if ($range.length) {
+            if (total) {
+                var from = offset + 1;
+                var to = Math.min(offset + limit, total);
+                $range.text(
+                    (t('customProduct.listRange') || '顯示 {from}–{to}，共 {total} 項')
+                        .replace('{from}', String(from))
+                        .replace('{to}', String(to))
+                        .replace('{total}', String(total))
+                ).removeClass('d-none');
+            } else {
+                $range.addClass('d-none');
+            }
+        }
+    }
+
+    function vendorMfrLogoHtml(logoUrl, sizeClass) {
+        var cls = sizeClass || 'vendor-asset-mfr-logo';
+        var url = (logoUrl || '').trim();
+        if (url) {
+            return '<img src="' + url.replace(/"/g, '&quot;') + '" alt="" class="' + cls + ' rounded flex-shrink-0" loading="lazy">';
+        }
+        return '<span class="' + cls + ' ' + cls + '--ph rounded flex-shrink-0 d-inline-flex align-items-center justify-content-center bg-light text-secondary"><i class="bi bi-building"></i></span>';
+    }
+
+    function hideVendorManufacturerSuggest() {
+        $('#vendorAssetsManufacturerSuggest').addClass('d-none').empty();
+    }
+
+    function renderVendorManufacturerSuggest(list) {
+        var $box = $('#vendorAssetsManufacturerSuggest');
+        if (!$box.length) return;
+        if (!list || !list.length) {
+            hideVendorManufacturerSuggest();
+            return;
+        }
+        var html = list.map(function (m) {
+            var name = (m.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            var id = (m.id || '').toString().replace(/"/g, '&quot;');
+            var logo = vendorMfrLogoHtml(m.logo_url, 'vendor-mfr-suggest-logo');
+            return '<button type="button" class="list-group-item list-group-item-action vendor-mfr-suggest-item" role="option"' +
+                ' data-mfr-id="' + id + '" data-mfr-name="' + name + '">' + logo +
+                '<span class="text-truncate">' + name + '</span></button>';
+        }).join('');
+        $box.html(html).removeClass('d-none');
+    }
+
+    function fetchVendorManufacturerSuggest(q) {
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        if (!params || params.mode !== 'category' || !params.mainKey) return;
+        var seq = ++vendorMfrSuggestSeq;
+        var url = '/api/manufacturers?category_key=' + encodeURIComponent(params.mainKey) +
+            '&q=' + encodeURIComponent(q) + '&per_page=15';
+        if (params.subKey) url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            if (seq !== vendorMfrSuggestSeq) return;
+            var list = (data && data.manufacturers) ? data.manufacturers : [];
+            renderVendorManufacturerSuggest(list);
+        }).catch(function () {
+            if (seq === vendorMfrSuggestSeq) hideVendorManufacturerSuggest();
+        });
+    }
+
+    function applyVendorManufacturerFilterFromInput() {
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        if (!params || params.mode !== 'category') return;
+        vendorPickerOffset = 0;
+        loadVendorAssetsPickerList();
+    }
+
+    function updateVendorPickerMultiVendorHint() {
+        var $hint = $('#vendorAssetsPickerMultiVendorHint');
+        if (!$hint.length) return;
+        ensureRefArrays();
+        var byId = {};
+        refSources.forEach(function (s) {
+            if (s && s.manufacturer_id) {
+                byId[s.manufacturer_id] = (s.manufacturer_name || '').trim() || (t('customProduct.vendorFallback') || '廠商');
+            }
+        });
+        var keys = Object.keys(byId);
+        if (keys.length <= 1) {
+            $hint.addClass('d-none').empty();
+            return;
+        }
+        var names = keys.map(function (k) { return byId[k]; }).join('、');
+        var tpl = t('customProduct.multiVendorPickerHint') ||
+            '參考圖已含多家廠商（{names}）的原型／材料／零件。混用可能無法由單一廠商生產，建議先與廠商溝通後再下單。';
+        $hint.removeClass('d-none').text(tpl.replace('{names}', names));
     }
 
     function updateMultiVendorRefWarning() {
@@ -667,8 +802,10 @@ $(document).ready(function () {
             return;
         }
         var names = keys.map(function (k) { return byId[k]; }).join('、');
-        var tpl = t('customProduct.multiVendorWarning') || '您已選用多家廠商的素材（{names}）。混用可能導致部分廠商無法生產同款，建議改為同一家廠商的零件與材料。';
+        var tpl = t('customProduct.multiVendorWarning') ||
+            '您已選用多家廠商的素材（{names}）。混用原型／材料／零件可能無法由單一廠商生產，建議先與廠商溝通。';
         $el.removeClass('d-none').text(tpl.replace('{names}', names));
+        updateVendorPickerMultiVendorHint();
     }
 
     function getActiveRefSourcesList() {
@@ -714,7 +851,9 @@ $(document).ready(function () {
                 var title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
                 var kind = s.asset_kind === 'material'
                     ? vendorPickerTr('customProduct.assetKindMaterial', '材料')
-                    : vendorPickerTr('customProduct.assetKindPrototype', '數位原型');
+                    : (s.asset_kind === 'part'
+                        ? vendorPickerTr('customProduct.assetKindPart', '配件／零件')
+                        : vendorPickerTr('customProduct.assetKindPrototype', '數位原型'));
                 var tip = (title ? title + ' · ' : '') + mfrName + ' · ' + kind;
                 html += '<a href="' + profileUrl + '" target="_blank" rel="noopener" class="text-decoration-none text-center past-ref-asset-link" title="' + tip.replace(/"/g, '&quot;') + '">';
                 html += '<img src="' + imgUrl + '" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.35);">';
@@ -817,6 +956,7 @@ $(document).ready(function () {
         var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
         var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var mfrLogo = vendorMfrLogoHtml(item.manufacturer_logo_url, 'vendor-asset-mfr-logo');
         var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
         var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
         var mfrId = (item.manufacturer_id || '').toString().replace(/"/g, '&quot;');
@@ -837,6 +977,8 @@ $(document).ready(function () {
         }
         if (item.asset_kind === 'material') {
             meta += '<span class="badge bg-success-subtle text-success border mb-1">' + (t('customProduct.assetKindMaterial') || '材料') + '</span> ';
+        } else if (item.asset_kind === 'part') {
+            meta += '<span class="badge bg-warning-subtle text-warning border mb-1">' + (t('customProduct.assetKindPart') || '配件／零件') + '</span> ';
         } else if (item.asset_kind === 'prototype') {
             meta += '<span class="badge bg-primary-subtle text-primary border mb-1">' + (t('customProduct.assetKindPrototype') || '數位原型') + '</span> ';
             if (item.min_order_quantity != null && Number(item.min_order_quantity) >= 1) {
@@ -861,7 +1003,7 @@ $(document).ready(function () {
             var cgn = item.catalog_groups.map(function (g) { return g && g.name ? String(g.name).trim() : ''; }).filter(Boolean);
             if (cgn.length) catalogNamesAttr = JSON.stringify(cgn).replace(/"/g, '&quot;');
         }
-        var multiBadge = (item.asset_kind === 'prototype' && imageUrls.length > 1)
+        var multiBadge = ((item.asset_kind === 'prototype' || item.asset_kind === 'part') && imageUrls.length > 1)
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
             ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
@@ -878,6 +1020,7 @@ $(document).ready(function () {
             '<div class="card-body p-2 vendor-asset-card-meta">' + meta +
             '<div class="fw-semibold small text-truncate vendor-asset-title" title="' + title + '">' + title + '</div>' +
             '<div class="d-flex align-items-center gap-1 mt-1 vendor-asset-mfr-row">' +
+            mfrLogo +
             '<a href="' + profileUrl + '" class="small text-primary text-decoration-none vendor-asset-mfr-link text-truncate flex-grow-1" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a>' +
             '<button type="button" class="btn btn-link btn-sm p-0 vendor-asset-mfr-search-btn flex-shrink-0" data-mfr-name="' + mfrName + '" title="' +
             (t('customProduct.vendorFillSearch') || '填入廠商名稱篩選').replace(/"/g, '&quot;') + '"><i class="bi bi-search"></i></button>' +
@@ -912,9 +1055,14 @@ $(document).ready(function () {
                 alert(t('customProduct.vendorSearchLocked') || '此模式已鎖定單一廠商，無法使用廠商名稱篩選。');
                 return;
             }
-            $input.val(name).trigger('focus');
+            var mfrId = ($c.attr('data-manufacturer-id') || '').trim();
+            $input.val(name);
+            $('#vendorAssetsManufacturerId').val(mfrId);
+            hideVendorManufacturerSuggest();
             var $more = $('.vendor-picker-more-filters');
             if ($more.length && !$more[0].open) $more[0].open = true;
+            vendorPickerOffset = 0;
+            loadVendorAssetsPickerList();
         });
         $list.find('.vendor-asset-pick-zone, .vendor-asset-pick-img').off('click keydown').on('click keydown', function (e) {
             if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
@@ -927,7 +1075,7 @@ $(document).ready(function () {
             var urls = vendorAssetCardImageUrls($c);
             if (!urls.length) return;
             var assetKind = ($c.attr('data-asset-kind') || 'prototype').trim();
-            var isPrototypeMulti = assetKind === 'prototype' && urls.length > 1;
+            var isPrototypeMulti = (assetKind === 'prototype' || assetKind === 'part') && urls.length > 1;
             var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
             var existingIds = {};
             refSources.forEach(function (s) {
@@ -1019,8 +1167,13 @@ $(document).ready(function () {
         var keyword = ($('#vendorAssetsSearch').val() || '').trim();
         if (keyword) url += '&q=' + encodeURIComponent(keyword);
         if (params.mode === 'category') {
-            var mfrName = ($('#vendorAssetsManufacturerName').val() || '').trim();
-            if (mfrName) url += '&manufacturer_name=' + encodeURIComponent(mfrName);
+            var mfrIdFilter = ($('#vendorAssetsManufacturerId').val() || '').trim();
+            if (mfrIdFilter) {
+                url += '&manufacturer_id=' + encodeURIComponent(mfrIdFilter);
+            } else {
+                var mfrName = ($('#vendorAssetsManufacturerName').val() || '').trim();
+                if (mfrName) url += '&manufacturer_name=' + encodeURIComponent(mfrName);
+            }
             var areaCode = ($('#vendorAssetsServiceArea').val() || '').trim();
             if (areaCode) url += '&service_area=' + encodeURIComponent(areaCode);
         }
@@ -1037,6 +1190,8 @@ $(document).ready(function () {
         if (customKeys.length) {
             url += '&customization_levels=' + encodeURIComponent(customKeys.join(','));
         }
+        url += '&limit=' + encodeURIComponent(String(vendorPickerPageSize));
+        url += '&offset=' + encodeURIComponent(String(vendorPickerOffset));
         return url;
     }
 
@@ -1065,6 +1220,18 @@ $(document).ready(function () {
             $loading.addClass('d-none');
             var items = (data && data.items) ? data.items : [];
             items = applyClientVendorAssetFilters(items);
+            var total = (data && data.total != null) ? Number(data.total) : items.length;
+            if (!Number.isFinite(total) || total < items.length) total = items.length;
+            vendorPickerLastTotal = total;
+            if (items.length && vendorPickerOffset >= total) {
+                vendorPickerOffset = Math.max(0, total - vendorPickerPageSize);
+                if (vendorPickerOffset > 0) {
+                    loadVendorAssetsPickerList();
+                    return;
+                }
+            }
+            updateVendorPickerListPager(total, vendorPickerOffset, vendorPickerPageSize);
+            updateVendorPickerMultiVendorHint();
             if (!items.length) {
                 $empty.removeClass('d-none').text(t('customProduct.vendorAssetsEmptyFiltered') || '此條件下尚無符合的素材，請調整篩選或清除後重試。');
                 return;
@@ -1078,8 +1245,58 @@ $(document).ready(function () {
         });
     }
 
+    $('#vendorAssetsManufacturerName').on('input', function () {
+        var $cell = $('.vendor-picker-mfr-name-cell');
+        if ($cell.hasClass('d-none')) return;
+        $('#vendorAssetsManufacturerId').val('');
+        var q = ($(this).val() || '').trim();
+        clearTimeout(vendorMfrSuggestTimer);
+        vendorMfrSuggestTimer = setTimeout(function () {
+            if (q.length >= 1) fetchVendorManufacturerSuggest(q);
+            else hideVendorManufacturerSuggest();
+            applyVendorManufacturerFilterFromInput();
+        }, 320);
+    });
+
+    $(document).on('mousedown', '#vendorAssetsPickerModal .vendor-mfr-suggest-item', function (e) {
+        e.preventDefault();
+        var id = ($(this).attr('data-mfr-id') || '').trim();
+        var name = ($(this).attr('data-mfr-name') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+        $('#vendorAssetsManufacturerId').val(id);
+        $('#vendorAssetsManufacturerName').val(name);
+        hideVendorManufacturerSuggest();
+        vendorPickerOffset = 0;
+        loadVendorAssetsPickerList();
+    });
+
+    $(document).on('blur', '#vendorAssetsManufacturerName', function () {
+        setTimeout(function () { hideVendorManufacturerSuggest(); }, 180);
+    });
+
     $('#vendorAssetsClearFilter').on('click', function () {
         resetVendorAssetFilters();
+        vendorPickerOffset = 0;
+        loadVendorAssetsPickerList();
+    });
+
+    $('#vendorAssetsApplyFilter').on('click', function () {
+        vendorPickerOffset = 0;
+        loadVendorAssetsPickerList();
+    });
+
+    $(document).on('click', '#vendorAssetsPickerModal .vendor-picker-page-size-btn', function () {
+        var n = parseInt($(this).attr('data-size'), 10);
+        if (n !== 12 && n !== 24 && n !== 48) return;
+        setVendorPickerPageSize(n);
+        vendorPickerOffset = 0;
+        loadVendorAssetsPickerList();
+    });
+    $('#vendorAssetsListPrev').on('click', function () {
+        vendorPickerOffset = Math.max(0, vendorPickerOffset - vendorPickerPageSize);
+        loadVendorAssetsPickerList();
+    });
+    $('#vendorAssetsListNext').on('click', function () {
+        vendorPickerOffset += vendorPickerPageSize;
         loadVendorAssetsPickerList();
     });
 
@@ -1100,12 +1317,13 @@ $(document).ready(function () {
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
         }
+        vendorPickerOffset = 0;
+        setVendorPickerPageSize(readVendorPickerPageSize());
         try { window.__vendorAssetsFetchParams = { mode: 'category', mainKey: mainKey, subKey: subKey }; } catch (e) {}
-        fillVendorServiceAreaSelect().then(function () { loadVendorAssetsPickerList(); });
-    });
-
-    $('#vendorAssetsApplyFilter').on('click', function () {
-        loadVendorAssetsPickerList();
+        fillVendorServiceAreaSelect().then(function () {
+            updateVendorPickerMultiVendorHint();
+            loadVendorAssetsPickerList();
+        });
     });
 
     // 從此廠商版型庫選擇：僅當 URL 帶 manufacturer_id 時顯示按鈕
@@ -1123,10 +1341,15 @@ $(document).ready(function () {
         if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             (new bootstrap.Modal(modalEl)).show();
         }
+        vendorPickerOffset = 0;
+        setVendorPickerPageSize(readVendorPickerPageSize());
         try { window.__vendorAssetsFetchParams = { mode: 'manufacturer', manufacturerId: refVendorMfrId }; } catch (e) {}
         var $moreMfr = document.querySelector('#vendorAssetsPickerModal .vendor-picker-more-filters');
         if ($moreMfr) $moreMfr.open = true;
-        fillVendorCatalogGroupSelect(refVendorMfrId).then(function () { loadVendorAssetsPickerList(); });
+        fillVendorCatalogGroupSelect(refVendorMfrId).then(function () {
+            updateVendorPickerMultiVendorHint();
+            loadVendorAssetsPickerList();
+        });
     });
 
     async function describeOneImage(index, btn, descArea) {
@@ -1202,7 +1425,7 @@ $(document).ready(function () {
                 if (!refDataUrls[ri]) continue;
                 var src = refSources[ri] || null;
                 var kind = (src && src.asset_kind) ? String(src.asset_kind) : '';
-                var rank = kind === 'prototype' ? 0 : (kind === 'material' ? 1 : 2);
+                var rank = kind === 'prototype' ? 0 : (kind === 'part' ? 1 : (kind === 'material' ? 2 : 3));
                 pairs.push({ url: refDataUrls[ri], src: src, rank: rank });
             }
             pairs.sort(function (a, b) { return a.rank - b.rank; });

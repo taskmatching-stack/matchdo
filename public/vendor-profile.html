@@ -225,11 +225,28 @@
                     <div class="section-title"><i class="bi bi-folder2-open me-1"></i><span data-i18n="vendor.materialLibrary">素材庫</span></div>
                     <p class="text-muted small mb-2" data-i18n="vendor.materialLibraryHint">依廠商自訂分類瀏覽數位原型與材料參考（與網站訂製分類無關）。</p>
                     <div id="vendorCatalogNav" class="d-flex flex-wrap gap-2 mb-3"></div>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <p id="vendorProfileListRange" class="text-muted small mb-0 d-none"></p>
+                        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                            <span class="small text-muted" data-i18n="vendor.listPageSize">每頁顯示</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary vendor-profile-page-size-btn active" data-size="12">12</button>
+                                <button type="button" class="btn btn-outline-secondary vendor-profile-page-size-btn" data-size="24">24</button>
+                                <button type="button" class="btn btn-outline-secondary vendor-profile-page-size-btn" data-size="48">48</button>
+                            </div>
+                        </div>
+                    </div>
                     <div id="vendorAssetsEmpty" class="text-center py-4 text-muted d-none">
                         <i class="bi bi-image"></i>
                         <p class="mb-0 mt-2 small" data-i18n="vendor.materialLibraryEmpty">此分類尚無公開素材。</p>
                     </div>
                     <div id="vendorAssetsGrid" class="row g-3"></div>
+                    <div id="vendorProfileListPager" class="d-flex flex-wrap align-items-center justify-content-center gap-2 mt-2 d-none">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="vendorProfileListPrev" data-i18n="vendor.listPrev">上一頁</button>
+                        <div id="vendorProfileListPageNums" class="d-flex flex-wrap align-items-center gap-1" role="navigation" aria-label="Pagination"></div>
+                        <span class="small text-muted flex-shrink-0" id="vendorProfileListPageInfo"></span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="vendorProfileListNext" data-i18n="vendor.listNext">下一頁</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -243,6 +260,7 @@
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/site-footer.js"></script>
+    <script src="/js/offset-list-pager.js"></script>
     <script>
     (function () {
         var id = new URLSearchParams(location.search).get('id');
@@ -575,6 +593,57 @@
 
         var vendorAssetsCatalogFlat = [];
         var vendorAssetsActiveGroupId = '';
+        var vendorProfileListItems = [];
+        var vendorProfilePageSize = 12;
+        var vendorProfileOffset = 0;
+        var VENDOR_PROFILE_PAGE_SIZE_KEY = 'matchdo.vendorProfilePageSize';
+
+        function readVendorProfilePageSize() {
+            try {
+                var v = parseInt(localStorage.getItem(VENDOR_PROFILE_PAGE_SIZE_KEY), 10);
+                if (v === 12 || v === 24 || v === 48) return v;
+            } catch (_) {}
+            return 12;
+        }
+
+        function setVendorProfilePageSize(n) {
+            vendorProfilePageSize = n;
+            try { localStorage.setItem(VENDOR_PROFILE_PAGE_SIZE_KEY, String(n)); } catch (_) {}
+            document.querySelectorAll('.vendor-profile-page-size-btn').forEach(function (btn) {
+                btn.classList.toggle('active', parseInt(btn.getAttribute('data-size'), 10) === n);
+            });
+        }
+
+        function updateVendorProfileListPager(total, offset, limit) {
+            var rangeEl = document.getElementById('vendorProfileListRange');
+            if (window.MatchdoOffsetPager && window.MatchdoOffsetPager.render) {
+                window.MatchdoOffsetPager.render({
+                    pagerEl: document.getElementById('vendorProfileListPager'),
+                    prevEl: document.getElementById('vendorProfileListPrev'),
+                    nextEl: document.getElementById('vendorProfileListNext'),
+                    pageNumsEl: document.getElementById('vendorProfileListPageNums'),
+                    infoEl: document.getElementById('vendorProfileListPageInfo'),
+                    total: total,
+                    offset: offset,
+                    limit: limit,
+                    pageInfoTemplate: '第 {page} / {total} 頁',
+                    onGoToPage: function (newOffset) {
+                        vendorProfileOffset = newOffset;
+                        renderVendorAssetsGrid(vendorProfileListItems);
+                    }
+                });
+            }
+            if (rangeEl) {
+                if (total) {
+                    var from = offset + 1;
+                    var to = Math.min(offset + limit, total);
+                    rangeEl.textContent = '顯示 ' + from + '–' + to + '，共 ' + total + ' 項';
+                    rangeEl.classList.remove('d-none');
+                } else {
+                    rangeEl.classList.add('d-none');
+                }
+            }
+        }
 
         function vendorAssetsAuthHeaders() {
             return (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function')
@@ -601,14 +670,18 @@
                 if (!items.length && !vendorAssetsCatalogFlat.length) return;
                 section.style.display = '';
                 vendorAssetsActiveGroupId = '';
+                vendorProfileOffset = 0;
+                vendorProfileListItems = items;
                 renderVendorCatalogNav(mfrId);
-                renderVendorAssetsGrid(items);
+                renderVendorAssetsGrid(vendorProfileListItems);
             }).catch(function () {});
             });
         }
 
         function catalogGroupKind(g) {
-            return (g && g.asset_kind === 'material') ? 'material' : 'prototype';
+            if (g && g.asset_kind === 'material') return 'material';
+            if (g && g.asset_kind === 'part') return 'part';
+            return 'prototype';
         }
 
         function renderVendorCatalogNav(mfrId) {
@@ -618,6 +691,7 @@
                 ? (window.i18n.t('vendor.catalogAll') || '全部')
                 : '全部';
             var protoGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'prototype'; });
+            var partGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'part'; });
             var matGroups = vendorAssetsCatalogFlat.filter(function (g) { return catalogGroupKind(g) === 'material'; });
             function pillRow(groups) {
                 var row = '';
@@ -634,6 +708,12 @@
                     ? (window.i18n.t('vendor.catalogPrototypeGroups') || '數位原型')
                     : '數位原型';
                 html += '<span class="text-muted small align-self-center ms-1 me-1">' + escHtml(protoLabel) + '</span>' + pillRow(protoGroups);
+            }
+            if (partGroups.length) {
+                var partLabel = (window.i18n && typeof window.i18n.t === 'function')
+                    ? (window.i18n.t('vendor.catalogPartGroups') || '配件／零件')
+                    : '配件／零件';
+                html += '<span class="text-muted small align-self-center ms-2 me-1">' + escHtml(partLabel) + '</span>' + pillRow(partGroups);
             }
             if (matGroups.length) {
                 var matLabel = (window.i18n && typeof window.i18n.t === 'function')
@@ -652,13 +732,15 @@
             nav.querySelectorAll('.catalog-pill').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     vendorAssetsActiveGroupId = btn.getAttribute('data-group') || '';
+                    vendorProfileOffset = 0;
                     renderVendorCatalogNav(mfrId);
                     var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
                     if (vendorAssetsActiveGroupId) url += '&catalog_group_id=' + encodeURIComponent(vendorAssetsActiveGroupId);
                     vendorAssetsAuthHeaders().then(function (authHdr) {
                     fetch(url, { headers: authHdr }).then(function (r) { return r.json(); }).then(function (data) {
-                        renderVendorAssetsGrid((data && data.items) ? data.items : []);
-                    }).catch(function () { renderVendorAssetsGrid([]); });
+                        vendorProfileListItems = (data && data.items) ? data.items : [];
+                        renderVendorAssetsGrid(vendorProfileListItems);
+                    }).catch(function () { vendorProfileListItems = []; renderVendorAssetsGrid([]); });
                     });
                 });
             });
@@ -668,16 +750,26 @@
             var grid = document.getElementById('vendorAssetsGrid');
             var empty = document.getElementById('vendorAssetsEmpty');
             if (!grid || !empty) return;
+            vendorProfileListItems = Array.isArray(items) ? items : vendorProfileListItems;
+            var full = vendorProfileListItems;
+            var total = full.length;
+            var offset = vendorProfileOffset;
+            if (offset >= total && total > 0) {
+                offset = Math.max(0, total - (total % vendorProfilePageSize || vendorProfilePageSize));
+                vendorProfileOffset = offset;
+            }
+            var pageItems = full.slice(offset, offset + vendorProfilePageSize);
+            updateVendorProfileListPager(total, offset, vendorProfilePageSize);
             grid.innerHTML = '';
-            if (!items.length) {
+            if (!pageItems.length) {
                 empty.classList.remove('d-none');
                 return;
             }
             empty.classList.add('d-none');
-            items.forEach(function (item) {
+            pageItems.forEach(function (item) {
                 var col = document.createElement('div');
                 col.className = 'col-6 col-md-4 col-lg-3';
-                var kindLabel = item.asset_kind === 'material' ? '材料' : '原型';
+                var kindLabel = item.asset_kind === 'material' ? '材料' : (item.asset_kind === 'part' ? '零件' : '原型');
                 var cats = (item.catalog_groups || []).map(function (g) {
                     return '<span class="badge bg-light text-primary border border-primary border-opacity-25 me-1 mb-1" style="font-size:.65rem;">' + escHtml(g.name) + '</span>';
                 }).join('');
@@ -696,6 +788,31 @@
 
         function escHtml(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        setVendorProfilePageSize(readVendorProfilePageSize());
+        document.querySelectorAll('.vendor-profile-page-size-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var n = parseInt(btn.getAttribute('data-size'), 10);
+                if (n !== 12 && n !== 24 && n !== 48) return;
+                setVendorProfilePageSize(n);
+                vendorProfileOffset = 0;
+                renderVendorAssetsGrid(vendorProfileListItems);
+            });
+        });
+        var vpPrev = document.getElementById('vendorProfileListPrev');
+        var vpNext = document.getElementById('vendorProfileListNext');
+        if (vpPrev) {
+            vpPrev.addEventListener('click', function () {
+                vendorProfileOffset = Math.max(0, vendorProfileOffset - vendorProfilePageSize);
+                renderVendorAssetsGrid(vendorProfileListItems);
+            });
+        }
+        if (vpNext) {
+            vpNext.addEventListener('click', function () {
+                vendorProfileOffset += vendorProfilePageSize;
+                renderVendorAssetsGrid(vendorProfileListItems);
+            });
         }
     })();
     </script>

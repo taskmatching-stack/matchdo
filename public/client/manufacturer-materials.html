@@ -40,8 +40,8 @@
         .catalog-group-row.dragging { opacity: 0.55; }
         .catalog-group-drag { cursor: grab; user-select: none; }
         .catalog-group-drag:active { cursor: grabbing; }
-        #catalog-groups-panel.catalog-groups-panel--collapsed { display: none; }
-        #catalog-groups-list.catalog-groups-list--scroll {
+        .catalog-groups-panel.catalog-groups-panel--collapsed { display: none !important; }
+        ul[id^="catalog-groups-list-"].catalog-groups-list--scroll {
             max-height: 16rem;
             overflow-y: auto;
             padding-right: 4px;
@@ -86,6 +86,11 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link active" type="button" data-kind="prototype" id="tab-prototype" role="tab">
                         <i class="bi bi-box me-1"></i><span data-i18n="baseModels.tabPrototype">數位原型</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" type="button" data-kind="part" id="tab-part" role="tab">
+                        <i class="bi bi-puzzle me-1"></i><span data-i18n="baseModels.tabPart">配件／零件</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -176,6 +181,84 @@
                 <div class="section-title list-section-title" data-i18n="baseModels.listPrototype">已上傳的數位原型</div>
             </div>
 
+            <div id="panel-part" class="asset-kind-panel d-none" hidden>
+            <div class="card border-0 shadow-sm mb-3 border-start border-warning border-4 catalog-groups-card" data-catalog-kind="part">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-0">
+                        <div class="flex-grow-1 min-w-0">
+                            <h6 class="fw-semibold mb-1">
+                                <span data-i18n="baseModels.myCatalogTitle">我的素材分類</span>
+                                <span class="badge bg-warning text-dark ms-1" data-i18n="baseModels.tabPart">配件／零件</span>
+                                <span id="catalog-groups-count-part" class="badge bg-light text-secondary border fw-normal d-none"></span>
+                            </h6>
+                            <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
+                            <p class="text-muted small mb-0 mt-1" data-i18n="baseModels.myCatalogKindPart">以下分類僅用於「配件／零件」，與原型、材料分開。</p>
+                            <p id="catalog-groups-collapsed-summary-part" class="text-muted small mb-0 mt-1 d-none"></p>
+                        </div>
+                        <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
+                            <label class="form-check form-check-inline small text-muted mb-0">
+                                <input class="form-check-input catalog-groups-pref-collapsed" type="checkbox" data-catalog-kind="part">
+                                <span data-i18n="baseModels.catalogGroupsDefaultCollapsed">預設收起</span>
+                            </label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary btn-catalog-groups-toggle" data-catalog-kind="part" aria-expanded="true">
+                                <i class="bi bi-chevron-up catalog-groups-toggle-icon"></i>
+                                <span class="catalog-groups-toggle-label" data-i18n="baseModels.catalogGroupsCollapse">收起</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="catalog-groups-panel-part" class="catalog-groups-panel mt-2">
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="part" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholderPart" placeholder="輸入分類名稱（例：扣具庫）">
+                            <button type="button" class="btn btn-sm btn-warning btn-add-catalog-group" data-catalog-kind="part"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                        </div>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHint">拖曳左側把手可調整順序；順序會顯示在廠商頁「素材庫」標籤列。</p>
+                        <ul id="catalog-groups-list-part" class="list-unstyled mb-0 catalog-groups-sortable"></ul>
+                        <p id="catalog-groups-empty-part" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmptyPart">尚無零件專用分類，請在上方新增（例如：五金件、拉鍊）。</p>
+                    </div>
+                </div>
+            </div>
+                <p class="text-muted small mb-3" data-i18n="baseModels.hintPart">扣具、拉鍊、標章等局部零件參考，供設計者選用（無 MOQ）。</p>
+                <div id="add-form-panel-part" class="card border-0 shadow-sm mb-4 upload-panel">
+                    <div class="card-header bg-white"><span class="fw-semibold"><i class="bi bi-cloud-upload me-2 text-warning"></i><span data-i18n="baseModels.uploadPart">上傳配件／零件</span></span></div>
+                    <div class="card-body">
+                        <form class="add-form" data-kind="part" enctype="multipart/form-data">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory"><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.styleKey">造型分類（選填）</label><select class="form-select add-style-key"><option value="">—</option><option value="silhouette" data-i18n="baseModels.styleSilhouette">服裝輪廓</option><option value="accessories" data-i18n="baseModels.styleAccessories">配件</option><option value="furniture" data-i18n="baseModels.styleFurniture">家具</option><option value="bags" data-i18n="baseModels.styleBags">包袋</option><option value="shoes" data-i18n="baseModels.styleShoes">鞋類</option><option value="other" data-i18n="baseModels.styleOther">其他造型</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：YKK 5 號拉鍊、金屬 D 扣"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label><input type="file" class="form-control add-image add-image-part" accept="image/*" multiple required><div class="add-image-preview mt-2 d-none"></div><p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張（第一張為封面）；訂製者選用時可帶入多張參考。</p><p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p></div>
+                                <div class="col-12">
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-part">
+                                        <label class="form-check-label" for="add-optimize-part"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
+                                    </div>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.optimizePartHint">勾選後以原圖為參考產出單張零件圖（可選底色）。</p>
+                                    <div class="add-optimize-bg-wrap d-none mb-2">
+                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
+                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
+                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
+                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
+                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
+                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
+                                            </select>
+                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
+                                        </div>
+                                    </div>
+                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                                </div>
+                                <div class="col-12"><button type="submit" class="btn btn-warning btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="section-title list-section-title" data-i18n="baseModels.listPart">已上傳的配件／零件</div>
+            </div>
+
             <div id="panel-material" class="asset-kind-panel d-none" hidden>
             <div class="card border-0 shadow-sm mb-3 border-start border-success border-4 catalog-groups-card" data-catalog-kind="material">
                 <div class="card-body py-3">
@@ -264,8 +347,23 @@
                     <label class="form-label small text-muted mb-0" data-i18n="baseModels.filterSiteCategory">平台媒合分類</label>
                     <select class="form-select form-select-sm" id="filter-category" style="min-width: 12rem;"><option value="" data-i18n="baseModels.filterSiteCategoryAll">全部</option></select>
                 </div>
+                <div class="ms-auto d-flex flex-wrap align-items-center gap-2" id="materials-list-page-size">
+                    <span class="small text-muted" data-i18n="baseModels.listPageSize">每頁顯示</span>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="page size">
+                        <button type="button" class="btn btn-outline-secondary materials-page-size-btn active" data-size="12">12</button>
+                        <button type="button" class="btn btn-outline-secondary materials-page-size-btn" data-size="24">24</button>
+                        <button type="button" class="btn btn-outline-secondary materials-page-size-btn" data-size="48">48</button>
+                    </div>
+                </div>
             </div>
+            <p id="materials-list-range" class="text-muted small mb-2 d-none"></p>
             <div id="materials-grid" class="row g-3"></div>
+            <div id="materials-list-pager" class="d-flex flex-wrap align-items-center justify-content-center gap-2 mt-2 d-none">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="materials-list-prev" data-i18n="baseModels.listPrev">上一頁</button>
+                <div id="materials-list-page-nums" class="d-flex flex-wrap align-items-center gap-1" role="navigation" aria-label="Pagination"></div>
+                <span class="small text-muted flex-shrink-0" id="materials-list-page-info"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="materials-list-next" data-i18n="baseModels.listNext">下一頁</button>
+            </div>
         </div>
     </div>
 
@@ -383,6 +481,7 @@
     <div id="toast-area"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/offset-list-pager.js"></script>
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
@@ -401,12 +500,15 @@
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_description: 1 };
         var editPending = { tags: null, semantics: null };
         var catalogGroupsFlat = [];
-        var catalogGroupsByKind = { prototype: [], material: [] };
+        var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
         var CATALOG_GROUPS_PREF_KEY = 'matchdo.catalogGroupsDefaultCollapsed';
         var CATALOG_GROUPS_COLLAPSE_AT = 5;
-        var catalogGroupsCollapsedByKind = { prototype: false, material: false };
-        var catalogGroupsCollapseInitedByKind = { prototype: false, material: false };
+        var catalogGroupsCollapsedByKind = { prototype: false, material: false, part: false };
+        var catalogGroupsCollapseInitedByKind = { prototype: false, material: false, part: false };
+        var MATERIALS_PAGE_SIZE_KEY = 'matchdo.vendorMaterialsPageSize';
+        var materialsListPageSize = 12;
+        var materialsListOffsetByKind = { prototype: 0, material: 0, part: 0 };
         var catalogAssetKindSplitOk = true;
 
         function tr(k, fb) {
@@ -417,7 +519,31 @@
             return fb || k;
         }
 
-        function normalizeKind(k) { return (k === 'material') ? 'material' : 'prototype'; }
+        function normalizeKind(k) {
+            if (k === 'material') return 'material';
+            if (k === 'part') return 'part';
+            return 'prototype';
+        }
+
+        function readMaterialsListPageSize() {
+            try {
+                var v = parseInt(localStorage.getItem(MATERIALS_PAGE_SIZE_KEY), 10);
+                if (v === 12 || v === 24 || v === 48) return v;
+            } catch (_) {}
+            return 12;
+        }
+
+        function setMaterialsListPageSize(n) {
+            materialsListPageSize = n;
+            try { localStorage.setItem(MATERIALS_PAGE_SIZE_KEY, String(n)); } catch (_) {}
+            document.querySelectorAll('.materials-page-size-btn').forEach(function (btn) {
+                btn.classList.toggle('active', parseInt(btn.getAttribute('data-size'), 10) === n);
+            });
+        }
+
+        function resetMaterialsListOffset(kind) {
+            materialsListOffsetByKind[normalizeKind(kind || activeKind)] = 0;
+        }
 
         function renderTagBadges(tags) {
             if (!tags || !tags.length) return '';
@@ -980,6 +1106,7 @@
         function refreshAllAssignCatalogCheckboxes() {
             renderAssignCatalogCheckboxes('prototype', []);
             renderAssignCatalogCheckboxes('material', []);
+            renderAssignCatalogCheckboxes('part', []);
         }
 
         function fillVendorCatalogFilterSelect() {
@@ -1123,6 +1250,7 @@
         function renderAllCatalogGroupsLists() {
             renderCatalogGroupsList('prototype');
             renderCatalogGroupsList('material');
+            renderCatalogGroupsList('part');
         }
 
         var catalogGroupDragId = null;
@@ -1191,10 +1319,10 @@
         }
 
         async function loadCatalogGroups() {
-            catalogGroupsByKind = { prototype: [], material: [] };
+            catalogGroupsByKind = { prototype: [], material: [], part: [] };
             catalogGroupsDbReady = true;
             catalogAssetKindSplitOk = true;
-            var kinds = ['prototype', 'material'];
+            var kinds = ['prototype', 'material', 'part'];
             try {
                 for (var ki = 0; ki < kinds.length; ki++) {
                     var k = kinds[ki];
@@ -1248,7 +1376,7 @@
         }
 
         function findCatalogGroupInKinds(id, kind) {
-            var pool = kind ? groupsForKind(kind) : (catalogGroupsByKind.prototype || []).concat(catalogGroupsByKind.material || []);
+            var pool = kind ? groupsForKind(kind) : (catalogGroupsByKind.prototype || []).concat(catalogGroupsByKind.material || []).concat(catalogGroupsByKind.part || []);
             return pool.find(function (x) { return String(x.id) === String(id); });
         }
 
@@ -1316,10 +1444,51 @@
 
         function renderGrid() {
             var grid = document.getElementById('materials-grid');
-            var list = itemsForActiveKind();
+            var fullList = itemsForActiveKind();
+            var offset = materialsListOffsetByKind[activeKind] || 0;
+            var pageSize = materialsListPageSize;
+            var total = fullList.length;
+            if (offset >= total && total > 0) {
+                offset = Math.max(0, total - (total % pageSize || pageSize));
+                materialsListOffsetByKind[activeKind] = offset;
+            }
+            var list = fullList.slice(offset, offset + pageSize);
+            var rangeEl = document.getElementById('materials-list-range');
+            if (window.MatchdoOffsetPager && window.MatchdoOffsetPager.render) {
+                window.MatchdoOffsetPager.render({
+                    pagerEl: document.getElementById('materials-list-pager'),
+                    prevEl: document.getElementById('materials-list-prev'),
+                    nextEl: document.getElementById('materials-list-next'),
+                    pageNumsEl: document.getElementById('materials-list-page-nums'),
+                    infoEl: document.getElementById('materials-list-page-info'),
+                    total: total,
+                    offset: offset,
+                    limit: pageSize,
+                    pageInfoTemplate: tr('baseModels.listPageInfo', '第 {page} / {total} 頁'),
+                    onGoToPage: function (newOffset) {
+                        materialsListOffsetByKind[activeKind] = newOffset;
+                        renderGrid();
+                    }
+                });
+            }
+            if (rangeEl) {
+                if (total) {
+                    var from = offset + 1;
+                    var to = Math.min(offset + pageSize, total);
+                    rangeEl.textContent = String(tr('baseModels.listRange', '顯示 {from}–{to}，共 {total} 項'))
+                        .replace('{from}', String(from))
+                        .replace('{to}', String(to))
+                        .replace('{total}', String(total));
+                    rangeEl.classList.remove('d-none');
+                } else {
+                    rangeEl.classList.add('d-none');
+                }
+            }
             var catNames = {};
             categories.forEach(function (c) { catNames[c.key] = c.name || c.key; });
-            var addLabel = tr('baseModels.uploadPrototype', '上傳原型');
+            var addLabel = activeKind === 'part'
+                ? tr('baseModels.uploadPart', '上傳零件')
+                : tr('baseModels.uploadPrototype', '上傳原型');
             var html = '';
             /* 材料參考：上傳表單已在上方，網格不再放佔位卡，素材從第一格起排 */
             if (!isSeedVendor && activeKind !== 'material') {
@@ -1339,7 +1508,9 @@
                 var catName = catNames[m.category_key] || m.category_key || '—';
                 var kindBadge = m.asset_kind === 'material'
                     ? '<span class="badge bg-light text-success border mb-2">' + esc(tr('baseModels.tabMaterial', '材料')) + '</span> '
-                    : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ';
+                    : (m.asset_kind === 'part'
+                        ? '<span class="badge bg-light text-warning border mb-2">' + esc(tr('baseModels.tabPart', '零件')) + '</span> '
+                        : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ');
                 if (m.from_supplier_catalog && m.supplier_name) {
                     kindBadge += '<span class="badge bg-light text-dark border mb-2"><i class="bi bi-truck me-1"></i>' + esc(tr('baseModels.fromSupplier', '供應商')) + '：' + esc(m.supplier_name) + '</span> ';
                 }
@@ -1421,7 +1592,9 @@
             var card = document.querySelector('.grid-add-card');
             if (!card || isSeedVendor) return;
             function go() {
-                var panel = document.getElementById(activeKind === 'material' ? 'add-form-panel-material' : 'add-form-panel-prototype');
+                var panelId = activeKind === 'material' ? 'add-form-panel-material'
+                    : (activeKind === 'part' ? 'add-form-panel-part' : 'add-form-panel-prototype');
+                var panel = document.getElementById(panelId);
                 if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
             card.addEventListener('click', go);
@@ -1434,12 +1607,18 @@
                 btn.classList.toggle('active', btn.getAttribute('data-kind') === activeKind);
             });
             var protoPanel = document.getElementById('panel-prototype');
+            var partPanel = document.getElementById('panel-part');
             var matPanel = document.getElementById('panel-material');
             var showProto = activeKind === 'prototype';
+            var showPart = activeKind === 'part';
             var showMat = activeKind === 'material';
             if (protoPanel) {
                 protoPanel.classList.toggle('d-none', !showProto);
                 protoPanel.hidden = !showProto;
+            }
+            if (partPanel) {
+                partPanel.classList.toggle('d-none', !showPart);
+                partPanel.hidden = !showPart;
             }
             if (matPanel) {
                 matPanel.classList.toggle('d-none', !showMat);
@@ -1509,7 +1688,7 @@
                 fd.append('ui_locale', getUiLocaleForUpload());
                 fd.append('usage_type', 'reference_only');
                 fd.append('image', file);
-                if (kind === 'prototype' && files) {
+                if ((kind === 'prototype' || kind === 'part') && files) {
                     for (var gi = 1; gi < files.length && gi < PROTOTYPE_MAX_IMAGES; gi++) {
                         fd.append('gallery', files[gi]);
                     }
@@ -1557,13 +1736,16 @@
             if (isSeedVendor) return;
             var m = materialsAll.find(function (x) { return x.id === id; });
             if (!m) return;
-            var isProto = normalizeKind(m.asset_kind) === 'prototype';
+            var kindNorm = normalizeKind(m.asset_kind);
+            var isProto = kindNorm === 'prototype';
+            var isPart = kindNorm === 'part';
+            var isProtoLike = isProto || isPart;
             document.getElementById('edit-id').value = m.id;
             document.getElementById('edit-asset-kind').value = m.asset_kind;
             document.getElementById('edit-title').value = m.title || '';
             document.getElementById('edit-description').value = m.description || '';
-            document.getElementById('edit-images-material-wrap').classList.toggle('d-none', isProto);
-            document.getElementById('edit-images-prototype-wrap').classList.toggle('d-none', !isProto);
+            document.getElementById('edit-images-material-wrap').classList.toggle('d-none', isProtoLike);
+            document.getElementById('edit-images-prototype-wrap').classList.toggle('d-none', !isProtoLike);
             var protoMetaWrap = document.getElementById('edit-prototype-meta-wrap');
             if (protoMetaWrap) protoMetaWrap.classList.toggle('d-none', !isProto);
             if (isProto) {
@@ -1578,7 +1760,7 @@
             showLocalImagePreview(document.getElementById('edit-new-image-preview-proto'), null);
             var editImgWrap = document.getElementById('edit-current-image-wrap');
             var editImg = document.getElementById('edit-current-image');
-            if (!isProto && m.image_url && editImgWrap && editImg) {
+            if (!isProtoLike && m.image_url && editImgWrap && editImg) {
                 editImgWrap.classList.remove('d-none');
                 editImg.src = m.image_url;
                 editImg.alt = m.title || '';
@@ -1586,7 +1768,7 @@
                 editImgWrap.classList.add('d-none');
                 if (editImg) editImg.src = '';
             }
-            if (isProto) renderEditGallery(m);
+            if (isProtoLike) renderEditGallery(m);
             document.getElementById('edit-optimize-image').checked = false;
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
             editPending.semantics = m.image_semantics_json || null;
@@ -1893,6 +2075,35 @@
                 openSupplierImportModal();
             });
         }
+
+        setMaterialsListPageSize(readMaterialsListPageSize());
+        document.querySelectorAll('.materials-page-size-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var n = parseInt(btn.getAttribute('data-size'), 10);
+                if (n !== 12 && n !== 24 && n !== 48) return;
+                setMaterialsListPageSize(n);
+                resetMaterialsListOffset(activeKind);
+                renderGrid();
+            });
+        });
+        var materialsPrev = document.getElementById('materials-list-prev');
+        var materialsNext = document.getElementById('materials-list-next');
+        if (materialsPrev) {
+            materialsPrev.addEventListener('click', function () {
+                materialsListOffsetByKind[activeKind] = Math.max(0, (materialsListOffsetByKind[activeKind] || 0) - materialsListPageSize);
+                renderGrid();
+            });
+        }
+        if (materialsNext) {
+            materialsNext.addEventListener('click', function () {
+                materialsListOffsetByKind[activeKind] = (materialsListOffsetByKind[activeKind] || 0) + materialsListPageSize;
+                renderGrid();
+            });
+        }
+        ['filter-vendor-catalog', 'filter-category'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('change', function () { resetMaterialsListOffset(activeKind); renderGrid(); });
+        });
 
         async function init() {
             initPrototypeMetaFields();

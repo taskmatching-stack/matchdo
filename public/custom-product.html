@@ -183,6 +183,7 @@
                         <p id="vendorAssetsPickerCategoryMfrHint" class="text-muted small mb-0 mt-1 d-none" data-i18n="customProduct.vendorPickerCategoryMfrHint">變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。</p>
                     </div>
                     <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊圖片加入參考圖；雙擊或按 🔍 放大。</p>
+                    <div id="vendorAssetsPickerMultiVendorHint" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="status"></div>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
                         <div class="row g-2 align-items-end mb-2">
                             <div class="col-md-8">
@@ -194,6 +195,7 @@
                                 <select class="form-select form-select-sm" id="vendorAssetsAssetKind">
                                     <option value="" data-i18n="customProduct.assetKindAll">全部</option>
                                     <option value="prototype" data-i18n="customProduct.assetKindPrototype">數位原型</option>
+                                    <option value="part" data-i18n="customProduct.assetKindPart">配件／零件</option>
                                     <option value="material" data-i18n="customProduct.assetKindMaterial">材料參考</option>
                                 </select>
                             </div>
@@ -227,9 +229,11 @@
                                         <option value="beige" label="米／杏"></option>
                                     </datalist>
                                 </div>
-                                <div class="col-6 col-md-4 vendor-picker-mfr-name-cell">
+                                <div class="col-6 col-md-4 vendor-picker-mfr-name-cell position-relative">
                                     <label class="form-label small text-muted mb-0" for="vendorAssetsManufacturerName" data-i18n="customProduct.filterVendorName">廠商名稱</label>
-                                    <input type="search" class="form-control form-control-sm" id="vendorAssetsManufacturerName" data-i18n-placeholder="customProduct.vendorNamePlaceholder" placeholder="輸入廠商名稱">
+                                    <input type="search" class="form-control form-control-sm" id="vendorAssetsManufacturerName" autocomplete="off" data-i18n-placeholder="customProduct.vendorNamePlaceholder" placeholder="輸入廠商名稱">
+                                    <input type="hidden" id="vendorAssetsManufacturerId" value="">
+                                    <div id="vendorAssetsManufacturerSuggest" class="vendor-mfr-suggest-list list-group position-absolute w-100 shadow-sm d-none" role="listbox" style="z-index:1056;max-height:240px;overflow-y:auto;top:100%"></div>
                                 </div>
                                 <div class="col-6 col-md-4 vendor-picker-area-cell">
                                     <label class="form-label small text-muted mb-0" for="vendorAssetsServiceArea" data-i18n="customProduct.filterServiceArea">服務區域</label>
@@ -269,7 +273,24 @@
                             <button type="button" class="btn btn-outline-secondary btn-sm" id="vendorAssetsClearFilter" data-i18n="customProduct.clearFilter">清除</button>
                         </div>
                     </div>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <p id="vendorAssetsListRange" class="text-muted small mb-0 d-none"></p>
+                        <div class="d-flex flex-wrap align-items-center gap-2 ms-auto">
+                            <span class="small text-muted" data-i18n="customProduct.listPageSize">每頁顯示</span>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-secondary vendor-picker-page-size-btn active" data-size="12">12</button>
+                                <button type="button" class="btn btn-outline-secondary vendor-picker-page-size-btn" data-size="24">24</button>
+                                <button type="button" class="btn btn-outline-secondary vendor-picker-page-size-btn" data-size="48">48</button>
+                            </div>
+                        </div>
+                    </div>
                     <div id="vendorAssetsList" class="row g-3"></div>
+                    <div id="vendorAssetsListPager" class="d-flex flex-wrap align-items-center justify-content-center gap-2 mt-2 d-none">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="vendorAssetsListPrev" data-i18n="customProduct.listPrev">上一頁</button>
+                        <div id="vendorAssetsListPageNums" class="d-flex flex-wrap align-items-center gap-1" role="navigation" aria-label="Pagination"></div>
+                        <span class="small text-muted flex-shrink-0" id="vendorAssetsListPageInfo"></span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="vendorAssetsListNext" data-i18n="customProduct.listNext">下一頁</button>
+                    </div>
                     <p id="vendorAssetsEmpty" class="text-muted small mb-0 d-none">此分類下尚無廠商素材。</p>
                     <p id="vendorAssetsLoading" class="text-muted small mb-0 d-none">載入中…</p>
                 </div>
@@ -574,6 +595,11 @@
         #vendorAssetsPickerModal .vendor-asset-mfr-link { cursor: pointer; }
         #vendorAssetsPickerModal .vendor-asset-mfr-search-btn { line-height: 1; color: #64748b; }
         #vendorAssetsPickerModal .vendor-asset-mfr-search-btn:hover { color: var(--bs-primary, #0d9488); }
+        #vendorAssetsPickerModal .vendor-asset-mfr-logo { width: 22px; height: 22px; object-fit: cover; border-radius: 4px; }
+        #vendorAssetsPickerModal .vendor-asset-mfr-logo--ph { font-size: .75rem; }
+        #vendorAssetsPickerModal .vendor-mfr-suggest-item { cursor: pointer; display: flex; align-items: center; gap: .5rem; padding: .4rem .65rem; }
+        #vendorAssetsPickerModal .vendor-mfr-suggest-logo { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        #vendorAssetsPickerModal .vendor-mfr-suggest-logo--ph { font-size: .85rem; }
         #vendorAssetsPickerModal .vendor-picker-category-banner { border-color: #e2e8f0 !important; }
         #vendorAssetsPickerModal .vendor-picker-more-filters summary { cursor: pointer; }
         #vendorAssetsPickerModal .vendor-picker-more-filters[open] summary { margin-bottom: 0.25rem; }
@@ -918,7 +944,8 @@
     <!-- Template Javascript -->
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
-    <script src="js/custom-product.js?v=15" defer></script>
+    <script src="/js/offset-list-pager.js" defer></script>
+    <script src="js/custom-product.js?v=17" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 

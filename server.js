@@ -428,12 +428,38 @@ function buildInspirationTagsBlockHtml(tags) {
 
 function normalizeVendorAssetKind(raw) {
     const k = String(raw || '').trim().toLowerCase();
-    return k === 'material' ? 'material' : 'prototype';
+    if (k === 'material') return 'material';
+    if (k === 'part') return 'part';
+    return 'prototype';
+}
+
+/** 設計端／廠商端素材列表分頁（每頁 12 / 24 / 48，預設 12） */
+function parseVendorAssetsListPageParams(query) {
+    const allowed = [12, 24, 48];
+    let limit = parseInt(query && query.limit, 10);
+    if (!allowed.includes(limit)) limit = 12;
+    let offset = parseInt(query && query.offset, 10);
+    if (!Number.isFinite(offset) || offset < 0) offset = 0;
+    return { limit, offset };
+}
+
+function paginateVendorAssetList(list, page) {
+    const items = Array.isArray(list) ? list : [];
+    const total = items.length;
+    const limit = page.limit;
+    const offset = Math.min(page.offset, Math.max(0, total));
+    return {
+        items: items.slice(offset, offset + limit),
+        total,
+        limit,
+        offset
+    };
 }
 
 /** 數位原型部位（選填、不強制枚舉）；材料參考一律 null */
 function normalizeVendorPartKey(raw, assetKind) {
-    if (normalizeVendorAssetKind(assetKind) === 'material') return null;
+    const kind = normalizeVendorAssetKind(assetKind);
+    if (kind === 'material') return null;
     const k = String(raw || '').trim().toLowerCase();
     if (!k) return null;
     return k.slice(0, 64);
@@ -923,8 +949,9 @@ function reorderFluxReferenceInputs(referenceImages, referenceSources) {
     const rank = function (src) {
         const kind = normalizeVendorAssetKind(src && src.asset_kind);
         if (kind === 'prototype') return 0;
-        if (kind === 'material') return 1;
-        return 2;
+        if (kind === 'part') return 1;
+        if (kind === 'material') return 2;
+        return 3;
     };
     pairs.sort(function (a, b) { return rank(a.src) - rank(b.src); });
     return {
@@ -1083,10 +1110,10 @@ function normalizeVendorMaterialKey(raw) {
     return VENDOR_MATERIAL_KEYS.has(k) ? k : null;
 }
 
-/** 廠商自訂分類：prototype | material（NULL 視同 prototype） */
+/** 廠商自訂分類：prototype | material | part（NULL 視同 prototype） */
 function vendorCatalogGroupRowAssetKind(row) {
     if (!row || row.asset_kind == null || String(row.asset_kind).trim() === '') return 'prototype';
-    return normalizeVendorAssetKind(row.asset_kind) === 'material' ? 'material' : 'prototype';
+    return normalizeVendorAssetKind(row.asset_kind);
 }
 
 function matchColorKeyFromText(text) {
@@ -11172,7 +11199,8 @@ app.get('/api/vendor-assets', async (req, res) => {
         const serviceAreaCode = (req.query.service_area || '').trim() || null;
         const searchQ = (req.query.q || req.query.search || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
-        const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material') ? assetKindQ : null;
+        const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material' || assetKindQ === 'part') ? assetKindQ : null;
+        const pageParams = parseVendorAssetsListPageParams(req.query);
         const manufacturersOnly = parseTruthyBody(req.query.manufacturers_only);
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const moqFilterRaw = (req.query.min_order_quantity != null ? String(req.query.min_order_quantity) : '').trim();
@@ -11228,7 +11256,8 @@ app.get('/api/vendor-assets', async (req, res) => {
         }
         if (subcategoryKey && !assetKindFilter) {
             list = list.filter((r) => {
-                if (normalizeVendorAssetKind(r.asset_kind) === 'material') return true;
+                const rk = normalizeVendorAssetKind(r.asset_kind);
+                if (rk === 'material') return true;
                 return (r.subcategory_key || '') === subcategoryKey;
             });
         }
@@ -11236,7 +11265,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         const mfrIds = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))];
         let mfrMap = {};
         if (mfrIds.length) {
-            let mfrQ = supabase.from('manufacturers').select('id, name, vendor_source, contact_json, location, user_id, is_active, expires_at, seed_public_released_at').in('id', mfrIds);
+            let mfrQ = supabase.from('manufacturers').select('id, name, logo_url, vendor_source, contact_json, location, user_id, is_active, expires_at, seed_public_released_at').in('id', mfrIds);
             if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
             const { data: mfrs } = await mfrQ;
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
@@ -11269,6 +11298,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         const manufacturers = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))].map((id) => ({
             id,
             name: (mfrMap[id] && mfrMap[id].name) ? mfrMap[id].name : '廠商',
+            logo_url: (mfrMap[id] && mfrMap[id].logo_url) ? mfrMap[id].logo_url : null,
             profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
         })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
         if (manufacturersOnly) {
@@ -11304,6 +11334,7 @@ app.get('/api/vendor-assets', async (req, res) => {
                 customization_levels: protoMeta.customization_levels,
                 customization_level_labels: protoMeta.customization_level_labels,
                 manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
+                manufacturer_logo_url: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].logo_url) ? mfrMap[r.manufacturer_id].logo_url : null,
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
                 manufacturer_location: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].location) ? mfrMap[r.manufacturer_id].location : '',
                 manufacturer_user_id: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].user_id) ? mfrMap[r.manufacturer_id].user_id : null,
@@ -11315,7 +11346,15 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (items.length && (await vendorCatalogGroupsTableReady())) {
             itemsOut = await attachCatalogGroupIdsToAssets(items);
         }
-        res.json({ items: itemsOut, manufacturers, catalog_group_id: catalogGroupId || null });
+        const paged = paginateVendorAssetList(itemsOut, pageParams);
+        res.json({
+            items: paged.items,
+            total: paged.total,
+            limit: paged.limit,
+            offset: paged.offset,
+            manufacturers,
+            catalog_group_id: catalogGroupId || null
+        });
     } catch (e) {
         console.error('GET /api/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -11375,7 +11414,15 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         list = await enrichVendorAssetsWithSupplierMeta(manufacturerId, list || []);
         if (list && list.length) list = await attachCatalogGroupIdsToAssets(list);
         const lang = resolveVendorAssetApiLang(req);
-        res.json({ items: (list || []).map(function (row) { return mapVendorAssetForApi(row, lang); }) });
+        const pageParams = parseVendorAssetsListPageParams(req.query);
+        const mapped = (list || []).map(function (row) { return mapVendorAssetForApi(row, lang); });
+        const paged = paginateVendorAssetList(mapped, pageParams);
+        res.json({
+            items: paged.items,
+            total: paged.total,
+            limit: paged.limit,
+            offset: paged.offset
+        });
     } catch (e) {
         console.error('GET /api/me/vendor-assets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -11606,6 +11653,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
         const subcategoryKey = assetKind === 'material' ? null : ((body.subcategory_key || '').trim() || null);
+        const isPrototypeLike = assetKind === 'prototype' || assetKind === 'part';
         let title = (body.title || '').trim() || null;
         let description = (body.description || '').trim() || null;
         const uiLocaleCreate = resolveUiLocaleFromRequest(req);
@@ -11629,7 +11677,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const fileFromFields = (req.files && req.files.image && req.files.image[0]) ? req.files.image[0] : req.file;
         let file = await vendorAssetFileFromMulter(fileFromFields);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
-        const galleryUploadFiles = (assetKind === 'prototype' && req.files && req.files.gallery) ? req.files.gallery : [];
+        const galleryUploadFiles = (isPrototypeLike && req.files && req.files.gallery) ? req.files.gallery : [];
 
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
         const pointsRequired = wantsOptimize
@@ -11693,7 +11741,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 tags = fin.tags;
             }
         }
-        if (!title && semanticsJson && (assetKind === 'material' || assetKind === 'prototype')) {
+        if (!title && semanticsJson && (assetKind === 'material' || isPrototypeLike)) {
             let subcategoryNameCreate = null;
             if (assetKind === 'prototype' && subcategoryKey) {
                 subcategoryNameCreate = await lookupAiSubcategoryName(categoryKey, subcategoryKey);
@@ -11727,7 +11775,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
 
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, uploadFile);
         let galleryImages = [];
-        if (assetKind === 'prototype' && galleryUploadFiles.length) {
+        if (isPrototypeLike && galleryUploadFiles.length) {
             const maxExtra = Math.min(galleryUploadFiles.length, PROTOTYPE_GALLERY_MAX_EXTRA);
             galleryImages = await uploadVendorAssetGalleryFiles(manufacturerId, galleryUploadFiles.slice(0, maxExtra), 1);
         }
@@ -11761,6 +11809,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (assetKind === 'prototype') {
             insertPayload.min_order_quantity = prototypeMoqValue;
             insertPayload.customization_levels = prototypeCustomizationLevels;
+        } else if (assetKind === 'part') {
+            insertPayload.min_order_quantity = null;
+            insertPayload.customization_levels = [];
         }
         let galleryMigrationRequired = false;
         let prototypeMetaMigrationRequired = false;
@@ -12013,7 +12064,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.category_key !== undefined) updates.category_key = (String(body.category_key || '').trim()) || row.category_key;
         const assetKindPut = normalizeVendorAssetKind(body.asset_kind !== undefined ? body.asset_kind : row.asset_kind);
         if (body.subcategory_key !== undefined) {
-            updates.subcategory_key = assetKindPut === 'material' ? null : ((body.subcategory_key || '').trim() || null);
+            updates.subcategory_key = assetKindPut === 'material'
+                ? null
+                : ((body.subcategory_key || '').trim() || null);
         }
         if (body.title !== undefined) updates.title = (body.title || '').trim() || null;
         if (body.description !== undefined) updates.description = (body.description || '').trim() || null;
@@ -12026,7 +12079,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         }
         if (body.asset_kind !== undefined) updates.asset_kind = normalizeVendorAssetKind(body.asset_kind);
         const assetKindForPart = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
-        if (body.part_key !== undefined && assetKindForPart === 'prototype') {
+        if (body.part_key !== undefined && (assetKindForPart === 'prototype' || assetKindForPart === 'part')) {
             updates.part_key = normalizeVendorPartKey(body.part_key, assetKindForPart);
         }
         const assetKind = normalizeVendorAssetKind(updates.asset_kind || row.asset_kind);
