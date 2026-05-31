@@ -392,6 +392,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <a href="#" id="nav-my-vendor-home" class="dropdown-item d-none"><i class="bi bi-house-door me-2"></i>` + t('nav.myVendorPublicPage') + `</a>
                                 <a href="/client/manufacturer-portfolio.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.vendorPortfolio') + `</a>
                                 <a href="/client/manufacturer-materials.html" class="dropdown-item"><i class="bi bi-folder2-open me-2"></i>` + t('nav.vendorBaseModels') + `</a>
+                                <a href="/client/manufacturer-materials.html#tab-material" class="dropdown-item"><i class="bi bi-box-arrow-in-down me-2"></i>` + t('nav.importSupplierMaterials') + `</a>
                                 <a href="/client/demands.html" class="dropdown-item"><i class="bi bi-inbox me-2"></i>` + t('nav.demands') + `</a>
                                 <a href="/profile/contact-info.html" class="dropdown-item"><i class="bi bi-chat-dots me-2"></i>` + t('nav.vendorContact') + `</a>
                                 <div class="dropdown-divider"></div>
@@ -400,9 +401,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 ${showSupplierZone ? `
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
-                                <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierPortal') + `</a>
-                                <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-layers me-2"></i>` + t('nav.supplierPrototypeLib') + `</a>
-                                <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.supplierMaterialLib') + `</a>
+                                <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-truck me-2"></i>` + t('nav.supplierPortal') + `</a>
                                 ` : ''}
                             </div>
                         </div>

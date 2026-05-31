@@ -12359,8 +12359,8 @@ app.get('/api/me/capabilities', async (req, res) => {
                 isIndustrySupplier = !!indRow;
             } catch (_) { /* 表未建時忽略 */ }
         }
-        // B 線 P2 前會員端不顯示 ③ 區；改 true 時需同步 site-header nav.show_supplier_zone
-        const showSupplierZone = false;
+        // 選單顯示產業供應商說明入口（supplier-portal）；產業供應商自建上架仍為 P2
+        const showSupplierZone = true;
         res.json({
             has_manufacturer: hasManufacturer,
             manufacturer_id: mfr ? mfr.id : null,
