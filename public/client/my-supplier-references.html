@@ -20,13 +20,15 @@
             <h4 class="fw-bold mb-0" data-i18n="supplierRefs.heading">供應商引用管理</h4>
             <a href="/client/manufacturer-materials.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierRefs.backBaseModels">上傳數位版型</span></a>
         </div>
-        <p class="text-muted small" data-i18n="supplierRefs.intro">記錄您從「供應商數位產品庫」匯入、並納入自家素材庫的品項。匯入後會出現在上傳數位版型頁的已上傳清單，並標示引用自哪家供應商。</p>
+        <p class="text-muted small" data-i18n="supplierRefs.intro">記錄您從產業供應商目錄匯入、並納入「上傳數位版型」各分頁清單的品項（匯入即為該分頁的參考圖／產品圖）。</p>
 
         <div id="refs-locked" class="alert alert-warning d-none"></div>
 
         <div class="d-flex flex-wrap gap-2 mb-3">
-            <a href="/client/manufacturer-materials.html#tab-material" class="btn btn-success btn-sm"><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="supplierRefs.importMaterial">匯入材料</span></a>
-            <a href="/client/manufacturer-materials.html#tab-prototype" class="btn btn-outline-success btn-sm"><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="supplierRefs.importPrototype">匯入原型組</span></a>
+            <a href="/client/industry-suppliers.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
+            <a href="/client/manufacturer-materials.html#tab-prototype" class="btn btn-outline-primary btn-sm"><span data-i18n="baseModels.tabPrototype">數位原型</span></a>
+            <a href="/client/manufacturer-materials.html#tab-part" class="btn btn-outline-warning btn-sm"><span data-i18n="baseModels.tabPart">配件／零件</span></a>
+            <a href="/client/manufacturer-materials.html#tab-material" class="btn btn-outline-success btn-sm"><span data-i18n="baseModels.tabMaterial">材料參考</span></a>
         </div>
 
         <div class="card border-0 shadow-sm">
@@ -36,14 +38,14 @@
                     <span id="refs-count" class="badge bg-light text-dark border"></span>
                 </div>
                 <div id="refs-loading" class="text-muted small py-3" data-i18n="supplierRefs.loading">載入中…</div>
-                <div id="refs-empty" class="alert alert-light border d-none small mb-0" data-i18n="supplierRefs.empty">尚無引用。請至「上傳數位版型」在上傳區旁按「匯入供應商數位產品庫」。</div>
+                <div id="refs-empty" class="alert alert-light border d-none small mb-0" data-i18n="supplierRefs.empty">尚無引用。請至「上傳數位版型」在參考圖／產品圖區按「從供應商選取」。</div>
                 <div id="refs-table-wrap" class="table-responsive d-none">
                     <table class="table table-sm table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
                                 <th data-i18n="baseModels.importColSupplier">供應商</th>
                                 <th data-i18n="baseModels.importColProduct">品項</th>
-                                <th data-i18n="baseModels.importColKind">類型</th>
+                                <th data-i18n="baseModels.importColKind">分頁</th>
                                 <th data-i18n="baseModels.importColWhen">匯入時間</th>
                                 <th data-i18n="supplierRefs.colInLibrary">在素材庫</th>
                             </tr>
@@ -65,6 +67,16 @@
         function esc(s) {
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        }
+        function kindTabLabel(itemKind) {
+            if (itemKind === 'prototype_set') return tr('baseModels.tabPrototype', '數位原型');
+            if (itemKind === 'part') return tr('baseModels.tabPart', '配件／零件');
+            return tr('baseModels.tabMaterial', '材料參考');
+        }
+        function kindTabHash(itemKind) {
+            if (itemKind === 'prototype_set') return '#tab-prototype';
+            if (itemKind === 'part') return '#tab-part';
+            return '#tab-material';
         }
         async function getToken() {
             if (typeof AuthService === 'undefined') return null;
@@ -116,11 +128,9 @@
                 }
                 wrap.classList.remove('d-none');
                 tbody.innerHTML = items.map(function (row) {
-                    var kindLabel = row.item_kind === 'prototype_set'
-                        ? tr('baseModels.tabPrototype', '數位原型')
-                        : tr('baseModels.tabMaterial', '材料參考');
+                    var kindLabel = kindTabLabel(row.item_kind);
                     var when = row.imported_at ? String(row.imported_at).slice(0, 10) : '—';
-                    var hash = row.item_kind === 'prototype_set' ? '#tab-prototype' : '#tab-material';
+                    var hash = kindTabHash(row.item_kind);
                     var libLink = row.vendor_asset_id
                         ? '<a href="/client/manufacturer-materials.html' + hash + '" class="text-decoration-none">' + esc(tr('supplierRefs.viewInLibrary', '查看')) + '</a>'
                         : '—';
