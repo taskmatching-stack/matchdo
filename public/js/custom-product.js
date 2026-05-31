@@ -156,13 +156,25 @@ $(document).ready(function () {
         refSources = refSources.slice(0, MAX_REF_IMAGES);
     }
 
+    function selectRefIndex(idx) {
+        if (isNaN(idx) || idx < 0 || idx >= MAX_REF_IMAGES || !refDataUrls[idx]) return;
+        selectedRefIndex = idx;
+        updateRefSelection();
+    }
+
     function updateRefSelection() {
         $('#referenceImagesSlots .ref-slot').removeClass('selected');
         var slotEl = $('#referenceImagesSlots .ref-slot[data-slot="' + selectedRefIndex + '"]');
         if (slotEl.length && refDataUrls[selectedRefIndex]) slotEl.addClass('selected');
         $('#referenceImagesCards .ref-card').removeClass('ref-card-selected');
         var cardEl = $('#referenceImagesCards .ref-card[data-index="' + selectedRefIndex + '"]');
-        if (cardEl.length) cardEl.addClass('ref-card-selected');
+        if (cardEl.length) {
+            cardEl.addClass('ref-card-selected');
+            var wrap = document.querySelector('#custom-product .ref-cards-wrap');
+            if (wrap && cardEl[0] && typeof cardEl[0].scrollIntoView === 'function') {
+                cardEl[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
     }
 
     function renderRefSlots() {
@@ -176,11 +188,18 @@ $(document).ready(function () {
             if (refDataUrls[i]) {
                 slot.addClass('filled');
                 if (i === selectedRefIndex) slot.addClass('selected');
-                var slotThumb = $('<img class="ref-slot-thumb" alt="參考圖 ' + (i + 1) + '" title="點擊放大">').attr('src', refDataUrls[i]);
+                var slotThumb = $('<img class="ref-slot-thumb" alt="參考圖 ' + (i + 1) + '" title="單擊選取 · 雙擊放大">').attr('src', refDataUrls[i]);
                 slotThumb.on('click', function (ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
-                    openRefImagePreviewModal(i);
+                    var idx = parseInt($(this).closest('.ref-slot').data('slot'), 10);
+                    selectRefIndex(idx);
+                });
+                slotThumb.on('dblclick', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    var idx = parseInt($(this).closest('.ref-slot').data('slot'), 10);
+                    if (!isNaN(idx)) openRefImagePreviewModal(idx);
                 });
                 slot.append(slotThumb);
                 slot.append($('<button type="button" class="ref-slot-clear" title="移除">×</button>').on('click', function (ev) {
@@ -193,8 +212,9 @@ $(document).ready(function () {
                     updateMultiVendorRefWarning();
                 }));
                 slot.on('click', function (ev) {
+                    if ($(ev.target).closest('.ref-slot-clear').length) return;
                     var idx = parseInt($(this).data('slot'), 10);
-                    if (refDataUrls[idx]) { selectedRefIndex = idx; updateRefSelection(); }
+                    selectRefIndex(idx);
                 });
                 slot.on('dblclick', function (ev) {
                     ev.preventDefault();
@@ -228,8 +248,22 @@ $(document).ready(function () {
             for (let i = 0; i < MAX_REF_IMAGES; i++) {
                 if (!refDataUrls[i]) continue;
                 const card = $('<div class="ref-card" data-index="' + i + '"></div>');
-                var thumb = $('<img class="ref-card-thumb" alt="參考圖 ' + (i + 1) + '" title="' + (vendorPickerTr('customProduct.refClickPreview', '點擊縮圖可放大') || '點擊縮圖可放大') + '">').attr('src', refDataUrls[i]);
-                thumb.on('click', function (e) { e.preventDefault(); e.stopPropagation(); openRefImagePreviewModal(i); });
+                if (i === selectedRefIndex) card.addClass('ref-card-selected');
+                var thumb = $('<img class="ref-card-thumb" alt="參考圖 ' + (i + 1) + '" title="' + (vendorPickerTr('customProduct.refClickSelectPreview', '單擊選取 · 雙擊放大') || '單擊選取 · 雙擊放大') + '">').attr('src', refDataUrls[i]);
+                thumb.on('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectRefIndex(i);
+                });
+                thumb.on('dblclick', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openRefImagePreviewModal(i);
+                });
+                card.on('click', function (e) {
+                    if ($(e.target).closest('textarea, button, a, .btn-describe-one').length) return;
+                    selectRefIndex(i);
+                });
                 card.append(thumb);
                 const right = $('<div class="ref-card-right"></div>');
                 var labelText = '參考圖 ' + (i + 1) + ' · 從此圖產生描述';
@@ -299,6 +333,7 @@ $(document).ready(function () {
             });
             ensureRefArrays();
             refDataUrls[currentAddSlot] = dataUrl;
+            selectRefIndex(currentAddSlot);
             renderRefSlots();
             renderRefCards();
         } catch (err) {
@@ -871,6 +906,7 @@ $(document).ready(function () {
                         refDataUrls[slot] = dataUrl;
                         refSources[slot] = Object.assign({}, baseMeta, { image_url: toImport[idx] });
                     });
+                    if (emptySlots.length) selectRefIndex(emptySlots[0]);
                     renderRefSlots();
                     renderRefCards();
                     updateMultiVendorRefWarning();
