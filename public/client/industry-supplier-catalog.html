@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title data-i18n="supplierCatalog.pageTitle">供應商產品庫 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container py-4" style="max-width: 960px;">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+            <div>
+                <a href="/client/industry-suppliers.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierCatalog.backList">返回供應商目錄</span></a>
+                <h4 class="fw-bold mb-1" id="supplier-title">—</h4>
+                <p class="text-muted small mb-0" id="supplier-desc"></p>
+            </div>
+            <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm"><i class="bi bi-list-check me-1"></i><span data-i18n="nav.mySupplierReferences">我的引用清單</span></a>
+        </div>
+        <p class="text-muted small mb-3" data-i18n="supplierCatalog.intro">在此瀏覽並匯入品項；匯入後會列入「供應商引用管理」，並納入您的素材庫。</p>
+        <div id="gate-alert" class="alert alert-warning d-none"></div>
+        <ul class="nav nav-tabs mb-3" id="kind-tabs">
+            <li class="nav-item"><button type="button" class="nav-link active" data-kind="material"><span data-i18n="baseModels.tabMaterial">材料參考</span></button></li>
+            <li class="nav-item"><button type="button" class="nav-link" data-kind="prototype_set"><span data-i18n="baseModels.tabPrototype">數位原型</span></button></li>
+            <li class="nav-item"><button type="button" class="nav-link" data-kind="part"><span data-i18n="baseModels.tabPart">配件／零件</span></button></li>
+        </ul>
+        <div id="catalog-loading" class="text-muted small py-4" data-i18n="supplierCatalog.loading">載入中…</div>
+        <div id="catalog-empty" class="alert alert-light border d-none small">
+            <span data-i18n="supplierCatalog.empty">此分類尚無品項。</span>
+            <span class="d-block mt-2 text-muted" data-i18n="supplierCatalog.seedHint">管理員可執行 <code>docs/seed-industry-supplier-materials.sql</code> 建立示範資料（含材料、數位原型、配件／零件）。</span>
+        </div>
+        <div id="catalog-grid" class="row g-3 d-none"></div>
+    </div>
+    <div id="toast-area" class="position-fixed bottom-0 end-0 p-3" style="z-index:1080"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+    (function () {
+        var supplierId = new URLSearchParams(window.location.search).get('id') || '';
+        var activeKind = 'material';
+        var token = null;
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) { var v = window.i18n.t(k); if (v && v !== k) return v; }
+            return fb || k;
+        }
+        function esc(s) {
+            if (s == null) return '';
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        }
+        function showToast(msg, type) {
+            type = type || 'success';
+            var area = document.getElementById('toast-area');
+            var id = 't' + Date.now();
+            area.insertAdjacentHTML('beforeend', '<div id="' + id + '" class="toast align-items-center text-white bg-' + type + ' border-0 show mb-2"><div class="d-flex"><div class="toast-body">' + esc(msg) + '</div></div></div>');
+            setTimeout(function () { var el = document.getElementById(id); if (el) el.remove(); }, 3500);
+        }
+        async function getToken() {
+            if (typeof AuthService === 'undefined') return null;
+            try {
+                var s = await AuthService.getSession();
+                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
+            } catch (e) { return null; }
+        }
+        async function loadCatalog() {
+            var loading = document.getElementById('catalog-loading');
+            var empty = document.getElementById('catalog-empty');
+            var grid = document.getElementById('catalog-grid');
+            loading.classList.remove('d-none');
+            empty.classList.add('d-none');
+            grid.classList.add('d-none');
+            grid.innerHTML = '';
+            try {
+                var url = '/api/me/supplier-catalog-items?item_kind=' + encodeURIComponent(activeKind) + '&supplier_id=' + encodeURIComponent(supplierId);
+                var r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) throw new Error(data.error || tr('supplierCatalog.loadFailed', '載入失敗'));
+                var items = data.items || [];
+                if (!items.length) empty.classList.remove('d-none');
+                else {
+                    grid.classList.remove('d-none');
+                    grid.innerHTML = items.map(function (item) {
+                        var btn = item.already_imported
+                            ? '<button type="button" class="btn btn-sm btn-outline-secondary" disabled>' + esc(tr('baseModels.alreadyImported', '已匯入')) + '</button>'
+                            : '<button type="button" class="btn btn-sm btn-success btn-import" data-id="' + esc(item.id) + '">' + esc(tr('supplierCatalog.importBtn', '匯入')) + '</button>';
+                        return '<div class="col-md-4"><div class="card h-100">' +
+                            (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top" style="height:140px;object-fit:cover" alt="">' : '') +
+                            '<div class="card-body p-3"><div class="fw-semibold mb-1">' + esc(item.title || '') + '</div>' +
+                            '<p class="small text-muted mb-2">' + esc(item.description || '') + '</p>' + btn + '</div></div></div>';
+                    }).join('');
+                    grid.querySelectorAll('.btn-import').forEach(function (b) {
+                        b.addEventListener('click', function () { doImport(b.getAttribute('data-id')); });
+                    });
+                }
+            } catch (e) {
+                document.getElementById('gate-alert').textContent = e.message;
+                document.getElementById('gate-alert').classList.remove('d-none');
+            } finally {
+                loading.classList.add('d-none');
+            }
+        }
+        async function doImport(catalogItemId) {
+            try {
+                var r = await fetch('/api/me/supplier-catalog-imports', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ catalog_item_id: catalogItemId })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 409) {
+                    showToast(tr('baseModels.supplierAlreadyInList', '已匯入，請見引用清單'), 'info');
+                    await loadCatalog();
+                    return;
+                }
+                if (!r.ok) throw new Error(data.error || tr('baseModels.importFailed', '匯入失敗'));
+                showToast(tr('supplierCatalog.importOk', '已匯入，可至「供應商引用管理」查看'), 'success');
+                await loadCatalog();
+            } catch (e) { showToast(e.message, 'danger'); }
+        }
+        async function init() {
+            await ((window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve());
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            if (!supplierId) {
+                window.location.href = '/client/industry-suppliers.html';
+                return;
+            }
+            token = await getToken();
+            if (!token) {
+                window.location.href = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
+                    ? AuthService.getLoginUrl(window.location.pathname + window.location.search)
+                    : '/login.html';
+                return;
+            }
+            var gate = document.getElementById('gate-alert');
+            try {
+                var capR = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
+                var cap = await capR.json().catch(function () { return {}; });
+                if (!cap.has_manufacturer) {
+                    gate.innerHTML = esc(tr('baseModels.needManufacturerForImport', '請先建立廠商資料')) +
+                        ' <a href="/client/manufacturer-dashboard.html" class="alert-link">' + esc(tr('supplierPortal.goMfrDashboard', '製造商控制台')) + '</a>';
+                    gate.classList.remove('d-none');
+                    return;
+                }
+                if ((cap.portfolio_count || 0) < 1 && !cap.bypass_supplier_portfolio_gate) {
+                    gate.innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品')) +
+                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '上傳展示案例')) + '</a>';
+                    gate.classList.remove('d-none');
+                    return;
+                }
+                var supR = await fetch('/api/me/industry-suppliers', { headers: { Authorization: 'Bearer ' + token } });
+                var supData = await supR.json().catch(function () { return {}; });
+                var sup = (supData.items || []).find(function (s) { return s.id === supplierId; });
+                if (sup) {
+                    document.getElementById('supplier-title').textContent = sup.name || '—';
+                    document.getElementById('supplier-desc').textContent = sup.description || '';
+                }
+                var hashKind = (window.location.hash || '').replace('#', '');
+                if (hashKind === 'prototype' || hashKind === 'prototype_set') activeKind = 'prototype_set';
+                else if (hashKind === 'part') activeKind = 'part';
+                else if (hashKind === 'material') activeKind = 'material';
+                document.querySelectorAll('#kind-tabs .nav-link').forEach(function (btn) {
+                    btn.classList.toggle('active', btn.getAttribute('data-kind') === activeKind);
+                });
+                document.querySelectorAll('#kind-tabs .nav-link').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        activeKind = btn.getAttribute('data-kind');
+                        document.querySelectorAll('#kind-tabs .nav-link').forEach(function (b) { b.classList.toggle('active', b === btn); });
+                        loadCatalog();
+                    });
+                });
+                await loadCatalog();
+            } catch (e) {
+                gate.textContent = e.message;
+                gate.classList.remove('d-none');
+            }
+        }
+        init();
+    })();
+    </script>
+</body>
+</html>

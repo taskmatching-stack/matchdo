@@ -6,7 +6,7 @@ INSERT INTO public.industry_suppliers (id, name, description, contact_json, is_a
 VALUES (
     'a0000000-0000-4000-8000-000000000001',
     '示範布料供應商',
-    '平台示範用產業供應商，供製造商測試「導入材料」。',
+    '平台示範用產業供應商（材料、數位原型、配件／零件範例）。',
     '{"phone":"02-0000-0000","email":"demo-supplier@matchdo.app"}'::jsonb,
     true
 )
@@ -38,5 +38,29 @@ INSERT INTO public.supplier_catalog_items (
     'bags',
     true,
     1
+),
+(
+    'b0000000-0000-4000-8000-000000000003',
+    'a0000000-0000-4000-8000-000000000001',
+    'prototype_set',
+    '示範襯衫原型－修身',
+    '供製造商匯入為數位原型參考。',
+    'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800',
+    '{"style":"shirt","fit":"slim"}'::jsonb,
+    'apparel',
+    true,
+    2
+),
+(
+    'b0000000-0000-4000-8000-000000000004',
+    'a0000000-0000-4000-8000-000000000001',
+    'part',
+    '金屬 D 扣－霧銀',
+    '箱包、服飾五金配件範例。',
+    'https://images.unsplash.com/photo-1627123424574-724758594e93?w=800',
+    '{"part_type":"hardware","finish":"matte silver"}'::jsonb,
+    'bags',
+    true,
+    3
 )
 ON CONFLICT (id) DO NOTHING;

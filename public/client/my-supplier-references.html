@@ -12,42 +12,48 @@
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
+    <style>
+        .ref-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; background: #eee; }
+    </style>
 </head>
 <body>
     <div id="site-header"></div>
     <div class="container py-4" style="max-width: 960px;">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
             <h4 class="fw-bold mb-0" data-i18n="supplierRefs.heading">供應商引用管理</h4>
-            <a href="/client/manufacturer-materials.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierRefs.backBaseModels">上傳數位版型</span></a>
+            <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierRefs.backDashboard">製造商控制台</span></a>
         </div>
-        <p class="text-muted small" data-i18n="supplierRefs.intro">記錄您從產業供應商目錄匯入、並納入「上傳數位版型」各分頁清單的品項（匯入即為該分頁的參考圖／產品圖）。</p>
+        <p class="text-muted small" data-i18n="supplierRefs.intro">您已從產業供應商匯入的品項清單（僅查詢與管理，與上傳頁無關）。要新增引用請至「產業供應商目錄」瀏覽並匯入。</p>
 
         <div id="refs-locked" class="alert alert-warning d-none"></div>
 
-        <div class="d-flex flex-wrap gap-2 mb-3">
-            <a href="/client/industry-suppliers.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
-            <a href="/client/manufacturer-materials.html#tab-prototype" class="btn btn-outline-primary btn-sm"><span data-i18n="baseModels.tabPrototype">數位原型</span></a>
-            <a href="/client/manufacturer-materials.html#tab-part" class="btn btn-outline-warning btn-sm"><span data-i18n="baseModels.tabPart">配件／零件</span></a>
-            <a href="/client/manufacturer-materials.html#tab-material" class="btn btn-outline-success btn-sm"><span data-i18n="baseModels.tabMaterial">材料參考</span></a>
+        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+            <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="supplierRefs.browseCatalog">瀏覽產業供應商目錄</span></a>
+            <div class="btn-group btn-group-sm" role="group" id="filter-kind">
+                <button type="button" class="btn btn-outline-secondary active" data-filter="all" data-i18n="supplierRefs.filterAll">全部</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="prototype_set" data-i18n="baseModels.tabPrototype">數位原型</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="part" data-i18n="baseModels.tabPart">配件／零件</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="material" data-i18n="baseModels.tabMaterial">材料參考</button>
+            </div>
         </div>
 
         <div class="card border-0 shadow-sm">
             <div class="card-body py-3">
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                     <h6 class="fw-semibold mb-0" data-i18n="supplierRefs.listTitle">我的引用清單</h6>
-                    <span id="refs-count" class="badge bg-light text-dark border"></span>
+                    <span id="refs-count" class="badge bg-light text-dark border">0</span>
                 </div>
                 <div id="refs-loading" class="text-muted small py-3" data-i18n="supplierRefs.loading">載入中…</div>
-                <div id="refs-empty" class="alert alert-light border d-none small mb-0" data-i18n="supplierRefs.empty">尚無引用。請至「上傳數位版型」在參考圖／產品圖區按「從供應商選取」。</div>
+                <div id="refs-empty" class="alert alert-light border d-none small mb-0" data-i18n="supplierRefs.empty">尚無引用。請按「瀏覽產業供應商目錄」選擇供應商並匯入品項。</div>
                 <div id="refs-table-wrap" class="table-responsive d-none">
                     <table class="table table-sm table-hover align-middle mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th style="width:56px"></th>
                                 <th data-i18n="baseModels.importColSupplier">供應商</th>
                                 <th data-i18n="baseModels.importColProduct">品項</th>
-                                <th data-i18n="baseModels.importColKind">分頁</th>
+                                <th data-i18n="baseModels.importColKind">分類</th>
                                 <th data-i18n="baseModels.importColWhen">匯入時間</th>
-                                <th data-i18n="supplierRefs.colInLibrary">在素材庫</th>
                             </tr>
                         </thead>
                         <tbody id="refs-tbody"></tbody>
@@ -60,6 +66,8 @@
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
+        var allItems = [];
+        var filterKind = 'all';
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) { var v = window.i18n.t(k); if (v && v !== k) return v; }
             return fb || k;
@@ -68,15 +76,10 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
-        function kindTabLabel(itemKind) {
+        function kindLabel(itemKind) {
             if (itemKind === 'prototype_set') return tr('baseModels.tabPrototype', '數位原型');
             if (itemKind === 'part') return tr('baseModels.tabPart', '配件／零件');
             return tr('baseModels.tabMaterial', '材料參考');
-        }
-        function kindTabHash(itemKind) {
-            if (itemKind === 'prototype_set') return '#tab-prototype';
-            if (itemKind === 'part') return '#tab-part';
-            return '#tab-material';
         }
         async function getToken() {
             if (typeof AuthService === 'undefined') return null;
@@ -85,61 +88,73 @@
                 return (s && (s.access_token || (s.session && s.session.access_token))) || null;
             } catch (e) { return null; }
         }
+        function renderTable() {
+            var tbody = document.getElementById('refs-tbody');
+            var wrap = document.getElementById('refs-table-wrap');
+            var empty = document.getElementById('refs-empty');
+            var countEl = document.getElementById('refs-count');
+            var list = allItems.filter(function (row) {
+                return filterKind === 'all' || row.item_kind === filterKind;
+            });
+            if (countEl) countEl.textContent = String(list.length);
+            if (!list.length) {
+                wrap.classList.add('d-none');
+                empty.classList.remove('d-none');
+                return;
+            }
+            empty.classList.add('d-none');
+            wrap.classList.remove('d-none');
+            tbody.innerHTML = list.map(function (row) {
+                var when = row.imported_at ? String(row.imported_at).slice(0, 10) : '—';
+                var thumb = row.cover_image_url
+                    ? '<img src="' + esc(row.cover_image_url) + '" class="ref-thumb" alt="">'
+                    : '<span class="ref-thumb d-inline-block"></span>';
+                return '<tr><td>' + thumb + '</td><td class="text-success fw-medium">' + esc(row.supplier_name || '—') + '</td><td>' + esc(row.catalog_title || '—') + '</td><td>' + esc(kindLabel(row.item_kind)) + '</td><td class="text-muted small">' + esc(when) + '</td></tr>';
+            }).join('');
+        }
         async function init() {
             var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
             await ready;
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
-            var token = await getToken();
-            if (!token) {
-                var loginUrl = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
-                    ? AuthService.getLoginUrl(window.location.pathname)
-                    : '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname);
-                window.location.href = loginUrl;
-                return;
-            }
-            var locked = document.getElementById('refs-locked');
             var loading = document.getElementById('refs-loading');
-            var empty = document.getElementById('refs-empty');
-            var wrap = document.getElementById('refs-table-wrap');
-            var tbody = document.getElementById('refs-tbody');
-            var countEl = document.getElementById('refs-count');
+            var locked = document.getElementById('refs-locked');
             try {
+                var token = await getToken();
+                if (!token) {
+                    window.location.href = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
+                        ? AuthService.getLoginUrl(window.location.pathname)
+                        : '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname);
+                    return;
+                }
                 var capR = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
                 var cap = await capR.json().catch(function () { return {}; });
                 if (!cap.has_manufacturer) {
-                    locked.textContent = tr('baseModels.needManufacturerForImport', '請先建立廠商資料');
+                    locked.innerHTML = esc(tr('baseModels.needManufacturerForImport', '請先建立廠商資料')) +
+                        ' <a href="/client/manufacturer-dashboard.html" class="alert-link">' + esc(tr('supplierPortal.goMfrDashboard', '製造商控制台')) + '</a>';
                     locked.classList.remove('d-none');
-                    loading.classList.add('d-none');
                     return;
                 }
                 var r = await fetch('/api/me/supplier-catalog-imports', { headers: { Authorization: 'Bearer ' + token } });
                 var data = await r.json().catch(function () { return {}; });
-                loading.classList.add('d-none');
                 if (!r.ok) {
                     locked.textContent = data.error || tr('supplierRefs.loadFailed', '載入失敗');
                     locked.classList.remove('d-none');
                     return;
                 }
-                var items = data.items || [];
-                if (countEl) countEl.textContent = String(items.length);
-                if (!items.length) {
-                    empty.classList.remove('d-none');
-                    return;
-                }
-                wrap.classList.remove('d-none');
-                tbody.innerHTML = items.map(function (row) {
-                    var kindLabel = kindTabLabel(row.item_kind);
-                    var when = row.imported_at ? String(row.imported_at).slice(0, 10) : '—';
-                    var hash = kindTabHash(row.item_kind);
-                    var libLink = row.vendor_asset_id
-                        ? '<a href="/client/manufacturer-materials.html' + hash + '" class="text-decoration-none">' + esc(tr('supplierRefs.viewInLibrary', '查看')) + '</a>'
-                        : '—';
-                    return '<tr><td class="text-success fw-medium">' + esc(row.supplier_name || '—') + '</td><td>' + esc(row.catalog_title || '—') + '</td><td>' + esc(kindLabel) + '</td><td class="text-muted small">' + esc(when) + '</td><td>' + libLink + '</td></tr>';
-                }).join('');
+                allItems = data.items || [];
+                renderTable();
+                document.querySelectorAll('#filter-kind button').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        filterKind = btn.getAttribute('data-filter');
+                        document.querySelectorAll('#filter-kind button').forEach(function (b) { b.classList.toggle('active', b === btn); });
+                        renderTable();
+                    });
+                });
             } catch (e) {
-                loading.classList.add('d-none');
-                locked.textContent = e.message;
+                locked.textContent = e.message || tr('supplierRefs.loadFailed', '載入失敗');
                 locked.classList.remove('d-none');
+            } finally {
+                loading.classList.add('d-none');
             }
         }
         init();

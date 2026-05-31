@@ -2,60 +2,91 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title data-i18n="supplierPortal.pageTitle">產業供應商入口 - MatchDO 合做</title>
+    <title data-i18n="supplierPortal.pageTitle">產業供應商說明 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <link href="../img/favicon.ico" rel="icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
 </head>
 <body>
     <div id="site-header"></div>
-    <div class="container py-5" style="max-width: 800px;">
-        <h4 class="fw-bold mb-3" data-i18n="supplierPortal.heading">產業供應商（B 線）</h4>
-        <p class="text-muted" data-i18n="supplierPortal.intro">此角色與「入駐製造商」不同：產業供應商維護上游材料目錄；製造商在後台「導入」後，才會變成自己對訂製者公開的「材料參考」。訂製者設計頁看不到產業供應商目錄。</p>
+    <div class="container py-4" style="max-width: 800px;">
+        <h4 class="fw-bold mb-2" data-i18n="supplierPortal.heading">產業供應商（B 線）說明</h4>
+        <p class="text-muted small mb-3" data-i18n="supplierPortal.introShort">同一組登入帳號；是否為製造商或產業供應商由平台在資料庫綁定，無須另註冊。</p>
 
-        <div class="alert alert-info border-0 small mb-4">
-            <h6 class="alert-heading fw-semibold mb-2" data-i18n="supplierPortal.accountTitle">帳號不分角色，靠資料庫綁定</h6>
-            <p class="mb-2" data-i18n="supplierPortal.accountBody">註冊只有一種登入帳號。是否為「製造商」看 <code>manufacturers.user_id</code>；是否為「產業供應商」看 <code>industry_suppliers.user_id</code>。同一人可同時是製造商與供應商。</p>
-            <ul class="mb-0 ps-3">
-                <li data-i18n="supplierPortal.roleManufacturer">製造商：建立廠商資料且上傳至少 1 件展示作品後，可在「材料參考」瀏覽並導入其他產業供應商材料。</li>
-                <li data-i18n="supplierPortal.roleIndustry">產業供應商：管理員將您的 UUID 寫入 <code>industry_suppliers.user_id</code> 後，用下方「管理我的材料目錄」上架。</li>
-            </ul>
+        <div id="login-banner" class="alert alert-primary d-none mb-3">
+            <span data-i18n="supplierPortal.pleaseLogin">請先登入以使用下方功能。</span>
+            <a href="/login.html" id="login-link" class="btn btn-primary btn-sm ms-2" data-i18n="nav.login">登入</a>
+        </div>
+        <div id="user-banner" class="alert alert-light border small d-none mb-3">
+            <span data-i18n="supplierPortal.loggedInAs">已登入：</span> <span id="user-email" class="fw-medium"></span>
         </div>
 
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body">
-                <h6 class="fw-semibold mb-2"><i class="bi bi-download me-2 text-success"></i><span data-i18n="supplierPortal.importTitle">製造商：導入產業供應商材料</span></h6>
-                <p class="small text-muted mb-2" data-i18n="supplierPortal.importSteps">登入 → 若尚未有廠商資料請先至製造商控制台建立 →「上傳數位版型」→「材料參考」→「瀏覽供應商材料」→ 導入。</p>
-                <a href="/client/manufacturer-materials.html#tab-material" class="btn btn-success btn-sm me-2"><i class="bi bi-box-arrow-in-right me-1"></i><span data-i18n="supplierPortal.openMaterialsPage">匯入供應商數位產品庫</span></a>
-                <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm"><i class="bi bi-link-45deg me-1"></i><span data-i18n="nav.mySupplierReferences">供應商引用管理</span></a>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100 border-start border-primary border-4">
+                    <div class="card-body">
+                        <h6 class="fw-semibold mb-2"><i class="bi bi-shop me-2 text-primary"></i><span data-i18n="supplierPortal.cardManufacturer">我是製造商（接單廠商）</span></h6>
+                        <p class="small text-muted mb-3" data-i18n="supplierPortal.cardManufacturerBody">瀏覽上游供應商產品庫並匯入到自家素材；訂製者只看得到您公開的素材，看不到供應商目錄。</p>
+                        <div class="d-flex flex-column gap-2">
+                            <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
+                            <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm"><i class="bi bi-list-check me-1"></i><span data-i18n="nav.mySupplierReferences">供應商引用管理</span></a>
+                            <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-speedometer2 me-1"></i><span data-i18n="supplierPortal.goMfrDashboard">製造商控制台</span></a>
+                        </div>
+                        <p class="small text-muted mt-3 mb-0" data-i18n="supplierPortal.mfrNote">匯入後若要在設計頁當參考圖，請至「上傳數位版型」各分頁使用；本區以「目錄／清單」為主。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100 border-start border-success border-4">
+                    <div class="card-body">
+                        <h6 class="fw-semibold mb-2"><i class="bi bi-truck me-2 text-success"></i><span data-i18n="supplierPortal.cardSupplier">我是產業供應商（上游）</span></h6>
+                        <p class="small text-muted mb-3" data-i18n="supplierPortal.cardSupplierBody">在此上架數位產品庫（材料、數位原型、配件／零件）。須由管理員將您的帳號綁定 <code>industry_suppliers.user_id</code> 後才能上架。</p>
+                        <div class="d-flex flex-column gap-2">
+                            <a href="/client/industry-supplier-dashboard.html" class="btn btn-success btn-sm"><i class="bi bi-speedometer2 me-1"></i><span data-i18n="nav.supplierDashboard">供應商控制台</span></a>
+                            <a href="/client/supplier-catalog-manage.html" class="btn btn-outline-success btn-sm"><i class="bi bi-box-seam me-1"></i><span data-i18n="supplierPortal.uploadProducts">管理數位產品庫（上架）</span></a>
+                        </div>
+                        <p class="small text-muted mt-3 mb-0" data-i18n="supplierPortal.supplierUploadWhere">產品上架入口：<strong>管理數位產品庫</strong>（非製造商的上傳數位版型頁）。</p>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm mb-3">
-            <div class="card-body">
-                <h6 class="fw-semibold mb-2"><i class="bi bi-box-seam me-2 text-muted"></i><span data-i18n="supplierPortal.manageTitle">上游供應商上架（一般製造商可略過）</span></h6>
-                <p class="small text-muted mb-2" data-i18n="supplierPortal.manageHint">僅「產業供應商」公司需由平台代營或管理員開通後上架目錄；接單製造商只需使用上方「導入」即可，不必綁定帳號。</p>
-                <a href="/client/industry-supplier-dashboard.html" class="btn btn-success btn-sm"><i class="bi bi-speedometer2 me-1"></i><span data-i18n="nav.supplierDashboard">供應商控制台</span></a>
-            </div>
-        </div>
-
-        <p class="small text-muted mb-4">
-            <span data-i18n="supplierPortal.urlLabel">本頁網址：</span>
-            <a href="/client/supplier-portal.html">https://matchdo.cc/client/supplier-portal.html</a>
-        </p>
-        <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">製造商控制台</span></a>
+        <details class="small text-muted mt-4">
+            <summary data-i18n="supplierPortal.adminSeedSummary">管理員：示範資料（範例檔）</summary>
+            <p class="mt-2 mb-0" data-i18n="supplierPortal.adminSeedBody">在 Supabase SQL Editor 執行 <code>docs/seed-industry-supplier-materials.sql</code>，會建立「示範布料供應商」及材料、數位原型、配件／零件範例品項。綁定供應商帳號見 <code>docs/bind-industry-supplier-account.sql</code>。</p>
+        </details>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
-        var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
-        ready.then(function () {
+        async function init() {
+            await ((window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve());
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
-        });
+            var loginBanner = document.getElementById('login-banner');
+            var userBanner = document.getElementById('user-banner');
+            var loginLink = document.getElementById('login-link');
+            if (loginLink) loginLink.href = '/login.html?returnUrl=' + encodeURIComponent('/client/supplier-portal.html');
+            var token = null;
+            if (typeof AuthService !== 'undefined') {
+                try {
+                    var s = await AuthService.getSession();
+                    token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
+                    var user = s && (s.user || (s.session && s.session.user));
+                    if (token && user) {
+                        userBanner.classList.remove('d-none');
+                        document.getElementById('user-email').textContent = user.email || user.id || '—';
+                    } else loginBanner.classList.remove('d-none');
+                } catch (e) { loginBanner.classList.remove('d-none'); }
+            } else loginBanner.classList.remove('d-none');
+        }
+        init();
     })();
     </script>
 </body>
