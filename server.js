@@ -1494,6 +1494,14 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
     }
 }
 
+function finalizeVendorAssetSemantics(semanticsJson, tags, assetKind) {
+    if (normalizeVendorAssetKind(assetKind) !== 'material' || !semanticsJson) {
+        return { semantics: semanticsJson, tags };
+    }
+    const semantics = visualSemantics.sanitizeMaterialSemantics(semanticsJson);
+    return { semantics, tags: (semantics && semantics.tags) || tags || [] };
+}
+
 async function runVendorAssetImageSemantics(file, context, ownerId) {
     const deps = getVisualSemanticsDeps();
     const imagePart = visualSemantics.bufferToImagePart(file.buffer || file, file.mimetype);
@@ -11370,6 +11378,7 @@ app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (r
         }
         const assetKindPreview = normalizeVendorAssetKind(body.asset_kind);
         const result = await runVendorAssetImageSemantics(file, {
+            asset_kind: assetKindPreview,
             category_key: (body.category_key || '').trim(),
             title: (body.title || '').trim(),
             description: (body.description || '').trim()
@@ -11411,6 +11420,7 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
         const file = req.file;
         let imageFile = file;
         let context = {
+            asset_kind: normalizeVendorAssetKind(body.asset_kind),
             category_key: (body.category_key || '').trim(),
             title: (body.title || '').trim(),
             description: (body.description || '').trim()
@@ -11425,6 +11435,7 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
             }
             if (!row || !row.image_url) return res.status(404).json({ error: '找不到該素材或無圖片' });
             context = {
+                asset_kind: normalizeVendorAssetKind(row.asset_kind),
                 category_key: context.category_key || row.category_key || '',
                 title: context.title || row.title || '',
                 description: context.description || row.description || '',
@@ -11616,9 +11627,11 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (!tags || !tags.length) {
             try {
                 const sem = await runVendorAssetImageSemantics(file, {
+                    asset_kind: assetKind,
                     category_key: categoryKey,
                     title,
-                    description
+                    description,
+                    material_catalog_hint: materialCatalogHint || undefined
                 }, ownerId);
                 tags = sem.tags;
                 semanticsJson = sem.semantics;
@@ -11632,6 +11645,11 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             tagsSource = semanticsJson ? 'gemini' : 'manual';
             if (!description && semanticsJson) {
                 description = vendorAssetDescriptionFromSemantics(semanticsJson);
+            }
+            if (assetKind === 'material' && semanticsJson) {
+                const fin = finalizeVendorAssetSemantics(semanticsJson, tags, assetKind);
+                semanticsJson = fin.semantics;
+                tags = fin.tags;
             }
         }
         if (!title && semanticsJson && (assetKind === 'material' || assetKind === 'prototype')) {
@@ -12036,9 +12054,11 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             if (!tags || !tags.length) {
                 try {
                     const sem = await runVendorAssetImageSemantics(file, {
+                        asset_kind: assetKind,
                         category_key: categoryKeyForTags,
                         title: titleForPrompt,
-                        description: updates.description !== undefined ? updates.description : row.description
+                        description: updates.description !== undefined ? updates.description : row.description,
+                        material_catalog_hint: materialCatalogHintPut || undefined
                     }, ownerId);
                     tags = sem.tags;
                     semanticsJson = sem.semantics;
@@ -12046,6 +12066,10 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                     console.error('PUT vendor-assets semantics:', semErr);
                     return res.status(503).json({ error: semErr.message || 'AI 標籤產生失敗，請稍後重試' });
                 }
+            } else if (assetKind === 'material' && semanticsJson) {
+                const finPut = finalizeVendorAssetSemantics(semanticsJson, tags, assetKind);
+                semanticsJson = finPut.semantics;
+                tags = finPut.tags;
             }
             if (!titleForPrompt && semanticsJson && (assetKind === 'material' || assetKind === 'prototype')) {
                 const uiLocalePut = resolveUiLocaleFromRequest(req);
