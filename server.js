@@ -12713,41 +12713,114 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
     }
 });
 
-// GET /api/me/supplier-catalog-imports — 製造商：我引用的供應商數位產品庫清單
-app.get('/api/me/supplier-catalog-imports', async (req, res) => {
-    try {
-        if (!(await supplierCatalogTablesReady())) {
-            return res.json({ items: [] });
-        }
-        const manufacturerId = await getMeManufacturerId(req, res);
-        if (!manufacturerId) return;
-        const itemKind = (req.query.item_kind || '').trim();
-        let q = supabase
+function normalizeSupplierImportItemKind(raw) {
+    const k = String(raw || '').trim().toLowerCase();
+    if (k === 'prototype_set' || k === 'prototype') return 'prototype_set';
+    if (k === 'part') return 'part';
+    return 'material';
+}
+
+/** 製造商已匯入的供應商品項（import 表為主；缺紀錄時從 vendor_assets.source_catalog_item_id 補齊） */
+async function listSupplierCatalogImportsForManufacturer(manufacturerId) {
+    const byCatalogId = new Map();
+    const ready = await supplierCatalogTablesReady();
+    if (ready) {
+        const { data: rows, error } = await supabase
             .from('manufacturer_supplier_imports')
             .select('id, catalog_item_id, item_kind, vendor_asset_id, imported_at, snapshot_json')
             .eq('manufacturer_id', manufacturerId)
             .order('imported_at', { ascending: false });
-        if (itemKind === 'material' || itemKind === 'prototype_set' || itemKind === 'part') q = q.eq('item_kind', itemKind);
-        const { data: rows, error } = await q;
-        if (error) {
-            if (error.code === '42P01') return res.json({ items: [] });
-            console.error('GET supplier-catalog-imports:', error);
-            return res.status(500).json({ error: '查詢失敗' });
-        }
-        const items = (rows || []).map((row) => {
+        if (error && error.code !== '42P01') console.error('listSupplierCatalogImports imports:', error);
+        (rows || []).forEach((row) => {
+            if (!row.catalog_item_id) return;
             const snap = row.snapshot_json && typeof row.snapshot_json === 'object' ? row.snapshot_json : {};
-            return {
+            byCatalogId.set(row.catalog_item_id, {
                 id: row.id,
                 catalog_item_id: row.catalog_item_id,
-                item_kind: row.item_kind,
+                item_kind: normalizeSupplierImportItemKind(row.item_kind),
                 vendor_asset_id: row.vendor_asset_id,
                 imported_at: row.imported_at,
                 supplier_name: snap.supplier_name || null,
                 catalog_title: snap.title || null,
                 cover_image_url: snap.cover_image_url || null
-            };
+            });
         });
-        res.json({ items });
+    }
+    let assets = [];
+    let assetRes = await supabase
+        .from('vendor_assets')
+        .select('id, source_catalog_item_id, asset_kind, title, image_url, created_at')
+        .eq('manufacturer_id', manufacturerId)
+        .not('source_catalog_item_id', 'is', null)
+        .order('created_at', { ascending: false });
+    if (assetRes.error && assetRes.error.code === '42703') {
+        assetRes = await supabase
+            .from('vendor_assets')
+            .select('id, asset_kind, title, image_url, created_at')
+            .eq('manufacturer_id', manufacturerId)
+            .order('created_at', { ascending: false });
+    }
+    assets = assetRes.data || [];
+    const orphanCatalogIds = [];
+    assets.forEach((a) => {
+        const cid = a.source_catalog_item_id;
+        if (!cid || byCatalogId.has(cid)) return;
+        orphanCatalogIds.push(cid);
+        byCatalogId.set(cid, {
+            id: 'asset-' + a.id,
+            catalog_item_id: cid,
+            item_kind: normalizeSupplierImportItemKind(
+                a.asset_kind === 'prototype' ? 'prototype_set' : a.asset_kind
+            ),
+            vendor_asset_id: a.id,
+            imported_at: a.created_at,
+            supplier_name: null,
+            catalog_title: a.title || null,
+            cover_image_url: a.image_url || null
+        });
+    });
+    if (orphanCatalogIds.length && ready) {
+        const { data: cats } = await supabase
+            .from('supplier_catalog_items')
+            .select('id, title, cover_image_url, item_kind, industry_suppliers(name)')
+            .in('id', orphanCatalogIds);
+        (cats || []).forEach((c) => {
+            const row = byCatalogId.get(c.id);
+            if (!row) return;
+            const sup = c.industry_suppliers;
+            const supplier = Array.isArray(sup) ? sup[0] : sup;
+            if (!row.catalog_title) row.catalog_title = c.title;
+            if (!row.cover_image_url) row.cover_image_url = c.cover_image_url;
+            row.item_kind = normalizeSupplierImportItemKind(c.item_kind || row.item_kind);
+            if (!row.supplier_name && supplier) row.supplier_name = supplier.name;
+        });
+    }
+    return Array.from(byCatalogId.values()).sort((a, b) => {
+        const ta = a.imported_at ? new Date(a.imported_at).getTime() : 0;
+        const tb = b.imported_at ? new Date(b.imported_at).getTime() : 0;
+        return tb - ta;
+    });
+}
+
+// GET /api/me/supplier-catalog-imports — 製造商：我引用的供應商數位產品庫清單
+app.get('/api/me/supplier-catalog-imports', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const itemKind = (req.query.item_kind || '').trim();
+        const allItems = await listSupplierCatalogImportsForManufacturer(manufacturerId);
+        const counts = { all: allItems.length, material: 0, prototype_set: 0, part: 0 };
+        allItems.forEach((row) => {
+            if (row.item_kind === 'material') counts.material += 1;
+            else if (row.item_kind === 'prototype_set') counts.prototype_set += 1;
+            else if (row.item_kind === 'part') counts.part += 1;
+        });
+        let items = allItems;
+        if (itemKind === 'material' || itemKind === 'prototype_set' || itemKind === 'part') {
+            const want = normalizeSupplierImportItemKind(itemKind);
+            items = allItems.filter((row) => row.item_kind === want);
+        }
+        res.json({ items, counts });
     } catch (e) {
         console.error('GET /api/me/supplier-catalog-imports:', e);
         res.status(500).json({ error: '系統錯誤' });
