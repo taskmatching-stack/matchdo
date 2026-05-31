@@ -44,7 +44,7 @@
         <div id="dash-gate" class="d-none">
             <div class="alert alert-warning border-0">
                 <p class="small mb-2" id="gate-extra"></p>
-                <a href="/client/supplier-catalog-manage.html" class="btn btn-success btn-sm"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="nav.supplierCatalogManage">上架數位產品庫</span></a>
+                <a href="/client/supplier-catalog-manage.html" class="btn btn-success btn-sm"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="nav.supplierCatalogManage">建立公司／上架產品</span></a>
             </div>
         </div>
 
@@ -203,8 +203,8 @@
                 }
                 var main = document.getElementById('dash-main');
                 var res = await fetchJson('/api/me/industry-supplier', token);
-                if (res.status === 403 && res.data && res.data.code === 'NOT_INDUSTRY_SUPPLIER') {
-                    showGate({ error: tr('supplierDash.bindHint', '請聯絡平台將您的帳號綁定為產業供應商公司，或先至「上架數位產品庫」查看說明。') });
+                if (res.status === 404 && res.data && res.data.code === 'NO_SUPPLIER_PROFILE') {
+                    showGate({ error: tr('supplierDash.setupHint', '請先至「上架數位產品庫」建立產業供應商公司（不必執行 Supabase 綁定 SQL）。') });
                     return;
                 }
                 if (!res.ok) {

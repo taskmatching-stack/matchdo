@@ -1361,9 +1361,9 @@ async function getMeIndustrySupplier(req, res) {
         return null;
     }
     if (!supplier) {
-        res.status(403).json({
-            error: '此頁僅供平台設定的上游產業供應商公司使用。請改用「產業供應商目錄」瀏覽並匯入材料。',
-            code: 'NOT_INDUSTRY_SUPPLIER'
+        res.status(404).json({
+            error: '尚未建立產業供應商公司資料。請至「上架數位產品庫」填寫公司名稱並建立。',
+            code: 'NO_SUPPLIER_PROFILE'
         });
         return null;
     }
@@ -12907,6 +12907,53 @@ async function resolveSupplierCatalogCoverUrl(supplierId, req, existingUrl) {
 }
 
 const supplierCatalogItemUpload = upload.single('image');
+
+// POST /api/me/industry-supplier — 登入後建立產業供應商公司（與 POST /api/me/manufacturer 相同，不需跑 bind SQL）
+app.post('/api/me/industry-supplier', express.json(), async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const { data: existing } = await supabase
+            .from('industry_suppliers')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (existing) return res.status(400).json({ error: '您已有產業供應商公司資料，請直接上架產品' });
+        const body = req.body || {};
+        const name = (body.name || '').trim();
+        if (!name) return res.status(400).json({ error: '請填寫公司名稱' });
+        const contact_json = body.contact_json || {
+            email: (body.email || user.email || '').trim(),
+            phone: (body.phone || '').trim(),
+            website: (body.website || body.url || '').trim()
+        };
+        const { data: inserted, error } = await supabase
+            .from('industry_suppliers')
+            .insert({
+                user_id: user.id,
+                name,
+                description: (body.description || '').trim() || null,
+                contact_json,
+                is_active: true
+            })
+            .select('id, name, description, contact_json, is_active')
+            .single();
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-membership-catalog-visibility.sql（industry_suppliers.user_id）' });
+            }
+            console.error('POST /api/me/industry-supplier:', error);
+            return res.status(500).json({ error: '建立失敗' });
+        }
+        res.status(201).json({ supplier: inserted });
+    } catch (e) {
+        console.error('POST /api/me/industry-supplier 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
 
 // GET /api/me/industry-supplier — 產業供應商控制台摘要
 app.get('/api/me/industry-supplier', async (req, res) => {

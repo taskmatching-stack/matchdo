@@ -1,6 +1,7 @@
--- 示範供應商 → 綁到本專案 admin／tester（不用改任何字）
--- 前置：add-membership-catalog-visibility.sql、seed-industry-supplier-materials.sql
--- Supabase 若跳 RLS 提示 → 點「Run without RLS」（這是 UPDATE，不是建表）
+-- 【可選・平台維運用】把「已存在的」產業供應商列綁到某登入帳號
+-- 一般使用者：請在網站「上架數位產品庫」建立公司（POST /api/me/industry-supplier），不必執行本檔。
+--
+-- 用途：示範資料 seed 後、或平台先在後台建好公司列、再指定由誰管理。
 
 UPDATE public.industry_suppliers
 SET user_id = COALESCE(
@@ -9,9 +10,7 @@ SET user_id = COALESCE(
   (SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1)
 ),
 updated_at = now()
-WHERE id = 'a0000000-0000-4000-8000-000000000001';
+WHERE id = 'a0000000-0000-4000-8000-000000000001'
+  AND user_id IS NULL;
 
-SELECT s.id, s.name, s.user_id, p.email, p.role
-FROM public.industry_suppliers s
-LEFT JOIN public.profiles p ON p.id = s.user_id
-WHERE s.id = 'a0000000-0000-4000-8000-000000000001';
+SELECT id, name, user_id FROM public.industry_suppliers WHERE id = 'a0000000-0000-4000-8000-000000000001';

@@ -43,9 +43,23 @@
 
     <div class="container py-4">
         <div id="manage-gate" class="d-none">
-            <div class="alert alert-warning border-0">
-                <p class="small mb-3" id="gate-extra"></p>
-                <a href="/client/industry-supplier-dashboard.html" class="btn btn-success btn-sm"><i class="bi bi-people me-1"></i><span data-i18n="nav.supplierManufacturerRefs">製造商引用紀錄</span></a>
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-2"><i class="bi bi-building-add text-success me-2"></i>建立產業供應商公司</h5>
+                    <p class="text-muted small mb-3" data-i18n="supplierManage.setupIntro">首次使用請填寫公司名稱（與製造商「建立廠商資料」相同，<strong>不必</strong>在 Supabase 跑綁定 SQL）。建立後即可上架產品、查看製造商引用。</p>
+                    <form id="setup-supplier-form">
+                        <div class="mb-3">
+                            <label class="form-label">公司名稱 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="setup-company-name" required maxlength="120">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">公司介紹</label>
+                            <textarea class="form-control" id="setup-company-desc" rows="2"></textarea>
+                        </div>
+                        <div id="setup-msg" class="small mb-2"></div>
+                        <button type="submit" class="btn btn-success" id="setup-submit-btn"><i class="bi bi-check-lg me-1"></i>建立並開始上架</button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -336,9 +350,8 @@
         async function loadSupplier() {
             var r = await fetch('/api/me/industry-supplier', { headers: authH() });
             var data = await r.json().catch(function () { return {}; });
-            if (r.status === 403 && data.code === 'NOT_INDUSTRY_SUPPLIER') {
+            if (r.status === 404 && data.code === 'NO_SUPPLIER_PROFILE') {
                 document.getElementById('manage-gate').classList.remove('d-none');
-                document.getElementById('gate-extra').textContent = data.error || '';
                 return false;
             }
             if (!r.ok) { toast(data.error || '載入失敗', 'danger'); return false; }
@@ -550,6 +563,41 @@
                 });
             } else {
                 try { input.select(); document.execCommand('copy'); done(); } catch (e) {}
+            }
+        });
+
+        document.getElementById('setup-supplier-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var msgEl = document.getElementById('setup-msg');
+            var btn = document.getElementById('setup-submit-btn');
+            var name = document.getElementById('setup-company-name').value.trim();
+            if (!name) { msgEl.textContent = '請填寫公司名稱'; msgEl.className = 'small text-danger mb-2'; return; }
+            msgEl.textContent = '';
+            btn.disabled = true;
+            try {
+                var r = await fetch('/api/me/industry-supplier', {
+                    method: 'POST',
+                    headers: authH(true),
+                    body: JSON.stringify({
+                        name: name,
+                        description: document.getElementById('setup-company-desc').value.trim()
+                    })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) throw new Error(data.error || '建立失敗');
+                document.getElementById('manage-gate').classList.add('d-none');
+                supplierRecord = data.supplier;
+                supplierId = supplierRecord && supplierRecord.id;
+                renderSupplierBar();
+                document.getElementById('main-content').classList.remove('d-none');
+                await refreshList();
+                switchKind('prototype');
+                toast(tr('supplierManage.setupDone', '公司已建立，可以開始上架'), 'success');
+            } catch (err) {
+                msgEl.textContent = err.message || '建立失敗';
+                msgEl.className = 'small text-danger mb-2';
+            } finally {
+                btn.disabled = false;
             }
         });
 

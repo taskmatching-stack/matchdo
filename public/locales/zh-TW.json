@@ -239,6 +239,8 @@
   "supplierManage.openPublic": "開啟",
   "supplierManage.copyUrl": "複製",
   "supplierManage.copied": "已複製",
+  "supplierManage.setupIntro": "首次使用請填寫公司名稱（與製造商建立廠商相同，不必在 Supabase 跑綁定 SQL）。建立後即可上架產品。",
+  "supplierManage.setupDone": "公司已建立，可以開始上架",
   "supplierManage.companyName": "公司名稱",
   "supplierManage.companyDesc": "公司介紹",
   "supplierManage.phone": "電話",
