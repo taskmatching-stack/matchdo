@@ -169,7 +169,7 @@ flowchart LR
 ## 10. 實施順序建議
 
 1. **先測 A 線**：官方廠商 → `vendor_assets` → 訂製者設計流程。  
-2. **再實作 B 線**：`industry_suppliers`、目錄上架、製造商後台導入（`matchdo-todo.md` §4 P0～P1）。
+2. **B 線**：`industry_suppliers`、目錄上架、製造商導入 — **已上 main**（2026-05-26 起）；SEO／頁型見 `docs/architecture-and-seo-principles.md`。
 
 ---
 

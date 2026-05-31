@@ -1,9 +1,18 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-05-26  
+> **更新日期**：2026-06-01  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
+> **架構 Step 0～4 × B 線頁型**：`docs/architecture-and-seo-principles.md`（A5 已還原，勿當完成）  
 > **推送／部署步驟**：見下方「四、部署流程」
+
+### B 線／產業供應商工作區（2026-06-01）
+
+| 頁面 | SEO 政策 |
+|------|----------|
+| `/client/industry-*.html`、`supplier-catalog-manage.html`、`my-supplier-references.html` | **noindex**（登入工作區，不進 sitemap） |
+| 供應商語意資料 | `supplier_catalog_items.ai_tags` + `visual_semantics_events`（`source_type=catalog_item`）；見 `add-supplier-catalog-ai-fields.sql` |
+| 未來供應商公開 SEO 頁 | **尚未定案**（勿用現有 `?id=` 工作區當收錄落地頁） |
 
 ---
 

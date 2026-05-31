@@ -1,0 +1,23 @@
+---
+description: 架構 Step 0～4、SEO 頁型、B 線語意與 A5r 部署前檢查
+alwaysApply: true
+---
+
+# 架構 × SEO × B 線原則
+
+實作或改 `server.js` 路由拆分、B 線、供應商上架、sitemap 前，**先讀** `docs/architecture-and-seo-principles.md`。
+
+## 必記
+
+- **A1～A4 只拆了 `routes/sitemap.js`（~226 行）**；其餘 API 仍在 `server.js`（~17k 行）— 新功能寫 `server.js` 目前正常，見原則檔 §1.2。
+- **A1～A4（Step 1～4）政策仍有效**；**A5 已還原**，進度是 **A5r 待做**，勿勾「Step 5 完成」。
+- **可索引 UGC** 只用 `/inspiration/{type}/{id}`；勿為 `/client/*` 工作區做 sitemap。
+- **`/client/*` 工作區**（含 `industry-*`、`supplier-catalog-manage`）：`noindex`，不進 sitemap。
+- **選單**：①②③ 常駐，見 `docs/account-one-login-capabilities.md`；禁止 `show_supplier_zone` 藏連結。
+- **供應商上架**：與 `vendor_assets` 同 P1 語意管線；`supplier_catalog_items` + `add-supplier-catalog-ai-fields.sql`；events 用 `source_type: catalog_item`。
+- **拆路由部署前**：`node --check server.js` 與 `node -e "require('./server.js')"`；`routes/*.js` 若用 `express.json()` 須 `require('express')`。
+
+## 檔案位置
+
+- 製造商／供應商後台 HTML → `public/client/`
+- Sitemap → `routes/sitemap.js`（勿在未拆檔時複製邏輯到多處）

@@ -197,8 +197,7 @@ zones: {
     industry_supplier: false  // B 線就緒前固定 false
 },
 nav: {
-    show_supplier_zone: false,
-    show_industry_catalog: canImport  // 或維持僅 materials 頁判斷
+    show_all_workspace_menus: true   // 選單全開；勿用 show_supplier_zone 藏 ③ 區（見 account-one-login-capabilities.md）
 }
 ```
 
@@ -211,7 +210,7 @@ nav: {
 1. 登入後 fetch `/api/me/capabilities`（若已有則擴充解析）。  
 2. 依 `zones` / `nav` **顯示或摺疊**區塊標題（例如「製造商」「產業供應」）。  
 3. **禁止**刪除現有 `<a href="...">`。  
-4. `industry_supplier === false` 時不顯示供應商專區入口（或顯示「即將推出」— 與產品決策一致即可）。
+4. **禁止**依 `industry_supplier` 或 `show_supplier_zone` 隱藏 ③ 區連結（產品定案 2026-06-01，見 `docs/account-one-login-capabilities.md`）。
 
 ### 3.4 驗證
 

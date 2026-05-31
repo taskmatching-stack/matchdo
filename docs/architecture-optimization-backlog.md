@@ -1,7 +1,7 @@
 # 架構優化執行清單（邊界清晰 · 漸進式）
 
-更新日期：2026-05-26  
-狀態：**Step 0～5 主線已完成**（已部署驗證後請勾 §九）；第二輪見 **§十一**  
+更新日期：2026-06-01  
+狀態：**Step 0～4 主線有效**；**Step 5 已還原**（進度＝**A5r 待做**）。第二輪見 **§十一**；原則見 **`docs/architecture-and-seo-principles.md`**  
 原則：依 **`docs/STABLE-BASELINE.md`** — 加法優先、小步提交、**不更動首頁靈感牆核心**（篩選、卡片、lightbox 互動邏輯）。
 
 ---
@@ -57,7 +57,7 @@
 | 階段 | 內容 | 程式改動 | 預估 |
 |------|------|----------|------|
 | **Step 0** | 對照表定稿、程式稽核、判斷結論（§四、§4.5） | ✅ 2026-05-26 | — |
-| **Step 1** | 拆 `routes/sitemap.js`（搬運不改邏輯） | 小 | 第 1 天上午 |
+| **Step 1** | 拆 `routes/sitemap.js`（搬運不改邏輯；**僅 sitemap／robots，約 200 行**） | 小 | 第 1 天上午 |
 | **Step 2** | 暫停 `sitemap-products` 索引 + `SEO-PROGRESS.md` | 小 | 第 1 天下午 |
 | **Step 3** | 擴充 `GET /api/me/capabilities` + 選單「只加不減」 | 小 | 第 2 天 |
 | **Step 4** | `visibility` migration（若需要）+ canonical | 中 | 第 3～4 天（可選） |
@@ -119,6 +119,8 @@
 | `/vendor-profile.html?id=` | `public/vendor-profile.html` | ✅ 有 id 時 server 注入 | `sitemap-vendors` | `manufacturers.is_active` | 維持 |
 | `/custom/gallery.html` | `public/custom/gallery.html` | 靜態 | `sitemap-pages` | 公開 | 維持 |
 | `/vendors.html` | `public/vendors.html` | 靜態 | 手動／pages | 公開 | 維持 |
+| `/client/industry-suppliers.html` 等 B 線 | `public/client/` | ❌ 工作區 | **不進** | 登入＋作品門檻 | **D**：`noindex` |
+| `/client/supplier-catalog-manage.html` | `public/client/` | ❌ | **不進** | 供應商上架 | **D** |
 
 ### 4.3 公開狀態欄位（現況 vs 目標）
 
@@ -156,6 +158,7 @@ draft →（付費或預設）→ wall_visible（show_on_homepage）
 | **A. 可索引內容頁** | `/inspiration/*` | Server 組 HTML；分享／sitemap 只用此 URL |
 | **B. 工具／表單頁** | `custom-product.html`、登入 | 靜態 meta 即可，不 per-item |
 | **C. 半套 CSR 詳情** | `custom-product-detail?id=` | **不再新增**；舊鏈 301 或 canonical 到 A（Step 4） |
+| **D. 登入工作區** | `/client/manufacturer-*.html`、`/client/industry-*.html`、`supplier-catalog-manage` | **`noindex`**；不進 sitemap；僅 title（見 `docs/architecture-and-seo-principles.md`） |
 
 ---
 
@@ -300,6 +303,7 @@ lib/                      # 已有 visual-semantics、lineage…
 | `docs/STABLE-BASELINE.md` | 不可破壞的穩定原則 |
 | `docs/SEO-PROGRESS.md`、`docs/SEO-PLAN.md` | SSR、sitemap、GSC 暫緩 |
 | `docs/supplier-reverse-intent-discovery-plan.md` | 新供應商功能掛在 capabilities ③ 區 |
+| **`docs/architecture-and-seo-principles.md`** | A1～A5r、頁型 D、B 線語意、部署冒煙 |
 | `docs/design-analysis-material-backtrace.md` | 語意／引用；不阻塞本 backlog Step 0～3 |
 | `docs/matchdo-todo.md` | 總待辦；本檔為架構專線 |
 | **`docs/architecture-optimization-runbook.md`** | **逐步手冊**（Step 0～5 已完成；§十 上線驗證） |
@@ -315,7 +319,7 @@ lib/                      # 已有 visual-semantics、lineage…
 | 2 | 索引政策／products sitemap 決策 | 2026-05-26 | 已自 `/sitemap.xml` 移除 products |
 | 3 | capabilities + header 加法 | 2026-05-26 | zones/nav；③ 區暫隱 |
 | 4 | visibility 與 canonical 對齊 | 2026-05-26 | 廢止 visibility；detail canonical |
-| 5 | 續拆 inspiration / media-wall | 2026-05-26 | lib/media-wall + 3 routes |
+| 5 | 續拆 inspiration / media-wall | — | ⚠️ **已還原**（全站 500）；重做見 **A5r**、`docs/architecture-and-seo-principles.md` |
 
 ---
 
@@ -378,7 +382,7 @@ server.js
 | **A5r** | **重做 Step 5**（拆 inspiration／media-wall／vendor-pages） | 拆檔須 `require('express')`；admin 路由留在 `server.js` 或 A7；部署前 `require('./server.js')` 冒煙 |
 | **A6** | 拆 `routes/custom-products.js` | `POST/PATCH/GET /api/custom-products*`、生圖儲存、`enrich` 觸發 |
 | **A7** | 拆 `routes/admin-media-wall.js`（或 admin 子目錄） | `PATCH/DELETE /api/admin/media-wall-item` 與權限 helper |
-| **A8** | B 線就緒後開 `nav.show_supplier_zone` | `industry_suppliers.user_id` 綁定後改 `server.js` 常數 |
+| **A8** | ~~B 線開 `nav.show_supplier_zone`~~ | **已廢止**：選單常駐見 `docs/account-one-login-capabilities.md` |
 | **A9** | 可選：`media-wall-item` 擋未上牆作品 | 改變「知道 id 即可開」行為，需產品確認 |
 | **A10** | 可選：統一 `show_on_homepage` 寫入規則 | 手動儲存 vs 自動生圖不一致（§4.3） |
 

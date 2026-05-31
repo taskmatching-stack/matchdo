@@ -1,7 +1,8 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-05-26
+更新日期：2026-06-01
 
+> **架構 × SEO × B 線原則（必讀）**：`docs/architecture-and-seo-principles.md` — A1～A4 仍有效、**A5 已還原（進度＝A5r 待做）**、B 線 `/client/*` 不進 sitemap、供應商語意欄位。  
 > **新對話交接**：`docs/session-handoff-2026-05-26.md`（B 線推送狀態、產品規則、硬編碼 vs AI 待辦）。
 
 ---
@@ -76,6 +77,7 @@
 | **`docs/supplier-reverse-intent-discovery-plan.md`** | **待開發（已評估）**：L0 逆向檢索；商機＝引用→**通知**+**引用製造商清單頁**（§3.3）；不做合作意向；RI-0～RI-6。 |
 | **`docs/architecture-optimization-backlog.md`** | **架構優化執行清單**：Step 0～5 **主線已完成**；URL 對照、風險、§十一 交付摘要與第二輪代辦 A6～A10。 |
 | **`docs/architecture-optimization-runbook.md`** | **逐步手冊與冒煙清單**（Step 0～5 操作紀錄；§十 上線驗證勾選）。 |
+| **`docs/architecture-and-seo-principles.md`** | **A1～A5r、頁型 A～E、B 線 SEO、語意 migration、部署前檢查**（與 SEO 文件並讀）。 |
 | **`docs/session-handoff-2026-05-26.md`** | **對話交接**：B 線已 push 清單、產品紅線、硬編碼 vs AI 待決、部署與 SQL 勾選。 |
 | **`docs/三角色架構與AB線說明.md`** | **對外說明用**：訂製者／製造商／產業供應商三角色、**A 線**（`vendor_assets`）與 **B 線**（原型組＋材料）流程圖與對照表；含官方帳號與 A 線測試摘要。 |
 | **本檔 §4「產業供應商、製造商採購庫」** | 供應商上架分兩類：**數位原型組**（一組多圖）、**材料**；製造商後台分別**導入**至原型組庫／材料庫（B2B；**不用「收藏」**）；**不**接入訂製者設計頁；另含線下店家、官方虛擬廠商；**暫不實作**。 |
