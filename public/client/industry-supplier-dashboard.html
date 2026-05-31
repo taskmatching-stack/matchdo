@@ -19,6 +19,7 @@
         .quick-link:hover { background: #e8f8ef; border-color: #19875444; color: inherit; }
         .quick-link .icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 12px; border-left: 3px solid #198754; padding-left: 10px; }
+        .user-id-box { font-family: ui-monospace, monospace; font-size: 0.8rem; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -29,7 +30,7 @@
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <h4 class="mb-0 fw-bold" data-i18n="supplierDash.heading">供應商控制台</h4>
-                    <small class="text-muted" id="supplier-name">載入中…</small>
+                    <small class="text-muted" id="supplier-name">—</small>
                 </div>
                 <a href="/client/supplier-catalog-manage.html" class="btn btn-sm btn-success d-none" id="btn-manage-catalog">
                     <i class="bi bi-box-seam me-1"></i><span data-i18n="supplierDash.manageCatalog">管理數位產品庫</span>
@@ -39,21 +40,31 @@
     </div>
 
     <div class="container py-4" style="max-width: 960px;">
+        <div id="page-loading" class="text-muted small py-2 d-none"><span class="spinner-border spinner-border-sm me-2"></span><span data-i18n="supplierDash.loading">載入中…</span></div>
+
         <div id="dash-gate" class="d-none">
             <div class="alert alert-info border-0">
                 <h6 class="fw-semibold" data-i18n="supplierDash.notBoundTitle">尚未開通產業供應商帳號</h6>
-                <p class="small mb-2" data-i18n="supplierDash.notBoundBody">此控制台供「上游產業供應商」管理數位產品庫、查看哪些製造商引用您的品項。接單製造商請用「供應商引用管理」匯入材料，無需開通本帳號。</p>
-                <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm me-2" data-i18n="supplierDash.goMfrRefs">製造商：供應商引用管理</a>
-                <a href="/client/supplier-portal.html" class="btn btn-outline-secondary btn-sm" data-i18n="supplierPortal.heading">角色說明</a>
+                <p class="small mb-2" data-i18n="supplierDash.notBoundBody">此頁僅供「上游產業供應商」管理數位產品庫。一般接單製造商請用下方連結，無需綁定。</p>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
+                    <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm" data-i18n="supplierDash.goMfrRefs">製造商：引用清單</a>
+                    <a href="/client/supplier-portal.html" class="btn btn-outline-secondary btn-sm" data-i18n="supplierPortal.heading">角色說明</a>
+                </div>
+                <div id="gate-extra" class="small text-danger mb-0"></div>
             </div>
-            <details class="small text-muted mt-3">
-                <summary data-i18n="supplierManage.adminOnlySummary">開通方式（管理員）</summary>
-                <p class="mt-2 mb-0"><code>docs/bind-industry-supplier-account.sql</code></p>
-            </details>
+            <div class="card border mt-3 d-none" id="bind-card">
+                <div class="card-body small">
+                    <h6 class="fw-semibold" data-i18n="supplierDash.bindTitle">管理員開通：綁定本登入帳號</h6>
+                    <p class="text-muted mb-2" data-i18n="supplierDash.bindHint">將下方 UUID 貼入 Supabase SQL（docs/bind-industry-supplier-account.sql）的 YOUR_USER_UUID。</p>
+                    <div class="user-id-box p-2 bg-light border rounded mb-2" id="bind-user-id">—</div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-copy-user-id"><i class="bi bi-clipboard me-1"></i><span data-i18n="supplierDash.copyUserId">複製 UUID</span></button>
+                </div>
+            </div>
         </div>
 
         <div id="dash-main" class="d-none">
-            <p class="text-muted small mb-3" data-i18n="supplierDash.flow">① 上架數位產品庫 → ② 製造商匯入後會出現在其素材庫（標示引用自您）→ ③ 在此查看引用清單。訂製者<strong>不會</strong>直接看到您的目錄。</p>
+            <p class="text-muted small mb-3" data-i18n="supplierDash.flow">① 上架數位產品庫 → ② 製造商匯入後會出現在其素材庫（標示引用自您）→ ③ 在此查看引用清單。訂製者不會直接看到您的目錄。</p>
 
             <div class="row g-3 mb-4">
                 <div class="col-4">
@@ -117,7 +128,7 @@
                     <div class="section-title" data-i18n="supplierDash.recentRefsTitle">製造商引用紀錄</div>
                     <div class="card border-0 shadow-sm">
                         <div class="card-body py-3">
-                            <div id="refs-loading" class="text-muted small py-2" data-i18n="supplierDash.loading">載入中…</div>
+                            <div id="refs-loading" class="text-muted small py-2 d-none"><span class="spinner-border spinner-border-sm me-2"></span><span data-i18n="supplierDash.loading">載入中…</span></div>
                             <div id="refs-empty" class="text-muted small d-none" data-i18n="supplierDash.refsEmpty">尚無製造商引用您的品項。</div>
                             <div id="refs-table-wrap" class="table-responsive d-none">
                                 <table class="table table-sm table-hover mb-0">
@@ -143,6 +154,7 @@
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
+        var FETCH_MS = 12000;
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) { var v = window.i18n.t(k); if (v && v !== k) return v; }
             return fb || k;
@@ -151,6 +163,32 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
         }
+        function waitI18n() {
+            var p = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+            return Promise.race([
+                p,
+                new Promise(function (resolve) { setTimeout(resolve, 2500); })
+            ]);
+        }
+        async function fetchJson(url, token) {
+            var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, FETCH_MS) : null;
+            try {
+                var r = await fetch(url, {
+                    headers: { Authorization: 'Bearer ' + token },
+                    signal: ctrl ? ctrl.signal : undefined
+                });
+                var data = await r.json().catch(function () { return {}; });
+                return { ok: r.ok, status: r.status, data: data };
+            } catch (e) {
+                if (e && e.name === 'AbortError') {
+                    throw new Error(tr('supplierDash.timeout', '連線逾時，請重新整理'));
+                }
+                throw e;
+            } finally {
+                if (timer) clearTimeout(timer);
+            }
+        }
         async function getToken() {
             if (typeof AuthService === 'undefined') return null;
             try {
@@ -158,35 +196,53 @@
                 return (s && (s.access_token || (s.session && s.session.access_token))) || null;
             } catch (e) { return null; }
         }
-        async function init() {
-            var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
-            await ready;
-            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
-            var token = await getToken();
-            if (!token) {
-                window.location.href = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
-                    ? AuthService.getLoginUrl(window.location.pathname) : '/login.html';
-                return;
-            }
+        function showGate(opts) {
+            opts = opts || {};
             var gate = document.getElementById('dash-gate');
             var main = document.getElementById('dash-main');
+            var nameEl = document.getElementById('supplier-name');
+            main.classList.add('d-none');
+            gate.classList.remove('d-none');
+            nameEl.textContent = opts.title || tr('supplierDash.notBoundShort', '尚未綁定產業供應商');
+            var extra = document.getElementById('gate-extra');
+            extra.textContent = opts.error || '';
+            extra.classList.toggle('d-none', !opts.error);
+            var bindCard = document.getElementById('bind-card');
+            var uid = opts.userId || '';
+            if (uid) {
+                bindCard.classList.remove('d-none');
+                document.getElementById('bind-user-id').textContent = uid;
+            } else {
+                bindCard.classList.add('d-none');
+            }
+        }
+        async function init() {
+            var pageLoading = document.getElementById('page-loading');
+            pageLoading.classList.remove('d-none');
             try {
-                var r = await fetch('/api/me/industry-supplier', { headers: { Authorization: 'Bearer ' + token } });
-                var data = await r.json().catch(function () { return {}; });
-                if (r.status === 403 && data.code === 'NOT_INDUSTRY_SUPPLIER') {
-                    gate.classList.remove('d-none');
+                await waitI18n();
+                if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                var token = await getToken();
+                if (!token) {
+                    window.location.href = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
+                        ? AuthService.getLoginUrl(window.location.pathname) : '/login.html';
                     return;
                 }
-                if (!r.ok) {
-                    gate.classList.remove('d-none');
-                    document.querySelector('#dash-gate .alert').insertAdjacentHTML('beforeend',
-                        '<p class="small text-danger mt-2 mb-0">' + esc(data.error || tr('supplierDash.loadFailed', '載入失敗')) + '</p>');
+                var main = document.getElementById('dash-main');
+                var res = await fetchJson('/api/me/industry-supplier', token);
+                if (res.status === 403 && res.data && res.data.code === 'NOT_INDUSTRY_SUPPLIER') {
+                    showGate({ userId: res.data.user_id, error: '' });
                     return;
                 }
+                if (!res.ok) {
+                    showGate({ error: res.data.error || tr('supplierDash.loadFailed', '載入失敗') });
+                    return;
+                }
+                document.getElementById('dash-gate').classList.add('d-none');
                 main.classList.remove('d-none');
                 document.getElementById('btn-manage-catalog').classList.remove('d-none');
-                var sup = data.supplier || {};
-                var stats = data.stats || {};
+                var sup = res.data.supplier || {};
+                var stats = res.data.stats || {};
                 document.getElementById('supplier-name').textContent = sup.name || '—';
                 document.getElementById('stat-catalog').textContent = String(stats.catalog_active_count != null ? stats.catalog_active_count : stats.catalog_count || 0);
                 document.getElementById('stat-refs').textContent = String(stats.reference_count || 0);
@@ -202,25 +258,40 @@
                 var refsEmpty = document.getElementById('refs-empty');
                 var refsWrap = document.getElementById('refs-table-wrap');
                 var tbody = document.getElementById('refs-tbody');
-                var rr = await fetch('/api/me/industry-supplier/recent-references?limit=30', { headers: { Authorization: 'Bearer ' + token } });
-                var rdata = await rr.json().catch(function () { return {}; });
-                refsLoading.classList.add('d-none');
-                var items = rdata.items || [];
-                if (!items.length) refsEmpty.classList.remove('d-none');
-                else {
-                    refsWrap.classList.remove('d-none');
-                    tbody.innerHTML = items.map(function (row) {
-                        var when = row.imported_at ? String(row.imported_at).slice(0, 10) : '—';
-                        var mfrCell = row.manufacturer_id
-                            ? '<a href="/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) + '" target="_blank" rel="noopener">' + esc(row.manufacturer_name || '—') + '</a>'
-                            : esc(row.manufacturer_name || '—');
-                        return '<tr><td>' + mfrCell + '</td><td>' + esc(row.catalog_title || '—') + '</td><td class="text-muted small">' + esc(when) + '</td></tr>';
-                    }).join('');
+                refsLoading.classList.remove('d-none');
+                try {
+                    var rr = await fetchJson('/api/me/industry-supplier/recent-references?limit=30', token);
+                    var items = (rr.data && rr.data.items) || [];
+                    if (!items.length) refsEmpty.classList.remove('d-none');
+                    else {
+                        refsWrap.classList.remove('d-none');
+                        tbody.innerHTML = items.map(function (row) {
+                            var when = row.imported_at ? String(row.imported_at).slice(0, 10) : '—';
+                            var mfrCell = row.manufacturer_id
+                                ? '<a href="/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) + '" target="_blank" rel="noopener">' + esc(row.manufacturer_name || '—') + '</a>'
+                                : esc(row.manufacturer_name || '—');
+                            return '<tr><td>' + mfrCell + '</td><td>' + esc(row.catalog_title || '—') + '</td><td class="text-muted small">' + esc(when) + '</td></tr>';
+                        }).join('');
+                    }
+                } catch (refErr) {
+                    refsEmpty.textContent = refErr.message;
+                    refsEmpty.classList.remove('d-none');
+                } finally {
+                    refsLoading.classList.add('d-none');
                 }
             } catch (e) {
-                gate.classList.remove('d-none');
+                showGate({ error: e.message || tr('supplierDash.loadFailed', '載入失敗') });
+            } finally {
+                pageLoading.classList.add('d-none');
             }
         }
+        document.getElementById('btn-copy-user-id').addEventListener('click', function () {
+            var t = document.getElementById('bind-user-id').textContent;
+            if (!t || t === '—') return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(t);
+            }
+        });
         init();
     })();
     </script>

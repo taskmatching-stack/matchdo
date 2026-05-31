@@ -1312,7 +1312,8 @@ async function getMeIndustrySupplier(req, res) {
     if (!supplier) {
         res.status(403).json({
             error: '此帳號尚未綁定產業供應商。請由管理員將您的登入帳號寫入 industry_suppliers.user_id，或參考 docs/bind-industry-supplier-account.sql',
-            code: 'NOT_INDUSTRY_SUPPLIER'
+            code: 'NOT_INDUSTRY_SUPPLIER',
+            user_id: user.id
         });
         return null;
     }

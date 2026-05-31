@@ -1,8 +1,9 @@
 -- 將「產業供應商」綁到登入帳號（同一個 auth.users，不需另註冊角色）
 -- 前置：docs/add-membership-catalog-visibility.sql（industry_suppliers.user_id 欄位）
 --
--- 1) 在 Supabase → Authentication → Users 複製供應商聯絡人的 UUID
--- 2) 將下方 YOUR_USER_UUID、SUPPLIER_ID 替換後執行
+-- 1) 登入 matchdo → 開 /client/industry-supplier-dashboard.html → 複製畫面上的 UUID
+--    （或 Supabase → Authentication → Users）
+-- 2) 將下方 YOUR_USER_UUID 替換後執行（示範供應商 id 已填好）
 
 UPDATE public.industry_suppliers
 SET user_id = 'YOUR_USER_UUID'::uuid,
