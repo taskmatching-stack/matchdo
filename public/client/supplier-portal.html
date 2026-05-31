@@ -15,9 +15,9 @@
 </head>
 <body>
     <div id="site-header"></div>
-    <div class="container py-4" style="max-width: 800px;">
-        <h4 class="fw-bold mb-2" data-i18n="supplierPortal.heading">產業供應商（B 線）說明</h4>
-        <p class="text-muted small mb-3" data-i18n="supplierPortal.introShort">同一組登入帳號；是否為製造商或產業供應商由平台在資料庫綁定，無須另註冊。</p>
+    <div class="container py-4" style="max-width: 720px;">
+        <h4 class="fw-bold mb-2" data-i18n="supplierPortal.heading">產業供應商（B 線）</h4>
+        <p class="text-muted small mb-4" data-i18n="supplierPortal.introShort">同一組登入即可使用。接單製造商在下方目錄瀏覽上游材料並匯入；匯入後會出現在您的素材庫，訂製者看不到上游目錄本身。</p>
 
         <div id="login-banner" class="alert alert-primary d-none mb-3">
             <span data-i18n="supplierPortal.pleaseLogin">請先登入以使用下方功能。</span>
@@ -27,40 +27,19 @@
             <span data-i18n="supplierPortal.loggedInAs">已登入：</span> <span id="user-email" class="fw-medium"></span>
         </div>
 
-        <div class="row g-3">
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm h-100 border-start border-primary border-4">
-                    <div class="card-body">
-                        <h6 class="fw-semibold mb-2"><i class="bi bi-shop me-2 text-primary"></i><span data-i18n="supplierPortal.cardManufacturer">我是製造商（接單廠商）</span></h6>
-                        <p class="small text-muted mb-3" data-i18n="supplierPortal.cardManufacturerBody">瀏覽上游供應商產品庫並匯入到自家素材；訂製者只看得到您公開的素材，看不到供應商目錄。</p>
-                        <div class="d-flex flex-column gap-2">
-                            <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
-                            <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm"><i class="bi bi-list-check me-1"></i><span data-i18n="nav.mySupplierReferences">供應商引用管理</span></a>
-                            <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-speedometer2 me-1"></i><span data-i18n="supplierPortal.goMfrDashboard">製造商控制台</span></a>
-                        </div>
-                        <p class="small text-muted mt-3 mb-0" data-i18n="supplierPortal.mfrNote">匯入後若要在設計頁當參考圖，請至「上傳數位版型」各分頁使用；本區以「目錄／清單」為主。</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card border-0 shadow-sm h-100 border-start border-success border-4">
-                    <div class="card-body">
-                        <h6 class="fw-semibold mb-2"><i class="bi bi-truck me-2 text-success"></i><span data-i18n="supplierPortal.cardSupplier">我是產業供應商（上游）</span></h6>
-                        <p class="small text-muted mb-3" data-i18n="supplierPortal.cardSupplierBody">在此上架數位產品庫（材料、數位原型、配件／零件）。須由管理員將您的帳號綁定 <code>industry_suppliers.user_id</code> 後才能上架。</p>
-                        <div class="d-flex flex-column gap-2">
-                            <a href="/client/industry-supplier-dashboard.html" class="btn btn-success btn-sm"><i class="bi bi-speedometer2 me-1"></i><span data-i18n="nav.supplierDashboard">供應商控制台</span></a>
-                            <a href="/client/supplier-catalog-manage.html" class="btn btn-outline-success btn-sm"><i class="bi bi-box-seam me-1"></i><span data-i18n="supplierPortal.uploadProducts">管理數位產品庫（上架）</span></a>
-                        </div>
-                        <p class="small text-muted mt-3 mb-0" data-i18n="supplierPortal.supplierUploadWhere">產品上架入口：<strong>管理數位產品庫</strong>（非製造商的上傳數位版型頁）。</p>
-                    </div>
+        <div class="card border-0 shadow-sm border-start border-success border-4 mb-3">
+            <div class="card-body">
+                <h6 class="fw-semibold mb-2"><i class="bi bi-grid me-2 text-success"></i><span data-i18n="supplierPortal.cardManufacturer">瀏覽並匯入上游材料</span></h6>
+                <p class="small text-muted mb-3" data-i18n="supplierPortal.cardManufacturerBody">從產業供應商目錄選品匯入到自家素材；可在「供應商引用管理」查看已匯入清單。</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
+                    <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm"><i class="bi bi-list-check me-1"></i><span data-i18n="nav.mySupplierReferences">供應商引用管理</span></a>
+                    <a href="/client/manufacturer-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-speedometer2 me-1"></i><span data-i18n="supplierPortal.goMfrDashboard">製造商控制台</span></a>
                 </div>
             </div>
         </div>
 
-        <details class="small text-muted mt-4">
-            <summary data-i18n="supplierPortal.adminSeedSummary">管理員：示範資料（範例檔）</summary>
-            <p class="mt-2 mb-0" data-i18n="supplierPortal.adminSeedBody">在 Supabase SQL Editor 執行 <code>docs/seed-industry-supplier-materials.sql</code>，會建立「示範布料供應商」及材料、數位原型、配件／零件範例品項。綁定供應商帳號見 <code>docs/bind-industry-supplier-account.sql</code>。</p>
-        </details>
+        <p class="small text-muted mb-0" data-i18n="supplierPortal.upstreamNote">上游供應商公司的產品上架由平台代管；若需協助請聯絡 MatchDO。</p>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
@@ -73,11 +52,10 @@
             var userBanner = document.getElementById('user-banner');
             var loginLink = document.getElementById('login-link');
             if (loginLink) loginLink.href = '/login.html?returnUrl=' + encodeURIComponent('/client/supplier-portal.html');
-            var token = null;
             if (typeof AuthService !== 'undefined') {
                 try {
                     var s = await AuthService.getSession();
-                    token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
+                    var token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
                     var user = s && (s.user || (s.session && s.session.user));
                     if (token && user) {
                         userBanner.classList.remove('d-none');

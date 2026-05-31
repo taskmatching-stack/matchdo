@@ -2025,11 +2025,10 @@
 
         function supplierImportLockedMessage() {
             if (!capabilities.supplier_catalog_ready) return tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
-            if (!capabilities.has_manufacturer) return tr('baseModels.needManufacturerForImport', '請先建立廠商資料（製造商控制台）');
-            if ((capabilities.portfolio_count || 0) < 1 && !capabilities.bypass_supplier_portfolio_gate) {
-                return tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品後，才可匯入供應商數位產品庫');
-            }
             if (isSeedVendor) return tr('baseModels.seedNoImport', '種子廠商無法匯入');
+            if (!capabilities.can_import_supplier_catalog) {
+                return tr('baseModels.portfolioRequired', '請先至「我的廠商作品」上傳至少 1 件啟用中（公開）的作品');
+            }
             return tr('baseModels.importLocked', '目前無法匯入');
         }
 

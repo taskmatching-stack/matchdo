@@ -19,7 +19,6 @@
         .quick-link:hover { background: #e8f8ef; border-color: #19875444; color: inherit; }
         .quick-link .icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 12px; border-left: 3px solid #198754; padding-left: 10px; }
-        .user-id-box { font-family: ui-monospace, monospace; font-size: 0.8rem; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -43,23 +42,9 @@
         <div id="page-loading" class="text-muted small py-2 d-none"><span class="spinner-border spinner-border-sm me-2"></span><span data-i18n="supplierDash.loading">載入中…</span></div>
 
         <div id="dash-gate" class="d-none">
-            <div class="alert alert-info border-0">
-                <h6 class="fw-semibold" data-i18n="supplierDash.notBoundTitle">尚未開通產業供應商帳號</h6>
-                <p class="small mb-2" data-i18n="supplierDash.notBoundBody">此頁僅供「上游產業供應商」管理數位產品庫。一般接單製造商請用下方連結，無需綁定。</p>
-                <div class="d-flex flex-wrap gap-2 mb-2">
-                    <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
-                    <a href="/client/my-supplier-references.html" class="btn btn-outline-success btn-sm" data-i18n="supplierDash.goMfrRefs">製造商：引用清單</a>
-                    <a href="/client/supplier-portal.html" class="btn btn-outline-secondary btn-sm" data-i18n="supplierPortal.heading">角色說明</a>
-                </div>
-                <div id="gate-extra" class="small text-danger mb-0"></div>
-            </div>
-            <div class="card border mt-3 d-none" id="bind-card">
-                <div class="card-body small">
-                    <h6 class="fw-semibold" data-i18n="supplierDash.bindTitle">管理員開通：綁定本登入帳號</h6>
-                    <p class="text-muted mb-2" data-i18n="supplierDash.bindHint">將下方 UUID 貼入 Supabase SQL（docs/bind-industry-supplier-account.sql）的 YOUR_USER_UUID。</p>
-                    <div class="user-id-box p-2 bg-light border rounded mb-2" id="bind-user-id">—</div>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-copy-user-id"><i class="bi bi-clipboard me-1"></i><span data-i18n="supplierDash.copyUserId">複製 UUID</span></button>
-                </div>
+            <div class="alert alert-warning border-0">
+                <p class="small mb-2" id="gate-extra"></p>
+                <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
             </div>
         </div>
 
@@ -200,21 +185,9 @@
             opts = opts || {};
             var gate = document.getElementById('dash-gate');
             var main = document.getElementById('dash-main');
-            var nameEl = document.getElementById('supplier-name');
             main.classList.add('d-none');
             gate.classList.remove('d-none');
-            nameEl.textContent = opts.title || tr('supplierDash.notBoundShort', '尚未綁定產業供應商');
-            var extra = document.getElementById('gate-extra');
-            extra.textContent = opts.error || '';
-            extra.classList.toggle('d-none', !opts.error);
-            var bindCard = document.getElementById('bind-card');
-            var uid = opts.userId || '';
-            if (uid) {
-                bindCard.classList.remove('d-none');
-                document.getElementById('bind-user-id').textContent = uid;
-            } else {
-                bindCard.classList.add('d-none');
-            }
+            document.getElementById('gate-extra').textContent = opts.error || tr('supplierDash.wrongPage', '此頁僅供上游產業供應商公司使用。');
         }
         async function init() {
             var pageLoading = document.getElementById('page-loading');
@@ -231,7 +204,7 @@
                 var main = document.getElementById('dash-main');
                 var res = await fetchJson('/api/me/industry-supplier', token);
                 if (res.status === 403 && res.data && res.data.code === 'NOT_INDUSTRY_SUPPLIER') {
-                    showGate({ userId: res.data.user_id, error: '' });
+                    window.location.replace('/client/industry-suppliers.html');
                     return;
                 }
                 if (!res.ok) {
@@ -285,13 +258,6 @@
                 pageLoading.classList.add('d-none');
             }
         }
-        document.getElementById('btn-copy-user-id').addEventListener('click', function () {
-            var t = document.getElementById('bind-user-id').textContent;
-            if (!t || t === '—') return;
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(t);
-            }
-        });
         init();
     })();
     </script>

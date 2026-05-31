@@ -128,12 +128,6 @@
                 }
                 var capR = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
                 var cap = await capR.json().catch(function () { return {}; });
-                if (!cap.has_manufacturer) {
-                    locked.innerHTML = esc(tr('baseModels.needManufacturerForImport', '請先建立廠商資料')) +
-                        ' <a href="/client/manufacturer-dashboard.html" class="alert-link">' + esc(tr('supplierPortal.goMfrDashboard', '製造商控制台')) + '</a>';
-                    locked.classList.remove('d-none');
-                    return;
-                }
                 var r = await fetch('/api/me/supplier-catalog-imports', { headers: { Authorization: 'Bearer ' + token } });
                 var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) {

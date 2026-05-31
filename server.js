@@ -1259,10 +1259,37 @@ async function supplierCatalogTablesReady() {
     return !error || error.code !== '42P01';
 }
 
+/** 廠商資格：至少 1 件「啟用中」作品（公開且仍有可顯示圖，未過期）。 */
+async function countEnabledPortfolioWorks(manufacturerId) {
+    if (!manufacturerId) return 0;
+    const nowIso = new Date().toISOString();
+    const { data: items, error } = await supabase
+        .from('manufacturer_portfolio')
+        .select('id, image_url, image_url_before, series_image_urls, series_image_valid_until, show_on_media_wall')
+        .eq('manufacturer_id', manufacturerId);
+    if (error) {
+        if (error.code !== '42P01') console.error('countEnabledPortfolioWorks:', error);
+        return 0;
+    }
+    let n = 0;
+    for (const p of items || []) {
+        if (p.show_on_media_wall === false) continue;
+        const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
+        const hasSeries = !seriesExpired && Array.isArray(p.series_image_urls) && p.series_image_urls.length > 0;
+        const hasImage = !!(p.image_url || p.image_url_before || hasSeries);
+        if (hasImage) n += 1;
+    }
+    return n;
+}
+
 async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } = {}) {
     const manufacturerId = await getMeManufacturerId(req, res);
     if (!manufacturerId) return null;
-    const { data: mfr } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
+    const { data: mfr } = await supabase.from('manufacturers').select('vendor_source, is_active').eq('id', manufacturerId).single();
+    if (mfr && mfr.is_active === false) {
+        res.status(403).json({ error: '廠商資料已停用', code: 'MANUFACTURER_INACTIVE' });
+        return null;
+    }
     if (mfr && mfr.vendor_source === 'seed') {
         res.status(403).json({ error: '種子廠商由平台代為維護，無法導入產業供應商材料。' });
         return null;
@@ -1272,18 +1299,13 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
         if (!user) return null;
         const staffBypass = await isStaffProfileUserId(user.id);
         if (!staffBypass) {
-            const { count, error: pErr } = await supabase
-                .from('manufacturer_portfolio')
-                .select('id', { count: 'exact', head: true })
-                .eq('manufacturer_id', manufacturerId)
-                .not('image_url', 'is', null);
-            if (pErr && pErr.code !== '42P01') console.error('portfolio count:', pErr);
-            const portfolioCount = count || 0;
-            if (portfolioCount < 1) {
+            const activeCount = await countEnabledPortfolioWorks(manufacturerId);
+            if (activeCount < 1) {
                 res.status(403).json({
-                    error: '請先上傳至少 1 件作品後，才可瀏覽並導入產業供應商材料',
+                    error: '請先上傳至少 1 件啟用中（公開）的作品後，才可瀏覽並導入產業供應商材料',
                     code: 'PORTFOLIO_REQUIRED',
-                    portfolio_count: portfolioCount
+                    active_portfolio_count: activeCount,
+                    portfolio_count: activeCount
                 });
                 return null;
             }
@@ -1311,9 +1333,8 @@ async function getMeIndustrySupplier(req, res) {
     }
     if (!supplier) {
         res.status(403).json({
-            error: '此帳號尚未綁定產業供應商。請由管理員將您的登入帳號寫入 industry_suppliers.user_id，或參考 docs/bind-industry-supplier-account.sql',
-            code: 'NOT_INDUSTRY_SUPPLIER',
-            user_id: user.id
+            error: '此頁僅供平台設定的上游產業供應商公司使用。請改用「產業供應商目錄」瀏覽並匯入材料。',
+            code: 'NOT_INDUSTRY_SUPPLIER'
         });
         return null;
     }
@@ -12363,22 +12384,19 @@ app.get('/api/me/capabilities', async (req, res) => {
             console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
         }
 
-        const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source').eq('user_id', user.id).maybeSingle();
+        const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source, is_active').eq('user_id', user.id).maybeSingle();
         const hasManufacturer = !!mfr;
-        let portfolioCount = 0;
-        if (mfr) {
-            const { count } = await supabase
-                .from('manufacturer_portfolio')
-                .select('id', { count: 'exact', head: true })
-                .eq('manufacturer_id', mfr.id)
-                .not('image_url', 'is', null);
-            portfolioCount = count || 0;
+        let activePortfolioCount = 0;
+        if (mfr && mfr.is_active !== false) {
+            activePortfolioCount = await countEnabledPortfolioWorks(mfr.id);
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
         const staffBypassPortfolio = await isStaffProfileUserId(user.id);
         const catalogReady = await supplierCatalogTablesReady();
-        // 製造商瀏覽／導入 B 線：唯一門檻為至少 1 件作品（管理員／測試員可略過以便營運測試）
-        const canImport = catalogReady && hasManufacturer && !isSeed && (portfolioCount >= 1 || staffBypassPortfolio);
+        // 廠商資格：唯一門檻為至少 1 件啟用中作品；管理員／測試員可略過
+        const isQualifiedManufacturer = !!mfr && mfr.is_active !== false && !isSeed
+            && (activePortfolioCount >= 1 || staffBypassPortfolio);
+        const canImport = catalogReady && isQualifiedManufacturer;
         let isIndustrySupplier = false;
         if (catalogReady) {
             try {
@@ -12394,8 +12412,10 @@ app.get('/api/me/capabilities', async (req, res) => {
         const showSupplierZone = true;
         res.json({
             has_manufacturer: hasManufacturer,
+            is_qualified_manufacturer: isQualifiedManufacturer,
             manufacturer_id: mfr ? mfr.id : null,
-            portfolio_count: portfolioCount,
+            active_portfolio_count: activePortfolioCount,
+            portfolio_count: activePortfolioCount,
             bypass_supplier_portfolio_gate: staffBypassPortfolio,
             vendor_source: mfr ? mfr.vendor_source : null,
             supplier_catalog_ready: catalogReady,
@@ -12404,7 +12424,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             can_manage_supplier_catalog: catalogReady && isIndustrySupplier,
             zones: {
                 design: true,
-                manufacturer: hasManufacturer,
+                manufacturer: isQualifiedManufacturer || (hasManufacturer && staffBypassPortfolio),
                 industry_supplier: isIndustrySupplier
             },
             nav: {

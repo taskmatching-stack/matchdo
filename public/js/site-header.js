@@ -402,12 +402,11 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <div class="dropdown-divider"></div>
                                 <a href="/client/manufacturer-dashboard.html" class="dropdown-item text-muted small"><i class="bi bi-building-add me-2"></i>` + t('nav.createVendor') + `</a>
                                 <a href="/vendors.html" class="dropdown-item text-muted small"><i class="bi bi-grid me-2"></i>` + t('nav.browseAllVendors') + `</a>
-                                ${showSupplierZone ? `
+                                ${showSupplierCatalogManage ? `
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
                                 <a href="/client/industry-supplier-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.supplierDashboard') + `</a>
-                                ${showSupplierCatalogManage ? `<a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierCatalogManage') + `</a>` : ''}
-                                <a href="/client/supplier-portal.html" class="dropdown-item text-muted small"><i class="bi bi-info-circle me-2"></i>` + t('nav.supplierPortal') + `</a>
+                                <a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierCatalogManage') + `</a>
                                 ` : ''}
                             </div>
                         </div>

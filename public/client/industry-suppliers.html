@@ -74,15 +74,9 @@
                 }
                 var capR = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
                 var cap = await capR.json().catch(function () { return {}; });
-                if (!cap.has_manufacturer) {
-                    gate.innerHTML = esc(tr('baseModels.needManufacturerForImport', '請先建立廠商資料')) +
-                        ' <a href="/client/manufacturer-dashboard.html" class="alert-link">' + esc(tr('supplierPortal.goMfrDashboard', '製造商控制台')) + '</a>';
-                    gate.classList.remove('d-none');
-                    return;
-                }
-                if ((cap.portfolio_count || 0) < 1 && !cap.bypass_supplier_portfolio_gate) {
-                    gate.innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品')) +
-                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '上傳展示案例')) + '</a>';
+                if (!cap.can_import_supplier_catalog) {
+                    gate.innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件啟用中（公開）的作品')) +
+                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '我的廠商作品')) + '</a>';
                     gate.classList.remove('d-none');
                     return;
                 }

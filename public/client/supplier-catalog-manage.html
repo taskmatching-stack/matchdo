@@ -24,15 +24,9 @@
 
         <div id="manage-gate" class="d-none">
             <div class="alert alert-info border-0">
-                <h6 class="alert-heading fw-semibold" data-i18n="supplierManage.manufacturerTitle">一般製造商請用「導入」，不必綁定</h6>
-                <p class="small mb-3" data-i18n="supplierManage.manufacturerBody">此頁僅供「上游產業供應商」上架材料給其他廠商採購。若您是接單製造商、要參考別家供應商材料，請到「上傳數位版型 → 材料參考 → 瀏覽供應商材料」，無需任何綁定。</p>
-                <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm me-2"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
-                <a href="/client/industry-supplier-dashboard.html" class="btn btn-outline-secondary btn-sm" data-i18n="supplierManage.backDashboard">返回供應商控制台</a>
+                <p class="small mb-3" data-i18n="supplierManage.wrongPage">此頁僅供上游產業供應商公司上架產品。接單製造商請至產業供應商目錄瀏覽並匯入。</p>
+                <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
             </div>
-            <details class="small text-muted mt-3">
-                <summary data-i18n="supplierManage.adminOnlySummary">我是上游供應商／管理員</summary>
-                <p class="mt-2 mb-0" data-i18n="supplierManage.adminOnlyBody">平台代營或管理員開通時，才需將 <code>industry_suppliers.user_id</code> 設為登入 UUID（見 <code>docs/bind-industry-supplier-account.sql</code>）。一般製造商可略過。</p>
-            </details>
         </div>
 
         <div id="manage-main" class="d-none">
@@ -132,7 +126,7 @@
                 var data = await r.json().catch(function () { return {}; });
                 loading.classList.add('d-none');
                 if (r.status === 403 && data.code === 'NOT_INDUSTRY_SUPPLIER') {
-                    gateEl.classList.remove('d-none');
+                    window.location.replace('/client/industry-suppliers.html');
                     return;
                 }
                 if (!r.ok) {
