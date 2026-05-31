@@ -951,6 +951,8 @@
   "vendor.catalogPrototypeGroups": "Prototypes",
   "vendor.catalogPartGroups": "Parts / accessories",
   "vendor.listPageSize": "Per page",
+  "vendor.listRange": "Showing {from}–{to} of {total}",
+  "vendor.listPageInfo": "Page {page} / {total}",
   "vendor.listPrev": "Previous",
   "vendor.listNext": "Next",
   "vendor.catalogMaterialGroups": "Materials",

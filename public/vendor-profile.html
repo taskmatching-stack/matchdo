@@ -614,6 +614,14 @@
             });
         }
 
+        function vpTr(k, fb) {
+            if (window.i18n && typeof window.i18n.t === 'function') {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb || k;
+        }
+
         function updateVendorProfileListPager(total, offset, limit) {
             var rangeEl = document.getElementById('vendorProfileListRange');
             if (window.MatchdoOffsetPager && window.MatchdoOffsetPager.render) {
@@ -626,7 +634,7 @@
                     total: total,
                     offset: offset,
                     limit: limit,
-                    pageInfoTemplate: '第 {page} / {total} 頁',
+                    pageInfoTemplate: vpTr('vendor.listPageInfo', '第 {page} / {total} 頁'),
                     onGoToPage: function (newOffset) {
                         vendorProfileOffset = newOffset;
                         renderVendorAssetsGrid(vendorProfileListItems);
@@ -637,7 +645,10 @@
                 if (total) {
                     var from = offset + 1;
                     var to = Math.min(offset + limit, total);
-                    rangeEl.textContent = '顯示 ' + from + '–' + to + '，共 ' + total + ' 項';
+                    rangeEl.textContent = vpTr('vendor.listRange', '顯示 {from}–{to}，共 {total} 項')
+                        .replace('{from}', String(from))
+                        .replace('{to}', String(to))
+                        .replace('{total}', String(total));
                     rangeEl.classList.remove('d-none');
                 } else {
                     rangeEl.classList.add('d-none');

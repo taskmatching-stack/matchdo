@@ -937,6 +937,8 @@
   "vendor.catalogPrototypeGroups": "數位原型",
   "vendor.catalogPartGroups": "配件／零件",
   "vendor.listPageSize": "每頁顯示",
+  "vendor.listRange": "顯示 {from}–{to}，共 {total} 項",
+  "vendor.listPageInfo": "第 {page} / {total} 頁",
   "vendor.listPrev": "上一頁",
   "vendor.listNext": "下一頁",
   "vendor.catalogMaterialGroups": "材料參考",
