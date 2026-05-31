@@ -12827,6 +12827,63 @@ app.get('/api/me/supplier-catalog-imports', async (req, res) => {
     }
 });
 
+function normalizeSupplierCatalogItemKind(raw) {
+    const k = String(raw || 'material').trim().toLowerCase();
+    if (k === 'prototype_set' || k === 'prototype') return 'prototype_set';
+    if (k === 'part') return 'part';
+    return 'material';
+}
+
+function parseSupplierCatalogSpecJson(itemKind, body) {
+    let specJson = body && body.spec_json;
+    if (specJson && typeof specJson === 'string') {
+        try { specJson = JSON.parse(specJson); } catch (_) { specJson = {}; }
+    }
+    if (!specJson || typeof specJson !== 'object') specJson = {};
+    const pickStr = (key) => {
+        if (!body || body[key] == null) return;
+        const v = String(body[key]).trim();
+        if (v) specJson[key] = v;
+    };
+    if (itemKind === 'material') {
+        pickStr('material_type');
+        pickStr('color');
+        pickStr('composition');
+        pickStr('finish');
+        if (body && body.width_cm != null && String(body.width_cm).trim() !== '') {
+            const w = parseInt(body.width_cm, 10);
+            specJson.width_cm = Number.isFinite(w) ? w : String(body.width_cm).trim();
+        }
+    } else if (itemKind === 'prototype_set') {
+        pickStr('style');
+        pickStr('fit');
+        pickStr('moq_hint');
+        pickStr('customization_notes');
+        if (body && body.subcategory_key) specJson.subcategory_key = String(body.subcategory_key).trim();
+    } else if (itemKind === 'part') {
+        pickStr('part_type');
+        pickStr('finish');
+        pickStr('material');
+        pickStr('dimensions');
+    }
+    return specJson;
+}
+
+async function resolveSupplierCatalogCoverUrl(supplierId, req, existingUrl) {
+    const urlFromBody = (req.body && req.body.cover_image_url || '').trim();
+    if (req.file) {
+        const file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return { error: '圖片格式無效' };
+        const { publicUrl } = await uploadToSupabaseStorage('custom-products', `supplier-catalog/${supplierId}`, file);
+        return { url: publicUrl };
+    }
+    if (urlFromBody) return { url: urlFromBody };
+    if (existingUrl) return { url: existingUrl };
+    return { error: '請上傳產品圖片' };
+}
+
+const supplierCatalogItemUpload = upload.single('image');
+
 // GET /api/me/industry-supplier — 產業供應商控制台摘要
 app.get('/api/me/industry-supplier', async (req, res) => {
     try {
@@ -12864,6 +12921,54 @@ app.get('/api/me/industry-supplier', async (req, res) => {
         });
     } catch (e) {
         console.error('GET /api/me/industry-supplier:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/me/industry-supplier — 更新供應商公司資料（名稱、介紹、聯絡）
+app.patch('/api/me/industry-supplier', express.json(), async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const body = req.body || {};
+        const patch = { updated_at: new Date().toISOString() };
+        if (body.name != null) {
+            const name = String(body.name).trim();
+            if (!name) return res.status(400).json({ error: '公司名稱不可為空' });
+            patch.name = name;
+        }
+        if (body.description != null) patch.description = String(body.description).trim() || null;
+        if (body.contact_json != null) {
+            let contactJson = body.contact_json;
+            if (typeof contactJson === 'string') {
+                try { contactJson = JSON.parse(contactJson); } catch (_) {
+                    return res.status(400).json({ error: 'contact_json 格式錯誤' });
+                }
+            }
+            if (contactJson != null && typeof contactJson !== 'object') {
+                return res.status(400).json({ error: 'contact_json 須為物件' });
+            }
+            patch.contact_json = contactJson || {};
+        }
+        if (Object.keys(patch).length <= 1) {
+            return res.status(400).json({ error: '請提供要更新的欄位' });
+        }
+        const { data: updated, error } = await supabase
+            .from('industry_suppliers')
+            .update(patch)
+            .eq('id', ctx.supplier.id)
+            .select('id, name, description, contact_json, is_active')
+            .single();
+        if (error) {
+            console.error('PATCH industry-supplier profile:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json({ supplier: updated });
+    } catch (e) {
+        console.error('PATCH /api/me/industry-supplier:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -12932,7 +13037,7 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
             .eq('industry_supplier_id', ctx.supplier.id)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
-        if (itemKind === 'material' || itemKind === 'prototype_set') q = q.eq('item_kind', itemKind);
+        if (itemKind === 'material' || itemKind === 'prototype_set' || itemKind === 'part') q = q.eq('item_kind', itemKind);
         const { data: rows, error } = await q;
         if (error) {
             console.error('GET industry-supplier catalog-items:', error);
@@ -12976,8 +13081,8 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
     }
 });
 
-// POST /api/me/industry-supplier/catalog-items — 上架材料（第一版）
-app.post('/api/me/industry-supplier/catalog-items', express.json(), async (req, res) => {
+// POST /api/me/industry-supplier/catalog-items — 上架品項（材料／數位原型／配件零件；支援上傳圖片）
+app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemUpload, async (req, res) => {
     try {
         if (!(await supplierCatalogTablesReady())) {
             return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
@@ -12985,21 +13090,16 @@ app.post('/api/me/industry-supplier/catalog-items', express.json(), async (req, 
         const ctx = await getMeIndustrySupplier(req, res);
         if (!ctx) return;
         const body = req.body || {};
-        const itemKind = (body.item_kind || 'material').trim();
-        if (itemKind !== 'material') {
-            return res.status(400).json({ error: '目前僅支援上架材料（material）' });
-        }
+        const itemKind = normalizeSupplierCatalogItemKind(body.item_kind);
         const title = (body.title || '').trim();
-        if (!title) return res.status(400).json({ error: '請填寫標題' });
-        const coverImageUrl = (body.cover_image_url || '').trim();
-        if (!coverImageUrl) return res.status(400).json({ error: '請提供封面圖網址（cover_image_url）' });
-        const description = (body.description || '').trim() || null;
-        const categoryKey = (body.category_key || '').trim() || null;
-        let specJson = body.spec_json;
-        if (specJson && typeof specJson === 'string') {
-            try { specJson = JSON.parse(specJson); } catch (_) { return res.status(400).json({ error: 'spec_json 格式錯誤' }); }
-        }
-        if (specJson != null && typeof specJson !== 'object') specJson = {};
+        if (!title) return res.status(400).json({ error: '請填寫產品名稱' });
+        const description = (body.description || '').trim();
+        if (!description) return res.status(400).json({ error: '請填寫產品說明（製造商匯入時會看到）' });
+        const categoryKey = (body.category_key || '').trim();
+        if (!categoryKey) return res.status(400).json({ error: '請選擇平台主分類' });
+        const coverResolved = await resolveSupplierCatalogCoverUrl(ctx.supplier.id, req, null);
+        if (coverResolved.error) return res.status(400).json({ error: coverResolved.error });
+        const specJson = parseSupplierCatalogSpecJson(itemKind, body);
         const sortOrder = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
         const { data: inserted, error } = await supabase
             .from('supplier_catalog_items')
@@ -13008,8 +13108,8 @@ app.post('/api/me/industry-supplier/catalog-items', express.json(), async (req, 
                 item_kind: itemKind,
                 title,
                 description,
-                cover_image_url: coverImageUrl,
-                spec_json: specJson || {},
+                cover_image_url: coverResolved.url,
+                spec_json: specJson,
                 category_key: categoryKey,
                 is_active: true,
                 sort_order: sortOrder
@@ -13018,6 +13118,9 @@ app.post('/api/me/industry-supplier/catalog-items', express.json(), async (req, 
             .single();
         if (error) {
             console.error('POST industry-supplier catalog-item:', error);
+            if (error.code === '23514') {
+                return res.status(400).json({ error: '資料庫尚未支援此品項類型，請執行 docs/add-supplier-catalog-item-kind-part.sql' });
+            }
             return res.status(500).json({ error: '上架失敗' });
         }
         res.status(201).json({ item: inserted });
@@ -13028,7 +13131,7 @@ app.post('/api/me/industry-supplier/catalog-items', express.json(), async (req, 
 });
 
 // PATCH /api/me/industry-supplier/catalog-items/:id
-app.patch('/api/me/industry-supplier/catalog-items/:id', express.json(), async (req, res) => {
+app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUpload, async (req, res) => {
     try {
         if (!(await supplierCatalogTablesReady())) {
             return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
@@ -13039,7 +13142,7 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', express.json(), async (
         if (!itemId) return res.status(400).json({ error: '缺少 id' });
         const { data: existing } = await supabase
             .from('supplier_catalog_items')
-            .select('id')
+            .select('id, cover_image_url, item_kind, spec_json')
             .eq('id', itemId)
             .eq('industry_supplier_id', ctx.supplier.id)
             .maybeSingle();
@@ -13051,17 +13154,27 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', express.json(), async (
             if (!t) return res.status(400).json({ error: '標題不可為空' });
             patch.title = t;
         }
-        if (body.description != null) patch.description = String(body.description).trim() || null;
-        if (body.cover_image_url != null) patch.cover_image_url = String(body.cover_image_url).trim() || null;
-        if (body.category_key != null) patch.category_key = String(body.category_key).trim() || null;
+        if (body.description != null) {
+            const d = String(body.description).trim();
+            if (!d) return res.status(400).json({ error: '產品說明不可為空' });
+            patch.description = d;
+        }
+        if (body.category_key != null) {
+            const ck = String(body.category_key).trim();
+            if (!ck) return res.status(400).json({ error: '請選擇平台主分類' });
+            patch.category_key = ck;
+        }
         if (body.is_active != null) patch.is_active = !!body.is_active;
         if (body.sort_order != null && !isNaN(body.sort_order)) patch.sort_order = parseInt(body.sort_order, 10);
-        if (body.spec_json != null) {
-            let specJson = body.spec_json;
-            if (typeof specJson === 'string') {
-                try { specJson = JSON.parse(specJson); } catch (_) { return res.status(400).json({ error: 'spec_json 格式錯誤' }); }
-            }
-            if (typeof specJson === 'object') patch.spec_json = specJson;
+        const itemKind = normalizeSupplierCatalogItemKind(existing.item_kind);
+        if (body.spec_json != null || body.material_type != null || body.subcategory_key != null) {
+            const baseSpec = (existing.spec_json && typeof existing.spec_json === 'object') ? existing.spec_json : {};
+            patch.spec_json = parseSupplierCatalogSpecJson(itemKind, { ...baseSpec, ...body, spec_json: body.spec_json || baseSpec });
+        }
+        if (req.file || (body.cover_image_url != null && String(body.cover_image_url).trim())) {
+            const coverResolved = await resolveSupplierCatalogCoverUrl(ctx.supplier.id, req, existing.cover_image_url);
+            if (coverResolved.error) return res.status(400).json({ error: coverResolved.error });
+            patch.cover_image_url = coverResolved.url;
         }
         patch.updated_at = new Date().toISOString();
         const { data: updated, error } = await supabase

@@ -407,7 +407,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <a href="/client/my-supplier-references.html" class="dropdown-item"><i class="bi bi-link-45deg me-2"></i>` + t('nav.mySupplierReferences') + `</a>
                                 ${showSupplierCatalogManage ? `
                                 <a href="/client/industry-supplier-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.supplierDashboard') + `</a>
-                                <a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierCatalogManage') + `</a>
+                                <a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-cloud-upload me-2"></i>` + t('nav.supplierCatalogManage') + `</a>
                                 ` : ''}
                                 ` : ''}
                             </div>

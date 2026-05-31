@@ -2,89 +2,225 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title data-i18n="supplierManage.pageTitle">管理產業供應商目錄 - MatchDO 合做</title>
+    <title data-i18n="supplierManage.pageTitle">上架數位產品庫 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <link href="../img/favicon.ico" rel="icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/style.css" rel="stylesheet">
+    <link href="/css/image-lightbox.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
+    <style>
+        .material-card { border-radius: 12px; border: 1px solid #e9ecef; overflow: hidden; transition: box-shadow .15s; }
+        .material-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); }
+        .material-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #f0f0f0; display: block; cursor: zoom-in; }
+        .add-image-preview img { cursor: zoom-in; max-height: 200px; max-width: 100%; object-fit: contain; }
+        .section-title { font-size: 1rem; font-weight: 600; color: #444; margin-bottom: 14px; border-left: 3px solid #198754; padding-left: 10px; }
+        #asset-kind-tabs .nav-link { font-weight: 600; }
+        #asset-kind-tabs .nav-link.active { color: #198754; border-color: #dee2e6 #dee2e6 #fff; }
+        #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    </style>
 </head>
 <body>
     <div id="site-header"></div>
-    <div class="container py-4" style="max-width: 960px;">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-            <h4 class="fw-bold mb-0" data-i18n="supplierManage.heading">管理數位產品庫（產業供應商上架）</h4>
-            <a href="/client/industry-supplier-dashboard.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierManage.backDashboard">返回供應商控制台</span></a>
-        </div>
-        <p class="text-muted small" data-i18n="supplierManage.intro">產業供應商在此上架數位產品（材料、數位原型、配件／零件）。製造商在「產業供應商目錄」瀏覽並匯入；訂製者看不到本目錄。</p>
 
+    <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h4 class="mb-0 fw-bold" data-i18n="supplierManage.heading">上架數位產品庫</h4>
+                    <small class="text-muted" data-i18n="supplierManage.pageIntro">對稱製造商「上傳數位版型」流程：分頁上架材料、數位原型、配件／零件。製造商在產業供應商目錄匯入。</small>
+                </div>
+                <a href="/client/industry-supplier-dashboard.html" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierManage.backDashboard">返回供應商控制台</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container py-4">
         <div id="manage-gate" class="d-none">
-            <div class="alert alert-info border-0">
-                <p class="small mb-3" data-i18n="supplierManage.wrongPage">此頁僅供上游產業供應商公司上架產品。接單製造商請至產業供應商目錄瀏覽並匯入。</p>
+            <div class="alert alert-warning border-0">
+                <p class="small mb-3" id="gate-extra"></p>
                 <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
             </div>
         </div>
 
-        <div id="manage-main" class="d-none">
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-body">
-                    <h6 class="fw-semibold mb-3" data-i18n="supplierManage.addTitle">新增材料品項</h6>
-                    <form id="add-item-form" class="row g-2">
+        <div id="main-content" class="d-none">
+            <div class="alert alert-light border mb-3 py-2 small">
+                <i class="bi bi-building text-success me-1"></i>
+                <strong id="supplier-display-name">—</strong>
+                <span class="text-muted" id="supplier-display-desc"></span>
+                <span class="mx-2">·</span>
+                <span data-i18n="supplierManage.contactLabel">聯絡</span>：<span id="supplier-contact-line">—</span>
+                <a href="#" id="supplier-catalog-preview-link" class="alert-link ms-2" target="_blank" rel="noopener" data-i18n="supplierManage.previewCatalog">製造商產品庫頁</a>
+                <button type="button" class="btn btn-link btn-sm p-0 ms-2" id="btn-toggle-company-edit" data-i18n="supplierManage.editCompany">編輯公司</button>
+            </div>
+            <div id="company-edit" class="card border-0 shadow-sm mb-3 d-none">
+                <div class="card-body py-3">
+                    <div class="row g-2">
                         <div class="col-md-6">
-                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldTitle">標題</label>
-                            <input type="text" class="form-control form-control-sm" name="title" required maxlength="120">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldCategory">分類 key（選填）</label>
-                            <input type="text" class="form-control form-control-sm" name="category_key" placeholder="apparel">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.companyName">公司名稱</label>
+                            <input type="text" class="form-control form-control-sm" id="edit-company-name" maxlength="120">
                         </div>
                         <div class="col-12">
-                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldCover">封面圖網址</label>
-                            <input type="url" class="form-control form-control-sm" name="cover_image_url" required placeholder="https://...">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.companyDesc">公司介紹</label>
+                            <textarea class="form-control form-control-sm" id="edit-company-desc" rows="2"></textarea>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldDesc">說明</label>
-                            <textarea class="form-control form-control-sm" name="description" rows="2"></textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldMaterial">材質（spec）</label>
-                            <input type="text" class="form-control form-control-sm" name="material_type" placeholder="fabric">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldColor">顏色</label>
-                            <input type="text" class="form-control form-control-sm" name="color">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldWidth">幅寬 cm</label>
-                            <input type="number" class="form-control form-control-sm" name="width_cm" min="0" step="1">
-                        </div>
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i><span data-i18n="supplierManage.submitAdd">上架材料</span></button>
-                        </div>
-                    </form>
+                        <div class="col-md-4"><label class="form-label small mb-0">Email</label><input type="email" class="form-control form-control-sm" id="edit-contact-email"></div>
+                        <div class="col-md-4"><label class="form-label small mb-0" data-i18n="supplierManage.phone">電話</label><input type="text" class="form-control form-control-sm" id="edit-contact-phone"></div>
+                        <div class="col-md-4"><label class="form-label small mb-0" data-i18n="supplierManage.website">官網</label><input type="url" class="form-control form-control-sm" id="edit-contact-website" placeholder="https://"></div>
+                        <div class="col-12"><button type="button" class="btn btn-success btn-sm" id="btn-save-company" data-i18n="supplierManage.saveCompany">儲存公司資料</button></div>
+                    </div>
                 </div>
             </div>
 
-            <h6 class="fw-semibold mb-2" data-i18n="supplierManage.listTitle">已上架</h6>
-            <div id="items-loading" class="text-muted small py-3" data-i18n="supplierManage.loading">載入中…</div>
-            <div id="items-empty" class="alert alert-light border d-none small" data-i18n="supplierManage.empty">尚無品項，請用上方表單新增。</div>
-            <div id="items-list" class="row g-3"></div>
+            <ul class="nav nav-tabs mb-3" id="asset-kind-tabs" role="tablist">
+                <li class="nav-item"><button class="nav-link active" type="button" data-kind="prototype" id="tab-prototype"><i class="bi bi-box me-1"></i><span data-i18n="baseModels.tabPrototype">數位原型</span></button></li>
+                <li class="nav-item"><button class="nav-link" type="button" data-kind="part" id="tab-part"><i class="bi bi-puzzle me-1"></i><span data-i18n="baseModels.tabPart">配件／零件</span></button></li>
+                <li class="nav-item"><button class="nav-link" type="button" data-kind="material" id="tab-material"><i class="bi bi-palette me-1"></i><span data-i18n="baseModels.tabMaterial">材料參考</span></button></li>
+            </ul>
+
+            <!-- 數位原型 -->
+            <div id="panel-prototype" class="asset-kind-panel">
+                <p class="text-muted small mb-3" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供製造商匯入為數位原型。</p>
+                <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <form class="add-form" data-kind="prototype" enctype="multipart/form-data">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory" name="subcategory_key"><option value="">—</option></select></div>
+                                <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.style">款式</label><input type="text" class="form-control" name="style"></div>
+                                <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.fit">版型</label><input type="text" class="form-control" name="fit"></div>
+                                <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.moqHint">MOQ 參考</label><input type="text" class="form-control" name="moq_hint" placeholder="例：50 件起"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">產品說明 <span class="text-danger">*</span></label><textarea class="form-control add-description" name="description" rows="4" required placeholder="用途、適用品類、打樣注意事項…"></textarea></div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label>
+                                    <div class="add-image-preview mt-2 d-none"></div>
+                                    <input type="file" class="form-control add-image" name="image" accept="image/*" required>
+                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
+                                </div>
+                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="supplierManage.submitAdd">上架並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="section-title" data-i18n="supplierManage.listPrototype">已上架的數位原型</div>
+            </div>
+
+            <!-- 配件／零件 -->
+            <div id="panel-part" class="asset-kind-panel d-none" hidden>
+                <p class="text-muted small mb-3" data-i18n="baseModels.hintPart">扣具、拉鍊、標章等局部零件參考。</p>
+                <div id="add-form-panel-part" class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <form class="add-form" data-kind="part" enctype="multipart/form-data">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.partType">零件類型</label><input type="text" class="form-control" name="part_type" placeholder="拉鍊、扣具…"></div>
+                                <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.finish">表面處理</label><input type="text" class="form-control" name="finish"></div>
+                                <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.dimensions">尺寸規格</label><input type="text" class="form-control" name="dimensions"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">產品說明 <span class="text-danger">*</span></label><textarea class="form-control add-description" name="description" rows="4" required></textarea></div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label>
+                                    <div class="add-image-preview mt-2 d-none"></div>
+                                    <input type="file" class="form-control add-image" name="image" accept="image/*" required>
+                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
+                                </div>
+                                <div class="col-12"><button type="submit" class="btn btn-warning btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="supplierManage.submitAdd">上架並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="section-title" data-i18n="supplierManage.listPart">已上架的配件／零件</div>
+            </div>
+
+            <!-- 材料參考 -->
+            <div id="panel-material" class="asset-kind-panel d-none" hidden>
+                <p class="text-muted small mb-3" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本。</p>
+                <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+                        <form class="add-form" data-kind="material" enctype="multipart/form-data">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-md-3"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldMaterial">材質類型</label><input type="text" class="form-control" name="material_type" placeholder="fabric"></div>
+                                <div class="col-md-3"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldColor">顏色</label><input type="text" class="form-control" name="color"></div>
+                                <div class="col-md-3"><label class="form-label fw-semibold" data-i18n="supplierManage.composition">成分</label><input type="text" class="form-control" name="composition"></div>
+                                <div class="col-md-3"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldWidth">幅寬 cm</label><input type="number" class="form-control" name="width_cm" min="0"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">產品說明 <span class="text-danger">*</span></label><textarea class="form-control add-description" name="description" rows="4" required></textarea></div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label>
+                                    <div class="add-image-preview mt-2 d-none"></div>
+                                    <input type="file" class="form-control add-image" name="image" accept="image/*" required>
+                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
+                                </div>
+                                <div class="col-12"><button type="submit" class="btn btn-success btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="supplierManage.submitAdd">上架並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="section-title" data-i18n="supplierManage.listMaterial">已上架的材料參考</div>
+            </div>
+
+            <div id="items-loading" class="text-muted small py-3 d-none"><span class="spinner-border spinner-border-sm me-2"></span><span data-i18n="supplierManage.loading">載入中…</span></div>
+            <div id="catalog-grid" class="row g-3"></div>
         </div>
     </div>
-    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-wrap"></div>
+
+    <div class="modal fade" id="edit-modal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header"><h6 class="modal-title" data-i18n="supplierManage.editTitle">編輯品項</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="edit-form" enctype="multipart/form-data">
+                        <input type="hidden" id="edit-id">
+                        <input type="hidden" id="edit-kind">
+                        <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
+                        <div class="mb-3 d-none" id="edit-sub-wrap"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
+                        <div class="mb-3"><label class="form-label">標題 <span class="text-danger">*</span></label><input type="text" class="form-control" id="edit-title" required></div>
+                        <div class="mb-3"><label class="form-label">產品說明 <span class="text-danger">*</span></label><textarea class="form-control" id="edit-description" rows="4" required></textarea></div>
+                        <div class="mb-3">
+                            <label class="form-label">產品圖片</label>
+                            <img id="edit-current-image" src="" alt="" class="rounded border mb-2 d-none matchdo-enlarge-trigger" style="max-height:180px">
+                            <input type="file" class="form-control" id="edit-image" name="image" accept="image/*">
+                            <p class="form-text small mb-0" data-i18n="supplierManage.imageHint">編輯時可不換圖。</p>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="supplierManage.cancel">取消</button>
+                    <button type="button" class="btn btn-success" id="btn-edit-save" data-i18n="supplierManage.save">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-area"></div>
+    <div id="site-footer"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/image-lightbox.js"></script>
     <script src="/js/site-header.js"></script>
+    <script src="/js/site-footer.js"></script>
     <script>
     (function () {
+        var token = null;
+        var supplierId = null;
+        var supplierRecord = null;
+        var categories = [];
+        var catNames = {};
+        var subByMain = {};
+        var activeKind = 'prototype';
+        var itemsCache = { prototype: [], part: [], material: [] };
+        var editModal = null;
+
         function tr(k, fb) {
-            if (window.i18n && window.i18n.t) {
-                var v = window.i18n.t(k);
-                if (v && v !== k) return v;
-            }
+            if (window.i18n && window.i18n.t) { var v = window.i18n.t(k); if (v && v !== k) return v; }
             return fb || k;
         }
         function esc(s) {
@@ -92,162 +228,330 @@
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
         function toast(msg, type) {
-            var wrap = document.getElementById('toast-wrap');
+            var area = document.getElementById('toast-area');
             var el = document.createElement('div');
-            el.className = 'toast align-items-center text-white bg-' + (type || 'primary') + ' border-0 show';
-            el.setAttribute('role', 'alert');
-            el.innerHTML = '<div class="d-flex"><div class="toast-body">' + esc(msg) + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
-            wrap.appendChild(el);
+            el.className = 'alert alert-' + (type || 'success') + ' shadow-sm mb-2';
+            el.textContent = msg;
+            area.appendChild(el);
             setTimeout(function () { el.remove(); }, 4000);
         }
-        var token = null;
-        var gateEl = document.getElementById('manage-gate');
-        var mainEl = document.getElementById('manage-main');
-
-        async function getToken() {
-            if (typeof AuthService === 'undefined') return null;
-            try {
-                var s = await AuthService.getSession();
-                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
-            } catch (e) { return null; }
+        function authH(json) {
+            var h = { Authorization: 'Bearer ' + token };
+            if (json) h['Content-Type'] = 'application/json';
+            return h;
+        }
+        function normalizeKind(k) {
+            if (k === 'material') return 'material';
+            if (k === 'part') return 'part';
+            return 'prototype';
+        }
+        function apiKind(tabKind) {
+            return tabKind === 'prototype' ? 'prototype_set' : tabKind;
         }
 
-        async function loadItems() {
+        function showLocalImagePreview(wrap, file) {
+            if (!wrap) return;
+            wrap.innerHTML = '';
+            if (!file) { wrap.classList.add('d-none'); return; }
+            var img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            img.className = 'rounded border';
+            img.alt = '';
+            wrap.appendChild(img);
+            wrap.classList.remove('d-none');
+        }
+
+        function fillCategorySelect(sel, selected) {
+            if (!sel) return;
+            sel.innerHTML = '<option value="">—</option>' + categories.map(function (c) {
+                var selAttr = (selected && selected === c.key) ? ' selected' : '';
+                return '<option value="' + esc(c.key) + '"' + selAttr + '>' + esc(catNames[c.key] || c.name || c.key) + '</option>';
+            }).join('');
+        }
+        function fillAllCategorySelects(selected) {
+            document.querySelectorAll('.add-category').forEach(function (sel) { fillCategorySelect(sel, selected); });
+            fillCategorySelect(document.getElementById('edit-category'), selected);
+        }
+        function fillSubcategorySelect(subSel, mainKey, selected) {
+            if (!subSel) return;
+            var subs = subByMain[mainKey] || [];
+            subSel.innerHTML = '<option value="">—</option>' + subs.map(function (s) {
+                var selAttr = (selected && selected === s.key) ? ' selected' : '';
+                return '<option value="' + esc(s.key) + '"' + selAttr + '>' + esc(s.name || s.key) + '</option>';
+            }).join('');
+        }
+
+        function contactLine(c) {
+            c = c && typeof c === 'object' ? c : {};
+            return [c.phone, c.email, c.website].filter(Boolean).join(' · ') || '—';
+        }
+        function renderSupplierBar() {
+            if (!supplierRecord) return;
+            document.getElementById('supplier-display-name').textContent = supplierRecord.name || '—';
+            document.getElementById('supplier-display-desc').textContent = supplierRecord.description ? (' — ' + supplierRecord.description) : '';
+            document.getElementById('supplier-contact-line').textContent = contactLine(supplierRecord.contact_json);
+            var link = document.getElementById('supplier-catalog-preview-link');
+            if (supplierId) link.href = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(supplierId);
+            document.getElementById('edit-company-name').value = supplierRecord.name || '';
+            document.getElementById('edit-company-desc').value = supplierRecord.description || '';
+            var c = supplierRecord.contact_json || {};
+            document.getElementById('edit-contact-email').value = c.email || '';
+            document.getElementById('edit-contact-phone').value = c.phone || '';
+            document.getElementById('edit-contact-website').value = c.website || '';
+        }
+
+        async function loadCategories() {
+            var r = await fetch('/api/custom-product-categories');
+            var data = await r.json().catch(function () { return {}; });
+            categories = data.categories || [];
+            catNames = {};
+            subByMain = {};
+            categories.forEach(function (c) {
+                catNames[c.key] = c.name || c.key;
+                subByMain[c.key] = c.subcategories || [];
+            });
+            fillAllCategorySelects();
+        }
+
+        async function loadSupplier() {
+            var r = await fetch('/api/me/industry-supplier', { headers: authH() });
+            var data = await r.json().catch(function () { return {}; });
+            if (r.status === 403 && data.code === 'NOT_INDUSTRY_SUPPLIER') {
+                document.getElementById('manage-gate').classList.remove('d-none');
+                document.getElementById('gate-extra').textContent = data.error || '';
+                return false;
+            }
+            if (!r.ok) { toast(data.error || '載入失敗', 'danger'); return false; }
+            supplierRecord = data.supplier;
+            supplierId = supplierRecord && supplierRecord.id;
+            renderSupplierBar();
+            document.getElementById('main-content').classList.remove('d-none');
+            return true;
+        }
+
+        async function loadItemsForKind(kind) {
+            var ak = apiKind(kind);
+            var r = await fetch('/api/me/industry-supplier/catalog-items?item_kind=' + encodeURIComponent(ak), { headers: authH() });
+            var data = await r.json().catch(function () { return {}; });
+            if (!r.ok) throw new Error(data.error || '載入失敗');
+            itemsCache[kind] = data.items || [];
+            return itemsCache[kind];
+        }
+
+        function specSummary(item, kind) {
+            var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
+            var parts = [];
+            if (kind === 'material') {
+                [spec.material_type, spec.color, spec.composition, spec.width_cm ? spec.width_cm + 'cm' : ''].forEach(function (x) { if (x) parts.push(x); });
+            } else if (kind === 'prototype') {
+                [spec.style, spec.fit, spec.moq_hint].forEach(function (x) { if (x) parts.push(x); });
+            } else {
+                [spec.part_type, spec.finish, spec.dimensions].forEach(function (x) { if (x) parts.push(x); });
+            }
+            return parts.join(' · ');
+        }
+
+        function renderGrid() {
+            var grid = document.getElementById('catalog-grid');
+            var list = itemsCache[activeKind] || [];
+            if (!list.length) {
+                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + esc(tr('supplierManage.emptyTab', '尚無品項，請使用上方表單上架。')) + '</p></div>';
+                return;
+            }
+            grid.innerHTML = list.map(function (item) {
+                var catLabel = catNames[item.category_key] || item.category_key || '—';
+                var pub = item.is_active
+                    ? '<span class="badge bg-success mb-2 me-1">' + esc(tr('supplierManage.active', '上架中')) + '</span>'
+                    : '<span class="badge bg-secondary mb-2 me-1">' + esc(tr('supplierManage.inactive', '已下架')) + '</span>';
+                var refN = item.reference_count || 0;
+                var specLine = specSummary(item, activeKind);
+                return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
+                    (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="">' : '<div class="bg-light py-5 text-center text-muted small">無圖</div>') +
+                    '<div class="card-body p-3">' + pub +
+                    '<div class="small text-success mb-1"><i class="bi bi-building me-1"></i>' + esc(supplierRecord.name || '') + '</div>' +
+                    '<div class="fw-semibold text-truncate mb-1">' + esc(item.title || '') + '</div>' +
+                    '<div class="text-muted small mb-1"><i class="bi bi-tag me-1"></i>' + esc(catLabel) + '</div>' +
+                    (specLine ? '<div class="text-muted small mb-1">' + esc(specLine) + '</div>' : '') +
+                    '<p class="small mb-2 text-muted">' + esc((item.description || '').slice(0, 120)) + ((item.description || '').length > 120 ? '…' : '') + '</p>' +
+                    '<div class="badge bg-light text-dark border mb-2">' + esc(String(tr('supplierManage.referenceCount', '{n} 家引用')).replace(/\{n\}/g, String(refN))) + '</div>' +
+                    '<div class="d-flex gap-1 flex-wrap">' +
+                    '<button type="button" class="btn btn-outline-primary btn-sm flex-fill btn-edit" data-id="' + esc(item.id) + '"><i class="bi bi-pencil"></i></button>' +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm flex-fill btn-toggle" data-id="' + esc(item.id) + '" data-active="' + (item.is_active ? '1' : '0') + '"><i class="bi bi-eye' + (item.is_active ? '-slash' : '') + '"></i></button>' +
+                    '</div></div></div></div>';
+            }).join('');
+            grid.querySelectorAll('.btn-edit').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var item = list.find(function (x) { return x.id === btn.getAttribute('data-id'); });
+                    if (item) openEditModal(item);
+                });
+            });
+            grid.querySelectorAll('.btn-toggle').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    patchItem(btn.getAttribute('data-id'), { is_active: btn.getAttribute('data-active') !== '1' });
+                });
+            });
+        }
+
+        async function refreshList() {
             var loading = document.getElementById('items-loading');
-            var empty = document.getElementById('items-empty');
-            var list = document.getElementById('items-list');
             loading.classList.remove('d-none');
-            empty.classList.add('d-none');
-            list.innerHTML = '';
             try {
-                var r = await fetch('/api/me/industry-supplier/catalog-items?item_kind=material', {
-                    headers: { Authorization: 'Bearer ' + token }
-                });
-                var data = await r.json().catch(function () { return {}; });
-                loading.classList.add('d-none');
-                if (r.status === 403 && data.code === 'NOT_INDUSTRY_SUPPLIER') {
-                    window.location.replace('/client/industry-suppliers.html');
-                    return;
-                }
-                if (!r.ok) {
-                    toast(data.error || tr('supplierManage.loadFailed', '載入失敗'), 'danger');
-                    return;
-                }
-                mainEl.classList.remove('d-none');
-                var items = data.items || [];
-                if (!items.length) {
-                    empty.classList.remove('d-none');
-                    return;
-                }
-                list.innerHTML = items.map(function (item) {
-                    var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
-                    var specLine = [spec.material_type, spec.color, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).join(' · ');
-                    var activeBadge = item.is_active
-                        ? '<span class="badge bg-success">' + esc(tr('supplierManage.active', '上架中')) + '</span>'
-                        : '<span class="badge bg-secondary">' + esc(tr('supplierManage.inactive', '已下架')) + '</span>';
-                    var refCount = item.reference_count || 0;
-                    var refCountBadge = '<span class="badge bg-light text-dark border">' + esc(String(tr('supplierManage.referenceCount', '{n} 家製造商引用')).replace(/\{n\}/g, String(refCount))) + '</span>';
-                    var refs = item.references || [];
-                    var refsHtml = '';
-                    if (refs.length) {
-                        refsHtml = '<div class="mt-2 pt-2 border-top"><div class="small fw-semibold mb-1">' + esc(tr('supplierManage.referencesTitle', '引用此品的製造商')) + '</div><ul class="small text-muted mb-0 ps-3">' +
-                            refs.map(function (ref) {
-                                var when = ref.imported_at ? String(ref.imported_at).slice(0, 10) : '';
-                                var name = ref.manufacturer_name || tr('supplierManage.unnamedManufacturer', '未命名廠商');
-                                var link = ref.manufacturer_id
-                                    ? ' <a href="/vendor-profile.html?id=' + encodeURIComponent(ref.manufacturer_id) + '" class="text-decoration-none" target="_blank" rel="noopener">' + esc(tr('supplierManage.viewVendor', '廠商頁')) + '</a>'
-                                    : '';
-                                return '<li>' + esc(name) + (when ? ' · ' + esc(when) : '') + link + '</li>';
-                            }).join('') + '</ul></div>';
-                    } else {
-                        refsHtml = '<p class="small text-muted mb-0 mt-2 border-top pt-2">' + esc(tr('supplierManage.noReferences', '尚無製造商引用')) + '</p>';
-                    }
-                    return '<div class="col-md-6"><div class="card h-100 border-0 shadow-sm">' +
-                        (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top" style="height:120px;object-fit:cover" alt="">' : '') +
-                        '<div class="card-body p-3"><div class="d-flex justify-content-between align-items-start gap-2 mb-1 flex-wrap">' +
-                        '<div class="fw-semibold">' + esc(item.title) + '</div><div class="d-flex gap-1 flex-wrap">' + activeBadge + refCountBadge + '</div></div>' +
-                        '<p class="small text-muted mb-2">' + esc(item.description || specLine || '') + '</p>' +
-                        refsHtml +
-                        '<button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-active mt-2" data-id="' + esc(item.id) + '" data-active="' + (item.is_active ? '1' : '0') + '">' +
-                        (item.is_active ? esc(tr('supplierManage.deactivate', '下架')) : esc(tr('supplierManage.activate', '重新上架'))) +
-                        '</button></div></div></div>';
-                }).join('');
-                list.querySelectorAll('.btn-toggle-active').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        var id = btn.getAttribute('data-id');
-                        var next = btn.getAttribute('data-active') !== '1';
-                        patchItem(id, { is_active: next });
-                    });
-                });
+                await loadItemsForKind(activeKind);
+                renderGrid();
             } catch (e) {
-                loading.classList.add('d-none');
                 toast(e.message, 'danger');
             }
+            loading.classList.add('d-none');
+        }
+
+        function switchKind(kind) {
+            activeKind = normalizeKind(kind);
+            document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-kind') === activeKind);
+            });
+            ['prototype', 'part', 'material'].forEach(function (k) {
+                var panel = document.getElementById('panel-' + k);
+                if (!panel) return;
+                var show = k === activeKind;
+                panel.classList.toggle('d-none', !show);
+                panel.hidden = !show;
+            });
+            refreshList();
         }
 
         async function patchItem(id, body) {
-            try {
-                var r = await fetch('/api/me/industry-supplier/catalog-items/' + encodeURIComponent(id), {
-                    method: 'PATCH',
-                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) {
-                    toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger');
-                    return;
-                }
-                toast(tr('supplierManage.saved', '已更新'), 'success');
-                await loadItems();
-            } catch (e) {
-                toast(e.message, 'danger');
-            }
+            var r = await fetch('/api/me/industry-supplier/catalog-items/' + encodeURIComponent(id), {
+                method: 'PATCH', headers: authH(true), body: JSON.stringify(body)
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (!r.ok) { toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger'); return; }
+            toast(tr('supplierManage.saved', '已更新'), 'success');
+            await refreshList();
         }
 
-        document.getElementById('add-item-form').addEventListener('submit', async function (e) {
-            e.preventDefault();
-            var fd = new FormData(e.target);
-            var spec = {};
-            if (fd.get('material_type')) spec.material_type = String(fd.get('material_type')).trim();
-            if (fd.get('color')) spec.color = String(fd.get('color')).trim();
-            if (fd.get('width_cm')) spec.width_cm = parseInt(fd.get('width_cm'), 10);
-            var payload = {
-                item_kind: 'material',
-                title: fd.get('title'),
-                description: fd.get('description'),
-                cover_image_url: fd.get('cover_image_url'),
-                category_key: fd.get('category_key'),
-                spec_json: spec
-            };
-            try {
-                var r = await fetch('/api/me/industry-supplier/catalog-items', {
-                    method: 'POST',
-                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) {
-                    toast(data.error || tr('supplierManage.addFailed', '上架失敗'), 'danger');
-                    return;
-                }
-                toast(tr('supplierManage.added', '已上架'), 'success');
-                e.target.reset();
-                await loadItems();
-            } catch (err) {
-                toast(err.message, 'danger');
+        function openEditModal(item) {
+            document.getElementById('edit-id').value = item.id;
+            document.getElementById('edit-kind').value = activeKind;
+            fillCategorySelect(document.getElementById('edit-category'), item.category_key);
+            var subWrap = document.getElementById('edit-sub-wrap');
+            if (activeKind === 'prototype') {
+                subWrap.classList.remove('d-none');
+                fillSubcategorySelect(document.getElementById('edit-subcategory'), item.category_key, (item.spec_json && item.spec_json.subcategory_key) || '');
+            } else subWrap.classList.add('d-none');
+            document.getElementById('edit-title').value = item.title || '';
+            document.getElementById('edit-description').value = item.description || '';
+            var img = document.getElementById('edit-current-image');
+            if (item.cover_image_url) { img.src = item.cover_image_url; img.classList.remove('d-none'); }
+            else img.classList.add('d-none');
+            document.getElementById('edit-image').value = '';
+            if (!editModal) editModal = new bootstrap.Modal(document.getElementById('edit-modal'));
+            editModal.show();
+        }
+
+        document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
+            btn.addEventListener('click', function () { switchKind(btn.getAttribute('data-kind')); });
+        });
+
+        document.querySelectorAll('.add-form').forEach(function (form) {
+            var kind = form.getAttribute('data-kind');
+            var catSel = form.querySelector('.add-category');
+            var subSel = form.querySelector('.add-subcategory');
+            var imgInput = form.querySelector('.add-image');
+            var preview = form.querySelector('.add-image-preview');
+            if (kind === 'prototype' && subSel) {
+                catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
             }
+            imgInput.addEventListener('change', function () {
+                showLocalImagePreview(preview, imgInput.files && imgInput.files[0]);
+            });
+            form.addEventListener('submit', async function (e) {
+                e.preventDefault();
+                var msgEl = form.querySelector('.add-form-msg');
+                msgEl.textContent = '';
+                var fd = new FormData(form);
+                fd.set('item_kind', apiKind(kind));
+                try {
+                    var r = await fetch('/api/me/industry-supplier/catalog-items', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer ' + token },
+                        body: fd
+                    });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (!r.ok) {
+                        msgEl.textContent = data.error || tr('supplierManage.addFailed', '上架失敗');
+                        return;
+                    }
+                    toast(tr('supplierManage.added', '已上架'), 'success');
+                    form.reset();
+                    if (preview) preview.classList.add('d-none');
+                    await refreshList();
+                    document.getElementById('catalog-grid').scrollIntoView({ behavior: 'smooth' });
+                } catch (err) {
+                    msgEl.textContent = err.message;
+                }
+            });
+        });
+
+        document.getElementById('btn-edit-save').addEventListener('click', async function () {
+            var id = document.getElementById('edit-id').value;
+            var fd = new FormData();
+            fd.append('title', document.getElementById('edit-title').value.trim());
+            fd.append('description', document.getElementById('edit-description').value.trim());
+            fd.append('category_key', document.getElementById('edit-category').value);
+            if (activeKind === 'prototype') {
+                var sk = document.getElementById('edit-subcategory').value;
+                if (sk) fd.append('subcategory_key', sk);
+            }
+            var f = document.getElementById('edit-image').files[0];
+            if (f) fd.append('image', f);
+            var r = await fetch('/api/me/industry-supplier/catalog-items/' + encodeURIComponent(id), {
+                method: 'PATCH',
+                headers: { Authorization: 'Bearer ' + token },
+                body: fd
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (!r.ok) { toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger'); return; }
+            if (editModal) editModal.hide();
+            toast(tr('supplierManage.saved', '已更新'), 'success');
+            await refreshList();
+        });
+
+        document.getElementById('btn-toggle-company-edit').addEventListener('click', function () {
+            document.getElementById('company-edit').classList.toggle('d-none');
+        });
+        document.getElementById('btn-save-company').addEventListener('click', async function () {
+            var payload = {
+                name: document.getElementById('edit-company-name').value.trim(),
+                description: document.getElementById('edit-company-desc').value.trim(),
+                contact_json: {
+                    email: document.getElementById('edit-contact-email').value.trim(),
+                    phone: document.getElementById('edit-contact-phone').value.trim(),
+                    website: document.getElementById('edit-contact-website').value.trim()
+                }
+            };
+            var r = await fetch('/api/me/industry-supplier', { method: 'PATCH', headers: authH(true), body: JSON.stringify(payload) });
+            var data = await r.json().catch(function () { return {}; });
+            if (!r.ok) { toast(data.error || '儲存失敗', 'danger'); return; }
+            supplierRecord = data.supplier;
+            renderSupplierBar();
+            toast(tr('supplierManage.companySaved', '公司已更新'), 'success');
+            document.getElementById('company-edit').classList.add('d-none');
         });
 
         async function init() {
-            token = await getToken();
+            if (typeof AuthService === 'undefined') return;
+            var s = await AuthService.getSession();
+            token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
             if (!token) {
-                var loginUrl = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl)
-                    ? AuthService.getLoginUrl(window.location.pathname + (window.location.search || ''))
-                    : ('/login.html?returnUrl=' + encodeURIComponent(window.location.pathname));
-                window.location.href = loginUrl;
+                window.location.href = AuthService.getLoginUrl
+                    ? AuthService.getLoginUrl(window.location.pathname)
+                    : '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname);
                 return;
             }
-            await loadItems();
+            await loadCategories();
+            var ok = await loadSupplier();
+            if (!ok) return;
+            switchKind('prototype');
         }
 
         var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
