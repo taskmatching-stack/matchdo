@@ -1109,7 +1109,22 @@ $(document).ready(function () {
         // 手機版畫布：顯示 loading 脈衝
         $('#generatedImagePreviewWrap').addClass('is-loading');
 
-        var referenceImages = refDataUrls.filter(Boolean);
+        var orderedRefs = (function () {
+            var pairs = [];
+            for (var ri = 0; ri < MAX_REF_IMAGES; ri++) {
+                if (!refDataUrls[ri]) continue;
+                var src = refSources[ri] || null;
+                var kind = (src && src.asset_kind) ? String(src.asset_kind) : '';
+                var rank = kind === 'prototype' ? 0 : (kind === 'material' ? 1 : 2);
+                pairs.push({ url: refDataUrls[ri], src: src, rank: rank });
+            }
+            pairs.sort(function (a, b) { return a.rank - b.rank; });
+            return {
+                referenceImages: pairs.map(function (p) { return p.url; }),
+                referenceSources: pairs.map(function (p) { return p.src; })
+            };
+        })();
+        var referenceImages = orderedRefs.referenceImages;
         var seedVal = $('#generationSeed').val();
         var seedNum = (seedVal !== '' && seedVal != null && Number.isInteger(Number(seedVal))) ? Number(seedVal) : null;
 
@@ -1121,9 +1136,10 @@ $(document).ready(function () {
                 resolution: '2K',
                 output_format: 'jpeg'
             };
-            if (referenceImages.length > 0) payload.referenceImages = referenceImages;
-            var refSourcesList = (typeof refSources !== 'undefined' && Array.isArray(refSources)) ? refSources.filter(Boolean) : [];
-            if (refSourcesList.length) payload.referenceSources = refSourcesList;
+            if (referenceImages.length > 0) {
+                payload.referenceImages = referenceImages;
+                if (orderedRefs.referenceSources.length) payload.referenceSources = orderedRefs.referenceSources;
+            }
             if (seedNum != null) payload.seed = seedNum;
             try {
                 if (window.i18n && typeof window.i18n.getLang === 'function') payload.ui_locale = window.i18n.getLang();

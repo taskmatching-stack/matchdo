@@ -913,6 +913,26 @@ function buildMaterialTexturePromptAppendix(materialRefs, lang) {
     return header + lines.join('\n') + '\n' + footer;
 }
 
+/** 參考圖順序：數位原型（造型）→ 材料樣板 → 其他；確保 input_image 為主體造型 */
+function reorderFluxReferenceInputs(referenceImages, referenceSources) {
+    const imgs = Array.isArray(referenceImages) ? referenceImages : [];
+    const srcs = Array.isArray(referenceSources) ? referenceSources : [];
+    const pairs = imgs.map(function (img, i) {
+        return { img: img, src: srcs[i] || null };
+    });
+    const rank = function (src) {
+        const kind = normalizeVendorAssetKind(src && src.asset_kind);
+        if (kind === 'prototype') return 0;
+        if (kind === 'material') return 1;
+        return 2;
+    };
+    pairs.sort(function (a, b) { return rank(a.src) - rank(b.src); });
+    return {
+        images: pairs.map(function (p) { return p.img; }),
+        sources: pairs.map(function (p) { return p.src; })
+    };
+}
+
 function vendorAssetMatchesMoqFilter(row, moqN) {
     if (!moqN) return true;
     if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return false;
@@ -6044,11 +6064,16 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             ? await buildPromptFromRemakeCategoryKeys(categoryKeys, prompt)
             : await buildPromptFromCategoryKeys(categoryKeys, prompt);
         const uiLang = (req.body.ui_locale || req.body.lang || '').trim() || null;
+        let fluxReferenceImages = hasRefs ? referenceImages : [];
+        let fluxReferenceSources = hasRefs ? (referenceSources || []) : [];
         if (hasRefs) {
-            const prototypeAssets = await resolvePrototypeAssetsForPrompt(referenceSources || []);
+            const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
+            fluxReferenceImages = ordered.images;
+            fluxReferenceSources = ordered.sources;
+            const prototypeAssets = await resolvePrototypeAssetsForPrompt(fluxReferenceSources);
             const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
             if (protoAppendix) fullPrompt = (fullPrompt || '').trim() + protoAppendix;
-            const materialRefs = await resolveMaterialRefsForPrompt(referenceSources || []);
+            const materialRefs = await resolveMaterialRefsForPrompt(fluxReferenceSources);
             const materialAppendix = buildMaterialTexturePromptAppendix(materialRefs, uiLang);
             if (materialAppendix) fullPrompt = (fullPrompt || '').trim() + materialAppendix;
         }
@@ -6063,7 +6088,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         if (process.env.BFL_API_KEY) {
             try {
                 if (hasRefs) {
-                    const buffer = await generateImageWithFlux2Pro(fullPrompt, referenceImages, seedNum, outputFormat);
+                    const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat);
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 } else {
                     const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat);
