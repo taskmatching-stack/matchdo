@@ -12500,17 +12500,18 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
             .eq('is_active', true)
             .single();
         if (itemErr || !catalogItem) return res.status(404).json({ error: '找不到該目錄品項' });
-        if (catalogItem.item_kind !== 'material') {
-            return res.status(400).json({ error: '目前僅支援導入材料（material）至材料參考' });
+        if (catalogItem.item_kind !== 'material' && catalogItem.item_kind !== 'prototype_set') {
+            return res.status(400).json({ error: '目前僅支援導入材料或原型組' });
         }
         if (!catalogItem.cover_image_url) {
-            return res.status(400).json({ error: '此材料尚無參考圖，無法導入' });
+            return res.status(400).json({ error: '此品項尚無參考圖，無法導入' });
         }
 
         const sup = catalogItem.industry_suppliers;
         const supplier = Array.isArray(sup) ? sup[0] : sup;
         const spec = catalogItem.spec_json && typeof catalogItem.spec_json === 'object' ? catalogItem.spec_json : {};
         const categoryKey = (catalogItem.category_key || '').trim() || 'other';
+        const targetKind = catalogItem.item_kind === 'prototype_set' ? 'prototype' : 'material';
 
         const insertPayload = {
             manufacturer_id: manufacturerId,
@@ -12521,10 +12522,14 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
             usage_type: 'reference_only',
             is_public: true,
             sort_order: 0,
-            asset_kind: 'material',
+            asset_kind: targetKind,
             source_catalog_item_id: catalogItem.id,
             tags_source: 'import'
         };
+        if (targetKind === 'prototype') {
+            insertPayload.min_order_quantity = 1;
+            insertPayload.customization_levels = ['color_material'];
+        }
 
         let inserted;
         let insErr;
@@ -12563,7 +12568,7 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
             .insert({
                 manufacturer_id: manufacturerId,
                 catalog_item_id: catalogItem.id,
-                item_kind: 'material',
+                item_kind: catalogItem.item_kind,
                 vendor_asset_id: inserted.id,
                 snapshot_json: snapshot
             })
@@ -12577,7 +12582,7 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
 
         res.status(201).json({
             import: impRow,
-            vendor_asset: { ...inserted, supplier_name: snapshot.supplier_name, from_supplier_catalog: true }
+            vendor_asset: { ...inserted, asset_kind: targetKind, supplier_name: snapshot.supplier_name, from_supplier_catalog: true }
         });
     } catch (e) {
         console.error('POST /api/me/supplier-catalog-imports 異常:', e);
