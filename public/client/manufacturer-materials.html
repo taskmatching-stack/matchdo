@@ -154,7 +154,8 @@
                                             <span class="fw-semibold small"><i class="bi bi-boxes me-1 text-success"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></span>
                                             <button type="button" class="btn btn-outline-success btn-sm btn-open-supplier-import" disabled><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></button>
                                         </div>
-                                        <p class="text-muted small mb-0 mt-2 supplier-import-hint-line" data-i18n="baseModels.importSupplierCatalogHintProto">選取上游原型組，加入下方「已上傳的數位原型」並記錄引用來源。</p>
+                                        <p class="text-muted small mb-0 mt-2 supplier-import-hint-line" data-i18n="baseModels.importSupplierCatalogHintShort">匯入後列入下方已上傳清單，卡片會標示「引用自 ○○ 供應商」。</p>
+                                        <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" class="supplier-import-manage-link" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                         <div class="supplier-import-locked-line alert alert-warning small py-2 mt-2 mb-0 d-none"></div>
                                     </div>
                                     <p class="text-center text-muted small my-2 mb-0" data-i18n="baseModels.orUploadOwn">— 或自行上傳圖片 —</p>
@@ -325,7 +326,8 @@
                                             <span class="fw-semibold small"><i class="bi bi-boxes me-1 text-success"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></span>
                                             <button type="button" class="btn btn-outline-success btn-sm btn-open-supplier-import" disabled><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.importSupplierCatalogBtn">匯入供應商數位產品庫</span></button>
                                         </div>
-                                        <p class="text-muted small mb-0 mt-2 supplier-import-hint-line" data-i18n="baseModels.importSupplierCatalogHint">選取上游材料，加入下方「已上傳的材料參考」並記錄引用來源。</p>
+                                        <p class="text-muted small mb-0 mt-2 supplier-import-hint-line" data-i18n="baseModels.importSupplierCatalogHintShort">匯入後列入下方已上傳清單，卡片會標示「引用自 ○○ 供應商」。</p>
+                                        <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" class="supplier-import-manage-link" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                         <div class="supplier-import-locked-line alert alert-warning small py-2 mt-2 mb-0 d-none"></div>
                                     </div>
                                     <p class="text-center text-muted small my-2 mb-0" data-i18n="baseModels.orUploadOwn">— 或自行上傳圖片 —</p>
@@ -345,24 +347,6 @@
                     </div>
                 </div>
                 <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料參考</div>
-            </div>
-
-            <div id="my-supplier-imports-card" class="card border-0 shadow-sm mb-3 d-none">
-                <div class="card-body py-3">
-                    <h6 class="fw-semibold mb-2"><i class="bi bi-link-45deg me-1"></i><span data-i18n="baseModels.mySupplierImportsTitle">我引用的供應商數位產品庫</span></h6>
-                    <p class="text-muted small mb-2" data-i18n="baseModels.mySupplierImportsHint">以下為您自供應商數位產品庫匯入、並納入自家素材庫的品項（與自行上傳並列於下方網格）。</p>
-                    <div id="my-supplier-imports-table-wrap" class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light"><tr>
-                                <th data-i18n="baseModels.importColSupplier">供應商</th>
-                                <th data-i18n="baseModels.importColProduct">品項</th>
-                                <th data-i18n="baseModels.importColKind">類型</th>
-                                <th data-i18n="baseModels.importColWhen">匯入時間</th>
-                            </tr></thead>
-                            <tbody id="my-supplier-imports-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
 
             <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
@@ -1544,9 +1528,9 @@
                     : (m.asset_kind === 'part'
                         ? '<span class="badge bg-light text-warning border mb-2">' + esc(tr('baseModels.tabPart', '零件')) + '</span> '
                         : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ');
-                if (m.from_supplier_catalog && m.supplier_name) {
-                    kindBadge += '<span class="badge bg-light text-dark border mb-2"><i class="bi bi-boxes me-1"></i>' + esc(tr('baseModels.fromSupplierCatalog', '供應商數位產品庫')) + '：' + esc(m.supplier_name) + '</span> ';
-                }
+                var supplierRefLine = (m.from_supplier_catalog && m.supplier_name)
+                    ? '<div class="small text-success mb-1"><i class="bi bi-boxes me-1"></i>' + esc(tr('baseModels.refFromSupplier', '引用自')) + ' <span class="fw-semibold">' + esc(m.supplier_name) + '</span></div>'
+                    : '';
                 var pubBadge = (m.is_public === false)
                     ? '<span class="badge bg-secondary mb-2 me-1">已下架</span>'
                     : '<span class="badge bg-success mb-2 me-1">上架中</span>';
@@ -1588,7 +1572,7 @@
                     ? '<span class="badge bg-dark material-img-count">' + imgCount + ' ' + esc(tr('baseModels.imageCountUnit', '張')) + '</span>' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="點擊放大"></div>' : '') +
-                    '<div class="card-body p-3">' + kindBadge + pubBadge +
+                    '<div class="card-body p-3">' + kindBadge + pubBadge + supplierRefLine +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
                     '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + myCats + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
@@ -2045,29 +2029,6 @@
             });
         }
 
-        async function loadMySupplierImports() {
-            var card = document.getElementById('my-supplier-imports-card');
-            var tbody = document.getElementById('my-supplier-imports-tbody');
-            if (!card || !tbody || !token) return;
-            try {
-                var r = await fetch('/api/me/supplier-catalog-imports', { headers: { Authorization: 'Bearer ' + token } });
-                var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) { card.classList.add('d-none'); return; }
-                var items = data.items || [];
-                if (!items.length) { card.classList.add('d-none'); return; }
-                card.classList.remove('d-none');
-                tbody.innerHTML = items.map(function (row) {
-                    var kindLabel = row.item_kind === 'prototype_set'
-                        ? tr('baseModels.tabPrototype', '數位原型')
-                        : tr('baseModels.tabMaterial', '材料參考');
-                    var when = row.imported_at ? String(row.imported_at).slice(0, 10) : '—';
-                    return '<tr><td>' + esc(row.supplier_name || '—') + '</td><td>' + esc(row.catalog_title || '—') + '</td><td>' + esc(kindLabel) + '</td><td class="text-muted small">' + esc(when) + '</td></tr>';
-                }).join('');
-            } catch (e) {
-                card.classList.add('d-none');
-            }
-        }
-
         async function loadCapabilities() {
             try {
                 var r = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
@@ -2146,7 +2107,6 @@
                 showToast(tr('baseModels.importSupplierSuccess', '已匯入供應商數位產品庫，並加入您的素材清單'), 'success');
                 if (supplierImportModal) supplierImportModal.hide();
                 await loadMaterials();
-                await loadMySupplierImports();
                 switchKind(activeKind);
             } catch (err) {
                 showToast(err.message, 'danger');
@@ -2219,7 +2179,6 @@
                 await loadCategories();
                 await loadCatalogGroups();
                 await loadCapabilities();
-                await loadMySupplierImports();
                 await loadUploadPricing();
                 await loadMaterials();
                 var hashKind = kindFromLocationHash();
