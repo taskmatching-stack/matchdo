@@ -349,7 +349,7 @@
                         <button type="button" class="btn btn-outline-secondary materials-page-size-btn active" data-size="12">12</button>
                         <button type="button" class="btn btn-outline-secondary materials-page-size-btn" data-size="24">24</button>
                         <button type="button" class="btn btn-outline-secondary materials-page-size-btn" data-size="48">48</button>
-                    </div>
+            </div>
                 </div>
             </div>
             <p id="materials-list-range" class="text-muted small mb-2 d-none"></p>
@@ -937,8 +937,8 @@
             if (labelSpan) {
                 var key = isMat ? 'baseModels.optimizeMaterial' : 'baseModels.optimizeProduct';
                 var fb = isMat ? '材質圖 AI 優化（含 AI 標籤）' : '產品圖 AI 重繪（含 AI 標籤）';
-                labelSpan.setAttribute('data-i18n', key);
-                labelSpan.textContent = tr(key, fb);
+            labelSpan.setAttribute('data-i18n', key);
+            labelSpan.textContent = tr(key, fb);
             }
             var bgWrap = document.getElementById('edit-optimize-bg-wrap');
             if (bgWrap) bgWrap.classList.toggle('d-none', isMat);
@@ -1337,7 +1337,7 @@
                 for (var ki = 0; ki < kinds.length; ki++) {
                     var k = kinds[ki];
                     var r = await fetch('/api/me/vendor-catalog-groups?asset_kind=' + encodeURIComponent(k), { headers: { Authorization: 'Bearer ' + token } });
-                    var d = await r.json().catch(function () { return {}; });
+                var d = await r.json().catch(function () { return {}; });
                     if (d.message && String(d.message).indexOf('add-vendor-catalog-groups') !== -1) catalogGroupsDbReady = false;
                     if (d.asset_kind_split_unavailable) catalogAssetKindSplitOk = false;
                     catalogGroupsByKind[k] = filterCatalogGroupsForKind(d.flat || [], k);
@@ -1969,7 +1969,7 @@
             btn.disabled = !can;
             var hintEl = document.getElementById('supplier-import-hint');
             if (hintEl && can && capabilities.bypass_supplier_portfolio_gate) {
-                hintEl.textContent = tr('baseModels.portfolioBypassStaff', '管理員／測試員帳號：無需作品即可測試導入。');
+                hintEl.textContent = tr('baseModels.portfolioBypassStaff', '管理員／測試員帳號：無需作品即可測試瀏覽與導入。');
             } else if (hintEl && can) {
                 hintEl.textContent = tr('baseModels.importFromSupplierHint', '瀏覽上游供應商材料目錄，一鍵加入您的「材料參考」供訂製者選用。');
             }
@@ -1980,8 +1980,10 @@
                     locked.classList.remove('d-none');
                     if (!capabilities.supplier_catalog_ready) {
                         locked.textContent = tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
+                    } else if (!capabilities.has_manufacturer) {
+                        locked.textContent = tr('baseModels.needManufacturerForImport', '請先建立廠商資料（製造商控制台），即可瀏覽並導入產業供應商材料');
                     } else if ((capabilities.portfolio_count || 0) < 1 && !capabilities.bypass_supplier_portfolio_gate) {
-                        locked.textContent = tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品後，才可從產業供應商導入材料');
+                        locked.textContent = tr('baseModels.portfolioRequired', '請先上傳至少 1 件作品後，才可瀏覽並導入產業供應商材料');
                     } else if (isSeedVendor) {
                         locked.textContent = tr('baseModels.seedNoImport', '種子廠商無法導入');
                     } else {

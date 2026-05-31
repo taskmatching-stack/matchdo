@@ -1277,13 +1277,11 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
                 .select('id', { count: 'exact', head: true })
                 .eq('manufacturer_id', manufacturerId)
                 .not('image_url', 'is', null);
-            if (pErr && pErr.code !== '42P01') {
-                console.error('portfolio count:', pErr);
-            }
+            if (pErr && pErr.code !== '42P01') console.error('portfolio count:', pErr);
             const portfolioCount = count || 0;
             if (portfolioCount < 1) {
                 res.status(403).json({
-                    error: '請先上傳至少 1 件作品後，才可從產業供應商導入材料',
+                    error: '請先上傳至少 1 件作品後，才可瀏覽並導入產業供應商材料',
                     code: 'PORTFOLIO_REQUIRED',
                     portfolio_count: portfolioCount
                 });
@@ -1292,6 +1290,37 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
         }
     }
     return manufacturerId;
+}
+
+async function getMeIndustrySupplier(req, res) {
+    const user = await getCurrentUser(req, res);
+    if (!user) return null;
+    const { data: supplier, error } = await supabase
+        .from('industry_suppliers')
+        .select('id, name, description, contact_json, is_active')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (error) {
+        if (error.code === '42703') {
+            res.status(503).json({ error: '請先執行 docs/add-membership-catalog-visibility.sql（industry_suppliers.user_id）' });
+            return null;
+        }
+        console.error('getMeIndustrySupplier:', error);
+        res.status(500).json({ error: '查詢失敗' });
+        return null;
+    }
+    if (!supplier) {
+        res.status(403).json({
+            error: '此帳號尚未綁定產業供應商。請由管理員將您的登入帳號寫入 industry_suppliers.user_id，或參考 docs/bind-industry-supplier-account.sql',
+            code: 'NOT_INDUSTRY_SUPPLIER'
+        });
+        return null;
+    }
+    if (!supplier.is_active) {
+        res.status(403).json({ error: '此產業供應商已停用', code: 'SUPPLIER_INACTIVE' });
+        return null;
+    }
+    return { user, supplier };
 }
 
 async function enrichVendorAssetsWithSupplierMeta(manufacturerId, items) {
@@ -12347,6 +12376,7 @@ app.get('/api/me/capabilities', async (req, res) => {
         const isSeed = mfr && mfr.vendor_source === 'seed';
         const staffBypassPortfolio = await isStaffProfileUserId(user.id);
         const catalogReady = await supplierCatalogTablesReady();
+        // 製造商瀏覽／導入 B 線：唯一門檻為至少 1 件作品（管理員／測試員可略過以便營運測試）
         const canImport = catalogReady && hasManufacturer && !isSeed && (portfolioCount >= 1 || staffBypassPortfolio);
         let isIndustrySupplier = false;
         if (catalogReady) {
@@ -12359,7 +12389,7 @@ app.get('/api/me/capabilities', async (req, res) => {
                 isIndustrySupplier = !!indRow;
             } catch (_) { /* 表未建時忽略 */ }
         }
-        // 選單顯示產業供應商說明入口（supplier-portal）；產業供應商自建上架仍為 P2
+        // B 線選單常駐；製造商導入資格見 can_import（作品門檻）；產業供應商上架見 can_manage
         const showSupplierZone = true;
         res.json({
             has_manufacturer: hasManufacturer,
@@ -12370,6 +12400,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             supplier_catalog_ready: catalogReady,
             can_use_supplier_catalog: canImport,
             can_import_supplier_catalog: canImport,
+            can_manage_supplier_catalog: catalogReady && isIndustrySupplier,
             zones: {
                 design: true,
                 manufacturer: hasManufacturer,
@@ -12377,7 +12408,8 @@ app.get('/api/me/capabilities', async (req, res) => {
             },
             nav: {
                 show_supplier_zone: showSupplierZone,
-                show_industry_catalog: canImport
+                show_industry_catalog: canImport,
+                show_supplier_catalog_manage: catalogReady && isIndustrySupplier
             }
         });
     } catch (e) {
@@ -12549,6 +12581,139 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
         });
     } catch (e) {
         console.error('POST /api/me/supplier-catalog-imports 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/me/industry-supplier/catalog-items — 產業供應商管理自己的目錄
+app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.json({ items: [], message: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const itemKind = (req.query.item_kind || '').trim();
+        let q = supabase
+            .from('supplier_catalog_items')
+            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+            .eq('industry_supplier_id', ctx.supplier.id)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (itemKind === 'material' || itemKind === 'prototype_set') q = q.eq('item_kind', itemKind);
+        const { data: rows, error } = await q;
+        if (error) {
+            console.error('GET industry-supplier catalog-items:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json({ supplier: ctx.supplier, items: rows || [] });
+    } catch (e) {
+        console.error('GET /api/me/industry-supplier/catalog-items:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/industry-supplier/catalog-items — 上架材料（第一版）
+app.post('/api/me/industry-supplier/catalog-items', express.json(), async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const body = req.body || {};
+        const itemKind = (body.item_kind || 'material').trim();
+        if (itemKind !== 'material') {
+            return res.status(400).json({ error: '目前僅支援上架材料（material）' });
+        }
+        const title = (body.title || '').trim();
+        if (!title) return res.status(400).json({ error: '請填寫標題' });
+        const coverImageUrl = (body.cover_image_url || '').trim();
+        if (!coverImageUrl) return res.status(400).json({ error: '請提供封面圖網址（cover_image_url）' });
+        const description = (body.description || '').trim() || null;
+        const categoryKey = (body.category_key || '').trim() || null;
+        let specJson = body.spec_json;
+        if (specJson && typeof specJson === 'string') {
+            try { specJson = JSON.parse(specJson); } catch (_) { return res.status(400).json({ error: 'spec_json 格式錯誤' }); }
+        }
+        if (specJson != null && typeof specJson !== 'object') specJson = {};
+        const sortOrder = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
+        const { data: inserted, error } = await supabase
+            .from('supplier_catalog_items')
+            .insert({
+                industry_supplier_id: ctx.supplier.id,
+                item_kind: itemKind,
+                title,
+                description,
+                cover_image_url: coverImageUrl,
+                spec_json: specJson || {},
+                category_key: categoryKey,
+                is_active: true,
+                sort_order: sortOrder
+            })
+            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+            .single();
+        if (error) {
+            console.error('POST industry-supplier catalog-item:', error);
+            return res.status(500).json({ error: '上架失敗' });
+        }
+        res.status(201).json({ item: inserted });
+    } catch (e) {
+        console.error('POST /api/me/industry-supplier/catalog-items:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/me/industry-supplier/catalog-items/:id
+app.patch('/api/me/industry-supplier/catalog-items/:id', express.json(), async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const itemId = (req.params.id || '').trim();
+        if (!itemId) return res.status(400).json({ error: '缺少 id' });
+        const { data: existing } = await supabase
+            .from('supplier_catalog_items')
+            .select('id')
+            .eq('id', itemId)
+            .eq('industry_supplier_id', ctx.supplier.id)
+            .maybeSingle();
+        if (!existing) return res.status(404).json({ error: '找不到該品項' });
+        const body = req.body || {};
+        const patch = {};
+        if (body.title != null) {
+            const t = String(body.title).trim();
+            if (!t) return res.status(400).json({ error: '標題不可為空' });
+            patch.title = t;
+        }
+        if (body.description != null) patch.description = String(body.description).trim() || null;
+        if (body.cover_image_url != null) patch.cover_image_url = String(body.cover_image_url).trim() || null;
+        if (body.category_key != null) patch.category_key = String(body.category_key).trim() || null;
+        if (body.is_active != null) patch.is_active = !!body.is_active;
+        if (body.sort_order != null && !isNaN(body.sort_order)) patch.sort_order = parseInt(body.sort_order, 10);
+        if (body.spec_json != null) {
+            let specJson = body.spec_json;
+            if (typeof specJson === 'string') {
+                try { specJson = JSON.parse(specJson); } catch (_) { return res.status(400).json({ error: 'spec_json 格式錯誤' }); }
+            }
+            if (typeof specJson === 'object') patch.spec_json = specJson;
+        }
+        patch.updated_at = new Date().toISOString();
+        const { data: updated, error } = await supabase
+            .from('supplier_catalog_items')
+            .update(patch)
+            .eq('id', itemId)
+            .select('id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at')
+            .single();
+        if (error) {
+            console.error('PATCH industry-supplier catalog-item:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json({ item: updated });
+    } catch (e) {
+        console.error('PATCH /api/me/industry-supplier/catalog-items/:id:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

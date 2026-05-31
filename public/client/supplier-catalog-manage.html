@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title data-i18n="supplierManage.pageTitle">管理產業供應商目錄 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="../img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="/js/i18n.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container py-4" style="max-width: 960px;">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h4 class="fw-bold mb-0" data-i18n="supplierManage.heading">我的材料目錄（產業供應商）</h4>
+            <a href="/client/supplier-portal.html" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierManage.backPortal">說明與角色對照</span></a>
+        </div>
+        <p class="text-muted small" data-i18n="supplierManage.intro">上架後，已建立廠商資料的製造商可在「上傳數位版型 → 材料參考」瀏覽並導入。訂製者設計頁不會直接看到本目錄。</p>
+
+        <div id="manage-gate" class="d-none">
+            <div class="alert alert-warning border-0">
+                <h6 class="alert-heading fw-semibold" data-i18n="supplierManage.notBoundTitle">此帳號尚未綁定產業供應商</h6>
+                <p class="small mb-2" data-i18n="supplierManage.notBoundBody">平台註冊不區分「製造商／供應商」身分；同一登入帳號需在資料庫將 <code>industry_suppliers.user_id</code> 設為您的 UUID 後，才能在此上架。請聯絡管理員，或參考 <code>docs/bind-industry-supplier-account.sql</code>。</p>
+                <a href="/client/supplier-portal.html" class="btn btn-sm btn-outline-dark" data-i18n="supplierManage.backPortal">說明與角色對照</a>
+            </div>
+        </div>
+
+        <div id="manage-main" class="d-none">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-3" data-i18n="supplierManage.addTitle">新增材料品項</h6>
+                    <form id="add-item-form" class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldTitle">標題</label>
+                            <input type="text" class="form-control form-control-sm" name="title" required maxlength="120">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldCategory">分類 key（選填）</label>
+                            <input type="text" class="form-control form-control-sm" name="category_key" placeholder="apparel">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldCover">封面圖網址</label>
+                            <input type="url" class="form-control form-control-sm" name="cover_image_url" required placeholder="https://...">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldDesc">說明</label>
+                            <textarea class="form-control form-control-sm" name="description" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldMaterial">材質（spec）</label>
+                            <input type="text" class="form-control form-control-sm" name="material_type" placeholder="fabric">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldColor">顏色</label>
+                            <input type="text" class="form-control form-control-sm" name="color">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-0" data-i18n="supplierManage.fieldWidth">幅寬 cm</label>
+                            <input type="number" class="form-control form-control-sm" name="width_cm" min="0" step="1">
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i><span data-i18n="supplierManage.submitAdd">上架材料</span></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <h6 class="fw-semibold mb-2" data-i18n="supplierManage.listTitle">已上架</h6>
+            <div id="items-loading" class="text-muted small py-3" data-i18n="supplierManage.loading">載入中…</div>
+            <div id="items-empty" class="alert alert-light border d-none small" data-i18n="supplierManage.empty">尚無品項，請用上方表單新增。</div>
+            <div id="items-list" class="row g-3"></div>
+        </div>
+    </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-wrap"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script>
+    (function () {
+        function tr(k, fb) {
+            if (window.i18n && window.i18n.t) {
+                var v = window.i18n.t(k);
+                if (v && v !== k) return v;
+            }
+            return fb || k;
+        }
+        function esc(s) {
+            if (s == null) return '';
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        }
+        function toast(msg, type) {
+            var wrap = document.getElementById('toast-wrap');
+            var el = document.createElement('div');
+            el.className = 'toast align-items-center text-white bg-' + (type || 'primary') + ' border-0 show';
+            el.setAttribute('role', 'alert');
+            el.innerHTML = '<div class="d-flex"><div class="toast-body">' + esc(msg) + '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+            wrap.appendChild(el);
+            setTimeout(function () { el.remove(); }, 4000);
+        }
+        var token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        if (!token) {
+            window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+            return;
+        }
+        var gateEl = document.getElementById('manage-gate');
+        var mainEl = document.getElementById('manage-main');
+
+        async function loadItems() {
+            var loading = document.getElementById('items-loading');
+            var empty = document.getElementById('items-empty');
+            var list = document.getElementById('items-list');
+            loading.classList.remove('d-none');
+            empty.classList.add('d-none');
+            list.innerHTML = '';
+            try {
+                var r = await fetch('/api/me/industry-supplier/catalog-items?item_kind=material', {
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                var data = await r.json().catch(function () { return {}; });
+                loading.classList.add('d-none');
+                if (r.status === 403 && data.code === 'NOT_INDUSTRY_SUPPLIER') {
+                    gateEl.classList.remove('d-none');
+                    return;
+                }
+                if (!r.ok) {
+                    toast(data.error || tr('supplierManage.loadFailed', '載入失敗'), 'danger');
+                    return;
+                }
+                mainEl.classList.remove('d-none');
+                var items = data.items || [];
+                if (!items.length) {
+                    empty.classList.remove('d-none');
+                    return;
+                }
+                list.innerHTML = items.map(function (item) {
+                    var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
+                    var specLine = [spec.material_type, spec.color, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).join(' · ');
+                    var activeBadge = item.is_active
+                        ? '<span class="badge bg-success">' + esc(tr('supplierManage.active', '上架中')) + '</span>'
+                        : '<span class="badge bg-secondary">' + esc(tr('supplierManage.inactive', '已下架')) + '</span>';
+                    return '<div class="col-md-6"><div class="card h-100 border-0 shadow-sm">' +
+                        (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top" style="height:120px;object-fit:cover" alt="">' : '') +
+                        '<div class="card-body p-3"><div class="d-flex justify-content-between align-items-start gap-2 mb-1">' +
+                        '<div class="fw-semibold">' + esc(item.title) + '</div>' + activeBadge + '</div>' +
+                        '<p class="small text-muted mb-2">' + esc(item.description || specLine || '') + '</p>' +
+                        '<button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-active" data-id="' + esc(item.id) + '" data-active="' + (item.is_active ? '1' : '0') + '">' +
+                        (item.is_active ? esc(tr('supplierManage.deactivate', '下架')) : esc(tr('supplierManage.activate', '重新上架'))) +
+                        '</button></div></div></div>';
+                }).join('');
+                list.querySelectorAll('.btn-toggle-active').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var id = btn.getAttribute('data-id');
+                        var next = btn.getAttribute('data-active') !== '1';
+                        patchItem(id, { is_active: next });
+                    });
+                });
+            } catch (e) {
+                loading.classList.add('d-none');
+                toast(e.message, 'danger');
+            }
+        }
+
+        async function patchItem(id, body) {
+            try {
+                var r = await fetch('/api/me/industry-supplier/catalog-items/' + encodeURIComponent(id), {
+                    method: 'PATCH',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger');
+                    return;
+                }
+                toast(tr('supplierManage.saved', '已更新'), 'success');
+                await loadItems();
+            } catch (e) {
+                toast(e.message, 'danger');
+            }
+        }
+
+        document.getElementById('add-item-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            var fd = new FormData(e.target);
+            var spec = {};
+            if (fd.get('material_type')) spec.material_type = String(fd.get('material_type')).trim();
+            if (fd.get('color')) spec.color = String(fd.get('color')).trim();
+            if (fd.get('width_cm')) spec.width_cm = parseInt(fd.get('width_cm'), 10);
+            var payload = {
+                item_kind: 'material',
+                title: fd.get('title'),
+                description: fd.get('description'),
+                cover_image_url: fd.get('cover_image_url'),
+                category_key: fd.get('category_key'),
+                spec_json: spec
+            };
+            try {
+                var r = await fetch('/api/me/industry-supplier/catalog-items', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    toast(data.error || tr('supplierManage.addFailed', '上架失敗'), 'danger');
+                    return;
+                }
+                toast(tr('supplierManage.added', '已上架'), 'success');
+                e.target.reset();
+                await loadItems();
+            } catch (err) {
+                toast(err.message, 'danger');
+            }
+        });
+
+        var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+        ready.then(function () {
+            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+            loadItems();
+        });
+    })();
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 -- 範例：產業供應商材料（測試導入用，可重複執行前請先刪除同名供應商）
 -- 圖片使用 placeholder，正式環境請改為實際 URL
+-- 供應商登入上架：先執行 add-membership-catalog-visibility.sql，再 docs/bind-industry-supplier-account.sql
 
 INSERT INTO public.industry_suppliers (id, name, description, contact_json, is_active)
 VALUES (
