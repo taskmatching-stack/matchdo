@@ -405,7 +405,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
                                 <a href="/client/supplier-portal.html" class="dropdown-item"><i class="bi bi-truck me-2"></i>` + t('nav.supplierPortal') + `</a>
-                                <a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierCatalogManage') + `</a>
+                                ${showSupplierCatalogManage ? `<a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierCatalogManage') + `</a>` : ''}
                                 ` : ''}
                             </div>
                         </div>
