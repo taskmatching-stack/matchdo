@@ -177,10 +177,6 @@ function bootSiteHeader() {
             bindSiteHeaderAuthListeners(session);
             var sess = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || session || null;
             if (!sess || !sess.user) return null;
-            var p = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
-            if (p.indexOf('/client/industry-supplier') !== -1 || p.indexOf('/client/my-supplier-references') !== -1) {
-                return null;
-            }
             _navFullyRendered = false;
             return loadSiteHeader(sess, { fastFirst: false });
         })
@@ -338,6 +334,9 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     var showSupplierZone = meCapabilities
         ? !!(meCapabilities.nav && meCapabilities.nav.show_supplier_zone)
         : true;
+    var showIndustrySupplierNav = showSupplierZone && (
+        !meCapabilities || meCapabilities.supplier_catalog_ready !== false
+    );
     var showSupplierCatalogManage = meCapabilities
         ? !!(meCapabilities.nav && meCapabilities.nav.show_supplier_catalog_manage)
         : false;
@@ -399,19 +398,22 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <a href="#" id="nav-my-vendor-home" class="dropdown-item d-none"><i class="bi bi-house-door me-2"></i>` + t('nav.myVendorPublicPage') + `</a>
                                 <a href="/client/manufacturer-portfolio.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.vendorPortfolio') + `</a>
                                 <a href="/client/manufacturer-materials.html" class="dropdown-item"><i class="bi bi-folder2-open me-2"></i>` + t('nav.vendorBaseModels') + `</a>
-                                <a href="/client/industry-suppliers.html" class="dropdown-item"><i class="bi bi-grid me-2"></i>` + t('nav.industrySuppliersList') + `</a>
-                                <a href="/client/my-supplier-references.html" class="dropdown-item"><i class="bi bi-link-45deg me-2"></i>` + t('nav.mySupplierReferences') + `</a>
                                 <a href="/client/demands.html" class="dropdown-item"><i class="bi bi-inbox me-2"></i>` + t('nav.demands') + `</a>
                                 <a href="/profile/contact-info.html" class="dropdown-item"><i class="bi bi-chat-dots me-2"></i>` + t('nav.vendorContact') + `</a>
-                                <div class="dropdown-divider"></div>
-                                <a href="/client/manufacturer-dashboard.html" class="dropdown-item text-muted small"><i class="bi bi-building-add me-2"></i>` + t('nav.createVendor') + `</a>
-                                <a href="/vendors.html" class="dropdown-item text-muted small"><i class="bi bi-grid me-2"></i>` + t('nav.browseAllVendors') + `</a>
-                                ${showSupplierCatalogManage ? `
+                                ${showIndustrySupplierNav ? `
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
+                                <a href="/client/industry-suppliers.html" class="dropdown-item"><i class="bi bi-grid me-2"></i>` + t('nav.industrySuppliersList') + `</a>
+                                <a href="/client/my-supplier-references.html" class="dropdown-item"><i class="bi bi-link-45deg me-2"></i>` + t('nav.mySupplierReferences') + `</a>
+                                <a href="/client/supplier-portal.html" class="dropdown-item text-muted small"><i class="bi bi-info-circle me-2"></i>` + t('nav.supplierPortal') + `</a>
+                                ${showSupplierCatalogManage ? `
                                 <a href="/client/industry-supplier-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.supplierDashboard') + `</a>
                                 <a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.supplierCatalogManage') + `</a>
                                 ` : ''}
+                                ` : ''}
+                                <div class="dropdown-divider"></div>
+                                <a href="/client/manufacturer-dashboard.html" class="dropdown-item text-muted small"><i class="bi bi-building-add me-2"></i>` + t('nav.createVendor') + `</a>
+                                <a href="/vendors.html" class="dropdown-item text-muted small"><i class="bi bi-grid me-2"></i>` + t('nav.browseAllVendors') + `</a>
                             </div>
                         </div>
                     ` : ''}
