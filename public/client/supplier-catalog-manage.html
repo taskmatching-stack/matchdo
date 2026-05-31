@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <title data-i18n="supplierManage.pageTitle">上架數位產品庫 - MatchDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta name="robots" content="noindex, nofollow">
     <link href="../img/favicon.ico" rel="icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
@@ -43,9 +42,6 @@
     </div>
 
     <div class="container py-4">
-        <div id="page-loading" class="text-muted small py-3"><span class="spinner-border spinner-border-sm me-2"></span>載入中…</div>
-        <div id="page-error" class="alert alert-danger border-0 shadow-sm d-none" role="alert"></div>
-
         <div id="manage-gate" class="d-none">
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body p-4">
@@ -129,35 +125,15 @@
                                 <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.style">款式</label><input type="text" class="form-control" name="style"></div>
                                 <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.fit">版型</label><input type="text" class="form-control" name="fit"></div>
                                 <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.moqHint">MOQ 參考</label><input type="text" class="form-control" name="moq_hint" placeholder="例：50 件起"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">產品說明 <span class="text-danger">*</span></label><textarea class="form-control add-description" name="description" rows="4" required placeholder="用途、適用品類、打樣注意事項…"></textarea></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label>
                                     <div class="add-image-preview mt-2 d-none"></div>
                                     <input type="file" class="form-control add-image" name="image" accept="image/*" required>
-                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
+                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-prototype">
-                                        <label class="form-check-label" for="add-optimize-prototype"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
-                                    </div>
-                                    <div class="add-optimize-bg-wrap d-none mb-2">
-                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
-                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
-                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
-                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
-                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
-                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
-                                            </select>
-                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff">
-                                        </div>
-                                    </div>
-                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
-                                </div>
-                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="supplierManage.submitAdd">上架並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
                         </form>
                     </div>
@@ -176,31 +152,15 @@
                                 <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.partType">零件類型</label><input type="text" class="form-control" name="part_type" placeholder="拉鍊、扣具…"></div>
                                 <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.finish">表面處理</label><input type="text" class="form-control" name="finish"></div>
                                 <div class="col-md-4"><label class="form-label fw-semibold" data-i18n="supplierManage.dimensions">尺寸規格</label><input type="text" class="form-control" name="dimensions"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">產品說明 <span class="text-danger">*</span></label><textarea class="form-control add-description" name="description" rows="4" required></textarea></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label>
                                     <div class="add-image-preview mt-2 d-none"></div>
                                     <input type="file" class="form-control add-image" name="image" accept="image/*" required>
-                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
+                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-part">
-                                        <label class="form-check-label" for="add-optimize-part"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
-                                    </div>
-                                    <div class="add-optimize-bg-wrap d-none mb-2">
-                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
-                                                <option value="white">白</option><option value="light_gray">淺灰</option><option value="gray">灰</option><option value="black">黑</option><option value="custom">自訂色</option>
-                                            </select>
-                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff">
-                                        </div>
-                                    </div>
-                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
-                                </div>
-                                <div class="col-12"><button type="submit" class="btn btn-warning btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                                <div class="col-12"><button type="submit" class="btn btn-warning btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="supplierManage.submitAdd">上架並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
                         </form>
                     </div>
@@ -220,23 +180,15 @@
                                 <div class="col-md-3"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldColor">顏色</label><input type="text" class="form-control" name="color"></div>
                                 <div class="col-md-3"><label class="form-label fw-semibold" data-i18n="supplierManage.composition">成分</label><input type="text" class="form-control" name="composition"></div>
                                 <div class="col-md-3"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldWidth">幅寬 cm</label><input type="number" class="form-control" name="width_cm" min="0"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">產品說明 <span class="text-danger">*</span></label><textarea class="form-control add-description" name="description" rows="4" required></textarea></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label>
                                     <div class="add-image-preview mt-2 d-none"></div>
                                     <input type="file" class="form-control add-image" name="image" accept="image/*" required>
-                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
+                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
-                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖 AI 優化（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
-                                    </div>
-                                    <p class="form-text text-muted small mb-2" data-i18n="baseModels.optimizeMaterialHint">強化滿版色卡／圖樣（織紋、木紋、金屬質感），不換成商品白底照。</p>
-                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
-                                </div>
-                                <div class="col-12"><button type="submit" class="btn btn-success btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                                <div class="col-12"><button type="submit" class="btn btn-success btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="supplierManage.submitAdd">上架並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
                         </form>
                     </div>
@@ -260,41 +212,12 @@
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
                         <div class="mb-3 d-none" id="edit-sub-wrap"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
                         <div class="mb-3"><label class="form-label">標題 <span class="text-danger">*</span></label><input type="text" class="form-control" id="edit-title" required></div>
-                        <div class="mb-3">
-                            <label class="form-label">簡短說明 <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="edit-description" rows="4" required></textarea>
-                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="btn-edit-gen-desc"><i class="bi bi-magic me-1"></i><span data-i18n="baseModels.generateDescription">AI 產生說明</span> — <span id="edit-points-desc" class="fw-semibold">1</span> <span data-i18n="baseModels.pointsUnit">點</span></button>
-                        </div>
+                        <div class="mb-3"><label class="form-label">產品說明 <span class="text-danger">*</span></label><textarea class="form-control" id="edit-description" rows="4" required></textarea></div>
                         <div class="mb-3">
                             <label class="form-label">產品圖片</label>
                             <img id="edit-current-image" src="" alt="" class="rounded border mb-2 d-none matchdo-enlarge-trigger" style="max-height:180px">
                             <input type="file" class="form-control" id="edit-image" name="image" accept="image/*">
-                            <div id="edit-new-image-preview" class="add-image-preview mt-2 d-none"></div>
-                            <p class="form-text small mb-0" data-i18n="supplierManage.imageHint">更換圖片時可勾選下方 AI 重繪（會扣點）。</p>
-                        </div>
-                        <div id="edit-tags-panel" class="mb-3">
-                            <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
-                            <div id="edit-tags-list" class="d-flex flex-wrap gap-1 mb-2"></div>
-                            <div class="input-group input-group-sm mb-1" style="max-width:320px">
-                                <input type="text" class="form-control" id="edit-tag-input" placeholder="新增標籤">
-                                <button type="button" class="btn btn-outline-secondary" id="btn-edit-add-tag" data-i18n="baseModels.addTagBtn">加入</button>
-                            </div>
-                        </div>
-                        <div id="edit-image-options" class="mb-3 d-none">
-                            <div class="form-check mb-1">
-                                <input class="form-check-input" type="checkbox" id="edit-optimize-image">
-                                <label class="form-check-label" for="edit-optimize-image" id="edit-optimize-label"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span id="edit-points-optimize" class="fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
-                            </div>
-                            <div id="edit-optimize-bg-wrap" class="mb-2 d-none">
-                                <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                <div class="d-flex flex-wrap gap-2 align-items-center">
-                                    <select class="form-select form-select-sm" id="edit-optimize-bg" style="max-width:11rem">
-                                        <option value="white">白</option><option value="light_gray">淺灰</option><option value="gray">灰</option><option value="black">黑</option><option value="custom">自訂色</option>
-                                    </select>
-                                    <input type="color" class="form-control form-control-color d-none" id="edit-optimize-bg-custom" value="#ffffff">
-                                </div>
-                            </div>
-                            <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong id="edit-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                            <p class="form-text small mb-0" data-i18n="supplierManage.imageHint">編輯時可不換圖。</p>
                         </div>
                     </form>
                 </div>
@@ -324,8 +247,6 @@
         var activeKind = 'prototype';
         var itemsCache = { prototype: [], part: [], material: [] };
         var editModal = null;
-        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_description: 1 };
-        var editPending = { tags: [] };
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) { var v = window.i18n.t(k); if (v && v !== k) return v; }
@@ -355,110 +276,6 @@
         }
         function apiKind(tabKind) {
             return tabKind === 'prototype' ? 'prototype_set' : tabKind;
-        }
-        function optimizePointsForKind(kind) {
-            return kind === 'material'
-                ? (uploadPricing.points_optimize_material != null ? uploadPricing.points_optimize_material : 10)
-                : (uploadPricing.points_optimize != null ? uploadPricing.points_optimize : 15);
-        }
-        function getOptimizeBackgroundValue(scopeEl) {
-            var root = scopeEl || document;
-            var sel = root.querySelector ? root.querySelector('.add-optimize-bg') : null;
-            if (!sel) sel = document.getElementById('edit-optimize-bg');
-            if (!sel) return 'white';
-            if (sel.value === 'custom') {
-                var c = (root.querySelector && root.querySelector('.add-optimize-bg-custom')) || document.getElementById('edit-optimize-bg-custom');
-                return (c && c.value) ? c.value : '#ffffff';
-            }
-            return sel.value || 'white';
-        }
-        function syncOptimizeBgCustomInput(scopeEl) {
-            var root = scopeEl || document;
-            var sel = root.querySelector ? root.querySelector('.add-optimize-bg') : null;
-            if (!sel) sel = document.getElementById('edit-optimize-bg');
-            var custom = (root.querySelector && root.querySelector('.add-optimize-bg-custom')) || document.getElementById('edit-optimize-bg-custom');
-            if (!sel || !custom) return;
-            custom.classList.toggle('d-none', sel.value !== 'custom');
-        }
-        function syncAddFormOptimizeBgWrap(form) {
-            if (!form) return;
-            var chk = form.querySelector('.add-optimize-product');
-            var wrap = form.querySelector('.add-optimize-bg-wrap');
-            if (!chk || !wrap) return;
-            wrap.classList.toggle('d-none', !chk.checked);
-        }
-        function syncEditOptimizeBgWrap() {
-            var chk = document.getElementById('edit-optimize-image');
-            var wrap = document.getElementById('edit-optimize-bg-wrap');
-            if (!chk || !wrap) return;
-            wrap.classList.toggle('d-none', !chk.checked);
-        }
-        function wireOptimizeBackgroundForm(form) {
-            if (!form) return;
-            var chk = form.querySelector('.add-optimize-product');
-            var sel = form.querySelector('.add-optimize-bg');
-            if (chk) chk.addEventListener('change', function () { syncAddFormOptimizeBgWrap(form); });
-            if (sel) sel.addEventListener('change', function () { syncOptimizeBgCustomInput(form); });
-            syncAddFormOptimizeBgWrap(form);
-            syncOptimizeBgCustomInput(form);
-        }
-        function applyUploadPricingToForms() {
-            document.querySelectorAll('.add-form').forEach(function (form) {
-                var kind = form.getAttribute('data-kind');
-                var baseEl = form.querySelector('.add-points-base');
-                var optEl = form.querySelector('.add-points-optimize');
-                if (baseEl) baseEl.textContent = String(uploadPricing.points_upload != null ? uploadPricing.points_upload : 5);
-                if (optEl) optEl.textContent = String(optimizePointsForKind(kind));
-            });
-            var eb = document.getElementById('edit-points-base');
-            var eo = document.getElementById('edit-points-optimize');
-            var ed = document.getElementById('edit-points-desc');
-            if (eb) eb.textContent = String(uploadPricing.points_upload != null ? uploadPricing.points_upload : 5);
-            if (eo) eo.textContent = String(optimizePointsForKind(activeKind));
-            if (ed) ed.textContent = String(uploadPricing.points_description != null ? uploadPricing.points_description : 1);
-        }
-        async function loadUploadPricing() {
-            try {
-                var r = await fetch('/api/me/industry-supplier/catalog-items/upload-pricing', { headers: authH() });
-                var d = await r.json().catch(function () { return {}; });
-                if (r.ok) {
-                    uploadPricing.points_upload = d.points_upload != null ? d.points_upload : 5;
-                    uploadPricing.points_optimize = d.points_optimize != null ? d.points_optimize : 15;
-                    uploadPricing.points_optimize_material = d.points_optimize_material != null ? d.points_optimize_material : 10;
-                    uploadPricing.points_description = d.points_description != null ? d.points_description : 1;
-                }
-            } catch (_) {}
-            applyUploadPricingToForms();
-        }
-        function renderEditTags() {
-            var list = document.getElementById('edit-tags-list');
-            if (!list) return;
-            list.innerHTML = (editPending.tags || []).map(function (tag, i) {
-                return '<span class="badge bg-light text-dark border">' + esc(tag) +
-                    ' <button type="button" class="btn-close btn-close-sm ms-1" data-idx="' + i + '" aria-label="Remove"></button></span>';
-            }).join('');
-            list.querySelectorAll('.btn-close').forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    var idx = parseInt(btn.getAttribute('data-idx'), 10);
-                    editPending.tags.splice(idx, 1);
-                    renderEditTags();
-                });
-            });
-        }
-        function toggleEditImageOptions(show) {
-            var panel = document.getElementById('edit-image-options');
-            if (panel) panel.classList.toggle('d-none', !show);
-        }
-        function updateEditOptimizeLabel(kind) {
-            var label = document.getElementById('edit-optimize-label');
-            var optPts = document.getElementById('edit-points-optimize');
-            if (optPts) optPts.textContent = String(optimizePointsForKind(kind));
-            if (!label) return;
-            var isMat = kind === 'material';
-            label.innerHTML = (isMat
-                ? '<span data-i18n="baseModels.optimizeMaterial">材質圖 AI 優化（含 AI 標籤）</span>'
-                : '<span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span>') +
-                ' — <span id="edit-points-optimize" class="fw-semibold text-primary">' + esc(String(optimizePointsForKind(kind))) + '</span> <span data-i18n="baseModels.pointsUnit">點</span>';
         }
 
         function showLocalImagePreview(wrap, file) {
@@ -530,42 +347,14 @@
             fillAllCategorySelects();
         }
 
-        function hidePageLoading() {
-            var el = document.getElementById('page-loading');
-            if (el) el.classList.add('d-none');
-        }
-        function showPageError(msg, html) {
-            hidePageLoading();
-            var errEl = document.getElementById('page-error');
-            if (!errEl) return;
-            if (html) errEl.innerHTML = html;
-            else errEl.textContent = msg || '載入失敗';
-            errEl.classList.remove('d-none');
-        }
-        function clearPageError() {
-            var errEl = document.getElementById('page-error');
-            if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
-        }
-
         async function loadSupplier() {
             var r = await fetch('/api/me/industry-supplier', { headers: authH() });
             var data = await r.json().catch(function () { return {}; });
-            hidePageLoading();
-            if (r.status === 404 || (data && data.code === 'NO_SUPPLIER_PROFILE')) {
-                clearPageError();
+            if (r.status === 404 && data.code === 'NO_SUPPLIER_PROFILE') {
                 document.getElementById('manage-gate').classList.remove('d-none');
                 return false;
             }
-            if (!r.ok) {
-                var errMsg = (data && data.error) ? data.error : ('載入失敗（HTTP ' + r.status + '）');
-                showPageError(errMsg);
-                toast(errMsg, 'danger');
-                if (r.status === 503) {
-                    document.getElementById('manage-gate').classList.remove('d-none');
-                }
-                return false;
-            }
-            clearPageError();
+            if (!r.ok) { toast(data.error || '載入失敗', 'danger'); return false; }
             supplierRecord = data.supplier;
             supplierId = supplierRecord && supplierRecord.id;
             renderSupplierBar();
@@ -688,14 +477,6 @@
             if (item.cover_image_url) { img.src = item.cover_image_url; img.classList.remove('d-none'); }
             else img.classList.add('d-none');
             document.getElementById('edit-image').value = '';
-            showLocalImagePreview(document.getElementById('edit-new-image-preview'), null);
-            document.getElementById('edit-optimize-image').checked = false;
-            editPending.tags = Array.isArray(item.ai_tags) ? item.ai_tags.slice() : [];
-            renderEditTags();
-            toggleEditImageOptions(false);
-            updateEditOptimizeLabel(activeKind);
-            var bgWrap = document.getElementById('edit-optimize-bg-wrap');
-            if (bgWrap) bgWrap.classList.toggle('d-none', activeKind === 'material');
             if (!editModal) editModal = new bootstrap.Modal(document.getElementById('edit-modal'));
             editModal.show();
         }
@@ -710,7 +491,6 @@
             var subSel = form.querySelector('.add-subcategory');
             var imgInput = form.querySelector('.add-image');
             var preview = form.querySelector('.add-image-preview');
-            wireOptimizeBackgroundForm(form);
             if (kind === 'prototype' && subSel) {
                 catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
             }
@@ -721,27 +501,8 @@
                 e.preventDefault();
                 var msgEl = form.querySelector('.add-form-msg');
                 msgEl.textContent = '';
-                if (!catSel.value) { msgEl.textContent = tr('supplierManage.needCategory', '請選擇主分類'); return; }
-                var file = imgInput.files && imgInput.files[0];
-                if (!file) { msgEl.textContent = tr('supplierManage.needImage', '請上傳圖片'); return; }
-                var fd = new FormData();
-                fd.append('item_kind', apiKind(kind));
-                fd.append('category_key', catSel.value);
-                if (kind === 'prototype' && subSel && subSel.value) fd.append('subcategory_key', subSel.value);
-                fd.append('title', (form.querySelector('.add-title').value || '').trim());
-                fd.append('description', (form.querySelector('.add-description').value || '').trim());
-                ['style', 'fit', 'moq_hint', 'part_type', 'finish', 'dimensions', 'material_type', 'color', 'composition', 'width_cm'].forEach(function (k) {
-                    var el = form.querySelector('[name="' + k + '"]');
-                    if (el && el.value) fd.append(k, el.value);
-                });
-                fd.append('image', file);
-                var optimizeChk = form.querySelector('.add-optimize-product');
-                if (optimizeChk && optimizeChk.checked) {
-                    fd.append('optimize_product_image', '1');
-                    if (kind !== 'material') fd.append('optimize_background', getOptimizeBackgroundValue(form));
-                }
-                var btn = form.querySelector('.btn-add-submit');
-                btn.disabled = true;
+                var fd = new FormData(form);
+                fd.set('item_kind', apiKind(kind));
                 try {
                     var r = await fetch('/api/me/industry-supplier/catalog-items', {
                         method: 'POST',
@@ -749,87 +510,22 @@
                         body: fd
                     });
                     var data = await r.json().catch(function () { return {}; });
-                    if (r.status === 402) {
-                        msgEl.textContent = (data.error || tr('baseModels.insufficientPoints', '點數不足')) +
-                            (data.required ? ' (' + data.required + tr('baseModels.pointsUnit', '點') + ')' : '');
-                        return;
-                    }
                     if (!r.ok) {
                         msgEl.textContent = data.error || tr('supplierManage.addFailed', '上架失敗');
-                        if (data.ai_migration_required) msgEl.textContent += ' — 請執行 docs/add-supplier-catalog-ai-fields.sql';
                         return;
                     }
-                    var okMsg = tr('supplierManage.added', '已上架');
-                    if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
-                    if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
-                    if (data.ai_migration_required) okMsg += ' · 請執行 AI 欄位 migration';
-                    toast(okMsg, 'success');
+                    toast(tr('supplierManage.added', '已上架'), 'success');
                     form.reset();
                     if (preview) preview.classList.add('d-none');
-                    applyUploadPricingToForms();
-                    syncAddFormOptimizeBgWrap(form);
                     await refreshList();
                     document.getElementById('catalog-grid').scrollIntoView({ behavior: 'smooth' });
                 } catch (err) {
                     msgEl.textContent = err.message;
-                } finally {
-                    btn.disabled = false;
                 }
             });
         });
 
-        var editImageEl = document.getElementById('edit-image');
-        if (editImageEl) editImageEl.addEventListener('change', function () {
-            var f = editImageEl.files[0];
-            showLocalImagePreview(document.getElementById('edit-new-image-preview'), f);
-            toggleEditImageOptions(!!f);
-        });
-        var editOptChk = document.getElementById('edit-optimize-image');
-        if (editOptChk) editOptChk.addEventListener('change', syncEditOptimizeBgWrap);
-        var editOptBg = document.getElementById('edit-optimize-bg');
-        if (editOptBg) editOptBg.addEventListener('change', syncOptimizeBgCustomInput);
-        var btnEditAddTag = document.getElementById('btn-edit-add-tag');
-        if (btnEditAddTag) btnEditAddTag.addEventListener('click', function () {
-            var input = document.getElementById('edit-tag-input');
-            var val = (input.value || '').trim();
-            if (!val) return;
-            if (editPending.tags.indexOf(val) === -1) editPending.tags.push(val);
-            input.value = '';
-            renderEditTags();
-        });
-        var btnEditGenDesc = document.getElementById('btn-edit-gen-desc');
-        if (btnEditGenDesc) btnEditGenDesc.addEventListener('click', async function () {
-            var btn = document.getElementById('btn-edit-gen-desc');
-            var id = document.getElementById('edit-id').value;
-            var fd = new FormData();
-            fd.append('catalog_item_id', id);
-            fd.append('item_kind', apiKind(activeKind));
-            fd.append('category_key', document.getElementById('edit-category').value);
-            fd.append('title', document.getElementById('edit-title').value.trim());
-            fd.append('description', document.getElementById('edit-description').value.trim());
-            var f = document.getElementById('edit-image').files[0];
-            if (f) fd.append('image', f);
-            btn.disabled = true;
-            try {
-                var r = await fetch('/api/me/industry-supplier/catalog-items/generate-description', {
-                    method: 'POST',
-                    headers: { Authorization: 'Bearer ' + token },
-                    body: fd
-                });
-                var data = await r.json().catch(function () { return {}; });
-                if (!r.ok) { toast(data.error || '產生失敗', 'danger'); return; }
-                document.getElementById('edit-description').value = data.description || '';
-                var msg = tr('baseModels.descriptionGenerated', '已產生說明');
-                if (data.points_deducted) msg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
-                toast(msg, 'success');
-            } catch (e) {
-                toast(e.message, 'danger');
-            } finally {
-                btn.disabled = false;
-            }
-        });
-        var btnEditSave = document.getElementById('btn-edit-save');
-        if (btnEditSave) btnEditSave.addEventListener('click', async function () {
+        document.getElementById('btn-edit-save').addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
             var fd = new FormData();
             fd.append('title', document.getElementById('edit-title').value.trim());
@@ -839,28 +535,17 @@
                 var sk = document.getElementById('edit-subcategory').value;
                 if (sk) fd.append('subcategory_key', sk);
             }
-            if (editPending.tags && editPending.tags.length) fd.append('ai_tags', JSON.stringify(editPending.tags));
             var f = document.getElementById('edit-image').files[0];
-            if (f) {
-                fd.append('image', f);
-                var optChk = document.getElementById('edit-optimize-image');
-                if (optChk && optChk.checked) {
-                    fd.append('optimize_product_image', '1');
-                    if (activeKind !== 'material') fd.append('optimize_background', getOptimizeBackgroundValue(document.getElementById('edit-modal'));
-                }
-            }
+            if (f) fd.append('image', f);
             var r = await fetch('/api/me/industry-supplier/catalog-items/' + encodeURIComponent(id), {
                 method: 'PATCH',
                 headers: { Authorization: 'Bearer ' + token },
                 body: fd
             });
             var data = await r.json().catch(function () { return {}; });
-            if (r.status === 402) { toast((data.error || '點數不足') + (data.required ? ' (' + data.required + ')' : ''), 'danger'); return; }
             if (!r.ok) { toast(data.error || tr('supplierManage.saveFailed', '儲存失敗'), 'danger'); return; }
             if (editModal) editModal.hide();
-            var okMsg = tr('supplierManage.saved', '已更新');
-            if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
-            toast(okMsg, 'success');
+            toast(tr('supplierManage.saved', '已更新'), 'success');
             await refreshList();
         });
 
@@ -939,42 +624,25 @@
         });
 
         async function init() {
-            try {
-                if (typeof AuthService === 'undefined') {
-                    showPageError('登入模組未載入，請重新整理頁面');
-                    return;
-                }
-                var s = await AuthService.getSession();
-                token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
-                if (!token) {
-                    window.location.href = AuthService.getLoginUrl
-                        ? AuthService.getLoginUrl(window.location.pathname)
-                        : '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname);
-                    return;
-                }
-                await loadCategories();
-                await loadUploadPricing();
-                var ok = await loadSupplier();
-                if (!ok) return;
-                switchKind('prototype');
-            } catch (e) {
-                hidePageLoading();
-                showPageError(e.message || '頁面初始化失敗');
-                console.error('supplier-catalog-manage init:', e);
+            if (typeof AuthService === 'undefined') return;
+            var s = await AuthService.getSession();
+            token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
+            if (!token) {
+                window.location.href = AuthService.getLoginUrl
+                    ? AuthService.getLoginUrl(window.location.pathname)
+                    : '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname);
+                return;
             }
+            await loadCategories();
+            var ok = await loadSupplier();
+            if (!ok) return;
+            switchKind('prototype');
         }
 
-        function bootPage() {
+        var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+        ready.then(function () {
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
             init();
-        }
-        var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
-        Promise.race([
-            ready,
-            new Promise(function (resolve) { setTimeout(resolve, 4000); })
-        ]).then(bootPage).catch(function (err) {
-            console.warn('i18n ready:', err);
-            bootPage();
         });
     })();
     </script>
