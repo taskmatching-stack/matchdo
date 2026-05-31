@@ -39,10 +39,10 @@
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <a href="#" class="btn btn-sm btn-primary d-none" id="btn-open-public-page" target="_blank" rel="noopener noreferrer">
-                        <i class="bi bi-house-door me-1"></i>開啟我的廠商首頁
+                        <i class="bi bi-box-arrow-up-right me-1"></i>開啟公開廠商頁
                     </a>
-                    <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-primary" id="btn-edit-mfr">
-                        <i class="bi bi-pencil me-1"></i>編輯廠商資料
+                    <a href="/profile/contact-info.html" class="btn btn-sm btn-outline-secondary" id="btn-edit-mfr">
+                        <i class="bi bi-pencil me-1"></i>聯絡與簡介
                     </a>
                 </div>
             </div>
@@ -53,26 +53,21 @@
         <i class="bi bi-info-circle me-2"></i>您為種子廠商，由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。
     </div>
 
-    <div class="container py-4">
-        <p class="vendor-flow-steps text-muted small mb-3" style="padding-left:0.5rem;border-left:3px solid #0d6efd;">
-            <strong class="text-body">① 開啟下方「我的廠商首頁」</strong>（訪客看到的公開頁）→
-            <strong class="text-body">② 上傳展示案例與數位版型</strong> →
-            <strong class="text-body">③ 設定聯絡方式</strong> →
-            設計者可從靈感牆／廠商頁聯絡您，或至「訂製需求」找接案機會。
-            <span class="d-block mt-1">平台不代為報價、收款或接單。</span>
-        </p>
-        <div id="public-page-card" class="card border-primary border-2 shadow-sm mb-4 d-none">
+    <div class="container py-4" style="max-width: 1100px;">
+        <div id="public-page-card" class="card border-0 shadow-sm mb-4 d-none" style="border-left: 4px solid #0d6efd !important;">
             <div class="card-body py-3">
-                <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
                     <div>
                         <h5 class="card-title mb-1"><i class="bi bi-house-door text-primary me-2"></i>我的廠商首頁（公開）</h5>
-                        <p class="text-muted small mb-0">訪客從靈感牆「廠商詳情」、分享連結看到的頁面。<strong>不是</strong>此控制台；上傳內容會顯示在該頁的「作品集」「素材庫」。</p>
+                        <p class="text-muted small mb-0">訪客看到的頁面；作品集與素材庫由此頁上傳的內容組成。建議流程：上傳展示案例 → 數位版型 → 聯絡方式。</p>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="#" id="btn-public-page-open" class="btn btn-primary btn-sm" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1"></i>開啟廠商首頁</a>
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="btn-public-page-copy"><i class="bi bi-clipboard me-1"></i>複製網址</button>
-                    </div>
+                    <a href="#" id="btn-public-page-open" class="btn btn-primary btn-sm flex-shrink-0" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right me-1"></i>開啟</a>
                 </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <input type="text" class="form-control form-control-sm font-monospace" id="mfr-profile-url" readonly placeholder="建立廠商資料後會顯示">
+                    <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-public-page-copy"><i class="bi bi-clipboard me-1"></i>複製</button>
+                </div>
+                <span id="copy-profile-url-msg" class="small text-success mt-1 d-none">已複製</span>
             </div>
         </div>
         <!-- 未建立廠商資料：建立表單（僅在 404 時顯示） -->
@@ -146,18 +141,9 @@
         </div>
 
         <div class="row g-4">
-            <!-- 快速入口 -->
-            <div class="col-md-5">
-                <div class="section-title">管理內容（寫入公開廠商頁）</div>
+            <div class="col-lg-5">
+                <div class="section-title">常用操作</div>
                 <div class="d-flex flex-column gap-2">
-                    <a href="#" id="link-preview" class="quick-link border-primary" style="background:#f0f7ff;">
-                        <div class="icon bg-primary text-white"><i class="bi bi-house-door"></i></div>
-                        <div>
-                            <div class="fw-semibold">我的廠商首頁（公開）</div>
-                            <div class="text-muted small">訪客看到的廠商頁：作品集、素材庫、聯絡方式</div>
-                        </div>
-                        <i class="bi bi-box-arrow-up-right ms-auto text-primary"></i>
-                    </a>
                     <a href="/client/manufacturer-portfolio.html" class="quick-link">
                         <div class="icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-images"></i></div>
                         <div>
@@ -191,100 +177,66 @@
                         <i class="bi bi-chevron-right ms-auto text-muted"></i>
                     </a>
                 </div>
-                <p class="text-muted small mt-3 mb-0">
-                    <a href="/vendors.html" class="text-muted">瀏覽平台廠商列表</a>（參考其他廠商如何呈現，非您的管理首頁）
-                </p>
+                <p class="text-muted small mt-3 mb-0"><a href="/vendors.html" class="text-muted">瀏覽其他廠商公開頁</a>（參考用）</p>
             </div>
 
-            <!-- 廠商資料摘要 -->
-            <div class="col-md-7">
-                <div class="section-title">廠商資料摘要</div>
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body" id="mfr-summary">
-                        <div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
-                    </div>
-                </div>
-
-                <!-- 我的廠商頁網址（靈感牆「廠商詳情」連到這裡） -->
-                <div class="section-title mt-4">公開廠商頁網址（可分享）</div>
-                <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-body py-2">
-                        <p class="small text-muted mb-2">與上方「開啟廠商首頁」相同；靈感牆「廠商詳情」、Google 分享皆用此連結。</p>
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <input type="text" class="form-control form-control-sm font-monospace" id="mfr-profile-url" readonly placeholder="建立廠商資料後會顯示" style="max-width:100%;">
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-copy-profile-url" title="複製連結">
-                                <i class="bi bi-clipboard me-1"></i>複製連結
-                            </button>
+            <div class="col-lg-7">
+                <div class="accordion" id="mfr-dash-accordion">
+                    <div class="accordion-item border-0 shadow-sm mb-2">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-summary">廠商資料摘要</button>
+                        </h2>
+                        <div id="mfr-panel-summary" class="accordion-collapse collapse show" data-bs-parent="#mfr-dash-accordion">
+                            <div class="accordion-body pt-0" id="mfr-summary">
+                                <div class="text-center py-3 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+                            </div>
                         </div>
-                        <span id="copy-profile-url-msg" class="small text-success mt-1 d-none">已複製到剪貼簿</span>
                     </div>
-                </div>
-
-                <!-- 廠商 LOGO -->
-                <div class="section-title mt-4">廠商 LOGO <small class="text-muted fw-normal fs-6">（顯示於廠商頁面頭像與分享預覽）</small></div>
-                <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-body">
-                        <div class="d-flex align-items-start gap-3 flex-wrap">
-                            <div class="flex-shrink-0">
-                                <div id="logo-preview" class="rounded overflow-hidden bg-light border" style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
-                                    <i class="bi bi-building text-muted" style="font-size:2rem;"></i>
+                    <div class="accordion-item border-0 shadow-sm mb-2">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-branding">LOGO 與社群（顯示於公開頁）</button>
+                        </h2>
+                        <div id="mfr-panel-branding" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
+                            <div class="accordion-body pt-0">
+                                <div class="d-flex align-items-start gap-3 flex-wrap mb-3">
+                                    <div id="logo-preview" class="rounded overflow-hidden bg-light border flex-shrink-0" style="width:72px;height:72px;display:flex;align-items:center;justify-content:center;">
+                                        <i class="bi bi-building text-muted fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <label class="form-label small mb-1">LOGO 圖片網址</label>
+                                        <input type="url" class="form-control form-control-sm" id="logo-url" placeholder="https://...">
+                                        <button class="btn btn-sm btn-primary mt-2" id="btnSaveLogo">儲存 LOGO</button>
+                                        <span id="logoSaveMsg" class="small ms-2"></span>
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-6"><label class="form-label small mb-1">Facebook</label><input type="url" class="form-control form-control-sm" id="soc-facebook"></div>
+                                    <div class="col-6"><label class="form-label small mb-1">Instagram</label><input type="url" class="form-control form-control-sm" id="soc-instagram"></div>
+                                    <div class="col-6"><label class="form-label small mb-1">Threads</label><input type="url" class="form-control form-control-sm" id="soc-threads"></div>
+                                    <div class="col-6"><label class="form-label small mb-1">X</label><input type="url" class="form-control form-control-sm" id="soc-twitter"></div>
+                                    <div class="col-6"><label class="form-label small mb-1">LINE</label><input type="text" class="form-control form-control-sm" id="soc-line"></div>
+                                    <div class="col-6"><label class="form-label small mb-1">官網</label><input type="url" class="form-control form-control-sm" id="soc-url"></div>
+                                </div>
+                                <button class="btn btn-sm btn-primary" id="btnSaveSocial">儲存社群</button>
+                                <span id="socialSaveMsg" class="small ms-2"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item border-0 shadow-sm">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-recent">最新展示案例</button>
+                        </h2>
+                        <div id="mfr-panel-recent" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
+                            <div class="accordion-body pt-0">
+                                <div class="row g-2" id="recent-portfolio">
+                                    <div class="col-12 text-center py-2 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+                                </div>
+                                <div class="mt-2 text-end">
+                                    <a href="/client/manufacturer-portfolio.html" class="btn btn-sm btn-outline-primary">全部作品 <i class="bi bi-arrow-right"></i></a>
                                 </div>
                             </div>
-                            <div class="flex-grow-1 min-w-0">
-                                <label class="form-label small mb-1">LOGO 圖片網址</label>
-                                <input type="url" class="form-control form-control-sm" id="logo-url" placeholder="https://...">
-                                <div class="d-flex align-items-center gap-2 mt-2">
-                                    <button class="btn btn-sm btn-primary" id="btnSaveLogo">儲存 LOGO</button>
-                                    <span id="logoSaveMsg" class="small"></span>
-                                </div>
-                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- 社群帳號 -->
-                <div class="section-title mt-4">社群帳號 <small class="text-muted fw-normal fs-6">（顯示於廠商頁面）</small></div>
-                <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-body">
-                        <div class="row g-2 mb-2">
-                            <div class="col-6">
-                                <label class="form-label small mb-1"><i class="bi bi-facebook text-primary me-1"></i>Facebook</label>
-                                <input type="url" class="form-control form-control-sm" id="soc-facebook" placeholder="https://facebook.com/...">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small mb-1"><i class="bi bi-instagram me-1" style="color:#C13584"></i>Instagram</label>
-                                <input type="url" class="form-control form-control-sm" id="soc-instagram" placeholder="https://instagram.com/...">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small mb-1"><i class="bi bi-threads me-1"></i>Threads</label>
-                                <input type="url" class="form-control form-control-sm" id="soc-threads" placeholder="https://www.threads.net/@...">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small mb-1"><i class="bi bi-twitter-x me-1"></i>X（Twitter）</label>
-                                <input type="url" class="form-control form-control-sm" id="soc-twitter" placeholder="https://x.com/...">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small mb-1"><i class="bi bi-chat-fill text-success me-1"></i>LINE</label>
-                                <input type="text" class="form-control form-control-sm" id="soc-line" placeholder="LINE ID 或 https://line.me/...">
-                            </div>
-                            <div class="col-6">
-                                <label class="form-label small mb-1"><i class="bi bi-globe2 me-1"></i>官網</label>
-                                <input type="url" class="form-control form-control-sm" id="soc-url" placeholder="https://...">
-                            </div>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-sm btn-primary" id="btnSaveSocial">儲存社群帳號</button>
-                            <span id="socialSaveMsg" class="small"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="section-title mt-4">最新廠商作品</div>
-                <div class="row g-2" id="recent-portfolio">
-                    <div class="col-12 text-center py-3 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
-                </div>
-                <div class="mt-2 text-end">
-                    <a href="/client/manufacturer-portfolio.html" class="btn btn-sm btn-outline-primary">查看全部作品 <i class="bi bi-arrow-right ms-1"></i></a>
                 </div>
             </div>
         </div>
@@ -325,9 +277,6 @@
                 mfrId = mfr.id;
                 document.getElementById('mfr-name').textContent = mfr.name || '廠商';
                 var publicUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                document.getElementById('link-preview').href = publicUrl;
-                document.getElementById('link-preview').setAttribute('target', '_blank');
-                document.getElementById('link-preview').setAttribute('rel', 'noopener noreferrer');
                 var publicCard = document.getElementById('public-page-card');
                 if (publicCard) publicCard.classList.remove('d-none');
                 var btnOpenPublic = document.getElementById('btn-open-public-page');
@@ -583,8 +532,6 @@
                     fallbackCopy();
                 }
             }
-            var btnCopyProfileUrl = document.getElementById('btn-copy-profile-url');
-            if (btnCopyProfileUrl) btnCopyProfileUrl.addEventListener('click', copyPublicProfileUrl);
             var btnPublicPageCopy = document.getElementById('btn-public-page-copy');
             if (btnPublicPageCopy) btnPublicPageCopy.addEventListener('click', copyPublicProfileUrl);
 

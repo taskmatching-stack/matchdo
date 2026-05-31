@@ -84,7 +84,7 @@ function getPublicConfig() {
     });
 }
 
-/** 登入後會員三區能力（additive；失敗時回 null，header 維持舊行為） */
+/** 登入後能力（頁面/API 用；選單全顯示不依此隱藏 — 見 docs/account-one-login-capabilities.md） */
 async function fetchMeCapabilities() {
     if (typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return null;
     try {
@@ -331,19 +331,10 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
             window.__ME_CAPABILITIES__ = meCapabilities;
         } catch (eCap) {}
     }
-    var showSupplierZone = meCapabilities
-        ? !!(meCapabilities.nav && meCapabilities.nav.show_supplier_zone)
-        : true;
-    var showIndustrySupplierNav = showSupplierZone && (
-        !meCapabilities || meCapabilities.supplier_catalog_ready !== false
-    );
-    var showSupplierCatalogManage = meCapabilities
-        ? !!(meCapabilities.nav && meCapabilities.nav.show_supplier_catalog_manage)
-        : false;
     var rawT = (window.i18n && window.i18n.t) ? window.i18n.t : function (k) { return k; };
     var navLang = getNavLang();
-    var navFallbackZh = { 'remake.badgeTesting': '測試中', 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.remake': '設計風向', 'nav.remakeSection': '設計風向', 'nav.remakeHome': '設計風向首頁', 'nav.remakeAnalysis': '設計意圖分析', 'nav.remakeDesign': '設計意圖分析', 'nav.remakeMyDesigns': '我的設計風向', 'nav.remakeGallery': '圖庫找靈感', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '三種角色（同一帳號）', 'nav.customizerSection': '① 訂製者', 'nav.manufacturerSection': '② 製造商', 'nav.supplierSection': '③ 產業供應商', 'nav.supplierPortal': '產業供應商說明', 'nav.supplierDashboard': '供應商控制台', 'nav.industrySuppliersList': '產業供應商目錄', 'nav.mfrBrowseUpstream': '上游材料目錄', 'nav.mfrMyImports': '已匯入清單', 'nav.mySupplierReferences': '已匯入清單', 'nav.supplierCatalogManage': '管理產品庫', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '上傳展示案例', 'nav.vendorBaseModels': '我的數位版型', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式', 'nav.myCredits': '我的點數', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '發案控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區' };
-    var navFallbackEn = { 'remake.badgeTesting': 'Testing', 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.customProduct': 'Custom Products', 'nav.remake': 'Design Direction', 'nav.remakeSection': 'Design Direction', 'nav.remakeHome': 'Design Direction home', 'nav.remakeAnalysis': 'Design intent analysis', 'nav.remakeDesign': 'Design intent analysis', 'nav.remakeMyDesigns': 'My design directions', 'nav.remakeGallery': 'Gallery & inspiration', 'nav.subscriptionPlans': 'Plans & Pricing', 'nav.login': 'Log in', 'nav.myFeatures': 'My Workspace', 'nav.myFeaturesTitle': 'Workspace', 'nav.dropdownCustom': 'Custom products', 'nav.dropdownRoles': 'By role', 'nav.designSection': 'Design / Find vendor', 'nav.customizerSection': 'Customizer', 'nav.manufacturerSection': 'Manufacturer', 'nav.supplierSection': 'Industry supplier', 'nav.supplierPortal': 'Industry supplier guide', 'nav.supplierDashboard': 'Supplier dashboard', 'nav.industrySuppliersList': 'Industry suppliers', 'nav.supplierPrototypeLib': 'Prototype sets', 'nav.supplierMaterialLib': 'Materials catalog', 'nav.customHome': 'Custom product home', 'nav.createProduct': 'Create product', 'nav.myCustomProducts': 'My digital assets', 'nav.galleryFindVendor': 'Gallery – find vendors', 'nav.findMakers': 'Find makers', 'nav.myMessages': 'My messages', 'nav.myCredits': 'My credits', 'nav.aiEditArea': 'My AI edit area', 'nav.createVendor': 'Create vendor profile', 'nav.demands': 'Customization requests', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'My portfolio', 'nav.vendorBaseModels': 'My base models', 'nav.vendorContact': 'Contact (for designers)', 'nav.clientDashboard': 'Project console', 'nav.accountInfo': 'Account', 'nav.accountSettings': 'Account & settings', 'nav.contactSettings': 'Contact settings', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN' };
+    var navFallbackZh = { 'remake.badgeTesting': '測試中', 'nav.brand': 'MatchDO 合做', 'nav.home': '首頁', 'nav.serviceMatching': '服務媒合', 'nav.customProduct': '客製產品', 'nav.remake': '設計風向', 'nav.remakeSection': '設計風向', 'nav.remakeHome': '設計風向首頁', 'nav.remakeAnalysis': '設計意圖分析', 'nav.remakeDesign': '設計意圖分析', 'nav.remakeMyDesigns': '我的設計風向', 'nav.remakeGallery': '圖庫找靈感', 'nav.subscriptionPlans': '方案與定價', 'nav.login': '登入', 'nav.myFeatures': '我的功能', 'nav.myFeaturesTitle': '工作入口', 'nav.accountInfo': '帳號資訊', 'nav.dropdownRoles': '同一帳號・工作入口', 'nav.customizerSection': '① 訂製／設計', 'nav.manufacturerSection': '② 製造商', 'nav.supplierSection': '③ 產業供應商', 'nav.mfrUpstreamSection': '上游採購（B 線）', 'nav.mfrBrowseUpstream': '瀏覽產業供應商目錄', 'nav.mfrMyImports': '已匯入上游品項', 'nav.mySupplierPublicPage': '我的供應商首頁（公開）', 'nav.supplierManufacturerRefs': '製造商引用紀錄', 'nav.supplierCatalogManage': '上架數位產品庫', 'nav.myVendorPublicPage': '我的廠商首頁（公開）', 'nav.supplierPortal': '產業供應商說明', 'nav.supplierDashboard': '供應商控制台', 'nav.industrySuppliersList': '產業供應商目錄', 'nav.mySupplierReferences': '供應商引用管理', 'nav.supplierPrototypeLib': '原型組目錄', 'nav.supplierMaterialLib': '材料目錄', 'nav.dropdownCustom': '訂製品（客戶／供應商兼用）', 'nav.dropdownCustomClient': '訂製品客戶', 'nav.designSection': '設計／找廠商', 'nav.vendorSection': '製造商', 'nav.customHome': '客製產品首頁', 'nav.createProduct': '建立新產品', 'nav.myCustomProducts': '我的數位資產', 'nav.galleryFindVendor': '圖庫找廠商', 'nav.dropdownVendor': '訂製品供應商', 'nav.createVendor': '建立廠商資料', 'nav.vendorDashboard': '廠商控制台', 'nav.vendorPortfolio': '上傳展示案例', 'nav.vendorBaseModels': '我的數位版型', 'nav.vendorInquiries': '訂製詢價列表', 'nav.vendorContact': '聯絡方式', 'nav.myCredits': '我的點數', 'nav.findMakers': '找製作方', 'nav.myMessages': '我的對話', 'nav.makerSection': '製作方', 'nav.demands': '訂製需求', 'nav.dropdownWork': '工作入口', 'nav.expertSection': '專家功能', 'nav.expertDashboard': '專家控制台', 'nav.myListings': '我的報價', 'nav.matchedProjects': '我已媒合的專案', 'nav.browseProjects': '可媒合專案', 'nav.myPortfolio': '我的作品', 'nav.clientSection': '發案功能', 'nav.clientDashboard': '設計者控制台', 'nav.myProjects': '我的專案', 'nav.accountSettings': '帳號與設定', 'nav.loading': '載入中...', 'nav.settings': '設定', 'nav.contactSettings': '聯絡資訊設定', 'nav.adminSection': '管理功能', 'nav.userManagement': '用戶管理', 'nav.categoryManagement': '分類管理', 'nav.categoryImages': '分類圖片管理', 'nav.logout': '登出', 'nav.langZh': '中文', 'nav.langEn': 'EN', 'nav.aiUpscale': 'AI 圖片放大', 'nav.aiEditArea': '我的 AI 編輯區' };
+    var navFallbackEn = { 'remake.badgeTesting': 'Testing', 'nav.brand': 'MatchDO', 'nav.home': 'Home', 'nav.customProduct': 'Custom Products', 'nav.remake': 'Design Direction', 'nav.remakeSection': 'Design Direction', 'nav.remakeHome': 'Design Direction home', 'nav.remakeAnalysis': 'Design intent analysis', 'nav.remakeDesign': 'Design intent analysis', 'nav.remakeMyDesigns': 'My design directions', 'nav.remakeGallery': 'Gallery & inspiration', 'nav.subscriptionPlans': 'Plans & Pricing', 'nav.login': 'Log in', 'nav.myFeatures': 'My Workspace', 'nav.myFeaturesTitle': 'Workspace', 'nav.dropdownCustom': 'Custom products', 'nav.dropdownRoles': 'One account · workspace', 'nav.customizerSection': '① Design', 'nav.manufacturerSection': '② Manufacturer', 'nav.supplierSection': '③ Industry supplier', 'nav.mfrUpstreamSection': 'Upstream (B-line)', 'nav.mfrBrowseUpstream': 'Browse industry suppliers', 'nav.mfrMyImports': 'My upstream imports', 'nav.mySupplierPublicPage': 'My supplier page (public)', 'nav.supplierManufacturerRefs': 'Manufacturer references', 'nav.supplierCatalogManage': 'Publish catalog', 'nav.myVendorPublicPage': 'My vendor page (public)', 'nav.industrySuppliersList': 'Industry suppliers', 'nav.mySupplierReferences': 'Imported items', 'nav.customHome': 'Custom product home', 'nav.createProduct': 'Create product', 'nav.myCustomProducts': 'My digital assets', 'nav.galleryFindVendor': 'Gallery – find vendors', 'nav.findMakers': 'Find makers', 'nav.myMessages': 'My messages', 'nav.myCredits': 'My credits', 'nav.aiEditArea': 'My AI edit area', 'nav.demands': 'Customization requests', 'nav.vendorDashboard': 'Vendor dashboard', 'nav.vendorPortfolio': 'My portfolio', 'nav.vendorBaseModels': 'My base models', 'nav.vendorContact': 'Contact (for designers)', 'nav.clientDashboard': 'Designer dashboard', 'nav.accountInfo': 'Account', 'nav.accountSettings': 'Account & settings', 'nav.contactSettings': 'Contact settings', 'nav.logout': 'Log out', 'nav.langZh': '中文', 'nav.langEn': 'EN' };
     var navFallback = (navLang === 'en') ? navFallbackEn : navFallbackZh;
     var t = function (k) { var v = rawT(k); return (v && v !== k) ? v : (navFallback[k] || k); };
     var showLangSwitch = path.indexOf('/admin/') === -1;
@@ -389,27 +380,26 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                                 <h6 class="dropdown-header text-muted small mb-1">` + t('nav.dropdownRoles') + `</h6>
                                 <h6 class="dropdown-header py-1"><i class="bi bi-pencil-square me-2"></i>` + t('nav.customizerSection') + `</h6>
                                 <a href="/client/dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.clientDashboard') + `</a>
+                                <a href="/client/my-custom-products.html" class="dropdown-item"><i class="bi bi-box-seam me-2"></i>` + t('nav.myCustomProducts') + `</a>
                                 <a href="/client/messages.html" class="dropdown-item"><i class="bi bi-chat-dots me-2"></i>` + t('nav.myMessages') + `</a>
                                 <a href="/credits.html" class="dropdown-item"><i class="bi bi-currency-exchange me-2"></i>` + t('nav.myCredits') + `</a>
                                 <a href="/client/ai-edit.html" class="dropdown-item"><i class="bi bi-palette me-2"></i>` + t('nav.aiEditArea') + `</a>
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header py-1"><i class="bi bi-shop me-2"></i>` + t('nav.manufacturerSection') + `</h6>
                                 <a href="/client/manufacturer-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.vendorDashboard') + `</a>
-                                <a href="#" id="nav-my-vendor-home" class="dropdown-item d-none"><i class="bi bi-house-door me-2"></i>` + t('nav.myVendorPublicPage') + `</a>
+                                <a href="#" id="nav-my-vendor-home" class="dropdown-item"><i class="bi bi-house-door me-2"></i>` + t('nav.myVendorPublicPage') + `</a>
                                 <a href="/client/manufacturer-portfolio.html" class="dropdown-item"><i class="bi bi-images me-2"></i>` + t('nav.vendorPortfolio') + `</a>
                                 <a href="/client/manufacturer-materials.html" class="dropdown-item"><i class="bi bi-folder2-open me-2"></i>` + t('nav.vendorBaseModels') + `</a>
+                                <h6 class="dropdown-header text-muted small py-1 mb-0">` + t('nav.mfrUpstreamSection') + `</h6>
+                                <a href="/client/industry-suppliers.html" class="dropdown-item"><i class="bi bi-grid me-2"></i>` + t('nav.mfrBrowseUpstream') + `</a>
+                                <a href="/client/my-supplier-references.html" class="dropdown-item"><i class="bi bi-link-45deg me-2"></i>` + t('nav.mfrMyImports') + `</a>
                                 <a href="/client/demands.html" class="dropdown-item"><i class="bi bi-inbox me-2"></i>` + t('nav.demands') + `</a>
                                 <a href="/profile/contact-info.html" class="dropdown-item"><i class="bi bi-chat-dots me-2"></i>` + t('nav.vendorContact') + `</a>
-                                ${showIndustrySupplierNav ? `
                                 <div class="dropdown-divider"></div>
                                 <h6 class="dropdown-header py-1"><i class="bi bi-truck me-2"></i>` + t('nav.supplierSection') + `</h6>
-                                <a href="/client/industry-suppliers.html" class="dropdown-item"><i class="bi bi-grid me-2"></i>` + t('nav.industrySuppliersList') + `</a>
-                                <a href="/client/my-supplier-references.html" class="dropdown-item"><i class="bi bi-link-45deg me-2"></i>` + t('nav.mySupplierReferences') + `</a>
-                                ${showSupplierCatalogManage ? `
-                                <a href="/client/industry-supplier-dashboard.html" class="dropdown-item"><i class="bi bi-speedometer2 me-2"></i>` + t('nav.supplierDashboard') + `</a>
                                 <a href="/client/supplier-catalog-manage.html" class="dropdown-item"><i class="bi bi-cloud-upload me-2"></i>` + t('nav.supplierCatalogManage') + `</a>
-                                ` : ''}
-                                ` : ''}
+                                <a href="/client/industry-supplier-dashboard.html" class="dropdown-item"><i class="bi bi-people me-2"></i>` + t('nav.supplierManufacturerRefs') + `</a>
+                                <a href="#" id="nav-my-supplier-home" class="dropdown-item"><i class="bi bi-house-door me-2"></i>` + t('nav.mySupplierPublicPage') + `</a>
                             </div>
                         </div>
                     ` : ''}
@@ -499,6 +489,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
         loadRenewalReminderBanner(headerContainer);
         loadHeaderCredits(headerContainer);
         loadHeaderManufacturerNavLinks(headerContainer);
+        loadHeaderSupplierNavLinks(headerContainer);
     }
 
     var langLinks = headerContainer.querySelectorAll('.lang-link');
@@ -515,24 +506,56 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     }
 }
 
-/** 已登入且有廠商資料時，顯示「我的廠商首頁（公開）」連結 */
+/** 已登入時設定「我的廠商首頁」連結（無廠商資料則導向控制台） */
 function loadHeaderManufacturerNavLinks(headerContainer) {
     if (!headerContainer || typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return;
     window.AuthService.getSession().then(function (session) {
         if (!session || !session.access_token) return;
         var link = headerContainer.querySelector('#nav-my-vendor-home');
         if (!link) return;
+        var fallback = '/client/manufacturer-dashboard.html';
+        link.href = fallback;
         fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + session.access_token } })
             .then(function (r) {
                 if (r.status === 404) return null;
                 return r.ok ? r.json() : null;
             })
             .then(function (mfr) {
-                if (!mfr || !mfr.id) return;
-                link.href = '/vendor-profile.html?id=' + encodeURIComponent(mfr.id);
-                link.classList.remove('d-none');
-                link.setAttribute('target', '_blank');
-                link.setAttribute('rel', 'noopener noreferrer');
+                if (mfr && mfr.id) {
+                    link.href = '/vendor-profile.html?id=' + encodeURIComponent(mfr.id);
+                    link.setAttribute('target', '_blank');
+                    link.setAttribute('rel', 'noopener noreferrer');
+                }
+            })
+            .catch(function () {});
+    }).catch(function () {});
+}
+
+/** 已登入時設定「我的供應商首頁」連結（無綁定則導向上架頁說明） */
+function loadHeaderSupplierNavLinks(headerContainer) {
+    if (!headerContainer || typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return;
+    window.AuthService.getSession().then(function (session) {
+        if (!session || !session.access_token) return;
+        var link = headerContainer.querySelector('#nav-my-supplier-home');
+        if (!link) return;
+        var fallback = '/client/supplier-catalog-manage.html';
+        link.href = fallback;
+        var caps = window.__ME_CAPABILITIES__;
+        if (caps && caps.industry_supplier_id) {
+            link.href = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(caps.industry_supplier_id);
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+            return;
+        }
+        fetch('/api/me/industry-supplier', { headers: { Authorization: 'Bearer ' + session.access_token } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                var sup = data && data.supplier;
+                if (sup && sup.id) {
+                    link.href = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(sup.id);
+                    link.setAttribute('target', '_blank');
+                    link.setAttribute('rel', 'noopener noreferrer');
+                }
             })
             .catch(function () {});
     }).catch(function () {});

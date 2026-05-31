@@ -6,6 +6,13 @@ alwaysApply: false
 
 # 選單與登入（修改時必守，否則全站選單／登入會壞）
 
+## 同一帳號・勿藏選單（必讀）
+
+見 **`docs/account-one-login-capabilities.md`** 與 **`.cursor/rules/account-one-login-capabilities.mdc`**：
+
+- 登入後「我的功能」**①②③ 全部連結常駐**，禁止依角色／綁定隱藏。
+- 全站僅兩項限制：免費不可上傳產品與素材；無展示案例不可匯入供應商品項（管理員／測試員除外）。
+
 ## 新前台頁面
 
 ```html

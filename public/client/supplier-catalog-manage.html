@@ -45,19 +45,34 @@
         <div id="manage-gate" class="d-none">
             <div class="alert alert-warning border-0">
                 <p class="small mb-3" id="gate-extra"></p>
-                <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
+                <a href="/client/industry-supplier-dashboard.html" class="btn btn-success btn-sm"><i class="bi bi-people me-1"></i><span data-i18n="nav.supplierManufacturerRefs">製造商引用紀錄</span></a>
             </div>
         </div>
 
         <div id="main-content" class="d-none">
+            <div class="card border-0 shadow-sm mb-3" style="border-left: 4px solid #198754 !important;">
+                <div class="card-body py-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                        <div>
+                            <h5 class="card-title mb-1"><i class="bi bi-house-door text-success me-2"></i><span data-i18n="nav.mySupplierPublicPage">我的供應商首頁（公開）</span></h5>
+                            <p class="text-muted small mb-0" data-i18n="supplierManage.publicPageHint">製造商在「產業供應商目錄」看到的頁面。公司名稱、介紹、聯絡方式在下方「編輯公司」；產品列表由上傳的品項組成。</p>
+                        </div>
+                        <a href="#" id="supplier-public-open" class="btn btn-success btn-sm flex-shrink-0" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i><span data-i18n="supplierManage.openPublic">開啟</span></a>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <input type="text" class="form-control form-control-sm font-monospace" id="supplier-public-url" readonly>
+                        <button type="button" class="btn btn-sm btn-outline-success flex-shrink-0" id="supplier-public-copy"><i class="bi bi-clipboard me-1"></i><span data-i18n="supplierManage.copyUrl">複製</span></button>
+                    </div>
+                    <span id="supplier-public-copy-msg" class="small text-success mt-1 d-none" data-i18n="supplierManage.copied">已複製</span>
+                </div>
+            </div>
             <div class="alert alert-light border mb-3 py-2 small">
                 <i class="bi bi-building text-success me-1"></i>
                 <strong id="supplier-display-name">—</strong>
                 <span class="text-muted" id="supplier-display-desc"></span>
                 <span class="mx-2">·</span>
                 <span data-i18n="supplierManage.contactLabel">聯絡</span>：<span id="supplier-contact-line">—</span>
-                <a href="#" id="supplier-catalog-preview-link" class="alert-link ms-2" target="_blank" rel="noopener" data-i18n="supplierManage.previewCatalog">製造商產品庫頁</a>
-                <button type="button" class="btn btn-link btn-sm p-0 ms-2" id="btn-toggle-company-edit" data-i18n="supplierManage.editCompany">編輯公司</button>
+                <button type="button" class="btn btn-link btn-sm p-0 ms-2" id="btn-toggle-company-edit" data-i18n="supplierManage.editCompany">編輯公司資料</button>
             </div>
             <div id="company-edit" class="card border-0 shadow-sm mb-3 d-none">
                 <div class="card-body py-3">
@@ -290,8 +305,13 @@
             document.getElementById('supplier-display-name').textContent = supplierRecord.name || '—';
             document.getElementById('supplier-display-desc').textContent = supplierRecord.description ? (' — ' + supplierRecord.description) : '';
             document.getElementById('supplier-contact-line').textContent = contactLine(supplierRecord.contact_json);
-            var link = document.getElementById('supplier-catalog-preview-link');
-            if (supplierId) link.href = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(supplierId);
+            var publicPath = supplierId ? ('/client/industry-supplier-catalog.html?id=' + encodeURIComponent(supplierId)) : '';
+            var origin = (window.location && window.location.origin) ? window.location.origin.replace(/\/$/, '') : '';
+            var publicFull = publicPath ? (origin + publicPath) : '';
+            var openBtn = document.getElementById('supplier-public-open');
+            var urlInput = document.getElementById('supplier-public-url');
+            if (openBtn && publicPath) openBtn.href = publicPath;
+            if (urlInput) urlInput.value = publicFull || publicPath || '';
             document.getElementById('edit-company-name').value = supplierRecord.name || '';
             document.getElementById('edit-company-desc').value = supplierRecord.description || '';
             var c = supplierRecord.contact_json || {};
@@ -514,6 +534,23 @@
             if (editModal) editModal.hide();
             toast(tr('supplierManage.saved', '已更新'), 'success');
             await refreshList();
+        });
+
+        document.getElementById('supplier-public-copy').addEventListener('click', function () {
+            var input = document.getElementById('supplier-public-url');
+            var url = (input && input.value || '').trim();
+            if (!url) return;
+            var msg = document.getElementById('supplier-public-copy-msg');
+            function done() {
+                if (msg) { msg.classList.remove('d-none'); setTimeout(function () { msg.classList.add('d-none'); }, 2000); }
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(done).catch(function () {
+                    try { input.select(); document.execCommand('copy'); done(); } catch (e) {}
+                });
+            } else {
+                try { input.select(); document.execCommand('copy'); done(); } catch (e) {}
+            }
         });
 
         document.getElementById('btn-toggle-company-edit').addEventListener('click', function () {

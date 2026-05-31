@@ -6402,6 +6402,27 @@ async function isStaffProfileUserId(userId) {
     return role === 'admin' || role === 'tester';
 }
 
+/** 限制 A：免費帳號不可上傳產品與素材（管理員／測試員除外）。見 docs/account-one-login-capabilities.md */
+async function canUploadProductsAndAssetsUserId(userId) {
+    if (!userId) return false;
+    if (await isStaffProfileUserId(userId)) return true;
+    return hasActivePaidSubscription(userId);
+}
+
+async function assertCanUploadProductsAndAssets(req, res) {
+    const user = await getCurrentUser(req, res);
+    if (!user) return null;
+    const allowed = await canUploadProductsAndAssetsUserId(user.id);
+    if (!allowed) {
+        res.status(403).json({
+            error: '免費帳號無法上傳產品與素材，請升級付費方案後再試',
+            code: 'MEMBERSHIP_UPLOAD_REQUIRED'
+        });
+        return null;
+    }
+    return user;
+}
+
 function manufacturerExemptFromMembershipCatalog(mfr) {
     if (!mfr) return true;
     const src = mfr.vendor_source ? String(mfr.vendor_source) : '';
@@ -11733,6 +11754,8 @@ const vendorAssetCreateUpload = upload.fields([
 // POST /api/me/vendor-assets — 廠商上傳素材（需登入且已建立廠商資料）；種子廠商不得上傳
 app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
     try {
+        const uploadUser = await assertCanUploadProductsAndAssets(req, res);
+        if (!uploadUser) return;
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
         const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
@@ -12399,7 +12422,7 @@ app.delete('/api/me/vendor-assets/:id', async (req, res) => {
 });
 
 // ---------- 產業供應商目錄（B 線：製造商導入材料）----------
-// GET /api/me/capabilities — 製造商資格（含是否可導入供應商目錄）
+// GET /api/me/capabilities — 頁面/API 資格（勿用 nav.* 隱藏選單；見 docs/account-one-login-capabilities.md）
 app.get('/api/me/capabilities', async (req, res) => {
     try {
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
@@ -12428,7 +12451,9 @@ app.get('/api/me/capabilities', async (req, res) => {
         const isQualifiedManufacturer = !!mfr && mfr.is_active !== false && !isSeed
             && (activePortfolioCount >= 1 || staffBypassPortfolio);
         const canImport = catalogReady && isQualifiedManufacturer;
+        const canUploadProductsAndAssets = await canUploadProductsAndAssetsUserId(user.id);
         let isIndustrySupplier = false;
+        let industrySupplierId = null;
         if (catalogReady) {
             try {
                 const { data: indRow } = await supabase
@@ -12437,12 +12462,13 @@ app.get('/api/me/capabilities', async (req, res) => {
                     .eq('user_id', user.id)
                     .maybeSingle();
                 isIndustrySupplier = !!indRow;
+                industrySupplierId = indRow ? indRow.id : null;
             } catch (_) { /* 表未建時忽略 */ }
         }
-        // B 線選單常駐；製造商導入資格見 can_import（作品門檻）；產業供應商上架見 can_manage
-        const showSupplierZone = true;
         res.json({
             has_manufacturer: hasManufacturer,
+            is_industry_supplier: isIndustrySupplier,
+            industry_supplier_id: industrySupplierId,
             is_qualified_manufacturer: isQualifiedManufacturer,
             manufacturer_id: mfr ? mfr.id : null,
             active_portfolio_count: activePortfolioCount,
@@ -12450,6 +12476,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             bypass_supplier_portfolio_gate: staffBypassPortfolio,
             vendor_source: mfr ? mfr.vendor_source : null,
             supplier_catalog_ready: catalogReady,
+            can_upload_products_and_assets: canUploadProductsAndAssets,
             can_use_supplier_catalog: canImport,
             can_import_supplier_catalog: canImport,
             can_manage_supplier_catalog: catalogReady && isIndustrySupplier,
@@ -12459,10 +12486,7 @@ app.get('/api/me/capabilities', async (req, res) => {
                 industry_supplier: isIndustrySupplier
             },
             nav: {
-                show_supplier_zone: showSupplierZone,
-                show_industry_catalog: canImport,
-                show_industry_suppliers_list: canImport,
-                show_supplier_catalog_manage: catalogReady && isIndustrySupplier
+                show_all_workspace_menus: true
             }
         });
     } catch (e) {
@@ -13087,6 +13111,8 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemUpload, a
         if (!(await supplierCatalogTablesReady())) {
             return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
         }
+        const uploadUser = await assertCanUploadProductsAndAssets(req, res);
+        if (!uploadUser) return;
         const ctx = await getMeIndustrySupplier(req, res);
         if (!ctx) return;
         const body = req.body || {};

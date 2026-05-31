@@ -1,0 +1,33 @@
+---
+description: 同一帳號不藏選單；僅免費禁上傳產品素材、無展示案例禁匯入供應商品項
+alwaysApply: true
+---
+
+# 同一帳號・能力與選單（必守）
+
+完整說明：`docs/account-one-login-capabilities.md`
+
+## 帳號
+
+- **同一登入帳號**，沒有訂製者／製造商／供應商「角色切換」。
+- ①②③ 只是「我的功能」**分區標題**，不是權限角色。
+
+## 選單（`public/js/site-header.js`）
+
+- 登入後 **①②③ 所有工作入口必須常駐**，**禁止**用 `capabilities.nav.*`、`has_manufacturer`、`is_industry_supplier`、`show_supplier_zone` 等 **隱藏** 選單項。
+- 資格不足只在 **頁面／API** 提示或 403，不要拿掉連結。
+
+## 全站僅兩項業務限制（管理員、測試員不受限）
+
+1. **免費帳號**（無有效付費訂閱）：不可上傳 **產品**（`supplier_catalog_items`）與 **素材**（`vendor_assets`）。展示案例上傳不在此限。
+2. **無至少 1 件展示中作品**：不可 **匯入** 產業供應商目錄（B 線）。
+
+API 欄位：`can_upload_products_and_assets`、`can_import_supplier_catalog` — **只給頁面與 API 用，不給選單顯示用**。
+
+## 禁止再犯
+
+- 不要把製造商 B 線入口只放在 ③。
+- 不要寫「需綁定產業供應商才顯示上架選單」。
+- 不要恢復 `nav.show_supplier_zone` 控制 header 顯示。
+
+修改 `site-header.js` 或 `GET /api/me/capabilities` 前請對照 `docs/account-one-login-capabilities.md`。

@@ -44,7 +44,7 @@
         <div id="dash-gate" class="d-none">
             <div class="alert alert-warning border-0">
                 <p class="small mb-2" id="gate-extra"></p>
-                <a href="/client/industry-suppliers.html" class="btn btn-success btn-sm"><i class="bi bi-grid me-1"></i><span data-i18n="nav.industrySuppliersList">產業供應商目錄</span></a>
+                <a href="/client/supplier-catalog-manage.html" class="btn btn-success btn-sm"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="nav.supplierCatalogManage">上架數位產品庫</span></a>
             </div>
         </div>
 
@@ -204,7 +204,7 @@
                 var main = document.getElementById('dash-main');
                 var res = await fetchJson('/api/me/industry-supplier', token);
                 if (res.status === 403 && res.data && res.data.code === 'NOT_INDUSTRY_SUPPLIER') {
-                    window.location.replace('/client/industry-suppliers.html');
+                    showGate({ error: tr('supplierDash.bindHint', '請聯絡平台將您的帳號綁定為產業供應商公司，或先至「上架數位產品庫」查看說明。') });
                     return;
                 }
                 if (!res.ok) {

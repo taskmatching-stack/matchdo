@@ -2,6 +2,20 @@
 
 更新日期：2026-05-26
 
+> **新對話交接**：`docs/session-handoff-2026-05-26.md`（B 線推送狀態、產品規則、硬編碼 vs AI 待辦）。
+
+---
+
+## 近期完成（2026-05-26 產業供應商 B 線 · 已 push `main`）
+
+| 項目 | 說明 |
+|------|------|
+| **遠端** | `main` = `origin/main` @ `285ffc3`（導覽還原 ③、引用列表、效能、作品門檻、移除綁定 UX） |
+| **頁面** | `industry-suppliers.html`、`industry-supplier-catalog.html`、`my-supplier-references.html`；上游 `industry-supplier-dashboard` / `supplier-catalog-manage` |
+| **API** | `supplier-catalog-imports`、`industry-suppliers`、`supplier-catalog-items`；`can_import_supplier_catalog` 依公開作品 |
+| **SQL** | `add-industry-supplier-catalog.sql`；`add-supplier-catalog-item-kind-part.sql`；`seed-industry-supplier-materials.sql` |
+| **未做** | 匯入**不**跑 Gemini 標籤；篩選仍混用 enum key；見交接檔 §4 |
+
 ---
 
 ## 接下來執行進度（建議順序 · 含廠商素材 MOQ／材質提示）
@@ -22,7 +36,9 @@
 | **7** | **設計風向改版** | 另開分支 | D0–D7，與圖庫／分析分開 PR（見下方規劃） |
 | **8** | **廠商 slug 短網址**（選用） | 擇期 | 見 `docs/vendor-profile-slug-plan.md`；現行 `vendor-profile.html?id=` 維持 |
 
-**暫緩／後排**：強制填設計者地區、圖庫作品+素材並列、產業供應商 B 線、**廠商公開頁自訂 slug 短網址**（見 `docs/vendor-profile-slug-plan.md`，非迫切）。
+**暫緩／後排**：強制填設計者地區、圖庫作品+素材並列、**B 線匯入後 AI 標籤／語意篩選取代 enum**（見 `docs/session-handoff-2026-05-26.md` §4）、**廠商公開頁自訂 slug 短網址**（見 `docs/vendor-profile-slug-plan.md`，非迫切）。
+
+> **B 線主流程已上 `main`**（2026-05-26）；§4 規劃文內「暫不實作」為舊稿，實作狀態以本檔「近期完成（B 線）」與交接檔為準。
 
 ---
 
@@ -35,7 +51,7 @@
 | **A5r** | **重做 Step 5**（`inspiration`／`media-wall`／`vendor-pages`） | 高 | 拆檔時 **`routes/media-wall.js` 須 `require('express')`**；admin 路由勿誤搬；`node -e "require('./server.js')"` 通過後再部署 |
 | **A6** | 拆 **`routes/custom-products.js`**（或 `lib/custom-products.js` + 路由） | 中 | `POST/PATCH/GET /api/custom-products*`、生圖相關路由搬出 `server.js`；行為不變 |
 | **A7** | 拆 **admin 靈感牆**（`PATCH/DELETE /api/admin/media-wall-item`、`requireMediaWallDelete`） | 中 | 權限與刪除流程冒煙通過 |
-| **A8** | B 線 P2：開放 **`nav.show_supplier_zone`** | 低 | `industry_suppliers` 綁帳後；header 顯示 ③ 區 |
+| **A8** | ~~B 線 P2：開放 `nav.show_supplier_zone`~~ | — | **已廢止**：選單常駐見 `docs/account-one-login-capabilities.md` |
 | **A9** | 可選：`media-wall-item` 未上牆即 404 | 低 | 產品確認後再做 |
 | **A10** | 可選：統一 **`show_on_homepage` 寫入**（手動儲存 vs 生圖） | 低 | API 與文件一致 |
 
@@ -60,6 +76,7 @@
 | **`docs/supplier-reverse-intent-discovery-plan.md`** | **待開發（已評估）**：L0 逆向檢索；商機＝引用→**通知**+**引用製造商清單頁**（§3.3）；不做合作意向；RI-0～RI-6。 |
 | **`docs/architecture-optimization-backlog.md`** | **架構優化執行清單**：Step 0～5 **主線已完成**；URL 對照、風險、§十一 交付摘要與第二輪代辦 A6～A10。 |
 | **`docs/architecture-optimization-runbook.md`** | **逐步手冊與冒煙清單**（Step 0～5 操作紀錄；§十 上線驗證勾選）。 |
+| **`docs/session-handoff-2026-05-26.md`** | **對話交接**：B 線已 push 清單、產品紅線、硬編碼 vs AI 待決、部署與 SQL 勾選。 |
 | **`docs/三角色架構與AB線說明.md`** | **對外說明用**：訂製者／製造商／產業供應商三角色、**A 線**（`vendor_assets`）與 **B 線**（原型組＋材料）流程圖與對照表；含官方帳號與 A 線測試摘要。 |
 | **本檔 §4「產業供應商、製造商採購庫」** | 供應商上架分兩類：**數位原型組**（一組多圖）、**材料**；製造商後台分別**導入**至原型組庫／材料庫（B2B；**不用「收藏」**）；**不**接入訂製者設計頁；另含線下店家、官方虛擬廠商；**暫不實作**。 |
 | **本檔 §5「會員後台・三角色介面分離」** | 會員中心 IA、導覽三區、頁面對照、capabilities 顯示；與 `/admin/` 分工；**規劃中**。 |
@@ -1186,37 +1203,25 @@
 **建議改為**（登入後「會員中心」下拉或獨立頁）：
 
 ```
-會員中心
-├─ 【訂製與設計】          ← ① 人人可見
-│    設計者控制台、建立產品、我的數位資產、圖庫找廠商、我的對話 …
-├─ 【製造商／接單】        ← ② has_manufacturer
-│    廠商控制台、作品、詢價、訂製需求
-│    ── 給訂製者（A 線）──
-│    我的數位版型
-│    ── 產業採購（B 線）──  ← can_import_supplier_catalog
-│    產業目錄、我的原型組庫、我的材料庫
-└─ 【產業供應商】          ← ③ is_industry_supplier（規劃）
-     供應商控制台、上架原型組、上架材料
-     引用我的製造商（清單）、逆向意圖檢索（可選）
+我的功能（同一帳號；①②③ 全部常駐，見 docs/account-one-login-capabilities.md）
+├─ ① 訂製／設計
+├─ ② 製造商（含上游採購 B 線）
+└─ ③ 產業供應商（上架、引用紀錄、公開首頁）
 ```
 
 **共通（下拉底或帳戶區）**：帳號資訊、聯絡設定、我的點數、方案與定價、登出。  
-**admin**：維持另開「平台管理」連結至 `/admin/`，不與三角色混排。
+**admin**：維持另開「平台管理」連結至 `/admin/`，不與三區混排。
 
-#### 5.6 Capabilities API（會員中心用）
+#### 5.6 Capabilities API（頁面／API 用，**禁止**用來隱藏選單）
 
-擴充 **`GET /api/me/capabilities`**（與 §4 對齊），前端據此顯示／隱藏區塊：
+見 **`docs/account-one-login-capabilities.md`**。僅兩項業務限制：免費不可上傳產品與素材；無展示案例不可匯入供應商品項（管理員／測試員除外）。
 
 | 欄位 | 用途 |
 |------|------|
-| `has_manufacturer` | 是否顯示 ② 整區 |
-| `manufacturer_id` | 控制台連結參數 |
-| `portfolio_count` | B 線是否解鎖產業目錄 |
-| `can_use_supplier_catalog` | ② 內 B 子區：瀏覽目錄 |
-| `can_import_supplier_catalog` | ② 內 B 子區：導入 |
-| `is_industry_supplier` | 是否顯示 ③（B 線 P2+） |
-| `is_seed_manufacturer` | ② 內編輯限制、文案 |
-| `vendor_source` | `platform`／`seed`／null，官方範例標示用 |
+| `can_upload_products_and_assets` | 停用上傳按鈕、POST 素材／目錄品項 |
+| `can_import_supplier_catalog` | 匯入按鈕、B 線 API |
+| `has_manufacturer` / `industry_supplier_id` | 公開頁連結、頁面狀態（**不**藏選單） |
+| `nav.show_all_workspace_menus` | 固定 `true`；勿恢復 `nav.show_supplier_zone` 藏選單 |
 
 #### 5.7 介面線框（文字）
 
