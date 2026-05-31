@@ -67,7 +67,8 @@ INSERT INTO public.supplier_catalog_items (
 )
 ON CONFLICT (id) DO NOTHING;
 
--- ========== STEP 4：配件／零件（需先跑 add-supplier-catalog-item-kind-part.sql）==========
+-- ========== STEP 4：配件／零件 ==========
+-- 若錯誤 23514 item_kind_check：請先單獨執行 docs/add-supplier-catalog-item-kind-part.sql，再重跑本段
 INSERT INTO public.supplier_catalog_items (
     id, industry_supplier_id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order
 ) VALUES (

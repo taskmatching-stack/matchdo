@@ -12,5 +12,11 @@ WHERE id = 'a0000000-0000-4000-8000-000000000001';  -- 例：docs/seed-industry-
 -- 驗證
 SELECT id, name, user_id, is_active FROM public.industry_suppliers WHERE user_id = 'YOUR_USER_UUID'::uuid;
 
--- 綁定後供應商登入 → /client/supplier-catalog-manage.html 可上架材料
--- 製造商（有 manufacturers 列）→ 材料分頁可瀏覽導入 B 線（需至少 1 件展示作品，見 can_import_supplier_catalog）
+-- 綁定後供應商登入：
+--   上架產品 → /client/supplier-catalog-manage.html（管理數位產品庫）
+--   控制台   → /client/industry-supplier-dashboard.html
+--
+-- 製造商（manufacturers.user_id）不需綁定 industry_suppliers：
+--   瀏覽目錄 → /client/industry-suppliers.html
+--   引用清單 → /client/my-supplier-references.html
+--   示範資料請先跑 seed-industry-supplier-materials.sql（STEP 1～4；STEP 4 前需 add-supplier-catalog-item-kind-part.sql）

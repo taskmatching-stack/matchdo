@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.industry_suppliers (
 CREATE TABLE IF NOT EXISTS public.supplier_catalog_items (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     industry_supplier_id uuid NOT NULL REFERENCES public.industry_suppliers(id) ON DELETE CASCADE,
-    item_kind text NOT NULL CHECK (item_kind IN ('prototype_set', 'material')),
+    item_kind text NOT NULL CHECK (item_kind IN ('prototype_set', 'material', 'part')),
     title text NOT NULL,
     description text,
     cover_image_url text,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS public.manufacturer_supplier_imports (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     manufacturer_id uuid NOT NULL REFERENCES public.manufacturers(id) ON DELETE CASCADE,
     catalog_item_id uuid NOT NULL REFERENCES public.supplier_catalog_items(id) ON DELETE CASCADE,
-    item_kind text NOT NULL CHECK (item_kind IN ('prototype_set', 'material')),
+    item_kind text NOT NULL CHECK (item_kind IN ('prototype_set', 'material', 'part')),
     vendor_asset_id uuid REFERENCES public.vendor_assets(id) ON DELETE SET NULL,
     snapshot_json jsonb NOT NULL DEFAULT '{}'::jsonb,
     notes text,
