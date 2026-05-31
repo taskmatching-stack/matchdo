@@ -29,7 +29,7 @@ JSON 格式（欄位名稱必須一致）：
   "form": [],
   "mood": [],
   "use_case": [],
-  "intent_summary": "黑白大理石拋光飾材 / Polished black-and-white marble",
+  "intent_summary": "黑白流紋大理石拋光面 / Polished black-white veined marble",
   "product_description_zh": "（繁中 2～4 句，只寫材質）",
   "product_description_en": "(English 2–4 sentences, material only)",
   "locale": "zh-TW+en"
