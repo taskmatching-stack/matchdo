@@ -656,6 +656,14 @@
             } catch (e) { return null; }
         }
 
+        function getUiLocaleForUpload() {
+            if (window.i18n && typeof window.i18n.getLang === 'function') {
+                var l = window.i18n.getLang();
+                if (l) return l;
+            }
+            return document.documentElement.lang || 'zh-TW';
+        }
+
         function fillCategorySelect(sel, selectedKey) {
             if (!sel) return;
             sel.innerHTML = '<option value="">—</option>';
@@ -1498,6 +1506,7 @@
                 if (kind !== 'material' && subSel) fd.append('subcategory_key', subSel.value || '');
                 fd.append('title', form.querySelector('.add-title').value || '');
                 fd.append('description', form.querySelector('.add-description').value || '');
+                fd.append('ui_locale', getUiLocaleForUpload());
                 fd.append('usage_type', 'reference_only');
                 fd.append('image', file);
                 if (kind === 'prototype' && files) {
@@ -1677,6 +1686,7 @@
             if (editKind !== 'material') fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
             fd.append('title', document.getElementById('edit-title').value || '');
             fd.append('description', document.getElementById('edit-description').value || '');
+            fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
             fd.append('asset_kind', document.getElementById('edit-asset-kind').value);
             var fileInput = editKind === 'prototype' ? document.getElementById('edit-image-prototype') : document.getElementById('edit-image');

@@ -949,6 +949,39 @@ function resolveVendorAssetApiLang(req) {
     return accept || 'zh-TW';
 }
 
+function resolveUiLocaleFromRequest(req) {
+    const body = (req && req.body) || {};
+    const fromBody = (body.ui_locale || body.lang || '').trim();
+    if (fromBody) return fromBody;
+    return resolveVendorAssetApiLang(req);
+}
+
+async function lookupAiSubcategoryName(categoryKey, subcategoryKey) {
+    if (!categoryKey || !subcategoryKey) return null;
+    try {
+        const { data } = await supabase
+            .from('ai_subcategories')
+            .select('name')
+            .eq('category_key', categoryKey)
+            .eq('key', subcategoryKey)
+            .maybeSingle();
+        return (data && data.name) ? String(data.name).trim() : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function autoVendorAssetTitleFromSemantics(semanticsJson, assetKind, locale, hints) {
+    if (!semanticsJson) return null;
+    const kind = normalizeVendorAssetKind(assetKind);
+    if (kind !== 'material' && kind !== 'prototype') return null;
+    return visualSemantics.buildVendorAssetTitleFromSemantics(semanticsJson, kind, {
+        locale: locale || 'zh-TW',
+        subcategoryName: hints && hints.subcategoryName,
+        materialCatalogHint: hints && hints.materialCatalogHint
+    });
+}
+
 function mapVendorAssetForApi(row, lang) {
     if (!row) return row;
     const kind = normalizeVendorAssetKind(row.asset_kind);
@@ -11335,15 +11368,27 @@ app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (r
             const { data: { user } } = await supabase.auth.getUser(token);
             ownerId = user?.id || null;
         }
+        const assetKindPreview = normalizeVendorAssetKind(body.asset_kind);
         const result = await runVendorAssetImageSemantics(file, {
             category_key: (body.category_key || '').trim(),
             title: (body.title || '').trim(),
             description: (body.description || '').trim()
         }, ownerId);
+        const uiLocalePreview = resolveUiLocaleFromRequest(req);
+        let subcategoryNamePreview = null;
+        const categoryKeyPreview = (body.category_key || '').trim();
+        const subcategoryKeyPreview = (body.subcategory_key || '').trim();
+        if (assetKindPreview === 'prototype' && categoryKeyPreview && subcategoryKeyPreview) {
+            subcategoryNamePreview = await lookupAiSubcategoryName(categoryKeyPreview, subcategoryKeyPreview);
+        }
+        const suggestedTitle = autoVendorAssetTitleFromSemantics(result.semantics, assetKindPreview, uiLocalePreview, {
+            subcategoryName: subcategoryNamePreview
+        });
         res.json({
             ai_tags: result.tags,
             image_semantics_json: result.semantics,
             description: result.description || null,
+            suggested_title: suggestedTitle || null,
             model: result.model
         });
     } catch (e) {
@@ -11509,8 +11554,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
         const subcategoryKey = assetKind === 'material' ? null : ((body.subcategory_key || '').trim() || null);
-        const title = (body.title || '').trim() || null;
+        let title = (body.title || '').trim() || null;
         let description = (body.description || '').trim() || null;
+        const uiLocaleCreate = resolveUiLocaleFromRequest(req);
         const styleKey = (body.style_key || '').trim() || null;
         const catalogGroupIdsEarly = parseCatalogGroupIdsFromBody(body);
         let materialCatalogHint = '';
@@ -11587,6 +11633,16 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             if (!description && semanticsJson) {
                 description = vendorAssetDescriptionFromSemantics(semanticsJson);
             }
+        }
+        if (!title && semanticsJson && (assetKind === 'material' || assetKind === 'prototype')) {
+            let subcategoryNameCreate = null;
+            if (assetKind === 'prototype' && subcategoryKey) {
+                subcategoryNameCreate = await lookupAiSubcategoryName(categoryKey, subcategoryKey);
+            }
+            title = autoVendorAssetTitleFromSemantics(semanticsJson, assetKind, uiLocaleCreate, {
+                subcategoryName: subcategoryNameCreate,
+                materialCatalogHint
+            });
         }
 
         let uploadFile = file;
@@ -11989,6 +12045,26 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                 } catch (semErr) {
                     console.error('PUT vendor-assets semantics:', semErr);
                     return res.status(503).json({ error: semErr.message || 'AI 標籤產生失敗，請稍後重試' });
+                }
+            }
+            if (!titleForPrompt && semanticsJson && (assetKind === 'material' || assetKind === 'prototype')) {
+                const uiLocalePut = resolveUiLocaleFromRequest(req);
+                let subcategoryNamePut = null;
+                const subKeyPut = updates.subcategory_key !== undefined ? updates.subcategory_key : row.subcategory_key;
+                if (assetKind === 'prototype' && subKeyPut) {
+                    subcategoryNamePut = await lookupAiSubcategoryName(categoryKeyForTags, subKeyPut);
+                }
+                let materialHintPut = '';
+                if (assetKind === 'material' && catalogGroupIdsPut.length) {
+                    materialHintPut = await vendorCatalogGroupNamesByIds(manufacturerId, catalogGroupIdsPut);
+                }
+                const autoTitle = autoVendorAssetTitleFromSemantics(semanticsJson, assetKind, uiLocalePut, {
+                    subcategoryName: subcategoryNamePut,
+                    materialCatalogHint: materialHintPut
+                });
+                if (autoTitle) {
+                    titleForPrompt = autoTitle;
+                    updates.title = autoTitle;
                 }
             }
             updates.ai_tags = tags;
