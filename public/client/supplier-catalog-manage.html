@@ -43,6 +43,9 @@
     </div>
 
     <div class="container py-4">
+        <div id="page-loading" class="text-muted small py-3"><span class="spinner-border spinner-border-sm me-2"></span>載入中…</div>
+        <div id="page-error" class="alert alert-danger border-0 shadow-sm d-none" role="alert"></div>
+
         <div id="manage-gate" class="d-none">
             <div class="card border-0 shadow-sm mb-4">
                 <div class="card-body p-4">
@@ -527,14 +530,42 @@
             fillAllCategorySelects();
         }
 
+        function hidePageLoading() {
+            var el = document.getElementById('page-loading');
+            if (el) el.classList.add('d-none');
+        }
+        function showPageError(msg, html) {
+            hidePageLoading();
+            var errEl = document.getElementById('page-error');
+            if (!errEl) return;
+            if (html) errEl.innerHTML = html;
+            else errEl.textContent = msg || '載入失敗';
+            errEl.classList.remove('d-none');
+        }
+        function clearPageError() {
+            var errEl = document.getElementById('page-error');
+            if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+        }
+
         async function loadSupplier() {
             var r = await fetch('/api/me/industry-supplier', { headers: authH() });
             var data = await r.json().catch(function () { return {}; });
-            if (r.status === 404 && data.code === 'NO_SUPPLIER_PROFILE') {
+            hidePageLoading();
+            if (r.status === 404 || (data && data.code === 'NO_SUPPLIER_PROFILE')) {
+                clearPageError();
                 document.getElementById('manage-gate').classList.remove('d-none');
                 return false;
             }
-            if (!r.ok) { toast(data.error || '載入失敗', 'danger'); return false; }
+            if (!r.ok) {
+                var errMsg = (data && data.error) ? data.error : ('載入失敗（HTTP ' + r.status + '）');
+                showPageError(errMsg);
+                toast(errMsg, 'danger');
+                if (r.status === 503) {
+                    document.getElementById('manage-gate').classList.remove('d-none');
+                }
+                return false;
+            }
+            clearPageError();
             supplierRecord = data.supplier;
             supplierId = supplierRecord && supplierRecord.id;
             renderSupplierBar();
@@ -747,14 +778,18 @@
             });
         });
 
-        document.getElementById('edit-image').addEventListener('change', function () {
-            var f = document.getElementById('edit-image').files[0];
+        var editImageEl = document.getElementById('edit-image');
+        if (editImageEl) editImageEl.addEventListener('change', function () {
+            var f = editImageEl.files[0];
             showLocalImagePreview(document.getElementById('edit-new-image-preview'), f);
             toggleEditImageOptions(!!f);
         });
-        document.getElementById('edit-optimize-image').addEventListener('change', syncEditOptimizeBgWrap);
-        document.getElementById('edit-optimize-bg').addEventListener('change', syncOptimizeBgCustomInput);
-        document.getElementById('btn-edit-add-tag').addEventListener('click', function () {
+        var editOptChk = document.getElementById('edit-optimize-image');
+        if (editOptChk) editOptChk.addEventListener('change', syncEditOptimizeBgWrap);
+        var editOptBg = document.getElementById('edit-optimize-bg');
+        if (editOptBg) editOptBg.addEventListener('change', syncOptimizeBgCustomInput);
+        var btnEditAddTag = document.getElementById('btn-edit-add-tag');
+        if (btnEditAddTag) btnEditAddTag.addEventListener('click', function () {
             var input = document.getElementById('edit-tag-input');
             var val = (input.value || '').trim();
             if (!val) return;
@@ -762,7 +797,8 @@
             input.value = '';
             renderEditTags();
         });
-        document.getElementById('btn-edit-gen-desc').addEventListener('click', async function () {
+        var btnEditGenDesc = document.getElementById('btn-edit-gen-desc');
+        if (btnEditGenDesc) btnEditGenDesc.addEventListener('click', async function () {
             var btn = document.getElementById('btn-edit-gen-desc');
             var id = document.getElementById('edit-id').value;
             var fd = new FormData();
@@ -792,7 +828,8 @@
                 btn.disabled = false;
             }
         });
-        document.getElementById('btn-edit-save').addEventListener('click', async function () {
+        var btnEditSave = document.getElementById('btn-edit-save');
+        if (btnEditSave) btnEditSave.addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
             var fd = new FormData();
             fd.append('title', document.getElementById('edit-title').value.trim());
@@ -902,26 +939,42 @@
         });
 
         async function init() {
-            if (typeof AuthService === 'undefined') return;
-            var s = await AuthService.getSession();
-            token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
-            if (!token) {
-                window.location.href = AuthService.getLoginUrl
-                    ? AuthService.getLoginUrl(window.location.pathname)
-                    : '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname);
-                return;
+            try {
+                if (typeof AuthService === 'undefined') {
+                    showPageError('登入模組未載入，請重新整理頁面');
+                    return;
+                }
+                var s = await AuthService.getSession();
+                token = (s && (s.access_token || (s.session && s.session.access_token))) || null;
+                if (!token) {
+                    window.location.href = AuthService.getLoginUrl
+                        ? AuthService.getLoginUrl(window.location.pathname)
+                        : '/login.html?returnUrl=' + encodeURIComponent(window.location.pathname);
+                    return;
+                }
+                await loadCategories();
+                await loadUploadPricing();
+                var ok = await loadSupplier();
+                if (!ok) return;
+                switchKind('prototype');
+            } catch (e) {
+                hidePageLoading();
+                showPageError(e.message || '頁面初始化失敗');
+                console.error('supplier-catalog-manage init:', e);
             }
-            await loadCategories();
-            await loadUploadPricing();
-            var ok = await loadSupplier();
-            if (!ok) return;
-            switchKind('prototype');
         }
 
-        var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
-        ready.then(function () {
+        function bootPage() {
             if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
             init();
+        }
+        var ready = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
+        Promise.race([
+            ready,
+            new Promise(function (resolve) { setTimeout(resolve, 4000); })
+        ]).then(bootPage).catch(function (err) {
+            console.warn('i18n ready:', err);
+            bootPage();
         });
     })();
     </script>
