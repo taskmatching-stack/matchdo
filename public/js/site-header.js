@@ -25,7 +25,7 @@
         _c.id = 'nb-css';
         _c.textContent = [
             '#site-header{min-height:60px;}',
-            '#site-header .dropdown-menu,#site-header .nav-hover-menu{display:none!important;}',
+            '#site-header .nav-hover-menu{display:none!important;}',
             '.navbar{padding:15px 0;font-family:"Space Grotesk",sans-serif;font-size:18px;border-bottom:2px solid #445D7E;}',
             '.navbar .navbar-nav .nav-link{margin-left:30px;padding:0;outline:none;color:#333;}',
             '.navbar .navbar-nav .nav-link .nav-hover-caret{color:#445D7E;font-size:16px;line-height:1;vertical-align:middle;margin-left:4px;opacity:.6;transition:opacity .15s;}',

@@ -5,8 +5,7 @@
 #site-header:not([data-header-ready="1"]) {
   visibility: hidden;
 }
-/* Bootstrap 載入前勿讓下拉展開成直向長列表 */
-#site-header .dropdown-menu,
+/* 僅 hover 子選單預設收起；Bootstrap 點擊下拉（我的功能、頭像）不受影響 */
 #site-header .nav-hover-menu {
   display: none !important;
 }
