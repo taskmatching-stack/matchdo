@@ -1311,9 +1311,10 @@
             var list = itemsForActiveKind();
             var catNames = {};
             categories.forEach(function (c) { catNames[c.key] = c.name || c.key; });
-            var addLabel = activeKind === 'material' ? tr('baseModels.uploadMaterial', '上傳材料') : tr('baseModels.uploadPrototype', '上傳原型');
+            var addLabel = tr('baseModels.uploadPrototype', '上傳原型');
             var html = '';
-            if (!isSeedVendor) {
+            /* 材料參考：上傳表單已在上方，網格不再放佔位卡，素材從第一格起排 */
+            if (!isSeedVendor && activeKind !== 'material') {
                 html += '<div class="col-sm-6 col-md-4 col-lg-3"><div class="add-card grid-add-card" role="button" tabindex="0">' +
                     '<i class="bi bi-cloud-upload fs-2 mb-2"></i><span class="fw-semibold">' + esc(addLabel) + '</span></div></div>';
             }
