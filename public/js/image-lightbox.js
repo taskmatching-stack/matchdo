@@ -1,6 +1,6 @@
 /**
  * 全站簡易圖片放大 lightbox（無 Bootstrap 依賴）
- * MatchdoImageLightbox.open({ src, caption, alt })
+ * MatchdoImageLightbox.open({ src, caption, alt }) 或 open({ images: [...], index: 0, caption })
  */
 (function (global) {
     'use strict';
@@ -8,7 +8,13 @@
     var root = null;
     var imgEl = null;
     var capEl = null;
+    var prevBtn = null;
+    var nextBtn = null;
+    var counterEl = null;
     var prevOverflow = '';
+    var galleryImages = [];
+    var galleryIndex = 0;
+    var baseCaption = '';
 
     function ensureRoot() {
         if (root) return root;
@@ -22,20 +28,45 @@
             '<div class="matchdo-image-lightbox-backdrop" data-close="1"></div>' +
             '<div class="matchdo-image-lightbox-panel">' +
             '<button type="button" class="matchdo-image-lightbox-close" aria-label="關閉" data-close="1">&times;</button>' +
+            '<button type="button" class="matchdo-image-lightbox-nav matchdo-image-lightbox-prev" aria-label="上一張">&lsaquo;</button>' +
+            '<button type="button" class="matchdo-image-lightbox-nav matchdo-image-lightbox-next" aria-label="下一張">&rsaquo;</button>' +
             '<img src="" alt="">' +
+            '<p class="matchdo-image-lightbox-counter"></p>' +
             '<p class="matchdo-image-lightbox-caption"></p>' +
             '</div>';
         document.body.appendChild(root);
         imgEl = root.querySelector('img');
         capEl = root.querySelector('.matchdo-image-lightbox-caption');
+        counterEl = root.querySelector('.matchdo-image-lightbox-counter');
+        prevBtn = root.querySelector('.matchdo-image-lightbox-prev');
+        nextBtn = root.querySelector('.matchdo-image-lightbox-next');
         root.querySelectorAll('[data-close]').forEach(function (el) {
             el.addEventListener('click', function (e) {
                 e.preventDefault();
                 close();
             });
         });
+        prevBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showGalleryIndex(galleryIndex - 1);
+        });
+        nextBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showGalleryIndex(galleryIndex + 1);
+        });
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && root && root.classList.contains('is-open')) close();
+            if (!root || !root.classList.contains('is-open')) return;
+            if (e.key === 'Escape') close();
+            if (galleryImages.length > 1 && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                showGalleryIndex(galleryIndex - 1);
+            }
+            if (galleryImages.length > 1 && e.key === 'ArrowRight') {
+                e.preventDefault();
+                showGalleryIndex(galleryIndex + 1);
+            }
         });
         return root;
     }
@@ -49,15 +80,38 @@
         return Math.max(10060, top + 20);
     }
 
+    function updateGalleryChrome() {
+        var multi = galleryImages.length > 1;
+        if (prevBtn) prevBtn.style.display = multi ? '' : 'none';
+        if (nextBtn) nextBtn.style.display = multi ? '' : 'none';
+        if (counterEl) {
+            counterEl.textContent = multi ? ((galleryIndex + 1) + ' / ' + galleryImages.length) : '';
+            counterEl.style.display = multi ? 'block' : 'none';
+        }
+    }
+
+    function showGalleryIndex(idx) {
+        if (!galleryImages.length || !imgEl) return;
+        galleryIndex = ((idx % galleryImages.length) + galleryImages.length) % galleryImages.length;
+        imgEl.src = galleryImages[galleryIndex];
+        updateGalleryChrome();
+        if (capEl) {
+            capEl.textContent = baseCaption || '';
+        }
+    }
+
     function open(opts) {
         opts = opts || {};
+        var images = Array.isArray(opts.images) ? opts.images.filter(function (u) { return u && String(u).trim(); }) : [];
         var src = (opts.src || '').trim();
-        if (!src) return;
+        if (!images.length && !src) return;
         ensureRoot();
         root.style.zIndex = String(stackZIndexAboveModals());
-        imgEl.src = src;
-        imgEl.alt = opts.alt || opts.caption || '';
-        capEl.textContent = opts.caption || '';
+        baseCaption = opts.caption || opts.alt || '';
+        galleryImages = images.length ? images.slice() : (src ? [src] : []);
+        galleryIndex = Math.max(0, Math.min(opts.index || 0, galleryImages.length - 1));
+        showGalleryIndex(galleryIndex);
+        imgEl.alt = opts.alt || baseCaption || '';
         root.classList.add('is-open');
         root.setAttribute('aria-hidden', 'false');
         prevOverflow = document.body.style.overflow;
@@ -69,13 +123,35 @@
         root.classList.remove('is-open');
         root.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = prevOverflow || '';
+        galleryImages = [];
+        galleryIndex = 0;
+        baseCaption = '';
         if (imgEl) imgEl.src = '';
         if (capEl) capEl.textContent = '';
+        if (counterEl) counterEl.textContent = '';
+        updateGalleryChrome();
+    }
+
+    function parseUrlsFromImg(img) {
+        if (!img) return [];
+        var raw = img.getAttribute('data-image-urls');
+        if (raw) {
+            try {
+                var parsed = JSON.parse(raw.replace(/&quot;/g, '"'));
+                if (Array.isArray(parsed) && parsed.length) return parsed.filter(Boolean);
+            } catch (e) { /* ignore */ }
+        }
+        return img.src ? [img.src] : [];
     }
 
     function openFromImg(img, caption) {
         if (!img || !img.src) return;
-        open({ src: img.src, caption: caption || img.alt || '', alt: img.alt || '' });
+        var urls = parseUrlsFromImg(img);
+        if (urls.length > 1) {
+            open({ images: urls, index: 0, caption: caption || img.alt || '', alt: img.alt || '' });
+        } else {
+            open({ src: urls[0] || img.src, caption: caption || img.alt || '', alt: img.alt || '' });
+        }
     }
 
     function captionFromImg(img) {

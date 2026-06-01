@@ -1609,12 +1609,15 @@
                     ? '<div class="mb-2">' + myCatList.map(function (g) {
                         return '<span class="badge bg-light text-dark border me-1 mb-1" title="' + esc(g.name) + '">' + esc(g.name) + '</span>';
                     }).join('') + '</div>' : '';
-                var imgCount = m.image_count != null ? m.image_count : assetImageUrls(m).length;
+                var urls = assetImageUrls(m);
+                var imgCount = m.image_count != null ? m.image_count : urls.length;
                 var countBadge = (m.asset_kind !== 'material' && imgCount > 1)
                     ? '<span class="badge bg-dark material-img-count">' + imgCount + ' ' + esc(tr('baseModels.imageCountUnit', '張')) + '</span>' : '';
+                var urlsAttr = urls.length > 1
+                    ? (' data-image-urls="' + esc(JSON.stringify(urls)).replace(/"/g, '&quot;') + '"') : '';
                 var hl = highlightAssetId === m.id ? ' border border-success border-3' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3" id="asset-card-' + esc(m.id) + '"><div class="card material-card h-100' + hl + '">' +
-                    (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="點擊放大"></div>' : '') +
+                    (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大（可多張切換）')) + '"' + urlsAttr + '></div>' : '') +
                     '<div class="card-body p-3">' + kindBadge + pubBadge + supplierRefLine +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
                     '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + myCats + tagsHtml +

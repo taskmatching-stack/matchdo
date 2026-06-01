@@ -72,6 +72,51 @@
     background: #445d7e;
     color: #fff;
 }
+.matchdo-image-lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #445d7e;
+    font-size: 1.75rem;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+    display: none;
+}
+.matchdo-image-lightbox-prev {
+    left: -3.25rem;
+}
+.matchdo-image-lightbox-next {
+    right: -3.25rem;
+}
+.matchdo-image-lightbox-nav:hover {
+    background: #445d7e;
+    color: #fff;
+}
+.matchdo-image-lightbox-counter {
+    margin: 0.35rem 0 0;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.85rem;
+    text-align: center;
+    pointer-events: none;
+}
+.matchdo-image-lightbox-counter:empty {
+    display: none;
+}
+@media (max-width: 768px) {
+    .matchdo-image-lightbox-prev {
+        left: 0.25rem;
+    }
+    .matchdo-image-lightbox-next {
+        right: 0.25rem;
+    }
+}
 .js-matchdo-enlarge,
 .material-img.matchdo-enlarge-trigger,
 .ref-card-thumb,
