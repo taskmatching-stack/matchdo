@@ -26,6 +26,10 @@
         .edit-gallery-thumb-wrap .badge-cover { position: absolute; top: 4px; left: 4px; z-index: 1; font-size: 0.65rem; }
         .edit-gallery-thumb-wrap .btn-gallery-del { position: absolute; top: 4px; right: 4px; z-index: 1; width: 1.5rem; height: 1.5rem; padding: 0; line-height: 1; }
         .edit-gallery-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; cursor: zoom-in; border-radius: 6px; }
+        .pending-image-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 8px; background: #fafbfc; }
+        .pending-image-card.is-cover { border-color: #0d6efd; box-shadow: 0 0 0 1px #0d6efd33; }
+        .pending-image-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: zoom-in; }
+        .pending-image-card .pending-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
         .material-img-count { position: absolute; top: 8px; left: 8px; z-index: 1; }
         .add-card { border: 2px dashed #cdd4dc; border-radius: 12px; cursor: pointer; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9ab0; transition: border-color .15s, color .15s, background .15s; }
         .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
@@ -157,18 +161,15 @@
                                     <div class="add-image-preview mt-2 d-none"></div>
                                     <div class="supplier-ref-status alert alert-success border-0 small py-2 d-none mb-2"></div>
                                     <div class="supplier-import-locked-line alert alert-warning small py-2 mb-2 d-none"></div>
-                                    <input type="file" class="form-control add-image add-image-prototype" accept="image/*" multiple required>
-                                    <p class="form-text text-muted small mb-1 mt-1" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">自行上傳可一次選多張（第一張為封面）；從供應商選取為單張封面圖。</p>
+                                    <input type="file" class="d-none add-image-picker-one" accept="image/*">
+                                    <button type="button" class="btn btn-outline-primary btn-sm btn-add-pending-image"><i class="bi bi-plus-lg me-1"></i>新增圖片</button>
+                                    <div class="add-pending-images row g-2 mt-2"></div>
+                                    <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
+                                    <p class="form-text text-muted small mb-1">可多次按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-prototype">
-                                        <label class="form-check-label" for="add-optimize-prototype"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
-                                    </div>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.optimizePrototypeHint">勾選後會以原圖為參考，產出單張商品圖（可選底色；與設計頁自傳參考圖相同用途，非四格型錄）。</p>
+                                <div class="col-12 add-per-image-optimize-wrap">
                                     <div class="add-optimize-bg-wrap d-none mb-2">
                                         <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
                                         <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -183,7 +184,7 @@
                                         </div>
                                         <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">僅在勾選 AI 重繪時套用；自訂色請選「自訂色」後點色票。</p>
                                     </div>
-                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；重繪首張 <span class="add-points-optimize">15</span> 點，每多一張 +<span class="add-points-optimize-extra">5</span> 點）</span></p>
                                 </div>
                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
@@ -251,17 +252,14 @@
                                     <div class="add-image-preview mt-2 d-none"></div>
                                     <div class="supplier-ref-status alert alert-success border-0 small py-2 d-none mb-2"></div>
                                     <div class="supplier-import-locked-line alert alert-warning small py-2 mb-2 d-none"></div>
-                                    <input type="file" class="form-control add-image add-image-part" accept="image/*" multiple required>
-                                    <p class="form-text text-muted small mb-1 mt-1" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">自行上傳可一次選多張（第一張為封面）。</p>
+                                    <input type="file" class="d-none add-image-picker-one" accept="image/*">
+                                    <button type="button" class="btn btn-outline-primary btn-sm btn-add-pending-image"><i class="bi bi-plus-lg me-1"></i>新增圖片</button>
+                                    <div class="add-pending-images row g-2 mt-2"></div>
+                                    <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
+                                    <p class="form-text text-muted small mb-1">可多次按「新增圖片」逐張加入（第一張為封面）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-part">
-                                        <label class="form-check-label" for="add-optimize-part"><span data-i18n="baseModels.optimizeProduct">產品圖 AI 重繪（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">15</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
-                                    </div>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.optimizePartHint">勾選後以原圖為參考產出單張零件圖（可選底色）。</p>
+                                <div class="col-12 add-per-image-optimize-wrap">
                                     <div class="add-optimize-bg-wrap d-none mb-2">
                                         <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
                                         <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -275,7 +273,7 @@
                                             <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
                                         </div>
                                     </div>
-                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；重繪首張 <span class="add-points-optimize">15</span> 點，每多一張 +<span class="add-points-optimize-extra">5</span> 點）</span></p>
                                 </div>
                                 <div class="col-12"><button type="submit" class="btn btn-warning btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
@@ -429,9 +427,26 @@
                         <div class="mb-3 d-none" id="edit-images-prototype-wrap">
                             <label class="form-label">產品圖片（多角度）</label>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
-                            <input type="file" class="d-none" id="edit-add-gallery-input" accept="image/*" multiple>
-                            <button type="button" class="btn btn-sm btn-outline-primary mb-2" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
-                            <p class="form-text text-muted small mb-2" data-i18n="baseModels.editGalleryHint">第一張為封面。新增角度圖不另扣點；更換封面或 AI 重繪仍依下方選項扣點。</p>
+                            <div id="edit-pending-gallery" class="row g-2 mb-2 d-none"></div>
+                            <input type="file" class="d-none" id="edit-add-gallery-input" accept="image/*">
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
+                                <button type="button" class="btn btn-sm btn-success d-none" id="btn-edit-upload-pending-gallery"><i class="bi bi-cloud-upload me-1"></i>上傳待傳圖片</button>
+                            </div>
+                            <div id="edit-pending-optimize-bg-wrap" class="add-optimize-bg-wrap d-none mb-2">
+                                <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <select class="form-select form-select-sm" id="edit-pending-optimize-bg" style="max-width:11rem">
+                                        <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
+                                        <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
+                                        <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
+                                        <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
+                                        <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
+                                    </select>
+                                    <input type="color" class="form-control form-control-color d-none" id="edit-pending-optimize-bg-custom" value="#ffffff" title="自訂底色">
+                                </div>
+                            </div>
+                            <p class="form-text text-muted small mb-2">第一張為封面。可多次新增角度圖；勾選「AI 重繪」的張數各扣點後按「上傳待傳圖片」。更換封面仍用下方選項。</p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
                             <input type="file" class="form-control" id="edit-image-prototype" accept="image/*">
                             <div id="edit-new-image-preview-proto" class="add-image-preview mt-2 d-none"></div>
@@ -550,8 +565,9 @@
         var supplierImportModal = null;
         var supplierImportFilterId = null;
         var highlightAssetId = null;
-        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_description: 1 };
+        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_description: 1 };
         var editPending = { tags: null, semantics: null };
+        var editPendingGallery = [];
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
@@ -759,6 +775,127 @@
             }
         }
 
+        function calcAddFormPointsEstimate(kind, optimizeCount, totalCount) {
+            var upload = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
+            var opt = optimizePointsForKind(kind);
+            var extra = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
+            if (!optimizeCount) return upload;
+            if (optimizeCount === 1 && totalCount === 1) return opt;
+            return opt + Math.max(0, optimizeCount - 1) * extra;
+        }
+
+        function getPendingImages(form) {
+            if (!form._pendingImages) form._pendingImages = [];
+            return form._pendingImages;
+        }
+
+        function revokePendingImageUrls(wrap) {
+            if (!wrap) return;
+            wrap.querySelectorAll('img[data-object-url]').forEach(function (img) {
+                var u = img.getAttribute('data-object-url');
+                if (u) { try { URL.revokeObjectURL(u); } catch (_) {} }
+            });
+        }
+
+        function clearPendingImages(form) {
+            if (!form) return;
+            var wrap = form.querySelector('.add-pending-images');
+            revokePendingImageUrls(wrap);
+            if (wrap) wrap.innerHTML = '';
+            form._pendingImages = [];
+            updateAddFormPointsEstimate(form);
+        }
+
+        function renderPendingImages(form) {
+            var wrap = form.querySelector('.add-pending-images');
+            var list = getPendingImages(form);
+            if (!wrap) return;
+            revokePendingImageUrls(wrap);
+            wrap.innerHTML = '';
+            list.forEach(function (item, idx) {
+                var col = document.createElement('div');
+                col.className = 'col-6 col-sm-4 col-md-3';
+                var card = document.createElement('div');
+                card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '');
+                card.dataset.pendingId = item.id;
+                var url = URL.createObjectURL(item.file);
+                var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
+                card.innerHTML = coverBadge +
+                    '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="">' +
+                    '<div class="form-check form-check-sm mt-1 mb-0">' +
+                    '<input class="form-check-input pending-optimize-chk" type="checkbox" id="po-' + esc(item.id) + '"' + (item.optimize ? ' checked' : '') + '>' +
+                    '<label class="form-check-label small" for="po-' + esc(item.id) + '">AI 重繪</label></div>' +
+                    '<div class="pending-actions">' +
+                    (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '') +
+                    '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
+                col.appendChild(card);
+                wrap.appendChild(col);
+                card.querySelector('.pending-optimize-chk').addEventListener('change', function () {
+                    item.optimize = this.checked;
+                    updateAddFormPointsEstimate(form);
+                });
+                card.querySelector('.pending-remove').addEventListener('click', function () {
+                    var i = list.findIndex(function (x) { return x.id === item.id; });
+                    if (i >= 0) list.splice(i, 1);
+                    renderPendingImages(form);
+                    updateAddFormPointsEstimate(form);
+                });
+                var setCoverBtn = card.querySelector('.pending-set-cover');
+                if (setCoverBtn) {
+                    setCoverBtn.addEventListener('click', function () {
+                        var i = list.findIndex(function (x) { return x.id === item.id; });
+                        if (i > 0) {
+                            var moved = list.splice(i, 1)[0];
+                            list.unshift(moved);
+                            renderPendingImages(form);
+                            updateAddFormPointsEstimate(form);
+                        }
+                    });
+                }
+            });
+        }
+
+        function updateAddFormPointsEstimate(form) {
+            if (!form) return;
+            var kind = form.getAttribute('data-kind') || 'prototype';
+            if (kind === 'material') return;
+            var list = getPendingImages(form);
+            var optCount = list.filter(function (p) { return p.optimize; }).length;
+            var pts = calcAddFormPointsEstimate(kind, optCount, list.length);
+            var valEl = form.querySelector('.add-points-estimate-val');
+            if (valEl) valEl.textContent = String(pts);
+            syncAddFormOptimizeBgWrap(form);
+        }
+
+        function wirePendingImageUpload(form) {
+            var kind = form.getAttribute('data-kind');
+            if (kind !== 'prototype' && kind !== 'part') return;
+            var picker = form.querySelector('.add-image-picker-one');
+            var btn = form.querySelector('.btn-add-pending-image');
+            if (!picker || !btn) return;
+            btn.addEventListener('click', function () { picker.click(); });
+            picker.addEventListener('change', function () {
+                var f = picker.files && picker.files[0];
+                picker.value = '';
+                if (!f) return;
+                var list = getPendingImages(form);
+                if (list.length >= PROTOTYPE_MAX_IMAGES) {
+                    showToast('最多 ' + PROTOTYPE_MAX_IMAGES + ' 張圖片', 'warning');
+                    return;
+                }
+                if (form.dataset.supplierImported === '1') {
+                    delete form.dataset.supplierImported;
+                    delete form.dataset.supplierVendorAssetId;
+                    var st = form.querySelector('.supplier-ref-status');
+                    if (st) { st.classList.add('d-none'); st.innerHTML = ''; }
+                    showLocalImagePreview(form.querySelector('.add-image-preview'), null);
+                }
+                list.push({ id: 'p' + Date.now() + '-' + Math.random().toString(36).slice(2), file: f, optimize: false });
+                renderPendingImages(form);
+                updateAddFormPointsEstimate(form);
+            });
+        }
+
         function renderEditGallery(m) {
             var grid = document.getElementById('edit-gallery-grid');
             if (!grid) return;
@@ -799,11 +936,92 @@
             } catch (err) { showToast(err.message, 'danger'); }
         }
 
-        async function addGalleryImages(fileList) {
+        function clearEditPendingGallery() {
+            var wrap = document.getElementById('edit-pending-gallery');
+            revokePendingImageUrls(wrap);
+            if (wrap) {
+                wrap.innerHTML = '';
+                wrap.classList.add('d-none');
+            }
+            editPendingGallery = [];
+            syncEditPendingOptimizeBgWrap();
+            var uploadBtn = document.getElementById('btn-edit-upload-pending-gallery');
+            if (uploadBtn) uploadBtn.classList.add('d-none');
+        }
+
+        function syncEditPendingOptimizeBgWrap() {
+            var wrap = document.getElementById('edit-pending-optimize-bg-wrap');
+            if (!wrap) return;
+            var any = editPendingGallery.some(function (p) { return p.optimize; });
+            wrap.classList.toggle('d-none', !any);
+        }
+
+        function renderEditPendingGallery() {
+            var wrap = document.getElementById('edit-pending-gallery');
+            var uploadBtn = document.getElementById('btn-edit-upload-pending-gallery');
+            if (!wrap) return;
+            revokePendingImageUrls(wrap);
+            wrap.innerHTML = '';
+            if (!editPendingGallery.length) {
+                wrap.classList.add('d-none');
+                if (uploadBtn) uploadBtn.classList.add('d-none');
+                syncEditPendingOptimizeBgWrap();
+                return;
+            }
+            wrap.classList.remove('d-none');
+            if (uploadBtn) uploadBtn.classList.remove('d-none');
+            editPendingGallery.forEach(function (item, idx) {
+                var col = document.createElement('div');
+                col.className = 'col-6 col-sm-4';
+                var card = document.createElement('div');
+                card.className = 'pending-image-card';
+                var url = URL.createObjectURL(item.file);
+                card.innerHTML = '<span class="badge bg-secondary mb-1" style="font-size:0.65rem">待上傳</span>' +
+                    '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="">' +
+                    '<div class="form-check form-check-sm mt-1 mb-0">' +
+                    '<input class="form-check-input edit-pending-optimize-chk" type="checkbox" id="epo-' + esc(item.id) + '"' + (item.optimize ? ' checked' : '') + '>' +
+                    '<label class="form-check-label small" for="epo-' + esc(item.id) + '">AI 重繪</label></div>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm mt-1 pending-remove">移除</button>';
+                col.appendChild(card);
+                wrap.appendChild(col);
+                card.querySelector('.edit-pending-optimize-chk').addEventListener('change', function () {
+                    item.optimize = this.checked;
+                    syncEditPendingOptimizeBgWrap();
+                });
+                card.querySelector('.pending-remove').addEventListener('click', function () {
+                    var i = editPendingGallery.findIndex(function (x) { return x.id === item.id; });
+                    if (i >= 0) editPendingGallery.splice(i, 1);
+                    renderEditPendingGallery();
+                });
+            });
+            syncEditPendingOptimizeBgWrap();
+        }
+
+        function getEditPendingOptimizeBackground() {
+            var sel = document.getElementById('edit-pending-optimize-bg');
+            if (!sel) return 'white';
+            if (sel.value === 'custom') {
+                var c = document.getElementById('edit-pending-optimize-bg-custom');
+                return (c && c.value) ? c.value : '#ffffff';
+            }
+            return sel.value || 'white';
+        }
+
+        async function uploadEditPendingGallery() {
             var id = document.getElementById('edit-id').value;
-            if (!id || !fileList || !fileList.length) return;
+            if (!id || !editPendingGallery.length) return;
             var fd = new FormData();
-            for (var i = 0; i < fileList.length; i++) fd.append('images', fileList[i]);
+            var optIdx = [];
+            editPendingGallery.forEach(function (item, i) {
+                fd.append('images', item.file);
+                if (item.optimize) optIdx.push(i);
+            });
+            if (optIdx.length) {
+                fd.append('optimize_image_indices', JSON.stringify(optIdx));
+                fd.append('optimize_background', getEditPendingOptimizeBackground());
+            }
+            var uploadBtn = document.getElementById('btn-edit-upload-pending-gallery');
+            if (uploadBtn) uploadBtn.disabled = true;
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
                     method: 'POST',
@@ -811,13 +1029,21 @@
                     body: fd
                 });
                 var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    showToast((data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
+                    return;
+                }
                 if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 if (idx >= 0) materialsAll[idx] = data;
                 renderEditGallery(data);
-                showToast(tr('baseModels.galleryAdded', '已新增角度圖'));
+                clearEditPendingGallery();
+                var okMsg = tr('baseModels.galleryAdded', '已新增角度圖');
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                showToast(okMsg);
                 await loadMaterials();
             } catch (err) { showToast(err.message, 'danger'); }
+            finally { if (uploadBtn) uploadBtn.disabled = false; }
         }
         function showToast(msg, type) {
             type = type || 'success';
@@ -935,6 +1161,7 @@
             var sel = root.querySelector ? root.querySelector('.add-optimize-bg') : null;
             if (!sel && root.querySelector) sel = root.querySelector('#edit-optimize-bg');
             if (!sel) sel = document.getElementById('edit-optimize-bg');
+            if (!sel) sel = document.getElementById('edit-pending-optimize-bg');
             if (!sel) return 'white';
             if (sel.value === 'custom') {
                 var c = (root.querySelector && root.querySelector('.add-optimize-bg-custom')) || document.getElementById('edit-optimize-bg-custom');
@@ -955,9 +1182,16 @@
 
         function syncAddFormOptimizeBgWrap(form) {
             if (!form) return;
-            var chk = form.querySelector('.add-optimize-product');
             var wrap = form.querySelector('.add-optimize-bg-wrap');
-            if (!chk || !wrap) return;
+            if (!wrap) return;
+            var kind = form.getAttribute('data-kind');
+            if (kind === 'prototype' || kind === 'part') {
+                var list = getPendingImages(form);
+                wrap.classList.toggle('d-none', !list.some(function (p) { return p.optimize; }));
+                return;
+            }
+            var chk = form.querySelector('.add-optimize-product');
+            if (!chk) return;
             wrap.classList.toggle('d-none', !chk.checked);
         }
 
@@ -985,6 +1219,10 @@
                 var kind = form.getAttribute('data-kind') || 'prototype';
                 if (baseEl) baseEl.textContent = String(uploadPricing.points_upload);
                 if (optEl) optEl.textContent = String(optimizePointsForKind(kind));
+                form.querySelectorAll('.add-points-optimize-extra').forEach(function (el) {
+                    el.textContent = String(uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5);
+                });
+                updateAddFormPointsEstimate(form);
             });
         }
 
@@ -1048,6 +1286,7 @@
                     uploadPricing.points_upload = d.points_upload != null ? d.points_upload : 5;
                     uploadPricing.points_optimize = d.points_optimize != null ? d.points_optimize : 15;
                     uploadPricing.points_optimize_material = d.points_optimize_material != null ? d.points_optimize_material : 10;
+                    uploadPricing.points_optimize_extra = d.points_optimize_extra != null ? d.points_optimize_extra : 5;
                     uploadPricing.points_description = d.points_description != null ? d.points_description : 1;
                 }
             } catch (_) {}
@@ -1723,16 +1962,14 @@
             if (kind === 'prototype' && subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
 
             var previewWrap = form.querySelector('.add-image-preview');
-            imgInput.addEventListener('change', function () {
-                var files = imgInput.files;
-                var file = files && files[0];
-                if (file) clearSupplierRefFromForm(form);
-                if (kind === 'prototype' && files && files.length > 1) {
-                    showLocalImagePreviewMulti(previewWrap, files);
-                } else {
+            if (imgInput) {
+                imgInput.addEventListener('change', function () {
+                    var file = imgInput.files && imgInput.files[0];
+                    if (file) clearSupplierRefFromForm(form);
                     showLocalImagePreview(previewWrap, file);
-                }
-            });
+                });
+            }
+            wirePendingImageUpload(form);
 
             form.addEventListener('submit', async function (e) {
                 e.preventDefault();
@@ -1743,9 +1980,13 @@
                     return;
                 }
                 if (!catSel.value) { msgEl.textContent = '—'; return; }
-                var files = imgInput.files;
-                var file = files && files[0];
-                if (!file) { msgEl.textContent = '—'; return; }
+                var pending = getPendingImages(form);
+                var file = imgInput && imgInput.files && imgInput.files[0];
+                if ((kind === 'prototype' || kind === 'part') && !pending.length) {
+                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+                    return;
+                }
+                if (kind === 'material' && !file) { msgEl.textContent = '—'; return; }
                 if (kind === 'prototype') {
                     var moqEl = form.querySelector('.add-min-order-qty');
                     var moqVal = moqEl ? String(moqEl.value || '').trim() : '';
@@ -1769,16 +2010,22 @@
                 fd.append('description', form.querySelector('.add-description').value || '');
                 fd.append('ui_locale', getUiLocaleForUpload());
                 fd.append('usage_type', 'reference_only');
-                fd.append('image', file);
-                if ((kind === 'prototype' || kind === 'part') && files) {
-                    for (var gi = 1; gi < files.length && gi < PROTOTYPE_MAX_IMAGES; gi++) {
-                        fd.append('gallery', files[gi]);
+                if (kind === 'prototype' || kind === 'part') {
+                    fd.append('image', pending[0].file);
+                    for (var pi = 1; pi < pending.length; pi++) fd.append('gallery', pending[pi].file);
+                    var optIdx = [];
+                    pending.forEach(function (p, i) { if (p.optimize) optIdx.push(i); });
+                    if (optIdx.length) {
+                        fd.append('optimize_image_indices', JSON.stringify(optIdx));
+                        fd.append('optimize_background', getOptimizeBackgroundValue(form));
                     }
-                }
-                var optimizeChk = form.querySelector('.add-optimize-product');
-                if (optimizeChk && optimizeChk.checked) {
-                    fd.append('optimize_product_image', '1');
-                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                } else {
+                    fd.append('image', file);
+                    var optimizeChk = form.querySelector('.add-optimize-product');
+                    if (optimizeChk && optimizeChk.checked) {
+                        fd.append('optimize_product_image', '1');
+                        fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                    }
                 }
                 var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-' + kind));
                 if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
@@ -1803,6 +2050,7 @@
                     showToast(okMsg);
                     form.reset();
                     clearSupplierRefFromForm(form);
+                    clearPendingImages(form);
                     showLocalImagePreview(form.querySelector('.add-image-preview'), null);
                     applyUploadPricingToForms();
                     await loadMaterials();
@@ -1849,6 +2097,7 @@
                 if (editImg) editImg.src = '';
             }
             if (isProtoLike) renderEditGallery(m);
+            clearEditPendingGallery();
             document.getElementById('edit-optimize-image').checked = false;
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
             editPending.semantics = m.image_semantics_json || null;
@@ -1880,11 +2129,22 @@
             document.getElementById('edit-add-gallery-input').click();
         });
         document.getElementById('edit-add-gallery-input').addEventListener('change', function () {
-            var files = this.files;
-            if (!files || !files.length) return;
-            addGalleryImages(files);
+            var f = this.files && this.files[0];
             this.value = '';
+            if (!f) return;
+            editPendingGallery.push({ id: 'e' + Date.now() + '-' + Math.random().toString(36).slice(2), file: f, optimize: false });
+            renderEditPendingGallery();
         });
+        document.getElementById('btn-edit-upload-pending-gallery').addEventListener('click', function () {
+            uploadEditPendingGallery();
+        });
+        var editPendingBgSel = document.getElementById('edit-pending-optimize-bg');
+        if (editPendingBgSel) {
+            editPendingBgSel.addEventListener('change', function () {
+                var custom = document.getElementById('edit-pending-optimize-bg-custom');
+                if (custom) custom.classList.toggle('d-none', editPendingBgSel.value !== 'custom');
+            });
+        }
         document.getElementById('edit-optimize-image').addEventListener('change', syncEditOptimizeBgWrap);
         document.getElementById('edit-optimize-bg').addEventListener('change', function () {
             syncOptimizeBgCustomInput(document.getElementById('edit-form'));
@@ -2076,6 +2336,7 @@
             if (status) { status.classList.add('d-none'); status.innerHTML = ''; }
             var imgInput = form.querySelector('.add-image');
             if (imgInput) imgInput.setAttribute('required', '');
+            if (form.querySelector('.add-pending-images')) clearPendingImages(form);
         }
 
         function getSupplierImportTextOpts() {

@@ -82,8 +82,8 @@
 
     function updateGalleryChrome() {
         var multi = galleryImages.length > 1;
-        if (prevBtn) prevBtn.style.display = multi ? '' : 'none';
-        if (nextBtn) nextBtn.style.display = multi ? '' : 'none';
+        if (prevBtn) prevBtn.style.display = multi ? 'flex' : 'none';
+        if (nextBtn) nextBtn.style.display = multi ? 'flex' : 'none';
         if (counterEl) {
             counterEl.textContent = multi ? ((galleryIndex + 1) + ' / ' + galleryImages.length) : '';
             counterEl.style.display = multi ? 'block' : 'none';
@@ -144,13 +144,30 @@
         return img.src ? [img.src] : [];
     }
 
+    function urlMatchesGalleryEntry(imgSrc, entry) {
+        if (!imgSrc || !entry) return false;
+        if (imgSrc === entry) return true;
+        try {
+            var a = new URL(imgSrc, window.location.origin);
+            var b = new URL(entry, window.location.origin);
+            return a.pathname === b.pathname;
+        } catch (_) {
+            return String(imgSrc).split('?')[0] === String(entry).split('?')[0];
+        }
+    }
+
     function openFromImg(img, caption) {
         if (!img || !img.src) return;
         var urls = parseUrlsFromImg(img);
+        var imgSrc = img.currentSrc || img.src || '';
         if (urls.length > 1) {
-            open({ images: urls, index: 0, caption: caption || img.alt || '', alt: img.alt || '' });
+            var idx = 0;
+            for (var i = 0; i < urls.length; i++) {
+                if (urlMatchesGalleryEntry(imgSrc, urls[i])) { idx = i; break; }
+            }
+            open({ images: urls, index: idx, caption: caption || img.alt || '', alt: img.alt || '' });
         } else {
-            open({ src: urls[0] || img.src, caption: caption || img.alt || '', alt: img.alt || '' });
+            open({ src: urls[0] || imgSrc, caption: caption || img.alt || '', alt: img.alt || '' });
         }
     }
 

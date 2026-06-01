@@ -1419,6 +1419,49 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
+/** 上傳時各圖是否 AI 重繪：0=封面，1+=gallery 順序；相容舊版 optimize_product_image=僅封面 */
+function parseOptimizeImageIndices(body, totalFileCount) {
+    const raw = body && body.optimize_image_indices;
+    if (raw != null && raw !== '') {
+        let arr;
+        try {
+            arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch (_) {
+            arr = String(raw).split(/[,，\s]+/).map((s) => parseInt(s.trim(), 10));
+        }
+        if (!Array.isArray(arr)) return [];
+        const set = new Set();
+        arr.forEach((i) => {
+            if (Number.isInteger(i) && i >= 0 && i < totalFileCount) set.add(i);
+        });
+        return Array.from(set).sort((a, b) => a - b);
+    }
+    if (body && parseTruthyBody(body.optimize_product_image)) return [0];
+    return [];
+}
+
+async function computeVendorAssetCreatePoints(assetKind, optimizeIndices, totalFiles) {
+    const uploadPts = await getPointsVendorAssetUpload();
+    const optPts = await getPointsVendorAssetOptimizeForKind(assetKind);
+    if (!optimizeIndices.length) return uploadPts;
+    if (optimizeIndices.length === 1 && optimizeIndices[0] === 0 && totalFiles === 1) return optPts;
+    return computeVendorAssetOptimizeTotalPoints(optimizeIndices.length, assetKind);
+}
+
+async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materialHint, optimizeBackground) {
+    const optimizeBg = (optimizeBackground || '').trim() || 'white';
+    const optimizedBuf = await optimizeVendorAssetImageWithFlux(
+        file.buffer, file.mimetype, title, assetKind,
+        assetKind === 'material' ? materialHint : null,
+        optimizeBg
+    );
+    return {
+        buffer: optimizedBuf,
+        mimetype: 'image/jpeg',
+        originalname: (file.originalname || 'image.jpg').replace(/\.[^.]+$/, '') + '.jpg'
+    };
+}
+
 const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
     white: 'clean pure white seamless studio background',
     light_gray: 'clean light gray seamless studio background',
@@ -7342,6 +7385,21 @@ async function getPointsVendorAssetOptimizeForKind(assetKind) {
         : getPointsVendorAssetOptimize();
 }
 
+/** 每多一張 AI 重繪（第二張起）加扣點數，預設 5 */
+async function getPointsVendorAssetOptimizeExtraPer() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_optimize_extra');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 5);
+}
+
+/** n 張重繪總點數：首張依種類（原型 15／材料 10），之後每張 +extra */
+async function computeVendorAssetOptimizeTotalPoints(optCount, assetKind) {
+    if (!optCount) return 0;
+    const optPts = await getPointsVendorAssetOptimizeForKind(assetKind);
+    const extraPer = await getPointsVendorAssetOptimizeExtraPer();
+    return optPts + Math.max(0, optCount - 1) * extraPer;
+}
+
 async function getPointsVendorAssetDescription() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_description');
     const v = rows && rows[0] && rows[0].value != null ? parseInt(rows[0].value, 10) : NaN;
@@ -12299,6 +12357,7 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
             points_upload: await getPointsVendorAssetUpload(),
             points_optimize: await getPointsVendorAssetOptimize(),
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
+            points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
             points_description: await getPointsVendorAssetDescription(),
             optimize_includes_tags: true
         });
@@ -12534,11 +12593,13 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         let file = await vendorAssetFileFromMulter(fileFromFields);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
         const galleryUploadFiles = (isPrototypeLike && req.files && req.files.gallery) ? req.files.gallery : [];
-
-        const wantsOptimize = parseTruthyBody(body.optimize_product_image);
-        const pointsRequired = wantsOptimize
-            ? await getPointsVendorAssetOptimizeForKind(assetKind)
-            : await getPointsVendorAssetUpload();
+        const totalUploadFiles = 1 + galleryUploadFiles.length;
+        const optimizeIndices = parseOptimizeImageIndices(body, totalUploadFiles);
+        const pointsRequired = await computeVendorAssetCreatePoints(assetKind, optimizeIndices, totalUploadFiles);
+        const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const materialHintForOptimize = assetKind === 'material'
+            ? materialCatalogHint
+            : ((body.material_key || '').trim() || null);
 
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
         const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
@@ -12609,19 +12670,11 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         }
 
         let uploadFile = file;
-        if (wantsOptimize) {
+        if (optimizeIndices.includes(0)) {
             try {
-                const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
-                const optimizedBuf = await optimizeVendorAssetImageWithFlux(
-                    file.buffer, file.mimetype, title, assetKind,
-                    assetKind === 'material' ? materialCatalogHint : ((body.material_key || '').trim() || null),
-                    optimizeBackground
+                uploadFile = await maybeOptimizeVendorAssetMulterFile(
+                    file, title, assetKind, materialHintForOptimize, optimizeBackground
                 );
-                uploadFile = {
-                    buffer: optimizedBuf,
-                    mimetype: 'image/jpeg',
-                    originalname: (file.originalname || 'image.jpg').replace(/\.[^.]+$/, '') + '.jpg'
-                };
             } catch (optErr) {
                 console.error('vendor-assets image optimize:', optErr);
                 const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
@@ -12633,7 +12686,26 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         let galleryImages = [];
         if (isPrototypeLike && galleryUploadFiles.length) {
             const maxExtra = Math.min(galleryUploadFiles.length, PROTOTYPE_GALLERY_MAX_EXTRA);
-            galleryImages = await uploadVendorAssetGalleryFiles(manufacturerId, galleryUploadFiles.slice(0, maxExtra), 1);
+            const galleryToUpload = [];
+            for (let gi = 0; gi < maxExtra; gi++) {
+                let gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
+                if (!gf) continue;
+                if (optimizeIndices.includes(gi + 1)) {
+                    try {
+                        gf = await maybeOptimizeVendorAssetMulterFile(
+                            gf, title, assetKind, materialHintForOptimize, optimizeBackground
+                        );
+                    } catch (optErr) {
+                        console.error('vendor-assets gallery optimize:', optErr);
+                        const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
+                        return res.status(mapped.status).json(mapped.body);
+                    }
+                }
+                galleryToUpload.push(gf);
+            }
+            if (galleryToUpload.length) {
+                galleryImages = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, 1);
+            }
         }
         const insertPayload = {
             manufacturer_id: manufacturerId,
@@ -12737,19 +12809,20 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             category_key: categoryKey
         });
         let balanceAfter = null;
+        const optimizeCount = optimizeIndices.length;
         if (!isAdmin && ownerId && pointsRequired > 0) {
             const consumed = await consumeUserCredits(
                 ownerId,
                 pointsRequired,
-                wantsOptimize ? 'vendor_asset_optimize' : 'vendor_asset_upload',
-                wantsOptimize
+                optimizeCount > 0 ? 'vendor_asset_optimize' : 'vendor_asset_upload',
+                optimizeCount > 0
                     ? (assetKind === 'material'
-                        ? `材料參考上傳＋材質圖優化（${pointsRequired} 點）`
-                        : `數位原型上傳＋產品圖優化（${pointsRequired} 點）`)
+                        ? `材料參考上傳＋${optimizeCount} 張材質圖優化（${pointsRequired} 點）`
+                        : `數位素材上傳＋${optimizeCount} 張產品圖重繪（${pointsRequired} 點）`)
                     : (assetKind === 'material'
                         ? `材料參考上傳（${pointsRequired} 點）`
-                        : `數位原型上傳（${pointsRequired} 點）`),
-                { manufacturer_id: manufacturerId, optimize: wantsOptimize, asset_kind: assetKind }
+                        : `數位素材上傳（${pointsRequired} 點）`),
+                { manufacturer_id: manufacturerId, optimize: optimizeCount > 0, optimize_count: optimizeCount, asset_kind: assetKind }
             );
             if (!consumed.ok) {
                 console.warn('vendor-assets 扣點失敗（已上傳）:', consumed.error);
@@ -12761,7 +12834,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             ...mapVendorAssetForApi(inserted),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
-            product_optimized: wantsOptimize,
+            product_optimized: optimizeCount > 0,
+            optimize_image_indices: optimizeIndices,
             gallery_migration_required: galleryMigrationRequired,
             prototype_meta_migration_required: prototypeMetaMigrationRequired
         });
@@ -12771,7 +12845,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
     }
 });
 
-// POST /api/me/vendor-assets/:id/gallery-images — 數位原型新增多角度圖（不另扣點、不跑 AI）
+// POST /api/me/vendor-assets/:id/gallery-images — 數位原型／零件新增多角度圖（可選每張 AI 重繪）
 app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROTOTYPE_GALLERY_MAX_EXTRA), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
@@ -12781,24 +12855,60 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, gallery_images, asset_kind'
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title'
         );
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
-        if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') {
-            return res.status(400).json({ error: '僅數位原型可新增多角度圖' });
+        const assetKind = normalizeVendorAssetKind(row.asset_kind);
+        if (assetKind !== 'prototype' && assetKind !== 'part') {
+            return res.status(400).json({ error: '僅數位原型或配件／零件可新增多角度圖' });
         }
         const files = (req.files && req.files.length) ? req.files : [];
         if (!files.length) return res.status(400).json({ error: '請上傳至少一張圖片' });
+        const body = req.body || {};
+        const optimizeIndices = parseOptimizeImageIndices(body, files.length);
+        const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const titleForPrompt = (row.title || '').trim() || null;
+        let pointsRequired = 0;
+        if (optimizeIndices.length) {
+            pointsRequired = await computeVendorAssetOptimizeTotalPoints(optimizeIndices.length, assetKind);
+        }
+        let ownerId = seedUser.id;
+        let isAdmin = false;
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+        isAdmin = profile?.role === 'admin';
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
         const existing = parseGalleryImages(row.gallery_images);
         const totalNow = getVendorAssetAllImageUrls(row).length;
         const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
         if (room <= 0) {
             return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
         }
-        const toAdd = files.slice(0, room);
+        const sliceCount = Math.min(files.length, room);
+        const galleryToUpload = [];
+        for (let gi = 0; gi < sliceCount; gi++) {
+            let gf = await vendorAssetFileFromMulter(files[gi]);
+            if (!gf) continue;
+            if (optimizeIndices.includes(gi)) {
+                try {
+                    gf = await maybeOptimizeVendorAssetMulterFile(
+                        gf, titleForPrompt, assetKind, null, optimizeBackground
+                    );
+                } catch (optErr) {
+                    console.error('gallery-images optimize:', optErr);
+                    const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
+                    return res.status(mapped.status).json(mapped.body);
+                }
+            }
+            galleryToUpload.push(gf);
+        }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
-        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, toAdd, startSort);
+        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, startSort);
         const merged = existing.concat(newEntries);
         const { data: updated, error } = await supabase.from('vendor_assets')
             .update({ gallery_images: merged, updated_at: new Date().toISOString() })
@@ -12812,7 +12922,22 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
             }
             return res.status(500).json({ error: '更新失敗' });
         }
-        res.json(mapVendorAssetForApi(updated));
+        let balanceAfter = null;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'vendor_asset_optimize',
+                `多角度圖 ${optimizeIndices.length} 張 AI 重繪（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, asset_id: id, optimize_count: optimizeIndices.length }
+            );
+            if (consumed.ok) balanceAfter = consumed.balance_after;
+        }
+        res.json({
+            ...mapVendorAssetForApi(updated),
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter
+        });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/:id/gallery-images:', e);
         res.status(500).json({ error: '系統錯誤' });
