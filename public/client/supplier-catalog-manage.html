@@ -117,6 +117,19 @@
 
             <!-- 數位原型 -->
             <div id="panel-prototype" class="asset-kind-panel">
+                <div class="card border-0 shadow-sm mb-3 border-start border-primary border-4 catalog-groups-card" data-catalog-kind="prototype">
+                    <div class="card-body py-3">
+                        <h6 class="fw-semibold mb-1"><span data-i18n="baseModels.myCatalogTitle">我的素材分類</span> <span class="badge bg-primary ms-1" data-i18n="baseModels.tabPrototype">數位原型</span></h6>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.myCatalogKindPrototype">以下分類僅用於「數位原型」，與材料參考分開。</p>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="prototype" style="max-width:16rem" placeholder="輸入分類名稱（例：領型庫）">
+                            <button type="button" class="btn btn-sm btn-primary btn-add-catalog-group" data-catalog-kind="prototype"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                        </div>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHint">拖曳左側把手可調整順序。</p>
+                        <ul id="catalog-groups-list-prototype" class="list-unstyled mb-0"></ul>
+                        <p id="catalog-groups-empty-prototype" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請在上方輸入名稱後按「新增分類」。</p>
+                    </div>
+                </div>
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供製造商匯入為數位原型。</p>
                 <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
@@ -124,6 +137,7 @@
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory" name="subcategory_key"><option value="">—</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
@@ -162,12 +176,26 @@
 
             <!-- 配件／零件 -->
             <div id="panel-part" class="asset-kind-panel d-none" hidden>
+                <div class="card border-0 shadow-sm mb-3 border-start border-warning border-4 catalog-groups-card" data-catalog-kind="part">
+                    <div class="card-body py-3">
+                        <h6 class="fw-semibold mb-1"><span data-i18n="baseModels.myCatalogTitle">我的素材分類</span> <span class="badge bg-warning text-dark ms-1" data-i18n="baseModels.tabPart">配件／零件</span></h6>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.myCatalogKindPart">以下分類僅用於「配件／零件」。</p>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="part" style="max-width:16rem" placeholder="輸入分類名稱">
+                            <button type="button" class="btn btn-sm btn-warning btn-add-catalog-group" data-catalog-kind="part"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                        </div>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHint">拖曳左側把手可調整順序。</p>
+                        <ul id="catalog-groups-list-part" class="list-unstyled mb-0"></ul>
+                        <p id="catalog-groups-empty-part" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類</p>
+                    </div>
+                </div>
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintPart">扣具、拉鍊、標章等局部零件參考。</p>
                 <div id="add-form-panel-part" class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
                         <form class="add-form" data-kind="part" enctype="multipart/form-data">
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
@@ -202,12 +230,26 @@
 
             <!-- 材料參考 -->
             <div id="panel-material" class="asset-kind-panel d-none" hidden>
+                <div class="card border-0 shadow-sm mb-3 border-start border-success border-4 catalog-groups-card" data-catalog-kind="material">
+                    <div class="card-body py-3">
+                        <h6 class="fw-semibold mb-1"><span data-i18n="baseModels.myCatalogTitle">我的素材分類</span> <span class="badge bg-success ms-1" data-i18n="baseModels.tabMaterial">材料參考</span></h6>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.myCatalogKindMaterial">以下分類僅用於「材料參考」。</p>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                            <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="material" style="max-width:16rem" placeholder="輸入分類名稱">
+                            <button type="button" class="btn btn-sm btn-success btn-add-catalog-group" data-catalog-kind="material"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
+                        </div>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHint">拖曳左側把手可調整順序。</p>
+                        <ul id="catalog-groups-list-material" class="list-unstyled mb-0"></ul>
+                        <p id="catalog-groups-empty-material" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類</p>
+                    </div>
+                </div>
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本。</p>
                 <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
                         <form class="add-form" data-kind="material" enctype="multipart/form-data">
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料參考」專用分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
@@ -247,6 +289,7 @@
                         <input type="hidden" id="edit-kind">
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
                         <div class="mb-3 d-none" id="edit-sub-wrap"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
+                        <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3">
                             <label class="form-label">簡短說明</label>
@@ -315,6 +358,10 @@
         var editModal = null;
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_description: 1 };
         var editPending = { tags: [] };
+        var catalogGroupsByKind = { prototype: [], material: [], part: [] };
+        var catalogGroupsDbReady = true;
+        var catalogAssetKindSplitOk = true;
+        var catalogGroupDragId = null;
 
         function tr(k, fb) {
             if (window.i18n && window.i18n.t) { var v = window.i18n.t(k); if (v && v !== k) return v; }
@@ -535,6 +582,240 @@
             return itemsCache[kind];
         }
 
+        function catalogGroupRowKind(g) {
+            if (!g || g.asset_kind == null || String(g.asset_kind).trim() === '') return 'prototype';
+            return normalizeKind(g.asset_kind);
+        }
+
+        function groupsForKind(kind) {
+            kind = normalizeKind(kind);
+            if ((kind === 'material' || kind === 'part') && !catalogAssetKindSplitOk) return [];
+            return (catalogGroupsByKind[kind] || []).filter(function (g) {
+                return catalogGroupRowKind(g) === kind;
+            });
+        }
+
+        function getSelectedCatalogGroupIds(container) {
+            if (!container) return [];
+            return Array.prototype.slice.call(container.querySelectorAll('input[type=checkbox][data-group-id]:checked'))
+                .map(function (el) { return el.getAttribute('data-group-id'); })
+                .filter(Boolean);
+        }
+
+        function renderAssignCatalogCheckboxes(kind, selectedIds) {
+            var container = document.querySelector('.add-catalog-groups-' + kind);
+            if (!container) return;
+            var flat = groupsForKind(kind);
+            var sel = new Set((selectedIds || []).map(String));
+            if (!catalogGroupsDbReady) {
+                container.innerHTML = '<span class="text-danger small">' + esc(tr('baseModels.catalogDbMissing', '請先於 Supabase 執行 docs/add-supplier-catalog-groups.sql')) + '</span>';
+                return;
+            }
+            if ((kind === 'material' || kind === 'part') && !catalogAssetKindSplitOk) {
+                container.innerHTML = '<span class="text-danger small">' + esc(tr('baseModels.catalogAssetKindSqlRequired', '請執行 add-supplier-catalog-groups.sql')) + '</span>';
+                return;
+            }
+            if (!flat.length) {
+                container.innerHTML = '<span class="text-muted small me-2">' + esc(tr('baseModels.catalogGroupsEmpty', '尚無自訂分類')) + '</span>' +
+                    '<button type="button" class="btn btn-sm btn-outline-primary btn-inline-add-catalog" data-catalog-kind="' + esc(kind) + '">' +
+                    esc(tr('baseModels.catalogAddFirstBtn', '新增第一個分類')) + '</button>';
+                container.querySelectorAll('.btn-inline-add-catalog').forEach(function (btn) {
+                    btn.addEventListener('click', function () { createCatalogGroup(btn.getAttribute('data-catalog-kind')); });
+                });
+                return;
+            }
+            container.innerHTML = flat.map(function (g) {
+                var checked = sel.has(String(g.id)) ? ' checked' : '';
+                return '<label class="form-check form-check-inline mb-0">' +
+                    '<input class="form-check-input" type="checkbox" data-group-id="' + esc(g.id) + '"' + checked + '>' +
+                    '<span class="form-check-label">' + esc(g.name) + '</span></label>';
+            }).join('');
+        }
+
+        function renderEditCatalogCheckboxes(itemKind, selectedIds) {
+            var container = document.getElementById('edit-catalog-groups');
+            if (!container) return;
+            var kind = normalizeKind(itemKind);
+            var flat = groupsForKind(kind);
+            var allowed = new Set(flat.map(function (g) { return String(g.id); }));
+            var sel = new Set((selectedIds || []).map(String).filter(function (id) { return allowed.has(id); }));
+            if (!flat.length) {
+                container.innerHTML = '<span class="text-muted small">' + esc(tr('baseModels.catalogGroupsEmpty', '尚無分類')) + '</span>';
+                return;
+            }
+            container.innerHTML = flat.map(function (g) {
+                var checked = sel.has(String(g.id)) ? ' checked' : '';
+                return '<label class="form-check form-check-inline mb-0">' +
+                    '<input class="form-check-input" type="checkbox" data-group-id="' + esc(g.id) + '"' + checked + '>' +
+                    '<span class="form-check-label">' + esc(g.name) + '</span></label>';
+            }).join('');
+        }
+
+        function renderCatalogGroupsList(kind) {
+            var list = document.getElementById('catalog-groups-list-' + kind);
+            var empty = document.getElementById('catalog-groups-empty-' + kind);
+            var flat = groupsForKind(kind);
+            if (!list) return;
+            if (!flat.length) {
+                list.innerHTML = '';
+                if (empty) empty.classList.remove('d-none');
+                return;
+            }
+            if (empty) empty.classList.add('d-none');
+            list.innerHTML = flat.map(function (g) {
+                return '<li class="catalog-group-row d-flex align-items-center gap-2 mb-2 p-2 border rounded" draggable="true" data-id="' + esc(g.id) + '">' +
+                    '<span class="text-muted"><i class="bi bi-grip-vertical"></i></span>' +
+                    '<span class="flex-grow-1">' + esc(g.name) + (g.asset_count ? ' <span class="text-muted">(' + g.asset_count + ')</span>' : '') + '</span>' +
+                    '<button type="button" class="btn btn-link btn-sm p-0 text-secondary catalog-group-rename" data-id="' + esc(g.id) + '" data-kind="' + esc(kind) + '"><i class="bi bi-pencil"></i></button>' +
+                    '<button type="button" class="btn btn-link btn-sm p-0 text-danger catalog-group-del" data-id="' + esc(g.id) + '" data-kind="' + esc(kind) + '"><i class="bi bi-x-lg"></i></button></li>';
+            }).join('');
+            list.querySelectorAll('.catalog-group-rename').forEach(function (btn) {
+                btn.addEventListener('click', function () { renameCatalogGroup(btn.getAttribute('data-id'), btn.getAttribute('data-kind')); });
+            });
+            list.querySelectorAll('.catalog-group-del').forEach(function (btn) {
+                btn.addEventListener('click', function () { deleteCatalogGroup(btn.getAttribute('data-id'), btn.getAttribute('data-kind')); });
+            });
+            bindCatalogGroupDragSort(list, kind);
+        }
+
+        function renderAllCatalogGroupsLists() {
+            ['prototype', 'part', 'material'].forEach(renderCatalogGroupsList);
+        }
+
+        function refreshAllAssignCatalogCheckboxes() {
+            renderAssignCatalogCheckboxes('prototype', []);
+            renderAssignCatalogCheckboxes('part', []);
+            renderAssignCatalogCheckboxes('material', []);
+        }
+
+        function bindCatalogGroupDragSort(list, kind) {
+            if (!list) return;
+            list.querySelectorAll('.catalog-group-row').forEach(function (row) {
+                row.addEventListener('dragstart', function (e) {
+                    catalogGroupDragId = row.getAttribute('data-id');
+                    row.classList.add('opacity-50');
+                    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+                });
+                row.addEventListener('dragend', function () {
+                    row.classList.remove('opacity-50');
+                    catalogGroupDragId = null;
+                });
+                row.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    if (!catalogGroupDragId || catalogGroupDragId === row.getAttribute('data-id')) return;
+                    var dragEl = list.querySelector('.catalog-group-row[data-id="' + catalogGroupDragId + '"]');
+                    if (!dragEl || dragEl === row) return;
+                    var rect = row.getBoundingClientRect();
+                    if ((e.clientY - rect.top) > rect.height / 2) list.insertBefore(dragEl, row.nextSibling);
+                    else list.insertBefore(dragEl, row);
+                });
+                row.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    persistCatalogGroupOrder(list, kind);
+                });
+            });
+        }
+
+        async function persistCatalogGroupOrder(list, kind) {
+            var order = Array.prototype.slice.call(list.querySelectorAll('.catalog-group-row'))
+                .map(function (el) { return el.getAttribute('data-id'); }).filter(Boolean);
+            if (!order.length) return;
+            try {
+                var r = await fetch('/api/me/industry-supplier/catalog-groups/reorder', {
+                    method: 'POST',
+                    headers: authH(true),
+                    body: JSON.stringify({ order: order, asset_kind: kind })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { toast(d.error || '排序失敗', 'danger'); return; }
+                if (d.flat) catalogGroupsByKind[kind] = d.flat;
+                renderCatalogGroupsList(kind);
+                refreshAllAssignCatalogCheckboxes();
+                toast(tr('baseModels.catalogGroupsOrderSaved', '分類順序已儲存'), 'success');
+            } catch (e) { toast(e.message, 'danger'); }
+        }
+
+        async function loadCatalogGroups() {
+            catalogGroupsByKind = { prototype: [], material: [], part: [] };
+            catalogGroupsDbReady = true;
+            catalogAssetKindSplitOk = true;
+            try {
+                for (var i = 0; i < 3; i++) {
+                    var k = ['prototype', 'material', 'part'][i];
+                    var r = await fetch('/api/me/industry-supplier/catalog-groups?asset_kind=' + encodeURIComponent(k), { headers: authH() });
+                    var d = await r.json().catch(function () { return {}; });
+                    if (d.message && String(d.message).indexOf('add-supplier-catalog-groups') !== -1) catalogGroupsDbReady = false;
+                    if (d.asset_kind_split_unavailable) catalogAssetKindSplitOk = false;
+                    catalogGroupsByKind[k] = d.flat || [];
+                }
+            } catch (e) {
+                catalogGroupsByKind = { prototype: [], material: [], part: [] };
+            }
+            renderAllCatalogGroupsLists();
+            refreshAllAssignCatalogCheckboxes();
+        }
+
+        async function createCatalogGroup(kind, presetName) {
+            kind = normalizeKind(kind || activeKind);
+            var name = (presetName || '').trim();
+            if (!name) {
+                var inputEl = document.querySelector('.new-catalog-group-name[data-catalog-kind="' + kind + '"]');
+                if (inputEl && inputEl.value.trim()) name = inputEl.value.trim();
+            }
+            if (!name) {
+                name = window.prompt(tr('baseModels.catalogGroupNamePrompt', '新分類名稱')) || '';
+                name = name.trim();
+            }
+            if (!name) return;
+            try {
+                var r = await fetch('/api/me/industry-supplier/catalog-groups', {
+                    method: 'POST',
+                    headers: authH(true),
+                    body: JSON.stringify({ name: name, asset_kind: kind })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { toast(d.error || 'failed', 'danger'); return; }
+                var inputEl2 = document.querySelector('.new-catalog-group-name[data-catalog-kind="' + kind + '"]');
+                if (inputEl2) inputEl2.value = '';
+                await loadCatalogGroups();
+                toast(tr('baseModels.catalogGroupAdded', '已新增分類'), 'success');
+            } catch (e) { toast(e.message, 'danger'); }
+        }
+
+        function findCatalogGroupInKinds(id, kind) {
+            var pool = kind ? groupsForKind(kind) : [].concat(catalogGroupsByKind.prototype || [], catalogGroupsByKind.material || [], catalogGroupsByKind.part || []);
+            return pool.find(function (x) { return String(x.id) === String(id); });
+        }
+
+        async function renameCatalogGroup(id, kind) {
+            var g = findCatalogGroupInKinds(id, kind);
+            var name = window.prompt(tr('baseModels.catalogGroupRenamePrompt', '分類名稱'), g ? g.name : '') || '';
+            name = name.trim();
+            if (!name) return;
+            try {
+                var r = await fetch('/api/me/industry-supplier/catalog-groups/' + encodeURIComponent(id), {
+                    method: 'PUT',
+                    headers: authH(true),
+                    body: JSON.stringify({ name: name })
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { toast(d.error || 'failed', 'danger'); return; }
+                await loadCatalogGroups();
+            } catch (e) { toast(e.message, 'danger'); }
+        }
+
+        async function deleteCatalogGroup(id, kind) {
+            var g = findCatalogGroupInKinds(id, kind);
+            if (!window.confirm(tr('baseModels.catalogGroupDeleteConfirm', '刪除此分類？品項不會被刪除。') + (g ? '\n「' + g.name + '」' : ''))) return;
+            try {
+                var r = await fetch('/api/me/industry-supplier/catalog-groups/' + encodeURIComponent(id), { method: 'DELETE', headers: authH() });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) { toast(d.error || 'failed', 'danger'); return; }
+                await loadCatalogGroups();
+                await refreshList();
+            } catch (e) { toast(e.message, 'danger'); }
+        }
+
         function subcategoryLabel(item) {
             var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
             var sk = spec.subcategory_key;
@@ -643,6 +924,9 @@
             updateEditOptimizeLabel(activeKind);
             var bgWrap = document.getElementById('edit-optimize-bg-wrap');
             if (bgWrap) bgWrap.classList.toggle('d-none', activeKind === 'material');
+            var grpIds = (item.catalog_groups || []).map(function (g) { return g && g.id; }).filter(Boolean);
+            if (!grpIds.length && item.catalog_group_ids) grpIds = item.catalog_group_ids;
+            renderEditCatalogCheckboxes(activeKind, grpIds);
             if (!editModal) editModal = new bootstrap.Modal(document.getElementById('edit-modal'));
             editModal.show();
         }
@@ -683,6 +967,8 @@
                     fd.append('optimize_product_image', '1');
                     if (kind !== 'material') fd.append('optimize_background', getOptimizeBackgroundValue(form));
                 }
+                var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-' + kind));
+                if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
                 var btn = form.querySelector('.btn-add-submit');
                 btn.disabled = true;
                 try {
@@ -782,7 +1068,14 @@
                 var sk = document.getElementById('edit-subcategory').value;
                 if (sk) fd.append('subcategory_key', sk);
             }
-            if (editPending.tags && editPending.tags.length) fd.append('ai_tags', JSON.stringify(editPending.tags));
+            fd.append('ai_tags', JSON.stringify(editPending.tags || []));
+            var editGrpEl = document.getElementById('edit-catalog-groups');
+            var editGrpIds = [];
+            if (editGrpEl) {
+                editGrpIds = Array.prototype.slice.call(editGrpEl.querySelectorAll('input[type=checkbox][data-group-id]:checked'))
+                    .map(function (el) { return el.getAttribute('data-group-id'); }).filter(Boolean);
+            }
+            fd.append('catalog_group_ids', JSON.stringify(editGrpIds));
             var f = document.getElementById('edit-image').files[0];
             if (f) {
                 fd.append('image', f);
@@ -848,7 +1141,7 @@
                 supplierId = supplierRecord && supplierRecord.id;
                 renderSupplierBar();
                 document.getElementById('main-content').classList.remove('d-none');
-                await Promise.all([loadCategories(), loadUploadPricing()]);
+                await Promise.all([loadCategories(), loadUploadPricing(), loadCatalogGroups()]);
                 switchKind('prototype');
                 toast(tr('supplierManage.setupDone', '公司已建立，可以開始上架'), 'success');
             } catch (err) {
@@ -879,6 +1172,22 @@
             renderSupplierBar();
             toast(tr('supplierManage.companySaved', '公司已更新'), 'success');
             document.getElementById('company-edit').classList.add('d-none');
+        });
+
+        var mainContent = document.getElementById('main-content');
+        if (mainContent) {
+            mainContent.addEventListener('click', function (e) {
+                var addBtn = e.target.closest('.btn-add-catalog-group');
+                if (addBtn) createCatalogGroup(addBtn.getAttribute('data-catalog-kind'));
+            });
+        }
+        document.querySelectorAll('.new-catalog-group-name').forEach(function (inputEl) {
+            inputEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    createCatalogGroup(inputEl.getAttribute('data-catalog-kind'));
+                }
+            });
         });
 
         async function init() {
@@ -914,7 +1223,7 @@
                 supplierId = supplierRecord && supplierRecord.id;
                 renderSupplierBar();
                 document.getElementById('main-content').classList.remove('d-none');
-                await Promise.all([loadCategories(), loadUploadPricing()]);
+                await Promise.all([loadCategories(), loadUploadPricing(), loadCatalogGroups()]);
                 switchKind('prototype');
             } catch (e) {
                 toast(e.message || '頁面初始化失敗', 'danger');

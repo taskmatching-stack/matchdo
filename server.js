@@ -13243,6 +13243,341 @@ app.get('/api/me/industry-supplier/recent-references', async (req, res) => {
     }
 });
 
+// ---------- 產業供應商自訂分類（對稱 vendor_catalog_groups）----------
+function supplierCatalogGroupRowAssetKind(row) {
+    if (!row || row.asset_kind == null || String(row.asset_kind).trim() === '') return 'prototype';
+    const k = String(row.asset_kind).trim().toLowerCase();
+    if (k === 'material' || k === 'part') return k;
+    return 'prototype';
+}
+
+function supplierItemKindToGroupKind(itemKind) {
+    const k = normalizeSupplierCatalogItemKind(itemKind);
+    if (k === 'material') return 'material';
+    if (k === 'part') return 'part';
+    return 'prototype';
+}
+
+async function supplierCatalogGroupsTableReady() {
+    const { error } = await supabase.from('supplier_catalog_groups').select('id').limit(1);
+    return !error || error.code !== '42P01';
+}
+
+async function buildSupplierCatalogGroupsPayload(supplierId, assetKindFilter) {
+    const kindFilter = normalizeVendorCatalogGroupKindFilter(assetKindFilter);
+    let { data: groups, error } = await supabase
+        .from('supplier_catalog_groups')
+        .select('id, industry_supplier_id, name, slug, parent_id, sort_order, asset_kind, created_at, updated_at')
+        .eq('industry_supplier_id', supplierId)
+        .order('sort_order', { ascending: true })
+        .order('name', { ascending: true });
+    if (error && error.code === '42703') {
+        ({ data: groups, error } = await supabase
+            .from('supplier_catalog_groups')
+            .select('id, industry_supplier_id, name, slug, parent_id, sort_order, created_at, updated_at')
+            .eq('industry_supplier_id', supplierId)
+            .order('sort_order', { ascending: true })
+            .order('name', { ascending: true }));
+    }
+    if (error) throw error;
+    let list = groups || [];
+    if (kindFilter) {
+        list = list.filter((g) => supplierCatalogGroupRowAssetKind(g) === kindFilter);
+    }
+    const groupIds = list.map((g) => g.id);
+    const countMap = {};
+    if (groupIds.length) {
+        const { data: links } = await supabase
+            .from('supplier_catalog_item_group_links')
+            .select('group_id, catalog_item_id')
+            .in('group_id', groupIds);
+        const itemIds = [...new Set((links || []).map((l) => l.catalog_item_id).filter(Boolean))];
+        const kindById = {};
+        if (itemIds.length) {
+            const { data: items } = await supabase
+                .from('supplier_catalog_items')
+                .select('id, item_kind')
+                .in('id', itemIds);
+            (items || []).forEach((it) => { kindById[it.id] = supplierItemKindToGroupKind(it.item_kind); });
+        }
+        (links || []).forEach((l) => {
+            const gk = kindById[l.catalog_item_id] || 'prototype';
+            if (kindFilter && gk !== kindFilter) return;
+            countMap[l.group_id] = (countMap[l.group_id] || 0) + 1;
+        });
+    }
+    const byId = {};
+    list.forEach((g) => {
+        byId[g.id] = { ...g, asset_count: countMap[g.id] || 0, children: [] };
+    });
+    const roots = [];
+    list.forEach((g) => {
+        const node = byId[g.id];
+        if (g.parent_id && byId[g.parent_id]) byId[g.parent_id].children.push(node);
+        else roots.push(node);
+    });
+    function flatten(nodes, depth, out) {
+        nodes.sort((a, b) => (a.sort_order - b.sort_order) || String(a.name).localeCompare(String(b.name), 'zh-Hant'));
+        nodes.forEach((n) => {
+            const pad = depth > 0 ? '\u3000'.repeat(Math.min(depth, 3)) : '';
+            out.push({
+                id: n.id,
+                name: n.name,
+                slug: n.slug,
+                parent_id: n.parent_id,
+                sort_order: n.sort_order,
+                asset_count: n.asset_count,
+                asset_kind: supplierCatalogGroupRowAssetKind(n),
+                depth,
+                label: pad + n.name + (n.asset_count ? ` (${n.asset_count})` : '')
+            });
+            if (n.children && n.children.length) flatten(n.children, depth + 1, out);
+        });
+    }
+    const flat = [];
+    flatten(roots, 0, flat);
+    return { tree: roots, flat };
+}
+
+async function setSupplierCatalogItemCatalogGroups(catalogItemId, supplierId, groupIds, itemKind) {
+    if (!(await supplierCatalogGroupsTableReady())) return;
+    const ids = [...new Set((groupIds || []).map((id) => String(id).trim()).filter(Boolean))];
+    const groupKind = supplierItemKindToGroupKind(itemKind);
+    await supabase.from('supplier_catalog_item_group_links').delete().eq('catalog_item_id', catalogItemId);
+    if (!ids.length) return;
+    let { data: owned, error: ownErr } = await supabase
+        .from('supplier_catalog_groups')
+        .select('id, asset_kind')
+        .eq('industry_supplier_id', supplierId)
+        .in('id', ids);
+    if (ownErr && ownErr.code === '42703') {
+        ({ data: owned } = await supabase
+            .from('supplier_catalog_groups')
+            .select('id')
+            .eq('industry_supplier_id', supplierId)
+            .in('id', ids));
+    }
+    const allowed = new Set(
+        (owned || []).filter((g) => supplierCatalogGroupRowAssetKind(g) === groupKind).map((g) => g.id)
+    );
+    const valid = ids.filter((id) => allowed.has(id));
+    if (valid.length) {
+        await supabase.from('supplier_catalog_item_group_links').insert(
+            valid.map((group_id) => ({ catalog_item_id: catalogItemId, group_id }))
+        );
+    }
+}
+
+async function attachCatalogGroupsToSupplierItems(items) {
+    if (!(await supplierCatalogGroupsTableReady()) || !items || !items.length) return items;
+    const itemIds = items.map((r) => r.id).filter(Boolean);
+    if (!itemIds.length) return items;
+    const { data: links, error: linkErr } = await supabase
+        .from('supplier_catalog_item_group_links')
+        .select('catalog_item_id, group_id')
+        .in('catalog_item_id', itemIds);
+    if (linkErr && linkErr.code === '42P01') return items;
+    if (linkErr) throw linkErr;
+    const groupIds = [...new Set((links || []).map((l) => l.group_id).filter(Boolean))];
+    const groupsById = {};
+    if (groupIds.length) {
+        let { data: groups, error: grpErr } = await supabase
+            .from('supplier_catalog_groups')
+            .select('id, name, parent_id, asset_kind')
+            .in('id', groupIds);
+        if (grpErr && grpErr.code === '42703') {
+            ({ data: groups, error: grpErr } = await supabase
+                .from('supplier_catalog_groups')
+                .select('id, name, parent_id')
+                .in('id', groupIds));
+        }
+        if (grpErr) throw grpErr;
+        (groups || []).forEach((g) => {
+            const name = (g.name != null) ? String(g.name).trim() : '';
+            if (g.id && name) groupsById[g.id] = { id: g.id, name, parent_id: g.parent_id || null, asset_kind: g.asset_kind };
+        });
+    }
+    const map = {};
+    (links || []).forEach((l) => {
+        if (!map[l.catalog_item_id]) map[l.catalog_item_id] = [];
+        const g = groupsById[l.group_id];
+        if (g) map[l.catalog_item_id].push(g);
+    });
+    return items.map((row) => {
+        const itemKind = supplierItemKindToGroupKind(row.item_kind);
+        const cats = (map[row.id] || []).filter((g) => supplierCatalogGroupRowAssetKind(g) === itemKind);
+        return {
+            ...row,
+            catalog_group_ids: cats.map((g) => g.id),
+            catalog_groups: cats.map((g) => ({ id: g.id, name: g.name, parent_id: g.parent_id }))
+        };
+    });
+}
+
+// GET /api/me/industry-supplier/catalog-groups
+app.get('/api/me/industry-supplier/catalog-groups', async (req, res) => {
+    try {
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        if (!(await supplierCatalogGroupsTableReady())) {
+            return res.json({ tree: [], flat: [], message: '請執行 docs/add-supplier-catalog-groups.sql' });
+        }
+        const assetKind = (req.query.asset_kind || req.query.item_kind || '').trim();
+        const payload = await buildSupplierCatalogGroupsPayload(ctx.supplier.id, assetKind);
+        const probe = await supabase.from('supplier_catalog_groups').select('asset_kind').limit(1);
+        const assetKindSplitUnavailable = !!(probe.error && probe.error.code === '42703');
+        res.json({ ...payload, asset_kind_split_unavailable: assetKindSplitUnavailable });
+    } catch (e) {
+        console.error('GET /api/me/industry-supplier/catalog-groups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/industry-supplier/catalog-groups
+app.post('/api/me/industry-supplier/catalog-groups', express.json(), async (req, res) => {
+    try {
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        if (!(await supplierCatalogGroupsTableReady())) {
+            return res.status(500).json({ error: '請執行 docs/add-supplier-catalog-groups.sql' });
+        }
+        const body = req.body || {};
+        const name = (body.name || '').trim();
+        if (!name) return res.status(400).json({ error: '請填寫分類名稱' });
+        const assetKind = normalizeVendorCatalogGroupKindFilter(body.asset_kind) || 'prototype';
+        const parentId = (body.parent_id || '').trim() || null;
+        if (parentId) {
+            const { data: parent } = await supabase
+                .from('supplier_catalog_groups')
+                .select('id')
+                .eq('id', parentId)
+                .eq('industry_supplier_id', ctx.supplier.id)
+                .maybeSingle();
+            if (!parent) return res.status(400).json({ error: '上層分類不存在' });
+        }
+        const row = {
+            industry_supplier_id: ctx.supplier.id,
+            name,
+            slug: slugifyVendorCatalogGroupName(name),
+            parent_id: parentId,
+            sort_order: body.sort_order != null && !isNaN(body.sort_order) ? parseInt(body.sort_order, 10) : 0,
+            asset_kind: assetKind,
+            updated_at: new Date().toISOString()
+        };
+        let { data, error } = await supabase.from('supplier_catalog_groups').insert(row).select().single();
+        if (error && error.code === '42703') {
+            const fallback = { ...row };
+            delete fallback.asset_kind;
+            ({ data, error } = await supabase.from('supplier_catalog_groups').insert(fallback).select().single());
+        }
+        if (error) {
+            console.error('POST industry-supplier catalog-groups:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        const payload = await buildSupplierCatalogGroupsPayload(ctx.supplier.id, assetKind);
+        res.status(201).json({ group: data, flat: payload.flat });
+    } catch (e) {
+        console.error('POST /api/me/industry-supplier/catalog-groups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/me/industry-supplier/catalog-groups/:id
+app.put('/api/me/industry-supplier/catalog-groups/:id', express.json(), async (req, res) => {
+    try {
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const id = (req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const body = req.body || {};
+        const patch = { updated_at: new Date().toISOString() };
+        if (body.name != null) {
+            const name = String(body.name).trim();
+            if (!name) return res.status(400).json({ error: '名稱不可為空' });
+            patch.name = name;
+            patch.slug = slugifyVendorCatalogGroupName(name);
+        }
+        if (body.parent_id !== undefined) {
+            const pid = body.parent_id ? String(body.parent_id).trim() : null;
+            if (pid) {
+                const { data: parent } = await supabase
+                    .from('supplier_catalog_groups')
+                    .select('id')
+                    .eq('id', pid)
+                    .eq('industry_supplier_id', ctx.supplier.id)
+                    .maybeSingle();
+                if (!parent) return res.status(400).json({ error: '上層分類不存在' });
+            }
+            patch.parent_id = pid;
+        }
+        const { data, error } = await supabase
+            .from('supplier_catalog_groups')
+            .update(patch)
+            .eq('id', id)
+            .eq('industry_supplier_id', ctx.supplier.id)
+            .select()
+            .single();
+        if (error) {
+            console.error('PUT industry-supplier catalog-groups:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        if (!data) return res.status(404).json({ error: '找不到分類' });
+        res.json({ group: data });
+    } catch (e) {
+        console.error('PUT /api/me/industry-supplier/catalog-groups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/industry-supplier/catalog-groups/reorder
+app.post('/api/me/industry-supplier/catalog-groups/reorder', express.json(), async (req, res) => {
+    try {
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        if (!(await supplierCatalogGroupsTableReady())) {
+            return res.status(500).json({ error: '請執行 docs/add-supplier-catalog-groups.sql' });
+        }
+        const order = Array.isArray(req.body && req.body.order) ? req.body.order.map(String) : [];
+        const assetKind = normalizeVendorCatalogGroupKindFilter(req.body && req.body.asset_kind) || 'prototype';
+        if (!order.length) return res.status(400).json({ error: '請提供排序' });
+        let idx = 0;
+        for (const gid of order) {
+            await supabase
+                .from('supplier_catalog_groups')
+                .update({ sort_order: idx++, updated_at: new Date().toISOString() })
+                .eq('id', gid)
+                .eq('industry_supplier_id', ctx.supplier.id);
+        }
+        const payload = await buildSupplierCatalogGroupsPayload(ctx.supplier.id, assetKind);
+        res.json({ ok: true, flat: payload.flat });
+    } catch (e) {
+        console.error('POST industry-supplier catalog-groups/reorder:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/me/industry-supplier/catalog-groups/:id
+app.delete('/api/me/industry-supplier/catalog-groups/:id', async (req, res) => {
+    try {
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const id = (req.params.id || '').trim();
+        const { error } = await supabase
+            .from('supplier_catalog_groups')
+            .delete()
+            .eq('id', id)
+            .eq('industry_supplier_id', ctx.supplier.id);
+        if (error) {
+            console.error('DELETE industry-supplier catalog-groups:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.json({ ok: true });
+    } catch (e) {
+        console.error('DELETE /api/me/industry-supplier/catalog-groups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/me/industry-supplier/catalog-items/upload-pricing — 與廠商素材庫相同扣點
 app.get('/api/me/industry-supplier/catalog-items/upload-pricing', async (req, res) => {
     try {
@@ -13396,7 +13731,7 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
                 });
             }
         }
-        const items = (rows || []).map((row) => {
+        let items = (rows || []).map((row) => {
             const references = refsByCatalog[row.id] || [];
             return {
                 ...row,
@@ -13404,6 +13739,11 @@ app.get('/api/me/industry-supplier/catalog-items', async (req, res) => {
                 references: includeRefs ? references : []
             };
         });
+        try {
+            items = await attachCatalogGroupsToSupplierItems(items);
+        } catch (grpErr) {
+            console.warn('attachCatalogGroupsToSupplierItems:', grpErr.message);
+        }
         res.json({ supplier: ctx.supplier, items });
     } catch (e) {
         console.error('GET /api/me/industry-supplier/catalog-items:', e);
@@ -13510,6 +13850,14 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemUpload, a
             owner_id: ownerId,
             category_key: categoryKey
         });
+        if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
+            await setSupplierCatalogItemCatalogGroups(
+                inserted.id,
+                ctx.supplier.id,
+                parseCatalogGroupIdsFromBody(body),
+                itemKind
+            );
+        }
         const pointsMeta = await consumeSupplierCatalogUploadPoints(
             ownerId,
             pipeline.isAdmin,
@@ -13573,11 +13921,18 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             const baseSpec = (existing.spec_json && typeof existing.spec_json === 'object') ? existing.spec_json : {};
             patch.spec_json = parseSupplierCatalogSpecJson(itemKind, { ...baseSpec, ...body, spec_json: body.spec_json || baseSpec });
         }
-        const manualTags = parseAiTagsFromBody(body);
-        if (manualTags && manualTags.length) {
-            patch.ai_tags = manualTags;
+        if (body.ai_tags !== undefined) {
+            const manualTags = parseAiTagsFromBody(body);
+            patch.ai_tags = manualTags || [];
             patch.tags_source = body.image_semantics_json ? 'gemini' : 'manual';
             patch.ai_tags_generated_at = new Date().toISOString();
+            if (body.image_semantics_json) {
+                try {
+                    patch.image_semantics_json = typeof body.image_semantics_json === 'string'
+                        ? JSON.parse(body.image_semantics_json)
+                        : body.image_semantics_json;
+                } catch (_) {}
+            }
         }
         let pointsMeta = { points_deducted: 0, balance_after: null };
         let productOptimized = false;
@@ -13653,8 +14008,21 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             console.error('PATCH industry-supplier catalog-item:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
+        if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
+            await setSupplierCatalogItemCatalogGroups(
+                itemId,
+                ctx.supplier.id,
+                parseCatalogGroupIdsFromBody(body),
+                itemKind
+            );
+        }
+        let itemOut = updated;
+        try {
+            const withGroups = await attachCatalogGroupsToSupplierItems([updated]);
+            if (withGroups && withGroups[0]) itemOut = withGroups[0];
+        } catch (_) {}
         res.json({
-            item: updated,
+            item: itemOut,
             points_deducted: pointsMeta.points_deducted,
             balance_after: pointsMeta.balance_after,
             product_optimized: productOptimized
