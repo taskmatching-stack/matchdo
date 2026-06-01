@@ -162,10 +162,13 @@
                                     <div class="supplier-ref-status alert alert-success border-0 small py-2 d-none mb-2"></div>
                                     <div class="supplier-import-locked-line alert alert-warning small py-2 mb-2 d-none"></div>
                                     <input type="file" class="d-none add-image-picker-one" accept="image/*">
-                                    <button type="button" class="btn btn-outline-primary btn-sm btn-add-pending-image"><i class="bi bi-plus-lg me-1"></i>新增圖片</button>
+                                    <input type="file" class="form-control add-image-multi" accept="image/*" multiple>
+                                    <div class="d-flex flex-wrap gap-2 mt-2 mb-0">
+                                        <button type="button" class="btn btn-outline-primary btn-sm btn-add-pending-image"><i class="bi bi-plus-lg me-1"></i>新增圖片</button>
+                                    </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1">可多次按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
@@ -253,10 +256,13 @@
                                     <div class="supplier-ref-status alert alert-success border-0 small py-2 d-none mb-2"></div>
                                     <div class="supplier-import-locked-line alert alert-warning small py-2 mb-2 d-none"></div>
                                     <input type="file" class="d-none add-image-picker-one" accept="image/*">
-                                    <button type="button" class="btn btn-outline-primary btn-sm btn-add-pending-image"><i class="bi bi-plus-lg me-1"></i>新增圖片</button>
+                                    <input type="file" class="form-control add-image-multi" accept="image/*" multiple>
+                                    <div class="d-flex flex-wrap gap-2 mt-2 mb-0">
+                                        <button type="button" class="btn btn-outline-primary btn-sm btn-add-pending-image"><i class="bi bi-plus-lg me-1"></i>新增圖片</button>
+                                    </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1">可多次按「新增圖片」逐張加入（第一張為封面）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
@@ -428,7 +434,7 @@
                             <label class="form-label">產品圖片（多角度）</label>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
                             <div id="edit-pending-gallery" class="row g-2 mb-2 d-none"></div>
-                            <input type="file" class="d-none" id="edit-add-gallery-input" accept="image/*">
+                            <input type="file" class="d-none" id="edit-add-gallery-input" accept="image/*" multiple>
                             <div class="d-flex flex-wrap gap-2 mb-2">
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
                                 <button type="button" class="btn btn-sm btn-success d-none" id="btn-edit-upload-pending-gallery"><i class="bi bi-cloud-upload me-1"></i>上傳待傳圖片</button>
@@ -867,33 +873,62 @@
             syncAddFormOptimizeBgWrap(form);
         }
 
+        function clearSupplierRefForManualUpload(form) {
+            if (!form || form.dataset.supplierImported !== '1') return;
+            delete form.dataset.supplierImported;
+            delete form.dataset.supplierVendorAssetId;
+            var st = form.querySelector('.supplier-ref-status');
+            if (st) { st.classList.add('d-none'); st.innerHTML = ''; }
+            showLocalImagePreview(form.querySelector('.add-image-preview'), null);
+        }
+
+        function appendFilesToPending(form, fileList) {
+            if (!form || !fileList || !fileList.length) return 0;
+            var list = getPendingImages(form);
+            var added = 0;
+            for (var i = 0; i < fileList.length; i++) {
+                if (list.length >= PROTOTYPE_MAX_IMAGES) {
+                    showToast('最多 ' + PROTOTYPE_MAX_IMAGES + ' 張圖片', 'warning');
+                    break;
+                }
+                list.push({
+                    id: 'p' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2),
+                    file: fileList[i],
+                    optimize: false
+                });
+                added++;
+            }
+            if (added) {
+                clearSupplierRefForManualUpload(form);
+                renderPendingImages(form);
+                updateAddFormPointsEstimate(form);
+            }
+            return added;
+        }
+
         function wirePendingImageUpload(form) {
             var kind = form.getAttribute('data-kind');
             if (kind !== 'prototype' && kind !== 'part') return;
             var picker = form.querySelector('.add-image-picker-one');
+            var multiInput = form.querySelector('.add-image-multi');
             var btn = form.querySelector('.btn-add-pending-image');
-            if (!picker || !btn) return;
-            btn.addEventListener('click', function () { picker.click(); });
-            picker.addEventListener('change', function () {
-                var f = picker.files && picker.files[0];
-                picker.value = '';
-                if (!f) return;
-                var list = getPendingImages(form);
-                if (list.length >= PROTOTYPE_MAX_IMAGES) {
-                    showToast('最多 ' + PROTOTYPE_MAX_IMAGES + ' 張圖片', 'warning');
-                    return;
-                }
-                if (form.dataset.supplierImported === '1') {
-                    delete form.dataset.supplierImported;
-                    delete form.dataset.supplierVendorAssetId;
-                    var st = form.querySelector('.supplier-ref-status');
-                    if (st) { st.classList.add('d-none'); st.innerHTML = ''; }
-                    showLocalImagePreview(form.querySelector('.add-image-preview'), null);
-                }
-                list.push({ id: 'p' + Date.now() + '-' + Math.random().toString(36).slice(2), file: f, optimize: false });
-                renderPendingImages(form);
-                updateAddFormPointsEstimate(form);
-            });
+            if (btn && picker) {
+                btn.addEventListener('click', function () { picker.click(); });
+                picker.addEventListener('change', function () {
+                    var f = picker.files && picker.files[0];
+                    picker.value = '';
+                    if (!f) return;
+                    appendFilesToPending(form, [f]);
+                });
+            }
+            if (multiInput) {
+                multiInput.addEventListener('change', function () {
+                    var files = multiInput.files;
+                    if (!files || !files.length) return;
+                    appendFilesToPending(form, files);
+                    multiInput.value = '';
+                });
+            }
         }
 
         function renderEditGallery(m) {
@@ -2129,10 +2164,16 @@
             document.getElementById('edit-add-gallery-input').click();
         });
         document.getElementById('edit-add-gallery-input').addEventListener('change', function () {
-            var f = this.files && this.files[0];
+            var files = this.files;
             this.value = '';
-            if (!f) return;
-            editPendingGallery.push({ id: 'e' + Date.now() + '-' + Math.random().toString(36).slice(2), file: f, optimize: false });
+            if (!files || !files.length) return;
+            for (var ei = 0; ei < files.length; ei++) {
+                editPendingGallery.push({
+                    id: 'e' + Date.now() + '-' + ei + '-' + Math.random().toString(36).slice(2),
+                    file: files[ei],
+                    optimize: false
+                });
+            }
             renderEditPendingGallery();
         });
         document.getElementById('btn-edit-upload-pending-gallery').addEventListener('click', function () {
