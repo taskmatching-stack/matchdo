@@ -541,13 +541,16 @@ function loadHeaderSupplierNavLinks(headerContainer) {
         var fallback = '/client/supplier-catalog-manage.html';
         link.href = fallback;
         var caps = window.__ME_CAPABILITIES__;
+        if (caps && caps.is_industry_supplier === false) {
+            return;
+        }
         if (caps && caps.industry_supplier_id) {
             link.href = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(caps.industry_supplier_id);
             link.setAttribute('target', '_blank');
             link.setAttribute('rel', 'noopener noreferrer');
             return;
         }
-        fetch('/api/me/industry-supplier', { headers: { Authorization: 'Bearer ' + session.access_token } })
+        fetch('/api/me/industry-supplier?lite=1', { headers: { Authorization: 'Bearer ' + session.access_token } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
                 var sup = data && data.supplier;

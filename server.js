@@ -1357,6 +1357,10 @@ async function getMeIndustrySupplier(req, res) {
         return null;
     }
     if (!supplier) {
+        const lite = req.query && (req.query.lite === '1' || req.query.manage === '1');
+        if (lite) {
+            return res.json({ supplier: null, code: 'NO_SUPPLIER_PROFILE' });
+        }
         res.status(404).json({
             error: '尚未建立產業供應商公司資料。請至「上架數位產品庫」填寫公司名稱並建立。',
             code: 'NO_SUPPLIER_PROFILE'

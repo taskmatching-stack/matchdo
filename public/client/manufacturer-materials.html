@@ -1811,7 +1811,6 @@
         });
 
         function openEditModal(id) {
-            if (isSeedVendor) return;
             var m = materialsAll.find(function (x) { return x.id === id; });
             if (!m) return;
             var kindNorm = normalizeKind(m.asset_kind);
