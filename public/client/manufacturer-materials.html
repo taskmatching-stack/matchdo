@@ -433,6 +433,8 @@
                         <div class="mb-3 d-none" id="edit-images-prototype-wrap">
                             <label class="form-label">產品圖片（多角度）</label>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
+                            <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="status"></div>
+                            <p id="edit-pending-gallery-hint" class="fw-semibold small text-primary mb-1 d-none"></p>
                             <div id="edit-pending-gallery" class="row g-2 mb-2 d-none"></div>
                             <label class="form-label small text-muted mb-1">新增角度圖</label>
                             <input type="file" class="form-control form-control-sm mb-2" id="edit-add-gallery-input" accept="image/*" multiple>
@@ -737,8 +739,16 @@
         function assetImageUrls(m) {
             if (!m) return [];
             if (m.image_urls && m.image_urls.length) return m.image_urls.slice();
-            if (m.image_url) return [m.image_url];
-            return [];
+            var urls = [];
+            if (m.image_url) urls.push(m.image_url);
+            var gal = m.gallery_images;
+            if (Array.isArray(gal)) {
+                gal.forEach(function (g) {
+                    var u = (typeof g === 'string') ? g : (g && g.url);
+                    if (u && urls.indexOf(u) < 0) urls.push(u);
+                });
+            }
+            return urls.length ? urls : [];
         }
 
         function showLocalImagePreview(container, file) {
@@ -1020,34 +1030,77 @@
             wrap.classList.toggle('d-none', !any);
         }
 
+        function setEditGalleryStatus(msg, type) {
+            var el = document.getElementById('edit-gallery-status');
+            if (!el) return;
+            if (!msg) {
+                el.classList.add('d-none');
+                el.textContent = '';
+                el.className = 'alert alert-info border-0 small py-2 mb-2 d-none';
+                return;
+            }
+            el.className = 'alert border-0 small py-2 mb-2 alert-' + (type || 'info');
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+
         function renderEditPendingGallery() {
             var wrap = document.getElementById('edit-pending-gallery');
-            var uploadBtn = document.getElementById('btn-edit-upload-pending-gallery');
+            var hint = document.getElementById('edit-pending-gallery-hint');
             if (!wrap) return;
             revokePendingImageUrls(wrap);
             wrap.innerHTML = '';
             if (!editPendingGallery.length) {
                 wrap.classList.add('d-none');
+                if (hint) hint.classList.add('d-none');
                 syncEditPendingOptimizeBgWrap();
                 updateEditPendingUploadBtn();
                 return;
             }
             wrap.classList.remove('d-none');
+            if (hint) {
+                hint.classList.remove('d-none');
+                hint.textContent = '待上傳 ' + editPendingGallery.length + ' 張';
+            }
             editPendingGallery.forEach(function (item, idx) {
                 var col = document.createElement('div');
                 col.className = 'col-6 col-sm-4';
                 var card = document.createElement('div');
                 card.className = 'pending-image-card';
                 var url = URL.createObjectURL(item.file);
-                card.innerHTML = '<span class="badge bg-secondary mb-1" style="font-size:0.65rem">待上傳</span>' +
-                    '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="">' +
-                    '<div class="form-check form-check-sm mt-1 mb-0">' +
-                    '<input class="form-check-input edit-pending-optimize-chk" type="checkbox" id="epo-' + esc(item.id) + '"' + (item.optimize ? ' checked' : '') + '>' +
-                    '<label class="form-check-label small" for="epo-' + esc(item.id) + '">AI 重繪</label></div>' +
-                    '<button type="button" class="btn btn-outline-danger btn-sm mt-1 pending-remove">移除</button>';
+                var badge = document.createElement('span');
+                badge.className = 'badge bg-secondary mb-1';
+                badge.style.fontSize = '0.65rem';
+                badge.textContent = '待上傳';
+                card.appendChild(badge);
+                var img = document.createElement('img');
+                img.src = url;
+                img.setAttribute('data-object-url', url);
+                img.className = 'matchdo-enlarge-trigger';
+                img.alt = '';
+                card.appendChild(img);
+                var chkWrap = document.createElement('div');
+                chkWrap.className = 'form-check form-check-sm mt-1 mb-0';
+                var chk = document.createElement('input');
+                chk.type = 'checkbox';
+                chk.className = 'form-check-input edit-pending-optimize-chk';
+                chk.id = 'epo-' + item.id;
+                chk.checked = !!item.optimize;
+                var lbl = document.createElement('label');
+                lbl.className = 'form-check-label small';
+                lbl.setAttribute('for', chk.id);
+                lbl.textContent = 'AI 重繪';
+                chkWrap.appendChild(chk);
+                chkWrap.appendChild(lbl);
+                card.appendChild(chkWrap);
+                var rm = document.createElement('button');
+                rm.type = 'button';
+                rm.className = 'btn btn-outline-danger btn-sm mt-1 pending-remove';
+                rm.textContent = '移除';
+                card.appendChild(rm);
                 col.appendChild(card);
                 wrap.appendChild(col);
-                card.querySelector('.edit-pending-optimize-chk').addEventListener('change', function () {
+                chk.addEventListener('change', function () {
                     item.optimize = this.checked;
                     if (item.optimize) cancelEditGalleryAutoUpload();
                     else if (editPendingGallery.length && !editPendingGallery.some(function (p) { return p.optimize; })) {
@@ -1056,7 +1109,7 @@
                     syncEditPendingOptimizeBgWrap();
                     updateEditPendingUploadBtn();
                 });
-                card.querySelector('.pending-remove').addEventListener('click', function () {
+                rm.addEventListener('click', function () {
                     var i = editPendingGallery.findIndex(function (x) { return x.id === item.id; });
                     if (i >= 0) editPendingGallery.splice(i, 1);
                     renderEditPendingGallery();
@@ -1067,6 +1120,7 @@
             });
             syncEditPendingOptimizeBgWrap();
             updateEditPendingUploadBtn();
+            try { wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
         }
 
         function appendFilesToEditPendingGallery(fileList) {
@@ -1079,6 +1133,7 @@
                 });
             }
             renderEditPendingGallery();
+            setEditGalleryStatus('已選擇圖片，正在加入…', 'info');
             scheduleEditGalleryAutoUpload();
         }
 
@@ -1094,7 +1149,8 @@
 
         async function uploadEditPendingGallery() {
             var id = document.getElementById('edit-id').value;
-            if (!id || !editPendingGallery.length) return;
+            if (!id || !editPendingGallery.length) return false;
+            cancelEditGalleryAutoUpload();
             var fd = new FormData();
             var optIdx = [];
             editPendingGallery.forEach(function (item, i) {
@@ -1107,28 +1163,51 @@
             }
             var uploadBtn = document.getElementById('btn-edit-upload-pending-gallery');
             if (uploadBtn) uploadBtn.disabled = true;
+            setEditGalleryStatus('上傳中…', 'info');
             try {
+                var tok = token || (await getToken());
+                if (!tok) {
+                    setEditGalleryStatus('請先登入', 'danger');
+                    return false;
+                }
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
                     method: 'POST',
-                    headers: { Authorization: 'Bearer ' + token },
+                    headers: { Authorization: 'Bearer ' + tok },
                     body: fd
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 402) {
-                    showToast((data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
-                    return;
+                    var msg402 = (data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')';
+                    setEditGalleryStatus(msg402, 'danger');
+                    showToast(msg402, 'danger');
+                    return false;
                 }
-                if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
+                if (!r.ok) {
+                    var errMsg = data.error || data.message || ('上傳失敗 (' + r.status + ')');
+                    setEditGalleryStatus(errMsg, 'danger');
+                    showToast(errMsg, 'danger');
+                    return false;
+                }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 if (idx >= 0) materialsAll[idx] = data;
                 renderEditGallery(data);
                 clearEditPendingGallery();
+                setEditGalleryStatus('', null);
                 var okMsg = tr('baseModels.galleryAdded', '已新增角度圖');
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 showToast(okMsg);
                 await loadMaterials();
-            } catch (err) { showToast(err.message, 'danger'); }
-            finally { if (uploadBtn) uploadBtn.disabled = false; }
+                var refreshed = materialsAll.find(function (x) { return x.id === id; });
+                if (refreshed) renderEditGallery(refreshed);
+                return true;
+            } catch (err) {
+                setEditGalleryStatus(err.message || '上傳失敗', 'danger');
+                showToast(err.message, 'danger');
+                return false;
+            } finally {
+                if (uploadBtn) uploadBtn.disabled = false;
+                updateEditPendingUploadBtn();
+            }
         }
         function showToast(msg, type) {
             type = type || 'success';
@@ -2183,6 +2262,7 @@
             }
             if (isProtoLike) renderEditGallery(m);
             clearEditPendingGallery();
+            setEditGalleryStatus('', null);
             document.getElementById('edit-optimize-image').checked = false;
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
             editPending.semantics = m.image_semantics_json || null;

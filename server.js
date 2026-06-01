@@ -1032,8 +1032,11 @@ function autoVendorAssetTitleFromSemantics(semanticsJson, assetKind, locale, hin
 function mapVendorAssetForApi(row, lang) {
     if (!row) return row;
     const kind = normalizeVendorAssetKind(row.asset_kind);
-    const gallery = kind === 'prototype' ? parseGalleryImages(row.gallery_images) : [];
-    const imageUrls = kind === 'prototype' ? getVendorAssetAllImageUrls({ ...row, gallery_images: gallery }) : (row.image_url ? [row.image_url] : []);
+    const multiImageKind = kind === 'prototype' || kind === 'part';
+    const gallery = multiImageKind ? parseGalleryImages(row.gallery_images) : [];
+    const imageUrls = multiImageKind
+        ? getVendorAssetAllImageUrls({ ...row, gallery_images: gallery })
+        : (row.image_url ? [row.image_url] : []);
     return {
         ...row,
         asset_kind: kind,
