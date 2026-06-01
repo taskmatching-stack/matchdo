@@ -247,36 +247,16 @@
     (function () {
         var token = null;
         var mfrId = null;
-        var SEED_MSG_LOCKED = '此為種子展示帳號且為免費會員（一般），目前僅能瀏覽。請至後台將會員等級改為進階以上即可編輯。';
-        var SEED_MSG_OPEN = '此為種子展示帳號；您已具付費會員權益，可如一般廠商編輯。';
-
-        async function applySeedVendorLockUi(vendorSource) {
-            if (vendorSource !== 'seed') return;
-            var locked = true;
-            try {
-                var cr = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
-                var cap = await cr.json().catch(function () { return {}; });
-                locked = cap.seed_vendor_self_service_locked !== false;
-            } catch (e) { locked = true; }
+        async function applySeedVendorInfoBanner(vendorSource) {
             var banner = document.getElementById('seed-vendor-banner');
-            if (banner) {
-                banner.classList.remove('d-none');
-                banner.className = 'alert border-0 rounded-0 mb-0 ' + (locked ? 'alert-info' : 'alert-warning');
-                banner.innerHTML = '<i class="bi bi-' + (locked ? 'info-circle' : 'seedling') + ' me-2"></i>' + (locked ? SEED_MSG_LOCKED : SEED_MSG_OPEN);
+            if (!banner) return;
+            if (vendorSource !== 'seed') {
+                banner.classList.add('d-none');
+                return;
             }
-            var btnEdit = document.getElementById('btn-edit-mfr');
-            if (btnEdit && locked) {
-                var editHref = btnEdit.getAttribute('data-edit-href') || '/profile/contact-info.html';
-                btnEdit.setAttribute('data-edit-href', editHref);
-                btnEdit.href = '#';
-                btnEdit.onclick = function (e) {
-                    e.preventDefault();
-                    alert(SEED_MSG_LOCKED);
-                };
-            } else if (btnEdit) {
-                btnEdit.href = btnEdit.getAttribute('data-edit-href') || '/profile/contact-info.html';
-                btnEdit.onclick = null;
-            }
+            banner.classList.remove('d-none');
+            banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
+            banner.innerHTML = '<i class="bi bi-seedling me-2"></i>種子展示期：請完成上架；轉正式廠商後再交付帳密予廠商。';
         }
 
         async function getToken() {
@@ -315,7 +295,7 @@
                 }
                 var btnPubOpen = document.getElementById('btn-public-page-open');
                 if (btnPubOpen) btnPubOpen.href = publicUrl;
-                await applySeedVendorLockUi(mfr.vendor_source);
+                await applySeedVendorInfoBanner(mfr.vendor_source);
                 var profileUrlInput = document.getElementById('mfr-profile-url');
                 if (profileUrlInput) {
                     var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';

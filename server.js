@@ -1321,10 +1321,6 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
         res.status(403).json({ error: '廠商資料已停用', code: 'MANUFACTURER_INACTIVE' });
         return null;
     }
-    if (mfr.vendor_source === 'seed') {
-        res.status(403).json({ error: '種子廠商由平台代為維護，無法導入產業供應商材料。' });
-        return null;
-    }
     if (requirePortfolio) {
         const staffBypass = await isStaffProfileUserId(user.id);
         if (!staffBypass) {
@@ -2328,26 +2324,9 @@ function manufacturerIsSeedVendor(mfr) {
     return !!(mfr && mfr.vendor_source === 'seed');
 }
 
-/** 種子＋免費（一般）綁定帳號僅供瀏覽；進階以上與一般付費廠商相同可編輯 */
-const SEED_VENDOR_OWNER_READONLY_MSG =
-    '此為種子展示帳號且目前為免費會員（一般），僅供瀏覽。請在後台「一般會員」將會員等級設為進階以上，即可如付費廠商編輯；或至「種子入駐」代傳素材。';
-
-async function rejectSeedVendorSelfServiceWrite(userId, mfrOrManufacturerId, res) {
-    let mfr = mfrOrManufacturerId;
-    if (typeof mfrOrManufacturerId === 'string' || typeof mfrOrManufacturerId === 'number') {
-        const { data } = await supabase
-            .from('manufacturers')
-            .select('vendor_source, user_id')
-            .eq('id', String(mfrOrManufacturerId))
-            .maybeSingle();
-        mfr = data;
-    }
-    if (!mfr || mfr.vendor_source !== 'seed') return false;
-    if (!userId || mfr.user_id !== userId) return false;
-    if (await isStaffProfileUserId(userId)) return false;
-    if (await hasActivePaidSubscription(userId)) return false;
-    if (res) res.status(403).json({ error: SEED_VENDOR_OWNER_READONLY_MSG });
-    return true;
+/** 種子期間由平台用綁定帳號維護，不擋編輯；轉正式廠商後才交付帳密。付費／免費上傳仍走 hasActivePaidSubscription。 */
+async function rejectSeedVendorSelfServiceWrite(_userId, _mfrOrManufacturerId, _res) {
+    return false;
 }
 
 function manufacturerSeedPublicReleased(mfr) {
@@ -7166,10 +7145,17 @@ async function isStaffProfileUserId(userId) {
     return role === 'admin' || role === 'tester';
 }
 
-/** 限制 A：免費帳號不可上傳產品與素材（管理員／測試員除外）。見 docs/account-one-login-capabilities.md */
+async function isSeedManufacturerAccountUserId(userId) {
+    if (!userId) return false;
+    const { data } = await supabase.from('manufacturers').select('vendor_source').eq('user_id', userId).maybeSingle();
+    return !!(data && data.vendor_source === 'seed');
+}
+
+/** 限制 A：免費帳號不可上傳（種子展示期平台代維護、管理員／測試員除外） */
 async function canUploadProductsAndAssetsUserId(userId) {
     if (!userId) return false;
     if (await isStaffProfileUserId(userId)) return true;
+    if (await isSeedManufacturerAccountUserId(userId)) return true;
     return hasActivePaidSubscription(userId);
 }
 
@@ -13205,11 +13191,8 @@ app.get('/api/me/capabilities', async (req, res) => {
             else activePortfolioCount = (await hasEnabledPortfolioWork(mfr.id)) ? 1 : 0;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
-        const seedSelfServiceLocked = isSeed
-            && !(await isStaffProfileUserId(user.id))
-            && !(await hasActivePaidSubscription(user.id));
-        // 廠商資格：唯一門檻為至少 1 件啟用中作品；管理員／測試員可略過
-        const isQualifiedManufacturer = !!mfr && mfr.is_active !== false && !isSeed
+        // 廠商資格：至少 1 件啟用中作品（種子亦同，供平台維護期匯入材料）
+        const isQualifiedManufacturer = !!mfr && mfr.is_active !== false
             && (activePortfolioCount >= 1 || staffBypassPortfolio);
         const canImport = catalogReady && isQualifiedManufacturer;
         const canUploadProductsAndAssets = await canUploadProductsAndAssetsUserId(user.id);
@@ -13236,7 +13219,8 @@ app.get('/api/me/capabilities', async (req, res) => {
             portfolio_count: activePortfolioCount,
             bypass_supplier_portfolio_gate: staffBypassPortfolio,
             vendor_source: mfr ? mfr.vendor_source : null,
-            seed_vendor_self_service_locked: !!seedSelfServiceLocked,
+            is_seed_vendor: !!isSeed,
+            seed_vendor_self_service_locked: false,
             supplier_catalog_ready: catalogReady,
             can_upload_products_and_assets: canUploadProductsAndAssets,
             can_use_supplier_catalog: canImport,

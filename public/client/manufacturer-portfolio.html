@@ -312,28 +312,19 @@
         var token = null;
         var mfrId = null;
         var isSeedVendor = false;
-        var SEED_MSG_LOCKED = '此為種子展示帳號且為免費會員（一般），目前僅能瀏覽。請至後台將會員等級改為進階以上即可編輯。';
-        var SEED_MSG_OPEN = '此為種子展示帳號；您已具付費會員權益，可如一般廠商編輯作品與素材。';
-        async function applySeedVendorLockUi(vendorSource) {
+        async function applySeedVendorInfoBanner(vendorSource) {
+            isSeedVendor = false;
+            var banner = document.getElementById('seed-vendor-banner');
+            if (!banner) return;
             if (vendorSource !== 'seed') {
-                isSeedVendor = false;
+                banner.classList.add('d-none');
                 return;
             }
-            var locked = true;
-            try {
-                var cr = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
-                var cap = await cr.json().catch(function () { return {}; });
-                locked = cap.seed_vendor_self_service_locked !== false;
-            } catch (e) { locked = true; }
-            isSeedVendor = !!locked;
-            var banner = document.getElementById('seed-vendor-banner');
-            if (banner) {
-                banner.classList.remove('d-none');
-                banner.className = 'alert border-0 rounded-0 mb-0 ' + (locked ? 'alert-info' : 'alert-warning');
-                banner.innerHTML = '<i class="bi bi-' + (locked ? 'info-circle' : 'seedling') + ' me-2"></i>' + (locked ? SEED_MSG_LOCKED : SEED_MSG_OPEN);
-            }
+            banner.classList.remove('d-none');
+            banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
+            banner.innerHTML = '<i class="bi bi-seedling me-2"></i>種子展示期：請用此帳號完成作品與素材上架；<strong>轉正式廠商後</strong>再交付帳密予廠商自行維護。';
             var btnAdd = document.getElementById('btn-add-open');
-            if (btnAdd) btnAdd.classList.toggle('d-none', locked);
+            if (btnAdd) btnAdd.classList.remove('d-none');
         }
         var customCategories = [];
         var remakeCategories = [];
@@ -399,7 +390,7 @@
                 mfrId = mfr.id;
                 var linkPub = document.getElementById('link-public-vendor-page');
                 if (linkPub && mfrId) linkPub.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                await applySeedVendorLockUi(mfr.vendor_source);
+                await applySeedVendorInfoBanner(mfr.vendor_source);
                 document.getElementById('main-content').classList.remove('d-none');
                 document.title = tr('portfolio.pageTitle') + (isEn ? ' - MatchDO' : ' - MatchDO 合做');
                 try {
@@ -580,8 +571,8 @@
                     (p.design_highlight ? '<div class="text-muted small text-truncate mb-2">' + esc(p.design_highlight) + '</div>' : '') +
                     ((p.tags || []).length ? '<div class="mb-2">' + p.tags.slice(0,3).map(function(t){ return '<span class="badge bg-light text-secondary border me-1">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
                     '<div class="d-flex gap-2 mt-2">' +
-                    (isSeedVendor ? '<span class="text-muted small">由平台代為維護</span>' : ('<button class="btn btn-outline-primary btn-sm flex-fill" onclick="window._editPortfolio(\'' + p.id + '\')"><i class="bi bi-pencil me-1"></i>' + editLabel + '</button>' +
-                    '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || unnamed).replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>')) +
+                    '<button class="btn btn-outline-primary btn-sm flex-fill" onclick="window._editPortfolio(\'' + p.id + '\')"><i class="bi bi-pencil me-1"></i>' + editLabel + '</button>' +
+                    '<button class="btn btn-outline-danger btn-sm" onclick="window._deletePortfolio(\'' + p.id + '\',\'' + esc(p.title || unnamed).replace(/'/g, "\\'") + '\')"><i class="bi bi-trash"></i></button>' +
                     '</div></div></div></div>';
             }).join('');
             if (!isSeedVendor && portfolioItems.length > 1) bindPortfolioDragSort(grid);
@@ -853,7 +844,6 @@
         }
 
         window._editPortfolio = function (pid) {
-            if (isSeedVendor) { alert(SEED_MSG_LOCKED); return; }
             var p = portfolioItems.find(function (x) { return x.id == pid; });
             if (!p) return;
             document.getElementById('edit-id').value = p.id;
@@ -919,7 +909,6 @@
         };
 
         window._deletePortfolio = function (pid, title) {
-            if (isSeedVendor) { alert(SEED_MSG_LOCKED); return; }
             deleteTargetId = pid;
             var msg = (tr('portfolio.deleteConfirm') || '確定要刪除「{title}」？此操作無法還原。').replace(/\{title\}/g, title);
             document.getElementById('delete-confirm-text').textContent = msg;
