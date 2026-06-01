@@ -432,8 +432,8 @@
                         </div>
                         <div class="mb-3 d-none" id="edit-images-prototype-wrap">
                             <label class="form-label">產品圖片（多角度）</label>
+                            <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
-                            <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="status"></div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></label>
                             <div class="form-check form-check-sm mb-2">
                                 <input class="form-check-input" type="checkbox" id="edit-gallery-optimize-next">
@@ -452,11 +452,15 @@
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
                             </div>
-                            <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
-                            <input type="file" class="d-none" id="edit-add-gallery-input-multi" accept="image/*" multiple>
                             <div class="d-flex flex-wrap gap-2 mb-2">
-                                <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
+                                <label class="btn btn-primary btn-sm mb-0" style="cursor:pointer">
+                                    <i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span>
+                                    <input type="file" class="d-none edit-gallery-file-input" id="edit-add-gallery-input-one" accept="image/*">
+                                </label>
+                                <label class="btn btn-outline-primary btn-sm mb-0" style="cursor:pointer">
+                                    <i class="bi bi-images me-1"></i>一次選多張
+                                    <input type="file" class="d-none edit-gallery-file-input" id="edit-add-gallery-input-multi" accept="image/*" multiple>
+                                </label>
                             </div>
                             <p class="form-text text-muted small mb-2">選檔後<strong>立即上傳</strong>並顯示在上方（第一張為封面）。可逐張按「新增角度圖」，或按「一次選多張」。更換封面請用下方「更換封面」。</p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
@@ -1018,16 +1022,33 @@
 
         async function uploadEditGalleryFiles(fileList) {
             var id = document.getElementById('edit-id').value;
-            if (!id || !fileList || !fileList.length || editGalleryUploading) return false;
+            if (!id) {
+                setEditGalleryStatus('找不到作品 ID，請關閉編輯視窗後重試', 'danger');
+                showToast('找不到作品 ID', 'danger');
+                return false;
+            }
+            if (!fileList || !fileList.length) {
+                setEditGalleryStatus('未選擇圖片', 'warning');
+                return false;
+            }
+            if (editGalleryUploading) {
+                setEditGalleryStatus('上一批仍在傳送中，請稍候', 'warning');
+                return false;
+            }
+            var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
+            var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
             editGalleryUploading = true;
             var inputOne = document.getElementById('edit-add-gallery-input-one');
             var inputMulti = document.getElementById('edit-add-gallery-input-multi');
-            var btnAdd = document.getElementById('btn-edit-add-gallery');
-            var btnMulti = document.getElementById('btn-edit-add-gallery-multi');
+            var galleryWrap = document.getElementById('edit-images-prototype-wrap');
             if (inputOne) inputOne.disabled = true;
             if (inputMulti) inputMulti.disabled = true;
-            if (btnAdd) btnAdd.disabled = true;
-            if (btnMulti) btnMulti.disabled = true;
+            if (galleryWrap) {
+                galleryWrap.querySelectorAll('label.btn').forEach(function (lb) {
+                    lb.classList.add('disabled');
+                    lb.style.pointerEvents = 'none';
+                });
+            }
             var fd = new FormData();
             var optimizeNext = document.getElementById('edit-gallery-optimize-next');
             var wantOpt = !!(optimizeNext && optimizeNext.checked);
@@ -1052,7 +1073,9 @@
                     headers: { Authorization: 'Bearer ' + tok },
                     body: fd
                 });
-                var data = await r.json().catch(function () { return {}; });
+                var rawBody = await r.text();
+                var data = {};
+                try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (parseErr) { data = {}; }
                 if (r.status === 402) {
                     var msg402 = (data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')';
                     setEditGalleryStatus(msg402, 'danger');
@@ -1060,7 +1083,7 @@
                     return false;
                 }
                 if (!r.ok) {
-                    var errMsg = data.error || data.message || ('上傳失敗 (HTTP ' + r.status + ')');
+                    var errMsg = data.error || data.message || (rawBody && rawBody.length < 200 ? rawBody : ('上傳失敗 (HTTP ' + r.status + ')'));
                     if (r.status === 500 && /gallery_images|多角度/.test(errMsg)) {
                         errMsg += ' — 請至 Supabase 執行 docs/add-vendor-asset-gallery-images.sql';
                     }
@@ -1072,6 +1095,12 @@
                 if (idx >= 0) materialsAll[idx] = data;
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
+                if (urlCount <= countBefore) {
+                    var migHint = '圖片可能未寫入資料庫。請在 Supabase 執行 docs/add-vendor-asset-gallery-images.sql，或開 F12 → Network 查看 gallery-images 回應。';
+                    setEditGalleryStatus(migHint, 'danger');
+                    showToast(migHint, 'danger');
+                    return false;
+                }
                 setEditGalleryStatus('已加入，目前共 ' + urlCount + ' 張圖', 'success');
                 var okMsg = tr('baseModels.galleryAdded', '已新增角度圖') + '（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
@@ -1090,8 +1119,12 @@
                 editGalleryUploading = false;
                 if (inputOne) inputOne.disabled = false;
                 if (inputMulti) inputMulti.disabled = false;
-                if (btnAdd) btnAdd.disabled = false;
-                if (btnMulti) btnMulti.disabled = false;
+                if (galleryWrap) {
+                    galleryWrap.querySelectorAll('label.btn').forEach(function (lb) {
+                        lb.classList.remove('disabled');
+                        lb.style.pointerEvents = '';
+                    });
+                }
             }
         }
         function showToast(msg, type) {
@@ -2147,6 +2180,7 @@
                 if (editImg) editImg.src = '';
             }
             if (isProtoLike) renderEditGallery(m);
+            editGalleryUploading = false;
             setEditGalleryStatus('', null);
             var optNext = document.getElementById('edit-gallery-optimize-next');
             if (optNext) optNext.checked = false;
@@ -2182,26 +2216,19 @@
         document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
-        document.getElementById('btn-edit-add-gallery').addEventListener('click', function () {
-            if (editGalleryUploading) return;
-            document.getElementById('edit-add-gallery-input-one').click();
-        });
-        document.getElementById('btn-edit-add-gallery-multi').addEventListener('click', function () {
-            if (editGalleryUploading) return;
-            document.getElementById('edit-add-gallery-input-multi').click();
-        });
-        document.getElementById('edit-add-gallery-input-one').addEventListener('change', function () {
-            var files = this.files;
-            this.value = '';
-            if (!files || !files.length) return;
-            uploadEditGalleryFiles([files[0]]);
-        });
-        document.getElementById('edit-add-gallery-input-multi').addEventListener('change', function () {
-            var files = this.files;
-            this.value = '';
-            if (!files || !files.length) return;
-            uploadEditGalleryFiles(Array.prototype.slice.call(files));
-        });
+        (function () {
+            var wrap = document.getElementById('edit-images-prototype-wrap');
+            if (!wrap) return;
+            wrap.addEventListener('change', function (e) {
+                var t = e.target;
+                if (!t || !t.classList || !t.classList.contains('edit-gallery-file-input')) return;
+                var files = t.files;
+                t.value = '';
+                if (!files || !files.length) return;
+                var list = t.multiple ? Array.prototype.slice.call(files) : [files[0]];
+                uploadEditGalleryFiles(list);
+            });
+        })();
         var editGalleryOptNext = document.getElementById('edit-gallery-optimize-next');
         if (editGalleryOptNext) {
             editGalleryOptNext.addEventListener('change', syncEditGalleryOptimizeBgWrap);
