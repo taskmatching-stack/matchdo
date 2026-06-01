@@ -65,9 +65,7 @@
         </div>
     </div>
 
-    <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert">
-        <i class="bi bi-info-circle me-2"></i>您為種子廠商，由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。
-    </div>
+    <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert"></div>
 
     <div class="container py-4">
         <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html" class="alert-link">登入</a>。</div>
@@ -528,6 +526,30 @@
     (function () {
         var token = null;
         var isSeedVendor = false;
+        var SEED_MSG_VENDOR = '此為種子展示帳號，帳密尚未交付廠商，請勿自行修改。升級付費方案後可自行維護。';
+        var SEED_MSG_STAFF = '您以平台管理員／測試員身分代為維護此種子廠商，可直接編輯作品與素材。';
+        async function applySeedVendorLockUi(vendorSource) {
+            if (vendorSource !== 'seed') {
+                isSeedVendor = false;
+                return;
+            }
+            var locked = true;
+            try {
+                var cr = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
+                var cap = await cr.json().catch(function () { return {}; });
+                locked = cap.seed_vendor_self_service_locked !== false;
+            } catch (e) { locked = true; }
+            isSeedVendor = !!locked;
+            var banner = document.getElementById('seed-vendor-banner');
+            if (banner) {
+                banner.classList.remove('d-none');
+                banner.className = 'alert border-0 rounded-0 mb-0 ' + (locked ? 'alert-info' : 'alert-success');
+                banner.innerHTML = '<i class="bi bi-' + (locked ? 'info-circle' : 'shield-check') + ' me-2"></i>' + (locked ? SEED_MSG_VENDOR : SEED_MSG_STAFF);
+            }
+            document.querySelectorAll('.upload-panel').forEach(function (el) {
+                el.classList.toggle('d-none', locked);
+            });
+        }
         var categories = [];
         var materialsAll = [];
         var activeKind = 'prototype';
@@ -2334,15 +2356,11 @@
                 var mfrData = await mfrRes.json();
                 var linkPubMat = document.getElementById('link-public-vendor-page-mat');
                 if (linkPubMat && mfrData.id) linkPubMat.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrData.id);
-                isSeedVendor = (mfrData.vendor_source === 'seed');
-                if (isSeedVendor) {
-                    document.getElementById('seed-vendor-banner').classList.remove('d-none');
-                    document.querySelectorAll('.upload-panel').forEach(function (el) { el.classList.add('d-none'); });
-                }
                 document.getElementById('main-content').classList.remove('d-none');
                 await loadCategories();
                 await loadCatalogGroups();
                 await loadCapabilities();
+                await applySeedVendorLockUi(mfrData.vendor_source);
                 await loadUploadPricing();
                 await loadMaterials();
                 var hashKind = kindFromLocationHash();

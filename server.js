@@ -2328,6 +2328,27 @@ function manufacturerIsSeedVendor(mfr) {
     return !!(mfr && mfr.vendor_source === 'seed');
 }
 
+/** 種子綁定帳號本人不得改（帳密未交廠商）；管理員／測試員可代維護（含用該帳號登入時） */
+const SEED_VENDOR_OWNER_READONLY_MSG =
+    '此為種子展示帳號，尚未交付廠商前請勿自行修改。平台人員請以管理員／測試員身分操作，或至後台「種子入駐」代上傳；廠商欲自行維護請升級付費方案。';
+
+async function rejectSeedVendorSelfServiceWrite(userId, mfrOrManufacturerId, res) {
+    let mfr = mfrOrManufacturerId;
+    if (typeof mfrOrManufacturerId === 'string' || typeof mfrOrManufacturerId === 'number') {
+        const { data } = await supabase
+            .from('manufacturers')
+            .select('vendor_source, user_id')
+            .eq('id', String(mfrOrManufacturerId))
+            .maybeSingle();
+        mfr = data;
+    }
+    if (!mfr || mfr.vendor_source !== 'seed') return false;
+    if (!userId || mfr.user_id !== userId) return false;
+    if (await isStaffProfileUserId(userId)) return false;
+    if (res) res.status(403).json({ error: SEED_VENDOR_OWNER_READONLY_MSG });
+    return true;
+}
+
 function manufacturerSeedPublicReleased(mfr) {
     if (!manufacturerIsSeedVendor(mfr)) return true;
     return !!(mfr.seed_public_released_at);
@@ -10793,7 +10814,7 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
         const { data: mfr } = await supabase.from('manufacturers').select('id, contact_json, vendor_source').eq('user_id', user.id).maybeSingle();
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料' });
-        if (mfr.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        if (await rejectSeedVendorSelfServiceWrite(user.id, mfr, res)) return;
         const body = req.body || {};
         const updates = {};
         if (body.name !== undefined && body.name.trim()) updates.name = body.name.trim();
@@ -11359,7 +11380,7 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
         const isAdmin = await isAdminUserId(user.id);
         if (mfr.user_id !== user.id && !isAdmin) return res.status(403).json({ error: '僅廠商本人或管理員可上傳作品' });
-        if (mfr.vendor_source === 'seed' && mfr.user_id === user.id) return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        if (await rejectSeedVendorSelfServiceWrite(user.id, mfr, res)) return;
 
         const canUploadSeriesFree = await canEditMediaCollections(user.id);
         const canUploadBeforeFree = await canUploadPortfolioBeforeFree(user.id);
@@ -11464,9 +11485,7 @@ app.post('/api/manufacturers/:manufacturerId/portfolio/reorder', express.json(),
         if (!mfrRow) return res.status(404).json({ error: '找不到該廠商' });
         const isAdmin = await isAdminUserId(user.id);
         if (mfrRow.user_id !== user.id && !isAdmin) return res.status(403).json({ error: '僅廠商本人或管理員可調整作品順序' });
-        if (mfrRow.vendor_source === 'seed' && mfrRow.user_id === user.id) {
-            return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。' });
-        }
+        if (await rejectSeedVendorSelfServiceWrite(user.id, mfrRow, res)) return;
         const order = req.body && req.body.order;
         if (!Array.isArray(order) || !order.length) {
             return res.status(400).json({ error: '請提供 order 陣列（作品 id 順序）' });
@@ -11537,7 +11556,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (!mfrPut) return res.status(404).json({ error: '找不到該廠商' });
         const isAdminPut = await isAdminUserId(user.id);
         if (mfrPut.user_id !== user.id && !isAdminPut) return res.status(403).json({ error: '僅廠商本人或管理員可編輯作品' });
-        if (mfrPut.vendor_source === 'seed' && mfrPut.user_id === user.id) return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        if (await rejectSeedVendorSelfServiceWrite(user.id, mfrPut, res)) return;
 
         const { data: row } = await supabase.from('manufacturer_portfolio').select('id, image_url, image_url_before').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該作品' });
@@ -11607,7 +11626,7 @@ app.delete('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', async (r
         if (!mfrDel) return res.status(404).json({ error: '找不到該廠商' });
         const isAdminDel = await isAdminUserId(user.id);
         if (mfrDel.user_id !== user.id && !isAdminDel) return res.status(403).json({ error: '僅廠商本人或管理員可刪除作品' });
-        if (mfrDel.vendor_source === 'seed' && mfrDel.user_id === user.id) return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        if (await rejectSeedVendorSelfServiceWrite(user.id, mfrDel, res)) return;
         const { data: row } = await supabase.from('manufacturer_portfolio').select('id').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該作品' });
         const { error } = await supabase.from('manufacturer_portfolio').delete().eq('id', portfolioId);
@@ -12304,18 +12323,13 @@ app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (r
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-        if (mfrVa && mfrVa.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const file = await vendorAssetFileFromMulter(req.file);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
         const body = req.body || {};
-        const authHeader = req.headers.authorization || req.headers['x-auth-token'];
-        const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
-        let ownerId = null;
-        if (token) {
-            const { data: { user } } = await supabase.auth.getUser(token);
-            ownerId = user?.id || null;
-        }
+        const ownerId = seedUser.id;
         const assetKindPreview = normalizeVendorAssetKind(body.asset_kind);
         const result = await runVendorAssetImageSemantics(file, {
             asset_kind: assetKindPreview,
@@ -12351,10 +12365,9 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-        if (mfrVa && mfrVa.vendor_source === 'seed') {
-            return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
-        }
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const body = req.body || {};
         const assetId = (body.asset_id || '').trim();
         const file = req.file;
@@ -12500,8 +12513,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (!uploadUser) return;
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-        if (mfrVa && mfrVa.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        if (await rejectSeedVendorSelfServiceWrite(uploadUser.id, manufacturerId, res)) return;
         const body = req.body || {};
         const categoryKey = (body.category_key || '').trim();
         if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
@@ -12774,10 +12786,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const { data: mfrRow } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-        if (mfrRow && mfrRow.vendor_source === 'seed') {
-            return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
-        }
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
             id, manufacturerId, 'id, image_url, gallery_images, asset_kind'
@@ -12823,6 +12834,9 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const targetUrl = String((req.body && req.body.url) || '').trim();
         if (!targetUrl) return res.status(400).json({ error: '請提供 url' });
@@ -12867,10 +12881,9 @@ app.patch('/api/me/vendor-assets/:id', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const { data: mfrVa } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-        if (mfrVa && mfrVa.vendor_source === 'seed') {
-            return res.status(403).json({ error: '種子廠商由平台代為維護，請由管理員於種子廠商後台調整素材上下架。' });
-        }
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const body = req.body || {};
         const updates = { updated_at: new Date().toISOString() };
@@ -12901,8 +12914,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const { data: mfrVaPut } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-        if (mfrVaPut && mfrVaPut.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const body = req.body || {};
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
@@ -13137,8 +13151,9 @@ app.delete('/api/me/vendor-assets/:id', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        const { data: mfrVaDel } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-        if (mfrVaDel && mfrVaDel.vendor_source === 'seed') return res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(id, manufacturerId, 'id, source_catalog_item_id');
         if (rowErr) {
@@ -13189,6 +13204,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             else activePortfolioCount = (await hasEnabledPortfolioWork(mfr.id)) ? 1 : 0;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
+        const seedSelfServiceLocked = isSeed && !(await isStaffProfileUserId(user.id));
         // 廠商資格：唯一門檻為至少 1 件啟用中作品；管理員／測試員可略過
         const isQualifiedManufacturer = !!mfr && mfr.is_active !== false && !isSeed
             && (activePortfolioCount >= 1 || staffBypassPortfolio);
@@ -13217,6 +13233,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             portfolio_count: activePortfolioCount,
             bypass_supplier_portfolio_gate: staffBypassPortfolio,
             vendor_source: mfr ? mfr.vendor_source : null,
+            seed_vendor_self_service_locked: !!seedSelfServiceLocked,
             supplier_catalog_ready: catalogReady,
             can_upload_products_and_assets: canUploadProductsAndAssets,
             can_use_supplier_catalog: canImport,
@@ -14938,15 +14955,12 @@ async function getMeManufacturerId(req, res) {
     return mfr.id;
 }
 
-// 種子廠商不得寫入時回傳 403（在 getMeManufacturerId 之後呼叫，傳入 manufacturerId）
-async function rejectSeedManufacturerWrite(manufacturerId, res) {
-    if (!manufacturerId) return true;
-    const { data: mfr } = await supabase.from('manufacturers').select('vendor_source').eq('id', manufacturerId).single();
-    if (mfr && mfr.vendor_source === 'seed') {
-        res.status(403).json({ error: '種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。' });
-        return true;
-    }
-    return false;
+// 種子廠商綁定帳號本人不得寫入（在 getMeManufacturerId 之後呼叫）
+async function rejectSeedManufacturerWrite(req, manufacturerId, res) {
+    if (!manufacturerId) return false;
+    const user = await getRequestUserFromAuthHeader(req);
+    if (!user) return false;
+    return rejectSeedVendorSelfServiceWrite(user.id, manufacturerId, res);
 }
 
 // POST /api/me/manufacturer/collections — 建立資料夾（需登入且為廠商）；種子廠商不得建立
@@ -14954,7 +14968,7 @@ app.post('/api/me/manufacturer/collections', express.json(), async (req, res) =>
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
         const body = req.body || {};
         const title = (body.title || '').trim();
         if (!title) return res.status(400).json({ error: '請填寫資料夾名稱' });
@@ -14987,7 +15001,7 @@ app.put('/api/me/manufacturer/collections/:id', express.json(), async (req, res)
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
         const collectionId = req.params.id;
         const { data: existing } = await supabase
             .from('manufacturer_collections')
@@ -15027,7 +15041,7 @@ app.delete('/api/me/manufacturer/collections/:id', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
         const collectionId = req.params.id;
         const { data: existing } = await supabase
             .from('manufacturer_collections')
@@ -15053,7 +15067,7 @@ app.post('/api/me/manufacturer/collections/:id/items', express.json(), async (re
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
         const collectionId = req.params.id;
         const { data: coll } = await supabase
             .from('manufacturer_collections')
@@ -15093,7 +15107,7 @@ app.delete('/api/me/manufacturer/collections/:id/items/:portfolioId', async (req
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
         const { id: collectionId, portfolioId } = req.params;
         const { data: coll } = await supabase
             .from('manufacturer_collections')

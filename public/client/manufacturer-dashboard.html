@@ -49,9 +49,7 @@
         </div>
     </div>
 
-    <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert">
-        <i class="bi bi-info-circle me-2"></i>您為種子廠商，由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。
-    </div>
+    <div id="seed-vendor-banner" class="alert alert-info border-0 rounded-0 mb-0 d-none" role="alert"></div>
 
     <div class="container py-4" style="max-width: 1100px;">
         <div id="public-page-card" class="card border-0 shadow-sm mb-4 d-none" style="border-left: 4px solid #0d6efd !important;">
@@ -249,6 +247,37 @@
     (function () {
         var token = null;
         var mfrId = null;
+        var SEED_MSG_VENDOR = '此為種子展示帳號，帳密尚未交付廠商，請勿自行修改。升級付費方案後可自行維護。';
+        var SEED_MSG_STAFF = '您以平台管理員／測試員身分代為維護此種子廠商，可直接編輯作品與素材。';
+
+        async function applySeedVendorLockUi(vendorSource) {
+            if (vendorSource !== 'seed') return;
+            var locked = true;
+            try {
+                var cr = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
+                var cap = await cr.json().catch(function () { return {}; });
+                locked = cap.seed_vendor_self_service_locked !== false;
+            } catch (e) { locked = true; }
+            var banner = document.getElementById('seed-vendor-banner');
+            if (banner) {
+                banner.classList.remove('d-none');
+                banner.className = 'alert border-0 rounded-0 mb-0 ' + (locked ? 'alert-info' : 'alert-success');
+                banner.innerHTML = '<i class="bi bi-' + (locked ? 'info-circle' : 'shield-check') + ' me-2"></i>' + (locked ? SEED_MSG_VENDOR : SEED_MSG_STAFF);
+            }
+            var btnEdit = document.getElementById('btn-edit-mfr');
+            if (btnEdit && locked) {
+                var editHref = btnEdit.getAttribute('data-edit-href') || '/profile/contact-info.html';
+                btnEdit.setAttribute('data-edit-href', editHref);
+                btnEdit.href = '#';
+                btnEdit.onclick = function (e) {
+                    e.preventDefault();
+                    alert(SEED_MSG_VENDOR);
+                };
+            } else if (btnEdit) {
+                btnEdit.href = btnEdit.getAttribute('data-edit-href') || '/profile/contact-info.html';
+                btnEdit.onclick = null;
+            }
+        }
 
         async function getToken() {
             if (typeof AuthService === 'undefined') return null;
@@ -286,18 +315,7 @@
                 }
                 var btnPubOpen = document.getElementById('btn-public-page-open');
                 if (btnPubOpen) btnPubOpen.href = publicUrl;
-                if (mfr.vendor_source === 'seed') {
-                    document.getElementById('seed-vendor-banner').classList.remove('d-none');
-                    var btnEdit = document.getElementById('btn-edit-mfr');
-                    if (btnEdit) {
-                        btnEdit.removeAttribute('href');
-                        btnEdit.href = '#';
-                        btnEdit.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            alert('種子廠商由平台代為維護，90 天內為公開展示不得編輯。如需自行編輯請至挖貝升級付費方案。');
-                        });
-                    }
-                }
+                await applySeedVendorLockUi(mfr.vendor_source);
                 var profileUrlInput = document.getElementById('mfr-profile-url');
                 if (profileUrlInput) {
                     var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
