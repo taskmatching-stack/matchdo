@@ -434,7 +434,7 @@
                             <label class="form-label">產品圖片（多角度）</label>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="status"></div>
-                            <label class="form-label small text-muted mb-1">新增角度圖（選檔後立即上傳）</label>
+                            <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></label>
                             <div class="form-check form-check-sm mb-2">
                                 <input class="form-check-input" type="checkbox" id="edit-gallery-optimize-next">
                                 <label class="form-check-label small" for="edit-gallery-optimize-next">本批新圖 AI 重繪（會扣點）</label>
@@ -452,8 +452,13 @@
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
                             </div>
-                            <input type="file" class="form-control form-control-sm mb-2" id="edit-add-gallery-input" accept="image/*" multiple>
-                            <p class="form-text text-muted small mb-2">第一張為封面。可一次選多張；選完即上傳並顯示在上方。更換封面請用下方「更換封面」。</p>
+                            <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
+                            <input type="file" class="d-none" id="edit-add-gallery-input-multi" accept="image/*" multiple>
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
+                            </div>
+                            <p class="form-text text-muted small mb-2">選檔後<strong>立即上傳</strong>並顯示在上方（第一張為封面）。可逐張按「新增角度圖」，或按「一次選多張」。更換封面請用下方「更換封面」。</p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
                             <input type="file" class="form-control" id="edit-image-prototype" accept="image/*">
                             <div id="edit-new-image-preview-proto" class="add-image-preview mt-2 d-none"></div>
@@ -1015,8 +1020,14 @@
             var id = document.getElementById('edit-id').value;
             if (!id || !fileList || !fileList.length || editGalleryUploading) return false;
             editGalleryUploading = true;
-            var inputEl = document.getElementById('edit-add-gallery-input');
-            if (inputEl) inputEl.disabled = true;
+            var inputOne = document.getElementById('edit-add-gallery-input-one');
+            var inputMulti = document.getElementById('edit-add-gallery-input-multi');
+            var btnAdd = document.getElementById('btn-edit-add-gallery');
+            var btnMulti = document.getElementById('btn-edit-add-gallery-multi');
+            if (inputOne) inputOne.disabled = true;
+            if (inputMulti) inputMulti.disabled = true;
+            if (btnAdd) btnAdd.disabled = true;
+            if (btnMulti) btnMulti.disabled = true;
             var fd = new FormData();
             var optimizeNext = document.getElementById('edit-gallery-optimize-next');
             var wantOpt = !!(optimizeNext && optimizeNext.checked);
@@ -1077,7 +1088,10 @@
                 return false;
             } finally {
                 editGalleryUploading = false;
-                if (inputEl) inputEl.disabled = false;
+                if (inputOne) inputOne.disabled = false;
+                if (inputMulti) inputMulti.disabled = false;
+                if (btnAdd) btnAdd.disabled = false;
+                if (btnMulti) btnMulti.disabled = false;
             }
         }
         function showToast(msg, type) {
@@ -2137,8 +2151,10 @@
             var optNext = document.getElementById('edit-gallery-optimize-next');
             if (optNext) optNext.checked = false;
             syncEditGalleryOptimizeBgWrap();
-            var galInput = document.getElementById('edit-add-gallery-input');
-            if (galInput) galInput.value = '';
+            var galOne = document.getElementById('edit-add-gallery-input-one');
+            var galMulti = document.getElementById('edit-add-gallery-input-multi');
+            if (galOne) galOne.value = '';
+            if (galMulti) galMulti.value = '';
             document.getElementById('edit-optimize-image').checked = false;
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
             editPending.semantics = m.image_semantics_json || null;
@@ -2166,12 +2182,25 @@
         document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
-        document.getElementById('edit-add-gallery-input').addEventListener('change', function () {
+        document.getElementById('btn-edit-add-gallery').addEventListener('click', function () {
+            if (editGalleryUploading) return;
+            document.getElementById('edit-add-gallery-input-one').click();
+        });
+        document.getElementById('btn-edit-add-gallery-multi').addEventListener('click', function () {
+            if (editGalleryUploading) return;
+            document.getElementById('edit-add-gallery-input-multi').click();
+        });
+        document.getElementById('edit-add-gallery-input-one').addEventListener('change', function () {
             var files = this.files;
-            if (!files || !files.length) return;
-            var list = Array.prototype.slice.call(files);
             this.value = '';
-            uploadEditGalleryFiles(list);
+            if (!files || !files.length) return;
+            uploadEditGalleryFiles([files[0]]);
+        });
+        document.getElementById('edit-add-gallery-input-multi').addEventListener('change', function () {
+            var files = this.files;
+            this.value = '';
+            if (!files || !files.length) return;
+            uploadEditGalleryFiles(Array.prototype.slice.call(files));
         });
         var editGalleryOptNext = document.getElementById('edit-gallery-optimize-next');
         if (editGalleryOptNext) {
