@@ -1,8 +1,8 @@
 # 廠商素材：數位原型（MOQ／訂製程度）與材料參考生圖 — 功能說明
 
-> 建立：2026-05-26 · 最後更新：2026-05-26  
+> 建立：2026-05-26 · 最後更新：2026-06-02  
 > 相關 migration：`docs/add-vendor-asset-prototype-moq-customization.sql`、`docs/add-vendor-asset-gallery-images.sql`  
-> 上線 commit 參考：`76c2736`（欄位）、`0ff5ec6`（按鈕 UI）、`b71e2b3`（篩選修正）、`5514f1d`（尺寸／零件）、`3c15eea`（列表 i18n）、材質紋理附錄（待 push，見下方 §材料）
+> 上線 commit 參考：`76c2736`（欄位）、`0ff5ec6`（按鈕 UI）、`b71e2b3`（篩選修正）、`5514f1d`（尺寸／零件）、`3c15eea`（列表 i18n）、多角度編輯 `95b4b98`（見下方 §多角度圖）、材質紋理附錄（§材料）
 
 ## 欄位定義（僅 `asset_kind = prototype`）
 
@@ -25,7 +25,7 @@
 
 ## 目前產品用途（已實作）
 
-- **廠商上傳／編輯**：`public/client/manufacturer-materials.html`
+- **廠商上傳／編輯**：`public/client/manufacturer-materials.html`（含**多角度圖**新增／編輯，見 §多角度圖）
 - **設計頁素材庫篩選**：`public/custom-product.html` + `public/js/custom-product.js`
 - **公開 API**：`GET /api/vendor-assets`
   - `min_order_quantity`：**精確相等**（訂製者輸入 N → 只顯示 MOQ = N 的原型）
@@ -116,6 +116,23 @@ ORDER BY min_order_quantity;
 | 附錄開頭 | — | 使用者產品描述為主；下列僅限未支援項目 |
 | 多個參考原型 | — | 各原型分開列出；圖文能力取交集（最嚴） |
 | 材料參考（`material`） | — | 另附「材質紋理參考」段（見 §材料） |
+
+---
+
+## 多角度圖（`prototype`／`part`，2026-06）
+
+> 進度與排查紀錄：**`docs/PROGRESS-vendor-asset-gallery-edit.md`**
+
+| 項目 | 說明 |
+|------|------|
+| **DB** | `gallery_images` jsonb，migration：`docs/add-vendor-asset-gallery-images.sql` |
+| **封面** | `image_url`；其餘角度在 `gallery_images` |
+| **新增** | 表單待傳清單多圖 → `POST /api/me/vendor-assets` |
+| **編輯** | 選檔即 `POST /api/me/vendor-assets/:id/gallery-images`；刪除單張 `DELETE` 同路徑 + body.url |
+| **零件** | 與原型相同 API；列表須回傳 `image_urls`（`964649d`） |
+| **維護** | 編輯區勿改按鈕 id 而不同步 `bindEditGalleryUpload()` |
+
+**與展示案例無關**：系列圖／對照圖在 `manufacturer-portfolio.html`，不走 `gallery_images`。
 
 ---
 

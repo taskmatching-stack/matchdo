@@ -1,9 +1,22 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-06-01
+更新日期：2026-06-02
 
 > **架構 × SEO × B 線原則（必讀）**：`docs/architecture-and-seo-principles.md` — A1～A4 仍有效、**A5 已還原（進度＝A5r 待做）**、B 線 `/client/*` 不進 sitemap、供應商語意欄位。  
 > **新對話交接**：`docs/session-handoff-2026-05-26.md`（B 線推送狀態、產品規則、硬編碼 vs AI 待辦）。
+
+---
+
+## 近期完成（2026-06-02 廠商素材 · 編輯多角度圖）
+
+| 項目 | 說明 |
+|------|------|
+| **頁面** | `public/client/manufacturer-materials.html`（`/client/manufacturer-materials.html`）— **非** portfolio／對照圖頁 |
+| **功能** | 數位原型／零件：新增可多圖 + 逐張勾 AI 重繪；**編輯**可「新增角度圖／一次選多張」選檔即上傳 |
+| **API** | `POST`／`DELETE` `/api/me/vendor-assets/:id/gallery-images`；列表 `image_urls` 含 `part` |
+| **SQL** | `docs/add-vendor-asset-gallery-images.sql`（`gallery_images`） |
+| **穩定 commit** | `95b4b98`（按鈕 + `bindEditGalleryUpload`）；詳 **`docs/PROGRESS-vendor-asset-gallery-edit.md`** |
+| **文件** | `vendor-asset-prototype-moq-customization-notes.md` §多角度圖、`user-manual.md` §8.3、`網站完整功能說明.md` |
 
 ---
 
@@ -72,7 +85,8 @@
 | **`docs/design-direction-analysis-time-fields.md`** | 風向分析可撈的時間／語意／地區欄位（`custom_products` 等）。 |
 | **`docs/vendor-profile-slug-plan.md`** | **選用／後排**：廠商公開頁自訂網址（`/vendor/{slug}`），取代或並存 `vendor-profile.html?id=UUID`；實作清單與工時見該檔。 |
 | **`docs/admin-ai-settings-models.md`** | **後台 AI 模型設定**：`/admin/ai-settings.html` 三槽（翻譯／讀圖分析／標籤讀圖）、API 與 `payment_config`；**暫定**讀圖分析 → `gemini-3.1-pro-preview`，標籤維持 `gemini-3.1-flash-lite`。 |
-| **`docs/vendor-asset-prototype-moq-customization-notes.md`** | **已實作（文件）**：數位原型 MOQ／訂製程度篩選與生圖製造限制句；**材料參考**紋理尺度附錄（檔名軟提示）。程式見 `server.js`；部署前確認 SQL 已跑。 |
+| **`docs/vendor-asset-prototype-moq-customization-notes.md`** | **已實作（文件）**：數位原型 MOQ／訂製程度篩選與生圖製造限制句；**多角度圖**（§多角度圖）；**材料參考**紋理尺度附錄。程式見 `server.js`、`manufacturer-materials.html`。 |
+| **`docs/PROGRESS-vendor-asset-gallery-edit.md`** | **已完成**：編輯／新增多角度圖、API、排查紀錄、維護注意（勿 label／按鈕 JS 不一致）。 |
 | **`docs/design-analysis-material-backtrace.md`** | **待開發**：設計分析須能從 `reference_sources`／`vendor_assets`（材料、版型）**回推訂製需求**；與成品 `ai_tags` 分離，見 MB-0～MB-4。（≠ 生圖材質附錄，後者已上程式） |
 | **`docs/supplier-reverse-intent-discovery-plan.md`** | **待開發（已評估）**：L0 逆向檢索；商機＝引用→**通知**+**引用製造商清單頁**（§3.3）；不做合作意向；RI-0～RI-6。 |
 | **`docs/architecture-optimization-backlog.md`** | **架構優化執行清單**：Step 0～5 **主線已完成**；URL 對照、風險、§十一 交付摘要與第二輪代辦 A6～A10。 |
