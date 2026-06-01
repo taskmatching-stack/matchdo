@@ -26,7 +26,7 @@
 
 | 項目 | 內容 |
 |------|------|
-| **適用** | 無有效付費訂閱（`hasActivePaidSubscription === false`）的帳號 |
+| **適用** | 免費會員：`profiles.member_level` 為「一般」，且無有效付費訂閱（`user_subscriptions` 方案價>0） |
 | **禁止** | 上傳 **素材**（`vendor_assets`：數位版型／材料參考等）、上傳 **產業供應商目錄品項**（`supplier_catalog_items`） |
 | **不屬此限** | 展示案例（`manufacturer_portfolio`）仍可上傳，以便解鎖限制 B；訂製者設計圖、點數消費等依各功能既有規則 |
 | **例外** | **管理員**、**測試員**（`profiles.role` 為 `admin`／`tester`）不受限 |

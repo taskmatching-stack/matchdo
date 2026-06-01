@@ -2420,7 +2420,7 @@ app.get('/api/admin/can-access', async (req, res) => {
 });
 
 /** 管理員檢視用：平台角色 + ①②③ 工作區身分（與前台 capabilities 對照，唯讀） */
-function buildAdminUserIdentities(profileRole, manufacturer, industrySupplier, subscription) {
+function buildAdminUserIdentities(profileRole, manufacturer, industrySupplier, subscription, memberLevel) {
     const identities = [];
     const pr = profileRole || 'user';
     if (pr === 'admin') identities.push({ kind: 'platform', label: '管理員', badge: 'danger' });
@@ -2451,15 +2451,17 @@ function buildAdminUserIdentities(profileRole, manufacturer, industrySupplier, s
     }
     const isStaff = pr === 'admin' || pr === 'tester';
     const subPrice = subscription && subscription.price != null ? parseInt(subscription.price, 10) : 0;
-    if (subscription && subPrice > 0) {
-        identities.push({
-            kind: 'billing',
-            label: '付費訂閱',
-            badge: 'dark',
-            detail: (subscription.plan_name || '') + (subscription.end_date ? ' 至 ' + String(subscription.end_date).slice(0, 10) : '')
-        });
+    const level = (memberLevel != null ? String(memberLevel).trim() : '') || FREE_MEMBER_LEVEL_LABEL;
+    const paidByLevel = isPaidMemberLevel(level);
+    const paidBySub = !!(subscription && subPrice > 0);
+    if (!isStaff && (paidByLevel || paidBySub)) {
+        const label = paidByLevel ? ('付費會員·' + level) : '付費訂閱';
+        const detail = paidBySub
+            ? ((subscription.plan_name || '') + (subscription.end_date ? ' 至 ' + String(subscription.end_date).slice(0, 10) : ''))
+            : '（依會員等級，無訂閱紀錄）';
+        identities.push({ kind: 'billing', label, badge: 'dark', detail });
     } else if (!isStaff) {
-        identities.push({ kind: 'billing', label: '免費會員', badge: 'outline-secondary' });
+        identities.push({ kind: 'billing', label: '免費會員（一般）', badge: 'outline-secondary' });
     }
     return identities;
 }
@@ -2521,7 +2523,7 @@ async function attachAdminUserSummaries(users) {
             manufacturer,
             industry_supplier,
             subscription,
-            identities: buildAdminUserIdentities(u.role, manufacturer, industry_supplier, subscription)
+            identities: buildAdminUserIdentities(u.role, manufacturer, industry_supplier, subscription, u.member_level)
         };
     });
 }
@@ -2993,6 +2995,11 @@ app.post('/api/admin/user-subscriptions', express.json(), async (req, res) => {
             await syncMembershipCatalogVisibility(userId);
         } catch (syncErr) {
             console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+        }
+        const currentLevel = await readProfileMemberLevel(userId);
+        if (!isPaidMemberLevel(currentLevel)) {
+            const levelFromPlan = (plan.name && ['進階', '尊榮', 'VIP'].includes(plan.name)) ? plan.name : '進階';
+            await supabase.from('profiles').update({ member_level: levelFromPlan }).eq('id', userId);
         }
         res.json({
             success: true,
@@ -3555,6 +3562,11 @@ app.patch('/api/admin/users/:id', express.json(), async (req, res) => {
                 console.error('PATCH /api/admin/users profiles:', updateErr);
                 return res.status(500).json({ error: '更新會員等級失敗' });
             }
+            try {
+                await syncMembershipCatalogVisibility(userId);
+            } catch (syncErr) {
+                console.warn('syncMembershipCatalogVisibility after member_level:', syncErr && syncErr.message);
+            }
         }
 
         if (role !== null && role !== '') {
@@ -4109,7 +4121,7 @@ app.get('/api/admin/membership/user', async (req, res) => {
             const { data: supRow } = await supabase.from('industry_suppliers').select('id, name, is_active').eq('user_id', userId).maybeSingle();
             if (supRow) industry_supplier = supRow;
         } catch (_) { /* ignore */ }
-        const identities = buildAdminUserIdentities(profile.role, manufacturer, industry_supplier, subscription);
+        const identities = buildAdminUserIdentities(profile.role, manufacturer, industry_supplier, subscription, profile.member_level);
         res.json({ user: { ...profile, credits, subscription, manufacturer, industry_supplier, identities } });
     } catch (e) {
         console.error('GET /api/admin/membership/user:', e);
@@ -7088,7 +7100,25 @@ app.post('/api/admin/playground-generate', express.json(), async (req, res) => {
 });
 
 // ---------- AI 放大（Stability Fast Upscale） ----------
-// 是否為有效付費訂閱（任意付費方案，保留給舊呼叫）
+const FREE_MEMBER_LEVEL_LABEL = '一般';
+
+/** 後台「會員等級」：一般＝免費；進階／尊榮／VIP（及非「一般」之自訂名）＝付費權益 */
+function isPaidMemberLevel(memberLevel) {
+    const level = (memberLevel != null ? String(memberLevel).trim() : '') || FREE_MEMBER_LEVEL_LABEL;
+    return level !== FREE_MEMBER_LEVEL_LABEL;
+}
+
+async function readProfileMemberLevel(userId) {
+    if (!userId) return FREE_MEMBER_LEVEL_LABEL;
+    try {
+        const { data } = await supabase.from('profiles').select('member_level').eq('id', userId).maybeSingle();
+        return (data && data.member_level) ? String(data.member_level).trim() : FREE_MEMBER_LEVEL_LABEL;
+    } catch (_) {
+        return FREE_MEMBER_LEVEL_LABEL;
+    }
+}
+
+/** 是否視為付費會員：有效 user_subscriptions（方案價>0）或 profiles.member_level 非「一般」 */
 async function hasActivePaidSubscription(userId) {
     if (!userId) return false;
     const now = new Date().toISOString();
@@ -7098,8 +7128,10 @@ async function hasActivePaidSubscription(userId) {
         .eq('user_id', userId)
         .eq('status', 'active')
         .gt('end_date', now);
-    if (!rows || rows.length === 0) return false;
-    return rows.some(r => (r.subscription_plans && (r.subscription_plans.price || 0) > 0));
+    if (rows && rows.length > 0 && rows.some(r => (r.subscription_plans && (r.subscription_plans.price || 0) > 0))) {
+        return true;
+    }
+    return isPaidMemberLevel(await readProfileMemberLevel(userId));
 }
 
 const VENDOR_ASSET_MEMBERSHIP_HIDE_COL = 'public_hidden_by_membership';
