@@ -336,6 +336,19 @@
         </div>
     </div>
 
+    <div class="modal fade" id="delete-modal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0"><h6 class="modal-title text-danger"><i class="bi bi-trash me-2"></i><span data-i18n="baseModels.delete">刪除</span></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body pt-0" id="delete-confirm-text"></div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="supplierManage.cancel">取消</button>
+                    <button type="button" class="btn btn-danger btn-sm" id="btn-delete-confirm" data-i18n="baseModels.deleteConfirm">刪除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-area"></div>
     <div id="site-footer"></div>
 
@@ -353,6 +366,8 @@
         var activeKind = 'prototype';
         var itemsCache = { prototype: [], part: [], material: [] };
         var editModal = null;
+        var deleteModal = null;
+        var deleteTargetId = null;
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_description: 1 };
         var editPending = { tags: [] };
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
@@ -820,9 +835,10 @@
                     '<div class="fw-semibold text-truncate mb-1">' + esc(item.title || '') + '</div>' +
                     '<div class="text-muted small mb-1"><i class="bi bi-tag me-1"></i>' + esc(catLabel) + '</div>' +
                     '<p class="small mb-2 text-muted">' + esc((item.description || '').slice(0, 120)) + ((item.description || '').length > 120 ? '...' : '') + '</p>' +
-                    '<div class="d-flex gap-1 flex-wrap">' +
+                    '<div class="d-flex gap-2">' +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm flex-fill btn-toggle" data-id="' + esc(item.id) + '" data-active="' + (item.is_active ? '1' : '0') + '" title="' + esc(tr('baseModels.togglePublish', '上架／下架')) + '"><i class="bi bi-eye' + (item.is_active ? '-slash' : '') + '"></i></button>' +
                     '<button type="button" class="btn btn-outline-primary btn-sm flex-fill btn-edit" data-id="' + esc(item.id) + '"><i class="bi bi-pencil"></i></button>' +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm flex-fill btn-toggle" data-id="' + esc(item.id) + '" data-active="' + (item.is_active ? '1' : '0') + '"><i class="bi bi-eye' + (item.is_active ? '-slash' : '') + '"></i></button>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm btn-del" data-id="' + esc(item.id) + '" data-title="' + esc(item.title || '') + '"><i class="bi bi-trash"></i></button>' +
                     '</div></div></div></div>';
             }).join('');
             grid.querySelectorAll('.btn-edit').forEach(function (btn) {
@@ -836,6 +852,18 @@
                     patchItem(btn.getAttribute('data-id'), { is_active: btn.getAttribute('data-active') !== '1' });
                 });
             });
+            grid.querySelectorAll('.btn-del').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    openDeleteModal(btn.getAttribute('data-id'), btn.getAttribute('data-title') || '');
+                });
+            });
+        }
+
+        function openDeleteModal(id, title) {
+            deleteTargetId = id;
+            document.getElementById('delete-confirm-text').textContent = title || id;
+            if (!deleteModal) deleteModal = new bootstrap.Modal(document.getElementById('delete-modal'));
+            deleteModal.show();
         }
 
         async function refreshList() {
@@ -1111,6 +1139,30 @@
                 btn.disabled = false;
             }
         });
+
+        var btnDeleteConfirm = document.getElementById('btn-delete-confirm');
+        if (btnDeleteConfirm) {
+            btnDeleteConfirm.addEventListener('click', async function () {
+                if (!deleteTargetId || !token) return;
+                try {
+                    var r = await fetch('/api/me/industry-supplier/catalog-items/' + encodeURIComponent(deleteTargetId), {
+                        method: 'DELETE',
+                        headers: authH()
+                    });
+                    if (!r.ok && r.status !== 204) {
+                        var data = await r.json().catch(function () { return {}; });
+                        toast(data.error || tr('baseModels.deleteFailed', '刪除失敗'), 'danger');
+                        return;
+                    }
+                    if (deleteModal) deleteModal.hide();
+                    deleteTargetId = null;
+                    toast(tr('baseModels.deleteSuccess', '已刪除'), 'success');
+                    await refreshList();
+                } catch (e) {
+                    toast(e.message || tr('baseModels.deleteFailed', '刪除失敗'), 'danger');
+                }
+            });
+        }
 
         document.getElementById('btn-toggle-company-edit').addEventListener('click', function () {
             document.getElementById('company-edit').classList.toggle('d-none');

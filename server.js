@@ -14074,6 +14074,43 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
     }
 });
 
+// DELETE /api/me/industry-supplier/catalog-items/:id — 刪除品項（對稱 vendor-assets DELETE）
+app.delete('/api/me/industry-supplier/catalog-items/:id', async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const itemId = (req.params.id || '').trim();
+        if (!itemId) return res.status(400).json({ error: '缺少 id' });
+        const { data: existing, error: rowErr } = await supabase
+            .from('supplier_catalog_items')
+            .select('id')
+            .eq('id', itemId)
+            .eq('industry_supplier_id', ctx.supplier.id)
+            .maybeSingle();
+        if (rowErr) {
+            console.error('DELETE industry-supplier catalog-item select:', rowErr);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        if (!existing) return res.status(404).json({ error: '找不到該品項' });
+        const { error } = await supabase
+            .from('supplier_catalog_items')
+            .delete()
+            .eq('id', itemId)
+            .eq('industry_supplier_id', ctx.supplier.id);
+        if (error) {
+            console.error('DELETE industry-supplier catalog-item:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.status(204).send();
+    } catch (e) {
+        console.error('DELETE /api/me/industry-supplier/catalog-items/:id:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // ---------- 廠商資料夾（系列）----------
 // GET /api/manufacturers/:id/collections — 列出某廠商的資料夾（公開）
 app.get('/api/manufacturers/:id/collections', async (req, res) => {
