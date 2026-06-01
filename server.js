@@ -12910,6 +12910,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
             }
             galleryToUpload.push(gf);
         }
+        if (!galleryToUpload.length) {
+            return res.status(400).json({ error: '無法讀取上傳的圖片，請改用 JPG／PNG／WebP 後重試' });
+        }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
         const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, startSort);
         const merged = existing.concat(newEntries);

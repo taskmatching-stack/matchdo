@@ -397,7 +397,7 @@
         </div>
     </div>
 
-    <div class="modal fade" id="edit-modal" tabindex="-1">
+    <div class="modal fade" id="edit-modal" tabindex="-1" data-bs-focus="false">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header"><h6 class="modal-title">編輯</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -434,28 +434,26 @@
                             <label class="form-label">產品圖片（多角度）</label>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="status"></div>
-                            <p id="edit-pending-gallery-hint" class="fw-semibold small text-primary mb-1 d-none"></p>
-                            <div id="edit-pending-gallery" class="row g-2 mb-2 d-none"></div>
-                            <label class="form-label small text-muted mb-1">新增角度圖</label>
-                            <input type="file" class="form-control form-control-sm mb-2" id="edit-add-gallery-input" accept="image/*" multiple>
-                            <div class="d-flex flex-wrap gap-2 mb-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">選擇角度圖</span></button>
-                                <button type="button" class="btn btn-sm btn-success" id="btn-edit-upload-pending-gallery" disabled><i class="bi bi-cloud-upload me-1"></i>上傳待傳圖片</button>
+                            <label class="form-label small text-muted mb-1">新增角度圖（選檔後立即上傳）</label>
+                            <div class="form-check form-check-sm mb-2">
+                                <input class="form-check-input" type="checkbox" id="edit-gallery-optimize-next">
+                                <label class="form-check-label small" for="edit-gallery-optimize-next">本批新圖 AI 重繪（會扣點）</label>
                             </div>
-                            <div id="edit-pending-optimize-bg-wrap" class="add-optimize-bg-wrap d-none mb-2">
+                            <div id="edit-gallery-optimize-bg-wrap" class="add-optimize-bg-wrap d-none mb-2">
                                 <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
-                                    <select class="form-select form-select-sm" id="edit-pending-optimize-bg" style="max-width:11rem">
+                                    <select class="form-select form-select-sm" id="edit-gallery-optimize-bg" style="max-width:11rem">
                                         <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
                                         <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
                                         <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
                                         <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
                                         <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
                                     </select>
-                                    <input type="color" class="form-control form-control-color d-none" id="edit-pending-optimize-bg-custom" value="#ffffff" title="自訂底色">
+                                    <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
                             </div>
-                            <p class="form-text text-muted small mb-2">第一張為封面。選檔後會出現在「待上傳」並自動加入（不另扣點）；若要 AI 重繪請先勾選待傳圖再按「上傳待傳圖片」。按「儲存」也會一併上傳待傳圖。更換封面用下方選項。</p>
+                            <input type="file" class="form-control form-control-sm mb-2" id="edit-add-gallery-input" accept="image/*" multiple>
+                            <p class="form-text text-muted small mb-2">第一張為封面。可一次選多張；選完即上傳並顯示在上方。更換封面請用下方「更換封面」。</p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
                             <input type="file" class="form-control" id="edit-image-prototype" accept="image/*">
                             <div id="edit-new-image-preview-proto" class="add-image-preview mt-2 d-none"></div>
@@ -576,8 +574,7 @@
         var highlightAssetId = null;
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_description: 1 };
         var editPending = { tags: null, semantics: null };
-        var editPendingGallery = [];
-        var editGalleryAutoUploadTimer = null;
+        var editGalleryUploading = false;
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
@@ -955,7 +952,7 @@
                 return '<div class="col-4 col-sm-3"><div class="edit-gallery-thumb-wrap">' +
                     (idx === 0 ? '<span class="badge bg-primary badge-cover">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '') +
                     '<img src="' + esc(url) + '" class="edit-gallery-thumb matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">' +
-                    (urls.length > 1 ? '<button type="button" class="btn btn-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '" title="' + esc(tr('baseModels.removeImage', '移除')) + '">&times;</button>' : '') +
+                    (idx > 0 ? '<button type="button" class="btn btn-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '" title="' + esc(tr('baseModels.removeImage', '移除')) + '">&times;</button>' : '') +
                     '</div></div>';
             }).join('');
             grid.querySelectorAll('.btn-gallery-del').forEach(function (btn) {
@@ -983,51 +980,21 @@
             } catch (err) { showToast(err.message, 'danger'); }
         }
 
-        function cancelEditGalleryAutoUpload() {
-            if (editGalleryAutoUploadTimer) {
-                clearTimeout(editGalleryAutoUploadTimer);
-                editGalleryAutoUploadTimer = null;
-            }
-        }
-
-        function updateEditPendingUploadBtn() {
-            var uploadBtn = document.getElementById('btn-edit-upload-pending-gallery');
-            if (!uploadBtn) return;
-            var n = editPendingGallery.length;
-            var hasOpt = editPendingGallery.some(function (p) { return p.optimize; });
-            uploadBtn.disabled = n === 0;
-            uploadBtn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' +
-                (hasOpt ? '上傳待傳圖片（含 AI 重繪）' : '上傳待傳圖片');
-        }
-
-        function scheduleEditGalleryAutoUpload() {
-            cancelEditGalleryAutoUpload();
-            editGalleryAutoUploadTimer = setTimeout(function () {
-                editGalleryAutoUploadTimer = null;
-                if (!editPendingGallery.length) return;
-                if (editPendingGallery.some(function (p) { return p.optimize; })) return;
-                uploadEditPendingGallery();
-            }, 450);
-        }
-
-        function clearEditPendingGallery() {
-            cancelEditGalleryAutoUpload();
-            var wrap = document.getElementById('edit-pending-gallery');
-            revokePendingImageUrls(wrap);
-            if (wrap) {
-                wrap.innerHTML = '';
-                wrap.classList.add('d-none');
-            }
-            editPendingGallery = [];
-            syncEditPendingOptimizeBgWrap();
-            updateEditPendingUploadBtn();
-        }
-
-        function syncEditPendingOptimizeBgWrap() {
-            var wrap = document.getElementById('edit-pending-optimize-bg-wrap');
+        function syncEditGalleryOptimizeBgWrap() {
+            var chk = document.getElementById('edit-gallery-optimize-next');
+            var wrap = document.getElementById('edit-gallery-optimize-bg-wrap');
             if (!wrap) return;
-            var any = editPendingGallery.some(function (p) { return p.optimize; });
-            wrap.classList.toggle('d-none', !any);
+            wrap.classList.toggle('d-none', !(chk && chk.checked));
+        }
+
+        function getEditGalleryOptimizeBackground() {
+            var sel = document.getElementById('edit-gallery-optimize-bg');
+            if (!sel) return 'white';
+            if (sel.value === 'custom') {
+                var c = document.getElementById('edit-gallery-optimize-bg-custom');
+                return (c && c.value) ? c.value : '#ffffff';
+            }
+            return sel.value || 'white';
         }
 
         function setEditGalleryStatus(msg, type) {
@@ -1044,126 +1011,25 @@
             el.classList.remove('d-none');
         }
 
-        function renderEditPendingGallery() {
-            var wrap = document.getElementById('edit-pending-gallery');
-            var hint = document.getElementById('edit-pending-gallery-hint');
-            if (!wrap) return;
-            revokePendingImageUrls(wrap);
-            wrap.innerHTML = '';
-            if (!editPendingGallery.length) {
-                wrap.classList.add('d-none');
-                if (hint) hint.classList.add('d-none');
-                syncEditPendingOptimizeBgWrap();
-                updateEditPendingUploadBtn();
-                return;
-            }
-            wrap.classList.remove('d-none');
-            if (hint) {
-                hint.classList.remove('d-none');
-                hint.textContent = '待上傳 ' + editPendingGallery.length + ' 張';
-            }
-            editPendingGallery.forEach(function (item, idx) {
-                var col = document.createElement('div');
-                col.className = 'col-6 col-sm-4';
-                var card = document.createElement('div');
-                card.className = 'pending-image-card';
-                var url = URL.createObjectURL(item.file);
-                var badge = document.createElement('span');
-                badge.className = 'badge bg-secondary mb-1';
-                badge.style.fontSize = '0.65rem';
-                badge.textContent = '待上傳';
-                card.appendChild(badge);
-                var img = document.createElement('img');
-                img.src = url;
-                img.setAttribute('data-object-url', url);
-                img.className = 'matchdo-enlarge-trigger';
-                img.alt = '';
-                card.appendChild(img);
-                var chkWrap = document.createElement('div');
-                chkWrap.className = 'form-check form-check-sm mt-1 mb-0';
-                var chk = document.createElement('input');
-                chk.type = 'checkbox';
-                chk.className = 'form-check-input edit-pending-optimize-chk';
-                chk.id = 'epo-' + item.id;
-                chk.checked = !!item.optimize;
-                var lbl = document.createElement('label');
-                lbl.className = 'form-check-label small';
-                lbl.setAttribute('for', chk.id);
-                lbl.textContent = 'AI 重繪';
-                chkWrap.appendChild(chk);
-                chkWrap.appendChild(lbl);
-                card.appendChild(chkWrap);
-                var rm = document.createElement('button');
-                rm.type = 'button';
-                rm.className = 'btn btn-outline-danger btn-sm mt-1 pending-remove';
-                rm.textContent = '移除';
-                card.appendChild(rm);
-                col.appendChild(card);
-                wrap.appendChild(col);
-                chk.addEventListener('change', function () {
-                    item.optimize = this.checked;
-                    if (item.optimize) cancelEditGalleryAutoUpload();
-                    else if (editPendingGallery.length && !editPendingGallery.some(function (p) { return p.optimize; })) {
-                        scheduleEditGalleryAutoUpload();
-                    }
-                    syncEditPendingOptimizeBgWrap();
-                    updateEditPendingUploadBtn();
-                });
-                rm.addEventListener('click', function () {
-                    var i = editPendingGallery.findIndex(function (x) { return x.id === item.id; });
-                    if (i >= 0) editPendingGallery.splice(i, 1);
-                    renderEditPendingGallery();
-                    if (editPendingGallery.length && !editPendingGallery.some(function (p) { return p.optimize; })) {
-                        scheduleEditGalleryAutoUpload();
-                    }
-                });
-            });
-            syncEditPendingOptimizeBgWrap();
-            updateEditPendingUploadBtn();
-            try { wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
-        }
-
-        function appendFilesToEditPendingGallery(fileList) {
-            if (!fileList || !fileList.length) return;
-            for (var ei = 0; ei < fileList.length; ei++) {
-                editPendingGallery.push({
-                    id: 'e' + Date.now() + '-' + ei + '-' + Math.random().toString(36).slice(2),
-                    file: fileList[ei],
-                    optimize: false
-                });
-            }
-            renderEditPendingGallery();
-            setEditGalleryStatus('已選擇圖片，正在加入…', 'info');
-            scheduleEditGalleryAutoUpload();
-        }
-
-        function getEditPendingOptimizeBackground() {
-            var sel = document.getElementById('edit-pending-optimize-bg');
-            if (!sel) return 'white';
-            if (sel.value === 'custom') {
-                var c = document.getElementById('edit-pending-optimize-bg-custom');
-                return (c && c.value) ? c.value : '#ffffff';
-            }
-            return sel.value || 'white';
-        }
-
-        async function uploadEditPendingGallery() {
+        async function uploadEditGalleryFiles(fileList) {
             var id = document.getElementById('edit-id').value;
-            if (!id || !editPendingGallery.length) return false;
-            cancelEditGalleryAutoUpload();
+            if (!id || !fileList || !fileList.length || editGalleryUploading) return false;
+            editGalleryUploading = true;
+            var inputEl = document.getElementById('edit-add-gallery-input');
+            if (inputEl) inputEl.disabled = true;
             var fd = new FormData();
+            var optimizeNext = document.getElementById('edit-gallery-optimize-next');
+            var wantOpt = !!(optimizeNext && optimizeNext.checked);
             var optIdx = [];
-            editPendingGallery.forEach(function (item, i) {
-                fd.append('images', item.file);
-                if (item.optimize) optIdx.push(i);
-            });
+            for (var i = 0; i < fileList.length; i++) {
+                fd.append('images', fileList[i]);
+                if (wantOpt) optIdx.push(i);
+            }
             if (optIdx.length) {
                 fd.append('optimize_image_indices', JSON.stringify(optIdx));
-                fd.append('optimize_background', getEditPendingOptimizeBackground());
+                fd.append('optimize_background', getEditGalleryOptimizeBackground());
             }
-            var uploadBtn = document.getElementById('btn-edit-upload-pending-gallery');
-            if (uploadBtn) uploadBtn.disabled = true;
-            setEditGalleryStatus('上傳中…', 'info');
+            setEditGalleryStatus('上傳中 ' + fileList.length + ' 張…', 'info');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
@@ -1183,7 +1049,10 @@
                     return false;
                 }
                 if (!r.ok) {
-                    var errMsg = data.error || data.message || ('上傳失敗 (' + r.status + ')');
+                    var errMsg = data.error || data.message || ('上傳失敗 (HTTP ' + r.status + ')');
+                    if (r.status === 500 && /gallery_images|多角度/.test(errMsg)) {
+                        errMsg += ' — 請至 Supabase 執行 docs/add-vendor-asset-gallery-images.sql';
+                    }
                     setEditGalleryStatus(errMsg, 'danger');
                     showToast(errMsg, 'danger');
                     return false;
@@ -1191,22 +1060,24 @@
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 if (idx >= 0) materialsAll[idx] = data;
                 renderEditGallery(data);
-                clearEditPendingGallery();
-                setEditGalleryStatus('', null);
-                var okMsg = tr('baseModels.galleryAdded', '已新增角度圖');
+                var urlCount = assetImageUrls(data).length;
+                setEditGalleryStatus('已加入，目前共 ' + urlCount + ' 張圖', 'success');
+                var okMsg = tr('baseModels.galleryAdded', '已新增角度圖') + '（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 showToast(okMsg);
                 await loadMaterials();
                 var refreshed = materialsAll.find(function (x) { return x.id === id; });
                 if (refreshed) renderEditGallery(refreshed);
+                if (optimizeNext) optimizeNext.checked = false;
+                syncEditGalleryOptimizeBgWrap();
                 return true;
             } catch (err) {
                 setEditGalleryStatus(err.message || '上傳失敗', 'danger');
                 showToast(err.message, 'danger');
                 return false;
             } finally {
-                if (uploadBtn) uploadBtn.disabled = false;
-                updateEditPendingUploadBtn();
+                editGalleryUploading = false;
+                if (inputEl) inputEl.disabled = false;
             }
         }
         function showToast(msg, type) {
@@ -1325,6 +1196,7 @@
             var sel = root.querySelector ? root.querySelector('.add-optimize-bg') : null;
             if (!sel && root.querySelector) sel = root.querySelector('#edit-optimize-bg');
             if (!sel) sel = document.getElementById('edit-optimize-bg');
+            if (!sel) sel = document.getElementById('edit-gallery-optimize-bg');
             if (!sel) sel = document.getElementById('edit-pending-optimize-bg');
             if (!sel) return 'white';
             if (sel.value === 'custom') {
@@ -2261,8 +2133,12 @@
                 if (editImg) editImg.src = '';
             }
             if (isProtoLike) renderEditGallery(m);
-            clearEditPendingGallery();
             setEditGalleryStatus('', null);
+            var optNext = document.getElementById('edit-gallery-optimize-next');
+            if (optNext) optNext.checked = false;
+            syncEditGalleryOptimizeBgWrap();
+            var galInput = document.getElementById('edit-add-gallery-input');
+            if (galInput) galInput.value = '';
             document.getElementById('edit-optimize-image').checked = false;
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
             editPending.semantics = m.image_semantics_json || null;
@@ -2290,23 +2166,22 @@
         document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
-        document.getElementById('btn-edit-add-gallery').addEventListener('click', function () {
-            document.getElementById('edit-add-gallery-input').click();
-        });
         document.getElementById('edit-add-gallery-input').addEventListener('change', function () {
             var files = this.files;
-            this.value = '';
             if (!files || !files.length) return;
-            appendFilesToEditPendingGallery(files);
+            var list = Array.prototype.slice.call(files);
+            this.value = '';
+            uploadEditGalleryFiles(list);
         });
-        document.getElementById('btn-edit-upload-pending-gallery').addEventListener('click', function () {
-            uploadEditPendingGallery();
-        });
-        var editPendingBgSel = document.getElementById('edit-pending-optimize-bg');
-        if (editPendingBgSel) {
-            editPendingBgSel.addEventListener('change', function () {
-                var custom = document.getElementById('edit-pending-optimize-bg-custom');
-                if (custom) custom.classList.toggle('d-none', editPendingBgSel.value !== 'custom');
+        var editGalleryOptNext = document.getElementById('edit-gallery-optimize-next');
+        if (editGalleryOptNext) {
+            editGalleryOptNext.addEventListener('change', syncEditGalleryOptimizeBgWrap);
+        }
+        var editGalleryBgSel = document.getElementById('edit-gallery-optimize-bg');
+        if (editGalleryBgSel) {
+            editGalleryBgSel.addEventListener('change', function () {
+                var custom = document.getElementById('edit-gallery-optimize-bg-custom');
+                if (custom) custom.classList.toggle('d-none', editGalleryBgSel.value !== 'custom');
             });
         }
         document.getElementById('edit-optimize-image').addEventListener('change', syncEditOptimizeBgWrap);
@@ -2367,11 +2242,6 @@
         document.getElementById('btn-edit-save').addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
-            if (editPendingGallery.length) {
-                cancelEditGalleryAutoUpload();
-                await uploadEditPendingGallery();
-                if (editPendingGallery.length) return;
-            }
             var fd = new FormData();
             fd.append('category_key', document.getElementById('edit-category').value);
             if (editKind === 'prototype') fd.append('subcategory_key', document.getElementById('edit-subcategory').value || '');
