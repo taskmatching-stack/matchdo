@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>產業供應商管理 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-2">產業供應商管理</h4>
+        <p class="text-muted small mb-3">
+          B 線上游供應商：建立公司、綁定登入帳號、上下架。目錄上架請該帳號登入後至「上架數位產品庫」，或代為維護資料。
+          相關：<a href="/admin/manufacturers.html">廠商管理</a> · <a href="/admin/user-management.html">一般會員</a>
+        </p>
+        <div id="opResult" class="alert d-none mb-3 py-2 small"></div>
+
+        <div class="card mb-3">
+          <div class="card-header bg-white py-2"><strong>新增供應商</strong></div>
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-md-3">
+                <label class="form-label small mb-0">公司名稱 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" id="newName" />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small mb-0">綁定帳號</label>
+                <select class="form-select form-select-sm" id="newUserId">
+                  <option value="">— 稍後再綁 —</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small mb-0">簡介</label>
+                <input type="text" class="form-control form-control-sm" id="newDesc" />
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button type="button" class="btn btn-primary btn-sm w-100" id="btnCreate">建立</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3">
+                <label class="form-label small mb-0">搜尋</label>
+                <input type="text" class="form-control form-control-sm" id="filterQ" placeholder="公司名或 Email" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">綁定帳號</label>
+                <select class="form-select form-select-sm" id="filterBound">
+                  <option value="">全部</option>
+                  <option value="yes">已綁定</option>
+                  <option value="no">未綁定</option>
+                </select>
+              </div>
+              <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-primary" id="btnReload">載入</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>公司</th>
+                  <th>綁定帳號</th>
+                  <th>目錄</th>
+                  <th>訂閱</th>
+                  <th>狀態</th>
+                  <th style="min-width:200px">操作</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"><tr><td colspan="6" class="text-center text-muted p-3">載入中…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header py-2"><h6 class="modal-title">編輯供應商</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <input type="hidden" id="editId" />
+          <div class="mb-2"><label class="form-label small mb-0">公司名稱</label><input type="text" class="form-control form-control-sm" id="editName" /></div>
+          <div class="mb-2"><label class="form-label small mb-0">綁定帳號</label><select class="form-select form-select-sm" id="editUserId"></select></div>
+          <div class="mb-2"><label class="form-label small mb-0">簡介</label><input type="text" class="form-control form-control-sm" id="editDesc" /></div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-sm btn-primary" id="btnEditSave">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="subModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header py-2"><h6 class="modal-title">訂閱／帳期</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <p class="small text-muted" id="subModalLabel"></p>
+          <input type="hidden" id="subUserId" /><input type="hidden" id="subRecordId" />
+          <div class="mb-2"><label class="form-label small mb-0">方案</label><select class="form-select form-select-sm" id="subPlanId"></select></div>
+          <div class="mb-2"><label class="form-label small mb-0">到期日</label><input type="date" class="form-control form-control-sm" id="subEndDate" /></div>
+          <div class="form-check"><input class="form-check-input" type="checkbox" id="subExpireOthers" checked /><label class="form-check-label small" for="subExpireOthers">開通時將其他進行中訂閱標為已過期</label></div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-sm btn-primary" id="btnSubSave">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var items = [];
+  var allUsers = [];
+  var plansCache = [];
+
+  function esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function getToken() {
+    return AuthService.getSession().then(function (s) { return s && (s.access_token || (s.session && s.session.access_token)); });
+  }
+  function showOp(ok, msg) {
+    var el = document.getElementById('opResult');
+    el.className = 'alert mb-3 py-2 small ' + (ok ? 'alert-success' : 'alert-danger');
+    el.classList.remove('d-none');
+    el.textContent = msg;
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleDateString('zh-TW'); } catch (e) { return iso; }
+  }
+  function fillUserSelects() {
+    var opts = '<option value="">— 未綁定 —</option>';
+    allUsers.forEach(function (u) {
+      if (!u.id) return;
+      opts += '<option value="' + esc(u.id) + '">' + esc(u.email || u.id) + (u.full_name ? ' · ' + esc(u.full_name) : '') + '</option>';
+    });
+    document.getElementById('newUserId').innerHTML = opts;
+    document.getElementById('editUserId').innerHTML = opts;
+  }
+  function loadUsers(token) {
+    return fetch('/api/admin/users', { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { allUsers = d.users || []; fillUserSelects(); });
+  }
+  function loadPlans(token) {
+    return fetch('/api/admin/subscription-plans', { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { plansCache = d.plans || []; });
+  }
+  function defaultEnd(planId) {
+    var plan = plansCache.find(function (p) { return p.id === planId; });
+    var d = new Date();
+    var m = (plan && plan.duration_months) ? parseInt(plan.duration_months, 10) : 1;
+    if (isNaN(m) || m < 1) m = 1;
+    d.setMonth(d.getMonth() + m);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function loadList() {
+    var tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-3">載入中…</td></tr>';
+    getToken().then(function (token) {
+      if (!token) { tbody.innerHTML = '<tr><td colspan="6" class="text-danger text-center">請登入</td></tr>'; return; }
+      var p = new URLSearchParams();
+      var q = document.getElementById('filterQ').value.trim();
+      var b = document.getElementById('filterBound').value;
+      if (q) p.set('q', q);
+      if (b) p.set('bound', b);
+      Promise.all([
+        fetch('/api/admin/industry-suppliers?' + p.toString(), { headers: { Authorization: 'Bearer ' + token } }).then(function (r) {
+          return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || '載入失敗'); return d; });
+        }),
+        loadUsers(token),
+        loadPlans(token)
+      ]).then(function (res) {
+        items = res[0].items || [];
+        render();
+      }).catch(function (e) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-danger text-center">' + esc(e.message) + '</td></tr>';
+      });
+    });
+  }
+
+  function render() {
+    var tbody = document.getElementById('tableBody');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-3">尚無資料</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(function (s, idx) {
+      var email = s.user_email
+        ? esc(s.user_email) + (s.user_full_name ? '<br><span class="text-muted small">' + esc(s.user_full_name) + '</span>' : '')
+        : '<span class="text-warning small">未綁定</span>';
+      var cat = (s.catalog_active || 0) + ' / ' + (s.catalog_total || 0) + ' 上架';
+      var sub = s.subscription
+        ? esc(s.subscription.plan_name || '') + (s.subscription.price != null ? ' (' + s.subscription.price + '元)' : '') + '<br><span class="small">' + fmtDate(s.subscription.end_date) + '</span>'
+        : '<span class="text-muted small">無</span>';
+      var st = s.is_active !== false ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>';
+      var pub = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(s.id);
+      var actions = '<div class="d-flex flex-wrap gap-1">' +
+        '<button type="button" class="btn btn-sm btn-outline-primary" data-a="edit" data-i="' + idx + '">編輯</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-success" data-a="sub" data-i="' + idx + '">訂閱</button>' +
+        (s.is_active !== false
+          ? '<button type="button" class="btn btn-sm btn-outline-secondary" data-a="off" data-id="' + esc(s.id) + '">停用</button>'
+          : '<button type="button" class="btn btn-sm btn-outline-secondary" data-a="on" data-id="' + esc(s.id) + '">啟用</button>') +
+        '<a class="btn btn-sm btn-outline-dark" href="' + pub + '" target="_blank" rel="noopener">公開頁</a>' +
+        '<a class="btn btn-sm btn-outline-info" href="/client/supplier-catalog-manage.html" target="_blank" rel="noopener" title="需該帳號登入">上架庫</a>' +
+        '</div>';
+      return '<tr><td>' + esc(s.name) + '</td><td>' + email + '</td><td>' + cat + '</td><td>' + sub + '</td><td>' + st + '</td><td>' + actions + '</td></tr>';
+    }).join('');
+    tbody.querySelectorAll('button[data-a]').forEach(function (btn) {
+      var a = btn.getAttribute('data-a');
+      var id = btn.getAttribute('data-id');
+      var i = parseInt(btn.getAttribute('data-i'), 10);
+      if (a === 'edit') btn.onclick = function () { openEdit(items[i]); };
+      else if (a === 'sub') btn.onclick = function () { openSub(items[i]); };
+      else if (a === 'on' || a === 'off') btn.onclick = function () {
+        patchSupplier(id, { is_active: a === 'on' }, a === 'on' ? '已啟用' : '已停用');
+      };
+    });
+  }
+
+  function patchSupplier(id, body, msg) {
+    getToken().then(function (token) {
+      fetch('/api/admin/industry-suppliers/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { showOp(false, res.data.error || '失敗'); return; }
+          showOp(true, msg || '已更新');
+          loadList();
+        });
+    });
+  }
+
+  function openEdit(s) {
+    document.getElementById('editId').value = s.id;
+    document.getElementById('editName').value = s.name || '';
+    document.getElementById('editDesc').value = s.description || '';
+    document.getElementById('editUserId').value = s.user_id || '';
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+  }
+
+  function openSub(s) {
+    if (!s.user_id) { alert('請先綁定登入帳號，才能設定訂閱'); return; }
+    document.getElementById('subUserId').value = s.user_id;
+    document.getElementById('subRecordId').value = (s.subscription && s.subscription.id) || '';
+    document.getElementById('subModalLabel').textContent = (s.name || '') + ' · ' + (s.user_email || '');
+    var sel = document.getElementById('subPlanId');
+    sel.innerHTML = '';
+    plansCache.forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = (p.name || '') + ' — ' + (p.price || 0) + ' 元';
+      sel.appendChild(o);
+    });
+    document.getElementById('subEndDate').value = (s.subscription && s.subscription.end_date)
+      ? s.subscription.end_date.slice(0, 10) : defaultEnd(sel.value);
+    new bootstrap.Modal(document.getElementById('subModal')).show();
+  }
+
+  document.getElementById('btnCreate').onclick = function () {
+    var name = document.getElementById('newName').value.trim();
+    if (!name) { alert('請填公司名稱'); return; }
+    getToken().then(function (token) {
+      fetch('/api/admin/industry-suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          name: name,
+          user_id: document.getElementById('newUserId').value || null,
+          description: document.getElementById('newDesc').value.trim() || null
+        })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { showOp(false, res.data.error || '建立失敗'); return; }
+          document.getElementById('newName').value = '';
+          document.getElementById('newDesc').value = '';
+          showOp(true, res.data.message || '已建立');
+          loadList();
+        });
+    });
+  };
+
+  document.getElementById('btnEditSave').onclick = function () {
+    var id = document.getElementById('editId').value;
+    patchSupplier(id, {
+      name: document.getElementById('editName').value.trim(),
+      description: document.getElementById('editDesc').value.trim() || null,
+      user_id: document.getElementById('editUserId').value || null
+    }, '已儲存');
+    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+  };
+
+  document.getElementById('btnSubSave').onclick = function () {
+    var userId = document.getElementById('subUserId').value;
+    var subId = document.getElementById('subRecordId').value;
+    var planId = document.getElementById('subPlanId').value;
+    var endDate = document.getElementById('subEndDate').value;
+    getToken().then(function (token) {
+      var headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+      var url = subId ? '/api/admin/user-subscriptions/' + subId : '/api/admin/user-subscriptions';
+      var body = subId
+        ? { plan_id: planId, end_date: endDate + 'T23:59:59.999Z', status: 'active' }
+        : { user_id: userId, plan_id: planId, end_date: endDate + 'T23:59:59.999Z', expire_other_active: document.getElementById('subExpireOthers').checked };
+      fetch(url, { method: subId ? 'PATCH' : 'POST', headers: headers, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { alert(res.data.error || '失敗'); return; }
+          bootstrap.Modal.getInstance(document.getElementById('subModal')).hide();
+          showOp(true, res.data.message || '訂閱已儲存');
+          loadList();
+        });
+    });
+  };
+
+  document.getElementById('btnReload').onclick = loadList;
+  document.getElementById('filterQ').onkeydown = function (e) { if (e.key === 'Enter') loadList(); };
+  loadList();
+})();
+  </script>
+</body>
+</html>

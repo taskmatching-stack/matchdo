@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>用戶管理 - MatchDO</title>
+    <title>一般會員管理 - MatchDO</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
     <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
@@ -12,7 +12,17 @@
 <body>
     <div id="site-header"></div>
     <div class="container mt-4">
-        <h2>用戶管理</h2>
+        <h2>一般會員管理</h2>
+        <p class="text-muted small mb-2">
+            管理登入帳號、會員等級、點數與<strong>訂閱帳期</strong>。廠商／供應商資料請至
+            <a href="/admin/manufacturers.html">廠商管理</a>、<a href="/admin/industry-suppliers.html">產業供應商</a>；
+            全站方案價請至 <a href="/admin/membership.html">方案／點數</a>。（平台 admin/tester 角色仍在此編輯）
+        </p>
+        <p class="text-muted small mb-2">
+            <strong>身分說明：</strong>「平台角色」= 管理員／測試員／一般用戶；
+            「身分／工作區」= ①訂製設計（登入即有）＋②廠商（有綁定才顯示，含種子／付費／官方）＋③產業供應商 ＋ 付費訂閱或免費。
+            同一帳號可同時具多項，並非切換身分。每月消耗點數請至 <a href="/admin/membership.html">方案／點數 → 每月點數</a>。
+        </p>
         <div class="row mb-3">
             <div class="col-3"><div class="card"><div class="card-body text-center"><h4 id="totalUsers">0</h4><small>總用戶</small></div></div></div>
             <div class="col-3"><div class="card"><div class="card-body text-center"><h4 id="adminUsers">0</h4><small>管理員</small></div></div></div>
@@ -37,6 +47,17 @@
                     <option value="VIP">VIP</option>
                 </select>
             </div>
+            <div class="col-md-auto mb-2">
+                <label class="form-label small mb-0">工作區身分</label>
+                <select class="form-select form-select-sm" id="filterIdentity" style="min-width:120px">
+                    <option value="">全部</option>
+                    <option value="manufacturer">有廠商 (②)</option>
+                    <option value="supplier">有供應商 (③)</option>
+                    <option value="seed">種子廠商</option>
+                    <option value="paid">付費訂閱中</option>
+                    <option value="free">僅免費</option>
+                </select>
+            </div>
             <div class="col-md-auto mb-2 d-flex align-items-end">
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="filterClear">清除篩選</button>
             </div>
@@ -50,13 +71,14 @@
                     <th>#</th>
                     <th>Email</th>
                     <th>姓名</th>
-                    <th>角色</th>
+                    <th>平台角色</th>
                     <th>會員等級</th>
                     <th>點數</th>
+                    <th>身分／工作區</th>
                     <th>操作</th>
                 </tr>
             </thead>
-            <tbody id="usersTable"><tr><td colspan="7" class="text-center">載入中...</td></tr></tbody>
+            <tbody id="usersTable"><tr><td colspan="9" class="text-center">載入中...</td></tr></tbody>
         </table>
     </div>
 
@@ -117,8 +139,9 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small mb-2" id="editUserEmail"></p>
+                    <div class="mb-3 p-2 border rounded bg-light" id="editUserIdentities" style="display:none;"></div>
                     <div class="mb-3">
-                        <label for="editRole" class="form-label">角色</label>
+                        <label for="editRole" class="form-label">平台角色</label>
                         <select class="form-select" id="editRole">
                             <option value="user">用戶</option>
                             <option value="admin">管理員</option>
@@ -147,6 +170,38 @@
         </div>
     </div>
 
+    <div class="modal fade" id="userSubModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">訂閱／帳期</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small" id="userSubEmail"></p>
+                    <input type="hidden" id="userSubUserId" />
+                    <input type="hidden" id="userSubRecordId" />
+                    <div class="mb-3">
+                        <label class="form-label small">方案</label>
+                        <select class="form-select form-select-sm" id="userSubPlanId"></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">到期日</label>
+                        <input type="date" class="form-control form-control-sm" id="userSubEndDate" />
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="userSubExpireOthers" checked />
+                        <label class="form-check-label small" for="userSubExpireOthers">開通新方案時，將其他進行中訂閱標為已過期</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="userSubSave">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="site-footer"></div>
 
     <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
@@ -161,8 +216,69 @@
             return d.innerHTML;
         }
         $(async function () {
+            var plansCache = [];
+            var userSubModal = null;
+
             function showError(msg) {
-                $('#usersTable').html('<tr><td colspan="7" class="text-center text-danger">' + escapeHtml(msg) + '</td></tr>');
+                $('#usersTable').html('<tr><td colspan="9" class="text-center text-danger">' + escapeHtml(msg) + '</td></tr>');
+            }
+            function renderIdentityBadges(identities) {
+                if (!identities || !identities.length) return '<span class="text-muted small">—</span>';
+                var html = '<div class="d-flex flex-wrap gap-1 align-items-start" style="max-width:280px">';
+                identities.forEach(function (id) {
+                    var b = id.badge || 'secondary';
+                    var cls = (String(b).indexOf('outline-') === 0)
+                        ? 'badge border text-secondary'
+                        : ('badge bg-' + b);
+                    html += '<span class="' + cls + '">' + escapeHtml(id.label) + '</span>';
+                });
+                html += '</div>';
+                var details = [];
+                identities.forEach(function (id) {
+                    if (!id.detail) return;
+                    var line = id.detail;
+                    if (id.inactive) line += ' (已停用)';
+                    if (id.kind === 'manufacturer' || id.kind === 'supplier' || id.kind === 'billing') {
+                        details.push(escapeHtml(line));
+                    }
+                });
+                if (details.length) html += '<div class="small text-muted mt-1">' + details.join('<br>') + '</div>';
+                return html;
+            }
+            function loadPlans() {
+                return fetch('/api/admin/subscription-plans', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                }).then(function (r) { return r.ok ? r.json() : { plans: [] }; }).then(function (d) {
+                    plansCache = d.plans || [];
+                });
+            }
+            function defaultSubEnd(planId) {
+                var plan = plansCache.filter(function (p) { return p.id === planId; })[0];
+                var d = new Date();
+                var months = (plan && plan.duration_months) ? parseInt(plan.duration_months, 10) : 1;
+                if (isNaN(months) || months < 1) months = 1;
+                d.setMonth(d.getMonth() + months);
+                return d.toISOString().slice(0, 10);
+            }
+            function fillPlanSelect(selectedId) {
+                var $sel = $('#userSubPlanId');
+                $sel.empty();
+                plansCache.forEach(function (p) {
+                    var label = (p.name || '') + ' — ' + (p.price != null ? p.price : 0) + ' 元';
+                    if (p.plan_key) label += ' (' + p.plan_key + ')';
+                    $sel.append($('<option></option>').val(p.id).text(label));
+                });
+                if (selectedId) $sel.val(selectedId);
+            }
+            function openUserSubModal(u) {
+                if (!userSubModal) userSubModal = new bootstrap.Modal(document.getElementById('userSubModal'));
+                $('#userSubEmail').text(u.email || '');
+                $('#userSubUserId').val(u.id);
+                var sub = u.subscription || {};
+                $('#userSubRecordId').val(sub.id || '');
+                fillPlanSelect(sub.plan_id || null);
+                $('#userSubEndDate').val(sub.end_date ? sub.end_date.slice(0, 10) : defaultSubEnd($('#userSubPlanId').val()));
+                userSubModal.show();
             }
             try {
                 if (!window.AuthService) { alert('AuthService 未載入'); return; }
@@ -186,11 +302,13 @@
                 var token = session.access_token || '';
                 function loadUsers() {
                     return $.ajax({
-                        url: '/api/admin/users',
+                        url: '/api/admin/users?enriched=1',
                         headers: { 'Authorization': 'Bearer ' + token },
                         dataType: 'json'
                     });
                 }
+
+                await loadPlans().catch(function () { plansCache = []; });
 
                 var data = await Promise.race([
                     loadUsers(),
@@ -212,16 +330,45 @@
                         var level = escapeHtml(u.member_level || '一般');
                         var pts = typeof u.points === 'number' ? u.points : (parseInt(u.points, 10) || 0);
                         var roleVal = (u.role === 'admin' || u.role === 'tester') ? u.role : 'user';
-                        html += '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(u.email) + '</td><td>' + escapeHtml(u.full_name || '—') + '</td><td>' + roleBadge + '</td><td>' + level + '</td><td>' + pts + '</td><td><button class="btn btn-sm btn-primary btn-edit-user" data-id="' + escapeHtml(u.id) + '" data-email="' + escapeHtml(u.email) + '" data-role="' + escapeHtml(roleVal) + '" data-level="' + escapeHtml(u.member_level || '一般') + '" data-points="' + pts + '">編輯</button></td></tr>';
+                        var idCell = renderIdentityBadges(u.identities || []);
+                        var monthlyUrl = '/admin/membership.html?monthly_email=' + encodeURIComponent(u.email || '');
+                        html += '<tr data-user-id="' + escapeHtml(u.id) + '"><td>' + (i + 1) + '</td><td>' + escapeHtml(u.email) + '</td><td>' + escapeHtml(u.full_name || '—') + '</td><td>' + roleBadge + '</td><td>' + level + '</td><td>' + pts + '</td><td>' + idCell + '</td><td>' +
+                            '<a class="btn btn-sm btn-outline-secondary me-1" href="' + monthlyUrl + '">月消耗</a>' +
+                            '<button type="button" class="btn btn-sm btn-outline-success btn-sub-user me-1">訂閱</button>' +
+                            '<button class="btn btn-sm btn-primary btn-edit-user" data-id="' + escapeHtml(u.id) + '" data-email="' + escapeHtml(u.email) + '" data-role="' + escapeHtml(roleVal) + '" data-level="' + escapeHtml(u.member_level || '一般') + '" data-points="' + pts + '">編輯</button></td></tr>';
                     }
-                    $('#usersTable').html(html || '<tr><td colspan="7" class="text-center text-muted">尚無用戶（或篩選後無符合）</td></tr>');
+                    $('#usersTable').html(html || '<tr><td colspan="9" class="text-center text-muted">尚無用戶（或篩選後無符合）</td></tr>');
+                    $('.btn-sub-user').on('click', function () {
+                        var uid = $(this).closest('tr').data('user-id');
+                        var u = allUsers.filter(function (x) { return x.id === uid; })[0];
+                        if (u) openUserSubModal(u);
+                    });
+                }
+                function userMatchesIdentityFilter(u, identityVal) {
+                    if (!identityVal) return true;
+                    var mfr = u.manufacturer;
+                    var sup = u.industry_supplier;
+                    var sub = u.subscription;
+                    var subPaid = sub && (parseInt(sub.price, 10) || 0) > 0;
+                    if (identityVal === 'manufacturer') return !!mfr;
+                    if (identityVal === 'supplier') return !!sup;
+                    if (identityVal === 'seed') return !!(mfr && mfr.vendor_source === 'seed');
+                    if (identityVal === 'paid') return subPaid;
+                    if (identityVal === 'free') {
+                        var pr = u.role || 'user';
+                        if (pr === 'admin' || pr === 'tester') return false;
+                        return !subPaid;
+                    }
+                    return true;
                 }
                 function applyFilter() {
                     var roleVal = ($('#filterRole').val() || '').trim();
                     var levelVal = ($('#filterMemberLevel').val() || '').trim();
+                    var identityVal = ($('#filterIdentity').val() || '').trim();
                     var list = allUsers.filter(function (u) {
                         if (roleVal && (u.role || 'user') !== roleVal) return false;
                         if (levelVal && (u.member_level || '一般') !== levelVal) return false;
+                        if (!userMatchesIdentityFilter(u, identityVal)) return false;
                         return true;
                     });
                     fillTable(list);
@@ -229,9 +376,11 @@
                 fillTable(allUsers);
                 $('#filterRole').on('change', applyFilter);
                 $('#filterMemberLevel').on('change', applyFilter);
+                $('#filterIdentity').on('change', applyFilter);
                 $('#filterClear').on('click', function () {
                     $('#filterRole').val('');
                     $('#filterMemberLevel').val('');
+                    $('#filterIdentity').val('');
                     applyFilter();
                 });
 
@@ -300,6 +449,35 @@
                     }
                 });
 
+                $('#userSubSave').on('click', async function () {
+                    var userId = $('#userSubUserId').val();
+                    var subId = $('#userSubRecordId').val();
+                    var planId = $('#userSubPlanId').val();
+                    var endDate = $('#userSubEndDate').val();
+                    if (!planId || !endDate) { alert('請選擇方案與到期日'); return; }
+                    var url = subId ? '/api/admin/user-subscriptions/' + encodeURIComponent(subId) : '/api/admin/user-subscriptions';
+                    var body = subId
+                        ? { plan_id: planId, end_date: endDate + 'T23:59:59.999Z', status: 'active' }
+                        : { user_id: userId, plan_id: planId, end_date: endDate + 'T23:59:59.999Z', expire_other_active: $('#userSubExpireOthers').prop('checked') };
+                    try {
+                        var res = await fetch(url, {
+                            method: subId ? 'PATCH' : 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                            body: JSON.stringify(body)
+                        });
+                        var result = await res.json();
+                        if (!res.ok) { alert(result.error || '儲存失敗'); return; }
+                        if (userSubModal) userSubModal.hide();
+                        var refreshed = await loadUsers();
+                        if (!refreshed.error) {
+                            allUsers = refreshed.users || [];
+                            applyFilter();
+                        }
+                    } catch (e) {
+                        alert('儲存失敗');
+                    }
+                });
+
                 $(document).on('click', '.btn-edit-user', function () {
                     var id = $(this).data('id');
                     var email = $(this).data('email');
@@ -307,7 +485,14 @@
                     var level = $(this).data('level') || '一般';
                     var points = $(this).data('points');
                     editingId = id;
+                    var u = allUsers.filter(function (x) { return x.id === id; })[0];
                     $('#editUserEmail').text(email);
+                    var $idBox = $('#editUserIdentities');
+                    if (u && u.identities && u.identities.length) {
+                        $idBox.html('<div class="small text-muted mb-1">目前工作區身分</div>' + renderIdentityBadges(u.identities)).show();
+                    } else {
+                        $idBox.hide().empty();
+                    }
                     $('#editRole').val(role === 'admin' || role === 'tester' ? role : 'user');
                     $('#editMemberLevel').val(level);
                     $('#editPoints').val(points);

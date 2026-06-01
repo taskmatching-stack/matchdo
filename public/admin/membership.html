@@ -38,6 +38,9 @@
             <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">用戶等級與點數</button>
           </li>
           <li class="nav-item" role="presentation">
+            <button class="nav-link" id="points-monthly-tab" data-bs-toggle="tab" data-bs-target="#points-monthly" type="button" role="tab">每月點數</button>
+          </li>
+          <li class="nav-item" role="presentation">
             <button class="nav-link" id="ledger-tab" data-bs-toggle="tab" data-bs-target="#ledger" type="button" role="tab">點數流水</button>
           </li>
           <li class="nav-item" role="presentation">
@@ -163,7 +166,7 @@
             <div class="card">
               <div class="card-body">
                 <h6 class="card-title">用戶所屬等級與點數</h6>
-                <p class="text-muted small">依 email 查詢用戶目前方案、點數、到期日；可手動調整會員等級或補點／扣點。</p>
+                <p class="text-muted small">依 email 查詢用戶目前方案、點數、到期日；可<strong>開通／延長訂閱</strong>、調整會員等級或補點／扣點（不改平台 admin/tester 身分）。</p>
                 <div class="row g-2 mb-3">
                   <div class="col-md-6">
                     <input type="text" id="userSearchEmail" class="form-control form-control-sm" placeholder="輸入 email 查詢" />
@@ -185,6 +188,90 @@
                     <div class="mb-2"><label class="form-label small mb-0">備註（選填）</label><input type="text" id="adjustCreditsDesc" class="form-control form-control-sm" placeholder="例：活動補點" /></div>
                   </div>
                   <div class="modal-footer"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-primary btn-sm" id="btnConfirmAdjustCredits">確認</button></div>
+                </div>
+              </div>
+            </div>
+            <div class="modal fade" id="userSubModal" tabindex="-1">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header py-2"><h6 class="modal-title">訂閱／帳期</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                  <div class="modal-body">
+                    <input type="hidden" id="userSubUserId" />
+                    <input type="hidden" id="userSubRecordId" />
+                    <div class="mb-2"><label class="form-label small mb-0">方案</label><select class="form-select form-select-sm" id="userSubPlanId"></select></div>
+                    <div class="mb-2"><label class="form-label small mb-0">到期日</label><input type="date" class="form-control form-control-sm" id="userSubEndDate" /></div>
+                    <div class="form-check"><input class="form-check-input" type="checkbox" id="userSubExpireOthers" checked /><label class="form-check-label small" for="userSubExpireOthers">開通時將其他進行中訂閱標為已過期</label></div>
+                  </div>
+                  <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="btnUserSubExpire" style="display:none;">標記過期</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="btnUserSubSave">儲存</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="points-monthly" role="tabpanel">
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="card-title">每帳號每月點數消耗</h6>
+                <p class="text-muted small mb-2">依 <code>credit_transactions</code> 彙總；方便追蹤單一客戶或全站每月扣點趨勢。獲得點數（訂閱贈送、補點等）一併顯示供對照。</p>
+                <ul class="nav nav-pills nav-fill mb-3" id="monthlyModeTabs">
+                  <li class="nav-item"><button class="nav-link active" type="button" data-monthly-mode="user">單一帳號</button></li>
+                  <li class="nav-item"><button class="nav-link" type="button" data-monthly-mode="all">全部帳號（分析表）</button></li>
+                </ul>
+                <div id="monthlyUserPanel">
+                  <div class="row g-2 align-items-end mb-2">
+                    <div class="col-md-5">
+                      <label class="form-label small mb-0">Email</label>
+                      <input type="email" class="form-control form-control-sm" id="monthlyUserEmail" placeholder="user@example.com" />
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label small mb-0">月數</label>
+                      <select class="form-select form-select-sm" id="monthlyUserMonths">
+                        <option value="6">最近 6 個月</option>
+                        <option value="12" selected>最近 12 個月</option>
+                        <option value="24">最近 24 個月</option>
+                      </select>
+                    </div>
+                    <div class="col-auto"><button type="button" class="btn btn-sm btn-primary" id="btnMonthlyUser">查詢</button></div>
+                  </div>
+                  <div id="monthlyUserSummary" class="small text-muted mb-2" style="display:none;"></div>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th>月份</th>
+                          <th class="text-end">消耗點數</th>
+                          <th class="text-end">扣點次數</th>
+                          <th class="text-end">獲得點數</th>
+                          <th>主要用途（消耗明細）</th>
+                        </tr>
+                      </thead>
+                      <tbody id="monthlyUserTbody"><tr><td colspan="5" class="text-muted">請輸入 email 後查詢</td></tr></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div id="monthlyAllPanel" style="display:none;">
+                  <div class="row g-2 align-items-end mb-2">
+                    <div class="col-md-2">
+                      <label class="form-label small mb-0">月數</label>
+                      <select class="form-select form-select-sm" id="monthlyAllMonths">
+                        <option value="3">最近 3 個月</option>
+                        <option value="6" selected>最近 6 個月</option>
+                        <option value="12">最近 12 個月</option>
+                      </select>
+                    </div>
+                    <div class="col-auto"><button type="button" class="btn btn-sm btn-primary" id="btnMonthlyAll">載入分析表</button></div>
+                    <div class="col-auto"><span class="small text-muted" id="monthlyAllHint"></span></div>
+                  </div>
+                  <div class="table-responsive" style="max-height:70vh;overflow:auto;">
+                    <table class="table table-sm table-bordered table-hover mb-0" id="monthlyAllTable">
+                      <thead class="table-light" id="monthlyAllThead"></thead>
+                      <tbody id="monthlyAllTbody"><tr><td class="text-muted">請按「載入分析表」</td></tr></tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
@@ -549,6 +636,43 @@
   }
 
   var currentUserForAdjust = null;
+
+  function fillUserSubPlanSelect(selectedId) {
+    var sel = document.getElementById('userSubPlanId');
+    if (!sel) return;
+    sel.innerHTML = '';
+    (plansCache || []).forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      var label = (p.name || '') + ' — ' + (p.price != null ? p.price : 0) + ' 元';
+      if (p.plan_key) label += ' (' + p.plan_key + ')';
+      opt.textContent = label;
+      if (selectedId && p.id === selectedId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  function defaultSubEndDate(planId) {
+    var plan = (plansCache || []).find(function(p) { return p.id === planId; });
+    var d = new Date();
+    var months = (plan && plan.duration_months) ? parseInt(plan.duration_months, 10) : 1;
+    if (isNaN(months) || months < 1) months = 1;
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString().slice(0, 10);
+  }
+  function openUserSubModal(u) {
+    if (!u || !u.id) return;
+    if (!(plansCache && plansCache.length)) loadPlans().then(function() { openUserSubModal(u); });
+    document.getElementById('userSubUserId').value = u.id;
+    var sub = u.subscription || {};
+    document.getElementById('userSubRecordId').value = sub.id || '';
+    fillUserSubPlanSelect(sub.plan_id || null);
+    document.getElementById('userSubEndDate').value = sub.end_date
+      ? sub.end_date.slice(0, 10)
+      : defaultSubEndDate(document.getElementById('userSubPlanId').value);
+    document.getElementById('btnUserSubExpire').style.display = sub.id ? 'inline-block' : 'none';
+    new bootstrap.Modal(document.getElementById('userSubModal')).show();
+  }
+
   async function searchUser() {
     var email = document.getElementById('userSearchEmail').value.trim();
     if (!email) { showMsg('請輸入 email', true); return; }
@@ -570,11 +694,19 @@
         '<p class="mb-1"><strong>' + (u.full_name || u.email || '') + '</strong> ' + (u.email || '') + '</p>' +
         '<p class="mb-1 small">會員等級：' + (u.member_level || '一般') + '</p>' +
         '<p class="mb-1 small">點數餘額：' + (cred.balance != null ? cred.balance : 0) + '（累計獲得 ' + (cred.total_earned != null ? cred.total_earned : 0) + ' / 消費 ' + (cred.total_spent != null ? cred.total_spent : 0) + '）</p>' +
-        '<p class="mb-2 small">訂閱：' + (sub.plan_name || '無') + (sub.end_date ? '，到期 ' + sub.end_date.slice(0,10) : '') + '</p>' +
+        '<p class="mb-2 small">訂閱：' + (sub.plan_name || '無') +
+          (sub.price != null ? '（' + sub.price + ' 元）' : '') +
+          (sub.end_date ? '，到期 ' + sub.end_date.slice(0,10) : '') + '</p>' +
+        (u.manufacturer ? '<p class="mb-2 small text-muted">綁定廠商：' + (u.manufacturer.name || '') +
+          ' <a href="/admin/manufacturers.html">廠商管理</a></p>' : '') +
+        '<button type="button" class="btn btn-sm btn-success me-1" id="btnManageSubscription">訂閱／帳期</button>' +
         '<button type="button" class="btn btn-sm btn-primary me-1" id="btnAdjustCredits">調整點數</button>' +
         '<button type="button" class="btn btn-sm btn-outline-secondary" id="btnEditMemberLevel">編輯等級</button>' +
         '</div>';
       box.innerHTML = html;
+      document.getElementById('btnManageSubscription').addEventListener('click', function() {
+        openUserSubModal(u);
+      });
       document.getElementById('btnAdjustCredits').addEventListener('click', function() {
         document.getElementById('adjustCreditsAmount').value = '';
         document.getElementById('adjustCreditsDesc').value = '';
@@ -828,6 +960,136 @@
     }
   }
 
+  function escHtml(s) {
+    if (s == null) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  async function loadMonthlyUser() {
+    var email = (document.getElementById('monthlyUserEmail').value || '').trim();
+    var months = document.getElementById('monthlyUserMonths').value || '12';
+    var tbody = document.getElementById('monthlyUserTbody');
+    var summary = document.getElementById('monthlyUserSummary');
+    if (!email) { showMsg('請輸入 email', true); return; }
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted">查詢中…</td></tr>';
+    summary.style.display = 'none';
+    try {
+      var res = await fetch('/api/admin/membership/points-monthly?email=' + encodeURIComponent(email) + '&months=' + encodeURIComponent(months), { headers: headers });
+      var data = await res.json();
+      if (!res.ok) { tbody.innerHTML = '<tr><td colspan="5" class="text-danger">' + escHtml(data.error || '查詢失敗') + '</td></tr>'; return; }
+      if (!data.user) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">找不到該用戶</td></tr>';
+        return;
+      }
+      summary.style.display = 'block';
+      summary.textContent = (data.user.full_name || '') + ' · ' + (data.user.email || '') + ' · 會員等級 ' + (data.user.member_level || '一般');
+      var rows = data.monthly || [];
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">此區間無點數紀錄</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      rows.forEach(function (row) {
+        var breakdown = (row.breakdown || []).slice(0, 5).map(function (b) {
+          return escHtml(b.description) + ' ' + b.points + '點×' + b.count;
+        }).join('；');
+        if ((row.breakdown || []).length > 5) breakdown += '…';
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + escHtml(row.month) + '</td>' +
+          '<td class="text-end fw-semibold">' + (row.consumed_points || 0).toLocaleString() + '</td>' +
+          '<td class="text-end">' + (row.consumed_count || 0).toLocaleString() + '</td>' +
+          '<td class="text-end text-success">' + (row.granted_points || 0).toLocaleString() + '</td>' +
+          '<td class="small">' + (breakdown || '—') + '</td>';
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-danger">載入失敗</td></tr>';
+    }
+  }
+
+  async function loadMonthlyAll() {
+    var months = document.getElementById('monthlyAllMonths').value || '6';
+    var thead = document.getElementById('monthlyAllThead');
+    var tbody = document.getElementById('monthlyAllTbody');
+    var hint = document.getElementById('monthlyAllHint');
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showMsg('請先登入', true); return; }
+    tbody.innerHTML = '<tr><td colspan="99" class="text-muted">載入中…</td></tr>';
+    try {
+      var res = await fetch('/api/admin/membership/points-monthly?scope=all&months=' + encodeURIComponent(months), { headers: headers });
+      var data = await res.json();
+      if (!res.ok) { tbody.innerHTML = '<tr><td colspan="99" class="text-danger">' + escHtml(data.error || '失敗') + '</td></tr>'; return; }
+      var monthCols = data.months || [];
+      var headRow = '<tr><th>Email</th><th>姓名</th><th>等級</th>';
+      monthCols.forEach(function (m) { headRow += '<th class="text-end">' + escHtml(m) + '<br><span class="fw-normal small">消耗</span></th>'; });
+      headRow += '<th class="text-end">合計消耗</th></tr>';
+      thead.innerHTML = headRow;
+      var users = data.users || [];
+      hint.textContent = '共 ' + (data.user_count || users.length) + ' 位有紀錄（依消耗排序）';
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="' + (4 + monthCols.length) + '" class="text-muted">無資料</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      users.forEach(function (u) {
+        var tr = document.createElement('tr');
+        var html = '<td class="small">' + escHtml(u.email) + '</td><td>' + escHtml(u.full_name || '—') + '</td><td>' + escHtml(u.member_level || '一般') + '</td>';
+        monthCols.forEach(function (m) {
+          var v = (u.monthly && u.monthly[m]) ? u.monthly[m] : 0;
+          html += '<td class="text-end">' + (v ? v.toLocaleString() : '<span class="text-muted">0</span>') + '</td>';
+        });
+        html += '<td class="text-end fw-semibold">' + (u.total_consumed || 0).toLocaleString() + '</td>';
+        tr.innerHTML = html;
+        tbody.appendChild(tr);
+      });
+      if (data.totals_by_month) {
+        var trT = document.createElement('tr');
+        trT.className = 'table-secondary fw-semibold';
+        var tHtml = '<td colspan="3">全站合計</td>';
+        monthCols.forEach(function (m) {
+          var t = data.totals_by_month[m] || {};
+          tHtml += '<td class="text-end">' + (t.consumed_points || 0).toLocaleString() + '</td>';
+        });
+        var grand = monthCols.reduce(function (s, m) { return s + ((data.totals_by_month[m] && data.totals_by_month[m].consumed_points) || 0); }, 0);
+        tHtml += '<td class="text-end">' + grand.toLocaleString() + '</td>';
+        trT.innerHTML = tHtml;
+        tbody.appendChild(trT);
+      }
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="99" class="text-danger">載入失敗</td></tr>';
+    }
+  }
+
+  function initMonthlyPointsTab() {
+    document.querySelectorAll('#monthlyModeTabs [data-monthly-mode]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('#monthlyModeTabs .nav-link').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        var mode = btn.getAttribute('data-monthly-mode');
+        document.getElementById('monthlyUserPanel').style.display = mode === 'user' ? 'block' : 'none';
+        document.getElementById('monthlyAllPanel').style.display = mode === 'all' ? 'block' : 'none';
+      });
+    });
+    document.getElementById('btnMonthlyUser')?.addEventListener('click', loadMonthlyUser);
+    document.getElementById('monthlyUserEmail')?.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') loadMonthlyUser();
+    });
+    document.getElementById('btnMonthlyAll')?.addEventListener('click', loadMonthlyAll);
+    var params = new URLSearchParams(location.search);
+    var monthlyEmail = params.get('monthly_email');
+    if (monthlyEmail) {
+      document.getElementById('monthlyUserEmail').value = monthlyEmail;
+      var tabBtn = document.getElementById('points-monthly-tab');
+      if (tabBtn && window.bootstrap) bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+      loadMonthlyUser();
+    }
+  }
+
   async function updateLoginStatus(){
     var statusText = document.getElementById('loginStatusText');
     var loginLink = document.getElementById('loginStatusLink');
@@ -863,7 +1125,46 @@
     document.getElementById('btnSavePoints')?.addEventListener('click', savePoints);
     document.getElementById('btnLoadPermissions')?.addEventListener('click', function(){ loadPlans(); });
     document.getElementById('btnSearchUser')?.addEventListener('click', searchUser);
+    document.getElementById('btnUserSubSave')?.addEventListener('click', async function() {
+      var userId = document.getElementById('userSubUserId').value;
+      var subId = document.getElementById('userSubRecordId').value;
+      var planId = document.getElementById('userSubPlanId').value;
+      var endDate = document.getElementById('userSubEndDate').value;
+      if (!planId || !endDate) { showMsg('請選擇方案與到期日', true); return; }
+      var headers = await getAuthHeaders();
+      if (!headers.Authorization) return;
+      var url = subId
+        ? '/api/admin/user-subscriptions/' + encodeURIComponent(subId)
+        : '/api/admin/user-subscriptions';
+      var body = subId
+        ? { plan_id: planId, end_date: endDate + 'T23:59:59.999Z', status: 'active' }
+        : { user_id: userId, plan_id: planId, end_date: endDate + 'T23:59:59.999Z', expire_other_active: document.getElementById('userSubExpireOthers').checked };
+      try {
+        var res = await fetch(url, { method: subId ? 'PATCH' : 'POST', headers: headers, body: JSON.stringify(body) });
+        var data = await res.json();
+        if (!res.ok) { showMsg(data.error || '儲存失敗', true); return; }
+        showMsg(data.message || '訂閱已儲存');
+        bootstrap.Modal.getInstance(document.getElementById('userSubModal')).hide();
+        searchUser();
+      } catch (e) { showMsg('儲存失敗', true); }
+    });
+    document.getElementById('btnUserSubExpire')?.addEventListener('click', async function() {
+      var subId = document.getElementById('userSubRecordId').value;
+      if (!subId || !confirm('確定標記為已過期？')) return;
+      var headers = await getAuthHeaders();
+      try {
+        var res = await fetch('/api/admin/user-subscriptions/' + encodeURIComponent(subId), {
+          method: 'PATCH', headers: headers, body: JSON.stringify({ status: 'expired' })
+        });
+        var data = await res.json();
+        if (!res.ok) { showMsg(data.error || '失敗', true); return; }
+        showMsg('已標記過期');
+        bootstrap.Modal.getInstance(document.getElementById('userSubModal')).hide();
+        searchUser();
+      } catch (e) { showMsg('失敗', true); }
+    });
     document.getElementById('btnSearchLedger')?.addEventListener('click', searchLedger);
+    initMonthlyPointsTab();
     document.getElementById('btnLoadUsageStats')?.addEventListener('click', loadUsageStats);
     document.getElementById('usage-stats-tab')?.addEventListener('shown.bs.tab', function(){
       var from = document.getElementById('usageStatsFrom')?.value?.trim();

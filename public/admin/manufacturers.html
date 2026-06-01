@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>廠商管理 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-2">廠商管理</h4>
+        <p class="text-muted small mb-3">
+          管理<strong>全部廠商</strong>（含種子轉正後）。種子入駐、代傳素材、同意公開請至
+          <a href="/admin/seed-vendors.html">種子廠商管理</a>。
+          訂閱帳期可於此頁或 <a href="/admin/user-management.html">一般會員</a> 設定；供應商見 <a href="/admin/industry-suppliers.html">產業供應商</a>；方案牌價見 <a href="/admin/membership.html">方案／點數</a>。
+        </p>
+
+        <div id="opResult" class="alert d-none mb-3 py-2 small" role="alert"></div>
+
+        <div class="card mb-3">
+          <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-3">
+                <label class="form-label small mb-0">搜尋</label>
+                <input type="text" class="form-control form-control-sm" id="filterQ" placeholder="廠商名稱或 Email" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">類型</label>
+                <select class="form-select form-select-sm" id="filterType">
+                  <option value="">全部</option>
+                  <option value="seed">種子</option>
+                  <option value="paid">一般／付費</option>
+                  <option value="platform">官方範例</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">訂閱</label>
+                <select class="form-select form-select-sm" id="filterSub">
+                  <option value="">全部</option>
+                  <option value="active">有效訂閱中</option>
+                  <option value="none">無有效訂閱</option>
+                </select>
+              </div>
+              <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-primary" id="btnReload"><i class="bi bi-arrow-clockwise me-1"></i>載入</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>廠商</th>
+                    <th>綁定帳號</th>
+                    <th>類型</th>
+                    <th>認證</th>
+                    <th>狀態</th>
+                    <th>種子剩餘</th>
+                    <th>訂閱方案</th>
+                    <th>訂閱到期</th>
+                    <th style="min-width:220px">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tableBody">
+                  <tr><td colspan="9" class="text-center text-muted p-3">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="subModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title">訂閱／帳期</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-2" id="subModalUser"></p>
+          <input type="hidden" id="subUserId" />
+          <input type="hidden" id="subRecordId" />
+          <div class="mb-2">
+            <label class="form-label small mb-0">方案</label>
+            <select class="form-select form-select-sm" id="subPlanId"></select>
+            <div class="form-text small">優惠價請在「方案設定」建立專用方案（如種子優惠、合作優惠），再於此指定。</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-0">到期日</label>
+            <input type="date" class="form-control form-control-sm" id="subEndDate" />
+          </div>
+          <div class="mb-2" id="subCurrentWrap" style="display:none;">
+            <span class="small text-muted">目前：</span><span class="small" id="subCurrentText"></span>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="subExpireOthers" checked />
+            <label class="form-check-label small" for="subExpireOthers">開通新方案時，將其他進行中訂閱標為已過期</label>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-sm btn-outline-danger" id="btnSubExpire" style="display:none;">標記過期</button>
+          <button type="button" class="btn btn-sm btn-primary" id="btnSubSave">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var items = [];
+  var plansCache = [];
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+  function getToken() {
+    return (window.AuthService && typeof AuthService.getSession === 'function')
+      ? AuthService.getSession().then(function (s) { return s && (s.access_token || (s.session && s.session.access_token)); })
+      : Promise.resolve(null);
+  }
+  function showOp(ok, msg) {
+    var el = document.getElementById('opResult');
+    el.classList.remove('d-none', 'alert-success', 'alert-danger');
+    el.classList.add(ok ? 'alert-success' : 'alert-danger');
+    el.textContent = msg;
+  }
+  function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      return isNaN(d.getTime()) ? iso : d.toLocaleDateString('zh-TW');
+    } catch (e) { return iso; }
+  }
+  function typeBadge(m) {
+    if (m.is_active === false) return '<span class="badge bg-secondary me-1">已下架</span>';
+    if (m.is_seed) return '<span class="badge bg-primary">種子</span>';
+    if (m.is_platform) return '<span class="badge bg-info text-dark">官方範例</span>';
+    return '<span class="badge bg-success">一般／付費</span>';
+  }
+
+  function loadPlans(token) {
+    return fetch('/api/admin/subscription-plans', { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { return r.ok ? r.json() : { plans: [] }; })
+      .then(function (d) { plansCache = d.plans || []; });
+  }
+
+  function fillPlanSelect(selectedId) {
+    var sel = document.getElementById('subPlanId');
+    sel.innerHTML = '';
+    plansCache.forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      var label = (p.name || '方案') + ' — ' + (p.price != null ? p.price : 0) + ' 元';
+      if (p.plan_key) label += ' (' + p.plan_key + ')';
+      opt.textContent = label;
+      if (selectedId && p.id === selectedId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (!plansCache.length) {
+      sel.innerHTML = '<option value="">尚無方案，請至會員／訂閱建立</option>';
+    }
+  }
+
+  function defaultEndDateFromPlan(planId) {
+    var plan = plansCache.find(function (p) { return p.id === planId; });
+    var d = new Date();
+    var months = (plan && plan.duration_months) ? parseInt(plan.duration_months, 10) : 1;
+    if (isNaN(months) || months < 1) months = 1;
+    d.setMonth(d.getMonth() + months);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function loadList() {
+    var tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted p-3">載入中…</td></tr>';
+    getToken().then(function (token) {
+      if (!token) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">請先登入</td></tr>';
+        return;
+      }
+      var params = new URLSearchParams();
+      var t = document.getElementById('filterType').value;
+      var s = document.getElementById('filterSub').value;
+      var q = document.getElementById('filterQ').value.trim();
+      if (t) params.set('vendor_source', t);
+      if (s) params.set('subscription', s);
+      if (q) params.set('q', q);
+      var url = '/api/admin/manufacturers' + (params.toString() ? '?' + params.toString() : '');
+      Promise.all([
+        fetch(url, { headers: { Authorization: 'Bearer ' + token } }).then(function (r) {
+          if (!r.ok) throw new Error('載入失敗');
+          return r.json();
+        }),
+        loadPlans(token)
+      ]).then(function (results) {
+        items = results[0].items || [];
+        renderTable();
+      }).catch(function (err) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + escapeHtml(err.message || '載入失敗') + '</td></tr>';
+      });
+    });
+  }
+
+  function patchMfr(id, body, okMsg) {
+    getToken().then(function (token) {
+      fetch('/api/admin/manufacturers/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { showOp(false, res.data.error || '更新失敗'); return; }
+          showOp(true, okMsg || res.data.message || '已更新');
+          loadList();
+        });
+    });
+  }
+
+  function openSubModal(m) {
+    if (!m.user_id) {
+      alert('此廠商未綁定登入帳號，無法設定訂閱。請先在種子廠商管理建立並綁定使用者。');
+      return;
+    }
+    document.getElementById('subUserId').value = m.user_id;
+    var sub = m.subscription;
+    document.getElementById('subRecordId').value = sub ? sub.id : '';
+    document.getElementById('subModalUser').textContent =
+      (m.name || '廠商') + ' · ' + (m.user_email || m.user_id);
+    fillPlanSelect(sub ? sub.plan_id : null);
+    document.getElementById('subEndDate').value = sub && sub.end_date
+      ? sub.end_date.slice(0, 10)
+      : defaultEndDateFromPlan(document.getElementById('subPlanId').value);
+    var wrap = document.getElementById('subCurrentWrap');
+    var expireBtn = document.getElementById('btnSubExpire');
+    if (sub) {
+      wrap.style.display = 'block';
+      document.getElementById('subCurrentText').textContent =
+        (sub.plan_name || '方案') + '，' + (sub.price != null ? sub.price + ' 元，' : '') + '到期 ' + formatDate(sub.end_date);
+      expireBtn.style.display = 'inline-block';
+    } else {
+      wrap.style.display = 'none';
+      expireBtn.style.display = 'none';
+    }
+    document.getElementById('subPlanId').onchange = function () {
+      if (!document.getElementById('subRecordId').value) {
+        document.getElementById('subEndDate').value = defaultEndDateFromPlan(this.value);
+      }
+    };
+    new bootstrap.Modal(document.getElementById('subModal')).show();
+  }
+
+  function renderTable() {
+    var tbody = document.getElementById('tableBody');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted p-3">尚無資料</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(function (m, idx) {
+      var sub = m.subscription;
+      var daysCell = m.is_seed && m.remaining_days != null
+        ? (m.remaining_days === 0 ? '<span class="text-danger">已過期</span>' : m.remaining_days + ' 天')
+        : '<span class="text-muted small">—</span>';
+      var emailCell = m.user_email
+        ? escapeHtml(m.user_email) + (m.user_full_name ? '<br><span class="text-muted small">' + escapeHtml(m.user_full_name) + '</span>' : '')
+        : '<span class="text-muted small">未綁定</span>';
+      var verifiedCell = m.verified
+        ? '<span class="badge bg-success">已認證</span>'
+        : '<span class="text-muted small">無</span>';
+      var activeCell = m.is_active !== false
+        ? '<span class="badge bg-success">上架</span>'
+        : '<span class="badge bg-secondary">下架</span>';
+      var subPlan = sub ? escapeHtml(sub.plan_name || '—') + (sub.price != null ? ' <span class="text-muted">(' + sub.price + '元)</span>' : '') : '<span class="text-muted">無</span>';
+      var subEnd = sub && sub.end_date ? formatDate(sub.end_date) : '—';
+      var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(m.id);
+      var nameAttr = escapeHtml((m.name || '').replace(/"/g, '&quot;'));
+      var actions = '<div class="d-flex flex-wrap gap-1">';
+      actions += '<button type="button" class="btn btn-sm btn-outline-primary" data-action="sub" data-idx="' + idx + '">訂閱</button>';
+      actions += '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="verified" data-id="' + escapeHtml(m.id) + '" data-v="' + (m.verified ? '0' : '1') + '">' + (m.verified ? '取消認證' : '認證') + '</button>';
+      if (m.is_active !== false) {
+        actions += '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="deactivate" data-id="' + escapeHtml(m.id) + '">下架</button>';
+      } else {
+        actions += '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="activate" data-id="' + escapeHtml(m.id) + '">上架</button>';
+      }
+      actions += '<a class="btn btn-sm btn-outline-dark" href="' + profileUrl + '" target="_blank" rel="noopener">廠商頁</a>';
+      if (m.is_seed) {
+        actions += '<a class="btn btn-sm btn-outline-info" href="/admin/seed-vendors.html">種子操作</a>';
+      }
+      actions += '</div>';
+      return '<tr>' +
+        '<td>' + escapeHtml(m.name || '—') + '</td>' +
+        '<td>' + emailCell + '</td>' +
+        '<td>' + typeBadge(m) + '</td>' +
+        '<td>' + verifiedCell + '</td>' +
+        '<td>' + activeCell + '</td>' +
+        '<td>' + daysCell + '</td>' +
+        '<td>' + subPlan + '</td>' +
+        '<td>' + subEnd + '</td>' +
+        '<td>' + actions + '</td></tr>';
+    }).join('');
+
+    tbody.querySelectorAll('button[data-action]').forEach(function (btn) {
+      var action = btn.getAttribute('data-action');
+      if (action === 'sub') {
+        btn.addEventListener('click', function () {
+          openSubModal(items[parseInt(btn.getAttribute('data-idx'), 10)]);
+        });
+        return;
+      }
+      var id = btn.getAttribute('data-id');
+      if (action === 'verified') {
+        btn.addEventListener('click', function () {
+          patchMfr(id, { verified: btn.getAttribute('data-v') === '1' }, '已更新認證標章');
+        });
+      } else if (action === 'deactivate') {
+        btn.addEventListener('click', function () {
+          if (confirm('確定下架此廠商？')) patchMfr(id, { is_active: false }, '已下架');
+        });
+      } else if (action === 'activate') {
+        btn.addEventListener('click', function () {
+          patchMfr(id, { is_active: true }, '已重新上架');
+        });
+      }
+    });
+  }
+
+  document.getElementById('btnReload').addEventListener('click', loadList);
+  document.getElementById('filterQ').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') loadList();
+  });
+
+  document.getElementById('btnSubSave').addEventListener('click', function () {
+    var userId = document.getElementById('subUserId').value;
+    var subId = document.getElementById('subRecordId').value;
+    var planId = document.getElementById('subPlanId').value;
+    var endDate = document.getElementById('subEndDate').value;
+    if (!planId) { alert('請選擇方案'); return; }
+    if (!endDate) { alert('請選擇到期日'); return; }
+    getToken().then(function (token) {
+      var headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+      var p;
+      if (subId) {
+        p = fetch('/api/admin/user-subscriptions/' + encodeURIComponent(subId), {
+          method: 'PATCH',
+          headers: headers,
+          body: JSON.stringify({ plan_id: planId, end_date: endDate + 'T23:59:59.999Z', status: 'active' })
+        });
+      } else {
+        p = fetch('/api/admin/user-subscriptions', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            user_id: userId,
+            plan_id: planId,
+            end_date: endDate + 'T23:59:59.999Z',
+            expire_other_active: document.getElementById('subExpireOthers').checked
+          })
+        });
+      }
+      p.then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { alert(res.data.error || '儲存失敗'); return; }
+          bootstrap.Modal.getInstance(document.getElementById('subModal')).hide();
+          showOp(true, res.data.message || '訂閱已儲存');
+          loadList();
+        });
+    });
+  });
+
+  document.getElementById('btnSubExpire').addEventListener('click', function () {
+    var subId = document.getElementById('subRecordId').value;
+    if (!subId || !confirm('確定將此訂閱標記為已過期？')) return;
+    getToken().then(function (token) {
+      fetch('/api/admin/user-subscriptions/' + encodeURIComponent(subId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ status: 'expired' })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { alert(res.data.error || '失敗'); return; }
+          bootstrap.Modal.getInstance(document.getElementById('subModal')).hide();
+          showOp(true, '訂閱已標記過期');
+          loadList();
+        });
+    });
+  });
+
+  loadList();
+})();
+  </script>
+</body>
+</html>

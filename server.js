@@ -1827,7 +1827,7 @@ const DB_URL = process.env.SUPABASE_DB_URL;
 const LOCAL_CATEGORIES_PATH = path.join(__dirname, 'public', 'config', 'ai-categories.local.json');
 
 /** subscription_plans 後台只查／寫這些欄位（多數環境表結構一致，不依賴直連 DB） */
-const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, duration_months, credits_monthly, sort_order, is_active';
+const SUBSCRIPTION_PLANS_SELECT_COLUMNS = 'id, name, price, duration_months, credits_monthly, sort_order, is_active, plan_key';
 
 async function ensureAiCategoriesTableAndSeed() {
     if (!DB_URL) return; // 無 DB 直連就跳過
@@ -2419,6 +2419,113 @@ app.get('/api/admin/can-access', async (req, res) => {
     res.json({ ok: true });
 });
 
+/** 管理員檢視用：平台角色 + ①②③ 工作區身分（與前台 capabilities 對照，唯讀） */
+function buildAdminUserIdentities(profileRole, manufacturer, industrySupplier, subscription) {
+    const identities = [];
+    const pr = profileRole || 'user';
+    if (pr === 'admin') identities.push({ kind: 'platform', label: '管理員', badge: 'danger' });
+    else if (pr === 'tester') identities.push({ kind: 'platform', label: '測試員', badge: 'info' });
+    else identities.push({ kind: 'platform', label: '一般用戶', badge: 'secondary' });
+    identities.push({ kind: 'zone', label: '① 訂製／設計', badge: 'light text-dark' });
+    if (manufacturer) {
+        const vs = manufacturer.vendor_source || null;
+        let mfrKind = '一般／付費廠商';
+        if (vs === 'seed') mfrKind = '種子廠商';
+        else if (vs === 'platform') mfrKind = '官方範例';
+        identities.push({
+            kind: 'manufacturer',
+            label: '② ' + mfrKind,
+            badge: vs === 'seed' ? 'primary' : (vs === 'platform' ? 'info text-dark' : 'success'),
+            detail: manufacturer.name || null,
+            inactive: manufacturer.is_active === false
+        });
+    }
+    if (industrySupplier) {
+        identities.push({
+            kind: 'supplier',
+            label: '③ 產業供應商',
+            badge: 'warning text-dark',
+            detail: industrySupplier.name || null,
+            inactive: industrySupplier.is_active === false
+        });
+    }
+    const isStaff = pr === 'admin' || pr === 'tester';
+    const subPrice = subscription && subscription.price != null ? parseInt(subscription.price, 10) : 0;
+    if (subscription && subPrice > 0) {
+        identities.push({
+            kind: 'billing',
+            label: '付費訂閱',
+            badge: 'dark',
+            detail: (subscription.plan_name || '') + (subscription.end_date ? ' 至 ' + String(subscription.end_date).slice(0, 10) : '')
+        });
+    } else if (!isStaff) {
+        identities.push({ kind: 'billing', label: '免費會員', badge: 'outline-secondary' });
+    }
+    return identities;
+}
+
+/** 一般會員列表：附加廠商／供應商／有效訂閱摘要（不改 role／capabilities） */
+async function attachAdminUserSummaries(users) {
+    const userIds = users.map((u) => u.id).filter(Boolean);
+    if (!userIds.length) return users;
+    const now = new Date().toISOString();
+    const mfrByUser = {};
+    const supByUser = {};
+    const subByUser = {};
+    try {
+        const { data: mfrs } = await supabase.from('manufacturers').select('id, name, user_id, vendor_source, is_active').in('user_id', userIds);
+        (mfrs || []).forEach((m) => { if (m.user_id) mfrByUser[m.user_id] = m; });
+    } catch (_) { /* ignore */ }
+    try {
+        const { data: sups } = await supabase.from('industry_suppliers').select('id, name, user_id, is_active').in('user_id', userIds);
+        (sups || []).forEach((s) => { if (s.user_id) supByUser[s.user_id] = s; });
+    } catch (_) { /* 表未建 */ }
+    try {
+        const { data: subs } = await supabase
+            .from('user_subscriptions')
+            .select('id, user_id, end_date, status, plan_id, subscription_plans(name, price, plan_key)')
+            .in('user_id', userIds)
+            .eq('status', 'active')
+            .gt('end_date', now)
+            .order('end_date', { ascending: false });
+        (subs || []).forEach((s) => {
+            if (!subByUser[s.user_id]) {
+                const plan = s.subscription_plans || {};
+                subByUser[s.user_id] = {
+                    id: s.id,
+                    plan_id: s.plan_id,
+                    plan_name: plan.name,
+                    price: plan.price,
+                    plan_key: plan.plan_key,
+                    end_date: s.end_date,
+                    status: s.status
+                };
+            }
+        });
+    } catch (_) { /* ignore */ }
+    return users.map((u) => {
+        const manufacturer = mfrByUser[u.id] ? {
+            id: mfrByUser[u.id].id,
+            name: mfrByUser[u.id].name,
+            vendor_source: mfrByUser[u.id].vendor_source || null,
+            is_active: mfrByUser[u.id].is_active !== false
+        } : null;
+        const industry_supplier = supByUser[u.id] ? {
+            id: supByUser[u.id].id,
+            name: supByUser[u.id].name,
+            is_active: supByUser[u.id].is_active !== false
+        } : null;
+        const subscription = subByUser[u.id] || null;
+        return {
+            ...u,
+            manufacturer,
+            industry_supplier,
+            subscription,
+            identities: buildAdminUserIdentities(u.role, manufacturer, industry_supplier, subscription)
+        };
+    });
+}
+
 // GET /api/admin/users — 用戶管理：列出所有用戶（含會員等級、點數），僅管理員（註冊於 static 前以確保不被靜態攔截）
 app.get('/api/admin/users', async (req, res) => {
     try {
@@ -2466,7 +2573,7 @@ app.get('/api/admin/users', async (req, res) => {
                 (credits || []).forEach(c => { creditsMap[c.user_id] = c; });
             } catch (_) { /* user_credits 表可能尚未建立 */ }
         }
-        const users = list.map(p => ({
+        let users = list.map(p => ({
             id: p.id,
             email: p.email || '',
             full_name: p.full_name || '',
@@ -2477,6 +2584,10 @@ app.get('/api/admin/users', async (req, res) => {
             total_earned: creditsMap[p.id] ? creditsMap[p.id].total_earned : 0,
             total_spent: creditsMap[p.id] ? creditsMap[p.id].total_spent : 0
         }));
+        const wantEnriched = req.query.enriched === '1' || req.query.enriched === 'true';
+        if (wantEnriched && users.length > 0) {
+            users = await attachAdminUserSummaries(users);
+        }
         res.json({ users });
     } catch (e) {
         console.error('GET /api/admin/users 異常:', e);
@@ -2718,6 +2829,439 @@ app.get('/api/admin/seed-manufacturers', async (req, res) => {
         res.json({ items });
     } catch (e) {
         console.error('GET /api/admin/seed-manufacturers 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+/** 管理員廠商列表：附加帳號 email、有效訂閱摘要（不改身分權限模型） */
+async function enrichAdminManufacturerRows(rows) {
+    const now = new Date();
+    const userIds = [...new Set((rows || []).map((m) => m.user_id).filter(Boolean))];
+    const emailByUser = {};
+    const subByUser = {};
+    if (userIds.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, email, full_name').in('id', userIds);
+        (profs || []).forEach((p) => { emailByUser[p.id] = p; });
+        const { data: subs } = await supabase
+            .from('user_subscriptions')
+            .select('id, user_id, start_date, end_date, status, plan_id, subscription_plans(id, name, price, plan_key, duration_months)')
+            .in('user_id', userIds)
+            .eq('status', 'active')
+            .gt('end_date', now.toISOString())
+            .order('end_date', { ascending: false });
+        (subs || []).forEach((s) => {
+            if (!subByUser[s.user_id]) subByUser[s.user_id] = s;
+        });
+    }
+    return (rows || []).map((m) => {
+        const vs = m.vendor_source || null;
+        const exp = m.expires_at ? new Date(m.expires_at) : null;
+        const isSeed = vs === 'seed';
+        const isPlatform = vs === 'platform';
+        let remainingDays = null;
+        if (isSeed && exp) remainingDays = exp > now ? Math.ceil((exp - now) / (24 * 60 * 60 * 1000)) : 0;
+        const prof = m.user_id ? emailByUser[m.user_id] : null;
+        const subRow = m.user_id ? subByUser[m.user_id] : null;
+        const plan = subRow && subRow.subscription_plans ? subRow.subscription_plans : null;
+        return {
+            id: m.id,
+            name: m.name,
+            user_id: m.user_id || null,
+            user_email: prof ? prof.email : null,
+            user_full_name: prof ? prof.full_name : null,
+            vendor_source: vs,
+            expires_at: m.expires_at || null,
+            seed_public_released_at: m.seed_public_released_at || null,
+            seed_public_released: !!(m.seed_public_released_at),
+            remaining_days: remainingDays,
+            is_paid: !isSeed,
+            is_platform: isPlatform,
+            is_seed: isSeed,
+            is_active: m.is_active !== false,
+            verified: !!m.verified,
+            location: m.location || null,
+            created_at: m.created_at || null,
+            subscription: subRow ? {
+                id: subRow.id,
+                plan_id: subRow.plan_id,
+                plan_name: plan ? plan.name : null,
+                plan_key: plan ? plan.plan_key : null,
+                price: plan ? plan.price : null,
+                start_date: subRow.start_date,
+                end_date: subRow.end_date,
+                status: subRow.status
+            } : null
+        };
+    });
+}
+
+// GET /api/admin/manufacturers — 全部廠商（含轉正後）+ 綁定帳號與訂閱摘要
+app.get('/api/admin/manufacturers', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const vendorSource = (req.query.vendor_source || '').trim();
+        const subFilter = (req.query.subscription || '').trim();
+        const q = (req.query.q || '').trim().toLowerCase();
+        let query = supabase
+            .from('manufacturers')
+            .select('id, name, user_id, vendor_source, expires_at, is_active, location, verified, created_at, seed_public_released_at')
+            .order('created_at', { ascending: false });
+        if (vendorSource === 'seed') query = query.eq('vendor_source', 'seed');
+        else if (vendorSource === 'platform') query = query.eq('vendor_source', 'platform');
+        const { data: rows, error } = await query;
+        if (error) {
+            if (error.code === '42703') return res.status(500).json({ error: '請先執行 docs/add-manufacturers-vendor-source.sql 與 add-manufacturers-expires-at.sql' });
+            console.error('GET /api/admin/manufacturers:', error);
+            return res.status(500).json({ error: error.message || '查詢失敗' });
+        }
+        let items = await enrichAdminManufacturerRows(rows || []);
+        if (vendorSource === 'paid') items = items.filter((m) => !m.is_seed && !m.is_platform);
+        if (q) {
+            items = items.filter((m) => {
+                const name = (m.name || '').toLowerCase();
+                const email = (m.user_email || '').toLowerCase();
+                return name.includes(q) || email.includes(q);
+            });
+        }
+        if (subFilter === 'active') items = items.filter((m) => m.subscription && m.subscription.end_date);
+        else if (subFilter === 'none') items = items.filter((m) => !m.subscription);
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/admin/manufacturers 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/user-subscriptions — 管理員為帳號開通／換方案訂閱（帳期與方案價）
+app.post('/api/admin/user-subscriptions', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const body = req.body || {};
+        const userId = (body.user_id || '').trim();
+        if (!userId) return res.status(400).json({ error: '請提供 user_id' });
+        const { data: prof } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+        if (!prof) return res.status(404).json({ error: '找不到該用戶' });
+        let planId = (body.plan_id || '').trim() || null;
+        const planKey = (body.plan_key || '').trim() || null;
+        if (!planId && planKey) {
+            const { data: planByKey } = await supabase.from('subscription_plans').select('id').eq('plan_key', planKey).maybeSingle();
+            if (!planByKey) return res.status(400).json({ error: '找不到方案 plan_key：' + planKey });
+            planId = planByKey.id;
+        }
+        if (!planId) return res.status(400).json({ error: '請提供 plan_id 或 plan_key' });
+        const { data: plan } = await supabase.from('subscription_plans').select('id, name, price, duration_months').eq('id', planId).single();
+        if (!plan) return res.status(404).json({ error: '找不到訂閱方案' });
+        const start = body.start_date ? new Date(body.start_date) : new Date();
+        if (isNaN(start.getTime())) return res.status(400).json({ error: 'start_date 格式無效' });
+        let end;
+        if (body.end_date) {
+            end = new Date(body.end_date);
+            if (isNaN(end.getTime())) return res.status(400).json({ error: 'end_date 格式無效' });
+        } else {
+            end = new Date(start);
+            const months = parseInt(plan.duration_months, 10) || 1;
+            end.setMonth(end.getMonth() + months);
+        }
+        if (end <= start) return res.status(400).json({ error: '到期日必須晚於開始日' });
+        const expireOthers = body.expire_other_active !== false;
+        if (expireOthers) {
+            await supabase
+                .from('user_subscriptions')
+                .update({ status: 'expired' })
+                .eq('user_id', userId)
+                .eq('status', 'active');
+        }
+        const { data: inserted, error: insErr } = await supabase
+            .from('user_subscriptions')
+            .insert({
+                user_id: userId,
+                plan_id: plan.id,
+                start_date: start.toISOString(),
+                end_date: end.toISOString(),
+                status: 'active',
+                auto_renew: false
+            })
+            .select('id, user_id, start_date, end_date, status, plan_id')
+            .single();
+        if (insErr) {
+            console.error('POST /api/admin/user-subscriptions:', insErr);
+            return res.status(500).json({ error: insErr.message || '建立訂閱失敗' });
+        }
+        try {
+            await syncMembershipCatalogVisibility(userId);
+        } catch (syncErr) {
+            console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+        }
+        res.json({
+            success: true,
+            subscription: {
+                ...inserted,
+                plan_name: plan.name,
+                price: plan.price
+            },
+            message: `已開通「${plan.name}」（${plan.price} 元），到期 ${end.toISOString().slice(0, 10)}`
+        });
+    } catch (e) {
+        console.error('POST /api/admin/user-subscriptions 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/user-subscriptions/:id — 管理員調整訂閱到期日或狀態
+app.patch('/api/admin/user-subscriptions/:id', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const subId = (req.params.id || '').trim();
+        if (!subId) return res.status(400).json({ error: '缺少訂閱 id' });
+        const { data: existing } = await supabase.from('user_subscriptions').select('id, user_id').eq('id', subId).maybeSingle();
+        if (!existing) return res.status(404).json({ error: '找不到訂閱紀錄' });
+        const body = req.body || {};
+        const updates = {};
+        if (body.end_date !== undefined) {
+            if (body.end_date === null || body.end_date === '') return res.status(400).json({ error: '請提供有效 end_date' });
+            const end = new Date(body.end_date);
+            if (isNaN(end.getTime())) return res.status(400).json({ error: 'end_date 格式無效' });
+            updates.end_date = end.toISOString();
+        }
+        if (body.status !== undefined) {
+            const st = String(body.status).trim();
+            if (!['active', 'expired', 'cancelled'].includes(st)) return res.status(400).json({ error: 'status 僅可為 active、expired、cancelled' });
+            updates.status = st;
+        }
+        if (body.plan_id !== undefined) {
+            const pid = String(body.plan_id).trim();
+            const { data: plan } = await supabase.from('subscription_plans').select('id').eq('id', pid).maybeSingle();
+            if (!plan) return res.status(400).json({ error: '找不到方案' });
+            updates.plan_id = pid;
+        }
+        if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新欄位' });
+        const { data: updated, error: updErr } = await supabase
+            .from('user_subscriptions')
+            .update(updates)
+            .eq('id', subId)
+            .select('id, user_id, start_date, end_date, status, plan_id, subscription_plans(name, price, plan_key)')
+            .single();
+        if (updErr) {
+            console.error('PATCH /api/admin/user-subscriptions:', updErr);
+            return res.status(500).json({ error: updErr.message || '更新失敗' });
+        }
+        try {
+            await syncMembershipCatalogVisibility(existing.user_id);
+        } catch (syncErr) {
+            console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+        }
+        const plan = updated.subscription_plans || {};
+        res.json({
+            success: true,
+            subscription: {
+                id: updated.id,
+                user_id: updated.user_id,
+                start_date: updated.start_date,
+                end_date: updated.end_date,
+                status: updated.status,
+                plan_id: updated.plan_id,
+                plan_name: plan.name,
+                price: plan.price,
+                plan_key: plan.plan_key
+            }
+        });
+    } catch (e) {
+        console.error('PATCH /api/admin/user-subscriptions 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+async function enrichAdminIndustrySupplierRows(rows) {
+    const userIds = [...new Set((rows || []).map((r) => r.user_id).filter(Boolean))];
+    const emailByUser = {};
+    const subByUser = {};
+    const catalogBySupplier = {};
+    const now = new Date().toISOString();
+    if (userIds.length) {
+        const { data: profs } = await supabase.from('profiles').select('id, email, full_name').in('id', userIds);
+        (profs || []).forEach((p) => { emailByUser[p.id] = p; });
+        const { data: subs } = await supabase
+            .from('user_subscriptions')
+            .select('id, user_id, end_date, status, subscription_plans(name, price, plan_key)')
+            .in('user_id', userIds)
+            .eq('status', 'active')
+            .gt('end_date', now)
+            .order('end_date', { ascending: false });
+        (subs || []).forEach((s) => { if (!subByUser[s.user_id]) subByUser[s.user_id] = s; });
+    }
+    const supplierIds = (rows || []).map((r) => r.id);
+    if (supplierIds.length) {
+        const { data: catRows } = await supabase
+            .from('supplier_catalog_items')
+            .select('industry_supplier_id, is_active')
+            .in('industry_supplier_id', supplierIds);
+        (catRows || []).forEach((c) => {
+            if (!catalogBySupplier[c.industry_supplier_id]) catalogBySupplier[c.industry_supplier_id] = { total: 0, active: 0 };
+            catalogBySupplier[c.industry_supplier_id].total += 1;
+            if (c.is_active !== false) catalogBySupplier[c.industry_supplier_id].active += 1;
+        });
+    }
+    return (rows || []).map((s) => {
+        const prof = s.user_id ? emailByUser[s.user_id] : null;
+        const subRow = s.user_id ? subByUser[s.user_id] : null;
+        const plan = subRow && subRow.subscription_plans ? subRow.subscription_plans : null;
+        const counts = catalogBySupplier[s.id] || { total: 0, active: 0 };
+        return {
+            id: s.id,
+            name: s.name,
+            description: s.description || null,
+            contact_json: s.contact_json || {},
+            user_id: s.user_id || null,
+            user_email: prof ? prof.email : null,
+            user_full_name: prof ? prof.full_name : null,
+            is_active: s.is_active !== false,
+            created_at: s.created_at || null,
+            catalog_total: counts.total,
+            catalog_active: counts.active,
+            subscription: subRow ? {
+                id: subRow.id,
+                plan_name: plan ? plan.name : null,
+                price: plan ? plan.price : null,
+                end_date: subRow.end_date
+            } : null
+        };
+    });
+}
+
+// GET /api/admin/industry-suppliers — 產業供應商列表（含綁定帳號、目錄數、訂閱）
+app.get('/api/admin/industry-suppliers', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql', items: [] });
+        }
+        const q = (req.query.q || '').trim().toLowerCase();
+        const bound = (req.query.bound || '').trim();
+        let query = supabase
+            .from('industry_suppliers')
+            .select('id, name, description, contact_json, user_id, is_active, created_at')
+            .order('created_at', { ascending: false });
+        if (bound === 'yes') query = query.not('user_id', 'is', null);
+        else if (bound === 'no') query = query.is('user_id', null);
+        const { data: rows, error } = await query;
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-membership-catalog-visibility.sql（industry_suppliers.user_id）', items: [] });
+            }
+            console.error('GET /api/admin/industry-suppliers:', error);
+            return res.status(500).json({ error: error.message || '查詢失敗' });
+        }
+        let items = await enrichAdminIndustrySupplierRows(rows || []);
+        if (q) {
+            items = items.filter((s) => {
+                const name = (s.name || '').toLowerCase();
+                const email = (s.user_email || '').toLowerCase();
+                return name.includes(q) || email.includes(q);
+            });
+        }
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/admin/industry-suppliers 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/industry-suppliers — 管理員建立供應商並可綁定帳號
+app.post('/api/admin/industry-suppliers', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const body = req.body || {};
+        const name = (body.name || '').trim();
+        if (!name) return res.status(400).json({ error: '請填寫公司名稱' });
+        const userId = (body.user_id || '').trim() || null;
+        if (userId) {
+            const { data: prof } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+            if (!prof) return res.status(404).json({ error: '找不到該用戶' });
+            const { data: taken } = await supabase.from('industry_suppliers').select('id').eq('user_id', userId).maybeSingle();
+            if (taken) return res.status(400).json({ error: '該帳號已綁定其他產業供應商' });
+        }
+        const contact_json = body.contact_json && typeof body.contact_json === 'object' ? body.contact_json : {
+            email: (body.email || '').trim(),
+            phone: (body.phone || '').trim(),
+            website: (body.website || body.url || '').trim()
+        };
+        const { data: inserted, error } = await supabase
+            .from('industry_suppliers')
+            .insert({
+                user_id: userId,
+                name,
+                description: (body.description || '').trim() || null,
+                contact_json,
+                is_active: body.is_active !== false
+            })
+            .select('id, name, user_id, is_active')
+            .single();
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-membership-catalog-visibility.sql（industry_suppliers.user_id）' });
+            }
+            console.error('POST /api/admin/industry-suppliers:', error);
+            return res.status(500).json({ error: error.message || '建立失敗' });
+        }
+        res.status(201).json({ supplier: inserted, message: '已建立產業供應商' });
+    } catch (e) {
+        console.error('POST /api/admin/industry-suppliers 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/industry-suppliers/:id — 管理員更新供應商（含重新綁定帳號）
+app.patch('/api/admin/industry-suppliers/:id', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const supplierId = (req.params.id || '').trim();
+        if (!supplierId) return res.status(400).json({ error: '缺少供應商 id' });
+        const { data: row } = await supabase.from('industry_suppliers').select('id').eq('id', supplierId).maybeSingle();
+        if (!row) return res.status(404).json({ error: '找不到該供應商' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.name !== undefined && String(body.name).trim()) updates.name = String(body.name).trim();
+        if (body.description !== undefined) updates.description = (body.description && String(body.description).trim()) ? String(body.description).trim() : null;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.contact_json !== undefined && typeof body.contact_json === 'object') updates.contact_json = body.contact_json;
+        if (body.user_id !== undefined) {
+            const userId = body.user_id === null || body.user_id === '' ? null : String(body.user_id).trim();
+            if (userId) {
+                const { data: prof } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+                if (!prof) return res.status(404).json({ error: '找不到該用戶' });
+                const { data: taken } = await supabase
+                    .from('industry_suppliers')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .neq('id', supplierId)
+                    .maybeSingle();
+                if (taken) return res.status(400).json({ error: '該帳號已綁定其他產業供應商' });
+            }
+            updates.user_id = userId;
+        }
+        if (Object.keys(updates).length <= 1) return res.status(400).json({ error: '無可更新欄位' });
+        const { data: updated, error } = await supabase
+            .from('industry_suppliers')
+            .update(updates)
+            .eq('id', supplierId)
+            .select('id, name, user_id, is_active, description, contact_json')
+            .single();
+        if (error) {
+            console.error('PATCH /api/admin/industry-suppliers:', error);
+            return res.status(500).json({ error: error.message || '更新失敗' });
+        }
+        res.json({ supplier: updated, message: '已更新' });
+    } catch (e) {
+        console.error('PATCH /api/admin/industry-suppliers 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -3538,14 +4082,35 @@ app.get('/api/admin/membership/user', async (req, res) => {
         const now = new Date().toISOString();
         const { data: subRows } = await supabase
             .from('user_subscriptions')
-            .select('id, start_date, end_date, status, subscription_plans(name, plan_key)')
+            .select('id, start_date, end_date, status, plan_id, subscription_plans(name, plan_key, price)')
             .eq('user_id', userId)
             .eq('status', 'active')
             .gt('end_date', now)
             .order('end_date', { ascending: false })
             .limit(1);
-        if (subRows && subRows.length > 0) subscription = { ...subRows[0], plan_name: subRows[0].subscription_plans?.name, plan_key: subRows[0].subscription_plans?.plan_key };
-        res.json({ user: { ...profile, credits, subscription } });
+        if (subRows && subRows.length > 0) {
+            const row = subRows[0];
+            subscription = {
+                id: row.id,
+                start_date: row.start_date,
+                end_date: row.end_date,
+                status: row.status,
+                plan_id: row.plan_id,
+                plan_name: row.subscription_plans?.name,
+                plan_key: row.subscription_plans?.plan_key,
+                price: row.subscription_plans?.price
+            };
+        }
+        let manufacturer = null;
+        const { data: mfrRow } = await supabase.from('manufacturers').select('id, name, vendor_source, verified, is_active').eq('user_id', userId).maybeSingle();
+        if (mfrRow) manufacturer = mfrRow;
+        let industry_supplier = null;
+        try {
+            const { data: supRow } = await supabase.from('industry_suppliers').select('id, name, is_active').eq('user_id', userId).maybeSingle();
+            if (supRow) industry_supplier = supRow;
+        } catch (_) { /* ignore */ }
+        const identities = buildAdminUserIdentities(profile.role, manufacturer, industry_supplier, subscription);
+        res.json({ user: { ...profile, credits, subscription, manufacturer, industry_supplier, identities } });
     } catch (e) {
         console.error('GET /api/admin/membership/user:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -3595,6 +4160,151 @@ app.post('/api/admin/membership/adjust-credits', express.json(), async (req, res
         res.json({ success: true, previous_balance: prevBalance, new_balance: newBalance });
     } catch (e) {
         console.error('POST /api/admin/membership/adjust-credits:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+/** 最近 N 個月 YYYY-MM（由新到舊） */
+function recentMonthKeysDesc(monthCount) {
+    const n = Math.min(Math.max(parseInt(monthCount, 10) || 12, 1), 36);
+    const keys = [];
+    const d = new Date();
+    d.setUTCDate(1);
+    d.setUTCHours(0, 0, 0, 0);
+    for (let i = 0; i < n; i++) {
+        keys.push(d.toISOString().slice(0, 7));
+        d.setUTCMonth(d.getUTCMonth() - 1);
+    }
+    return keys;
+}
+
+function aggregateCreditTransactionsMonthly(transactions) {
+    const byUserMonth = {};
+    const byUserMonthDesc = {};
+    (transactions || []).forEach((r) => {
+        if (!r.user_id || !r.created_at) return;
+        const month = String(r.created_at).slice(0, 7);
+        const uid = r.user_id;
+        const cellKey = uid + '|' + month;
+        if (!byUserMonth[cellKey]) {
+            byUserMonth[cellKey] = { consumed_points: 0, consumed_count: 0, granted_points: 0, granted_count: 0 };
+        }
+        const amt = parseInt(r.amount, 10) || 0;
+        const desc = (r.description && String(r.description).trim()) || (r.source && String(r.source).trim()) || '其他';
+        if (r.type === 'consumed' || amt < 0) {
+            const pts = Math.abs(amt);
+            byUserMonth[cellKey].consumed_points += pts;
+            byUserMonth[cellKey].consumed_count += 1;
+            const dKey = cellKey + '|' + desc;
+            if (!byUserMonthDesc[dKey]) byUserMonthDesc[dKey] = { description: desc, points: 0, count: 0 };
+            byUserMonthDesc[dKey].points += pts;
+            byUserMonthDesc[dKey].count += 1;
+        } else if (amt > 0) {
+            byUserMonth[cellKey].granted_points += amt;
+            byUserMonth[cellKey].granted_count += 1;
+        }
+    });
+    return { byUserMonth, byUserMonthDesc };
+}
+
+// GET /api/admin/membership/points-monthly — 每帳號每月消耗（及獲得）點數彙總
+// ?email= 單一用戶；?scope=all 全部用戶矩陣；months=1..36（預設 12）
+app.get('/api/admin/membership/points-monthly', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const months = recentMonthKeysDesc(req.query.months || 12);
+        const oldestMonth = months[months.length - 1];
+        const fromIso = oldestMonth + '-01T00:00:00.000Z';
+        const email = (req.query.email || '').trim().toLowerCase();
+        const scopeAll = req.query.scope === 'all' || req.query.scope === '1';
+        if (!email && !scopeAll) {
+            return res.status(400).json({ error: '請提供 email，或 scope=all 查詢全部用戶' });
+        }
+        let userIdsFilter = null;
+        let profileById = {};
+        if (email) {
+            const { data: profile } = await supabase.from('profiles').select('id, email, full_name, member_level, role').ilike('email', email).maybeSingle();
+            if (!profile) return res.json({ months, user: null, monthly: [], breakdown: {} });
+            userIdsFilter = [profile.id];
+            profileById[profile.id] = profile;
+        } else {
+            const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, member_level, role').order('email', { ascending: true });
+            (profiles || []).forEach((p) => { profileById[p.id] = p; });
+            userIdsFilter = Object.keys(profileById);
+        }
+        let query = supabase
+            .from('credit_transactions')
+            .select('user_id, type, amount, description, source, created_at')
+            .gte('created_at', fromIso)
+            .order('created_at', { ascending: false });
+        if (userIdsFilter && userIdsFilter.length === 1) {
+            query = query.eq('user_id', userIdsFilter[0]);
+        } else if (userIdsFilter && userIdsFilter.length > 1 && userIdsFilter.length <= 400) {
+            query = query.in('user_id', userIdsFilter);
+        }
+        const { data: rows, error } = await query.limit(100000);
+        if (error) {
+            console.error('GET /api/admin/membership/points-monthly:', error);
+            return res.status(500).json({ error: '查詢點數紀錄失敗', details: error.message });
+        }
+        const filtered = (rows || []).filter((r) => !userIdsFilter || userIdsFilter.includes(r.user_id));
+        const { byUserMonth, byUserMonthDesc } = aggregateCreditTransactionsMonthly(filtered);
+        const totalsByMonth = {};
+        months.forEach((m) => { totalsByMonth[m] = { consumed_points: 0, consumed_count: 0, granted_points: 0 }; });
+
+        if (email && userIdsFilter && userIdsFilter[0]) {
+            const uid = userIdsFilter[0];
+            const monthly = months.map((m) => {
+                const cell = byUserMonth[uid + '|' + m] || { consumed_points: 0, consumed_count: 0, granted_points: 0, granted_count: 0 };
+                totalsByMonth[m].consumed_points += cell.consumed_points;
+                totalsByMonth[m].consumed_count += cell.consumed_count;
+                totalsByMonth[m].granted_points += cell.granted_points;
+                const breakdown = [];
+                Object.keys(byUserMonthDesc).forEach((k) => {
+                    if (!k.startsWith(uid + '|' + m + '|')) return;
+                    breakdown.push(byUserMonthDesc[k]);
+                });
+                breakdown.sort((a, b) => b.points - a.points);
+                return { month: m, ...cell, breakdown };
+            });
+            const prof = profileById[uid];
+            return res.json({
+                months,
+                user: prof ? { id: prof.id, email: prof.email, full_name: prof.full_name, member_level: prof.member_level || '一般', role: prof.role || 'user' } : null,
+                monthly,
+                totals_by_month: totalsByMonth
+            });
+        }
+
+        const users = [];
+        Object.keys(profileById).forEach((uid) => {
+            const prof = profileById[uid];
+            const monthly = {};
+            let totalConsumed = 0;
+            months.forEach((m) => {
+                const cell = byUserMonth[uid + '|' + m] || { consumed_points: 0, consumed_count: 0 };
+                monthly[m] = cell.consumed_points;
+                totalsByMonth[m].consumed_points += cell.consumed_points;
+                totalsByMonth[m].consumed_count += cell.consumed_count || 0;
+                totalConsumed += cell.consumed_points;
+            });
+            if (totalConsumed > 0 || (filtered || []).some((r) => r.user_id === uid)) {
+                users.push({
+                    user_id: uid,
+                    email: prof.email || '',
+                    full_name: prof.full_name || '',
+                    member_level: prof.member_level || '一般',
+                    role: prof.role || 'user',
+                    monthly,
+                    total_consumed: totalConsumed
+                });
+            }
+        });
+        users.sort((a, b) => b.total_consumed - a.total_consumed);
+        res.json({ months, users, totals_by_month: totalsByMonth, user_count: users.length });
+    } catch (e) {
+        console.error('GET /api/admin/membership/points-monthly 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
