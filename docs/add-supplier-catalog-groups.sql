@@ -35,3 +35,10 @@ CREATE POLICY "supplier_catalog_groups_select" ON public.supplier_catalog_groups
 
 DROP POLICY IF EXISTS "supplier_catalog_item_group_links_select" ON public.supplier_catalog_item_group_links;
 CREATE POLICY "supplier_catalog_item_group_links_select" ON public.supplier_catalog_item_group_links FOR SELECT USING (true);
+
+GRANT ALL ON public.supplier_catalog_groups TO service_role;
+GRANT ALL ON public.supplier_catalog_item_group_links TO service_role;
+GRANT SELECT ON public.supplier_catalog_groups TO anon, authenticated;
+GRANT SELECT ON public.supplier_catalog_item_group_links TO anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';

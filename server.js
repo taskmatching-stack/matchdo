@@ -13244,6 +13244,14 @@ app.get('/api/me/industry-supplier/recent-references', async (req, res) => {
 });
 
 // ---------- 產業供應商自訂分類（對稱 vendor_catalog_groups）----------
+function isSupabaseMissingTableError(error) {
+    if (!error) return false;
+    const code = String(error.code || '');
+    if (code === '42P01' || code === 'PGRST205' || code === 'PGRST204') return true;
+    const msg = String(error.message || '').toLowerCase();
+    return /does not exist|schema cache|could not find the table/.test(msg);
+}
+
 function supplierCatalogGroupRowAssetKind(row) {
     if (!row || row.asset_kind == null || String(row.asset_kind).trim() === '') return 'prototype';
     const k = String(row.asset_kind).trim().toLowerCase();
@@ -13260,7 +13268,10 @@ function supplierItemKindToGroupKind(itemKind) {
 
 async function supplierCatalogGroupsTableReady() {
     const { error } = await supabase.from('supplier_catalog_groups').select('id').limit(1);
-    return !error || error.code !== '42P01';
+    if (!error) return true;
+    if (isSupabaseMissingTableError(error)) return false;
+    console.warn('supplierCatalogGroupsTableReady:', error.message || error);
+    return true;
 }
 
 async function buildSupplierCatalogGroupsPayload(supplierId, assetKindFilter) {
@@ -13279,7 +13290,10 @@ async function buildSupplierCatalogGroupsPayload(supplierId, assetKindFilter) {
             .order('sort_order', { ascending: true })
             .order('name', { ascending: true }));
     }
-    if (error) throw error;
+    if (error) {
+        if (isSupabaseMissingTableError(error)) return { tree: [], flat: [] };
+        throw error;
+    }
     let list = groups || [];
     if (kindFilter) {
         list = list.filter((g) => supplierCatalogGroupRowAssetKind(g) === kindFilter);
@@ -13287,17 +13301,21 @@ async function buildSupplierCatalogGroupsPayload(supplierId, assetKindFilter) {
     const groupIds = list.map((g) => g.id);
     const countMap = {};
     if (groupIds.length) {
-        const { data: links } = await supabase
+        const { data: links, error: linkErr } = await supabase
             .from('supplier_catalog_item_group_links')
             .select('group_id, catalog_item_id')
             .in('group_id', groupIds);
+        if (linkErr && !isSupabaseMissingTableError(linkErr)) {
+            console.warn('buildSupplierCatalogGroupsPayload links:', linkErr.message || linkErr);
+        }
         const itemIds = [...new Set((links || []).map((l) => l.catalog_item_id).filter(Boolean))];
         const kindById = {};
         if (itemIds.length) {
-            const { data: items } = await supabase
+            const { data: items, error: itemsErr } = await supabase
                 .from('supplier_catalog_items')
                 .select('id, item_kind')
                 .in('id', itemIds);
+            if (itemsErr) console.warn('buildSupplierCatalogGroupsPayload items:', itemsErr.message || itemsErr);
             (items || []).forEach((it) => { kindById[it.id] = supplierItemKindToGroupKind(it.item_kind); });
         }
         (links || []).forEach((l) => {
@@ -13422,14 +13440,35 @@ app.get('/api/me/industry-supplier/catalog-groups', async (req, res) => {
         if (!(await supplierCatalogGroupsTableReady())) {
             return res.json({ tree: [], flat: [], message: '請執行 docs/add-supplier-catalog-groups.sql' });
         }
-        const assetKind = (req.query.asset_kind || req.query.item_kind || '').trim();
-        const payload = await buildSupplierCatalogGroupsPayload(ctx.supplier.id, assetKind);
+        const assetKindQ = (req.query.asset_kind || req.query.item_kind || '').trim().toLowerCase();
+        const assetKindFilter = normalizeVendorCatalogGroupKindFilter(assetKindQ);
+        let hasAssetKindColumn = true;
         const probe = await supabase.from('supplier_catalog_groups').select('asset_kind').limit(1);
-        const assetKindSplitUnavailable = !!(probe.error && probe.error.code === '42703');
-        res.json({ ...payload, asset_kind_split_unavailable: assetKindSplitUnavailable });
+        if (probe.error && (probe.error.code === '42703' || probe.error.code === 'PGRST204')) {
+            hasAssetKindColumn = false;
+        }
+        if ((assetKindFilter === 'material' || assetKindFilter === 'part') && !hasAssetKindColumn) {
+            return res.json({
+                tree: [],
+                flat: [],
+                asset_kind_split_unavailable: true,
+                message: '請執行 docs/add-supplier-catalog-groups.sql（需含 asset_kind 欄位）'
+            });
+        }
+        let payload;
+        try {
+            payload = await buildSupplierCatalogGroupsPayload(ctx.supplier.id, assetKindFilter || assetKindQ);
+        } catch (buildErr) {
+            console.error('buildSupplierCatalogGroupsPayload:', buildErr);
+            if (isSupabaseMissingTableError(buildErr)) {
+                return res.json({ tree: [], flat: [], message: '請執行 docs/add-supplier-catalog-groups.sql' });
+            }
+            return res.status(500).json({ error: buildErr.message || '查詢失敗' });
+        }
+        res.json({ ...payload, asset_kind_split_unavailable: !hasAssetKindColumn });
     } catch (e) {
         console.error('GET /api/me/industry-supplier/catalog-groups:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        res.status(500).json({ error: e.message || '系統錯誤' });
     }
 });
 
