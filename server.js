@@ -1339,7 +1339,8 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
     return mfr.id;
 }
 
-async function getMeIndustrySupplier(req, res) {
+async function getMeIndustrySupplier(req, res, opts = {}) {
+    const allowMissing = !!(opts && opts.allowMissing);
     const user = await getCurrentUser(req, res);
     if (!user) return null;
     const { data: supplier, error } = await supabase
@@ -1357,14 +1358,12 @@ async function getMeIndustrySupplier(req, res) {
         return null;
     }
     if (!supplier) {
-        const lite = req.query && (req.query.lite === '1' || req.query.manage === '1');
-        if (lite) {
-            return res.json({ supplier: null, code: 'NO_SUPPLIER_PROFILE' });
+        if (!allowMissing) {
+            res.status(404).json({
+                error: '尚未建立產業供應商公司資料。請至「上架數位產品庫」填寫公司名稱並建立。',
+                code: 'NO_SUPPLIER_PROFILE'
+            });
         }
-        res.status(404).json({
-            error: '尚未建立產業供應商公司資料。請至「上架數位產品庫」填寫公司名稱並建立。',
-            code: 'NO_SUPPLIER_PROFILE'
-        });
         return null;
     }
     if (!supplier.is_active) {
@@ -13857,14 +13856,17 @@ app.post('/api/me/industry-supplier', express.json(), async (req, res) => {
 // GET /api/me/industry-supplier — 產業供應商控制台摘要
 app.get('/api/me/industry-supplier', async (req, res) => {
     try {
+        const lite = req.query.manage === '1' || req.query.lite === '1';
         if (!(await supplierCatalogTablesReady())) {
+            if (lite) return res.json({ supplier: null, supplier_catalog_ready: false });
             return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
         }
-        const ctx = await getMeIndustrySupplier(req, res);
-        if (!ctx) return;
-        if (req.query.manage === '1' || req.query.lite === '1') {
-            return res.json({ supplier: ctx.supplier });
+        const ctx = await getMeIndustrySupplier(req, res, { allowMissing: lite });
+        if (!ctx) {
+            if (lite) return res.json({ supplier: null, code: 'NO_SUPPLIER_PROFILE' });
+            return;
         }
+        if (lite) return res.json({ supplier: ctx.supplier });
         const { data: catalogRows } = await supabase
             .from('supplier_catalog_items')
             .select('id, is_active')
