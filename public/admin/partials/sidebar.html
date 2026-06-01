@@ -1,25 +1,60 @@
-<div class="p-3">
-  <h5 class="border-bottom pb-2">功能選單</h5>
-  <ul class="nav nav-pills flex-column gap-1" id="adminMenu">
-    <li class="nav-item"><a class="nav-link" href="/admin/index.html">儀表板</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/categories.html">分類管理</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/custom-categories.html">訂製品分類</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/remake-categories.html">設計風向分類</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/service-areas.html">服務地區</a></li>
-    <li class="nav-item"><a class="nav-link" href="#">資料分析</a></li>
-    <li class="nav-item"><a class="nav-link" href="#">提案管理</a></li>
-    <li class="nav-item"><a class="nav-link" href="#">客戶管理</a></li>
-    <li class="nav-item"><a class="nav-link" href="#">專案管理</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/user-management.html">一般會員</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/manufacturers.html">廠商管理</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/industry-suppliers.html">產業供應商</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/seed-vendors.html">種子入駐</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/membership.html">方案／點數</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/playground.html">生圖 Playground</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/ai-tools.html">AI 工具</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/ai-settings.html">AI 設定</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/db-migrations.html">資料庫維護</a></li>
-    <li class="nav-item"><a class="nav-link" href="/admin/site-settings.html">網站設定</a></li>
-    <li class="nav-item"><a class="nav-link" href="#">設定</a></li>
-  </ul>
+<div class="p-3 admin-sidebar-wrap">
+  <h5 class="border-bottom pb-2 mb-2">功能選單</h5>
+  <nav class="admin-sidebar-nav">
+    <ul class="nav nav-pills flex-column gap-0" id="adminMenu">
+      <li class="nav-item"><a class="nav-link" href="/admin/index.html">儀表板</a></li>
+
+      <li class="admin-menu-section">帳號與計費</li>
+      <li class="nav-item"><a class="nav-link" href="/admin/user-management.html">一般會員</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/membership.html">方案／點數</a></li>
+
+      <li class="admin-menu-section">廠商與供應商</li>
+      <li class="nav-item"><a class="nav-link" href="/admin/manufacturers.html">廠商管理</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/industry-suppliers.html">產業供應商</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/seed-vendors.html">種子入駐</a></li>
+
+      <li class="admin-menu-section">分類與內容</li>
+      <li class="nav-item"><a class="nav-link" href="/admin/categories.html">AI 分類</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/custom-categories.html">訂製品分類</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/remake-categories.html">設計風向分類</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/service-areas.html">服務地區</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/category-images.html">分類圖片</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/tag-strip.html">媒合標籤過濾</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/conversations.html">對話紀錄</a></li>
+
+      <li class="admin-menu-section">AI 工具</li>
+      <li class="nav-item"><a class="nav-link" href="/admin/playground.html">生圖 Playground</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/ai-tools.html">AI 工具</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/ai-settings.html">AI 設定</a></li>
+
+      <li class="admin-menu-section">系統</li>
+      <li class="nav-item"><a class="nav-link" href="/admin/db-migrations.html">資料庫維護</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/site-settings.html">網站設定</a></li>
+      <li class="nav-item"><a class="nav-link" href="/admin/ga4-settings.html">GA4 分析</a></li>
+    </ul>
+  </nav>
 </div>
+<style>
+  .admin-sidebar-wrap { font-size: 0.875rem; }
+  .admin-menu-section {
+    list-style: none;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #6c757d;
+    margin: 0.85rem 0 0.2rem 0.5rem;
+    padding: 0;
+  }
+  #adminMenu .nav-link {
+    padding: 0.32rem 0.65rem;
+    border-radius: 0.35rem;
+    color: #333;
+  }
+  #adminMenu .nav-link.active {
+    background-color: #0d6efd;
+    color: #fff;
+  }
+  #adminMenu .nav-link:hover:not(.active) {
+    background-color: #f0f4f8;
+  }
+</style>
