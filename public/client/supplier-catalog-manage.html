@@ -135,8 +135,7 @@
                     <div class="card-body">
                         <form class="add-form" data-kind="prototype" enctype="multipart/form-data">
                             <div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold">子分類（選填）</label><select class="form-select add-subcategory" name="subcategory_key"><option value="">—</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select><p class="form-text text-muted small mb-0" data-i18n="baseModels.platformCategoryOnlyHint">媒合僅用平台主分類；細項請用上方「我的素材分類」。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
@@ -194,7 +193,7 @@
                     <div class="card-body">
                         <form class="add-form" data-kind="part" enctype="multipart/form-data">
                             <div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select><p class="form-text text-muted small mb-0" data-i18n="baseModels.platformCategoryOnlyHintPart">媒合僅用平台主分類；零件類型請用上方「配件／零件」專用自訂分類。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
@@ -248,7 +247,7 @@
                     <div class="card-body">
                         <form class="add-form" data-kind="material" enctype="multipart/form-data">
                             <div class="row g-3">
-                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-12"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select><p class="form-text text-muted small mb-0" data-i18n="baseModels.platformCategoryOnlyHintMaterial">媒合僅用平台主分類；材質類型請用上方「材料參考」專用自訂分類。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料參考」專用分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
@@ -288,7 +287,6 @@
                         <input type="hidden" id="edit-id">
                         <input type="hidden" id="edit-kind">
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
-                        <div class="mb-3 d-none" id="edit-sub-wrap"><label class="form-label">子分類</label><select class="form-select" id="edit-subcategory"></select></div>
                         <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3">
@@ -352,7 +350,6 @@
         var supplierRecord = null;
         var categories = [];
         var catNames = {};
-        var subByMain = {};
         var activeKind = 'prototype';
         var itemsCache = { prototype: [], part: [], material: [] };
         var editModal = null;
@@ -527,15 +524,6 @@
             document.querySelectorAll('.add-category').forEach(function (sel) { fillCategorySelect(sel, selected); });
             fillCategorySelect(document.getElementById('edit-category'), selected);
         }
-        function fillSubcategorySelect(subSel, mainKey, selected) {
-            if (!subSel) return;
-            var subs = subByMain[mainKey] || [];
-            subSel.innerHTML = '<option value="">—</option>' + subs.map(function (s) {
-                var selAttr = (selected && selected === s.key) ? ' selected' : '';
-                return '<option value="' + esc(s.key) + '"' + selAttr + '>' + esc(s.name || s.key) + '</option>';
-            }).join('');
-        }
-
         function contactLine(c) {
             c = c && typeof c === 'object' ? c : {};
             return [c.phone, c.email, c.website].filter(Boolean).join(' · ') || '—';
@@ -565,10 +553,8 @@
             var data = await r.json().catch(function () { return {}; });
             categories = data.categories || [];
             catNames = {};
-            subByMain = {};
             categories.forEach(function (c) {
                 catNames[c.key] = c.name || c.key;
-                subByMain[c.key] = c.subcategories || [];
             });
             fillAllCategorySelects();
         }
@@ -816,17 +802,6 @@
             } catch (e) { toast(e.message, 'danger'); }
         }
 
-        function subcategoryLabel(item) {
-            var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
-            var sk = spec.subcategory_key;
-            if (!sk || !item.category_key) return '';
-            var subs = subByMain[item.category_key] || [];
-            for (var i = 0; i < subs.length; i++) {
-                if (subs[i].key === sk) return subs[i].name || sk;
-            }
-            return sk;
-        }
-
         function renderGrid() {
             var grid = document.getElementById('catalog-grid');
             var list = itemsCache[activeKind] || [];
@@ -839,12 +814,11 @@
                 var pub = item.is_active
                     ? '<span class="badge bg-success mb-2 me-1">' + esc(tr('supplierManage.active', '上架中')) + '</span>'
                     : '<span class="badge bg-secondary mb-2 me-1">' + esc(tr('supplierManage.inactive', '已下架')) + '</span>';
-                var subLine = activeKind === 'prototype' ? subcategoryLabel(item) : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3"><div class="card material-card h-100">' +
                     (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="">' : '<div class="bg-light py-5 text-center text-muted small">無圖</div>') +
                     '<div class="card-body p-3">' + pub +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(item.title || '') + '</div>' +
-                    '<div class="text-muted small mb-1"><i class="bi bi-tag me-1"></i>' + esc(catLabel) + (subLine ? ' · ' + esc(subLine) : '') + '</div>' +
+                    '<div class="text-muted small mb-1"><i class="bi bi-tag me-1"></i>' + esc(catLabel) + '</div>' +
                     '<p class="small mb-2 text-muted">' + esc((item.description || '').slice(0, 120)) + ((item.description || '').length > 120 ? '...' : '') + '</p>' +
                     '<div class="d-flex gap-1 flex-wrap">' +
                     '<button type="button" class="btn btn-outline-primary btn-sm flex-fill btn-edit" data-id="' + esc(item.id) + '"><i class="bi bi-pencil"></i></button>' +
@@ -905,11 +879,6 @@
             document.getElementById('edit-id').value = item.id;
             document.getElementById('edit-kind').value = activeKind;
             fillCategorySelect(document.getElementById('edit-category'), item.category_key);
-            var subWrap = document.getElementById('edit-sub-wrap');
-            if (activeKind === 'prototype') {
-                subWrap.classList.remove('d-none');
-                fillSubcategorySelect(document.getElementById('edit-subcategory'), item.category_key, (item.spec_json && item.spec_json.subcategory_key) || '');
-            } else subWrap.classList.add('d-none');
             document.getElementById('edit-title').value = item.title || '';
             document.getElementById('edit-description').value = item.description || '';
             var img = document.getElementById('edit-current-image');
@@ -938,13 +907,9 @@
         document.querySelectorAll('.add-form').forEach(function (form) {
             var kind = form.getAttribute('data-kind');
             var catSel = form.querySelector('.add-category');
-            var subSel = form.querySelector('.add-subcategory');
             var imgInput = form.querySelector('.add-image');
             var preview = form.querySelector('.add-image-preview');
             wireOptimizeBackgroundForm(form);
-            if (kind === 'prototype' && subSel) {
-                catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
-            }
             imgInput.addEventListener('change', function () {
                 showLocalImagePreview(preview, imgInput.files && imgInput.files[0]);
             });
@@ -958,7 +923,6 @@
                 var fd = new FormData();
                 fd.append('item_kind', apiKind(kind));
                 fd.append('category_key', catSel.value);
-                if (kind === 'prototype' && subSel && subSel.value) fd.append('subcategory_key', subSel.value);
                 fd.append('title', (form.querySelector('.add-title').value || '').trim());
                 fd.append('description', (form.querySelector('.add-description').value || '').trim());
                 fd.append('image', file);
@@ -1064,10 +1028,6 @@
             fd.append('title', document.getElementById('edit-title').value.trim());
             fd.append('description', document.getElementById('edit-description').value.trim());
             fd.append('category_key', document.getElementById('edit-category').value);
-            if (activeKind === 'prototype') {
-                var sk = document.getElementById('edit-subcategory').value;
-                if (sk) fd.append('subcategory_key', sk);
-            }
             fd.append('ai_tags', JSON.stringify(editPending.tags || []));
             var editGrpEl = document.getElementById('edit-catalog-groups');
             var editGrpIds = [];

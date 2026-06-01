@@ -12622,6 +12622,8 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
         if (!manufacturerId) return;
         const catalogItemId = (req.body && req.body.catalog_item_id || '').trim();
         if (!catalogItemId) return res.status(400).json({ error: '請提供 catalog_item_id' });
+        const importTitle = parseTruthyBody(req.body && req.body.import_title);
+        const importDescription = parseTruthyBody(req.body && req.body.import_description);
 
         const { data: existingImp } = await supabase
             .from('manufacturer_supplier_imports')
@@ -12663,8 +12665,8 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
         const insertPayload = {
             manufacturer_id: manufacturerId,
             category_key: categoryKey,
-            title: catalogItem.title,
-            description: catalogItem.description || null,
+            title: importTitle ? String(catalogItem.title || '').trim() : '',
+            description: importDescription ? (catalogItem.description || null) : null,
             image_url: catalogItem.cover_image_url,
             usage_type: 'reference_only',
             is_public: true,

@@ -498,6 +498,18 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="supplier-import-text-opts" class="border rounded p-2 mb-3 small bg-light">
+                        <div class="fw-semibold mb-2" data-i18n="baseModels.supplierImportTextOptsTitle">匯入文字（選填）</div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="supplier-import-include-title" value="1">
+                            <label class="form-check-label" for="supplier-import-include-title" data-i18n="baseModels.supplierImportIncludeTitle">同時匯入標題</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="supplier-import-include-desc" value="1">
+                            <label class="form-check-label" for="supplier-import-include-desc" data-i18n="baseModels.supplierImportIncludeDesc">同時匯入簡短說明</label>
+                        </div>
+                        <p class="text-muted mb-0 mt-1" data-i18n="baseModels.supplierImportTextOptsHint">預設僅匯入參考圖與平台主分類；標題與說明請自行填寫或勾選上方項目。</p>
+                    </div>
                     <div id="supplier-catalog-loading" class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div></div>
                     <div id="supplier-catalog-empty" class="text-muted small d-none" data-i18n="baseModels.supplierCatalogEmpty">尚無可導入的材料。請由管理員執行 docs/seed-industry-supplier-materials.sql 或於後台上架。</div>
                     <div id="supplier-catalog-list" class="row g-3 d-none"></div>
@@ -2053,6 +2065,15 @@
             if (imgInput) imgInput.setAttribute('required', '');
         }
 
+        function getSupplierImportTextOpts() {
+            var titleChk = document.getElementById('supplier-import-include-title');
+            var descChk = document.getElementById('supplier-import-include-desc');
+            return {
+                importTitle: !!(titleChk && titleChk.checked),
+                importDescription: !!(descChk && descChk.checked)
+            };
+        }
+
         function applySupplierRefToForm(opts) {
             var form = getActiveAddForm();
             if (!form || !opts) return;
@@ -2063,13 +2084,13 @@
                 preview.classList.remove('d-none');
                 preview.innerHTML = '<img src="' + esc(opts.imageUrl) + '" class="matchdo-enlarge-trigger" style="max-height:200px;max-width:100%;object-fit:contain;cursor:zoom-in" alt="">';
             }
-            if (opts.title) {
+            if (opts.importTitle && opts.title) {
                 var titleEl = form.querySelector('.add-title');
                 if (titleEl) titleEl.value = opts.title;
             }
-            if (opts.description) {
+            if (opts.importDescription && opts.description) {
                 var descEl = form.querySelector('.add-description');
-                if (descEl && !descEl.value.trim()) descEl.value = opts.description;
+                if (descEl) descEl.value = opts.description;
             }
             if (imgInput) {
                 imgInput.removeAttribute('required');
@@ -2142,6 +2163,10 @@
                 var mt = tr('baseModels.supplierCatalogModalTitleKind', '供應商數位產品庫 — {kind}');
                 modalTitle.textContent = mt.replace('{kind}', activeKindTabLabel());
             }
+            var titleChk = document.getElementById('supplier-import-include-title');
+            var descChk = document.getElementById('supplier-import-include-desc');
+            if (titleChk) titleChk.checked = false;
+            if (descChk) descChk.checked = false;
             supplierImportModal.show();
             try {
                 var catalogUrl = '/api/me/supplier-catalog-items?item_kind=' + encodeURIComponent(catalogKind);
@@ -2179,11 +2204,14 @@
                 });
                 list.querySelectorAll('.btn-show-imported-supplier').forEach(function (b) {
                     b.addEventListener('click', function () {
+                        var textOpts = getSupplierImportTextOpts();
                         applySupplierRefToForm({
                             imageUrl: b.getAttribute('data-cover'),
                             title: b.getAttribute('data-title'),
                             description: b.getAttribute('data-desc'),
-                            supplierName: b.getAttribute('data-supplier')
+                            supplierName: b.getAttribute('data-supplier'),
+                            importTitle: textOpts.importTitle,
+                            importDescription: textOpts.importDescription
                         });
                         if (supplierImportModal) supplierImportModal.hide();
                         showToast(tr('baseModels.supplierRefShown', '已顯示於上方參考圖區'), 'success');
@@ -2196,11 +2224,16 @@
         }
 
         async function importSupplierMaterial(catalogItemId, btnEl) {
+            var textOpts = getSupplierImportTextOpts();
             try {
                 var r = await fetch('/api/me/supplier-catalog-imports', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ catalog_item_id: catalogItemId })
+                    body: JSON.stringify({
+                        catalog_item_id: catalogItemId,
+                        import_title: textOpts.importTitle,
+                        import_description: textOpts.importDescription
+                    })
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 409 && data.vendor_asset_id) {
@@ -2209,7 +2242,9 @@
                         title: btnEl ? btnEl.getAttribute('data-title') : '',
                         description: btnEl ? btnEl.getAttribute('data-desc') : '',
                         supplierName: btnEl ? btnEl.getAttribute('data-supplier') : '',
-                        vendorAssetId: data.vendor_asset_id
+                        vendorAssetId: data.vendor_asset_id,
+                        importTitle: textOpts.importTitle,
+                        importDescription: textOpts.importDescription
                     });
                     if (supplierImportModal) supplierImportModal.hide();
                     await loadMaterials();
@@ -2225,10 +2260,12 @@
                 var va = data.vendor_asset || {};
                 applySupplierRefToForm({
                     imageUrl: va.image_url || (btnEl ? btnEl.getAttribute('data-cover') : ''),
-                    title: va.title || (btnEl ? btnEl.getAttribute('data-title') : ''),
-                    description: va.description || (btnEl ? btnEl.getAttribute('data-desc') : ''),
+                    title: textOpts.importTitle ? (va.title || (btnEl ? btnEl.getAttribute('data-title') : '')) : '',
+                    description: textOpts.importDescription ? (va.description || (btnEl ? btnEl.getAttribute('data-desc') : '')) : '',
                     supplierName: va.supplier_name || (btnEl ? btnEl.getAttribute('data-supplier') : ''),
-                    vendorAssetId: va.id
+                    vendorAssetId: va.id,
+                    importTitle: textOpts.importTitle,
+                    importDescription: textOpts.importDescription
                 });
                 showToast(tr('baseModels.importSupplierSuccess', '已匯入並設為參考圖，已加入下方清單'), 'success');
                 if (supplierImportModal) supplierImportModal.hide();
