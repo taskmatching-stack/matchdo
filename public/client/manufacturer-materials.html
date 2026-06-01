@@ -526,8 +526,8 @@
     (function () {
         var token = null;
         var isSeedVendor = false;
-        var SEED_MSG_VENDOR = '此為種子展示帳號，帳密尚未交付廠商，請勿自行修改。升級付費方案後可自行維護。';
-        var SEED_MSG_STAFF = '您以平台管理員／測試員身分代為維護此種子廠商，可直接編輯作品與素材。';
+        var SEED_MSG_LOCKED = '此為種子展示帳號且為免費會員（一般），目前僅能瀏覽。請至後台將會員等級改為進階以上即可編輯。';
+        var SEED_MSG_OPEN = '此為種子展示帳號；您已具付費會員權益，可如一般廠商編輯作品與素材。';
         async function applySeedVendorLockUi(vendorSource) {
             if (vendorSource !== 'seed') {
                 isSeedVendor = false;
@@ -543,8 +543,8 @@
             var banner = document.getElementById('seed-vendor-banner');
             if (banner) {
                 banner.classList.remove('d-none');
-                banner.className = 'alert border-0 rounded-0 mb-0 ' + (locked ? 'alert-info' : 'alert-success');
-                banner.innerHTML = '<i class="bi bi-' + (locked ? 'info-circle' : 'shield-check') + ' me-2"></i>' + (locked ? SEED_MSG_VENDOR : SEED_MSG_STAFF);
+                banner.className = 'alert border-0 rounded-0 mb-0 ' + (locked ? 'alert-info' : 'alert-warning');
+                banner.innerHTML = '<i class="bi bi-' + (locked ? 'info-circle' : 'seedling') + ' me-2"></i>' + (locked ? SEED_MSG_LOCKED : SEED_MSG_OPEN);
             }
             document.querySelectorAll('.upload-panel').forEach(function (el) {
                 el.classList.toggle('d-none', locked);

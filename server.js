@@ -2328,9 +2328,9 @@ function manufacturerIsSeedVendor(mfr) {
     return !!(mfr && mfr.vendor_source === 'seed');
 }
 
-/** 種子綁定帳號本人不得改（帳密未交廠商）；管理員／測試員可代維護（含用該帳號登入時） */
+/** 種子＋免費（一般）綁定帳號僅供瀏覽；進階以上與一般付費廠商相同可編輯 */
 const SEED_VENDOR_OWNER_READONLY_MSG =
-    '此為種子展示帳號，尚未交付廠商前請勿自行修改。平台人員請以管理員／測試員身分操作，或至後台「種子入駐」代上傳；廠商欲自行維護請升級付費方案。';
+    '此為種子展示帳號且目前為免費會員（一般），僅供瀏覽。請在後台「一般會員」將會員等級設為進階以上，即可如付費廠商編輯；或至「種子入駐」代傳素材。';
 
 async function rejectSeedVendorSelfServiceWrite(userId, mfrOrManufacturerId, res) {
     let mfr = mfrOrManufacturerId;
@@ -2345,6 +2345,7 @@ async function rejectSeedVendorSelfServiceWrite(userId, mfrOrManufacturerId, res
     if (!mfr || mfr.vendor_source !== 'seed') return false;
     if (!userId || mfr.user_id !== userId) return false;
     if (await isStaffProfileUserId(userId)) return false;
+    if (await hasActivePaidSubscription(userId)) return false;
     if (res) res.status(403).json({ error: SEED_VENDOR_OWNER_READONLY_MSG });
     return true;
 }
@@ -13204,7 +13205,9 @@ app.get('/api/me/capabilities', async (req, res) => {
             else activePortfolioCount = (await hasEnabledPortfolioWork(mfr.id)) ? 1 : 0;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
-        const seedSelfServiceLocked = isSeed && !(await isStaffProfileUserId(user.id));
+        const seedSelfServiceLocked = isSeed
+            && !(await isStaffProfileUserId(user.id))
+            && !(await hasActivePaidSubscription(user.id));
         // 廠商資格：唯一門檻為至少 1 件啟用中作品；管理員／測試員可略過
         const isQualifiedManufacturer = !!mfr && mfr.is_active !== false && !isSeed
             && (activePortfolioCount >= 1 || staffBypassPortfolio);
