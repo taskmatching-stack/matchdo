@@ -1550,12 +1550,42 @@ async function computeVendorAssetCreatePoints(assetKind, optimizeIndices, totalF
     return computeVendorAssetOptimizeTotalPoints(optimizeIndices.length, assetKind);
 }
 
+/** 同一請求內連續多張 BFL 重繪時的間隔，降低限流／逾時 */
+const VENDOR_FLUX_BATCH_GAP_MS = 2500;
+
+function sleepMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** 依原圖內容產生固定 seed，同一張圖重試結果較一致 */
+function fluxSeedFromImageBuffer(buffer) {
+    if (!buffer || !buffer.length) return undefined;
+    const n = crypto.createHash('sha256').update(buffer).digest().readUInt32BE(0);
+    return n === 0 ? 1 : n;
+}
+
+function createVendorFluxOptimizeScheduler() {
+    let jobIndex = 0;
+    return {
+        async optimize(file, title, assetKind, materialHint, optimizeBackground) {
+            if (jobIndex > 0) await sleepMs(VENDOR_FLUX_BATCH_GAP_MS);
+            const out = await maybeOptimizeVendorAssetMulterFile(
+                file, title, assetKind, materialHint, optimizeBackground
+            );
+            jobIndex += 1;
+            return out;
+        }
+    };
+}
+
 async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materialHint, optimizeBackground) {
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
+    const seed = fluxSeedFromImageBuffer(file.buffer);
     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
         file.buffer, file.mimetype, title, assetKind,
         assetKind === 'material' ? materialHint : null,
-        optimizeBg
+        optimizeBg,
+        seed
     );
     return {
         buffer: optimizedBuf,
@@ -6837,7 +6867,7 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
 }
 
 /** 廠商素材：數位原型＝商品圖重繪（可選底色）；材料＝滿版圖樣優化（不用底色，見 material-swatch-plan） */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor) {
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
     const prompt = isMaterial
@@ -6845,7 +6875,8 @@ async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, ass
         : buildVendorAssetProductOptimizePrompt(title, backgroundColor);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
-    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], null, 'jpeg');
+    const fluxSeed = seed != null ? seed : fluxSeedFromImageBuffer(fileBuffer);
+    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], fluxSeed, 'jpeg');
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return buf;
 }
@@ -13118,10 +13149,11 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             });
         }
 
+        const fluxScheduler = createVendorFluxOptimizeScheduler();
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
-                uploadFile = await maybeOptimizeVendorAssetMulterFile(
+                uploadFile = await fluxScheduler.optimize(
                     file, title, assetKind, materialHintForOptimize, optimizeBackground
                 );
             } catch (optErr) {
@@ -13147,7 +13179,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 if (!gf) continue;
                 if (optimizeIndices.includes(gi + 1)) {
                     try {
-                        gf = await maybeOptimizeVendorAssetMulterFile(
+                        gf = await fluxScheduler.optimize(
                             gf, title, assetKind, materialHintForOptimize, optimizeBackground
                         );
                     } catch (optErr) {
@@ -13468,12 +13500,13 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         }
         const sliceCount = Math.min(files.length, room);
         const galleryToUpload = [];
+        const fluxScheduler = createVendorFluxOptimizeScheduler();
         for (let gi = 0; gi < sliceCount; gi++) {
             let gf = await vendorAssetFileFromMulter(files[gi]);
             if (!gf) continue;
             if (optimizeIndices.includes(gi)) {
                 try {
-                    gf = await maybeOptimizeVendorAssetMulterFile(
+                    gf = await fluxScheduler.optimize(
                         gf, titleForPrompt, assetKind, null, optimizeBackground
                     );
                 } catch (optErr) {
