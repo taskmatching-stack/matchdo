@@ -5795,6 +5795,24 @@ app.get('/vendor-profile.html', async (req, res, next) => {
     }
 });
 
+/** 產品設計頁：禁止 CDN／手機瀏覽器長期快取 HTML/JS（否則只更新 ?v= 仍可能載入舊版殼層） */
+function servePublicFileNoCache(relativePath, req, res, next) {
+    const filePath = path.join(__dirname, 'public', relativePath);
+    if (!fs.existsSync(filePath)) return next();
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    res.sendFile(filePath);
+}
+app.get('/custom-product.html', (req, res, next) => servePublicFileNoCache('custom-product.html', req, res, next));
+app.get('/js/custom-product.js', (req, res, next) => servePublicFileNoCache('js/custom-product.js', req, res, next));
+app.get(/^\/locales\/[a-z]{2}(-[A-Z]{2})?\.json$/i, (req, res, next) => {
+    const rel = (req.path || '').replace(/^\//, '');
+    if (!rel.startsWith('locales/')) return next();
+    servePublicFileNoCache(rel, req, res, next);
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 // 錯誤連結修正：/public/custom/* → /custom/*
 app.get(/^\/public\/custom\/?(.*)$/, (req, res) => {

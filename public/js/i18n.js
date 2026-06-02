@@ -44,7 +44,13 @@
     function loadLocale(lang) {
         lang = lang || getLang();
         if (readyPromise && window.__I18N__ && window.__I18N__.lang === lang) return readyPromise;
-        readyPromise = fetch('/locales/' + lang + '.json')
+        var localeUrl = '/locales/' + lang + '.json';
+        try {
+            var verMeta = document.querySelector('meta[name="matchdo-asset-version"]');
+            var ver = verMeta && verMeta.content ? String(verMeta.content).trim() : '';
+            if (ver) localeUrl += (localeUrl.indexOf('?') === -1 ? '?' : '&') + 'v=' + encodeURIComponent(ver);
+        } catch (e) { /* ignore */ }
+        readyPromise = fetch(localeUrl)
             .then(function (r) {
                 if (!r.ok) throw new Error('locale not found');
                 return r.json();
