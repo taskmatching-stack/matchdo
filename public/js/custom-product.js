@@ -68,14 +68,14 @@ $(document).ready(function () {
                 var key = (c.key != null && c.key !== '') ? String(c.key) : '';
                 var displayName = categoryDisplayName(key, c.name || c.key);
                 var opt = $('<div class="cat-option" role="option" tabindex="0" data-key="' + key.replace(/"/g, '&quot;') + '">').text(displayName);
-                    opt.on('click', function () {
-                        var selectedKey = $(this).attr('data-key');
-                        mainList.find('.cat-option').removeClass('selected');
-                        $(this).addClass('selected');
-                        mainHidden.val(selectedKey);
-                        updateSubList(selectedKey);
+                opt.on('click', function () {
+                    var selectedKey = $(this).attr('data-key');
+                    mainList.find('.cat-option').removeClass('selected');
+                    $(this).addClass('selected');
+                    mainHidden.val(selectedKey);
+                    updateSubList(selectedKey);
                         updateRefIntentAiNote();
-                    });
+                });
                 mainList.append(opt);
             });
             function updateSubList(mainKeyFromClick) {
@@ -404,11 +404,10 @@ $(document).ready(function () {
         $panel.append($('<div class="ref-intent-hint"></div>').attr('data-i18n', def.hintKey).text(tr(def.hintKey, def.hintFb)));
         var $thumbs = $('<div class="ref-intent-thumbs"></div>');
         items.forEach(function (item, ii) {
+            var capText = refIntentThumbCaption(item, ii);
+            var $cell = $('<div class="ref-intent-thumb-cell"></div>');
             var $thumb = $('<div class="ref-intent-thumb"></div>');
-            $thumb.append($('<img alt="">').attr('src', item.url));
-            if (item.source && item.source.image_label) {
-                $thumb.append($('<span class="ref-intent-label"></span>').text(item.source.image_label));
-            }
+            $thumb.append($('<img alt="">').attr('src', item.url).attr('title', capText));
             $thumb.append($('<button type="button" class="ref-intent-clear" aria-label="移除">×</button>').on('click', function (e) {
                 e.stopPropagation();
                 removeRefImageFromSlot(slotKey, ii);
@@ -418,7 +417,9 @@ $(document).ready(function () {
                 if ($(e.target).closest('.ref-intent-clear').length) return;
                 openRefImagePreviewModal(slotKey, ii);
             });
-            $thumbs.append($thumb);
+            $cell.append($thumb);
+            $cell.append($('<div class="ref-intent-thumb-caption"></div>').text(capText).attr('title', capText));
+            $thumbs.append($cell);
         });
         if (canAdd) {
             var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
@@ -504,7 +505,7 @@ $(document).ready(function () {
 
         $('#refIntentTotalHint').text('');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
-        updateMultiVendorRefWarning();
+            updateMultiVendorRefWarning();
         updateRefIntentAiNote();
     }
     window.__renderIntentSlots = renderIntentSlots;
@@ -574,6 +575,33 @@ $(document).ready(function () {
     }
 
     $(function () {
+        $('#vendorAssetImagesPickConfirm').on('click', function () {
+            var st = vendorAssetPickModalState;
+            if (!st) return;
+            var selected = [];
+            $('#vendorAssetImagesPickGrid input.vendor-asset-pick-check:checked').each(function () {
+                var i = parseInt($(this).val(), 10);
+                if (!isNaN(i) && st.imageItems[i]) selected.push(st.imageItems[i]);
+            });
+            if (!selected.length) {
+                alert(tr('customProduct.vendorAssetPickSelectOne', '請至少勾選一張圖片。'));
+                return;
+            }
+            if (selected.length > st.maxSelect) {
+                alert(tr('customProduct.vendorAssetPickMaxAlert', '此類參考圖最多還能加 {max} 張。').replace('{max}', String(st.maxSelect)));
+                return;
+            }
+            importVendorAssetImageItems(st.targetKey, selected, st.baseMeta, st.pickerModalEl);
+        });
+        $('#vendorAssetImagesPickSelectMax').on('click', function () {
+            var st = vendorAssetPickModalState;
+            if (!st) return;
+            var $boxes = $('#vendorAssetImagesPickGrid input.vendor-asset-pick-check');
+            $boxes.prop('checked', false);
+            var n = Math.min(st.maxSelect, $boxes.length);
+            for (var i = 0; i < n; i++) $boxes.eq(i).prop('checked', true);
+            updateVendorAssetPickModalCount();
+        });
         $(document).on('input', '#refIntentSlots .ref-slot-addon', updateRefIntentAiNote);
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(initRefIntentUi);
@@ -1188,7 +1216,7 @@ $(document).ready(function () {
             } catch (e) { /* ignore */ }
         }
         if (!urls.length) {
-            var u = vendorAssetCardImageUrl($c);
+        var u = vendorAssetCardImageUrl($c);
             if (u) urls = [u];
         }
         return urls.map(function (u, idx) {
@@ -1212,6 +1240,212 @@ $(document).ready(function () {
         return ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
     }
 
+    function refIntentThumbCaption(item, index) {
+        if (!item) return tr('customProduct.refThumbDefault', '圖') + ' ' + ((index || 0) + 1);
+        var src = item.source || {};
+        var label = (src.image_label || '').trim();
+        if (label) return label;
+        var title = (src.title || '').trim();
+        if (title) return title;
+        return tr('customProduct.refThumbDefault', '圖') + ' ' + ((index || 0) + 1);
+    }
+
+    function vendorImportCapacity(targetKey) {
+        var roomSlot = MAX_REF_IMAGES_PER_SLOT - countSlotRefImages(targetKey);
+        var roomTotal = MAX_REF_IMAGES_TOTAL - countTotalRefImages();
+        return { roomSlot: roomSlot, roomTotal: roomTotal, maxAdd: Math.max(0, Math.min(roomSlot, roomTotal)) };
+    }
+
+    function buildVendorAssetBaseMeta($c, assetKind) {
+        var clRaw = $c.attr('data-customization-levels');
+        var clLevels = [];
+        if (clRaw) {
+            try { clLevels = JSON.parse(clRaw.replace(/&quot;/g, '"')); } catch (e) { /* ignore */ }
+        }
+        if (!Array.isArray(clLevels)) clLevels = [];
+        var moqRaw = ($c.attr('data-min-order-quantity') || '').trim();
+        var moqNum = moqRaw ? parseInt(moqRaw, 10) : null;
+        var catalogNames = [];
+        var cgnRaw = ($c.attr('data-catalog-group-names') || '').trim();
+        if (cgnRaw) {
+            try { catalogNames = JSON.parse(cgnRaw.replace(/&quot;/g, '"')); } catch (_) { catalogNames = []; }
+        }
+        if (!Array.isArray(catalogNames)) catalogNames = [];
+        return {
+            vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
+            manufacturer_id: $c.attr('data-manufacturer-id') || null,
+            manufacturer_name: $c.attr('data-manufacturer-name') || '',
+            manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
+            asset_kind: assetKind,
+            title: vendorAssetCardCaption($c),
+            catalog_group_names: catalogNames,
+            customization_levels: clLevels,
+            min_order_quantity: (moqNum != null && moqNum >= 1) ? moqNum : null
+        };
+    }
+
+    function confirmMultiVendorImport($c, onConfirm) {
+        var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
+        var existingIds = {};
+        getActiveRefSourcesList().forEach(function (s) {
+            if (s && s.manufacturer_id) existingIds[s.manufacturer_id] = true;
+        });
+        var existingKeys = Object.keys(existingIds);
+        if (newMfrId && existingKeys.length && existingKeys.indexOf(newMfrId) === -1) {
+            var mfrLabel = ($c.attr('data-manufacturer-name') || '').trim() || (t('customProduct.vendorFallback') || '廠商');
+            var cmsg = (t('customProduct.multiVendorConfirm') || '參考圖已含其他廠商素材，再加入「{name}」可能無法由單一廠商生產。仍要加入？').replace('{name}', mfrLabel);
+            if (!window.confirm(cmsg)) return;
+        }
+        if (typeof onConfirm === 'function') onConfirm();
+    }
+
+    function importVendorAssetImageItems(targetKey, imageItems, baseMeta, pickerModalEl) {
+        if (!imageItems.length) return;
+        Promise.all(imageItems.map(function (it) { return fetchUrlAsDataUrl(it.url); }))
+            .then(function (dataUrls) {
+                var def = getRefSlotDef(targetKey);
+                var added = 0;
+                dataUrls.forEach(function (dataUrl, idx) {
+                    var it = imageItems[idx];
+                    if (addRefImageToSlot(targetKey, dataUrl, Object.assign({}, baseMeta, {
+                        asset_kind: def ? def.assetKind : baseMeta.asset_kind,
+                        image_url: it.url,
+                        image_label: (it.label || '').trim()
+                    }))) added++;
+                });
+                if (!added) {
+                    alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+                    return;
+                }
+                refIntentActiveTab = targetKey;
+                renderIntentSlots();
+                var pickEl = document.getElementById('vendorAssetImagesPickModal');
+                if (pickEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    var pickInst = bootstrap.Modal.getInstance(pickEl);
+                    if (pickInst) pickInst.hide();
+                }
+                if (pickerModalEl && bootstrap.Modal.getInstance(pickerModalEl)) {
+                    bootstrap.Modal.getInstance(pickerModalEl).hide();
+                }
+            })
+            .catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+    }
+
+    var vendorAssetPickModalState = null;
+
+    function updateVendorAssetPickModalCount() {
+        var st = vendorAssetPickModalState;
+        if (!st) return;
+        var $grid = $('#vendorAssetImagesPickGrid');
+        var n = $grid.find('input.vendor-asset-pick-check:checked').length;
+        var tpl = tr('customProduct.vendorAssetPickCount', '已選 {n} / 最多 {max} 張');
+        $('#vendorAssetImagesPickCount').text(tpl.replace('{n}', String(n)).replace('{max}', String(st.maxSelect)));
+        var over = n > st.maxSelect;
+        $('#vendorAssetImagesPickConfirm').prop('disabled', n < 1 || over);
+    }
+
+    function openVendorAssetImagePickModal(opts) {
+        opts = opts || {};
+        var imageItems = opts.imageItems || [];
+        var maxSelect = opts.maxSelect || 1;
+        var targetKey = opts.targetKey;
+        var baseMeta = opts.baseMeta;
+        var pickerModalEl = opts.pickerModalEl;
+        var assetTitle = opts.assetTitle || '';
+        if (!imageItems.length || maxSelect < 1) return;
+
+        vendorAssetPickModalState = {
+            imageItems: imageItems,
+            maxSelect: maxSelect,
+            targetKey: targetKey,
+            baseMeta: baseMeta,
+            pickerModalEl: pickerModalEl
+        };
+
+        var subTpl = tr('customProduct.vendorAssetPickImagesSubtitle', '「{title}」共 {total} 張，最多可選 {max} 張加入「{slot}」。');
+        var slotDef = getRefSlotDef(targetKey);
+        $('#vendorAssetImagesPickSubtitle').text(subTpl
+            .replace('{title}', assetTitle || '—')
+            .replace('{total}', String(imageItems.length))
+            .replace('{max}', String(maxSelect))
+            .replace('{slot}', slotDef ? refIntentTabLabel(slotDef) : ''));
+
+        var $grid = $('#vendorAssetImagesPickGrid').empty();
+        imageItems.forEach(function (it, idx) {
+            var label = (it.label || '').trim() || (tr('customProduct.refThumbDefault', '圖') + ' ' + (idx + 1));
+            var safeLabel = label.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            var $col = $('<div class="col-6 col-sm-4 col-md-3"></div>');
+            var $label = $('<label class="vendor-asset-pick-item position-relative"></label>');
+            var $cb = $('<input type="checkbox" class="vendor-asset-pick-check">').attr('value', String(idx));
+            var $wrap = $('<div class="vendor-asset-pick-item-img-wrap"></div>');
+            $wrap.append($('<img alt="">').attr('src', it.url).attr('loading', 'lazy'));
+            $wrap.append($('<span class="vendor-asset-pick-item-check" aria-hidden="true"></span>'));
+            $wrap.append($('<button type="button" class="vendor-asset-pick-preview-btn" title="' +
+                (tr('customProduct.zoomImage', '放大預覽').replace(/"/g, '&quot;')) + '"><i class="bi bi-zoom-in"></i></button>')
+                .on('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openImageLightbox(it.url, assetTitle + ' · ' + label, imageItems, idx);
+                }));
+            $label.append($cb).append($wrap).append($('<div class="vendor-asset-pick-item-label"></div>').html(safeLabel));
+            $cb.on('change', function () {
+                var checked = $grid.find('input.vendor-asset-pick-check:checked');
+                if (checked.length > maxSelect) {
+                    $(this).prop('checked', false);
+                    alert(tr('customProduct.vendorAssetPickMaxAlert', '此類參考圖最多還能加 {max} 張。').replace('{max}', String(maxSelect)));
+                }
+                updateVendorAssetPickModalCount();
+            });
+            $col.append($label);
+            $grid.append($col);
+        });
+
+        updateVendorAssetPickModalCount();
+        if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+
+        var el = document.getElementById('vendorAssetImagesPickModal');
+        if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+        var inst = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+        inst.show();
+    }
+
+    function startVendorAssetImport($c, pickerModalEl) {
+        var imageItems = vendorAssetCardImageItems($c);
+        if (!imageItems.length) return;
+        var assetKind = ($c.attr('data-asset-kind') || 'prototype').trim();
+        var targetKey = null;
+        try { targetKey = window.__refImportTargetSlot; } catch (e) { targetKey = null; }
+        try { window.__refImportTargetSlot = null; } catch (e2) {}
+        if (!targetKey || !getRefSlotDef(targetKey)) targetKey = intentKeyFromAssetKind(assetKind);
+
+        var cap = vendorImportCapacity(targetKey);
+        if (cap.maxAdd <= 0) {
+            alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+            return;
+        }
+
+        var baseMeta = buildVendorAssetBaseMeta($c, assetKind);
+        var assetTitle = vendorAssetCardCaption($c);
+
+        if (imageItems.length === 1) {
+            confirmMultiVendorImport($c, function () {
+                importVendorAssetImageItems(targetKey, imageItems, baseMeta, pickerModalEl);
+            });
+            return;
+        }
+
+        confirmMultiVendorImport($c, function () {
+            openVendorAssetImagePickModal({
+                imageItems: imageItems,
+                maxSelect: cap.maxAdd,
+                targetKey: targetKey,
+                baseMeta: baseMeta,
+                pickerModalEl: pickerModalEl,
+                assetTitle: assetTitle
+            });
+        });
+    }
+
     function openRefImagePreviewModal(slotKey, itemIndex) {
         var g = refSlots[slotKey];
         if (!g || !g.items || !g.items.length) return;
@@ -1225,7 +1459,7 @@ $(document).ready(function () {
         if (src && src.image_label) label += ' · ' + src.image_label;
         else if (src && src.title) label += ' · ' + src.title;
         var refItems = g.items.map(function (it, i) {
-            return { url: it.url, label: (it.source && it.source.image_label) || ('#' + (i + 1)) };
+            return { url: it.url, label: refIntentThumbCaption(it, i) };
         });
         if (openImageLightbox(item.url, label, refItems, idx)) return;
         $('#pastItemModal').data('redesignCategoryKey', ($('#imageCategoryMainSelect').val() || '').trim())
@@ -1306,7 +1540,7 @@ $(document).ready(function () {
         var coverLabelHtml = coverImgLabel
             ? '<div class="small text-muted text-truncate vendor-asset-image-label" title="' + coverImgLabel.replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' +
             coverImgLabel.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '';
-        var multiBadge = ((item.asset_kind === 'prototype' || item.asset_kind === 'part') && imageUrls.length > 1)
+        var multiBadge = imageUrls.length > 1
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
             ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-image-items="' + imageItemsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
@@ -1376,86 +1610,7 @@ $(document).ready(function () {
             var sel = window.getSelection && window.getSelection();
             if (sel && sel.toString && sel.toString().trim()) return;
             var $c = $(this).closest('.vendor-asset-card');
-            var imageItems = vendorAssetCardImageItems($c);
-            if (!imageItems.length) return;
-            var assetKind = ($c.attr('data-asset-kind') || 'prototype').trim();
-            var targetKey = null;
-            try { targetKey = window.__refImportTargetSlot; } catch (e) { targetKey = null; }
-            try { window.__refImportTargetSlot = null; } catch (e2) {}
-            if (!targetKey || !getRefSlotDef(targetKey)) targetKey = intentKeyFromAssetKind(assetKind);
-            var toImport = imageItems.slice();
-            var roomSlot = MAX_REF_IMAGES_PER_SLOT - countSlotRefImages(targetKey);
-            var roomTotal = MAX_REF_IMAGES_TOTAL - countTotalRefImages();
-            var maxAdd = Math.min(toImport.length, roomSlot, roomTotal);
-            if (maxAdd <= 0) {
-                alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
-                return;
-            }
-            if (toImport.length > maxAdd) {
-                var partialMsg = (t('customProduct.refSlotsPartialImport') || '此類尚可加 {empty} 張，將加入前 {n} 張（共 {total} 張）。')
-                    .replace('{empty}', String(maxAdd))
-                    .replace('{n}', String(maxAdd))
-                    .replace('{total}', String(toImport.length));
-                if (!window.confirm(partialMsg)) return;
-                toImport = toImport.slice(0, maxAdd);
-            } else if (toImport.length > 1) {
-                var confirmMulti = (t('customProduct.importPrototypeAngles') || '將加入 {n} 張至此用途：\n').replace('{n}', String(toImport.length));
-                if (!window.confirm(confirmMulti + toImport.map(function (it, ii) {
-                    return '· ' + ((it.label || '').trim() || ('圖 ' + (ii + 1)));
-                }).join('\n'))) return;
-            }
-            var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
-            var existingIds = {};
-            getActiveRefSourcesList().forEach(function (s) {
-                if (s && s.manufacturer_id) existingIds[s.manufacturer_id] = true;
-            });
-            var existingKeys = Object.keys(existingIds);
-            if (newMfrId && existingKeys.length && existingKeys.indexOf(newMfrId) === -1) {
-                var mfrLabel = ($c.attr('data-manufacturer-name') || '').trim() || (t('customProduct.vendorFallback') || '廠商');
-                var cmsg = (t('customProduct.multiVendorConfirm') || '參考圖已含其他廠商素材，再加入「{name}」可能無法由單一廠商生產。仍要加入？').replace('{name}', mfrLabel);
-                if (!window.confirm(cmsg)) return;
-            }
-            var clRaw = $c.attr('data-customization-levels');
-            var clLevels = [];
-            if (clRaw) {
-                try { clLevels = JSON.parse(clRaw.replace(/&quot;/g, '"')); } catch (e) { /* ignore */ }
-            }
-            if (!Array.isArray(clLevels)) clLevels = [];
-            var moqRaw = ($c.attr('data-min-order-quantity') || '').trim();
-            var moqNum = moqRaw ? parseInt(moqRaw, 10) : null;
-            var catalogNames = [];
-            var cgnRaw = ($c.attr('data-catalog-group-names') || '').trim();
-            if (cgnRaw) {
-                try { catalogNames = JSON.parse(cgnRaw.replace(/&quot;/g, '"')); } catch (_) { catalogNames = []; }
-            }
-            if (!Array.isArray(catalogNames)) catalogNames = [];
-            var baseMeta = {
-                vendor_asset_id: $c.attr('data-vendor-asset-id') || null,
-                manufacturer_id: $c.attr('data-manufacturer-id') || null,
-                manufacturer_name: $c.attr('data-manufacturer-name') || '',
-                manufacturer_profile_url: $c.attr('data-manufacturer-profile-url') || '',
-                asset_kind: assetKind,
-                title: ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').trim(),
-                catalog_group_names: catalogNames,
-                customization_levels: clLevels,
-                min_order_quantity: (moqNum != null && moqNum >= 1) ? moqNum : null
-            };
-            Promise.all(toImport.map(function (it) { return fetchUrlAsDataUrl(it.url); }))
-                .then(function (dataUrls) {
-                    var def = getRefSlotDef(targetKey);
-                    dataUrls.forEach(function (dataUrl, idx) {
-                        var it = toImport[idx];
-                        addRefImageToSlot(targetKey, dataUrl, Object.assign({}, baseMeta, {
-                            asset_kind: def ? def.assetKind : assetKind,
-                            image_url: it.url,
-                            image_label: (it.label || '').trim()
-                        }));
-                    });
-                    refIntentActiveTab = targetKey;
-                    renderIntentSlots();
-                    if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
-                })
-                .catch(function () { alert(t('customProduct.loadFailed') || '載入圖片失敗'); });
+            startVendorAssetImport($c, modalEl);
         });
     }
 

@@ -208,7 +208,7 @@
                         </div>
                         <p id="vendorAssetsPickerCategoryMfrHint" class="text-muted small mb-0 mt-1 d-none" data-i18n="customProduct.vendorPickerCategoryMfrHint">變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。</p>
                     </div>
-                    <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊圖片加入參考圖；雙擊或按 🔍 放大。放大時會顯示圖片名稱（若廠商有設定）。</p>
+                    <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊：單張直接加入；多張時開啟勾選。雙擊或 🔍 可放大預覽（含圖片名稱）。</p>
                     <p id="vendorAssetsPickerKindSyncHint" class="text-muted small mb-2 d-none" data-i18n="customProduct.vendorPickerKindSyncHint">篩選「配件／零件」或「材料參考」時僅依主分類，子分類不套用（與廠商上傳方式一致）。數位原型才依子分類。</p>
                     <div id="vendorAssetsPickerMultiVendorHint" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="status"></div>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
@@ -320,6 +320,30 @@
                     </div>
                     <p id="vendorAssetsEmpty" class="text-muted small mb-0 d-none">此分類下尚無廠商素材。</p>
                     <p id="vendorAssetsLoading" class="text-muted small mb-0 d-none">載入中…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="vendorAssetImagesPickModal" tabindex="-1" aria-labelledby="vendorAssetImagesPickLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title mb-0" id="vendorAssetImagesPickLabel" data-i18n="customProduct.vendorAssetPickImagesTitle">選擇要加入的圖片</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <p id="vendorAssetImagesPickSubtitle" class="small text-muted mb-2"></p>
+                    <p class="small text-muted mb-2" data-i18n="customProduct.vendorAssetPickImagesHint">勾選要加入參考圖的圖片；點縮圖可放大預覽。圖片名稱顯示於縮圖下方。</p>
+                    <div id="vendorAssetImagesPickGrid" class="row g-2"></div>
+                </div>
+                <div class="modal-footer py-2 d-flex flex-wrap justify-content-between gap-2">
+                    <span id="vendorAssetImagesPickCount" class="small text-muted align-self-center"></span>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="vendorAssetImagesPickSelectMax" data-i18n="customProduct.vendorAssetPickSelectMax">選滿可加入數</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" data-i18n="customProduct.cancel">取消</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="vendorAssetImagesPickConfirm" data-i18n="customProduct.vendorAssetPickConfirm">加入參考圖</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -760,8 +784,28 @@
         #custom-product .ref-intent-thumbs {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.3rem;
+            gap: 0.45rem;
             margin: 0.2rem 0 0.25rem;
+        }
+        #custom-product .ref-intent-thumb-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 76px;
+            flex-shrink: 0;
+        }
+        #custom-product .ref-intent-thumb-caption {
+            width: 100%;
+            margin-top: 0.2rem;
+            font-size: 0.6875rem;
+            line-height: 1.25;
+            color: #475569;
+            text-align: center;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
         }
         #custom-product .ref-intent-thumb {
             position: relative;
@@ -816,6 +860,90 @@
             position: absolute; left: 0; right: 0; bottom: 0;
             padding: 0.15rem 0.35rem; background: rgba(0,0,0,.45); color: #fff;
             font-size: 0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #vendorAssetImagesPickModal { z-index: 1065; }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item {
+            display: block;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 0.35rem;
+            cursor: pointer;
+            height: 100%;
+            background: #fff;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item:has(input:checked) {
+            border-color: #445D7E;
+            background: #f0f4f8;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item-img-wrap {
+            position: relative;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #f1f5f9;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item-img-wrap img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            display: block;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item-check {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 4px;
+            background: rgba(255,255,255,.92);
+            border: 2px solid #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #445D7E;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item:has(input:checked) .vendor-asset-pick-item-check {
+            background: #445D7E;
+            border-color: #445D7E;
+            color: #fff;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item:has(input:checked) .vendor-asset-pick-item-check::after {
+            content: '✓';
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-preview-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 1.6rem;
+            height: 1.6rem;
+            border: none;
+            border-radius: 4px;
+            background: rgba(0,0,0,.5);
+            color: #fff;
+            font-size: 0.85rem;
+            line-height: 1;
+            padding: 0;
+            cursor: pointer;
+        }
+        #vendorAssetImagesPickModal .vendor-asset-pick-item-label {
+            margin-top: 0.35rem;
+            font-size: 0.75rem;
+            line-height: 1.3;
+            color: #334155;
+            text-align: center;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+            min-height: 2.4em;
         }
         #vendorAssetsPickerModal .vendor-asset-card { cursor: default; }
         #vendorAssetsPickerModal .vendor-asset-pick-zone { cursor: pointer; }
@@ -1181,7 +1309,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=31" defer></script>
+    <script src="js/custom-product.js?v=32" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
