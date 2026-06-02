@@ -22,12 +22,6 @@
         .material-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); }
         .material-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #f0f0f0; display: block; cursor: zoom-in; }
         .add-image-preview img, #edit-current-image { cursor: zoom-in; max-height: 200px; max-width: 100%; width: auto; height: auto; object-fit: contain; }
-        .edit-gallery-thumb-wrap { position: relative; }
-        .edit-gallery-thumb-wrap .badge-cover { position: absolute; top: 4px; left: 4px; z-index: 1; font-size: 0.65rem; }
-        .edit-gallery-thumb-wrap .btn-gallery-del { position: absolute; top: 4px; right: 4px; z-index: 1; width: 1.5rem; height: 1.5rem; padding: 0; line-height: 1; }
-        .edit-gallery-thumb-wrap .edit-gallery-thumb-actions { position: absolute; bottom: 4px; left: 4px; right: 4px; z-index: 1; display: flex; justify-content: center; }
-        .edit-gallery-thumb-wrap .btn-gallery-redraw { font-size: 0.65rem; padding: 0.15rem 0.4rem; line-height: 1.2; opacity: 0.95; }
-        .edit-gallery-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; cursor: zoom-in; border-radius: 6px; }
         .pending-image-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 8px; background: #fafbfc; }
         .pending-image-card.is-cover { border-color: #0d6efd; box-shadow: 0 0 0 1px #0d6efd33; }
         .pending-image-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: zoom-in; }
@@ -436,12 +430,23 @@
                             <label class="form-label">產品圖片（多角度）</label>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
+                            <div id="edit-gallery-redraw-bar" class="flex-wrap align-items-center gap-2 mb-2 d-none">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-gallery-redraw-selected" disabled>
+                                    <i class="bi bi-magic me-1"></i>對勾選的圖 AI 重繪
+                                </button>
+                                <p class="text-muted small mb-0 edit-gallery-redraw-estimate-line">
+                                    <span data-i18n="baseModels.estimatedPoints">預估扣點：</span>
+                                    <strong id="edit-gallery-redraw-estimate-val">0</strong>
+                                    <span data-i18n="baseModels.pointsUnit">點</span>
+                                    <span class="text-muted">（每張 +<span class="edit-gallery-redraw-points-extra">5</span> 點，新圖追加、原圖保留）</span>
+                                </p>
+                            </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></label>
                             <div class="form-check form-check-sm mb-2">
                                 <input class="form-check-input" type="checkbox" id="edit-gallery-optimize-next">
                                 <label class="form-check-label small" for="edit-gallery-optimize-next">本批新圖 AI 重繪（會扣點）</label>
                             </div>
-                            <div id="edit-gallery-optimize-bg-wrap" class="add-optimize-bg-wrap mb-2">
+                            <div id="edit-gallery-optimize-bg-wrap" class="add-optimize-bg-wrap mb-2 d-none">
                                 <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
                                     <select class="form-select form-select-sm" id="edit-gallery-optimize-bg" style="max-width:11rem">
@@ -453,6 +458,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
+                                <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">僅在勾選 AI 重繪時套用；自訂色請選「自訂色」後點色票。</p>
                             </div>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
                             <input type="file" class="d-none" id="edit-add-gallery-input-multi" accept="image/*" multiple>
@@ -460,7 +466,7 @@
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
                             </div>
-                            <p class="form-text text-muted small mb-1">點縮圖下方「AI 重繪」可<strong>單張</strong>重繪（每張 <span id="edit-gallery-redraw-points">5</span> 點），新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
+                            <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">在圖下方勾選要 AI 重繪的張數（可複選），再按「對勾選的圖 AI 重繪」；新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
                             <p class="form-text text-muted small mb-2">更換封面請用下方「更換封面」。</p>
                             <p id="edit-gallery-build-hint" class="form-text text-muted mb-0" style="font-size:0.7rem;opacity:0.65"></p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
@@ -556,7 +562,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-v3-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-v4-checkbox-20260601';
         var token = null;
         var isSeedVendor = false;
         async function applySeedVendorInfoBanner(vendorSource) {
@@ -586,6 +592,7 @@
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_description: 1 };
         var editPending = { tags: null, semantics: null };
         var editGalleryUploading = false;
+        var editGalleryOptimizeUrls = new Set();
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
@@ -955,23 +962,55 @@
             return uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
         }
 
+        function editGalleryOptimizeCheckboxId(idx) {
+            return 'edit-go-' + idx;
+        }
+
+        function updateEditGalleryRedrawEstimate() {
+            var n = editGalleryOptimizeUrls.size;
+            var pts = n * getEditGalleryRedrawPoints();
+            var valEl = document.getElementById('edit-gallery-redraw-estimate-val');
+            if (valEl) valEl.textContent = String(pts);
+            var btn = document.getElementById('btn-edit-gallery-redraw-selected');
+            if (btn) btn.disabled = n === 0 || editGalleryUploading;
+            document.querySelectorAll('.edit-gallery-redraw-points-extra').forEach(function (el) {
+                el.textContent = String(getEditGalleryRedrawPoints());
+            });
+        }
+
         function renderEditGallery(m) {
             var grid = document.getElementById('edit-gallery-grid');
             if (!grid) return;
-            var redrawPts = getEditGalleryRedrawPoints();
-            var redrawPtsEl = document.getElementById('edit-gallery-redraw-points');
-            if (redrawPtsEl) redrawPtsEl.textContent = String(redrawPts);
             var urls = assetImageUrls(m);
+            var redrawBar = document.getElementById('edit-gallery-redraw-bar');
             if (!urls.length) {
                 grid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">—</p></div>';
+                if (redrawBar) {
+                    redrawBar.classList.add('d-none');
+                    redrawBar.classList.remove('d-flex');
+                }
+                updateEditGalleryRedrawEstimate();
+                syncEditGalleryOptimizeBgWrap();
                 return;
             }
+            if (redrawBar) {
+                redrawBar.classList.remove('d-none');
+                redrawBar.classList.add('d-flex');
+            }
             grid.innerHTML = urls.map(function (url, idx) {
-                return '<div class="col-4 col-sm-3"><div class="edit-gallery-thumb-wrap">' +
-                    (idx === 0 ? '<span class="badge bg-primary badge-cover">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '') +
-                    '<img src="' + esc(url) + '" class="edit-gallery-thumb matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">' +
-                    (idx > 0 ? '<button type="button" class="btn btn-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '" title="' + esc(tr('baseModels.removeImage', '移除')) + '">&times;</button>' : '') +
-                    '<div class="edit-gallery-thumb-actions"><button type="button" class="btn btn-light btn-sm btn-gallery-redraw" data-url="' + esc(url) + '">AI 重繪 ' + redrawPts + '點</button></div>' +
+                var chkId = editGalleryOptimizeCheckboxId(idx);
+                var checked = editGalleryOptimizeUrls.has(url);
+                var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
+                var actions = idx > 0
+                    ? '<div class="pending-actions"><button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button></div>'
+                    : '';
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + (idx === 0 ? ' is-cover' : '') + '">' +
+                    coverBadge +
+                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">' +
+                    '<div class="form-check form-check-sm mt-1 mb-0">' +
+                    '<input class="form-check-input edit-gallery-optimize-chk" type="checkbox" id="' + chkId + '" data-url="' + esc(url) + '"' + (checked ? ' checked' : '') + '>' +
+                    '<label class="form-check-label small" for="' + chkId + '">AI 重繪</label></div>' +
+                    actions +
                     '</div></div>';
             }).join('');
             grid.querySelectorAll('.btn-gallery-del').forEach(function (btn) {
@@ -980,31 +1019,62 @@
                     removeGalleryImage(btn.getAttribute('data-url'));
                 });
             });
-            grid.querySelectorAll('.btn-gallery-redraw').forEach(function (btn) {
-                btn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    redrawGalleryImage(btn.getAttribute('data-url'));
+            grid.querySelectorAll('.edit-gallery-optimize-chk').forEach(function (chk) {
+                chk.addEventListener('change', function () {
+                    var u = chk.getAttribute('data-url');
+                    if (!u) return;
+                    if (chk.checked) editGalleryOptimizeUrls.add(u);
+                    else editGalleryOptimizeUrls.delete(u);
+                    updateEditGalleryRedrawEstimate();
+                    syncEditGalleryOptimizeBgWrap();
                 });
             });
+            updateEditGalleryRedrawEstimate();
+            syncEditGalleryOptimizeBgWrap();
         }
 
-        async function redrawGalleryImage(sourceUrl) {
-            var id = document.getElementById('edit-id').value;
-            if (!id || !sourceUrl) return;
-            if (editGalleryUploading) {
-                setEditGalleryStatus('上一批仍在傳送中，請稍候', 'warning');
+        async function runEditGalleryRedrawSelected() {
+            var urls = Array.from(editGalleryOptimizeUrls);
+            if (!urls.length) {
+                showToast('請先勾選要 AI 重繪的圖片', 'warning');
                 return;
             }
+            var pts = urls.length * getEditGalleryRedrawPoints();
+            if (!window.confirm('對 ' + urls.length + ' 張圖 AI 重繪並追加為新角度圖？（-' + pts + ' 點，原圖保留）')) return;
+            var done = 0;
+            for (var i = 0; i < urls.length; i++) {
+                var ok = await redrawGalleryImage(urls[i], { skipConfirm: true, batchIndex: i + 1, batchTotal: urls.length });
+                if (!ok) break;
+                done++;
+            }
+            if (done > 0) showToast('已完成 ' + done + ' 張 AI 重繪', 'success');
+            if (done === urls.length) editGalleryOptimizeUrls.clear();
+            updateEditGalleryRedrawEstimate();
+            syncEditGalleryOptimizeBgWrap();
+            var id = document.getElementById('edit-id').value;
+            var refreshed = materialsAll.find(function (x) { return x.id === id; });
+            if (refreshed) renderEditGallery(refreshed);
+        }
+
+        async function redrawGalleryImage(sourceUrl, opts) {
+            opts = opts || {};
+            var id = document.getElementById('edit-id').value;
+            if (!id || !sourceUrl) return false;
+            if (editGalleryUploading) {
+                setEditGalleryStatus('上一批仍在傳送中，請稍候', 'warning');
+                return false;
+            }
             var pts = getEditGalleryRedrawPoints();
-            if (!window.confirm('以此圖 AI 重繪並追加為新角度圖？（-' + pts + ' 點，原圖保留）')) return;
+            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪並追加為新角度圖？（-' + pts + ' 點，原圖保留）')) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
-            setEditGalleryStatus('AI 重繪中…', 'info');
+            var statusPrefix = opts.batchTotal ? ('AI 重繪中（' + opts.batchIndex + '/' + opts.batchTotal + '）…') : 'AI 重繪中…';
+            setEditGalleryStatus(statusPrefix, 'info');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
                     setEditGalleryStatus('請先登入', 'danger');
-                    return;
+                    return false;
                 }
                 var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
                 var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
@@ -1023,13 +1093,13 @@
                     var msg402 = (data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')';
                     setEditGalleryStatus(msg402, 'danger');
                     showToast(msg402, 'danger');
-                    return;
+                    return false;
                 }
                 if (!r.ok) {
                     var errMsg = data.error || data.message || ('重繪失敗 (HTTP ' + r.status + ')');
                     setEditGalleryStatus(errMsg, 'danger');
                     showToast(errMsg, 'danger');
-                    return;
+                    return false;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 if (idx >= 0) materialsAll[idx] = data;
@@ -1037,21 +1107,24 @@
                 var urlCount = assetImageUrls(data).length;
                 if (urlCount <= countBefore) {
                     setEditGalleryStatus('重繪完成但未新增圖片，可能已達上限', 'warning');
-                    return;
+                    return false;
                 }
                 var okMsg = '已追加 AI 重繪圖（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
-                showToast(okMsg);
+                if (!opts.skipConfirm) showToast(okMsg);
                 await loadMaterials();
                 var refreshed = materialsAll.find(function (x) { return x.id === id; });
                 if (refreshed) renderEditGallery(refreshed);
+                return true;
             } catch (err) {
                 setEditGalleryStatus(err.message || '重繪失敗', 'danger');
                 showToast(err.message, 'danger');
+                return false;
             } finally {
                 editGalleryUploading = false;
                 gridDisableEditGalleryActions(false);
+                updateEditGalleryRedrawEstimate();
             }
         }
 
@@ -1065,9 +1138,11 @@
             if (btnAdd) btnAdd.disabled = disabled;
             if (btnMulti) btnMulti.disabled = disabled;
             var grid = document.getElementById('edit-gallery-grid');
+            var redrawBtn = document.getElementById('btn-edit-gallery-redraw-selected');
+            if (redrawBtn) redrawBtn.disabled = disabled || editGalleryOptimizeUrls.size === 0;
             if (grid) {
-                grid.querySelectorAll('.btn-gallery-redraw, .btn-gallery-del').forEach(function (btn) {
-                    btn.disabled = disabled;
+                grid.querySelectorAll('.edit-gallery-optimize-chk, .btn-gallery-del').forEach(function (el) {
+                    el.disabled = disabled;
                 });
             }
         }
@@ -1076,6 +1151,7 @@
             var id = document.getElementById('edit-id').value;
             if (!id || !url) return;
             if (!window.confirm(tr('baseModels.confirmRemoveImage', '確定移除此圖？'))) return;
+            editGalleryOptimizeUrls.delete(url);
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
                     method: 'DELETE',
@@ -1096,6 +1172,10 @@
             var sel = document.getElementById('edit-gallery-optimize-bg');
             var custom = document.getElementById('edit-gallery-optimize-bg-custom');
             if (custom && sel) custom.classList.toggle('d-none', sel.value !== 'custom');
+            var bgWrap = document.getElementById('edit-gallery-optimize-bg-wrap');
+            var nextChk = document.getElementById('edit-gallery-optimize-next');
+            var showBg = editGalleryOptimizeUrls.size > 0 || !!(nextChk && nextChk.checked);
+            if (bgWrap) bgWrap.classList.toggle('d-none', !showBg);
         }
 
         function getEditGalleryOptimizeBackground() {
@@ -1250,6 +1330,12 @@
             });
             one.addEventListener('change', function () { onEditGalleryFilesSelected(one); });
             multi.addEventListener('change', function () { onEditGalleryFilesSelected(multi); });
+            var redrawBtn = document.getElementById('btn-edit-gallery-redraw-selected');
+            if (redrawBtn) {
+                redrawBtn.addEventListener('click', function () {
+                    if (!editGalleryUploading) runEditGalleryRedrawSelected();
+                });
+            }
         }
         function showToast(msg, type) {
             type = type || 'success';
@@ -1431,6 +1517,10 @@
                 });
                 updateAddFormPointsEstimate(form);
             });
+            document.querySelectorAll('.edit-gallery-redraw-points-extra').forEach(function (el) {
+                el.textContent = String(getEditGalleryRedrawPoints());
+            });
+            updateEditGalleryRedrawEstimate();
         }
 
         function updateEditOptimizeLabel(assetKind) {
@@ -2303,7 +2393,10 @@
                 editImgWrap.classList.add('d-none');
                 if (editImg) editImg.src = '';
             }
-            if (isProtoLike) renderEditGallery(m);
+            if (isProtoLike) {
+                editGalleryOptimizeUrls.clear();
+                renderEditGallery(m);
+            }
             editGalleryUploading = false;
             setEditGalleryStatus('', null);
             var buildHint = document.getElementById('edit-gallery-build-hint');

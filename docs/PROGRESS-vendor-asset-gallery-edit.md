@@ -31,7 +31,7 @@
 - **新增角度圖**／**一次選多張** → 選檔後**立即** `POST /api/me/vendor-assets/:id/gallery-images`。
 - 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）；可勾「本批新圖 AI 重繪」。
 - **更換封面**：下方「更換封面」+ 儲存時 `PUT` 單圖（與多角度 API 分開）。
-- **單張 AI 重繪**：每張縮圖「AI 重繪 N 點」→ `POST .../gallery-images/redraw`（依 `source_url`），結果**追加**至 `gallery_images`，原圖保留；扣點 = `points_vendor_asset_optimize_extra`（預設 5）。
+- **AI 重繪（與新增一致）**：縮圖下方勾選「AI 重繪」→「對勾選的圖 AI 重繪」→ `POST .../gallery-images/redraw`（依 `source_url`），結果**追加**至 `gallery_images`，原圖保留；扣點 = `points_vendor_asset_optimize_extra`（預設 5）× 勾選張數。底色區塊僅在勾選重繪或「本批新圖 AI 重繪」時顯示。
 
 ### 後端
 
