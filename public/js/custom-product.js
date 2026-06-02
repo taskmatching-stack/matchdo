@@ -667,6 +667,8 @@ $(document).ready(function () {
     function updateVendorPickerPrototypeFiltersVisibility() {
         var kind = ($('#vendorAssetsAssetKind').val() || '').trim();
         $('.vendor-picker-prototype-only').toggleClass('d-none', kind === 'material' || kind === 'part');
+        var $partHint = $('#vendorAssetsPickerPartSubHint');
+        if ($partHint.length) $partHint.toggleClass('d-none', kind !== 'part');
     }
 
     function readVendorPickerPageSize() {
@@ -888,13 +890,33 @@ $(document).ready(function () {
         }
     }
 
-    function openImageLightbox(src, caption) {
-        if (!src) return false;
+    function openImageLightbox(src, caption, imageItems, index) {
+        if (!src && (!imageItems || !imageItems.length)) return false;
         if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.open === 'function') {
-            window.MatchdoImageLightbox.open({ src: src, caption: caption || '', alt: caption || '' });
+            var opts = { caption: caption || '', alt: caption || '' };
+            if (imageItems && imageItems.length) {
+                opts.imageItems = imageItems;
+                opts.index = index || 0;
+            } else {
+                opts.src = src;
+            }
+            window.MatchdoImageLightbox.open(opts);
             return true;
         }
         return false;
+    }
+
+    function openVendorAssetCardLightbox($c) {
+        if (!$c || !$c.length) return false;
+        var items = vendorAssetCardImageItems($c);
+        if (!items.length) return false;
+        var idx = 0;
+        var cover = vendorAssetCardImageUrl($c);
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].url === cover) { idx = i; break; }
+        }
+        var title = vendorAssetCardCaption($c);
+        return openImageLightbox(items[idx].url, title, items, idx);
     }
 
     function vendorAssetCardImageUrl($c) {
@@ -958,8 +980,10 @@ $(document).ready(function () {
         if (!url) return;
         var src = refSources[slotIndex];
         var label = vendorPickerTr('customProduct.refPreviewTitle', '參考圖') + ' ' + (slotIndex + 1);
-        if (src && src.title) label += ' · ' + src.title;
-        if (openImageLightbox(url, label)) return;
+        if (src && src.image_label) label += ' · ' + src.image_label;
+        else if (src && src.title) label += ' · ' + src.title;
+        var refItems = src && src.image_label ? [{ url: url, label: src.image_label }] : [{ url: url, label: '' }];
+        if (openImageLightbox(url, label, refItems, 0)) return;
         $('#pastItemModal').data('redesignCategoryKey', ($('#imageCategoryMainSelect').val() || '').trim())
             .data('redesignSubcategoryKey', ($('#imageCategorySubSelect').val() || '').trim());
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
@@ -1034,6 +1058,10 @@ $(document).ready(function () {
             var cgn = item.catalog_groups.map(function (g) { return g && g.name ? String(g.name).trim() : ''; }).filter(Boolean);
             if (cgn.length) catalogNamesAttr = JSON.stringify(cgn).replace(/"/g, '&quot;');
         }
+        var coverImgLabel = (imageItems[0] && imageItems[0].label) ? String(imageItems[0].label).trim() : '';
+        var coverLabelHtml = coverImgLabel
+            ? '<div class="small text-muted text-truncate vendor-asset-image-label" title="' + coverImgLabel.replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' +
+            coverImgLabel.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '';
         var multiBadge = ((item.asset_kind === 'prototype' || item.asset_kind === 'part') && imageUrls.length > 1)
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
@@ -1050,6 +1078,7 @@ $(document).ready(function () {
             '</div>' +
             '<div class="card-body p-2 vendor-asset-card-meta">' + meta +
             '<div class="fw-semibold small text-truncate vendor-asset-title" title="' + title + '">' + title + '</div>' +
+            coverLabelHtml +
             '<div class="d-flex align-items-center gap-1 mt-1 vendor-asset-mfr-row">' +
             mfrLogo +
             '<a href="' + profileUrl + '" class="small text-primary text-decoration-none vendor-asset-mfr-link text-truncate flex-grow-1" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a>' +
@@ -1064,14 +1093,14 @@ $(document).ready(function () {
             e.stopPropagation();
             e.stopImmediatePropagation();
             var $c = $(this).closest('.vendor-asset-card');
-            openImageLightbox(vendorAssetCardImageUrl($c), vendorAssetCardCaption($c));
+            openVendorAssetCardLightbox($c);
         });
         $list.find('.vendor-asset-pick-img').off('dblclick').on('dblclick', function (e) {
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
             var $c = $(this).closest('.vendor-asset-card');
-            openImageLightbox(vendorAssetCardImageUrl($c), vendorAssetCardCaption($c));
+            openVendorAssetCardLightbox($c);
         });
         $list.find('.vendor-asset-card-meta, .vendor-asset-mfr-link, .vendor-asset-mfr-search-btn, .vendor-asset-title').off('mousedown click pointerdown')
             .on('mousedown click pointerdown', function (e) { e.stopPropagation(); });
@@ -1196,7 +1225,9 @@ $(document).ready(function () {
         var url = '';
         if (params.mode === 'category' && params.mainKey) {
             url = '/api/vendor-assets?category_key=' + encodeURIComponent(params.mainKey);
-            if (params.subKey && assetKind !== 'material') url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+            if (params.subKey && assetKind !== 'material' && assetKind !== 'part') {
+                url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+            }
         } else if (params.mode === 'manufacturer' && params.manufacturerId) {
             url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(params.manufacturerId);
         }

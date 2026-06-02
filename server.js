@@ -12652,7 +12652,7 @@ app.get('/api/vendor-assets', async (req, res) => {
             }
         }
 
-        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json, min_order_quantity, customization_levels';
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json, min_order_quantity, customization_levels';
         async function runQuery(cols) {
             let q = supabase
                 .from('vendor_assets')
@@ -12661,7 +12661,10 @@ app.get('/api/vendor-assets', async (req, res) => {
                 .order('created_at', { ascending: false });
             if (!internalPreview) q = q.eq('is_public', true);
             if (categoryKey) q = q.eq('category_key', categoryKey);
-            if (subcategoryKey && assetKindFilter !== 'material') q = q.eq('subcategory_key', subcategoryKey);
+            /* 配件／零件上傳時不填子分類，僅依主分類媒合；勿用子分類 SQL 過濾 part */
+            if (subcategoryKey && assetKindFilter !== 'material' && assetKindFilter !== 'part') {
+                q = q.eq('subcategory_key', subcategoryKey);
+            }
             if (styleKey) q = q.eq('style_key', styleKey);
             if (materialKey && assetKindFilter !== 'material') q = q.eq('material_key', materialKey);
             if (manufacturerId) q = q.eq('manufacturer_id', manufacturerId);
@@ -12670,7 +12673,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         }
         let { data: rows, error } = await runQuery(selectCols);
         if (error && error.code === '42703') {
-            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key' && c !== 'min_order_quantity' && c !== 'customization_levels').join(', ');
+            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'cover_image_label' && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key' && c !== 'min_order_quantity' && c !== 'customization_levels').join(', ');
             ({ data: rows, error } = await runQuery(legacyCols));
         }
         if (error) {
@@ -12685,7 +12688,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (subcategoryKey && !assetKindFilter) {
             list = list.filter((r) => {
                 const rk = normalizeVendorAssetKind(r.asset_kind);
-                if (rk === 'material') return true;
+                if (rk === 'material' || rk === 'part') return true;
                 return (r.subcategory_key || '') === subcategoryKey;
             });
         }
@@ -12747,6 +12750,7 @@ app.get('/api/vendor-assets', async (req, res) => {
                 image_url: r.image_url,
                 gallery_images: mapped.gallery_images,
                 image_urls: mapped.image_urls,
+                image_items: mapped.image_items,
                 image_count: mapped.image_count,
                 usage_type: r.usage_type,
                 sort_order: r.sort_order,

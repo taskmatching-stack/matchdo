@@ -13,6 +13,7 @@
     var counterEl = null;
     var prevOverflow = '';
     var galleryImages = [];
+    var galleryLabels = [];
     var galleryIndex = 0;
     var baseCaption = '';
 
@@ -90,28 +91,56 @@
         }
     }
 
+    function captionForGalleryIndex() {
+        var imgLabel = (galleryLabels[galleryIndex] || '').trim();
+        var base = (baseCaption || '').trim();
+        if (imgLabel && base && imgLabel !== base) return base + ' · ' + imgLabel;
+        return imgLabel || base || '';
+    }
+
     function showGalleryIndex(idx) {
         if (!galleryImages.length || !imgEl) return;
         galleryIndex = ((idx % galleryImages.length) + galleryImages.length) % galleryImages.length;
         imgEl.src = galleryImages[galleryIndex];
         updateGalleryChrome();
         if (capEl) {
-            capEl.textContent = baseCaption || '';
+            capEl.textContent = captionForGalleryIndex();
         }
+    }
+
+    function normalizeImageItems(raw) {
+        if (!Array.isArray(raw)) return [];
+        return raw.map(function (it, i) {
+            if (!it) return null;
+            if (typeof it === 'string') return { url: it, label: '' };
+            var url = (it.url || '').trim();
+            if (!url) return null;
+            return {
+                url: url,
+                label: String(it.label != null ? it.label : '').trim()
+            };
+        }).filter(Boolean);
     }
 
     function open(opts) {
         opts = opts || {};
+        var imageItems = normalizeImageItems(opts.imageItems);
         var images = Array.isArray(opts.images) ? opts.images.filter(function (u) { return u && String(u).trim(); }) : [];
         var src = (opts.src || '').trim();
-        if (!images.length && !src) return;
+        if (!images.length && !src && !imageItems.length) return;
         ensureRoot();
         root.style.zIndex = String(stackZIndexAboveModals());
         baseCaption = opts.caption || opts.alt || '';
-        galleryImages = images.length ? images.slice() : (src ? [src] : []);
+        if (imageItems.length) {
+            galleryImages = imageItems.map(function (it) { return it.url; });
+            galleryLabels = imageItems.map(function (it) { return it.label; });
+        } else {
+            galleryImages = images.length ? images.slice() : (src ? [src] : []);
+            galleryLabels = galleryImages.map(function () { return ''; });
+        }
         galleryIndex = Math.max(0, Math.min(opts.index || 0, galleryImages.length - 1));
         showGalleryIndex(galleryIndex);
-        imgEl.alt = opts.alt || baseCaption || '';
+        imgEl.alt = captionForGalleryIndex() || opts.alt || baseCaption || '';
         root.classList.add('is-open');
         root.setAttribute('aria-hidden', 'false');
         prevOverflow = document.body.style.overflow;
@@ -124,12 +153,29 @@
         root.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = prevOverflow || '';
         galleryImages = [];
+        galleryLabels = [];
         galleryIndex = 0;
         baseCaption = '';
         if (imgEl) imgEl.src = '';
         if (capEl) capEl.textContent = '';
         if (counterEl) counterEl.textContent = '';
         updateGalleryChrome();
+    }
+
+    function parseImageItemsFromImg(img) {
+        if (!img) return [];
+        var rawItems = img.getAttribute('data-image-items');
+        if (rawItems) {
+            try {
+                var parsedItems = JSON.parse(rawItems.replace(/&quot;/g, '"'));
+                var items = normalizeImageItems(parsedItems);
+                if (items.length) return items;
+            } catch (e) { /* ignore */ }
+        }
+        var urls = parseUrlsFromImg(img);
+        return urls.map(function (u, i) {
+            return { url: u, label: '' };
+        });
     }
 
     function parseUrlsFromImg(img) {
@@ -158,27 +204,45 @@
 
     function openFromImg(img, caption) {
         if (!img || !img.src) return;
-        var urls = parseUrlsFromImg(img);
+        var items = parseImageItemsFromImg(img);
+        var urls = items.map(function (it) { return it.url; });
         var imgSrc = img.currentSrc || img.src || '';
+        var cap = caption || img.getAttribute('data-lightbox-caption') || '';
         if (urls.length > 1) {
             var idx = 0;
             for (var i = 0; i < urls.length; i++) {
                 if (urlMatchesGalleryEntry(imgSrc, urls[i])) { idx = i; break; }
             }
-            open({ images: urls, index: idx, caption: caption || img.alt || '', alt: img.alt || '' });
+            open({ imageItems: items, index: idx, caption: cap, alt: cap });
         } else {
-            open({ src: urls[0] || imgSrc, caption: caption || img.alt || '', alt: img.alt || '' });
+            open({
+                imageItems: items.length ? items : [{ url: urls[0] || imgSrc, label: '' }],
+                caption: cap,
+                alt: cap
+            });
         }
     }
 
     function captionFromImg(img) {
         if (!img) return '';
-        var card = img.closest('.material-card, .portfolio-card, .card');
+        var items = parseImageItemsFromImg(img);
+        var imgSrc = img.currentSrc || img.src || '';
+        var itemLabel = '';
+        for (var i = 0; i < items.length; i++) {
+            if (urlMatchesGalleryEntry(imgSrc, items[i].url) && items[i].label) {
+                itemLabel = items[i].label;
+                break;
+            }
+        }
+        if (!itemLabel && items[0] && items[0].label) itemLabel = items[0].label;
+        var card = img.closest('.material-card, .portfolio-card, .card, .pending-image-card');
+        var title = '';
         if (card) {
             var t = card.querySelector('.fw-semibold');
-            if (t) return t.textContent.trim();
+            if (t) title = t.textContent.trim();
         }
-        return img.getAttribute('title') || img.alt || '';
+        if (itemLabel && title && itemLabel !== title) return title + ' · ' + itemLabel;
+        return itemLabel || title || img.getAttribute('data-lightbox-caption') || img.getAttribute('title') || img.alt || '';
     }
 
     function bindDelegatedClicks() {

@@ -569,7 +569,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'image-labels-fetch-fallback-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'image-labels-lightbox-20260601';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1096,7 +1096,8 @@
                     : '';
                 return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + '">' +
                     coverBadge +
-                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">' +
+                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '"' +
+                    ' data-image-items="' + esc(JSON.stringify([{ url: url, label: (it.label || '').trim() }])).replace(/"/g, '&quot;') + '">' +
                     labelField +
                     '<div class="form-check form-check-sm mt-1 mb-0">' +
                     '<input class="form-check-input edit-gallery-optimize-chk" type="checkbox" id="' + chkId + '" data-url="' + esc(url) + '"' + (checked ? ' checked' : '') + '>' +
@@ -2325,13 +2326,20 @@
                 var imgCount = m.image_count != null ? m.image_count : urls.length;
                 var countBadge = (m.asset_kind !== 'material' && imgCount > 1)
                     ? '<span class="badge bg-dark material-img-count">' + imgCount + ' ' + esc(tr('baseModels.imageCountUnit', '張')) + '</span>' : '';
+                var imgItems = assetImageItems(m);
+                var itemsAttr = imgItems.length
+                    ? (' data-image-items="' + esc(JSON.stringify(imgItems)).replace(/"/g, '&quot;') + '"') : '';
                 var urlsAttr = urls.length > 1
                     ? (' data-image-urls="' + esc(JSON.stringify(urls)).replace(/"/g, '&quot;') + '"') : '';
+                var coverLabel = (imgItems[0] && imgItems[0].label) ? String(imgItems[0].label).trim() : '';
+                var coverLabelHtml = (coverLabel && coverLabel !== (m.title || '').trim())
+                    ? ('<div class="small text-muted text-truncate mb-1" title="' + esc(coverLabel) + '">' + esc(coverLabel) + '</div>')
+                    : '';
                 var hl = highlightAssetId === m.id ? ' border border-success border-3' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3" id="asset-card-' + esc(m.id) + '"><div class="card material-card h-100' + hl + '">' +
-                    (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大（可多張切換）')) + '"' + urlsAttr + '></div>' : '') +
+                    (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大（可多張切換）')) + '"' + urlsAttr + itemsAttr + '></div>' : '') +
                     '<div class="card-body p-3">' + kindBadge + pubBadge + supplierRefLine +
-                    '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' +
+                    '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' + coverLabelHtml +
                     '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + myCats + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
