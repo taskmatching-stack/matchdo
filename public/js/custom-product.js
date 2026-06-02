@@ -6,6 +6,10 @@
  */
 $(document).ready(function () {
     function t(key) { return (window.i18n && window.i18n.t) ? window.i18n.t(key) : key; }
+    function tr(key, fallback) {
+        var v = t(key);
+        return (v && v !== key) ? v : (fallback || key);
+    }
     let generatedImageData = null;
     // 從廠商頁「用此廠商版型設計」進入時帶入的廠商 id / 名稱（供「從此廠商版型庫選擇」使用）
     var urlParams = typeof window !== 'undefined' && window.location && window.location.search ? new URLSearchParams(window.location.search) : null;
@@ -143,10 +147,10 @@ $(document).ready(function () {
 
     // 參考圖：4 格意圖插槽（原型／材料／配件／圖樣），上傳即定用途
     var REF_INTENT_SLOTS = [
-        { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', cardClass: 'ref-intent-card--proto' },
-        { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', cardClass: 'ref-intent-card--mat' },
-        { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', cardClass: 'ref-intent-card--part' },
-        { key: 'pattern', assetKind: 'other', titleKey: 'customProduct.refSlotPatternTitle', hintKey: 'customProduct.refSlotPatternHint', addonPhKey: 'customProduct.refSlotPatternAddonPh', cardClass: 'ref-intent-card--pat' }
+        { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', hintFb: '幾何結構與尺寸', addonPhFb: '造型補充（選填）' },
+        { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
+        { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', titleFb: '配件／零件', hintFb: '五金、拉鍊、掛繩', addonPhFb: '配件勿寫顏色' },
+        { key: 'pattern', assetKind: 'other', titleKey: 'customProduct.refSlotPatternTitle', hintKey: 'customProduct.refSlotPatternHint', addonPhKey: 'customProduct.refSlotPatternAddonPh', titleFb: '圖樣／風格', hintFb: '印花、紋理、整體風格', addonPhFb: '圖樣補充（選填）' }
     ];
     var refSlots = {
         prototype: { url: null, source: null, addon: '' },
@@ -356,17 +360,21 @@ $(document).ready(function () {
         REF_INTENT_SLOTS.forEach(function (def) {
             var s = refSlots[def.key];
             var hasImg = !!(s && s.url);
-            var $col = $('<div class="col-6 col-lg-3"></div>');
-            var $card = $('<div class="ref-intent-card ' + def.cardClass + '"></div>');
-            $card.append($('<div class="ref-intent-title fw-semibold small"></div>').text(t(def.titleKey)));
-            $card.append($('<div class="ref-intent-hint text-muted small"></div>').text(t(def.hintKey)));
+            var $wrap = $('<div class="ref-intent-slot"></div>');
+            var $card = $('<div class="ref-intent-card"></div>');
+            $card.append($('<div class="ref-intent-title fw-semibold small"></div>')
+                .attr('data-i18n', def.titleKey)
+                .text(tr(def.titleKey, def.titleFb)));
+            $card.append($('<div class="ref-intent-hint text-muted small"></div>')
+                .attr('data-i18n', def.hintKey)
+                .text(tr(def.hintKey, def.hintFb)));
             var $preview = $('<div class="ref-intent-preview" role="button" tabindex="0"></div>').toggleClass('has-image', hasImg);
             if (hasImg) {
                 $preview.append($('<img class="ref-intent-img" alt="">').attr('src', s.url));
                 if (s.source && s.source.image_label) {
                     $preview.append($('<span class="ref-intent-label small"></span>').text(s.source.image_label));
                 }
-                $preview.append($('<button type="button" class="ref-intent-clear" title="移除">×</button>').on('click', function (e) {
+                $preview.append($('<button type="button" class="ref-intent-clear" title="移除" aria-label="移除">×</button>').on('click', function (e) {
                     e.stopPropagation();
                     clearRefSlot(def.key);
                     renderIntentSlots();
@@ -376,30 +384,35 @@ $(document).ready(function () {
                     openRefImagePreviewModal(def.key);
                 });
             } else {
-                $preview.append($('<span class="ref-intent-empty"><i class="fas fa-image"></i></span>'));
+                $preview.append($('<span class="ref-intent-empty"><i class="fas fa-plus"></i></span>'));
             }
             $card.append($preview);
-            var $actions = $('<div class="d-flex flex-wrap gap-1"></div>');
-            $actions.append($('<button type="button" class="btn btn-outline-primary btn-sm py-0"></button>')
-                .text(t('customProduct.refSlotPickVendor') || '素材庫')
+            var $actions = $('<div class="ref-intent-actions"></div>');
+            $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
+                .attr('data-i18n', 'customProduct.refSlotPickVendor')
+                .text(tr('customProduct.refSlotPickVendor', '素材庫'))
                 .on('click', function () { openVendorPickerForRefSlot(def.key); }));
-            $actions.append($('<button type="button" class="btn btn-outline-secondary btn-sm py-0"></button>')
-                .text(t('customProduct.refSlotUpload') || '上傳')
+            $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
+                .attr('data-i18n', 'customProduct.refSlotUpload')
+                .text(tr('customProduct.refSlotUpload', '上傳'))
                 .on('click', function () {
                     refUploadTargetKey = def.key;
                     document.getElementById('referenceImageFile').click();
                 }));
             $card.append($actions);
-            $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon mt-1">')
+            $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
                 .attr('data-ref-slot', def.key)
-                .attr('placeholder', t(def.addonPhKey))
+                .attr('data-i18n-placeholder', def.addonPhKey)
+                .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
                 .val((s && s.addon) || ''));
-            $col.append($card);
-            $root.append($col);
+            $wrap.append($card);
+            $root.append($wrap);
         });
+        if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         updateMultiVendorRefWarning();
         updatePromptQuickGuide();
     }
+    window.__renderIntentSlots = renderIntentSlots;
 
     function openCategoryVendorPicker(slotKey) {
         var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
@@ -415,7 +428,7 @@ $(document).ready(function () {
         setVendorPickerMfrScopedMode(false);
         updateVendorPickerPrototypeFiltersVisibility();
         syncVendorPickerSubcategoryForAssetKind();
-        var pickerLabel = def ? t(def.titleKey) : (t('customProduct.selectFromVendorAssets') || '從廠商素材庫選擇');
+        var pickerLabel = def ? tr(def.titleKey, def.titleFb) : tr('customProduct.selectFromVendorAssets', '從廠商素材庫選擇');
         $('#vendorAssetsPickerLabel').text(pickerLabel);
         updateVendorPickerDesignCategoryDisplay();
         var modalEl = document.getElementById('vendorAssetsPickerModal');
@@ -446,14 +459,8 @@ $(document).ready(function () {
         $('#generatedImagePreviewWrap').addClass('has-result');
     }
 
-    $(function () {
+    function initRefIntentUi() {
         renderIntentSlots();
-        $('#btnApplyPromptSuggest').on('click', function () {
-            applyPromptSuggestion(hasAnyPromptInput());
-        });
-        $('#productPrompt').on('input', updatePromptQuickGuide);
-        $(document).on('input', '#refIntentSlots .ref-slot-addon', updatePromptQuickGuide);
-        updatePromptQuickGuide();
         var redesignUrl = null;
         try { redesignUrl = sessionStorage.getItem('redesignImageUrl'); } catch (e) {}
         if (!redesignUrl && typeof URLSearchParams !== 'undefined') {
@@ -466,6 +473,19 @@ $(document).ready(function () {
             try { sessionStorage.removeItem('redesignImageUrl'); } catch (e) {}
             setRefSlot('prototype', redesignUrl, { asset_kind: 'prototype' });
             renderIntentSlots();
+        }
+    }
+
+    $(function () {
+        $('#btnApplyPromptSuggest').on('click', function () {
+            applyPromptSuggestion(hasAnyPromptInput());
+        });
+        $('#productPrompt').on('input', updatePromptQuickGuide);
+        $(document).on('input', '#refIntentSlots .ref-slot-addon', updatePromptQuickGuide);
+        if (window.i18n && window.i18n.ready) {
+            window.i18n.ready.then(initRefIntentUi);
+        } else {
+            initRefIntentUi();
         }
     });
 
