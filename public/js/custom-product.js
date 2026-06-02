@@ -174,7 +174,6 @@ $(document).ready(function () {
         pattern: emptyRefSlotGroup()
     };
     var refIntentActiveTab = 'prototype';
-    var unsupportedRefSlotWarned = {};
 
     function ensureRefIntentActiveTab() {
         if (!getRefSlotDef(refIntentActiveTab)) refIntentActiveTab = 'prototype';
@@ -332,20 +331,37 @@ $(document).ready(function () {
         return tpl.replace(/\{title\}/g, title).replace(/\{levels\}/g, levels).replace(/\{tab\}/g, tab);
     }
 
+    function showRefScopeWarnDetail(message) {
+        if (!message) return;
+        var body = document.getElementById('refScopeWarnModalBody');
+        if (body) body.textContent = message;
+        var el = document.getElementById('refScopeWarnModal');
+        if (el && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            var inst = bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+            inst.show();
+            return;
+        }
+        alert(message);
+    }
+
+    function createRefScopeWarnBtn(message) {
+        var label = tr('customProduct.refScopeWarnAria', '超出廠商訂製範圍，點擊查看說明');
+        return $('<button type="button" class="btn btn-link p-0 ref-scope-warn-btn flex-shrink-0"></button>')
+            .attr('aria-label', label)
+            .attr('title', label)
+            .html('⚠️')
+            .on('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showRefScopeWarnDetail(message);
+            });
+    }
+
     function refSlotHasCustomizationContent(slotKey) {
         var g = refSlots[slotKey];
         if (!g) return false;
         if (g.items && g.items.length) return true;
         return !!((g.addon || '').trim());
-    }
-
-    function notifyUnsupportedRefSlotOnAdd(slotKey) {
-        if (!slotKey || slotKey === 'prototype' || isRefSlotSupportedByPrototypeLock(slotKey)) return;
-        if (unsupportedRefSlotWarned[slotKey]) return;
-        var msg = getUnsupportedRefSlotWarningText(slotKey, 'alert');
-        if (!msg) return;
-        unsupportedRefSlotWarned[slotKey] = true;
-        alert(msg);
     }
 
     function collectUnsupportedRefSlotWarnings() {
@@ -365,7 +381,7 @@ $(document).ready(function () {
         if (!lines.length) return;
         var tpl = tr('customProduct.refSlotUnsupportedGenerateWarn',
             '以下參考涉及廠商未開放的訂製項目（仍可繼續生圖）：\n\n{list}\n\n下單前請向廠商確認能否製造。');
-        alert(tpl.replace('{list}', lines.join('\n')));
+        showRefScopeWarnDetail(tpl.replace('{list}', lines.join('\n')));
     }
 
     function updateVendorPickerUnsupportedScopeHint() {
@@ -373,16 +389,17 @@ $(document).ready(function () {
         if (!$hint.length) return;
         var slot = null;
         try { slot = window.__refImportTargetSlot; } catch (e) { slot = null; }
+        $hint.empty();
         if (!slot || slot === 'prototype' || isRefSlotSupportedByPrototypeLock(slot)) {
-            $hint.addClass('d-none').empty();
+            $hint.addClass('d-none');
             return;
         }
         var msg = getUnsupportedRefSlotWarningText(slot, 'picker');
         if (!msg) {
-            $hint.addClass('d-none').empty();
+            $hint.addClass('d-none');
             return;
         }
-        $hint.removeClass('d-none').text(msg);
+        $hint.removeClass('d-none').append(createRefScopeWarnBtn(msg));
     }
 
     function validatePrototypeSlotAdd(source) {
@@ -423,7 +440,6 @@ $(document).ready(function () {
     function clearRefSlot(key) {
         if (!refSlots[key]) return;
         refSlots[key] = emptyRefSlotGroup();
-        try { delete unsupportedRefSlotWarned[key]; } catch (e) { /* ignore */ }
     }
 
     function addRefImageToSlot(key, url, source) {
@@ -436,7 +452,6 @@ $(document).ready(function () {
             note: '',
             source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {})
         });
-        if (key !== 'prototype') notifyUnsupportedRefSlotOnAdd(key);
         return true;
     }
 
@@ -607,19 +622,21 @@ $(document).ready(function () {
             hintText = tr('customProduct.refPrototypeLocalHint',
                 '目前為本機圖片，無廠商訂製範圍。請清空後從素材庫選擇數位原型以顯示可訂製項目。');
         }
-        $panel.append($('<div class="ref-intent-hint"></div>').attr('data-i18n', def.key === 'prototype' && items.length && !hasVendorPrototypeLock() ? 'customProduct.refPrototypeLocalHint' : def.hintKey).text(hintText));
+        var $hintRow = $('<div class="ref-intent-hint-row d-flex align-items-start gap-1 mb-1"></div>');
+        $hintRow.append($('<div class="ref-intent-hint flex-grow-1 mb-0"></div>')
+            .attr('data-i18n', def.key === 'prototype' && items.length && !hasVendorPrototypeLock() ? 'customProduct.refPrototypeLocalHint' : def.hintKey)
+            .text(hintText));
+        if (def.key !== 'prototype' && hasVendorPrototypeLock() && !isRefSlotSupportedByPrototypeLock(def.key)) {
+            var scopeVariant = refSlotHasCustomizationContent(def.key) ? 'active' : 'muted';
+            var scopeMsg = getUnsupportedRefSlotWarningText(def.key, scopeVariant);
+            if (scopeMsg) $hintRow.append(createRefScopeWarnBtn(scopeMsg));
+        }
+        $panel.append($hintRow);
         if (def.key === 'prototype') {
             var anchor = getPrototypeAnchorSource();
             if (anchor) {
                 var $scope = $('<div class="ref-intent-scope-block"></div>');
                 if (appendPrototypeScopeInline($scope, anchor)) $panel.append($scope);
-            }
-        }
-        if (def.key !== 'prototype' && hasVendorPrototypeLock() && !isRefSlotSupportedByPrototypeLock(def.key)) {
-            var scopeVariant = refSlotHasCustomizationContent(def.key) ? 'active' : 'muted';
-            var scopeMsg = getUnsupportedRefSlotWarningText(def.key, scopeVariant);
-            if (scopeMsg) {
-                $panel.append($('<div class="ref-intent-unsupported-scope alert alert-warning py-2 px-2 small mb-2" role="status"></div>').text(scopeMsg));
             }
         }
         var $thumbs = $('<div class="ref-intent-thumbs"></div>');
@@ -727,8 +744,14 @@ $(document).ready(function () {
             var $badge = $('<span class="ref-intent-tab-badge"></span>').text(n ? String(n) : '');
             if (!n) $badge.addClass('d-none');
             $btn.append($badge);
+            if (vendorLock && def.key !== 'prototype' && !scopeOn) {
+                var tabWarnMsg = getUnsupportedRefSlotWarningText(def.key,
+                    refSlotHasCustomizationContent(def.key) ? 'active' : 'muted');
+                if (tabWarnMsg) $btn.append(createRefScopeWarnBtn(tabWarnMsg));
+            }
             $btn.on('click', function (e) {
                 e.preventDefault();
+                if ($(e.target).closest('.ref-scope-warn-btn').length) return;
                 setRefIntentActiveTab(def.key);
             });
             $scroll.append($btn);
@@ -933,8 +956,6 @@ $(document).ready(function () {
             var slotKey = ($(this).attr('data-ref-slot') || '').trim();
             if (!slotKey || !getRefSlotDef(slotKey)) return;
             syncRefSlotsFromDom();
-            if (!$(this).val().trim()) return;
-            notifyUnsupportedRefSlotOnAdd(slotKey);
             renderIntentSlots();
         });
         if (window.i18n && window.i18n.ready) {

@@ -12,7 +12,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="matchdo-asset-version" content="42">
+    <meta name="matchdo-asset-version" content="43">
     <title>產品設計 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="keywords" content="客製產品設計,AI設計,廠商媒合,訂製,MATCHDO">
@@ -214,7 +214,7 @@
                     <p id="vendorAssetsPickerKindSyncHint" class="text-muted small mb-2 d-none" data-i18n="customProduct.vendorPickerKindSyncHint">篩選「配件／零件」或「材料參考」時僅依主分類，子分類不套用（與廠商上傳方式一致）。數位原型才依子分類。</p>
                     <div id="vendorAssetsPickerMultiVendorHint" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="status"></div>
                     <div id="vendorAssetsPickerPrototypeLockHint" class="alert alert-info py-2 px-3 small mb-2 d-none" role="status"></div>
-                    <div id="vendorAssetsPickerUnsupportedScopeHint" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="status"></div>
+                    <div id="vendorAssetsPickerUnsupportedScopeHint" class="ref-scope-warn-host d-none mb-2" role="status"></div>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
                         <div class="row g-2 align-items-end mb-2">
                             <div class="col-md-8">
@@ -324,6 +324,23 @@
                     </div>
                     <p id="vendorAssetsEmpty" class="text-muted small mb-0 d-none">此分類下尚無廠商素材。</p>
                     <p id="vendorAssetsLoading" class="text-muted small mb-0 d-none">載入中…</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="refScopeWarnModal" tabindex="-1" aria-labelledby="refScopeWarnModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title mb-0" id="refScopeWarnModalLabel" data-i18n="customProduct.refScopeWarnModalTitle">⚠️ 超出廠商訂製範圍</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-2">
+                    <p id="refScopeWarnModalBody" class="small mb-0 text-secondary"></p>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal" data-i18n="customProduct.refScopeWarnOk">知道了</button>
                 </div>
             </div>
         </div>
@@ -815,6 +832,34 @@
             margin-bottom: 0.45rem;
             font-weight: 500;
         }
+        #custom-product .ref-intent-hint-row .ref-intent-hint {
+            margin-bottom: 0;
+        }
+        #custom-product .ref-scope-warn-btn,
+        #vendorAssetsPickerModal .ref-scope-warn-btn,
+        #vendorAssetImagesPickModal .ref-scope-warn-btn {
+            font-size: 1rem;
+            line-height: 1;
+            text-decoration: none;
+            border: none;
+            min-width: 1.25rem;
+            color: #b45309;
+        }
+        #custom-product .ref-scope-warn-btn:hover,
+        #vendorAssetsPickerModal .ref-scope-warn-btn:hover {
+            color: #92400e;
+            opacity: 0.9;
+        }
+        #custom-product .ref-intent-tab-btn .ref-scope-warn-btn {
+            font-size: 0.9rem;
+            margin-left: 0.05rem;
+        }
+        #vendorAssetsPickerModal .ref-scope-warn-host {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        #refScopeWarnModal { z-index: 1070; }
         #custom-product .ref-intent-actions {
             display: flex;
             flex-wrap: wrap;
@@ -1404,7 +1449,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=42" defer></script>
+    <script src="js/custom-product.js?v=43" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
