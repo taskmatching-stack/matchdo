@@ -607,100 +607,132 @@
             position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1;
         }
         #custom-product #refIntentSlots { width: 100%; }
+        #custom-product #refSourceHint,
+        #custom-product #refIntentAiNote {
+            font-size: 0.875rem;
+            line-height: 1.45;
+        }
         #custom-product .ref-intent-tabs-wrap {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            border: 2px solid #cbd5e1;
+            border-radius: 10px;
             background: #fff;
             overflow: hidden;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
         }
         #custom-product .ref-intent-tabs-nav {
             display: flex;
-            align-items: stretch;
-            gap: 0.35rem;
-            padding: 0.35rem 0.4rem 0;
-            border-bottom: 1px solid #e2e8f0;
-            background: #f8fafc;
+            align-items: flex-end;
+            gap: 0.5rem;
+            padding: 0.5rem 0.5rem 0;
+            border-bottom: 2px solid #cbd5e1;
+            background: #eef2f6;
         }
         #custom-product .ref-intent-tabs-scroll {
             display: flex;
             flex: 1 1 auto;
             min-width: 0;
-            gap: 0.2rem;
+            gap: 0.35rem;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
+            padding-bottom: 0;
         }
         #custom-product .ref-intent-tab-btn {
             flex: 0 0 auto;
             display: inline-flex;
             align-items: center;
-            gap: 0.25rem;
-            border: none;
-            border-radius: 6px 6px 0 0;
-            background: transparent;
-            color: #64748b;
-            font-size: 0.72rem;
+            gap: 0.35rem;
+            border: 1px solid #94a3b8;
+            border-radius: 8px 8px 0 0;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.875rem;
             font-weight: 600;
-            line-height: 1.2;
-            padding: 0.35rem 0.45rem;
+            line-height: 1.3;
+            padding: 0.45rem 0.55rem;
             white-space: nowrap;
             cursor: pointer;
+            margin-bottom: -2px;
         }
-        #custom-product .ref-intent-tab-btn:hover { color: #445D7E; background: rgba(68, 93, 126, 0.08); }
+        #custom-product .ref-intent-tab-btn:hover {
+            color: #445D7E;
+            border-color: #445D7E;
+            background: #f0f4f8;
+        }
         #custom-product .ref-intent-tab-btn.active {
             color: #445D7E;
             background: #fff;
-            box-shadow: 0 -1px 0 #fff inset;
-            margin-bottom: -1px;
-            border: 1px solid #e2e8f0;
-            border-bottom-color: #fff;
+            border: 2px solid #445D7E;
+            border-bottom: 2px solid #fff;
+            padding-top: 0.5rem;
+            box-shadow: 0 -2px 0 #445D7E inset;
+            z-index: 1;
         }
-        #custom-product .ref-intent-tab-label { max-width: 5.5rem; overflow: hidden; text-overflow: ellipsis; }
-        #custom-product .ref-intent-tab-badge {
-            font-size: 0.62rem;
+        #custom-product .ref-intent-tab-label {
+            max-width: 7rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #custom-product .ref-intent-tab-btn .ref-intent-tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.35rem;
+            height: 1.35rem;
+            font-size: 0.75rem;
             font-weight: 700;
             line-height: 1;
-            padding: 0.12rem 0.35rem;
+            padding: 0 0.35rem;
             border-radius: 999px;
+            background: #445D7E;
+            color: #fff;
+            border: none;
+            box-shadow: none;
+        }
+        #custom-product .ref-intent-tab-btn.active .ref-intent-tab-badge {
             background: #445D7E;
             color: #fff;
         }
         #custom-product .ref-intent-total-pill {
             flex: 0 0 auto;
             align-self: center;
-            font-size: 0.68rem;
-            font-weight: 600;
-            color: #64748b;
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #445D7E;
             white-space: nowrap;
-            padding: 0.15rem 0.35rem;
+            padding: 0.25rem 0.45rem;
+            border: 1px solid #445D7E;
+            border-radius: 999px;
+            background: #fff;
+            margin-bottom: 0.35rem;
         }
         #custom-product .ref-intent-panel {
-            padding: 0.4rem 0.45rem 0.45rem;
-            border-left: 3px solid #445D7E;
+            padding: 0.65rem 0.6rem 0.7rem;
+            border-top: none;
+            background: #fff;
+            border-left: 4px solid #445D7E;
         }
         #custom-product .ref-intent-hint {
-            font-size: 0.65rem;
-            line-height: 1.2;
-            color: #64748b;
-            margin-bottom: 0.2rem;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            color: #475569;
+            margin-bottom: 0.45rem;
+            font-weight: 500;
         }
         #custom-product .ref-intent-actions {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.25rem;
-            margin-top: 0.25rem;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
         }
         #custom-product .ref-intent-btn {
             flex: 1 1 auto;
-            font-size: 0.68rem;
-            padding: 0.15rem 0.3rem;
-            line-height: 1.2;
-            border-radius: 5px;
+            font-size: 0.875rem;
+            padding: 0.35rem 0.5rem;
+            line-height: 1.35;
+            border-radius: 6px;
             min-width: 0;
+            font-weight: 600;
         }
         #custom-product .ref-intent-btn--lib {
             color: #445D7E;
@@ -714,7 +746,11 @@
             background: #f8fafc;
         }
         #custom-product .ref-intent-btn--up:hover { background: #f1f5f9; border-color: #94a3b8; }
-        #custom-product .ref-slot-addon { font-size: 0.7rem; margin-top: 0.25rem; padding: 0.2rem 0.35rem; }
+        #custom-product .ref-slot-addon {
+            font-size: 0.875rem;
+            margin-top: 0.35rem;
+            padding: 0.35rem 0.5rem;
+        }
         #custom-product .ref-intent-thumbs {
             display: flex;
             flex-wrap: wrap;
@@ -723,8 +759,8 @@
         }
         #custom-product .ref-intent-thumb {
             position: relative;
-            width: 52px;
-            height: 52px;
+            width: 64px;
+            height: 64px;
             border-radius: 6px;
             border: 1px solid #e2e8f0;
             background: #f1f5f9;
@@ -755,11 +791,12 @@
             cursor: pointer;
             z-index: 2;
         }
-        #custom-product .ref-intent-empty { color: #94a3b8; font-size: 0.85rem; pointer-events: none; }
-        #custom-product .ref-intent-addon-details { margin-top: 0.35rem; }
+        #custom-product .ref-intent-empty { color: #94a3b8; font-size: 1.1rem; pointer-events: none; }
+        #custom-product .ref-intent-addon-details { margin-top: 0.45rem; border-top: 1px dashed #cbd5e1; padding-top: 0.35rem; }
         #custom-product .ref-intent-addon-summary {
-            font-size: 0.68rem;
-            color: #64748b;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #445D7E;
             cursor: pointer;
             user-select: none;
         }
@@ -1138,7 +1175,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=29" defer></script>
+    <script src="js/custom-product.js?v=30" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
