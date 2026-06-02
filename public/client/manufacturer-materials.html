@@ -181,7 +181,7 @@
                                             </select>
                                             <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
                                         </div>
-                                        <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">僅在勾選 AI 重繪時套用；自訂色請選「自訂色」後點色票。</p>
+                                        <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">以原圖只換背景；保留產品本體上的字樣／Logo，不保留背景文字、不新增文字。自訂色請選「自訂色」後點色票。</p>
                                     </div>
                                     <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；重繪首張 <span class="add-points-optimize">15</span> 點，每多一張 +<span class="add-points-optimize-extra">5</span> 點）</span></p>
                                 </div>
@@ -467,7 +467,7 @@
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
                             </div>
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">在圖下方勾選要 AI 重繪的張數（可複選），再按「對勾選的圖 AI 重繪」；新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面，最多 12 張）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
-                            <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>僅建議用於去背／換底色；含印刷字樣或多色款式圖請慎用，以免模型改字或改色。</p>
+                            <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
                             <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面順序，或於下方「更換封面」上傳新圖。</p>
                             <p id="edit-gallery-build-hint" class="form-text text-muted mb-0" style="font-size:0.7rem;opacity:0.65"></p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
@@ -563,7 +563,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'image-labels-preserve-redraw-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'redraw-prompt-product-text-20260601';
         var token = null;
         var isSeedVendor = false;
         async function applySeedVendorInfoBanner(vendorSource) {

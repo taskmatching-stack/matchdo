@@ -1587,17 +1587,28 @@ function normalizeVendorOptimizeBackground(raw) {
     return { key: 'white', prompt: VENDOR_OPTIMIZE_BACKGROUND_PROMPTS.white };
 }
 
-/** 數位原型／零件「AI 重繪」：以參考圖為準，僅換底色與光線，不重畫商品 */
+/**
+ * 數位原型／零件「AI 重繪」：img2img 以參考圖為準，只換背景與棚拍光。
+ * 保留「產品本體上」的印刷／壓印字樣與 Logo；不保留背景上的文字；不新增任何文字。
+ */
 function buildVendorAssetProductOptimizePrompt(title, backgroundColor) {
     const bg = normalizeVendorOptimizeBackground(backgroundColor);
-    return [
-        'Edit the provided reference product photo only.',
-        'Keep the exact product shape, hardware, materials, patterns, and ALL printed or embossed text, logos, icons, and colors unchanged from the reference—do not recolor, redesign, translate, add, or remove any markings.',
-        `Replace only the background with ${bg.prompt}.`,
-        'Soft even studio lighting on the product, gentle contact shadow, no harsh shadows.',
-        'No props, no hands, no people, no extra objects, no scene decoration.',
-        'Do not add watermarks. Photorealistic, sharp focus, same framing as reference.'
-    ].join(' ');
+    const productHint = (title || '').trim();
+    const parts = [
+        'Using the provided reference image as the only source, perform a minimal product photo cleanup.',
+        'Keep the same camera angle, framing, and scale. The product must remain the only subject.',
+        'Preserve the product body exactly: shape, proportions, hardware, straps, clips, seams, materials, surface patterns, and every color region on the product.',
+        'Preserve only text, numbers, logos, icons, and graphics that are physically ON the product surface in the reference (printed, labeled, embroidered, molded, or engraved on the product itself).',
+        'Do not change, translate, invent, or remove any markings that belong on the product.',
+        'Remove or replace everything that is NOT part of the product: old background, floor, props, hands, people, packaging behind the product, and any text or graphics that appear only in the background or scene—not on the product.',
+        `Set the background to ${bg.prompt} with soft even studio lighting on the product and a subtle natural contact shadow.`,
+        'Do not add captions, watermarks, price tags, brand slogans, or any new text anywhere in the image.',
+        'Photorealistic, sharp focus, accurate product colors.'
+    ];
+    if (productHint) {
+        parts.splice(2, 0, `Product context (do not redesign; match the reference): ${productHint}.`);
+    }
+    return parts.join(' ');
 }
 
 function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
