@@ -612,18 +612,7 @@ $(document).ready(function () {
             var anchor = getPrototypeAnchorSource();
             if (anchor) {
                 var $scope = $('<div class="ref-intent-scope-block"></div>');
-                var scopeTitle = (anchor.title || '').trim();
-                if (scopeTitle) {
-                    $scope.append($('<div class="ref-intent-scope-title"></div>').text(scopeTitle));
-                }
-                var badges = buildPrototypeCustomizationBadgesHtml(anchor);
-                if (badges) {
-                    $scope.append($('<div class="ref-intent-scope-label small fw-semibold mb-1"></div>')
-                        .attr('data-i18n', 'customProduct.vendorAssetPickScopeTitle')
-                        .text(tr('customProduct.vendorAssetPickScopeTitle', '廠商訂製範圍（此數位原型）')));
-                    $scope.append($(badges));
-                }
-                if (scopeTitle || badges) $panel.append($scope);
+                if (appendPrototypeScopeInline($scope, anchor)) $panel.append($scope);
             }
         }
         if (def.key !== 'prototype' && hasVendorPrototypeLock() && !isRefSlotSupportedByPrototypeLock(def.key)) {
@@ -782,6 +771,24 @@ $(document).ready(function () {
         });
         html += '</div>';
         return n ? html : '';
+    }
+
+    function buildPrototypeScopeInlineHtml(item) {
+        var badges = buildPrototypeCustomizationBadgesHtml(item);
+        if (!badges) return '';
+        var label = tr('customProduct.vendorScopeInlineLabel', '此廠商／產品訂製範圍：');
+        var safeLabel = label.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return '<div class="prototype-scope-inline">' +
+            '<span class="prototype-scope-inline-label" data-i18n="customProduct.vendorScopeInlineLabel">' + safeLabel + '</span>' +
+            badges.replace('class="vendor-custom-badges', 'class="vendor-custom-badges prototype-scope-inline-badges') +
+            '</div>';
+    }
+
+    function appendPrototypeScopeInline($parent, item) {
+        var html = buildPrototypeScopeInlineHtml(item);
+        if (!html || !$parent || !$parent.length) return false;
+        $parent.append($(html));
+        return true;
     }
 
     function updateVendorPickerPrototypeLockHint() {
@@ -1699,15 +1706,8 @@ $(document).ready(function () {
 
         var $scopeBlock = $('#vendorAssetImagesPickScope');
         $scopeBlock.empty().addClass('d-none');
-        if (targetKey === 'prototype' && baseMeta) {
-            var scopeBadges = buildPrototypeCustomizationBadgesHtml(baseMeta);
-            if (scopeBadges) {
-                var scopeTitle = tr('customProduct.vendorAssetPickScopeTitle', '廠商訂製範圍（此數位原型）');
-                $scopeBlock.removeClass('d-none').append(
-                    $('<div class="vendor-asset-pick-scope-title"></div>').attr('data-i18n', 'customProduct.vendorAssetPickScopeTitle').text(scopeTitle),
-                    $(scopeBadges)
-                );
-            }
+        if (targetKey === 'prototype' && baseMeta && appendPrototypeScopeInline($scopeBlock, baseMeta)) {
+            $scopeBlock.removeClass('d-none');
         }
 
         var $grid = $('#vendorAssetImagesPickGrid').empty();

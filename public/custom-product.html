@@ -12,7 +12,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="matchdo-asset-version" content="41">
+    <meta name="matchdo-asset-version" content="42">
     <title>產品設計 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="keywords" content="客製產品設計,AI設計,廠商媒合,訂製,MATCHDO">
@@ -719,38 +719,47 @@
             opacity: 0.78;
         }
         #custom-product .ref-intent-scope-block {
-            margin-bottom: 0.5rem;
-            padding: 0.45rem 0.5rem;
+            margin-bottom: 0.45rem;
+            padding: 0.35rem 0.45rem;
             border-radius: 6px;
             background: #f4f7fa;
             border: 1px solid var(--ref-border);
         }
-        #custom-product .ref-intent-scope-title {
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: var(--ref-brand);
-            margin-bottom: 0.35rem;
-        }
-        #custom-product .ref-intent-scope-note {
-            font-size: 0.75rem;
-            color: #64748b;
-            margin-top: 0.35rem;
-            margin-bottom: 0;
+        #custom-product .prototype-scope-inline,
+        #vendorAssetImagesPickModal .prototype-scope-inline {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.2rem 0.35rem;
             line-height: 1.35;
         }
-        #custom-product .ref-intent-scope-block .vendor-custom-badge {
+        #custom-product .prototype-scope-inline-label,
+        #vendorAssetImagesPickModal .prototype-scope-inline-label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--ref-brand, #445D7E);
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+        #custom-product .prototype-scope-inline-badges,
+        #vendorAssetImagesPickModal .prototype-scope-inline-badges {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.25rem;
+            margin: 0;
+        }
+        #custom-product .ref-intent-scope-block .vendor-custom-badge,
+        #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-custom-badge {
             font-size: 0.6875rem;
             font-weight: 600;
+            padding: 0.15rem 0.4rem;
         }
-        #custom-product .ref-intent-scope-block .vendor-custom-badge--supported {
+        #custom-product .ref-intent-scope-block .vendor-custom-badge--supported,
+        #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-custom-badge--supported {
             background: #dcfce7;
             color: #166534;
             border: 1px solid #86efac;
-        }
-        #custom-product .ref-intent-scope-block .vendor-custom-badge--unsupported {
-            background: #f1f5f9;
-            color: #64748b;
-            border: 1px solid #e2e8f0;
         }
         #custom-product .ref-intent-tab-label {
             max-width: 5.25rem;
@@ -997,37 +1006,10 @@
             cursor: pointer;
         }
         #vendorAssetImagesPickModal .vendor-asset-pick-scope-block {
-            padding: 0.5rem 0.55rem;
+            padding: 0.35rem 0.45rem;
             border-radius: 8px;
             background: #f4f7fa;
             border: 1px solid #e2e8f0;
-        }
-        #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-asset-pick-scope-title {
-            font-size: 0.8125rem;
-            font-weight: 700;
-            color: #445D7E;
-            margin-bottom: 0.35rem;
-        }
-        #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-custom-badge {
-            font-size: 0.6875rem;
-            font-weight: 600;
-        }
-        #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-custom-badge--supported {
-            background: #dcfce7;
-            color: #166534;
-            border: 1px solid #86efac;
-        }
-        #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-custom-badge--unsupported {
-            background: #f1f5f9;
-            color: #64748b;
-            border: 1px solid #e2e8f0;
-        }
-        #vendorAssetImagesPickModal .vendor-asset-pick-scope-note {
-            font-size: 0.75rem;
-            color: #64748b;
-            margin-top: 0.35rem;
-            margin-bottom: 0;
-            line-height: 1.35;
         }
         #vendorAssetImagesPickModal .vendor-asset-pick-item-label {
             margin-top: 0.35rem;
@@ -1422,7 +1404,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=41" defer></script>
+    <script src="js/custom-product.js?v=42" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

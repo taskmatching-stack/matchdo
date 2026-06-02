@@ -555,6 +555,7 @@
   "customProduct.refThumbDefault": "Img",
   "customProduct.vendorAssetPickImagesTitle": "Choose images to add",
   "customProduct.vendorAssetPickScopeTitle": "Vendor customization scope (this digital prototype)",
+  "customProduct.vendorScopeInlineLabel": "Vendor / product customization: ",
   "customProduct.vendorAssetPickImagesSubtitle": "\"{title}\": {total} image(s). Pick up to {max} for \"{slot}\".",
   "customProduct.vendorAssetPickImagesHint": "Check the images to add. Tap zoom to preview with names.",
   "customProduct.vendorAssetPickCount": "Selected {n} / max {max}",
