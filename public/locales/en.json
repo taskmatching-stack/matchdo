@@ -616,6 +616,7 @@
   "customProduct.vendorAssetPickHint": "Single-click to add (prototypes import all angles); double-click or 🔍 to enlarge",
   "customProduct.vendorPickerEnlargeHint": "Single-click to add a reference; double-click or use 🔍 to enlarge. Image names show in preview when set by the vendor.",
   "customProduct.vendorPickerPartSubHint": "Parts/accessories are filtered by main category only (vendors do not assign subcategories for parts).",
+  "customProduct.vendorPickerMaterialSubHint": "Material references are filtered by main category only (vendors do not assign subcategories for materials).",
   "customProduct.zoomImage": "Enlarge preview",
   "customProduct.imageCountUnit": "imgs",
   "customProduct.importPrototypeAngles": "Add all {n} angle photos from this prototype as references?",

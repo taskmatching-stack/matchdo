@@ -669,6 +669,8 @@ $(document).ready(function () {
         $('.vendor-picker-prototype-only').toggleClass('d-none', kind === 'material' || kind === 'part');
         var $partHint = $('#vendorAssetsPickerPartSubHint');
         if ($partHint.length) $partHint.toggleClass('d-none', kind !== 'part');
+        var $matHint = $('#vendorAssetsPickerMaterialSubHint');
+        if ($matHint.length) $matHint.toggleClass('d-none', kind !== 'material');
     }
 
     function readVendorPickerPageSize() {

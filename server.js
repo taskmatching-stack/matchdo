@@ -12661,7 +12661,7 @@ app.get('/api/vendor-assets', async (req, res) => {
                 .order('created_at', { ascending: false });
             if (!internalPreview) q = q.eq('is_public', true);
             if (categoryKey) q = q.eq('category_key', categoryKey);
-            /* 配件／零件上傳時不填子分類，僅依主分類媒合；勿用子分類 SQL 過濾 part */
+            /* 材料／零件上傳不填子分類（見 POST subcategoryKey=null）；僅數位原型依子分類 SQL 篩選 */
             if (subcategoryKey && assetKindFilter !== 'material' && assetKindFilter !== 'part') {
                 q = q.eq('subcategory_key', subcategoryKey);
             }
@@ -12685,6 +12685,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (assetKindFilter && list.length && list[0].asset_kind == null) {
             list = list.filter((r) => normalizeVendorAssetKind(r.asset_kind) === assetKindFilter);
         }
+        /* 素材類型「全部」+ 已選子分類：原型依子分類；材料／零件仍顯示該主分類下全部 */
         if (subcategoryKey && !assetKindFilter) {
             list = list.filter((r) => {
                 const rk = normalizeVendorAssetKind(r.asset_kind);
