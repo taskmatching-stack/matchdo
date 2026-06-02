@@ -456,22 +456,6 @@
             .cat-bs-item .cat-bs-placeholder-icon { width: 1.1rem; flex-shrink: 0; }
             .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #9ca3af; font-size: 0.75rem; }
 
-            /* 4. 參考圖橫向滾動 */
-            #custom-product .ref-slots {
-                display: flex;
-                overflow-x: auto;
-                scroll-snap-type: x mandatory;
-                gap: 0.5rem;
-                padding-bottom: 0.35rem;
-                grid-template-columns: unset;
-            }
-            #custom-product .ref-slot {
-                flex: 0 0 80px !important;
-                width: 80px !important;
-                height: 80px !important;
-                aspect-ratio: unset !important;
-                scroll-snap-align: start;
-            }
         }
         @keyframes canvas-pulse {
             0%   { background-position: 100% 0; }
@@ -561,7 +545,9 @@
             font-weight: 400;
             font-size: 0.72rem;
         }
-        #custom-product .prompt-quick-guide { border-left: 3px solid rgba(13, 148, 136, 0.45); padding-left: 0.65rem; }
+        #custom-product .prompt-quick-guide { padding: 0; }
+        #custom-product .ref-card-advanced summary { cursor: pointer; list-style: none; }
+        #custom-product .ref-card-advanced summary::-webkit-details-marker { display: none; }
         #custom-product .prompt-quick-chip {
             font-size: 0.75rem;
             padding: 0.12rem 0.55rem;
@@ -620,16 +606,44 @@
         #custom-product .file-input-hidden {
             position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1;
         }
-        /* 8 個加圖按鈕，無縮圖上方 UI */
-        #custom-product .ref-slots { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.4rem; margin-top: 0.5rem; }
-        #custom-product .ref-slot { aspect-ratio: 1; border-radius: 8px; border: 2px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 0; overflow: hidden; }
-        #custom-product .ref-slot.filled { border-style: solid; border-color: #e5e7eb; padding: 0; }
-        #custom-product .ref-slot.filled.selected { border-color: var(--bs-primary, #0d9488); border-width: 3px; box-shadow: 0 0 0 1px var(--bs-primary, #0d9488); }
-        #custom-product .ref-slot .ref-slot-add { width: 100%; height: 100%; border: none; background: transparent; color: #64748b; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.2rem; }
-        #custom-product .ref-slot .ref-slot-add:hover { background: #f1f5f9; color: #475569; }
-        #custom-product .ref-slot .ref-slot-thumb { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
-        #custom-product .ref-slot .ref-slot-clear { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: none; background: rgba(0,0,0,.5); color: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; line-height: 1; padding: 0; }
-        #custom-product .ref-slot.filled { position: relative; }
+        #custom-product .ref-intent-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 0.55rem 0.6rem;
+            height: 100%;
+            background: #fff;
+        }
+        #custom-product .ref-intent-card--proto { border-top: 3px solid #3b82f6; }
+        #custom-product .ref-intent-card--mat { border-top: 3px solid #10b981; }
+        #custom-product .ref-intent-card--part { border-top: 3px solid #f59e0b; }
+        #custom-product .ref-intent-card--pat { border-top: 3px solid #8b5cf6; }
+        #custom-product .ref-intent-title { color: #1e293b; line-height: 1.3; }
+        #custom-product .ref-intent-hint { font-size: 0.7rem; line-height: 1.25; min-height: 2.5em; }
+        #custom-product .ref-intent-preview {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 8px;
+            border: 2px dashed #cbd5e1;
+            background: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin: 0.25rem 0;
+        }
+        #custom-product .ref-intent-preview.has-image { border-style: solid; border-color: #e5e7eb; }
+        #custom-product .ref-intent-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #custom-product .ref-intent-empty { color: #94a3b8; font-size: 1.25rem; }
+        #custom-product .ref-intent-clear {
+            position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
+            border: none; background: rgba(0,0,0,.55); color: #fff; border-radius: 4px;
+            cursor: pointer; font-size: 14px; line-height: 1; padding: 0;
+        }
+        #custom-product .ref-intent-label {
+            position: absolute; left: 0; right: 0; bottom: 0;
+            padding: 0.15rem 0.35rem; background: rgba(0,0,0,.45); color: #fff;
+            font-size: 0.65rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         #vendorAssetsPickerModal .vendor-asset-card { cursor: default; }
         #vendorAssetsPickerModal .vendor-asset-pick-zone { cursor: pointer; }
         #vendorAssetsPickerModal .vendor-asset-pick-zone:hover .vendor-asset-pick-img { opacity: 0.92; }
@@ -749,7 +763,7 @@
                                     <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
                                 </div>
                                 <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="例：軍綠後背包，正面燙印 &quot;OPEN&quot;"></textarea>
-                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">要印在產品上的字請用半形雙引號 &quot; &quot; 包住；點 ? 看說明。主產品材質／顏色寫在提示詞；配件顏色請用參考圖（點燈泡圖示）。</p>
+                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">印字請用 &quot; &quot; 包住（? 說明）。有參考圖時材質／配件靠圖，不必寫長篇。</p>
                             </div>
 
                             <!-- 桌機版：雙面板 -->
@@ -774,45 +788,19 @@
                             <p class="form-text text-muted small mb-0 mt-1 cat-desktop-hint" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
 
                             <div class="form-row full">
-                                <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
-                                    <span class="label mb-0" data-i18n="customProduct.refImages">參考圖（最多 8 張，可複選）</span>
-                                    <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
-                                </div>
-                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可同時選多張（最多 8 張）：每張請標示用途（主體造型／材料質感／配件等）。廠商素材會自動帶入類型，可手動更正。有參考圖時生圖 20 點。</p>
-                                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnRefFromVendorAssets" data-i18n="customProduct.selectFromVendorAssets" title="依目前選擇的分類載入廠商素材">從廠商素材庫選擇</button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
-                                </div>
+                                <span class="label mb-1 d-block" data-i18n="customProduct.refImages">參考圖（依用途上傳）</span>
+                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">選插槽上傳或從素材庫選；可全不打字。有圖 20 點。</p>
+                                <button type="button" class="btn btn-outline-secondary btn-sm d-none mb-2" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
-                                <div id="referenceImagesSlots" class="ref-slots"></div>
+                                <div id="refIntentSlots" class="row g-2 mb-2"></div>
                                 <input type="file" id="referenceImageFile" accept="image/*" class="file-input-hidden">
-                                <div class="ref-cards-wrap">
-                                    <div id="referenceImagesCards" class="ref-cards"></div>
-                                </div>
                                 <div id="promptQuickGuide" class="prompt-quick-guide mt-2 mb-2 d-none" hidden>
-                                    <p id="promptGuideStatus" class="text-muted small mb-1 mb-md-2"></p>
-                                    <div id="refPromptSplitFields" class="mb-2">
-                                        <div class="ref-prompt-addon-row d-none mb-1" data-ref-role="prototype">
-                                            <label class="form-label small text-muted mb-0" for="promptAddonPrototype" data-i18n="customProduct.promptAddonPrototypeLabel">主體造型補充（選填）</label>
-                                            <input type="text" class="form-control form-control-sm" id="promptAddonPrototype" autocomplete="off" data-i18n-placeholder="customProduct.promptAddonPrototypePh" placeholder="例：輪廓更簡潔、雙口袋">
-                                        </div>
-                                        <div class="ref-prompt-addon-row d-none mb-1" data-ref-role="material">
-                                            <label class="form-label small text-muted mb-0" for="promptAddonMaterial" data-i18n="customProduct.promptAddonMaterialLabel">材料／質感補充（選填）</label>
-                                            <input type="text" class="form-control form-control-sm" id="promptAddonMaterial" autocomplete="off" data-i18n-placeholder="customProduct.promptAddonMaterialPh" placeholder="例：正面視角、微距紋路">
-                                        </div>
-                                        <div class="ref-prompt-addon-row d-none mb-1" data-ref-role="part">
-                                            <label class="form-label small text-muted mb-0" for="promptAddonPart" data-i18n="customProduct.promptAddonPartLabel">配件補充（選填，通常留空）</label>
-                                            <input type="text" class="form-control form-control-sm" id="promptAddonPart" autocomplete="off" data-i18n-placeholder="customProduct.promptAddonPartPh" placeholder="勿寫顏色；配件外觀由參考圖決定">
-                                        </div>
-                                    </div>
-                                    <p class="text-muted small mb-1" data-i18n="customProduct.promptMainOptionalHint">上方「產品描述」可留空或只寫印字／整體需求；分類與參考圖由系統處理。</p>
                                     <div class="d-flex flex-wrap gap-1 align-items-center">
-                                        <button type="button" class="btn btn-outline-primary btn-sm" id="btnApplyPromptSuggest" data-i18n="customProduct.promptApplySuggest">填入最短句</button>
-                                        <span class="text-muted small d-none d-sm-inline" data-i18n="customProduct.promptChipOr">或點選：</span>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" id="btnApplyPromptSuggest" data-i18n="customProduct.promptApplySuggest">不寫字，直接生</button>
                                         <span id="promptQuickChips" class="d-inline-flex flex-wrap gap-1"></span>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm btn-merge-desc" id="mergeDescriptionsBtn" style="display: none;">將以上描述合併至上方描述框</button>
                             </div>
 
                             <details id="seedDetails" style="margin-bottom: 0.5rem;">
@@ -1025,7 +1013,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=22" defer></script>
+    <script src="js/custom-product.js?v=24" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 
