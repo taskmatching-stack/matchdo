@@ -64,13 +64,14 @@ $(document).ready(function () {
                 var key = (c.key != null && c.key !== '') ? String(c.key) : '';
                 var displayName = categoryDisplayName(key, c.name || c.key);
                 var opt = $('<div class="cat-option" role="option" tabindex="0" data-key="' + key.replace(/"/g, '&quot;') + '">').text(displayName);
-                opt.on('click', function () {
-                    var selectedKey = $(this).attr('data-key');
-                    mainList.find('.cat-option').removeClass('selected');
-                    $(this).addClass('selected');
-                    mainHidden.val(selectedKey);
-                    updateSubList(selectedKey);
-                });
+                    opt.on('click', function () {
+                        var selectedKey = $(this).attr('data-key');
+                        mainList.find('.cat-option').removeClass('selected');
+                        $(this).addClass('selected');
+                        mainHidden.val(selectedKey);
+                        updateSubList(selectedKey);
+                        updatePromptQuickGuide();
+                    });
                 mainList.append(opt);
             });
             function updateSubList(mainKeyFromClick) {
@@ -94,6 +95,7 @@ $(document).ready(function () {
                         subList.find('.cat-option').removeClass('selected');
                         $(this).addClass('selected');
                         subHidden.val($(this).attr('data-key'));
+                        updatePromptQuickGuide();
                     });
                     subList.append(opt);
                 });
@@ -150,6 +152,201 @@ $(document).ready(function () {
     let refDataUrls = []; // length 8, null = 空
     let refDescs = [];
     let refSources = []; // 與 refDataUrls 對齊，來自廠商素材時存 { vendor_asset_id, manufacturer_id, manufacturer_name, manufacturer_profile_url, image_url }
+
+    var REF_ROLES = ['prototype', 'material', 'part', 'other'];
+
+    function normalizeRefRole(kind) {
+        var k = (kind != null ? String(kind) : '').trim().toLowerCase();
+        if (k === 'material' || k === 'part' || k === 'other') return k;
+        return 'prototype';
+    }
+
+    function getRefRole(slotIndex) {
+        if (!refSources[slotIndex]) return 'prototype';
+        return normalizeRefRole(refSources[slotIndex].asset_kind);
+    }
+
+    function setRefRole(slotIndex, role) {
+        ensureRefArrays();
+        var r = normalizeRefRole(role);
+        if (!refSources[slotIndex]) refSources[slotIndex] = {};
+        refSources[slotIndex].asset_kind = r;
+    }
+
+    function refRoleShortLabel(role) {
+        var k = normalizeRefRole(role);
+        if (k === 'material') return t('customProduct.refRoleShortMaterial');
+        if (k === 'part') return t('customProduct.refRoleShortPart');
+        if (k === 'other') return t('customProduct.refRoleShortOther');
+        return t('customProduct.refRoleShortPrototype');
+    }
+
+    function syncRefRolesFromCards() {
+        $('#referenceImagesCards .ref-card').each(function () {
+            var i = parseInt($(this).data('index'), 10);
+            if (isNaN(i) || i < 0 || i >= MAX_REF_IMAGES) return;
+            refDescs[i] = $(this).find('.ref-desc').val() || '';
+            var role = $(this).find('.ref-role-select').val();
+            if (role) setRefRole(i, role);
+        });
+    }
+
+    function buildRefRoleSelect(currentRole) {
+        var role = normalizeRefRole(currentRole);
+        var $sel = $('<select class="form-select form-select-sm ref-role-select" aria-label="' + refRoleShortLabel(role).replace(/"/g, '&quot;') + '"></select>');
+        [
+            { v: 'prototype', key: 'customProduct.refRolePrototype' },
+            { v: 'material', key: 'customProduct.refRoleMaterial' },
+            { v: 'part', key: 'customProduct.refRolePart' },
+            { v: 'other', key: 'customProduct.refRoleOther' }
+        ].forEach(function (opt) {
+            var label = t(opt.key);
+            $sel.append($('<option></option>').val(opt.v).text(label));
+        });
+        $sel.val(role);
+        return $sel;
+    }
+
+    function getRefKindCounts() {
+        syncRefRolesFromCards();
+        var c = { prototype: 0, material: 0, part: 0, other: 0, total: 0 };
+        for (var i = 0; i < MAX_REF_IMAGES; i++) {
+            if (!refDataUrls[i]) continue;
+            c.total++;
+            var k = getRefRole(i);
+            if (k === 'prototype') c.prototype++;
+            else if (k === 'material') c.material++;
+            else if (k === 'part') c.part++;
+            else c.other++;
+        }
+        return c;
+    }
+
+    /** 圖生圖最短句：不描述品類（分類基礎提示與後端附錄已處理） */
+    function buildSuggestedPrompt() {
+        if (getRefKindCounts().total === 0) return '';
+        return t('customProduct.promptSuggestImg2imgMinimal');
+    }
+
+    function getPromptQuickChipDefs() {
+        if (getRefKindCounts().total === 0) return [];
+        var defs = [{ key: 'customProduct.promptChipFront', fallback: '正面視角', target: 'main' }];
+        if (getRefKindCounts().prototype > 0) {
+            defs.push({ key: 'customProduct.promptChipSimpler', fallback: '輪廓更簡潔', target: 'prototype' });
+        }
+        return defs;
+    }
+
+    function appendPromptFragment(fragment, target) {
+        var frag = (fragment || '').trim();
+        if (!frag) return;
+        var $ta;
+        if (target === 'prototype') $ta = $('#promptAddonPrototype');
+        else if (target === 'material') $ta = $('#promptAddonMaterial');
+        else if (target === 'part') $ta = $('#promptAddonPart');
+        else $ta = $('#productPrompt');
+        if (!$ta.length) return;
+        var cur = ($ta.val() || '').trim();
+        if (!cur) {
+            $ta.val(frag);
+        } else if (cur.indexOf(frag) >= 0) {
+            return;
+        } else {
+            var joiner = /[，,。．.\s]$/.test(cur) ? '' : '，';
+            $ta.val(cur + joiner + frag);
+        }
+        $ta.trigger('input');
+    }
+
+    function composeUserPromptForGenerate() {
+        syncRefRolesFromCards();
+        var main = ($('#productPrompt').val() || '').trim();
+        var addonLines = [];
+        var proto = ($('#promptAddonPrototype').val() || '').trim();
+        var mat = ($('#promptAddonMaterial').val() || '').trim();
+        var part = ($('#promptAddonPart').val() || '').trim();
+        if (proto) addonLines.push(proto);
+        if (mat) addonLines.push(mat);
+        if (part) addonLines.push(part);
+        if (main && addonLines.length) return main + '\n' + addonLines.join('\n');
+        if (main) return main;
+        if (addonLines.length) return addonLines.join('，') + '。';
+        if (getRefKindCounts().total > 0) return buildSuggestedPrompt();
+        return '';
+    }
+
+    function hasAnyPromptInput() {
+        return !!composeUserPromptForGenerate().trim();
+    }
+
+    function applyPromptSuggestion(mergeOnly) {
+        if (getRefKindCounts().total === 0) return;
+        var sug = buildSuggestedPrompt();
+        if (!sug) return;
+        var $ta = $('#productPrompt');
+        var cur = ($ta.val() || '').trim();
+        var hasAddon = !!($('#promptAddonPrototype').val() || '').trim() ||
+            !!($('#promptAddonMaterial').val() || '').trim() ||
+            !!($('#promptAddonPart').val() || '').trim();
+        if (!cur && !hasAddon) {
+            $ta.val(sug);
+        } else if (mergeOnly) {
+            appendPromptFragment(sug.replace(/[。.]\s*$/, ''), 'main');
+        } else {
+            $ta.val(sug);
+        }
+        $ta.trigger('input');
+        updatePromptQuickGuide();
+    }
+
+    function updateRefPromptSplitFields() {
+        var c = getRefKindCounts();
+        $('#refPromptSplitFields .ref-prompt-addon-row').each(function () {
+            var role = $(this).attr('data-ref-role');
+            var show = (role === 'prototype' && c.prototype > 0) ||
+                (role === 'material' && c.material > 0) ||
+                (role === 'part' && c.part > 0);
+            $(this).toggleClass('d-none', !show);
+        });
+    }
+
+    function updatePromptQuickGuide() {
+        var $guide = $('#promptQuickGuide');
+        var $status = $('#promptGuideStatus');
+        var $chips = $('#promptQuickChips');
+        var $btn = $('#btnApplyPromptSuggest');
+        if (!$guide.length) return;
+        var c = getRefKindCounts();
+        if (c.total === 0) {
+            $guide.addClass('d-none').attr('hidden', 'hidden');
+            return;
+        }
+        $guide.removeClass('d-none').removeAttr('hidden');
+        updateRefPromptSplitFields();
+        var hasPrompt = hasAnyPromptInput();
+        if ($status.length) {
+            var bits = [];
+            if (c.prototype) bits.push(t('customProduct.promptGuideCountPrototype').replace('{n}', String(c.prototype)));
+            if (c.material) bits.push(t('customProduct.promptGuideCountMaterial').replace('{n}', String(c.material)));
+            if (c.part) bits.push(t('customProduct.promptGuideCountPart').replace('{n}', String(c.part)));
+            if (c.other) bits.push(t('customProduct.promptGuideCountOther').replace('{n}', String(c.other)));
+            $status.text(t('customProduct.promptGuideImg2imgNote').replace('{summary}', bits.join(' · ')));
+        }
+        if ($btn.length) {
+            $btn.text(hasPrompt ? t('customProduct.promptApplySuggestMerge') : t('customProduct.promptApplySuggest'));
+        }
+        if ($chips.length) {
+            $chips.empty();
+            getPromptQuickChipDefs().forEach(function (def) {
+                var text = t(def.key);
+                if (!text || text === def.key) text = def.fallback;
+                $('<button type="button" class="btn btn-outline-secondary btn-sm prompt-quick-chip"></button>')
+                    .text(text)
+                    .on('click', function () { appendPromptFragment(text, def.target || 'main'); })
+                    .appendTo($chips);
+            });
+        }
+    }
     let currentAddSlot = 0;
     let selectedRefIndex = 0; // 目前選中的參考圖索引（對應上方縮圖與下方卡片）
 
@@ -208,6 +405,7 @@ $(document).ready(function () {
                     if (!isNaN(idx)) openRefImagePreviewModal(idx);
                 });
                 slot.append(slotThumb);
+                slot.append($('<span class="ref-slot-role-badge"></span>').text(refRoleShortLabel(getRefRole(i))));
                 var srcMeta = refSources[i];
                 if (srcMeta && srcMeta.image_label) {
                     slot.append($('<div class="ref-slot-label small text-muted text-truncate px-1" title="' + String(srcMeta.image_label).replace(/"/g, '&quot;') + '">' +
@@ -251,10 +449,7 @@ $(document).ready(function () {
             const container = $('#referenceImagesCards');
             const mergeBtn = $('#mergeDescriptionsBtn');
             if (!container.length) return;
-            container.find('.ref-card').each(function () {
-                var i = parseInt($(this).data('index'), 10);
-                if (!isNaN(i) && i >= 0 && i < MAX_REF_IMAGES) refDescs[i] = $(this).find('.ref-desc').val() || '';
-            });
+            syncRefRolesFromCards();
             container.empty();
             for (let i = 0; i < MAX_REF_IMAGES; i++) {
                 if (!refDataUrls[i]) continue;
@@ -277,6 +472,16 @@ $(document).ready(function () {
                 });
                 card.append(thumb);
                 const right = $('<div class="ref-card-right"></div>');
+                var roleRow = $('<div class="ref-role-row"></div>');
+                roleRow.append($('<span class="small text-muted">' + (t('customProduct.refRoleLabel') || '用途') + '</span>'));
+                var $roleSel = buildRefRoleSelect(getRefRole(i));
+                $roleSel.on('change', function () {
+                    setRefRole(i, $(this).val());
+                    renderRefSlots();
+                    updatePromptQuickGuide();
+                });
+                roleRow.append($roleSel);
+                right.append(roleRow);
                 var src = refSources[i];
                 var labelText = (src && src.image_label)
                     ? String(src.image_label).replace(/</g, '&lt;')
@@ -303,6 +508,7 @@ $(document).ready(function () {
             if (firstFilled >= 0 && !refDataUrls[selectedRefIndex]) selectedRefIndex = firstFilled;
             updateRefSelection();
             updateMultiVendorRefWarning();
+            updatePromptQuickGuide();
         } catch (err) {
             console.error('renderRefCards error:', err);
         }
@@ -317,6 +523,11 @@ $(document).ready(function () {
         ensureRefArrays();
         renderRefSlots();
         renderRefCards();
+        $('#btnApplyPromptSuggest').on('click', function () {
+            applyPromptSuggestion(hasAnyPromptInput());
+        });
+        $('#productPrompt, #promptAddonPrototype, #promptAddonMaterial, #promptAddonPart').on('input', updatePromptQuickGuide);
+        updatePromptQuickGuide();
         var redesignUrl = null;
         try { redesignUrl = sessionStorage.getItem('redesignImageUrl'); } catch (e) {}
         if (!redesignUrl && typeof URLSearchParams !== 'undefined') {
@@ -328,6 +539,7 @@ $(document).ready(function () {
         if (redesignUrl) {
             try { sessionStorage.removeItem('redesignImageUrl'); } catch (e) {}
             refDataUrls[0] = redesignUrl;
+            setRefRole(0, 'prototype');
             selectedRefIndex = 0;
             renderRefSlots();
             renderRefCards();
@@ -347,6 +559,7 @@ $(document).ready(function () {
             });
             ensureRefArrays();
             refDataUrls[currentAddSlot] = dataUrl;
+            setRefRole(currentAddSlot, 'prototype');
             selectRefIndex(currentAddSlot);
             renderRefSlots();
             renderRefCards();
@@ -1525,9 +1738,11 @@ $(document).ready(function () {
         if (isGenerateInProgress) return;
         isGenerateInProgress = true;
         if (typeof window.gtag === 'function') { window.gtag('event', 'design_generate_click', {}); }
-        const prompt = $('#productPrompt').val().trim();
+        const prompt = composeUserPromptForGenerate();
         if (!prompt) {
-            alert('請輸入文字描述');
+            alert(getRefKindCounts().total > 0
+                ? t('customProduct.needPromptOrSuggestRefs')
+                : t('customProduct.needPrompt'));
             isGenerateInProgress = false;
             return;
         }

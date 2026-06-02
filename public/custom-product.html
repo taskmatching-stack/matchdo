@@ -561,6 +561,13 @@
             font-weight: 400;
             font-size: 0.72rem;
         }
+        #custom-product .prompt-quick-guide { border-left: 3px solid rgba(13, 148, 136, 0.45); padding-left: 0.65rem; }
+        #custom-product .prompt-quick-chip {
+            font-size: 0.75rem;
+            padding: 0.12rem 0.55rem;
+            border-radius: 999px;
+            line-height: 1.35;
+        }
         #custom-product .prompt-label-row .label { margin-bottom: 0; }
         #custom-product .prompt-hero {
             width: 100%; min-height: 90px; padding: 0.875rem 1rem;
@@ -653,6 +660,17 @@
         #custom-product .ref-card .ref-card-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; }
         #custom-product .ref-card .ref-desc { min-height: 36px; padding: 0.3rem; font-size: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; resize: vertical; }
         #custom-product .ref-card .btn-describe-one { font-size: 0.75rem; padding: 0.3rem 0.5rem; align-self: flex-start; }
+        #custom-product .ref-card .ref-role-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+        #custom-product .ref-card .ref-role-select { max-width: 9.5rem; font-size: 0.75rem; padding: 0.2rem 1.5rem 0.2rem 0.4rem; }
+        #custom-product .ref-slot { position: relative; }
+        #custom-product .ref-slot-role-badge {
+            position: absolute; left: 2px; bottom: 2px; z-index: 2;
+            font-size: 0.58rem; line-height: 1.1; padding: 0.05rem 0.25rem; border-radius: 3px;
+            background: rgba(15, 23, 42, 0.72); color: #fff; max-width: calc(100% - 4px);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none;
+        }
+        #custom-product .ref-prompt-addon-row label { font-size: 0.75rem; margin-bottom: 0.15rem; }
+        #custom-product .ref-prompt-addon-row input { font-size: 0.8125rem; }
         #custom-product .btn-merge-desc { margin-top: 0.35rem; font-size: 0.8125rem; }
         #custom-product .btn-generate { width: 100%; padding: 0.875rem; font-size: 1rem; font-weight: 600; border-radius: 10px; border: none; margin-top: 1.25rem; }
         #custom-product .page-title { font-size: 1.375rem; font-weight: 700; color: #111; margin-bottom: 0.25rem; }
@@ -760,7 +778,7 @@
                                     <span class="label mb-0" data-i18n="customProduct.refImages">參考圖（最多 8 張，可複選）</span>
                                     <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
                                 </div>
-                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可同時選多張（最多 8 張）：點下方空白格「＋」本機上傳，或按「從廠商素材庫選擇」加入。可混用① 數位原型（造型）② 材料參考（主產品質感／色）③ 配件／零件（扣具、拉鍊等各一色一圖）④ 圖樣或草圖。有參考圖時生圖 20 點。</p>
+                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可同時選多張（最多 8 張）：每張請標示用途（主體造型／材料質感／配件等）。廠商素材會自動帶入類型，可手動更正。有參考圖時生圖 20 點。</p>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btnRefFromVendorAssets" data-i18n="customProduct.selectFromVendorAssets" title="依目前選擇的分類載入廠商素材">從廠商素材庫選擇</button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
@@ -770,6 +788,29 @@
                                 <input type="file" id="referenceImageFile" accept="image/*" class="file-input-hidden">
                                 <div class="ref-cards-wrap">
                                     <div id="referenceImagesCards" class="ref-cards"></div>
+                                </div>
+                                <div id="promptQuickGuide" class="prompt-quick-guide mt-2 mb-2 d-none" hidden>
+                                    <p id="promptGuideStatus" class="text-muted small mb-1 mb-md-2"></p>
+                                    <div id="refPromptSplitFields" class="mb-2">
+                                        <div class="ref-prompt-addon-row d-none mb-1" data-ref-role="prototype">
+                                            <label class="form-label small text-muted mb-0" for="promptAddonPrototype" data-i18n="customProduct.promptAddonPrototypeLabel">主體造型補充（選填）</label>
+                                            <input type="text" class="form-control form-control-sm" id="promptAddonPrototype" autocomplete="off" data-i18n-placeholder="customProduct.promptAddonPrototypePh" placeholder="例：輪廓更簡潔、雙口袋">
+                                        </div>
+                                        <div class="ref-prompt-addon-row d-none mb-1" data-ref-role="material">
+                                            <label class="form-label small text-muted mb-0" for="promptAddonMaterial" data-i18n="customProduct.promptAddonMaterialLabel">材料／質感補充（選填）</label>
+                                            <input type="text" class="form-control form-control-sm" id="promptAddonMaterial" autocomplete="off" data-i18n-placeholder="customProduct.promptAddonMaterialPh" placeholder="例：正面視角、微距紋路">
+                                        </div>
+                                        <div class="ref-prompt-addon-row d-none mb-1" data-ref-role="part">
+                                            <label class="form-label small text-muted mb-0" for="promptAddonPart" data-i18n="customProduct.promptAddonPartLabel">配件補充（選填，通常留空）</label>
+                                            <input type="text" class="form-control form-control-sm" id="promptAddonPart" autocomplete="off" data-i18n-placeholder="customProduct.promptAddonPartPh" placeholder="勿寫顏色；配件外觀由參考圖決定">
+                                        </div>
+                                    </div>
+                                    <p class="text-muted small mb-1" data-i18n="customProduct.promptMainOptionalHint">上方「產品描述」可留空或只寫印字／整體需求；分類與參考圖由系統處理。</p>
+                                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" id="btnApplyPromptSuggest" data-i18n="customProduct.promptApplySuggest">填入最短句</button>
+                                        <span class="text-muted small d-none d-sm-inline" data-i18n="customProduct.promptChipOr">或點選：</span>
+                                        <span id="promptQuickChips" class="d-inline-flex flex-wrap gap-1"></span>
+                                    </div>
                                 </div>
                                 <button type="button" class="btn btn-outline-secondary btn-sm btn-merge-desc" id="mergeDescriptionsBtn" style="display: none;">將以上描述合併至上方描述框</button>
                             </div>
@@ -984,7 +1025,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=19" defer></script>
+    <script src="js/custom-product.js?v=22" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 
