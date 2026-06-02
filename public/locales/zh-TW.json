@@ -619,7 +619,7 @@
   "customProduct.refSlotUnsupportedPickerHint": "此數位原型的廠商未開放「{levels}」訂製。仍可選「{tab}」素材作參考，但廠商可能無法製造。",
   "customProduct.refSlotUnsupportedGenerateItem": "「{tab}」參考：廠商未開放「{levels}」訂製",
   "customProduct.refSlotUnsupportedGenerateWarn": "以下參考涉及廠商未開放的訂製項目（仍可繼續生圖）：\n\n{list}\n\n下單前請向廠商確認能否製造。",
-  "customProduct.vendorPickerCustomLegend": "訂製程度：綠色＝廠商在此原型已開放；灰虛線＝廠商未開放（仍可加入，僅提醒）。",
+  "customProduct.vendorPickerCustomLegend": "僅顯示廠商已開放的訂製項目。",
   "customProduct.refSlotReplace": "更換",
   "customProduct.refAiRoleNote": "共 {total} 張（{slots}）。後端依實際送出順序標 image 1～{total}，與圖一一對應；未選類別不會出現。",
   "customProduct.refSlotPrototypeTab": "原型",

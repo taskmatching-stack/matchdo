@@ -616,12 +616,14 @@ $(document).ready(function () {
                 if (scopeTitle) {
                     $scope.append($('<div class="ref-intent-scope-title"></div>').text(scopeTitle));
                 }
-                $scope.append($(buildPrototypeCustomizationBadgesHtml(anchor)));
-                $scope.append($('<p class="ref-intent-scope-note"></p>')
-                    .attr('data-i18n', 'customProduct.refPrototypeScopePanelNote')
-                    .text(tr('customProduct.refPrototypeScopePanelNote',
-                        '綠色＝廠商已開放的訂製項目；灰色＝廠商未開放，仍可當參考，下單前請向廠商確認能否製造。')));
-                $panel.append($scope);
+                var badges = buildPrototypeCustomizationBadgesHtml(anchor);
+                if (badges) {
+                    $scope.append($('<div class="ref-intent-scope-label small fw-semibold mb-1"></div>')
+                        .attr('data-i18n', 'customProduct.vendorAssetPickScopeTitle')
+                        .text(tr('customProduct.vendorAssetPickScopeTitle', '廠商訂製範圍（此數位原型）')));
+                    $scope.append($(badges));
+                }
+                if (scopeTitle || badges) $panel.append($scope);
             }
         }
         if (def.key !== 'prototype' && hasVendorPrototypeLock() && !isRefSlotSupportedByPrototypeLock(def.key)) {
@@ -766,20 +768,20 @@ $(document).ready(function () {
     function buildPrototypeCustomizationBadgesHtml(item) {
         var levels = parseCustomizationLevelsClient(item.customization_levels);
         if (!levels.length) return '';
-        var supportedSet = {};
-        levels.forEach(function (k) { supportedSet[k] = true; });
-        var html = '<div class="vendor-custom-badges d-flex flex-wrap gap-1 mb-1">';
+        var levelSet = {};
+        levels.forEach(function (k) { levelSet[k] = true; });
+        var html = '<div class="vendor-custom-badges d-flex flex-wrap gap-1 mb-0">';
+        var n = 0;
         CUSTOMIZATION_LEVEL_DEFS.forEach(function (def) {
+            if (!levelSet[def.key]) return;
+            n++;
             var lbl = customizationLevelLabel(def.key).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            var isSup = !!supportedSet[def.key];
-            var title = isSup
-                ? tr('customProduct.vendorCustomBadgeSupportedTitle', '廠商在此數位原型已開放此訂製')
-                : tr('customProduct.vendorCustomBadgeUnsupportedTitle', '廠商未在此數位原型開放此訂製；仍可當參考，不阻擋上傳');
-            html += '<span class="badge vendor-custom-badge ' + (isSup ? 'vendor-custom-badge--supported' : 'vendor-custom-badge--unsupported') +
-                '" title="' + title.replace(/"/g, '&quot;') + '">' + lbl + '</span>';
+            var title = tr('customProduct.vendorCustomBadgeSupportedTitle', '廠商在此數位原型已開放此訂製');
+            html += '<span class="badge vendor-custom-badge vendor-custom-badge--supported" title="' +
+                title.replace(/"/g, '&quot;') + '">' + lbl + '</span>';
         });
         html += '</div>';
-        return html;
+        return n ? html : '';
     }
 
     function updateVendorPickerPrototypeLockHint() {
@@ -1701,12 +1703,9 @@ $(document).ready(function () {
             var scopeBadges = buildPrototypeCustomizationBadgesHtml(baseMeta);
             if (scopeBadges) {
                 var scopeTitle = tr('customProduct.vendorAssetPickScopeTitle', '廠商訂製範圍（此數位原型）');
-                var scopeNote = tr('customProduct.refPrototypeScopePanelNote',
-                    '綠色＝廠商已開放的訂製項目；灰色＝廠商未開放，仍可當參考，下單前請向廠商確認能否製造。');
                 $scopeBlock.removeClass('d-none').append(
                     $('<div class="vendor-asset-pick-scope-title"></div>').attr('data-i18n', 'customProduct.vendorAssetPickScopeTitle').text(scopeTitle),
-                    $(scopeBadges),
-                    $('<p class="vendor-asset-pick-scope-note mb-0"></p>').attr('data-i18n', 'customProduct.refPrototypeScopePanelNote').text(scopeNote)
+                    $(scopeBadges)
                 );
             }
         }

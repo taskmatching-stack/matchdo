@@ -580,7 +580,7 @@
   "customProduct.refSlotUnsupportedPickerHint": "The vendor has not enabled \"{levels}\" on this digital prototype. You may still pick \"{tab}\" assets as references; the vendor may not manufacture them.",
   "customProduct.refSlotUnsupportedGenerateItem": "\"{tab}\" reference: vendor has not enabled \"{levels}\"",
   "customProduct.refSlotUnsupportedGenerateWarn": "Some references use customization the vendor has not enabled (generation will continue):\n\n{list}\n\nConfirm with the vendor before ordering.",
-  "customProduct.vendorPickerCustomLegend": "Customization: green = vendor offers on this prototype; gray dashed = vendor does not offer (add allowed, reminder only).",
+  "customProduct.vendorPickerCustomLegend": "Only customization the vendor offers on this prototype is shown.",
   "customProduct.refSlotReplace": "Replace",
   "customProduct.refAiRoleNote": "{total} image(s) ({slots}). Server labels image 1–{total} in send order; skipped categories are omitted.",
   "customProduct.refSlotPrototypeTab": "Prototype",
