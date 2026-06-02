@@ -17,6 +17,7 @@
             管理登入帳號、會員等級、點數與<strong>訂閱帳期</strong>。廠商／供應商資料請至
             <a href="/admin/manufacturers.html">廠商管理</a>、<a href="/admin/industry-suppliers.html">產業供應商</a>；
             全站方案價請至 <a href="/admin/membership.html">方案／點數</a>。（平台 admin/tester 角色仍在此編輯）
+            列表「管理備註」可記錄待處理狀況與處理歷程（需先執行 <code>docs/add-admin-entity-followups.sql</code>）。
         </p>
         <p class="text-muted small mb-2">
             <strong>身分說明：</strong>「平台角色」= 管理員／測試員／一般用戶；
@@ -75,10 +76,11 @@
                     <th>會員等級</th>
                     <th>點數</th>
                     <th>身分／工作區</th>
+                    <th>管理備註</th>
                     <th>操作</th>
                 </tr>
             </thead>
-            <tbody id="usersTable"><tr><td colspan="9" class="text-center">載入中...</td></tr></tbody>
+            <tbody id="usersTable"><tr><td colspan="10" class="text-center">載入中...</td></tr></tbody>
         </table>
     </div>
 
@@ -209,6 +211,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/site-footer.js"></script>
+    <script src="/admin/js/admin-followup.js"></script>
     <script>
         function escapeHtml(s) {
             if (s == null) return '';
@@ -221,7 +224,7 @@
             var userSubModal = null;
 
             function showError(msg) {
-                $('#usersTable').html('<tr><td colspan="9" class="text-center text-danger">' + escapeHtml(msg) + '</td></tr>');
+                $('#usersTable').html('<tr><td colspan="10" class="text-center text-danger">' + escapeHtml(msg) + '</td></tr>');
             }
             function renderIdentityBadges(identities) {
                 if (!identities || !identities.length) return '<span class="text-muted small">—</span>';
@@ -333,12 +336,29 @@
                         var roleVal = (u.role === 'admin' || u.role === 'tester') ? u.role : 'user';
                         var idCell = renderIdentityBadges(u.identities || []);
                         var monthlyUrl = '/admin/membership.html?monthly_email=' + encodeURIComponent(u.email || '');
-                        html += '<tr data-user-id="' + escapeHtml(u.id) + '"><td>' + (i + 1) + '</td><td>' + escapeHtml(u.email) + '</td><td>' + escapeHtml(u.full_name || '—') + '</td><td>' + roleBadge + '</td><td>' + level + '</td><td>' + pts + '</td><td>' + idCell + '</td><td>' +
+                        var followupCell = (window.AdminFollowup && AdminFollowup.renderCellSummary)
+                            ? AdminFollowup.renderCellSummary(u.admin_followup)
+                            : '—';
+                        html += '<tr data-user-id="' + escapeHtml(u.id) + '"><td>' + (i + 1) + '</td><td>' + escapeHtml(u.email) + '</td><td>' + escapeHtml(u.full_name || '—') + '</td><td>' + roleBadge + '</td><td>' + level + '</td><td>' + pts + '</td><td>' + idCell + '</td><td>' + followupCell + '</td><td>' +
+                            '<button type="button" class="btn btn-sm btn-outline-warning btn-followup-user me-1">備註</button>' +
                             '<a class="btn btn-sm btn-outline-secondary me-1" href="' + monthlyUrl + '">月消耗</a>' +
                             '<button type="button" class="btn btn-sm btn-outline-success btn-sub-user me-1">訂閱</button>' +
                             '<button class="btn btn-sm btn-primary btn-edit-user" data-id="' + escapeHtml(u.id) + '" data-email="' + escapeHtml(u.email) + '" data-role="' + escapeHtml(roleVal) + '" data-level="' + escapeHtml(u.member_level || '一般') + '" data-points="' + pts + '">編輯</button></td></tr>';
                     }
-                    $('#usersTable').html(html || '<tr><td colspan="9" class="text-center text-muted">尚無用戶（或篩選後無符合）</td></tr>');
+                    $('#usersTable').html(html || '<tr><td colspan="10" class="text-center text-muted">尚無用戶（或篩選後無符合）</td></tr>');
+                    $('.btn-followup-user').on('click', function () {
+                        var uid = $(this).closest('tr').data('user-id');
+                        var u = allUsers.filter(function (x) { return x.id === uid; })[0];
+                        if (!u || !window.AdminFollowup) return;
+                        AdminFollowup.open({
+                            entityType: 'user',
+                            entityId: u.id,
+                            label: '會員：' + (u.email || u.id),
+                            onSaved: function () { loadUsers().then(function (d) {
+                                if (d && d.users) { allUsers = d.users; applyFilter(); }
+                            }); }
+                        });
+                    });
                     $('.btn-sub-user').on('click', function () {
                         var uid = $(this).closest('tr').data('user-id');
                         var u = allUsers.filter(function (x) { return x.id === uid; })[0];

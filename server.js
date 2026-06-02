@@ -2331,6 +2331,250 @@ async function requireAdmin(req, res) {
     return user;
 }
 
+const ADMIN_FOLLOWUP_ENTITY_TYPES = ['user', 'manufacturer', 'supplier'];
+let adminFollowupTablesReadyCache = null;
+
+function normalizeAdminFollowupEntityType(raw) {
+    const v = String(raw || '').trim().toLowerCase();
+    if (v === 'users') return 'user';
+    if (v === 'manufacturers') return 'manufacturer';
+    if (v === 'suppliers' || v === 'industry-supplier' || v === 'industry_supplier') return 'supplier';
+    return ADMIN_FOLLOWUP_ENTITY_TYPES.includes(v) ? v : null;
+}
+
+async function adminFollowupTablesReady() {
+    if (adminFollowupTablesReadyCache === true) return true;
+    if (adminFollowupTablesReadyCache === false) return false;
+    try {
+        const { error } = await supabase.from('admin_entity_followups').select('entity_type').limit(1);
+        if (error) {
+            if (error.code === '42P01' || error.code === '42703') {
+                adminFollowupTablesReadyCache = false;
+                return false;
+            }
+        }
+        adminFollowupTablesReadyCache = true;
+        return true;
+    } catch (_) {
+        adminFollowupTablesReadyCache = false;
+        return false;
+    }
+}
+
+async function adminFollowupEntityExists(entityType, entityId) {
+    if (entityType === 'user') {
+        const { data } = await supabase.from('profiles').select('id').eq('id', entityId).maybeSingle();
+        return !!data;
+    }
+    if (entityType === 'manufacturer') {
+        const { data } = await supabase.from('manufacturers').select('id').eq('id', entityId).maybeSingle();
+        return !!data;
+    }
+    if (entityType === 'supplier') {
+        const { data } = await supabase.from('industry_suppliers').select('id').eq('id', entityId).maybeSingle();
+        return !!data;
+    }
+    return false;
+}
+
+async function attachAdminFollowupSummaries(items, entityType, idKey) {
+    idKey = idKey || 'id';
+    if (!items || !items.length) return items || [];
+    if (!(await adminFollowupTablesReady())) {
+        return items.map(function (item) {
+            return Object.assign({}, item, {
+                admin_followup: { pending_note: '', updated_at: null, log_count: 0, has_pending: false }
+            });
+        });
+    }
+    const ids = items.map(function (item) { return item[idKey]; }).filter(Boolean);
+    if (!ids.length) return items;
+    const { data: rows, error } = await supabase
+        .from('admin_entity_followups')
+        .select('entity_id, pending_note, updated_at')
+        .eq('entity_type', entityType)
+        .in('entity_id', ids);
+    if (error) {
+        console.warn('attachAdminFollowupSummaries followups:', error.message || error);
+        return items;
+    }
+    const map = {};
+    (rows || []).forEach(function (r) { map[r.entity_id] = r; });
+    let logCounts = {};
+    const { data: logs, error: logErr } = await supabase
+        .from('admin_entity_followup_logs')
+        .select('entity_id')
+        .eq('entity_type', entityType)
+        .in('entity_id', ids);
+    if (!logErr) {
+        (logs || []).forEach(function (l) {
+            logCounts[l.entity_id] = (logCounts[l.entity_id] || 0) + 1;
+        });
+    }
+    return items.map(function (item) {
+        const eid = item[idKey];
+        const f = map[eid];
+        const pending = (f && f.pending_note) ? String(f.pending_note).trim() : '';
+        return Object.assign({}, item, {
+            admin_followup: {
+                pending_note: pending,
+                updated_at: f && f.updated_at ? f.updated_at : null,
+                log_count: logCounts[eid] || 0,
+                has_pending: !!pending
+            }
+        });
+    });
+}
+
+async function getAdminFollowupDetail(entityType, entityId) {
+    const empty = { pending_note: '', updated_at: null, updated_by: null, logs: [] };
+    if (!(await adminFollowupTablesReady())) return empty;
+    const { data: row } = await supabase
+        .from('admin_entity_followups')
+        .select('pending_note, updated_at, updated_by')
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .maybeSingle();
+    const { data: logs, error: logErr } = await supabase
+        .from('admin_entity_followup_logs')
+        .select('id, created_at, admin_user_id, admin_email, action, note')
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+    if (logErr) console.warn('getAdminFollowupDetail logs:', logErr.message || logErr);
+    return {
+        pending_note: row && row.pending_note ? String(row.pending_note) : '',
+        updated_at: row && row.updated_at ? row.updated_at : null,
+        updated_by: row && row.updated_by ? row.updated_by : null,
+        logs: logs || []
+    };
+}
+
+async function saveAdminFollowup(adminUser, entityType, entityId, body) {
+    if (!(await adminFollowupTablesReady())) {
+        return { error: '請先於 Supabase 執行 docs/add-admin-entity-followups.sql' };
+    }
+    if (!(await adminFollowupEntityExists(entityType, entityId))) {
+        return { error: '找不到該筆資料' };
+    }
+    const payload = body || {};
+    const hasPending = payload.pending_note !== undefined;
+    const hasLog = payload.log_note !== undefined;
+    if (!hasPending && !hasLog) return { error: '請提供待處理備註或處理紀錄' };
+
+    const { data: existing } = await supabase
+        .from('admin_entity_followups')
+        .select('pending_note')
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .maybeSingle();
+
+    const prevPending = existing && existing.pending_note ? String(existing.pending_note) : '';
+    const newPending = hasPending ? String(payload.pending_note || '').trim() : prevPending;
+    const logNote = hasLog ? String(payload.log_note || '').trim() : '';
+    const now = new Date().toISOString();
+    const adminEmail = adminUser.email || (adminUser.user_metadata && adminUser.user_metadata.email) || '';
+
+    const { error: upsertErr } = await supabase.from('admin_entity_followups').upsert({
+        entity_type: entityType,
+        entity_id: entityId,
+        pending_note: newPending || null,
+        updated_at: now,
+        updated_by: adminUser.id
+    }, { onConflict: 'entity_type,entity_id' });
+    if (upsertErr) {
+        console.error('saveAdminFollowup upsert:', upsertErr);
+        return { error: upsertErr.message || '儲存備註失敗' };
+    }
+
+    const logRows = [];
+    if (logNote) {
+        logRows.push({
+            entity_type: entityType,
+            entity_id: entityId,
+            admin_user_id: adminUser.id,
+            admin_email: adminEmail,
+            action: 'comment',
+            note: logNote
+        });
+    }
+    if (hasPending && newPending !== prevPending && !logNote) {
+        logRows.push({
+            entity_type: entityType,
+            entity_id: entityId,
+            admin_user_id: adminUser.id,
+            admin_email: adminEmail,
+            action: 'note_update',
+            note: newPending ? ('更新待處理備註：' + newPending.slice(0, 800)) : '已清空待處理備註'
+        });
+    }
+    if (hasPending && hasLog && newPending !== prevPending) {
+        logRows.push({
+            entity_type: entityType,
+            entity_id: entityId,
+            admin_user_id: adminUser.id,
+            admin_email: adminEmail,
+            action: 'note_update',
+            note: newPending ? ('更新待處理備註：' + newPending.slice(0, 800)) : '已清空待處理備註'
+        });
+    }
+    if (logRows.length) {
+        const { error: logInsErr } = await supabase.from('admin_entity_followup_logs').insert(logRows);
+        if (logInsErr) {
+            console.error('saveAdminFollowup logs:', logInsErr);
+            return { error: logInsErr.message || '儲存歷程失敗' };
+        }
+    }
+
+    const detail = await getAdminFollowupDetail(entityType, entityId);
+    return { followup: detail };
+}
+
+// GET /api/admin/followups/:entityType/:entityId — 待處理備註與處理歷程
+app.get('/api/admin/followups/:entityType/:entityId', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const entityType = normalizeAdminFollowupEntityType(req.params.entityType);
+        const entityId = (req.params.entityId || '').trim();
+        if (!entityType) return res.status(400).json({ error: 'entityType 須為 user、manufacturer 或 supplier' });
+        if (!entityId) return res.status(400).json({ error: '缺少 entityId' });
+        if (!(await adminFollowupTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-admin-entity-followups.sql', followup: { pending_note: '', logs: [] } });
+        }
+        if (!(await adminFollowupEntityExists(entityType, entityId))) {
+            return res.status(404).json({ error: '找不到該筆資料' });
+        }
+        const followup = await getAdminFollowupDetail(entityType, entityId);
+        res.json({ followup });
+    } catch (e) {
+        console.error('GET /api/admin/followups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/admin/followups/:entityType/:entityId — 更新待處理備註並／或追加處理歷程
+app.put('/api/admin/followups/:entityType/:entityId', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const entityType = normalizeAdminFollowupEntityType(req.params.entityType);
+        const entityId = (req.params.entityId || '').trim();
+        if (!entityType) return res.status(400).json({ error: 'entityType 須為 user、manufacturer 或 supplier' });
+        if (!entityId) return res.status(400).json({ error: '缺少 entityId' });
+        const result = await saveAdminFollowup(adminUser, entityType, entityId, req.body || {});
+        if (result.error) {
+            const code = result.error.includes('docs/add-admin') ? 503 : 400;
+            return res.status(code).json({ error: result.error });
+        }
+        res.json({ message: '已儲存', followup: result.followup });
+    } catch (e) {
+        console.error('PUT /api/admin/followups:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // 檢查使用者是否為管理員（不送 res，供權限判斷用）
 async function isAdminUserId(userId) {
     if (!userId) return false;
@@ -2639,6 +2883,9 @@ app.get('/api/admin/users', async (req, res) => {
         const wantEnriched = req.query.enriched === '1' || req.query.enriched === 'true';
         if (wantEnriched && users.length > 0) {
             users = await attachAdminUserSummaries(users);
+        }
+        if (users.length > 0) {
+            users = await attachAdminFollowupSummaries(users, 'user', 'id');
         }
         res.json({ users });
     } catch (e) {
@@ -2978,6 +3225,9 @@ app.get('/api/admin/manufacturers', async (req, res) => {
         }
         if (subFilter === 'active') items = items.filter((m) => m.subscription && m.subscription.end_date);
         else if (subFilter === 'none') items = items.filter((m) => !m.subscription);
+        if (items.length > 0) {
+            items = await attachAdminFollowupSummaries(items, 'manufacturer', 'id');
+        }
         res.json({ items });
     } catch (e) {
         console.error('GET /api/admin/manufacturers 異常:', e);
@@ -3218,6 +3468,9 @@ app.get('/api/admin/industry-suppliers', async (req, res) => {
                 const email = (s.user_email || '').toLowerCase();
                 return name.includes(q) || email.includes(q);
             });
+        }
+        if (items.length > 0) {
+            items = await attachAdminFollowupSummaries(items, 'supplier', 'id');
         }
         res.json({ items });
     } catch (e) {

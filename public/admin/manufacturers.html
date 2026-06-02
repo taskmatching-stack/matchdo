@@ -67,11 +67,12 @@
                     <th>種子剩餘</th>
                     <th>訂閱方案</th>
                     <th>訂閱到期</th>
-                    <th style="min-width:220px">操作</th>
+                    <th>管理備註</th>
+                    <th style="min-width:240px">操作</th>
                   </tr>
                 </thead>
                 <tbody id="tableBody">
-                  <tr><td colspan="9" class="text-center text-muted p-3">載入中…</td></tr>
+                  <tr><td colspan="10" class="text-center text-muted p-3">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -122,6 +123,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
+  <script src="/admin/js/admin-followup.js"></script>
   <script>
 (function () {
   var items = [];
@@ -192,10 +194,10 @@
 
   function loadList() {
     var tbody = document.getElementById('tableBody');
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted p-3">載入中…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted p-3">載入中…</td></tr>';
     getToken().then(function (token) {
       if (!token) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">請先登入</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">請先登入</td></tr>';
         return;
       }
       var params = new URLSearchParams();
@@ -216,7 +218,7 @@
         items = results[0].items || [];
         renderTable();
       }).catch(function (err) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">' + escapeHtml(err.message || '載入失敗') + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">' + escapeHtml(err.message || '載入失敗') + '</td></tr>';
       });
     });
   }
@@ -272,7 +274,7 @@
   function renderTable() {
     var tbody = document.getElementById('tableBody');
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted p-3">尚無資料</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted p-3">尚無資料</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (m, idx) {
@@ -293,7 +295,11 @@
       var subEnd = sub && sub.end_date ? formatDate(sub.end_date) : '—';
       var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(m.id);
       var nameAttr = escapeHtml((m.name || '').replace(/"/g, '&quot;'));
+      var followupCell = (window.AdminFollowup && AdminFollowup.renderCellSummary)
+        ? AdminFollowup.renderCellSummary(m.admin_followup)
+        : '—';
       var actions = '<div class="d-flex flex-wrap gap-1">';
+      actions += '<button type="button" class="btn btn-sm btn-outline-warning" data-action="followup" data-idx="' + idx + '">備註</button>';
       actions += '<button type="button" class="btn btn-sm btn-outline-primary" data-action="sub" data-idx="' + idx + '">訂閱</button>';
       actions += '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="verified" data-id="' + escapeHtml(m.id) + '" data-v="' + (m.verified ? '0' : '1') + '">' + (m.verified ? '取消認證' : '認證') + '</button>';
       if (m.is_active !== false) {
@@ -315,6 +321,7 @@
         '<td>' + daysCell + '</td>' +
         '<td>' + subPlan + '</td>' +
         '<td>' + subEnd + '</td>' +
+        '<td>' + followupCell + '</td>' +
         '<td>' + actions + '</td></tr>';
     }).join('');
 
@@ -323,6 +330,19 @@
       if (action === 'sub') {
         btn.addEventListener('click', function () {
           openSubModal(items[parseInt(btn.getAttribute('data-idx'), 10)]);
+        });
+        return;
+      }
+      if (action === 'followup') {
+        btn.addEventListener('click', function () {
+          var m = items[parseInt(btn.getAttribute('data-idx'), 10)];
+          if (!m || !window.AdminFollowup) return;
+          AdminFollowup.open({
+            entityType: 'manufacturer',
+            entityId: m.id,
+            label: '廠商：' + (m.name || m.id),
+            onSaved: function () { loadList(); }
+          });
         });
         return;
       }

@@ -77,10 +77,11 @@
                   <th>目錄</th>
                   <th>訂閱</th>
                   <th>狀態</th>
-                  <th style="min-width:200px">操作</th>
+                  <th>管理備註</th>
+                  <th style="min-width:220px">操作</th>
                 </tr>
               </thead>
-              <tbody id="tableBody"><tr><td colspan="6" class="text-center text-muted p-3">載入中…</td></tr></tbody>
+              <tbody id="tableBody"><tr><td colspan="7" class="text-center text-muted p-3">載入中…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -129,6 +130,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/config/auth-config.js"></script>
   <script src="/admin/js/admin-common.js"></script>
+  <script src="/admin/js/admin-followup.js"></script>
   <script>
 (function () {
   var items = [];
@@ -179,9 +181,9 @@
 
   function loadList() {
     var tbody = document.getElementById('tableBody');
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-3">載入中…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted p-3">載入中…</td></tr>';
     getToken().then(function (token) {
-      if (!token) { tbody.innerHTML = '<tr><td colspan="6" class="text-danger text-center">請登入</td></tr>'; return; }
+      if (!token) { tbody.innerHTML = '<tr><td colspan="7" class="text-danger text-center">請登入</td></tr>'; return; }
       var p = new URLSearchParams();
       var q = document.getElementById('filterQ').value.trim();
       var b = document.getElementById('filterBound').value;
@@ -197,7 +199,7 @@
         items = res[0].items || [];
         render();
       }).catch(function (e) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-danger text-center">' + esc(e.message) + '</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-danger text-center">' + esc(e.message) + '</td></tr>';
       });
     });
   }
@@ -205,7 +207,7 @@
   function render() {
     var tbody = document.getElementById('tableBody');
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-3">尚無資料</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted p-3">尚無資料</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(function (s, idx) {
@@ -218,7 +220,11 @@
         : '<span class="text-muted small">無</span>';
       var st = s.is_active !== false ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>';
       var pub = '/client/industry-supplier-catalog.html?id=' + encodeURIComponent(s.id);
+      var followupCell = (window.AdminFollowup && AdminFollowup.renderCellSummary)
+        ? AdminFollowup.renderCellSummary(s.admin_followup)
+        : '—';
       var actions = '<div class="d-flex flex-wrap gap-1">' +
+        '<button type="button" class="btn btn-sm btn-outline-warning" data-a="followup" data-i="' + idx + '">備註</button>' +
         '<button type="button" class="btn btn-sm btn-outline-primary" data-a="edit" data-i="' + idx + '">編輯</button>' +
         '<button type="button" class="btn btn-sm btn-outline-success" data-a="sub" data-i="' + idx + '">訂閱</button>' +
         (s.is_active !== false
@@ -227,13 +233,23 @@
         '<a class="btn btn-sm btn-outline-dark" href="' + pub + '" target="_blank" rel="noopener">公開頁</a>' +
         '<a class="btn btn-sm btn-outline-info" href="/client/supplier-catalog-manage.html" target="_blank" rel="noopener" title="需該帳號登入">上架庫</a>' +
         '</div>';
-      return '<tr><td>' + esc(s.name) + '</td><td>' + email + '</td><td>' + cat + '</td><td>' + sub + '</td><td>' + st + '</td><td>' + actions + '</td></tr>';
+      return '<tr><td>' + esc(s.name) + '</td><td>' + email + '</td><td>' + cat + '</td><td>' + sub + '</td><td>' + st + '</td><td>' + followupCell + '</td><td>' + actions + '</td></tr>';
     }).join('');
     tbody.querySelectorAll('button[data-a]').forEach(function (btn) {
       var a = btn.getAttribute('data-a');
       var id = btn.getAttribute('data-id');
       var i = parseInt(btn.getAttribute('data-i'), 10);
-      if (a === 'edit') btn.onclick = function () { openEdit(items[i]); };
+      if (a === 'followup') btn.onclick = function () {
+        var s = items[i];
+        if (!s || !window.AdminFollowup) return;
+        AdminFollowup.open({
+          entityType: 'supplier',
+          entityId: s.id,
+          label: '供應商：' + (s.name || s.id),
+          onSaved: function () { loadList(); }
+        });
+      };
+      else if (a === 'edit') btn.onclick = function () { openEdit(items[i]); };
       else if (a === 'sub') btn.onclick = function () { openSub(items[i]); };
       else if (a === 'on' || a === 'off') btn.onclick = function () {
         patchSupplier(id, { is_active: a === 'on' }, a === 'on' ? '已啟用' : '已停用');
