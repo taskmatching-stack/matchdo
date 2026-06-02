@@ -176,15 +176,14 @@
                                 <select class="form-select form-select-sm" id="vendorAssetsPickerMainSelect" aria-label="主分類"></select>
                             </div>
                             <div class="col-6">
-                                <label class="form-label small text-muted mb-0" for="vendorAssetsPickerSubSelect" data-i18n="customProduct.categorySubRequired">子分類（必選）</label>
+                                <label class="form-label small text-muted mb-0" for="vendorAssetsPickerSubSelect" id="vendorAssetsPickerSubLabel" data-i18n="customProduct.categorySubRequired">子分類（數位原型）</label>
                                 <select class="form-select form-select-sm" id="vendorAssetsPickerSubSelect" aria-label="子分類"></select>
                             </div>
                         </div>
                         <p id="vendorAssetsPickerCategoryMfrHint" class="text-muted small mb-0 mt-1 d-none" data-i18n="customProduct.vendorPickerCategoryMfrHint">變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。</p>
                     </div>
                     <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊圖片加入參考圖；雙擊或按 🔍 放大。放大時會顯示圖片名稱（若廠商有設定）。</p>
-                    <p id="vendorAssetsPickerPartSubHint" class="text-muted small mb-2 d-none" data-i18n="customProduct.vendorPickerPartSubHint">篩選「配件／零件」時僅依主分類，不依子分類（廠商上傳零件時不填子分類）。</p>
-                    <p id="vendorAssetsPickerMaterialSubHint" class="text-muted small mb-2 d-none" data-i18n="customProduct.vendorPickerMaterialSubHint">篩選「材料參考」時僅依主分類，不依子分類（廠商上傳材料時不填子分類）。</p>
+                    <p id="vendorAssetsPickerKindSyncHint" class="text-muted small mb-2 d-none" data-i18n="customProduct.vendorPickerKindSyncHint">篩選「配件／零件」或「材料參考」時僅依主分類，子分類不套用（與廠商上傳方式一致）。數位原型才依子分類。</p>
                     <div id="vendorAssetsPickerMultiVendorHint" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="status"></div>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
                         <div class="row g-2 align-items-end mb-2">
@@ -947,7 +946,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=17" defer></script>
+    <script src="js/custom-product.js?v=18" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 

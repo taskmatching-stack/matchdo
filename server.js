@@ -433,6 +433,15 @@ function normalizeVendorAssetKind(raw) {
     return 'prototype';
 }
 
+/** 列表篩選用：DB 無 asset_kind 欄位時以 part_key 等推斷 */
+function effectiveVendorAssetKind(row) {
+    if (!row) return 'prototype';
+    const k = String(row.asset_kind || '').trim().toLowerCase();
+    if (k === 'material' || k === 'part' || k === 'prototype') return k;
+    if (row.part_key) return 'part';
+    return 'prototype';
+}
+
 /** 設計端／廠商端素材列表分頁（每頁 12 / 24 / 48，預設 12） */
 function parseVendorAssetsListPageParams(query) {
     const allowed = [12, 24, 48];
@@ -12682,13 +12691,20 @@ app.get('/api/vendor-assets', async (req, res) => {
             return res.status(500).json({ error: '查詢失敗' });
         }
         let list = rows || [];
-        if (assetKindFilter && list.length && list[0].asset_kind == null) {
-            list = list.filter((r) => normalizeVendorAssetKind(r.asset_kind) === assetKindFilter);
+        if (assetKindFilter && list.length) {
+            const hasAssetKindCol = list.some((r) => r.asset_kind != null && String(r.asset_kind).trim() !== '');
+            if (hasAssetKindCol) {
+                list = list.filter((r) => effectiveVendorAssetKind(r) === assetKindFilter);
+            } else if (assetKindFilter === 'part') {
+                list = list.filter((r) => !!(r.part_key && String(r.part_key).trim()));
+            } else if (assetKindFilter === 'material') {
+                list = list.filter((r) => effectiveVendorAssetKind(r) === 'material');
+            }
         }
         /* 素材類型「全部」+ 已選子分類：原型依子分類；材料／零件仍顯示該主分類下全部 */
         if (subcategoryKey && !assetKindFilter) {
             list = list.filter((r) => {
-                const rk = normalizeVendorAssetKind(r.asset_kind);
+                const rk = effectiveVendorAssetKind(r);
                 if (rk === 'material' || rk === 'part') return true;
                 return (r.subcategory_key || '') === subcategoryKey;
             });
@@ -12701,6 +12717,13 @@ app.get('/api/vendor-assets', async (req, res) => {
             if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
             const { data: mfrs } = await mfrQ;
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
+            if (internalPreview) {
+                mfrIds.forEach((mid) => {
+                    if (!mfrMap[mid]) {
+                        mfrMap[mid] = { id: mid, name: '廠商', is_active: true, vendor_source: null };
+                    }
+                });
+            }
         }
         if (manufacturerNameQ) {
             list = list.filter((r) => manufacturerNameMatches(mfrMap[r.manufacturer_id], manufacturerNameQ));
@@ -12722,7 +12745,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         }
         list = list.filter(function (r) {
             const mfr = mfrMap[r.manufacturer_id];
-            if (!mfr) return false;
+            if (!mfr) return !!internalPreview;
             if (internalPreview) return true;
             return vendorAssetVisibleToPublicAudience(mfr, r);
         });

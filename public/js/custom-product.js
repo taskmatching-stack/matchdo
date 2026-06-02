@@ -442,6 +442,7 @@ $(document).ready(function () {
     });
 
     $('#vendorAssetsAssetKind').on('change', function () {
+        syncVendorPickerSubcategoryForAssetKind();
         updateVendorPickerPrototypeFiltersVisibility();
         scheduleVendorAssetsPickerReload();
     });
@@ -625,7 +626,45 @@ $(document).ready(function () {
         return true;
     }
 
+    function pickerSubcategoryAppliesToAssetKind(assetKind) {
+        var kind = (assetKind != null ? assetKind : ($('#vendorAssetsAssetKind').val() || '')).trim();
+        return !kind || kind === 'prototype';
+    }
+
+    function effectivePickerSubKey() {
+        if (!pickerSubcategoryAppliesToAssetKind()) return '';
+        return ($('#vendorAssetsPickerSubSelect').val() || '').trim();
+    }
+
+    function syncVendorPickerSubcategoryForAssetKind() {
+        var kind = ($('#vendorAssetsAssetKind').val() || '').trim();
+        var $sub = $('#vendorAssetsPickerSubSelect');
+        var $label = $('#vendorAssetsPickerSubLabel');
+        var applies = pickerSubcategoryAppliesToAssetKind(kind);
+        var $syncHint = $('#vendorAssetsPickerKindSyncHint');
+        if ($syncHint.length) $syncHint.toggleClass('d-none', applies);
+        if ($label.length) {
+            $label.text(applies
+                ? (vendorPickerTr('customProduct.categorySubPrototypeOnly', '子分類（數位原型）'))
+                : (vendorPickerTr('customProduct.categorySubN/aForKind', '子分類（此類型不套用）')));
+        }
+        if (!$sub.length) return;
+        if (applies) {
+            var mainKey = ($('#vendorAssetsPickerMainSelect').val() || '').trim();
+            var keepSub = ($sub.val() || '').trim();
+            fillVendorPickerSubSelectOptions(mainKey, keepSub);
+        } else {
+            $sub.empty().append($('<option value="">').text(vendorPickerTr('customProduct.categorySubDisabledOption', '— 不套用 —')));
+            $sub.prop('disabled', true);
+        }
+        var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
+        if (params && params.mode === 'category') {
+            params.subKey = effectivePickerSubKey();
+        }
+    }
+
     function onVendorPickerCategoryChanged(mainKey, subKey) {
+        if (!pickerSubcategoryAppliesToAssetKind()) subKey = '';
         applyDesignCategorySelection(mainKey, subKey);
         var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
         if (params && params.mode === 'category') {
@@ -638,6 +677,7 @@ $(document).ready(function () {
 
     function updateVendorPickerDesignCategoryDisplay() {
         populateVendorPickerCategorySelects();
+        syncVendorPickerSubcategoryForAssetKind();
         var params = (typeof window.__vendorAssetsFetchParams !== 'undefined') ? window.__vendorAssetsFetchParams : null;
         var $hint = $('#vendorAssetsPickerCategoryMfrHint');
         if ($hint.length) {
@@ -667,10 +707,7 @@ $(document).ready(function () {
     function updateVendorPickerPrototypeFiltersVisibility() {
         var kind = ($('#vendorAssetsAssetKind').val() || '').trim();
         $('.vendor-picker-prototype-only').toggleClass('d-none', kind === 'material' || kind === 'part');
-        var $partHint = $('#vendorAssetsPickerPartSubHint');
-        if ($partHint.length) $partHint.toggleClass('d-none', kind !== 'part');
-        var $matHint = $('#vendorAssetsPickerMaterialSubHint');
-        if ($matHint.length) $matHint.toggleClass('d-none', kind !== 'material');
+        syncVendorPickerSubcategoryForAssetKind();
     }
 
     function readVendorPickerPageSize() {
@@ -1224,11 +1261,12 @@ $(document).ready(function () {
 
     function buildVendorAssetsFetchUrl(params) {
         var assetKind = ($('#vendorAssetsAssetKind').val() || '').trim();
+        var subForApi = pickerSubcategoryAppliesToAssetKind(assetKind) ? (params.subKey || effectivePickerSubKey()) : '';
         var url = '';
         if (params.mode === 'category' && params.mainKey) {
             url = '/api/vendor-assets?category_key=' + encodeURIComponent(params.mainKey);
-            if (params.subKey && assetKind !== 'material' && assetKind !== 'part') {
-                url += '&subcategory_key=' + encodeURIComponent(params.subKey);
+            if (subForApi) {
+                url += '&subcategory_key=' + encodeURIComponent(subForApi);
             }
         } else if (params.mode === 'manufacturer' && params.manufacturerId) {
             url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(params.manufacturerId);
@@ -1289,8 +1327,19 @@ $(document).ready(function () {
                 return fetch(url, fetchOpts);
             })
             : fetch(url, fetchOpts);
-        fetchPromise.then(function (r) { return r.json(); }).then(function (data) {
+        fetchPromise.then(function (r) {
+            return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data || {} }; });
+        }).then(function (res) {
             $loading.addClass('d-none');
+            var data = res.data;
+            if (!res.ok) {
+                var errMsg = data.error || data.message || ('HTTP ' + res.status);
+                if (data.message && String(data.message).indexOf('vendor-assets') >= 0) {
+                    errMsg += ' — ' + data.message;
+                }
+                $empty.removeClass('d-none').text(errMsg);
+                return;
+            }
             var items = (data && data.items) ? data.items : [];
             items = applyClientVendorAssetFilters(items);
             var total = (data && data.total != null) ? Number(data.total) : items.length;
@@ -1384,6 +1433,7 @@ $(document).ready(function () {
         resetVendorAssetFilters();
         setVendorPickerMfrScopedMode(false);
         updateVendorPickerPrototypeFiltersVisibility();
+        syncVendorPickerSubcategoryForAssetKind();
         $('#vendorAssetsPickerLabel').text(t('customProduct.selectFromVendorAssets') || '從廠商素材庫選擇');
         updateVendorPickerDesignCategoryDisplay();
         var modalEl = document.getElementById('vendorAssetsPickerModal');
@@ -1392,7 +1442,13 @@ $(document).ready(function () {
         }
         vendorPickerOffset = 0;
         setVendorPickerPageSize(readVendorPickerPageSize());
-        try { window.__vendorAssetsFetchParams = { mode: 'category', mainKey: mainKey, subKey: subKey }; } catch (e) {}
+        try {
+            window.__vendorAssetsFetchParams = {
+                mode: 'category',
+                mainKey: mainKey,
+                subKey: pickerSubcategoryAppliesToAssetKind() ? subKey : ''
+            };
+        } catch (e) {}
         fillVendorServiceAreaSelect().then(function () {
             updateVendorPickerMultiVendorHint();
             loadVendorAssetsPickerList();
