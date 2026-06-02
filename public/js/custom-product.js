@@ -174,6 +174,7 @@ $(document).ready(function () {
         pattern: emptyRefSlotGroup()
     };
     var refIntentActiveTab = 'prototype';
+    var unsupportedRefSlotWarned = {};
 
     function ensureRefIntentActiveTab() {
         if (!getRefSlotDef(refIntentActiveTab)) refIntentActiveTab = 'prototype';
@@ -251,20 +252,191 @@ $(document).ready(function () {
         return true;
     }
 
+    function getPrototypeAnchorSource() {
+        var g = refSlots.prototype;
+        if (!g || !g.items || !g.items.length) return null;
+        var s = g.items[0].source || {};
+        var vid = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
+        return vid ? s : null;
+    }
+
+    function getPrototypeLockVendorAssetId() {
+        var anchor = getPrototypeAnchorSource();
+        return anchor ? String(anchor.vendor_asset_id).trim() : '';
+    }
+
+    function hasVendorPrototypeLock() {
+        return !!getPrototypeLockVendorAssetId();
+    }
+
+    function getPrototypeLockLevelsSet() {
+        var anchor = getPrototypeAnchorSource();
+        if (!anchor) return {};
+        var set = {};
+        parseCustomizationLevelsClient(anchor.customization_levels).forEach(function (k) { set[k] = true; });
+        return set;
+    }
+
+    function isRefTabScopeHighlighted(tabKey) {
+        if (!hasVendorPrototypeLock()) return false;
+        var set = getPrototypeLockLevelsSet();
+        if (tabKey === 'prototype') return true;
+        if (tabKey === 'material') return !!set.color_material;
+        if (tabKey === 'part') return !!set.size_part;
+        if (tabKey === 'pattern') return !!(set.mono_graphic || set.color_graphic);
+        return false;
+    }
+
+    function isRefSlotSupportedByPrototypeLock(slotKey) {
+        if (!slotKey || slotKey === 'prototype') return true;
+        if (!hasVendorPrototypeLock()) return true;
+        return isRefTabScopeHighlighted(slotKey);
+    }
+
+    function getRefSlotScopeLevelKeys(slotKey) {
+        if (slotKey === 'material') return ['color_material'];
+        if (slotKey === 'part') return ['size_part'];
+        if (slotKey === 'pattern') return ['mono_graphic', 'color_graphic'];
+        return [];
+    }
+
+    function getUnsupportedRefSlotLevelLabels(slotKey) {
+        return getRefSlotScopeLevelKeys(slotKey).map(function (k) { return customizationLevelLabel(k); }).join('、');
+    }
+
+    function getUnsupportedRefSlotWarningText(slotKey, variant) {
+        if (!slotKey || slotKey === 'prototype' || isRefSlotSupportedByPrototypeLock(slotKey)) return '';
+        var def = getRefSlotDef(slotKey);
+        if (!def) return '';
+        var anchor = getPrototypeAnchorSource();
+        var title = (anchor && anchor.title) ? String(anchor.title).trim() : tr('customProduct.refSlotPrototypeTab', '原型');
+        var levels = getUnsupportedRefSlotLevelLabels(slotKey);
+        var tab = tr(def.tabKey, def.tabFb);
+        var tpl;
+        if (variant === 'alert') {
+            tpl = tr('customProduct.refSlotUnsupportedOnAddAlert',
+                '廠商對數位原型「{title}」未開放「{levels}」訂製。您仍可使用「{tab}」參考，生圖後請向廠商確認能否製造。');
+        } else if (variant === 'generate') {
+            tpl = tr('customProduct.refSlotUnsupportedGenerateItem',
+                '「{tab}」參考：廠商未開放「{levels}」訂製');
+        } else if (variant === 'picker') {
+            tpl = tr('customProduct.refSlotUnsupportedPickerHint',
+                '此數位原型的廠商未開放「{levels}」訂製。仍可選「{tab}」素材作參考，但廠商可能無法製造。');
+        } else if (variant === 'muted') {
+            tpl = tr('customProduct.refSlotUnsupportedMutedHint',
+                '此數位原型的廠商未開放「{levels}」訂製。您仍可在「{tab}」上傳參考，但廠商可能無法依此製造。');
+        } else {
+            tpl = tr('customProduct.refSlotUnsupportedActiveWarning',
+                '廠商對數位原型「{title}」未開放「{levels}」訂製。已加入的「{tab}」參考仍可生圖，但廠商可能無法製造。');
+        }
+        return tpl.replace(/\{title\}/g, title).replace(/\{levels\}/g, levels).replace(/\{tab\}/g, tab);
+    }
+
+    function refSlotHasCustomizationContent(slotKey) {
+        var g = refSlots[slotKey];
+        if (!g) return false;
+        if (g.items && g.items.length) return true;
+        return !!((g.addon || '').trim());
+    }
+
+    function notifyUnsupportedRefSlotOnAdd(slotKey) {
+        if (!slotKey || slotKey === 'prototype' || isRefSlotSupportedByPrototypeLock(slotKey)) return;
+        if (unsupportedRefSlotWarned[slotKey]) return;
+        var msg = getUnsupportedRefSlotWarningText(slotKey, 'alert');
+        if (!msg) return;
+        unsupportedRefSlotWarned[slotKey] = true;
+        alert(msg);
+    }
+
+    function collectUnsupportedRefSlotWarnings() {
+        var lines = [];
+        REF_INTENT_SLOTS.forEach(function (def) {
+            if (def.key === 'prototype') return;
+            if (!refSlotHasCustomizationContent(def.key)) return;
+            if (isRefSlotSupportedByPrototypeLock(def.key)) return;
+            var line = getUnsupportedRefSlotWarningText(def.key, 'generate');
+            if (line) lines.push(line);
+        });
+        return lines;
+    }
+
+    function alertUnsupportedRefScopeBeforeGenerate() {
+        var lines = collectUnsupportedRefSlotWarnings();
+        if (!lines.length) return;
+        var tpl = tr('customProduct.refSlotUnsupportedGenerateWarn',
+            '以下參考涉及廠商未開放的訂製項目（仍可繼續生圖）：\n\n{list}\n\n下單前請向廠商確認能否製造。');
+        alert(tpl.replace('{list}', lines.join('\n')));
+    }
+
+    function updateVendorPickerUnsupportedScopeHint() {
+        var $hint = $('#vendorAssetsPickerUnsupportedScopeHint');
+        if (!$hint.length) return;
+        var slot = null;
+        try { slot = window.__refImportTargetSlot; } catch (e) { slot = null; }
+        if (!slot || slot === 'prototype' || isRefSlotSupportedByPrototypeLock(slot)) {
+            $hint.addClass('d-none').empty();
+            return;
+        }
+        var msg = getUnsupportedRefSlotWarningText(slot, 'picker');
+        if (!msg) {
+            $hint.addClass('d-none').empty();
+            return;
+        }
+        $hint.removeClass('d-none').text(msg);
+    }
+
+    function validatePrototypeSlotAdd(source) {
+        var g = refSlots.prototype;
+        if (!g || !g.items || !g.items.length) return true;
+        var lock = getPrototypeLockVendorAssetId();
+        var vid = source && source.vendor_asset_id ? String(source.vendor_asset_id).trim() : '';
+        if (lock) {
+            if (vid && vid !== lock) {
+                var title = (g.items[0].source && g.items[0].source.title) || '';
+                var tpl = tr('customProduct.prototypeLockDifferentAsset',
+                    '原型已鎖定為「{title}」，無法加入其他數位原型。請先清空「原型」類別後再換。');
+                alert(tpl.replace('{title}', title || tr('customProduct.refSlotPrototypeTab', '原型')));
+                return false;
+            }
+            return true;
+        }
+        if (vid) {
+            alert(tr('customProduct.prototypeNeedVendorFirst',
+                '原型已使用本機上傳的圖片。若要使用廠商數位原型，請先清空「原型」類別，再從素材庫選擇。'));
+            return false;
+        }
+        return true;
+    }
+
+    function filterPrototypeVendorImageItems(imageItems) {
+        var existing = {};
+        (refSlots.prototype.items || []).forEach(function (it) {
+            var u = ((it.source && it.source.image_url) || it.url || '').trim();
+            if (u) existing[u] = true;
+        });
+        return (imageItems || []).filter(function (it) {
+            var u = (it.url || '').trim();
+            return u && !existing[u];
+        });
+    }
+
     function clearRefSlot(key) {
         if (!refSlots[key]) return;
         refSlots[key] = emptyRefSlotGroup();
+        try { delete unsupportedRefSlotWarned[key]; } catch (e) { /* ignore */ }
     }
 
     function addRefImageToSlot(key, url, source) {
         if (!refSlots[key] || !url) return false;
         if (!canAddMoreRefImages(key, 1)) return false;
+        if (key === 'prototype' && !validatePrototypeSlotAdd(source || {})) return false;
         var def = getRefSlotDef(key);
         refSlots[key].items.push({
             url: url,
             note: '',
             source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {})
         });
+        if (key !== 'prototype') notifyUnsupportedRefSlotOnAdd(key);
         return true;
     }
 
@@ -430,7 +602,35 @@ $(document).ready(function () {
         var canAdd = canAddMoreRefImages(def.key, 1);
         var slotKey = def.key;
         var $panel = $('<div class="ref-intent-panel"></div>').attr('data-ref-panel', slotKey);
-        $panel.append($('<div class="ref-intent-hint"></div>').attr('data-i18n', def.hintKey).text(tr(def.hintKey, def.hintFb)));
+        var hintText = tr(def.hintKey, def.hintFb);
+        if (def.key === 'prototype' && items.length && !hasVendorPrototypeLock()) {
+            hintText = tr('customProduct.refPrototypeLocalHint',
+                '目前為本機圖片，無廠商訂製範圍。請清空後從素材庫選擇數位原型以顯示可訂製項目。');
+        }
+        $panel.append($('<div class="ref-intent-hint"></div>').attr('data-i18n', def.key === 'prototype' && items.length && !hasVendorPrototypeLock() ? 'customProduct.refPrototypeLocalHint' : def.hintKey).text(hintText));
+        if (def.key === 'prototype') {
+            var anchor = getPrototypeAnchorSource();
+            if (anchor) {
+                var $scope = $('<div class="ref-intent-scope-block"></div>');
+                var scopeTitle = (anchor.title || '').trim();
+                if (scopeTitle) {
+                    $scope.append($('<div class="ref-intent-scope-title"></div>').text(scopeTitle));
+                }
+                $scope.append($(buildPrototypeCustomizationBadgesHtml(anchor)));
+                $scope.append($('<p class="ref-intent-scope-note"></p>')
+                    .attr('data-i18n', 'customProduct.refPrototypeScopePanelNote')
+                    .text(tr('customProduct.refPrototypeScopePanelNote',
+                        '綠色＝廠商已開放的訂製項目；灰色＝廠商未開放，仍可當參考，下單前請向廠商確認能否製造。')));
+                $panel.append($scope);
+            }
+        }
+        if (def.key !== 'prototype' && hasVendorPrototypeLock() && !isRefSlotSupportedByPrototypeLock(def.key)) {
+            var scopeVariant = refSlotHasCustomizationContent(def.key) ? 'active' : 'muted';
+            var scopeMsg = getUnsupportedRefSlotWarningText(def.key, scopeVariant);
+            if (scopeMsg) {
+                $panel.append($('<div class="ref-intent-unsupported-scope alert alert-warning py-2 px-2 small mb-2" role="status"></div>').text(scopeMsg));
+            }
+        }
         var $thumbs = $('<div class="ref-intent-thumbs"></div>');
         items.forEach(function (item, ii) {
             var capText = refIntentThumbCaption(item, ii);
@@ -514,13 +714,22 @@ $(document).ready(function () {
         var $wrap = $('<div class="ref-intent-tabs-wrap"></div>');
         var $navRow = $('<div class="ref-intent-tabs-nav"></div>');
         var $scroll = $('<div class="ref-intent-tabs-scroll" role="tablist"></div>');
+        var vendorLock = hasVendorPrototypeLock();
         REF_INTENT_SLOTS.forEach(function (def) {
             var n = countSlotRefImages(def.key);
             var isActive = def.key === activeDef.key;
+            var scopeOn = isRefTabScopeHighlighted(def.key);
             var $btn = $('<button type="button" class="ref-intent-tab-btn" role="tab"></button>')
                 .attr('data-ref-tab', def.key)
                 .attr('aria-selected', isActive ? 'true' : 'false')
                 .toggleClass('active', isActive);
+            if (def.key === 'prototype') {
+                $btn.toggleClass('ref-intent-tab-btn--anchor', vendorLock);
+                $btn.toggleClass('ref-intent-tab-btn--scope-off', !vendorLock && !isActive);
+            } else {
+                $btn.toggleClass('ref-intent-tab-btn--scope-on', vendorLock && scopeOn && !isActive);
+                $btn.toggleClass('ref-intent-tab-btn--scope-off', vendorLock && !scopeOn && !isActive);
+            }
             var tabText = refIntentTabLabel(def);
             $btn.attr('title', tr(def.titleKey, def.titleFb));
             $btn.append($('<span class="ref-intent-tab-label"></span>').attr('data-i18n', def.tabKey).text(tabText));
@@ -542,7 +751,6 @@ $(document).ready(function () {
 
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         updateMultiVendorRefWarning();
-        updateRefPrototypeScopeHint();
     }
     window.__renderIntentSlots = renderIntentSlots;
 
@@ -565,8 +773,8 @@ $(document).ready(function () {
             var lbl = customizationLevelLabel(def.key).replace(/</g, '&lt;').replace(/>/g, '&gt;');
             var isSup = !!supportedSet[def.key];
             var title = isSup
-                ? tr('customProduct.vendorCustomBadgeSupportedTitle', '此原型支援此訂製程度')
-                : tr('customProduct.vendorCustomBadgeUnsupportedTitle', '此原型未支援；仍可加入參考，生圖可能無法製造');
+                ? tr('customProduct.vendorCustomBadgeSupportedTitle', '廠商在此數位原型已開放此訂製')
+                : tr('customProduct.vendorCustomBadgeUnsupportedTitle', '廠商未在此數位原型開放此訂製；仍可當參考，不阻擋上傳');
             html += '<span class="badge vendor-custom-badge ' + (isSup ? 'vendor-custom-badge--supported' : 'vendor-custom-badge--unsupported') +
                 '" title="' + title.replace(/"/g, '&quot;') + '">' + lbl + '</span>';
         });
@@ -574,37 +782,45 @@ $(document).ready(function () {
         return html;
     }
 
-    function updateRefPrototypeScopeHint() {
-        var $el = $('#refPrototypeScopeHint');
-        if (!$el.length) return;
-        var protos = [];
-        var g = refSlots.prototype;
-        if (g && g.items) {
-            g.items.forEach(function (item) {
-                if (!item || !item.source) return;
-                var levels = parseCustomizationLevelsClient(item.source.customization_levels);
-                if (!levels.length) return;
-                var title = (item.source.title || '').trim() || refIntentThumbCaption(item, 0);
-                protos.push({ title: title, levels: levels });
-            });
-        }
-        if (!protos.length) {
-            $el.addClass('d-none').empty();
+    function updateVendorPickerPrototypeLockHint() {
+        var $hint = $('#vendorAssetsPickerPrototypeLockHint');
+        if (!$hint.length) return;
+        var slot = null;
+        try { slot = window.__refImportTargetSlot; } catch (e) { slot = null; }
+        if (slot !== 'prototype') {
+            $hint.addClass('d-none').empty();
             return;
         }
-        var supportedUnion = {};
-        protos.forEach(function (p) {
-            p.levels.forEach(function (k) { supportedUnion[k] = true; });
+        var lock = getPrototypeLockVendorAssetId();
+        if (!lock) {
+            $hint.addClass('d-none').empty();
+            return;
+        }
+        var anchor = getPrototypeAnchorSource();
+        var title = anchor && anchor.title ? String(anchor.title).trim() : '';
+        var tpl = tr('customProduct.vendorPickerPrototypeLockHint',
+            '已鎖定原型「{title}」，僅可再加入同一數位原型的其他角度。若要換原型，請先清空設計頁的「原型」類別。');
+        $hint.removeClass('d-none').text(tpl.replace('{title}', title || '—'));
+    }
+
+    function applyPrototypeLockToVendorPickerCards($list) {
+        var slot = null;
+        try { slot = window.__refImportTargetSlot; } catch (e) { slot = null; }
+        if (slot !== 'prototype') {
+            $list.find('.vendor-asset-card').removeClass('vendor-asset-card--prototype-locked-out');
+            return;
+        }
+        var lock = getPrototypeLockVendorAssetId();
+        if (!lock) {
+            $list.find('.vendor-asset-card').removeClass('vendor-asset-card--prototype-locked-out');
+            return;
+        }
+        $list.find('.vendor-asset-card').each(function () {
+            var $c = $(this);
+            var id = ($c.attr('data-vendor-asset-id') || '').trim();
+            var kind = ($c.attr('data-asset-kind') || '').trim();
+            $c.toggleClass('vendor-asset-card--prototype-locked-out', kind !== 'prototype' || id !== lock);
         });
-        var supportedLabels = CUSTOMIZATION_LEVEL_DEFS.filter(function (d) { return supportedUnion[d.key]; })
-            .map(function (d) { return customizationLevelLabel(d.key); });
-        var unsupportedLabels = CUSTOMIZATION_LEVEL_DEFS.filter(function (d) { return !supportedUnion[d.key]; })
-            .map(function (d) { return customizationLevelLabel(d.key); });
-        var tpl = tr('customProduct.refPrototypeScopeHint',
-            '已選原型訂製範圍（綠色標籤）：{supported}。未支援項目（灰標）仍可參考：{unsupported}。超出範圍可能無法製造。');
-        $el.removeClass('d-none').text(tpl
-            .replace('{supported}', supportedLabels.join('、') || '—')
-            .replace('{unsupported}', unsupportedLabels.join('、') || '—'));
     }
 
     function openCategoryVendorPicker(slotKey) {
@@ -640,6 +856,8 @@ $(document).ready(function () {
         } catch (e) {}
         fillVendorServiceAreaSelect().then(function () {
             updateVendorPickerMultiVendorHint();
+            updateVendorPickerPrototypeLockHint();
+            updateVendorPickerUnsupportedScopeHint();
             loadVendorAssetsPickerList();
         });
     }
@@ -701,6 +919,14 @@ $(document).ready(function () {
         });
         $(document).on('input', '#refIntentSlots .ref-thumb-note', function () {
             syncRefSlotItemNotesFromDom();
+        });
+        $(document).on('blur', '#refIntentSlots .ref-slot-addon', function () {
+            var slotKey = ($(this).attr('data-ref-slot') || '').trim();
+            if (!slotKey || !getRefSlotDef(slotKey)) return;
+            syncRefSlotsFromDom();
+            if (!$(this).val().trim()) return;
+            notifyUnsupportedRefSlotOnAdd(slotKey);
+            renderIntentSlots();
         });
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(initRefIntentUi);
@@ -1517,6 +1743,31 @@ $(document).ready(function () {
         try { window.__refImportTargetSlot = null; } catch (e2) {}
         if (!targetKey || !getRefSlotDef(targetKey)) targetKey = intentKeyFromAssetKind(assetKind);
 
+        if (targetKey === 'prototype') {
+            var pickAssetId = ($c.attr('data-vendor-asset-id') || '').trim();
+            var lock = getPrototypeLockVendorAssetId();
+            if (lock && pickAssetId && pickAssetId !== lock) {
+                alert(tr('customProduct.prototypeLockDifferentAssetPicker',
+                    '原型已鎖定，無法選擇其他數位原型。請先清空設計頁「原型」類別，或點選已鎖定的同一素材以加入其他角度。'));
+                return;
+            }
+            if (!lock && countSlotRefImages('prototype') > 0) {
+                alert(tr('customProduct.prototypeNeedVendorFirst',
+                    '原型已使用本機上傳的圖片。若要使用廠商數位原型，請先清空「原型」類別，再從素材庫選擇。'));
+                return;
+            }
+            if (assetKind !== 'prototype') {
+                alert(tr('customProduct.prototypeVendorKindOnly',
+                    '「原型」類別僅能加入數位原型素材。'));
+                return;
+            }
+            imageItems = filterPrototypeVendorImageItems(imageItems);
+            if (!imageItems.length) {
+                alert(tr('customProduct.prototypeAnglesAlreadyAdded', '此原型的角度圖已全部加入。'));
+                return;
+            }
+        }
+
         var cap = vendorImportCapacity(targetKey);
         if (cap.maxAdd <= 0) {
             alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
@@ -1706,6 +1957,11 @@ $(document).ready(function () {
             var sel = window.getSelection && window.getSelection();
             if (sel && sel.toString && sel.toString().trim()) return;
             var $c = $(this).closest('.vendor-asset-card');
+            if ($c.hasClass('vendor-asset-card--prototype-locked-out')) {
+                alert(tr('customProduct.prototypeLockDifferentAssetPicker',
+                    '原型已鎖定，無法選擇其他數位原型。請先清空設計頁「原型」類別，或點選已鎖定的同一素材以加入其他角度。'));
+                return;
+            }
             startVendorAssetImport($c, modalEl);
         });
     }
@@ -1812,6 +2068,9 @@ $(document).ready(function () {
             $list.removeClass('d-none');
             items.forEach(function (item) { $list.append(buildVendorAssetCardHtml(item)); });
             bindVendorAssetCardClicks($list, modalEl);
+            applyPrototypeLockToVendorPickerCards($list);
+            updateVendorPickerPrototypeLockHint();
+            updateVendorPickerUnsupportedScopeHint();
         }).catch(function () {
             $loading.addClass('d-none');
             $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
@@ -1931,6 +2190,7 @@ $(document).ready(function () {
             isGenerateInProgress = false;
             return;
         }
+        alertUnsupportedRefScopeBeforeGenerate();
 
         const btn = $(this);
         const originalText = btn.html();
