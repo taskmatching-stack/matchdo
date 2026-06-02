@@ -25,6 +25,8 @@
         .edit-gallery-thumb-wrap { position: relative; }
         .edit-gallery-thumb-wrap .badge-cover { position: absolute; top: 4px; left: 4px; z-index: 1; font-size: 0.65rem; }
         .edit-gallery-thumb-wrap .btn-gallery-del { position: absolute; top: 4px; right: 4px; z-index: 1; width: 1.5rem; height: 1.5rem; padding: 0; line-height: 1; }
+        .edit-gallery-thumb-wrap .edit-gallery-thumb-actions { position: absolute; bottom: 4px; left: 4px; right: 4px; z-index: 1; display: flex; justify-content: center; }
+        .edit-gallery-thumb-wrap .btn-gallery-redraw { font-size: 0.65rem; padding: 0.15rem 0.4rem; line-height: 1.2; opacity: 0.95; }
         .edit-gallery-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; cursor: zoom-in; border-radius: 6px; }
         .pending-image-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 8px; background: #fafbfc; }
         .pending-image-card.is-cover { border-color: #0d6efd; box-shadow: 0 0 0 1px #0d6efd33; }
@@ -439,7 +441,7 @@
                                 <input class="form-check-input" type="checkbox" id="edit-gallery-optimize-next">
                                 <label class="form-check-label small" for="edit-gallery-optimize-next">本批新圖 AI 重繪（會扣點）</label>
                             </div>
-                            <div id="edit-gallery-optimize-bg-wrap" class="add-optimize-bg-wrap d-none mb-2">
+                            <div id="edit-gallery-optimize-bg-wrap" class="add-optimize-bg-wrap mb-2">
                                 <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
                                     <select class="form-select form-select-sm" id="edit-gallery-optimize-bg" style="max-width:11rem">
@@ -458,7 +460,8 @@
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
                             </div>
-                            <p class="form-text text-muted small mb-2">選檔後<strong>立即上傳</strong>並顯示在上方（第一張為封面）。可逐張按「新增角度圖」，或按「一次選多張」。更換封面請用下方「更換封面」。</p>
+                            <p class="form-text text-muted small mb-1">點縮圖下方「AI 重繪」可<strong>單張</strong>重繪（每張 <span id="edit-gallery-redraw-points">5</span> 點），新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
+                            <p class="form-text text-muted small mb-2">更換封面請用下方「更換封面」。</p>
                             <p id="edit-gallery-build-hint" class="form-text text-muted mb-0" style="font-size:0.7rem;opacity:0.65"></p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
                             <input type="file" class="form-control" id="edit-image-prototype" accept="image/*">
@@ -948,9 +951,16 @@
             }
         }
 
+        function getEditGalleryRedrawPoints() {
+            return uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
+        }
+
         function renderEditGallery(m) {
             var grid = document.getElementById('edit-gallery-grid');
             if (!grid) return;
+            var redrawPts = getEditGalleryRedrawPoints();
+            var redrawPtsEl = document.getElementById('edit-gallery-redraw-points');
+            if (redrawPtsEl) redrawPtsEl.textContent = String(redrawPts);
             var urls = assetImageUrls(m);
             if (!urls.length) {
                 grid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">—</p></div>';
@@ -961,11 +971,105 @@
                     (idx === 0 ? '<span class="badge bg-primary badge-cover">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '') +
                     '<img src="' + esc(url) + '" class="edit-gallery-thumb matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">' +
                     (idx > 0 ? '<button type="button" class="btn btn-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '" title="' + esc(tr('baseModels.removeImage', '移除')) + '">&times;</button>' : '') +
+                    '<div class="edit-gallery-thumb-actions"><button type="button" class="btn btn-light btn-sm btn-gallery-redraw" data-url="' + esc(url) + '">AI 重繪 ' + redrawPts + '點</button></div>' +
                     '</div></div>';
             }).join('');
             grid.querySelectorAll('.btn-gallery-del').forEach(function (btn) {
-                btn.addEventListener('click', function () { removeGalleryImage(btn.getAttribute('data-url')); });
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    removeGalleryImage(btn.getAttribute('data-url'));
+                });
             });
+            grid.querySelectorAll('.btn-gallery-redraw').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    redrawGalleryImage(btn.getAttribute('data-url'));
+                });
+            });
+        }
+
+        async function redrawGalleryImage(sourceUrl) {
+            var id = document.getElementById('edit-id').value;
+            if (!id || !sourceUrl) return;
+            if (editGalleryUploading) {
+                setEditGalleryStatus('上一批仍在傳送中，請稍候', 'warning');
+                return;
+            }
+            var pts = getEditGalleryRedrawPoints();
+            if (!window.confirm('以此圖 AI 重繪並追加為新角度圖？（-' + pts + ' 點，原圖保留）')) return;
+            editGalleryUploading = true;
+            gridDisableEditGalleryActions(true);
+            setEditGalleryStatus('AI 重繪中…', 'info');
+            try {
+                var tok = token || (await getToken());
+                if (!tok) {
+                    setEditGalleryStatus('請先登入', 'danger');
+                    return;
+                }
+                var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
+                var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/redraw', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        source_url: sourceUrl,
+                        optimize_background: getEditGalleryOptimizeBackground()
+                    })
+                });
+                var rawBody = await r.text();
+                var data = {};
+                try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (parseErr) { data = {}; }
+                if (r.status === 402) {
+                    var msg402 = (data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')';
+                    setEditGalleryStatus(msg402, 'danger');
+                    showToast(msg402, 'danger');
+                    return;
+                }
+                if (!r.ok) {
+                    var errMsg = data.error || data.message || ('重繪失敗 (HTTP ' + r.status + ')');
+                    setEditGalleryStatus(errMsg, 'danger');
+                    showToast(errMsg, 'danger');
+                    return;
+                }
+                var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+                if (idx >= 0) materialsAll[idx] = data;
+                renderEditGallery(data);
+                var urlCount = assetImageUrls(data).length;
+                if (urlCount <= countBefore) {
+                    setEditGalleryStatus('重繪完成但未新增圖片，可能已達上限', 'warning');
+                    return;
+                }
+                var okMsg = '已追加 AI 重繪圖（共 ' + urlCount + ' 張）';
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                setEditGalleryStatus(okMsg, 'success');
+                showToast(okMsg);
+                await loadMaterials();
+                var refreshed = materialsAll.find(function (x) { return x.id === id; });
+                if (refreshed) renderEditGallery(refreshed);
+            } catch (err) {
+                setEditGalleryStatus(err.message || '重繪失敗', 'danger');
+                showToast(err.message, 'danger');
+            } finally {
+                editGalleryUploading = false;
+                gridDisableEditGalleryActions(false);
+            }
+        }
+
+        function gridDisableEditGalleryActions(disabled) {
+            var inputOne = document.getElementById('edit-add-gallery-input-one');
+            var inputMulti = document.getElementById('edit-add-gallery-input-multi');
+            var btnAdd = document.getElementById('btn-edit-add-gallery');
+            var btnMulti = document.getElementById('btn-edit-add-gallery-multi');
+            if (inputOne) inputOne.disabled = disabled;
+            if (inputMulti) inputMulti.disabled = disabled;
+            if (btnAdd) btnAdd.disabled = disabled;
+            if (btnMulti) btnMulti.disabled = disabled;
+            var grid = document.getElementById('edit-gallery-grid');
+            if (grid) {
+                grid.querySelectorAll('.btn-gallery-redraw, .btn-gallery-del').forEach(function (btn) {
+                    btn.disabled = disabled;
+                });
+            }
         }
 
         async function removeGalleryImage(url) {
@@ -989,10 +1093,9 @@
         }
 
         function syncEditGalleryOptimizeBgWrap() {
-            var chk = document.getElementById('edit-gallery-optimize-next');
-            var wrap = document.getElementById('edit-gallery-optimize-bg-wrap');
-            if (!wrap) return;
-            wrap.classList.toggle('d-none', !(chk && chk.checked));
+            var sel = document.getElementById('edit-gallery-optimize-bg');
+            var custom = document.getElementById('edit-gallery-optimize-bg-custom');
+            if (custom && sel) custom.classList.toggle('d-none', sel.value !== 'custom');
         }
 
         function getEditGalleryOptimizeBackground() {
@@ -1037,14 +1140,7 @@
             var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
             var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
             editGalleryUploading = true;
-            var inputOne = document.getElementById('edit-add-gallery-input-one');
-            var inputMulti = document.getElementById('edit-add-gallery-input-multi');
-            var btnAdd = document.getElementById('btn-edit-add-gallery');
-            var btnMulti = document.getElementById('btn-edit-add-gallery-multi');
-            if (inputOne) inputOne.disabled = true;
-            if (inputMulti) inputMulti.disabled = true;
-            if (btnAdd) btnAdd.disabled = true;
-            if (btnMulti) btnMulti.disabled = true;
+            gridDisableEditGalleryActions(true);
             var fd = new FormData();
             var optimizeNext = document.getElementById('edit-gallery-optimize-next');
             var wantOpt = !!(optimizeNext && optimizeNext.checked);
@@ -1113,10 +1209,7 @@
                 return false;
             } finally {
                 editGalleryUploading = false;
-                if (inputOne) inputOne.disabled = false;
-                if (inputMulti) inputMulti.disabled = false;
-                if (btnAdd) btnAdd.disabled = false;
-                if (btnMulti) btnMulti.disabled = false;
+                gridDisableEditGalleryActions(false);
             }
         }
 

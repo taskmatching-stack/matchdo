@@ -12932,6 +12932,112 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
     }
 });
 
+// POST /api/me/vendor-assets/:id/gallery-images/redraw — 依現有圖 URL 單張 AI 重繪，結果追加為新角度圖（不取代原圖）
+app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const id = (req.params.id || '').trim();
+        const sourceUrl = String((req.body && req.body.source_url) || '').trim();
+        if (!sourceUrl) return res.status(400).json({ error: '請提供 source_url' });
+        const optimizeBackground = (req.body && (req.body.optimize_background || req.body.background_color)) || '';
+        const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title'
+        );
+        if (rowErr) return res.status(500).json({ error: '查詢失敗' });
+        if (!row) return res.status(404).json({ error: '找不到該素材' });
+        const assetKind = normalizeVendorAssetKind(row.asset_kind);
+        if (assetKind !== 'prototype' && assetKind !== 'part') {
+            return res.status(400).json({ error: '僅數位原型或配件／零件可重繪多角度圖' });
+        }
+        const allUrls = getVendorAssetAllImageUrls(row);
+        if (allUrls.indexOf(sourceUrl) < 0) {
+            return res.status(400).json({ error: '來源圖片不屬於此素材' });
+        }
+        const existing = parseGalleryImages(row.gallery_images);
+        const totalNow = allUrls.length;
+        const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
+        if (room <= 0) {
+            return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+        }
+        const pointsRequired = await getPointsVendorAssetOptimizeExtraPer();
+        let ownerId = seedUser.id;
+        let isAdmin = false;
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+        isAdmin = profile?.role === 'admin';
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        const resImg = await fetch(sourceUrl, { redirect: 'follow' });
+        if (!resImg.ok) return res.status(503).json({ error: '無法讀取來源圖片' });
+        const imgBuf = Buffer.from(await resImg.arrayBuffer());
+        const imgMime = (resImg.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+        let file = await normalizeVendorUploadFile({
+            buffer: imgBuf,
+            mimetype: imgMime,
+            originalname: 'redraw-source.jpg'
+        });
+        if (!file) return res.status(400).json({ error: '無法讀取圖片，請改用 JPG／PNG／WebP' });
+        const titleForPrompt = (row.title || '').trim() || null;
+        try {
+            file = await maybeOptimizeVendorAssetMulterFile(
+                file, titleForPrompt, assetKind, null, optimizeBackground
+            );
+        } catch (optErr) {
+            console.error('gallery-images/redraw optimize:', optErr);
+            const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
+            return res.status(mapped.status).json(mapped.body);
+        }
+        const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
+        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort);
+        if (!newEntries.length) {
+            return res.status(500).json({ error: '上傳重繪結果失敗' });
+        }
+        const merged = existing.concat(newEntries);
+        const { data: updated, error } = await supabase.from('vendor_assets')
+            .update({ gallery_images: merged, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('manufacturer_id', manufacturerId)
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .single();
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-gallery-images.sql 新增多角度圖欄位' });
+            }
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        let balanceAfter = null;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'vendor_asset_optimize',
+                `單張多角度圖 AI 重繪（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, asset_id: id, source_url: sourceUrl }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
+            }
+            balanceAfter = consumed.balance_after;
+        }
+        res.json({
+            ...mapVendorAssetForApi(updated),
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter,
+            redraw_from_url: sourceUrl
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/:id/gallery-images/redraw:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // POST /api/me/vendor-assets/:id/gallery-images — 數位原型／零件新增多角度圖（可選每張 AI 重繪）
 app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROTOTYPE_GALLERY_MAX_EXTRA), async (req, res) => {
     try {
