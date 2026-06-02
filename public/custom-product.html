@@ -609,35 +609,42 @@
         #custom-product #refIntentSlots {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.5rem;
+            gap: 0.35rem;
             width: 100%;
         }
         #custom-product .ref-intent-slot { min-width: 0; }
         #custom-product .ref-intent-card {
             border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 0.5rem 0.55rem;
+            border-radius: 8px;
+            padding: 0.35rem 0.4rem 0.4rem;
             height: 100%;
             background: #fff;
-            border-top: 3px solid #445D7E;
-            box-shadow: 0 1px 2px rgba(68, 93, 126, 0.06);
+            border-left: 3px solid #445D7E;
+            box-shadow: none;
         }
-        #custom-product .ref-intent-title { color: #445D7E; line-height: 1.3; font-size: 0.8125rem; }
-        #custom-product .ref-intent-hint { font-size: 0.68rem; line-height: 1.3; color: #64748b; min-height: 0; margin-bottom: 0.15rem; }
-        #custom-product .ref-intent-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.3rem;
-            margin-top: 0.35rem;
-        }
-        #custom-product .ref-intent-btn {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.35rem;
-            line-height: 1.25;
-            border-radius: 6px;
+        #custom-product .ref-intent-title {
+            color: #445D7E;
+            line-height: 1.2;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        #custom-product .ref-intent-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            margin-top: 0.25rem;
+        }
+        #custom-product .ref-intent-btn {
+            flex: 1 1 auto;
+            font-size: 0.68rem;
+            padding: 0.15rem 0.3rem;
+            line-height: 1.2;
+            border-radius: 5px;
+            min-width: 0;
         }
         #custom-product .ref-intent-btn--lib {
             color: #445D7E;
@@ -651,22 +658,34 @@
             background: #f8fafc;
         }
         #custom-product .ref-intent-btn--up:hover { background: #f1f5f9; border-color: #94a3b8; }
-        #custom-product .ref-slot-addon { font-size: 0.75rem; margin-top: 0.35rem; }
-        #custom-product .ref-intent-preview {
+        #custom-product .ref-slot-addon { font-size: 0.7rem; margin-top: 0.25rem; padding: 0.2rem 0.35rem; }
+        #custom-product .ref-intent-preview,
+        #custom-product .ref-intent-picker {
             position: relative;
-            aspect-ratio: 1;
-            border-radius: 8px;
-            border: 2px dashed #cbd5e1;
-            background: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: center;
+            height: 44px;
+            border-radius: 6px;
+            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
             overflow: hidden;
-            margin: 0.25rem 0;
+            margin: 0;
         }
-        #custom-product .ref-intent-preview.has-image { border-style: solid; border-color: #e5e7eb; }
+        #custom-product .ref-intent-picker { cursor: pointer; margin: 0; }
+        #custom-product .ref-intent-picker:hover { border-color: #445D7E; background: #f0f4f8; }
+        #custom-product .ref-intent-file {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+        #custom-product .ref-intent-preview.has-image { border-style: solid; border-color: #e5e7eb; height: 44px; }
         #custom-product .ref-intent-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        #custom-product .ref-intent-empty { color: #94a3b8; font-size: 1.25rem; }
+        #custom-product .ref-intent-empty { color: #94a3b8; font-size: 0.95rem; pointer-events: none; }
         #custom-product .ref-intent-clear {
             position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
             border: none; background: rgba(0,0,0,.55); color: #fff; border-radius: 4px;
@@ -822,12 +841,11 @@
 
                             <div class="form-row full">
                                 <span class="label mb-1 d-block" data-i18n="customProduct.refImages">參考圖（依用途上傳）</span>
-                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">選插槽上傳或從素材庫選；可全不打字。有圖 20 點。</p>
+                                <p class="form-text text-muted small mb-1" id="refSourceHint" data-i18n="customProduct.refSourceHint">點虛線框上傳，或素材庫；可不打字。有圖 20 點。</p>
                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none mb-2" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
                                 <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
-                                <div id="refIntentSlots" class="mb-2"></div>
-                                <input type="file" id="referenceImageFile" accept="image/*" class="file-input-hidden">
+                                <div id="refIntentSlots" class="mb-1"></div>
                                 <div id="promptQuickGuide" class="prompt-quick-guide mt-2 mb-2 d-none" hidden>
                                     <div class="d-flex flex-wrap gap-1 align-items-center">
                                         <button type="button" class="btn btn-outline-primary btn-sm" id="btnApplyPromptSuggest" data-i18n="customProduct.promptApplySuggest">不寫字，直接生</button>
@@ -1046,7 +1064,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=25" defer></script>
+    <script src="js/custom-product.js?v=26" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

@@ -158,7 +158,6 @@ $(document).ready(function () {
         part: { url: null, source: null, addon: '' },
         pattern: { url: null, source: null, addon: '' }
     };
-    var refUploadTargetKey = null;
 
     var VENDOR_PICKER_PAGE_SIZE_KEY = 'matchdo.vendorPickerPageSize';
     var vendorPickerPageSize = 12;
@@ -352,6 +351,18 @@ $(document).ready(function () {
         updateVendorPickerMultiVendorHint();
     }
 
+    function readFileIntoRefSlot(slotKey, file) {
+        if (!file || !getRefSlotDef(slotKey)) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+            var def = getRefSlotDef(slotKey);
+            setRefSlot(slotKey, reader.result, { asset_kind: def.assetKind });
+            renderIntentSlots();
+        };
+        reader.onerror = function () { alert(tr('customProduct.loadFailed', '讀取圖片失敗')); };
+        reader.readAsDataURL(file);
+    }
+
     function renderIntentSlots() {
         var $root = $('#refIntentSlots');
         if (!$root.length) return;
@@ -361,18 +372,22 @@ $(document).ready(function () {
             var s = refSlots[def.key];
             var hasImg = !!(s && s.url);
             var $wrap = $('<div class="ref-intent-slot"></div>');
-            var $card = $('<div class="ref-intent-card"></div>');
-            $card.append($('<div class="ref-intent-title fw-semibold small"></div>')
+            var $card = $('<div class="ref-intent-card"></div>')
+                .attr('title', tr(def.hintKey, def.hintFb));
+            $card.append($('<div class="ref-intent-title"></div>')
                 .attr('data-i18n', def.titleKey)
                 .text(tr(def.titleKey, def.titleFb)));
-            $card.append($('<div class="ref-intent-hint text-muted small"></div>')
-                .attr('data-i18n', def.hintKey)
-                .text(tr(def.hintKey, def.hintFb)));
-            var $preview = $('<div class="ref-intent-preview" role="button" tabindex="0"></div>').toggleClass('has-image', hasImg);
+            var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
+            $fileIn.on('change', function (e) {
+                var f = e.target.files && e.target.files[0];
+                if (f) readFileIntoRefSlot(def.key, f);
+                e.target.value = '';
+            });
             if (hasImg) {
+                var $preview = $('<div class="ref-intent-preview has-image"></div>');
                 $preview.append($('<img class="ref-intent-img" alt="">').attr('src', s.url));
                 if (s.source && s.source.image_label) {
-                    $preview.append($('<span class="ref-intent-label small"></span>').text(s.source.image_label));
+                    $preview.append($('<span class="ref-intent-label"></span>').text(s.source.image_label));
                 }
                 $preview.append($('<button type="button" class="ref-intent-clear" title="移除" aria-label="移除">×</button>').on('click', function (e) {
                     e.stopPropagation();
@@ -383,28 +398,40 @@ $(document).ready(function () {
                     e.preventDefault();
                     openRefImagePreviewModal(def.key);
                 });
+                $card.append($preview);
             } else {
-                $preview.append($('<span class="ref-intent-empty"><i class="fas fa-plus"></i></span>'));
+                var $picker = $('<label class="ref-intent-preview ref-intent-picker"></label>');
+                $picker.append($fileIn);
+                $picker.append($('<span class="ref-intent-empty"><i class="fas fa-plus" aria-hidden="true"></i></span>'));
+                $card.append($picker);
             }
-            $card.append($preview);
             var $actions = $('<div class="ref-intent-actions"></div>');
             $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
                 .attr('data-i18n', 'customProduct.refSlotPickVendor')
                 .text(tr('customProduct.refSlotPickVendor', '素材庫'))
-                .on('click', function () { openVendorPickerForRefSlot(def.key); }));
-            $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
-                .attr('data-i18n', 'customProduct.refSlotUpload')
-                .text(tr('customProduct.refSlotUpload', '上傳'))
-                .on('click', function () {
-                    refUploadTargetKey = def.key;
-                    document.getElementById('referenceImageFile').click();
+                .on('click', function (e) {
+                    e.preventDefault();
+                    openVendorPickerForRefSlot(def.key);
                 }));
+            if (hasImg) {
+                $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
+                    .attr('data-i18n', 'customProduct.refSlotUpload')
+                    .text(tr('customProduct.refSlotReplace', '更換'))
+                    .on('click', function (e) {
+                        e.preventDefault();
+                        $fileIn.val('');
+                        $fileIn[0].click();
+                    }));
+                $card.append($fileIn);
+            }
             $card.append($actions);
-            $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
-                .attr('data-ref-slot', def.key)
-                .attr('data-i18n-placeholder', def.addonPhKey)
-                .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
-                .val((s && s.addon) || ''));
+            if (hasImg) {
+                $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
+                    .attr('data-ref-slot', def.key)
+                    .attr('data-i18n-placeholder', def.addonPhKey)
+                    .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
+                    .val((s && s.addon) || ''));
+            }
             $wrap.append($card);
             $root.append($wrap);
         });
@@ -487,27 +514,6 @@ $(document).ready(function () {
         } else {
             initRefIntentUi();
         }
-    });
-
-    $('#referenceImageFile').change(async function (e) {
-        var file = e.target.files && e.target.files[0];
-        if (!file || !refUploadTargetKey) return;
-        var key = refUploadTargetKey;
-        refUploadTargetKey = null;
-        try {
-            var dataUrl = await new Promise(function (resolve, reject) {
-                var r = new FileReader();
-                r.onload = function () { resolve(r.result); };
-                r.onerror = function () { reject(new Error('讀取失敗')); };
-                r.readAsDataURL(file);
-            });
-            var def = getRefSlotDef(key);
-            setRefSlot(key, dataUrl, { asset_kind: def ? def.assetKind : 'prototype' });
-            renderIntentSlots();
-        } catch (err) {
-            alert('讀取圖片失敗，請重試。');
-        }
-        e.target.value = '';
     });
 
     function resetVendorAssetFilters() {
