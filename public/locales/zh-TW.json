@@ -588,6 +588,7 @@
   "customProduct.selectCategoryFirstForVendorAssets": "請先選擇主分類，素材庫會依此分類載入。",
   "customProduct.refSourceHint": "點虛線框上傳，或素材庫；可不打字。有圖 20 點。",
   "customProduct.refSlotReplace": "更換",
+  "customProduct.refAiRoleNote": "生成時後端會依用途告知 AI（已選：{slots}）；各格下方可補充一句，上方描述可選。",
   "customProduct.refSlotPrototypeTitle": "主體原型",
   "customProduct.refSlotPrototypeHint": "幾何結構與尺寸",
   "customProduct.refSlotPrototypeAddonPh": "造型補充（選填）",

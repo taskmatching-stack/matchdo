@@ -74,7 +74,7 @@ $(document).ready(function () {
                         $(this).addClass('selected');
                         mainHidden.val(selectedKey);
                         updateSubList(selectedKey);
-                        updatePromptQuickGuide();
+                        updateRefIntentAiNote();
                     });
                 mainList.append(opt);
             });
@@ -99,7 +99,7 @@ $(document).ready(function () {
                         subList.find('.cat-option').removeClass('selected');
                         $(this).addClass('selected');
                         subHidden.val($(this).attr('data-key'));
-                        updatePromptQuickGuide();
+                        updateRefIntentAiNote();
                     });
                     subList.append(opt);
                 });
@@ -222,15 +222,6 @@ $(document).ready(function () {
         return t('customProduct.promptSuggestImg2imgMinimal');
     }
 
-    function getPromptQuickChipDefs() {
-        if (getRefKindCounts().total === 0) return [];
-        var defs = [{ key: 'customProduct.promptChipFront', fallback: '正面視角', target: 'main' }];
-        if (getRefKindCounts().prototype > 0) {
-            defs.push({ key: 'customProduct.promptChipSimpler', fallback: '輪廓更簡潔', target: 'prototype' });
-        }
-        return defs;
-    }
-
     function appendPromptFragment(fragment, target) {
         var frag = (fragment || '').trim();
         if (!frag) return;
@@ -249,53 +240,28 @@ $(document).ready(function () {
         syncRefSlotAddonsFromDom();
         var main = ($('#productPrompt').val() || '').trim();
         var addonLines = REF_INTENT_SLOTS.map(function (def) {
-            return (refSlots[def.key].addon || '').trim();
+            var a = (refSlots[def.key].addon || '').trim();
+            if (!a) return '';
+            return tr(def.titleKey, def.titleFb) + '：' + a;
         }).filter(Boolean);
         if (main && addonLines.length) return main + '\n' + addonLines.join('\n');
         if (main) return main;
-        if (addonLines.length) return addonLines.join('，') + '。';
+        if (addonLines.length) return addonLines.join('\n');
         if (getRefKindCounts().total > 0) return buildSuggestedPrompt();
         return '';
     }
 
-    function hasAnyPromptInput() {
-        return !!composeUserPromptForGenerate().trim();
-    }
-
-    function applyPromptSuggestion(mergeOnly) {
-        if (getRefKindCounts().total === 0) return;
-        var sug = buildSuggestedPrompt();
-        if (!sug) return;
-        var $ta = $('#productPrompt');
-        var cur = ($ta.val() || '').trim();
-        var hasAddon = REF_INTENT_SLOTS.some(function (d) { return (refSlots[d.key].addon || '').trim(); });
-        if (!cur && !hasAddon) $ta.val(sug);
-        else if (mergeOnly) appendPromptFragment(sug.replace(/[。.]\s*$/, ''), 'main');
-        else $ta.val(sug);
-        $ta.trigger('input');
-        updatePromptQuickGuide();
-    }
-
-    function updatePromptQuickGuide() {
-        var $guide = $('#promptQuickGuide');
-        var $chips = $('#promptQuickChips');
-        if (!$guide.length) return;
-        if (getRefKindCounts().total === 0) {
-            $guide.addClass('d-none').attr('hidden', 'hidden');
+    function updateRefIntentAiNote() {
+        var $n = $('#refIntentAiNote');
+        if (!$n.length) return;
+        var filled = REF_INTENT_SLOTS.filter(function (def) { return refSlots[def.key] && refSlots[def.key].url; });
+        if (!filled.length) {
+            $n.addClass('d-none').empty();
             return;
         }
-        $guide.removeClass('d-none').removeAttr('hidden');
-        if ($chips.length) {
-            $chips.empty();
-            getPromptQuickChipDefs().forEach(function (def) {
-                var text = t(def.key);
-                if (!text || text === def.key) text = def.fallback;
-                $('<button type="button" class="btn btn-outline-secondary btn-sm prompt-quick-chip"></button>')
-                    .text(text)
-                    .on('click', function () { appendPromptFragment(text, def.target || 'main'); })
-                    .appendTo($chips);
-            });
-        }
+        var names = filled.map(function (def) { return tr(def.titleKey, def.titleFb); }).join('、');
+        var tpl = tr('customProduct.refAiRoleNote', '生成時後端會依用途告知 AI（已選：{slots}），上方描述可選填。');
+        $n.removeClass('d-none').text(tpl.replace('{slots}', names));
     }
 
     function collectReferencePayload() {
@@ -377,6 +343,9 @@ $(document).ready(function () {
             $card.append($('<div class="ref-intent-title"></div>')
                 .attr('data-i18n', def.titleKey)
                 .text(tr(def.titleKey, def.titleFb)));
+            $card.append($('<div class="ref-intent-hint"></div>')
+                .attr('data-i18n', def.hintKey)
+                .text(tr(def.hintKey, def.hintFb)));
             var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
             $fileIn.on('change', function (e) {
                 var f = e.target.files && e.target.files[0];
@@ -394,7 +363,8 @@ $(document).ready(function () {
                     clearRefSlot(def.key);
                     renderIntentSlots();
                 }));
-                $preview.on('dblclick', function (e) {
+                $preview.on('click', function (e) {
+                    if ($(e.target).closest('.ref-intent-clear').length) return;
                     e.preventDefault();
                     openRefImagePreviewModal(def.key);
                 });
@@ -425,19 +395,17 @@ $(document).ready(function () {
                 $card.append($fileIn);
             }
             $card.append($actions);
-            if (hasImg) {
-                $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
-                    .attr('data-ref-slot', def.key)
-                    .attr('data-i18n-placeholder', def.addonPhKey)
-                    .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
-                    .val((s && s.addon) || ''));
-            }
+            $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
+                .attr('data-ref-slot', def.key)
+                .attr('data-i18n-placeholder', def.addonPhKey)
+                .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
+                .val((s && s.addon) || ''));
             $wrap.append($card);
             $root.append($wrap);
         });
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         updateMultiVendorRefWarning();
-        updatePromptQuickGuide();
+        updateRefIntentAiNote();
     }
     window.__renderIntentSlots = renderIntentSlots;
 
@@ -504,11 +472,7 @@ $(document).ready(function () {
     }
 
     $(function () {
-        $('#btnApplyPromptSuggest').on('click', function () {
-            applyPromptSuggestion(hasAnyPromptInput());
-        });
-        $('#productPrompt').on('input', updatePromptQuickGuide);
-        $(document).on('input', '#refIntentSlots .ref-slot-addon', updatePromptQuickGuide);
+        $(document).on('input', '#refIntentSlots .ref-slot-addon', updateRefIntentAiNote);
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(initRefIntentUi);
         } else {

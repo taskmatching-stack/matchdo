@@ -1041,6 +1041,41 @@ function buildMaterialTexturePromptAppendix(materialRefs, lang) {
     return header + lines.join('\n') + '\n' + footer;
 }
 
+/** 配件／圖樣（other）參考附錄：對應前端「配件／零件」「圖樣／風格」插槽 */
+function buildPartAndPatternPromptAppendix(orderedSources, lang) {
+    const list = Array.isArray(orderedSources) ? orderedSources : [];
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const lines = [];
+    list.forEach(function (s, idx) {
+        if (!s) return;
+        const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
+        if (kind !== 'part' && kind !== 'other') return;
+        const n = idx + 1;
+        const title = (s.title || '').trim();
+        if (kind === 'part') {
+            const label = title || (isEn ? 'Part / hardware' : '配件／零件');
+            lines.push(isEn
+                ? ('• Reference image #' + n + ' ("' + label + '"): zippers, buckles, hardware, straps, or trims only. Match these parts; do not override their look with text prompts.')
+                : ('• 參考圖第 ' + n + ' 張（「' + label + '」）：僅作五金、拉鍊、扣具、掛繩等配件；外觀以此圖為準，勿在文字裡改配件顏色或材質。'));
+        } else {
+            const label = title || (isEn ? 'Pattern / style' : '圖樣／風格');
+            lines.push(isEn
+                ? ('• Reference image #' + n + ' ("' + label + '"): print, pattern, or overall graphic style only—not product silhouette or dimensions.')
+                : ('• 參考圖第 ' + n + ' 張（「' + label + '」）：僅作印花、紋理或整體風格參考，不決定產品造型或尺寸。'));
+        }
+    });
+    if (!lines.length) return '';
+    const header = isEn
+        ? '\n\n[Parts / pattern references — same single prompt as above]\n'
+        + 'Follow the user description first. Additional rules for these reference images:\n'
+        : '\n\n【配件／圖樣參考 — 與上文同一組提示詞】\n'
+        + '請優先依前文使用者描述創作。以下為此類參考圖規則：\n';
+    const footer = isEn
+        ? 'Prototype references define shape; material references define body surface; parts and patterns follow the rules above.'
+        : '造型以原型參考為準；本體表面以材料參考為準；配件與圖樣依上列規則。';
+    return header + lines.join('\n') + '\n' + footer + '\n';
+}
+
 /** 參考圖順序：數位原型（造型）→ 材料樣板 → 其他；確保 input_image 為主體造型 */
 function reorderFluxReferenceInputs(referenceImages, referenceSources) {
     const imgs = Array.isArray(referenceImages) ? referenceImages : [];
@@ -7357,6 +7392,8 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             const materialRefs = await resolveMaterialRefsForPrompt(fluxReferenceSources);
             const materialAppendix = buildMaterialTexturePromptAppendix(materialRefs, uiLang);
             if (materialAppendix) fullPrompt = (fullPrompt || '').trim() + materialAppendix;
+            const partPatternAppendix = buildPartAndPatternPromptAppendix(fluxReferenceSources, uiLang);
+            if (partPatternAppendix) fullPrompt = (fullPrompt || '').trim() + partPatternAppendix;
         }
         // 使用者未填 seed 時由後端產生隨機 seed，傳給 FLUX 並寫入 DB，方便重現與顯示
         let seedNum = (seed != null && seed !== '' && Number.isInteger(Number(seed))) ? Number(seed) : null;

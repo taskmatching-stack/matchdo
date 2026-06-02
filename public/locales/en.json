@@ -549,6 +549,7 @@
   "customProduct.selectCategoryFirstForVendorAssets": "Please select a main category first; the material library loads by that category.",
   "customProduct.refSourceHint": "Click dashed box to upload or use library; typing optional. 20 pts with refs.",
   "customProduct.refSlotReplace": "Replace",
+  "customProduct.refAiRoleNote": "The server tells the AI each image's role (selected: {slots}). Optional one-line notes per slot; main description is optional.",
   "customProduct.refSlotPrototypeTitle": "Base prototype",
   "customProduct.refSlotPrototypeHint": "Shape and dimensions",
   "customProduct.refSlotPrototypeAddonPh": "Shape note (optional)",
