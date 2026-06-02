@@ -161,6 +161,18 @@ $(document).ready(function () {
         part: emptyRefSlotGroup(),
         pattern: emptyRefSlotGroup()
     };
+    var refIntentActiveTab = 'prototype';
+
+    function ensureRefIntentActiveTab() {
+        if (!getRefSlotDef(refIntentActiveTab)) refIntentActiveTab = 'prototype';
+    }
+
+    function setRefIntentActiveTab(key) {
+        if (!getRefSlotDef(key)) return;
+        syncRefSlotAddonsFromDom();
+        refIntentActiveTab = key;
+        renderIntentSlots();
+    }
 
     var VENDOR_PICKER_PAGE_SIZE_KEY = 'matchdo.vendorPickerPageSize';
     var vendorPickerPageSize = 12;
@@ -368,84 +380,121 @@ $(document).ready(function () {
         var reader = new FileReader();
         reader.onload = function () {
             var def = getRefSlotDef(slotKey);
-            if (addRefImageToSlot(slotKey, reader.result, { asset_kind: def.assetKind })) renderIntentSlots();
+            if (addRefImageToSlot(slotKey, reader.result, { asset_kind: def.assetKind })) {
+                refIntentActiveTab = slotKey;
+                renderIntentSlots();
+            }
         };
         reader.onerror = function () { alert(tr('customProduct.loadFailed', '讀取圖片失敗')); };
         reader.readAsDataURL(file);
+    }
+
+    function renderRefIntentPanel(def) {
+        var g = refSlots[def.key];
+        var items = (g && g.items) ? g.items : [];
+        var canAdd = canAddMoreRefImages(def.key, 1);
+        var slotKey = def.key;
+        var $panel = $('<div class="ref-intent-panel"></div>').attr('data-ref-panel', slotKey);
+        $panel.append($('<div class="ref-intent-hint"></div>').attr('data-i18n', def.hintKey).text(tr(def.hintKey, def.hintFb)));
+        var $thumbs = $('<div class="ref-intent-thumbs"></div>');
+        items.forEach(function (item, ii) {
+            var $thumb = $('<div class="ref-intent-thumb"></div>');
+            $thumb.append($('<img alt="">').attr('src', item.url));
+            if (item.source && item.source.image_label) {
+                $thumb.append($('<span class="ref-intent-label"></span>').text(item.source.image_label));
+            }
+            $thumb.append($('<button type="button" class="ref-intent-clear" aria-label="移除">×</button>').on('click', function (e) {
+                e.stopPropagation();
+                removeRefImageFromSlot(slotKey, ii);
+                renderIntentSlots();
+            }));
+            $thumb.on('click', function (e) {
+                if ($(e.target).closest('.ref-intent-clear').length) return;
+                openRefImagePreviewModal(slotKey, ii);
+            });
+            $thumbs.append($thumb);
+        });
+        if (canAdd) {
+            var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
+            $fileIn.on('change', function (e) {
+                var f = e.target.files && e.target.files[0];
+                if (f) readFileIntoRefSlot(slotKey, f);
+                e.target.value = '';
+            });
+            var $add = $('<label class="ref-intent-thumb ref-intent-thumb-add"></label>');
+            $add.append($fileIn).append($('<span class="ref-intent-empty"><i class="fas fa-plus"></i></span>'));
+            $thumbs.append($add);
+        }
+        $panel.append($thumbs);
+        var $actions = $('<div class="ref-intent-actions"></div>');
+        $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
+            .attr('data-i18n', 'customProduct.refSlotPickVendor')
+            .text(tr('customProduct.refSlotPickVendor', '素材庫'))
+            .on('click', function (e) { e.preventDefault(); openVendorPickerForRefSlot(slotKey); }));
+        if (items.length) {
+            $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
+                .text(tr('customProduct.refSlotClearAll', '清空'))
+                .on('click', function (e) {
+                    e.preventDefault();
+                    if (window.confirm(tr('customProduct.refSlotClearAllConfirm', '清除此類別所有參考圖？'))) {
+                        clearRefSlot(slotKey);
+                        renderIntentSlots();
+                    }
+                }));
+        }
+        $panel.append($actions);
+        var $addonWrap = $('<details class="ref-intent-addon-details"></details>');
+        $addonWrap.append($('<summary class="ref-intent-addon-summary"></summary>')
+            .attr('data-i18n', 'customProduct.refSlotAddonSummary')
+            .text(tr('customProduct.refSlotAddonSummary', '此類補充說明（選填）')));
+        $addonWrap.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
+            .attr('data-ref-slot', slotKey)
+            .attr('data-i18n-placeholder', def.addonPhKey)
+            .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
+            .val((g && g.addon) || ''));
+        if (((g && g.addon) || '').trim()) $addonWrap.prop('open', true);
+        $panel.append($addonWrap);
+        return $panel;
     }
 
     function renderIntentSlots() {
         var $root = $('#refIntentSlots');
         if (!$root.length) return;
         syncRefSlotAddonsFromDom();
+        ensureRefIntentActiveTab();
         $root.empty();
         var total = countTotalRefImages();
+        var activeDef = getRefSlotDef(refIntentActiveTab);
+        if (!activeDef) activeDef = REF_INTENT_SLOTS[0];
+
+        var $wrap = $('<div class="ref-intent-tabs-wrap"></div>');
+        var $navRow = $('<div class="ref-intent-tabs-nav"></div>');
+        var $scroll = $('<div class="ref-intent-tabs-scroll" role="tablist"></div>');
         REF_INTENT_SLOTS.forEach(function (def) {
-            var g = refSlots[def.key];
-            var items = (g && g.items) ? g.items : [];
-            var canAdd = canAddMoreRefImages(def.key, 1);
-            var $wrap = $('<div class="ref-intent-slot"></div>');
-            var $card = $('<div class="ref-intent-card"></div>').attr('title', tr(def.hintKey, def.hintFb));
-            $card.append($('<div class="ref-intent-title-row d-flex justify-content-between align-items-center gap-1"></div>')
-                .append($('<div class="ref-intent-title"></div>').attr('data-i18n', def.titleKey).text(tr(def.titleKey, def.titleFb)))
-                .append($('<span class="ref-intent-count badge rounded-pill text-bg-light border"></span>').text(items.length ? String(items.length) : '0')));
-            $card.append($('<div class="ref-intent-hint"></div>').attr('data-i18n', def.hintKey).text(tr(def.hintKey, def.hintFb)));
-            var $thumbs = $('<div class="ref-intent-thumbs"></div>');
-            items.forEach(function (item, ii) {
-                var $thumb = $('<div class="ref-intent-thumb"></div>');
-                $thumb.append($('<img alt="">').attr('src', item.url));
-                if (item.source && item.source.image_label) {
-                    $thumb.append($('<span class="ref-intent-label"></span>').text(item.source.image_label));
-                }
-                $thumb.append($('<button type="button" class="ref-intent-clear" aria-label="移除">×</button>').on('click', function (e) {
-                    e.stopPropagation();
-                    removeRefImageFromSlot(def.key, ii);
-                    renderIntentSlots();
-                }));
-                $thumb.on('click', function (e) {
-                    if ($(e.target).closest('.ref-intent-clear').length) return;
-                    openRefImagePreviewModal(def.key, ii);
-                });
-                $thumbs.append($thumb);
+            var n = countSlotRefImages(def.key);
+            var isActive = def.key === activeDef.key;
+            var $btn = $('<button type="button" class="ref-intent-tab-btn" role="tab"></button>')
+                .attr('data-ref-tab', def.key)
+                .attr('aria-selected', isActive ? 'true' : 'false')
+                .toggleClass('active', isActive);
+            $btn.append($('<span class="ref-intent-tab-label"></span>').attr('data-i18n', def.titleKey).text(tr(def.titleKey, def.titleFb)));
+            var $badge = $('<span class="ref-intent-tab-badge"></span>').text(n ? String(n) : '');
+            if (!n) $badge.addClass('d-none');
+            $btn.append($badge);
+            $btn.on('click', function (e) {
+                e.preventDefault();
+                setRefIntentActiveTab(def.key);
             });
-            if (canAdd) {
-                var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
-                $fileIn.on('change', function (e) {
-                    var f = e.target.files && e.target.files[0];
-                    if (f) readFileIntoRefSlot(def.key, f);
-                    e.target.value = '';
-                });
-                var $add = $('<label class="ref-intent-thumb ref-intent-thumb-add"></label>');
-                $add.append($fileIn).append($('<span class="ref-intent-empty"><i class="fas fa-plus"></i></span>'));
-                $thumbs.append($add);
-            }
-            $card.append($thumbs);
-            var $actions = $('<div class="ref-intent-actions"></div>');
-            $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
-                .attr('data-i18n', 'customProduct.refSlotPickVendor')
-                .text(tr('customProduct.refSlotPickVendor', '素材庫'))
-                .on('click', function (e) { e.preventDefault(); openVendorPickerForRefSlot(def.key); }));
-            if (items.length) {
-                $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
-                    .text(tr('customProduct.refSlotClearAll', '清空'))
-                    .on('click', function (e) {
-                        e.preventDefault();
-                        if (window.confirm(tr('customProduct.refSlotClearAllConfirm', '清除此類別所有參考圖？'))) {
-                            clearRefSlot(def.key);
-                            renderIntentSlots();
-                        }
-                    }));
-            }
-            $card.append($actions);
-            $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
-                .attr('data-ref-slot', def.key)
-                .attr('data-i18n-placeholder', def.addonPhKey)
-                .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
-                .val((g && g.addon) || ''));
-            $wrap.append($card);
-            $root.append($wrap);
+            $scroll.append($btn);
         });
-        $('#refIntentTotalHint').text(total ? (tr('customProduct.refTotalHint', '已選 {n} / {max} 張').replace('{n}', String(total)).replace('{max}', String(MAX_REF_IMAGES_TOTAL))) : '');
+        $navRow.append($scroll);
+        $navRow.append($('<span class="ref-intent-total-pill" id="refIntentTabTotal"></span>')
+            .text(total ? (total + ' / ' + MAX_REF_IMAGES_TOTAL) : ('0 / ' + MAX_REF_IMAGES_TOTAL)));
+        $wrap.append($navRow);
+        $wrap.append(renderRefIntentPanel(activeDef));
+        $root.append($wrap);
+
+        $('#refIntentTotalHint').text('');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         updateMultiVendorRefWarning();
         updateRefIntentAiNote();
@@ -460,6 +509,7 @@ $(document).ready(function () {
         }
         var subKey = ($('#imageCategorySubSelect').val() || '').trim();
         try { window.__refImportTargetSlot = slotKey || null; } catch (e) {}
+        if (slotKey && getRefSlotDef(slotKey)) refIntentActiveTab = slotKey;
         resetVendorAssetFilters();
         var def = slotKey ? getRefSlotDef(slotKey) : null;
         if (def && def.assetKind !== 'other') $('#vendorAssetsAssetKind').val(def.assetKind);
@@ -1393,6 +1443,7 @@ $(document).ready(function () {
                             image_label: (it.label || '').trim()
                         }));
                     });
+                    refIntentActiveTab = targetKey;
                     renderIntentSlots();
                     if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
                 })

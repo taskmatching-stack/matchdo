@@ -551,6 +551,7 @@
   "customProduct.refTotalHint": "{n} / {max} images selected",
   "customProduct.refSlotClearAll": "Clear all",
   "customProduct.refSlotClearAllConfirm": "Remove all images in this category?",
+  "customProduct.refSlotAddonSummary": "Notes for this category (optional)",
   "customProduct.refSlotReplace": "Replace",
   "customProduct.refAiRoleNote": "{total} image(s) ({slots}). Server labels image 1–{total} in send order; skipped categories are omitted.",
   "customProduct.refSlotPrototypeTitle": "Base prototype",

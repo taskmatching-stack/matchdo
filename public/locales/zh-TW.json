@@ -590,6 +590,7 @@
   "customProduct.refTotalHint": "已選 {n} / {max} 張",
   "customProduct.refSlotClearAll": "清空",
   "customProduct.refSlotClearAllConfirm": "清除此類別所有參考圖？",
+  "customProduct.refSlotAddonSummary": "此類補充說明（選填）",
   "customProduct.refSlotReplace": "更換",
   "customProduct.refAiRoleNote": "共 {total} 張（{slots}）。後端依實際送出順序標 image 1～{total}，與圖一一對應；未選類別不會出現。",
   "customProduct.refSlotPrototypeTitle": "主體原型",
