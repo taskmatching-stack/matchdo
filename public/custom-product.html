@@ -12,7 +12,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="matchdo-asset-version" content="35">
+    <meta name="matchdo-asset-version" content="36">
     <title>產品設計 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="keywords" content="客製產品設計,AI設計,廠商媒合,訂製,MATCHDO">
@@ -649,19 +649,28 @@
             grid-template-columns: minmax(0, 1fr) auto;
             align-items: end;
             column-gap: 0.35rem;
-            row-gap: 0.2rem;
+            row-gap: 0;
             padding: 0.4rem 0.4rem 0;
             border-bottom: 1px solid var(--ref-border-strong);
             background: var(--ref-surface);
+            overflow: hidden;
         }
         #custom-product .ref-intent-tabs-scroll {
             display: flex;
             min-width: 0;
             gap: 0.15rem;
             overflow-x: auto;
+            overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
             padding-bottom: 0;
+            touch-action: pan-x;
+        }
+        #custom-product .ref-intent-tabs-scroll::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
         }
         #custom-product .ref-intent-tab-btn {
             flex: 0 0 auto;
@@ -1324,7 +1333,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=35" defer></script>
+    <script src="js/custom-product.js?v=36" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
