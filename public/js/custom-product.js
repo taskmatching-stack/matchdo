@@ -208,6 +208,11 @@ $(document).ready(function () {
                     if (!isNaN(idx)) openRefImagePreviewModal(idx);
                 });
                 slot.append(slotThumb);
+                var srcMeta = refSources[i];
+                if (srcMeta && srcMeta.image_label) {
+                    slot.append($('<div class="ref-slot-label small text-muted text-truncate px-1" title="' + String(srcMeta.image_label).replace(/"/g, '&quot;') + '">' +
+                        String(srcMeta.image_label).replace(/</g, '&lt;') + '</div>'));
+                }
                 slot.append($('<button type="button" class="ref-slot-clear" title="移除">×</button>').on('click', function (ev) {
                     ev.stopPropagation();
                     refDataUrls[i] = null;
@@ -272,8 +277,11 @@ $(document).ready(function () {
                 });
                 card.append(thumb);
                 const right = $('<div class="ref-card-right"></div>');
-                var labelText = '參考圖 ' + (i + 1) + ' · 從此圖產生描述';
                 var src = refSources[i];
+                var labelText = (src && src.image_label)
+                    ? String(src.image_label).replace(/</g, '&lt;')
+                    : ('參考圖 ' + (i + 1));
+                labelText += ' · 從此圖產生描述';
                 if (src && src.manufacturer_name) {
                     labelText += ' · <a href="' + (src.manufacturer_profile_url || '#').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" class="text-primary">' +
                         String(src.manufacturer_name).replace(/</g, '&lt;') + '</a>';
@@ -898,16 +906,35 @@ $(document).ready(function () {
     }
 
     function vendorAssetCardImageUrls($c) {
+        return vendorAssetCardImageItems($c).map(function (it) { return it.url; }).filter(Boolean);
+    }
+
+    function vendorAssetCardImageItems($c) {
         if (!$c || !$c.length) return [];
+        var rawItems = $c.attr('data-image-items');
+        if (rawItems) {
+            try {
+                var items = JSON.parse(rawItems.replace(/&quot;/g, '"'));
+                if (Array.isArray(items) && items.length) {
+                    return items.filter(function (it) { return it && it.url; });
+                }
+            } catch (e) { /* ignore */ }
+        }
+        var urls = [];
         var raw = $c.attr('data-image-urls');
         if (raw) {
             try {
                 var parsed = JSON.parse(raw.replace(/&quot;/g, '"'));
-                if (Array.isArray(parsed) && parsed.length) return parsed.filter(Boolean);
+                if (Array.isArray(parsed) && parsed.length) urls = parsed.filter(Boolean);
             } catch (e) { /* ignore */ }
         }
-        var u = vendorAssetCardImageUrl($c);
-        return u ? [u] : [];
+        if (!urls.length) {
+            var u = vendorAssetCardImageUrl($c);
+            if (u) urls = [u];
+        }
+        return urls.map(function (u, idx) {
+            return { url: u, label: '', sort_order: idx, is_cover: idx === 0 };
+        });
     }
 
     function fetchUrlAsDataUrl(url) {
@@ -993,7 +1020,11 @@ $(document).ready(function () {
         var pickHint = (t('customProduct.vendorAssetPickHint') || '單擊加入參考圖；雙擊或按 🔍 放大').replace(/"/g, '&quot;');
         var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');
         var imageUrls = (item.image_urls && item.image_urls.length) ? item.image_urls : (item.image_url ? [item.image_url] : []);
+        var imageItems = (item.image_items && item.image_items.length) ? item.image_items : imageUrls.map(function (u, ii) {
+            return { url: u, label: '', sort_order: ii, is_cover: ii === 0 };
+        });
         var imageUrlsJson = JSON.stringify(imageUrls).replace(/"/g, '&quot;');
+        var imageItemsJson = JSON.stringify(imageItems).replace(/"/g, '&quot;');
         var clLevelsJson = (item.customization_levels && item.customization_levels.length)
             ? JSON.stringify(item.customization_levels).replace(/"/g, '&quot;') : '';
         var moqAttr = (item.min_order_quantity != null && Number(item.min_order_quantity) >= 1)
@@ -1006,7 +1037,7 @@ $(document).ready(function () {
         var multiBadge = ((item.asset_kind === 'prototype' || item.asset_kind === 'part') && imageUrls.length > 1)
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
-            ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
+            ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-image-items="' + imageItemsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
             ' data-asset-kind="' + assetKind + '" data-title="' + title + '"' +
             (catalogNamesAttr ? ' data-catalog-group-names="' + catalogNamesAttr + '"' : '') +
@@ -1072,10 +1103,11 @@ $(document).ready(function () {
             var sel = window.getSelection && window.getSelection();
             if (sel && sel.toString && sel.toString().trim()) return;
             var $c = $(this).closest('.vendor-asset-card');
-            var urls = vendorAssetCardImageUrls($c);
-            if (!urls.length) return;
+            var imageItems = vendorAssetCardImageItems($c);
+            if (!imageItems.length) return;
+            var urls = imageItems.map(function (it) { return it.url; });
             var assetKind = ($c.attr('data-asset-kind') || 'prototype').trim();
-            var isPrototypeMulti = (assetKind === 'prototype' || assetKind === 'part') && urls.length > 1;
+            var isPrototypeMulti = (assetKind === 'prototype' || assetKind === 'part') && imageItems.length > 1;
             var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
             var existingIds = {};
             refSources.forEach(function (s) {
@@ -1092,7 +1124,7 @@ $(document).ready(function () {
             for (var si = 0; si < MAX_REF_IMAGES; si++) {
                 if (!refDataUrls[si]) emptySlots.push(si);
             }
-            var toImport = isPrototypeMulti ? urls : [urls[0]];
+            var toImport = isPrototypeMulti ? imageItems.slice() : [imageItems[0]];
             if (toImport.length > emptySlots.length) {
                 var partialMsg = (t('customProduct.refSlotsPartialImport') || '參考圖空位僅 {empty} 格，將加入前 {n} 張（共 {total} 張）。')
                     .replace('{empty}', String(emptySlots.length))
@@ -1106,7 +1138,11 @@ $(document).ready(function () {
                 return;
             }
             if (isPrototypeMulti) {
-                var confirmMulti = (t('customProduct.importPrototypeAngles') || '將加入此原型的 {n} 張多角度圖為參考圖。').replace('{n}', String(toImport.length));
+                var nameLines = toImport.map(function (it, ii) {
+                    var nm = (it.label || '').trim() || ('圖 ' + (ii + 1));
+                    return '· ' + nm;
+                }).join('\n');
+                var confirmMulti = (t('customProduct.importPrototypeAngles') || '將加入此零件／原型的 {n} 張圖為參考圖：\n') .replace('{n}', String(toImport.length)) + '\n' + nameLines;
                 if (!window.confirm(confirmMulti)) return;
             }
             var clRaw = $c.attr('data-customization-levels');
@@ -1134,12 +1170,16 @@ $(document).ready(function () {
                 customization_levels: clLevels,
                 min_order_quantity: (moqNum != null && moqNum >= 1) ? moqNum : null
             };
-            Promise.all(toImport.map(function (u) { return fetchUrlAsDataUrl(u); }))
+            Promise.all(toImport.map(function (it) { return fetchUrlAsDataUrl(it.url); }))
                 .then(function (dataUrls) {
                     dataUrls.forEach(function (dataUrl, idx) {
                         var slot = emptySlots[idx];
+                        var it = toImport[idx];
                         refDataUrls[slot] = dataUrl;
-                        refSources[slot] = Object.assign({}, baseMeta, { image_url: toImport[idx] });
+                        refSources[slot] = Object.assign({}, baseMeta, {
+                            image_url: it.url,
+                            image_label: (it.label || '').trim()
+                        });
                     });
                     if (emptySlots.length) selectRefIndex(emptySlots[0]);
                     renderRefSlots();

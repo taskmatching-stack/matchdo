@@ -258,7 +258,7 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。可編輯每張圖名稱（預設檔名）。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
@@ -466,7 +466,8 @@
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增角度圖</span></button>
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
                             </div>
-                            <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">在圖下方勾選要 AI 重繪的張數（可複選），再按「對勾選的圖 AI 重繪」；新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
+                            <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">在圖下方勾選要 AI 重繪的張數（可複選），再按「對勾選的圖 AI 重繪」；新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面，最多 12 張）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
+                            <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>僅建議用於去背／換底色；含印刷字樣或多色款式圖請慎用，以免模型改字或改色。</p>
                             <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面順序，或於下方「更換封面」上傳新圖。</p>
                             <p id="edit-gallery-build-hint" class="form-text text-muted mb-0" style="font-size:0.7rem;opacity:0.65"></p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
@@ -562,7 +563,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-v5-set-cover-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'image-labels-preserve-redraw-20260601';
         var token = null;
         var isSeedVendor = false;
         async function applySeedVendorInfoBanner(vendorSource) {
@@ -751,19 +752,71 @@
             renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), []);
         }
 
-        function assetImageUrls(m) {
-            if (!m) return [];
-            if (m.image_urls && m.image_urls.length) return m.image_urls.slice();
-            var urls = [];
-            if (m.image_url) urls.push(m.image_url);
-            var gal = m.gallery_images;
-            if (Array.isArray(gal)) {
-                gal.forEach(function (g) {
-                    var u = (typeof g === 'string') ? g : (g && g.url);
-                    if (u && urls.indexOf(u) < 0) urls.push(u);
-                });
+        function labelFromFilename(name) {
+            var base = (name || '').trim();
+            if (!base) return '';
+            var leaf = base.split(/[/\\]/).pop() || base;
+            return leaf.replace(/\.[^.]+$/, '').trim() || leaf;
+        }
+
+        function labelFromImageUrl(url) {
+            if (!url) return '';
+            try {
+                var path = String(url).split('?')[0];
+                return labelFromFilename(decodeURIComponent(path.split('/').pop() || ''));
+            } catch (e) {
+                return labelFromFilename(String(url).split('/').pop() || '');
             }
-            return urls.length ? urls : [];
+        }
+
+        function assetImageItems(m) {
+            if (!m) return [];
+            if (m.image_items && m.image_items.length) return m.image_items.slice();
+            return assetImageUrls(m).map(function (url, idx) {
+                return { url: url, sort_order: idx, label: labelFromImageUrl(url), is_cover: idx === 0 };
+            });
+        }
+
+        function assetImageUrls(m) {
+            return assetImageItems(m).map(function (it) { return it.url; });
+        }
+
+        var editImageLabelSaveTimer = null;
+        function scheduleSaveImageLabels(assetId) {
+            if (!assetId) return;
+            clearTimeout(editImageLabelSaveTimer);
+            editImageLabelSaveTimer = setTimeout(function () { saveImageLabels(assetId); }, 600);
+        }
+
+        async function saveImageLabels(assetId) {
+            if (!assetId) return;
+            var coverIn = document.getElementById('edit-cover-label');
+            var entries = [];
+            document.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
+                var url = inp.getAttribute('data-url');
+                if (!url) return;
+                entries.push({ url: url, label: (inp.value || '').trim() });
+            });
+            try {
+                var tok = token || (await getToken());
+                if (!tok) return;
+                var body = { entries: entries };
+                if (coverIn) body.cover_label = (coverIn.value || '').trim();
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(assetId) + '/image-labels', {
+                    method: 'PATCH',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    showToast(data.error || '圖片名稱儲存失敗', 'danger');
+                    return;
+                }
+                var idx = materialsAll.findIndex(function (x) { return x.id === assetId; });
+                if (idx >= 0) materialsAll[idx] = data;
+            } catch (err) {
+                showToast(err.message || '圖片名稱儲存失敗', 'danger');
+            }
         }
 
         function showLocalImagePreview(container, file) {
@@ -855,6 +908,7 @@
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 card.innerHTML = coverBadge +
                     '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="">' +
+                    '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     '<div class="form-check form-check-sm mt-1 mb-0">' +
                     '<input class="form-check-input pending-optimize-chk" type="checkbox" id="po-' + esc(item.id) + '"' + (item.optimize ? ' checked' : '') + '>' +
                     '<label class="form-check-label small" for="po-' + esc(item.id) + '">AI 重繪</label></div>' +
@@ -867,6 +921,12 @@
                     item.optimize = this.checked;
                     updateAddFormPointsEstimate(form);
                 });
+                var labelIn = card.querySelector('.pending-image-label');
+                if (labelIn) {
+                    labelIn.addEventListener('input', function () {
+                        item.label = (this.value || '').trim();
+                    });
+                }
                 card.querySelector('.pending-remove').addEventListener('click', function () {
                     var i = list.findIndex(function (x) { return x.id === item.id; });
                     if (i >= 0) list.splice(i, 1);
@@ -921,7 +981,8 @@
                 list.push({
                     id: 'p' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2),
                     file: fileList[i],
-                    optimize: false
+                    optimize: false,
+                    label: labelFromFilename(fileList[i].name)
                 });
                 added++;
             }
@@ -981,9 +1042,10 @@
         function renderEditGallery(m) {
             var grid = document.getElementById('edit-gallery-grid');
             if (!grid) return;
-            var urls = assetImageUrls(m);
+            var items = assetImageItems(m);
+            var editId = document.getElementById('edit-id').value;
             var redrawBar = document.getElementById('edit-gallery-redraw-bar');
-            if (!urls.length) {
+            if (!items.length) {
                 grid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">—</p></div>';
                 if (redrawBar) {
                     redrawBar.classList.add('d-none');
@@ -997,24 +1059,36 @@
                 redrawBar.classList.remove('d-none');
                 redrawBar.classList.add('d-flex');
             }
-            grid.innerHTML = urls.map(function (url, idx) {
+            grid.innerHTML = items.map(function (it, idx) {
+                var url = it.url;
                 var chkId = editGalleryOptimizeCheckboxId(idx);
                 var checked = editGalleryOptimizeUrls.has(url);
-                var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                var actions = idx > 0
+                var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
+                var labelField = (it.is_cover || idx === 0)
+                    ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
+                    : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
+                var actions = !(it.is_cover || idx === 0)
                     ? '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
                     '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button></div>'
                     : '';
-                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + (idx === 0 ? ' is-cover' : '') + '">' +
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + '">' +
                     coverBadge +
                     '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">' +
+                    labelField +
                     '<div class="form-check form-check-sm mt-1 mb-0">' +
                     '<input class="form-check-input edit-gallery-optimize-chk" type="checkbox" id="' + chkId + '" data-url="' + esc(url) + '"' + (checked ? ' checked' : '') + '>' +
                     '<label class="form-check-label small" for="' + chkId + '">AI 重繪</label></div>' +
                     actions +
                     '</div></div>';
             }).join('');
+            var coverLabelIn = document.getElementById('edit-cover-label');
+            if (coverLabelIn) {
+                coverLabelIn.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
+            }
+            grid.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
+                inp.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
+            });
             grid.querySelectorAll('.btn-gallery-set-cover').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
                     e.stopPropagation();
@@ -1278,10 +1352,13 @@
             var optimizeNext = document.getElementById('edit-gallery-optimize-next');
             var wantOpt = !!(optimizeNext && optimizeNext.checked);
             var optIdx = [];
+            var uploadLabels = [];
             for (var i = 0; i < fileList.length; i++) {
                 fd.append('images', fileList[i]);
+                uploadLabels.push(labelFromFilename(fileList[i].name));
                 if (wantOpt) optIdx.push(i);
             }
+            if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
             if (optIdx.length) {
                 fd.append('optimize_image_indices', JSON.stringify(optIdx));
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
@@ -2365,11 +2442,17 @@
                     for (var pi = 1; pi < pending.length; pi++) fd.append('gallery', pending[pi].file);
                     var optIdx = [];
                     pending.forEach(function (p, i) { if (p.optimize) optIdx.push(i); });
+                    var imageLabels = pending.map(function (p) {
+                        return (p.label || labelFromFilename(p.file && p.file.name)).trim();
+                    });
+                    fd.append('image_labels', JSON.stringify(imageLabels));
                     if (optIdx.length) {
                         fd.append('optimize_image_indices', JSON.stringify(optIdx));
                         fd.append('optimize_background', getOptimizeBackgroundValue(form));
                     }
                 } else {
+                    var matLabel = labelFromFilename(file && file.name);
+                    if (matLabel) fd.append('image_labels', JSON.stringify([matLabel]));
                     fd.append('image', file);
                     var optimizeChk = form.querySelector('.add-optimize-product');
                     if (optimizeChk && optimizeChk.checked) {
