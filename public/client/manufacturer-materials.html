@@ -467,7 +467,7 @@
                                 <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
                             </div>
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">在圖下方勾選要 AI 重繪的張數（可複選），再按「對勾選的圖 AI 重繪」；新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
-                            <p class="form-text text-muted small mb-2">更換封面請用下方「更換封面」。</p>
+                            <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面順序，或於下方「更換封面」上傳新圖。</p>
                             <p id="edit-gallery-build-hint" class="form-text text-muted mb-0" style="font-size:0.7rem;opacity:0.65"></p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
                             <input type="file" class="form-control" id="edit-image-prototype" accept="image/*">
@@ -562,7 +562,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-v4-checkbox-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-v5-set-cover-20260601';
         var token = null;
         var isSeedVendor = false;
         async function applySeedVendorInfoBanner(vendorSource) {
@@ -1002,7 +1002,9 @@
                 var checked = editGalleryOptimizeUrls.has(url);
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var actions = idx > 0
-                    ? '<div class="pending-actions"><button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button></div>'
+                    ? '<div class="pending-actions">' +
+                    '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button></div>'
                     : '';
                 return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + (idx === 0 ? ' is-cover' : '') + '">' +
                     coverBadge +
@@ -1013,6 +1015,12 @@
                     actions +
                     '</div></div>';
             }).join('');
+            grid.querySelectorAll('.btn-gallery-set-cover').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    setGalleryCover(btn.getAttribute('data-url'));
+                });
+            });
             grid.querySelectorAll('.btn-gallery-del').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
                     e.stopPropagation();
@@ -1141,9 +1149,54 @@
             var redrawBtn = document.getElementById('btn-edit-gallery-redraw-selected');
             if (redrawBtn) redrawBtn.disabled = disabled || editGalleryOptimizeUrls.size === 0;
             if (grid) {
-                grid.querySelectorAll('.edit-gallery-optimize-chk, .btn-gallery-del').forEach(function (el) {
+                grid.querySelectorAll('.edit-gallery-optimize-chk, .btn-gallery-del, .btn-gallery-set-cover').forEach(function (el) {
                     el.disabled = disabled;
                 });
+            }
+        }
+
+        async function setGalleryCover(url) {
+            var id = document.getElementById('edit-id').value;
+            if (!id || !url) return;
+            if (editGalleryUploading) {
+                setEditGalleryStatus('上一批仍在處理中，請稍候', 'warning');
+                return;
+            }
+            editGalleryUploading = true;
+            gridDisableEditGalleryActions(true);
+            setEditGalleryStatus('設定封面中…', 'info');
+            try {
+                var tok = token || (await getToken());
+                if (!tok) {
+                    setEditGalleryStatus('請先登入', 'danger');
+                    return;
+                }
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/cover', {
+                    method: 'PATCH',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    var errMsg = data.error || data.message || ('設定封面失敗 (HTTP ' + r.status + ')');
+                    setEditGalleryStatus(errMsg, 'danger');
+                    showToast(errMsg, 'danger');
+                    return;
+                }
+                var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+                if (idx >= 0) materialsAll[idx] = data;
+                renderEditGallery(data);
+                setEditGalleryStatus('已設為封面', 'success');
+                showToast(tr('baseModels.coverSet', '已設為封面'));
+                await loadMaterials();
+                var refreshed = materialsAll.find(function (x) { return x.id === id; });
+                if (refreshed) renderEditGallery(refreshed);
+            } catch (err) {
+                setEditGalleryStatus(err.message || '設定封面失敗', 'danger');
+                showToast(err.message, 'danger');
+            } finally {
+                editGalleryUploading = false;
+                gridDisableEditGalleryActions(false);
             }
         }
 

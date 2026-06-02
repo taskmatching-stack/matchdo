@@ -500,6 +500,27 @@ function getVendorAssetAllImageUrls(row) {
     return urls;
 }
 
+function reorderVendorAssetCoverFromUrl(row, targetUrl) {
+    const url = String(targetUrl || '').trim();
+    if (!url || !row) return null;
+    const urls = getVendorAssetAllImageUrls(row);
+    if (!urls.length || urls.indexOf(url) < 0) return null;
+    if (urls[0] === url) {
+        const gallery = urls.slice(1).map(function (u, i) { return { url: u, sort_order: i + 1 }; });
+        return { image_url: url, gallery_images: gallery };
+    }
+    const reordered = [url].concat(urls.filter(function (u) { return u !== url; }));
+    return {
+        image_url: reordered[0],
+        gallery_images: reordered.slice(1).map(function (u, i) { return { url: u, sort_order: i + 1 }; })
+    };
+}
+
+function vendorAssetSupportsGalleryImages(assetKind) {
+    const k = normalizeVendorAssetKind(assetKind);
+    return k === 'prototype' || k === 'part';
+}
+
 const VENDOR_CUSTOMIZATION_LEVEL_KEYS = new Set(['mono_graphic', 'color_graphic', 'color_material', 'size_part', 'form_structure']);
 const VENDOR_CUSTOMIZATION_GRAPHIC_KEYS = ['mono_graphic', 'color_graphic'];
 const VENDOR_CUSTOMIZATION_SCOPE_KEYS = ['color_material', 'size_part', 'form_structure'];
@@ -13393,6 +13414,50 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
     }
 });
 
+// PATCH /api/me/vendor-assets/:id/gallery-images/cover — 將現有角度圖設為封面（其餘順序往後）
+app.patch('/api/me/vendor-assets/:id/gallery-images/cover', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const id = (req.params.id || '').trim();
+        const targetUrl = String((req.body && req.body.url) || '').trim();
+        if (!targetUrl) return res.status(400).json({ error: '請提供 url' });
+        const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind'
+        );
+        if (rowErr) return res.status(500).json({ error: '查詢失敗' });
+        if (!row) return res.status(404).json({ error: '找不到該素材' });
+        if (!vendorAssetSupportsGalleryImages(row.asset_kind)) {
+            return res.status(400).json({ error: '僅數位原型或配件／零件可設定封面' });
+        }
+        const reordered = reorderVendorAssetCoverFromUrl(row, targetUrl);
+        if (!reordered) return res.status(400).json({ error: '該圖片不屬於此素材' });
+        const { data: updated, error } = await supabase.from('vendor_assets')
+            .update({
+                image_url: reordered.image_url,
+                gallery_images: reordered.gallery_images,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id)
+            .eq('manufacturer_id', manufacturerId)
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .single();
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-gallery-images.sql' });
+            }
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json(mapVendorAssetForApi(updated));
+    } catch (e) {
+        console.error('PATCH /api/me/vendor-assets/:id/gallery-images/cover:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // DELETE /api/me/vendor-assets/:id/gallery-images — 刪除某一張多角度圖或封面（body.url 必填）
 app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (req, res) => {
     try {
@@ -13409,8 +13474,8 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
         );
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
-        if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') {
-            return res.status(400).json({ error: '僅數位原型可管理多角度圖' });
+        if (!vendorAssetSupportsGalleryImages(row.asset_kind)) {
+            return res.status(400).json({ error: '僅數位原型或配件／零件可管理多角度圖' });
         }
         let cover = String(row.image_url || '').trim();
         let gallery = parseGalleryImages(row.gallery_images).filter(function (g) { return g.url !== targetUrl; });
