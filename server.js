@@ -1022,8 +1022,8 @@ function buildMaterialTexturePromptAppendix(materialRefs, lang) {
         const catNames = (ref.catalog_group_names || []).filter(Boolean).join(isEn ? ', ' : '、');
         const matLabel = catNames || null;
         const head = isEn
-            ? ('Reference image #' + n + ': "' + label + '"' + (matLabel ? (' (vendor category: ' + matLabel + ')') : '') + ' — texture/color reference only.')
-            : ('參考圖第 ' + n + ' 張：「' + label + '」' + (matLabel ? ('（自訂分類：' + matLabel + '）') : '') + ' — 僅作表面紋理／色彩參考。');
+            ? ('For image ' + n + ' ("' + label + '")' + (matLabel ? (' [' + matLabel + ']') : '') + ' — apply material texture rules below.')
+            : ('針對 image ' + n + '（「' + label + '」' + (matLabel ? ('，' + matLabel) : '') + '）— 套用下列材質紋理規則：');
         lines.push('• ' + head);
         const rule = materialTextureScaleRuleForKey(null, lang);
         if (rule) lines.push('  ◦ ' + rule);
@@ -1041,42 +1041,56 @@ function buildMaterialTexturePromptAppendix(materialRefs, lang) {
     return header + lines.join('\n') + '\n' + footer;
 }
 
-/** 配件／圖樣（other）參考附錄：對應前端「配件／零件」「圖樣／風格」插槽 */
-function buildPartAndPatternPromptAppendix(orderedSources, lang) {
-    const list = Array.isArray(orderedSources) ? orderedSources : [];
+/**
+ * BFL FLUX.2 多圖編輯：以 prompt 內 image 1 / image 2 … 對應 input_image、input_image_2 …
+ * @see https://docs.bfl.ai/flux_2/flux2_image_editing
+ */
+function buildFluxReferenceImageRoleMapAppendix(orderedSources, lang) {
+    const list = Array.isArray(orderedSources) ? orderedSources.filter(Boolean) : [];
+    if (!list.length) return '';
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
     const lines = [];
     list.forEach(function (s, idx) {
-        if (!s) return;
-        const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
-        if (kind !== 'part' && kind !== 'other') return;
         const n = idx + 1;
+        const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
         const title = (s.title || '').trim();
-        if (kind === 'part') {
-            const label = title || (isEn ? 'Part / hardware' : '配件／零件');
+        const titlePart = title
+            ? (isEn ? (' ("' + title + '")') : ('（「' + title + '」）'))
+            : '';
+        if (kind === 'prototype') {
             lines.push(isEn
-                ? ('• Reference image #' + n + ' ("' + label + '"): zippers, buckles, hardware, straps, or trims only. Match these parts; do not override their look with text prompts.')
-                : ('• 參考圖第 ' + n + ' 張（「' + label + '」）：僅作五金、拉鍊、扣具、掛繩等配件；外觀以此圖為準，勿在文字裡改配件顏色或材質。'));
+                ? ('image ' + n + titlePart + ': product prototype — shape, silhouette, proportions, and structure only'
+                    + (n === 1 ? ' (this is input_image, primary geometry anchor).' : '.'))
+                : ('image ' + n + titlePart + '：主體原型 — 僅決定造型、輪廓、比例與結構'
+                    + (n === 1 ? '（即 input_image，主要造型錨點）。' : '。')));
+        } else if (kind === 'material') {
+            lines.push(isEn
+                ? ('image ' + n + titlePart + ': main body material — fabric, leather, surface texture and color on the product body only.')
+                : ('image ' + n + titlePart + '：主體材料 — 僅作本體布料／皮革的表面質感與色彩。'));
+        } else if (kind === 'part') {
+            lines.push(isEn
+                ? ('image ' + n + titlePart + ': parts / hardware — zippers, buckles, straps, trims; match exactly; do not recolor parts via text.')
+                : ('image ' + n + titlePart + '：配件／零件 — 五金、拉鍊、扣具、掛繩；外觀以此圖為準，勿用文字改配件顏色。'));
         } else {
-            const label = title || (isEn ? 'Pattern / style' : '圖樣／風格');
             lines.push(isEn
-                ? ('• Reference image #' + n + ' ("' + label + '"): print, pattern, or overall graphic style only—not product silhouette or dimensions.')
-                : ('• 參考圖第 ' + n + ' 張（「' + label + '」）：僅作印花、紋理或整體風格參考，不決定產品造型或尺寸。'));
+                ? ('image ' + n + titlePart + ': pattern / style — prints, graphics, or overall look only; not product geometry.')
+                : ('image ' + n + titlePart + '：圖樣／風格 — 僅作印花、圖案或整體風格，不決定造型。'));
         }
     });
-    if (!lines.length) return '';
     const header = isEn
-        ? '\n\n[Parts / pattern references — same single prompt as above]\n'
-        + 'Follow the user description first. Additional rules for these reference images:\n'
-        : '\n\n【配件／圖樣參考 — 與上文同一組提示詞】\n'
-        + '請優先依前文使用者描述創作。以下為此類參考圖規則：\n';
+        ? '\n\n[Reference images — FLUX multi-reference editing]\n'
+        + 'Product category instructions above define what to generate. Each uploaded reference is assigned as follows (image 1 = input_image):\n'
+        : '\n\n【參考圖用途 — FLUX 多圖編輯】\n'
+        + '上文分類已限定產品類型。每張上傳參考圖對應如下（image 1 = input_image）：\n';
     const footer = isEn
-        ? 'Prototype references define shape; material references define body surface; parts and patterns follow the rules above.'
-        : '造型以原型參考為準；本體表面以材料參考為準；配件與圖樣依上列規則。';
+        ? ('Only ' + list.length + ' reference image(s) are sent; image numbers above match input_image order exactly (no gaps). '
+        + 'Combine as listed: prototype(s) for geometry, material(s) for body surface, parts and pattern per line. Per-category user notes in the description above apply when present.')
+        : ('實際送出 ' + list.length + ' 張圖，image 編號與上列一致、連號無跳號（未上傳的類別不佔號）。'
+        + '依上列綜合：原型定造型、材料定本體表面、配件與圖樣依各句；描述中各類補充句若有則優先。');
     return header + lines.join('\n') + '\n' + footer + '\n';
 }
 
-/** 參考圖順序：數位原型（造型）→ 材料樣板 → 其他；確保 input_image 為主體造型 */
+/** 參考圖順序：原型 → 配件 → 材料 → 圖樣；image 1（input_image）盡量為原型 */
 function reorderFluxReferenceInputs(referenceImages, referenceSources) {
     const imgs = Array.isArray(referenceImages) ? referenceImages : [];
     const srcs = Array.isArray(referenceSources) ? referenceSources : [];
@@ -7025,6 +7039,45 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
     return base ? base + '\n\n' + userPrompt : userPrompt;
 }
 
+/**
+ * 有參考圖時組合完整 FLUX prompt：分類基礎（必帶）+ 使用者描述 + image 1…N 用途 + 原型／材質附錄。
+ */
+async function composeGeneratePromptWithReferences(opts) {
+    const categoryKeys = opts.categoryKeys;
+    const userPrompt = (opts.userPrompt || '').trim();
+    const useRemake = opts.useRemake === true;
+    const uiLang = opts.uiLang || null;
+    const referenceImages = opts.referenceImages;
+    const referenceSources = opts.referenceSources;
+
+    let fullPrompt = useRemake
+        ? await buildPromptFromRemakeCategoryKeys(categoryKeys, userPrompt)
+        : await buildPromptFromCategoryKeys(categoryKeys, userPrompt);
+
+    const hasRefs = referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0;
+    if (!hasRefs) {
+        return { fullPrompt: fullPrompt.trim(), fluxReferenceImages: [], fluxReferenceSources: [] };
+    }
+
+    const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
+    const roleMap = buildFluxReferenceImageRoleMapAppendix(ordered.sources, uiLang);
+    if (roleMap) fullPrompt = (fullPrompt || '').trim() + roleMap;
+
+    const prototypeAssets = await resolvePrototypeAssetsForPrompt(ordered.sources);
+    const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
+    if (protoAppendix) fullPrompt = (fullPrompt || '').trim() + protoAppendix;
+
+    const materialRefs = await resolveMaterialRefsForPrompt(ordered.sources);
+    const materialAppendix = buildMaterialTexturePromptAppendix(materialRefs, uiLang);
+    if (materialAppendix) fullPrompt = (fullPrompt || '').trim() + materialAppendix;
+
+    return {
+        fullPrompt: fullPrompt.trim(),
+        fluxReferenceImages: ordered.images,
+        fluxReferenceSources: ordered.sources
+    };
+}
+
 // 設計風向分類：從 remake_categories / remake_subcategories 取 prompt（供 /api/generate-product-image?categorySource=remake）
 async function buildPromptFromRemakeCategoryKeys(categoryKeys, userPrompt) {
     if (!categoryKeys || !Array.isArray(categoryKeys) || categoryKeys.length === 0)
@@ -7376,25 +7429,18 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             }
         }
 
-        let fullPrompt = useRemake
-            ? await buildPromptFromRemakeCategoryKeys(categoryKeys, prompt)
-            : await buildPromptFromCategoryKeys(categoryKeys, prompt);
         const uiLang = (req.body.ui_locale || req.body.lang || '').trim() || null;
-        let fluxReferenceImages = hasRefs ? referenceImages : [];
-        let fluxReferenceSources = hasRefs ? (referenceSources || []) : [];
-        if (hasRefs) {
-            const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-            fluxReferenceImages = ordered.images;
-            fluxReferenceSources = ordered.sources;
-            const prototypeAssets = await resolvePrototypeAssetsForPrompt(fluxReferenceSources);
-            const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
-            if (protoAppendix) fullPrompt = (fullPrompt || '').trim() + protoAppendix;
-            const materialRefs = await resolveMaterialRefsForPrompt(fluxReferenceSources);
-            const materialAppendix = buildMaterialTexturePromptAppendix(materialRefs, uiLang);
-            if (materialAppendix) fullPrompt = (fullPrompt || '').trim() + materialAppendix;
-            const partPatternAppendix = buildPartAndPatternPromptAppendix(fluxReferenceSources, uiLang);
-            if (partPatternAppendix) fullPrompt = (fullPrompt || '').trim() + partPatternAppendix;
-        }
+        const composed = await composeGeneratePromptWithReferences({
+            categoryKeys,
+            userPrompt: prompt,
+            useRemake,
+            uiLang,
+            referenceImages: hasRefs ? referenceImages : [],
+            referenceSources: hasRefs ? (referenceSources || []) : []
+        });
+        let fullPrompt = composed.fullPrompt;
+        let fluxReferenceImages = composed.fluxReferenceImages;
+        let fluxReferenceSources = composed.fluxReferenceSources;
         // 使用者未填 seed 時由後端產生隨機 seed，傳給 FLUX 並寫入 DB，方便重現與顯示
         let seedNum = (seed != null && seed !== '' && Number.isInteger(Number(seed))) ? Number(seed) : null;
         if (seedNum == null) seedNum = Math.floor(Math.random() * 2147483647);

@@ -145,18 +145,21 @@ $(document).ready(function () {
         });
     })();
 
-    // 參考圖：4 格意圖插槽（原型／材料／配件／圖樣），上傳即定用途
+    // 參考圖：4 類用途，每類 0～3 張，全站最多 8 張；送 FLUX 後依實際順序標 image 1…N
+    var MAX_REF_IMAGES_TOTAL = 8;
+    var MAX_REF_IMAGES_PER_SLOT = 3;
     var REF_INTENT_SLOTS = [
         { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', hintFb: '幾何結構與尺寸', addonPhFb: '造型補充（選填）' },
         { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
         { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', titleFb: '配件／零件', hintFb: '五金、拉鍊、掛繩', addonPhFb: '配件勿寫顏色' },
         { key: 'pattern', assetKind: 'other', titleKey: 'customProduct.refSlotPatternTitle', hintKey: 'customProduct.refSlotPatternHint', addonPhKey: 'customProduct.refSlotPatternAddonPh', titleFb: '圖樣／風格', hintFb: '印花、紋理、整體風格', addonPhFb: '圖樣補充（選填）' }
     ];
+    function emptyRefSlotGroup() { return { items: [], addon: '' }; }
     var refSlots = {
-        prototype: { url: null, source: null, addon: '' },
-        material: { url: null, source: null, addon: '' },
-        part: { url: null, source: null, addon: '' },
-        pattern: { url: null, source: null, addon: '' }
+        prototype: emptyRefSlotGroup(),
+        material: emptyRefSlotGroup(),
+        part: emptyRefSlotGroup(),
+        pattern: emptyRefSlotGroup()
     };
 
     var VENDOR_PICKER_PAGE_SIZE_KEY = 'matchdo.vendorPickerPageSize';
@@ -188,31 +191,59 @@ $(document).ready(function () {
         });
     }
 
-    function clearRefSlot(key) {
-        if (!refSlots[key]) return;
-        refSlots[key] = { url: null, source: null, addon: '' };
+    function countTotalRefImages() {
+        var n = 0;
+        REF_INTENT_SLOTS.forEach(function (def) {
+            var g = refSlots[def.key];
+            if (g && g.items) n += g.items.length;
+        });
+        return n;
     }
 
-    function setRefSlot(key, url, source) {
+    function countSlotRefImages(key) {
+        var g = refSlots[key];
+        return (g && g.items) ? g.items.length : 0;
+    }
+
+    function canAddMoreRefImages(slotKey, addCount) {
+        addCount = addCount || 1;
+        if (!getRefSlotDef(slotKey)) return false;
+        if (countSlotRefImages(slotKey) + addCount > MAX_REF_IMAGES_PER_SLOT) return false;
+        if (countTotalRefImages() + addCount > MAX_REF_IMAGES_TOTAL) return false;
+        return true;
+    }
+
+    function clearRefSlot(key) {
         if (!refSlots[key]) return;
+        refSlots[key] = emptyRefSlotGroup();
+    }
+
+    function addRefImageToSlot(key, url, source) {
+        if (!refSlots[key] || !url) return false;
+        if (!canAddMoreRefImages(key, 1)) return false;
         var def = getRefSlotDef(key);
-        var prevAddon = refSlots[key].addon || '';
-        refSlots[key] = {
+        refSlots[key].items.push({
             url: url,
-            source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {}),
-            addon: prevAddon
-        };
+            source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {})
+        });
+        return true;
+    }
+
+    function removeRefImageFromSlot(key, index) {
+        var g = refSlots[key];
+        if (!g || !g.items || index < 0 || index >= g.items.length) return;
+        g.items.splice(index, 1);
     }
 
     function getRefKindCounts() {
         syncRefSlotAddonsFromDom();
         var c = { prototype: 0, material: 0, part: 0, other: 0, total: 0 };
         REF_INTENT_SLOTS.forEach(function (def) {
-            var s = refSlots[def.key];
-            if (!s || !s.url) return;
-            c.total++;
-            if (def.key === 'pattern') c.other++;
-            else c[def.key]++;
+            var n = countSlotRefImages(def.key);
+            if (!n) return;
+            c.total += n;
+            if (def.key === 'pattern') c.other += n;
+            else c[def.key] += n;
         });
         return c;
     }
@@ -254,30 +285,38 @@ $(document).ready(function () {
     function updateRefIntentAiNote() {
         var $n = $('#refIntentAiNote');
         if (!$n.length) return;
-        var filled = REF_INTENT_SLOTS.filter(function (def) { return refSlots[def.key] && refSlots[def.key].url; });
-        if (!filled.length) {
+        var total = countTotalRefImages();
+        if (!total) {
             $n.addClass('d-none').empty();
             return;
         }
-        var names = filled.map(function (def) { return tr(def.titleKey, def.titleFb); }).join('、');
-        var tpl = tr('customProduct.refAiRoleNote', '生成時後端會依用途告知 AI（已選：{slots}），上方描述可選填。');
-        $n.removeClass('d-none').text(tpl.replace('{slots}', names));
+        var parts = [];
+        REF_INTENT_SLOTS.forEach(function (def) {
+            var n = countSlotRefImages(def.key);
+            if (n) parts.push(tr(def.titleKey, def.titleFb) + '×' + n);
+        });
+        var tpl = tr('customProduct.refAiRoleNote', '共 {total} 張（{slots}），後端依實際順序標 image 1～{total}。');
+        $n.removeClass('d-none').text(tpl.replace(/\{total\}/g, String(total)).replace('{slots}', parts.join('、')));
     }
 
     function collectReferencePayload() {
         syncRefSlotAddonsFromDom();
         var items = [];
         REF_INTENT_SLOTS.forEach(function (def) {
-            var s = refSlots[def.key];
-            if (!s || !s.url) return;
+            var g = refSlots[def.key];
+            if (!g || !g.items.length) return;
             var rank = def.key === 'prototype' ? 0 : (def.key === 'part' ? 1 : (def.key === 'material' ? 2 : 3));
-            items.push({
-                rank: rank,
-                url: s.url,
-                src: Object.assign({}, s.source || {}, { asset_kind: def.assetKind })
+            g.items.forEach(function (item) {
+                if (!item || !item.url) return;
+                items.push({
+                    rank: rank,
+                    url: item.url,
+                    src: Object.assign({}, item.source || {}, { asset_kind: def.assetKind })
+                });
             });
         });
         items.sort(function (a, b) { return a.rank - b.rank; });
+        items = items.slice(0, MAX_REF_IMAGES_TOTAL);
         return {
             referenceImages: items.map(function (it) { return it.url; }),
             referenceSources: items.map(function (it) { return it.src; })
@@ -287,12 +326,15 @@ $(document).ready(function () {
     function getActiveRefSourcesList() {
         var list = [];
         REF_INTENT_SLOTS.forEach(function (def) {
-            var s = refSlots[def.key];
-            if (!s || !s.url) return;
-            list.push(Object.assign({}, s.source || {}, {
-                asset_kind: def.assetKind,
-                image_url: (s.source && s.source.image_url) || s.url
-            }));
+            var g = refSlots[def.key];
+            if (!g || !g.items.length) return;
+            g.items.forEach(function (item) {
+                if (!item || !item.url) return;
+                list.push(Object.assign({}, item.source || {}, {
+                    asset_kind: def.assetKind,
+                    image_url: (item.source && item.source.image_url) || item.url
+                }));
+            });
         });
         return list;
     }
@@ -319,11 +361,14 @@ $(document).ready(function () {
 
     function readFileIntoRefSlot(slotKey, file) {
         if (!file || !getRefSlotDef(slotKey)) return;
+        if (!canAddMoreRefImages(slotKey, 1)) {
+            alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+            return;
+        }
         var reader = new FileReader();
         reader.onload = function () {
             var def = getRefSlotDef(slotKey);
-            setRefSlot(slotKey, reader.result, { asset_kind: def.assetKind });
-            renderIntentSlots();
+            if (addRefImageToSlot(slotKey, reader.result, { asset_kind: def.assetKind })) renderIntentSlots();
         };
         reader.onerror = function () { alert(tr('customProduct.loadFailed', '讀取圖片失敗')); };
         reader.readAsDataURL(file);
@@ -334,75 +379,73 @@ $(document).ready(function () {
         if (!$root.length) return;
         syncRefSlotAddonsFromDom();
         $root.empty();
+        var total = countTotalRefImages();
         REF_INTENT_SLOTS.forEach(function (def) {
-            var s = refSlots[def.key];
-            var hasImg = !!(s && s.url);
+            var g = refSlots[def.key];
+            var items = (g && g.items) ? g.items : [];
+            var canAdd = canAddMoreRefImages(def.key, 1);
             var $wrap = $('<div class="ref-intent-slot"></div>');
-            var $card = $('<div class="ref-intent-card"></div>')
-                .attr('title', tr(def.hintKey, def.hintFb));
-            $card.append($('<div class="ref-intent-title"></div>')
-                .attr('data-i18n', def.titleKey)
-                .text(tr(def.titleKey, def.titleFb)));
-            $card.append($('<div class="ref-intent-hint"></div>')
-                .attr('data-i18n', def.hintKey)
-                .text(tr(def.hintKey, def.hintFb)));
-            var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
-            $fileIn.on('change', function (e) {
-                var f = e.target.files && e.target.files[0];
-                if (f) readFileIntoRefSlot(def.key, f);
-                e.target.value = '';
-            });
-            if (hasImg) {
-                var $preview = $('<div class="ref-intent-preview has-image"></div>');
-                $preview.append($('<img class="ref-intent-img" alt="">').attr('src', s.url));
-                if (s.source && s.source.image_label) {
-                    $preview.append($('<span class="ref-intent-label"></span>').text(s.source.image_label));
+            var $card = $('<div class="ref-intent-card"></div>').attr('title', tr(def.hintKey, def.hintFb));
+            $card.append($('<div class="ref-intent-title-row d-flex justify-content-between align-items-center gap-1"></div>')
+                .append($('<div class="ref-intent-title"></div>').attr('data-i18n', def.titleKey).text(tr(def.titleKey, def.titleFb)))
+                .append($('<span class="ref-intent-count badge rounded-pill text-bg-light border"></span>').text(items.length ? String(items.length) : '0')));
+            $card.append($('<div class="ref-intent-hint"></div>').attr('data-i18n', def.hintKey).text(tr(def.hintKey, def.hintFb)));
+            var $thumbs = $('<div class="ref-intent-thumbs"></div>');
+            items.forEach(function (item, ii) {
+                var $thumb = $('<div class="ref-intent-thumb"></div>');
+                $thumb.append($('<img alt="">').attr('src', item.url));
+                if (item.source && item.source.image_label) {
+                    $thumb.append($('<span class="ref-intent-label"></span>').text(item.source.image_label));
                 }
-                $preview.append($('<button type="button" class="ref-intent-clear" title="移除" aria-label="移除">×</button>').on('click', function (e) {
+                $thumb.append($('<button type="button" class="ref-intent-clear" aria-label="移除">×</button>').on('click', function (e) {
                     e.stopPropagation();
-                    clearRefSlot(def.key);
+                    removeRefImageFromSlot(def.key, ii);
                     renderIntentSlots();
                 }));
-                $preview.on('click', function (e) {
+                $thumb.on('click', function (e) {
                     if ($(e.target).closest('.ref-intent-clear').length) return;
-                    e.preventDefault();
-                    openRefImagePreviewModal(def.key);
+                    openRefImagePreviewModal(def.key, ii);
                 });
-                $card.append($preview);
-            } else {
-                var $picker = $('<label class="ref-intent-preview ref-intent-picker"></label>');
-                $picker.append($fileIn);
-                $picker.append($('<span class="ref-intent-empty"><i class="fas fa-plus" aria-hidden="true"></i></span>'));
-                $card.append($picker);
+                $thumbs.append($thumb);
+            });
+            if (canAdd) {
+                var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
+                $fileIn.on('change', function (e) {
+                    var f = e.target.files && e.target.files[0];
+                    if (f) readFileIntoRefSlot(def.key, f);
+                    e.target.value = '';
+                });
+                var $add = $('<label class="ref-intent-thumb ref-intent-thumb-add"></label>');
+                $add.append($fileIn).append($('<span class="ref-intent-empty"><i class="fas fa-plus"></i></span>'));
+                $thumbs.append($add);
             }
+            $card.append($thumbs);
             var $actions = $('<div class="ref-intent-actions"></div>');
             $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
                 .attr('data-i18n', 'customProduct.refSlotPickVendor')
                 .text(tr('customProduct.refSlotPickVendor', '素材庫'))
-                .on('click', function (e) {
-                    e.preventDefault();
-                    openVendorPickerForRefSlot(def.key);
-                }));
-            if (hasImg) {
+                .on('click', function (e) { e.preventDefault(); openVendorPickerForRefSlot(def.key); }));
+            if (items.length) {
                 $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
-                    .attr('data-i18n', 'customProduct.refSlotUpload')
-                    .text(tr('customProduct.refSlotReplace', '更換'))
+                    .text(tr('customProduct.refSlotClearAll', '清空'))
                     .on('click', function (e) {
                         e.preventDefault();
-                        $fileIn.val('');
-                        $fileIn[0].click();
+                        if (window.confirm(tr('customProduct.refSlotClearAllConfirm', '清除此類別所有參考圖？'))) {
+                            clearRefSlot(def.key);
+                            renderIntentSlots();
+                        }
                     }));
-                $card.append($fileIn);
             }
             $card.append($actions);
             $card.append($('<input type="text" class="form-control form-control-sm ref-slot-addon">')
                 .attr('data-ref-slot', def.key)
                 .attr('data-i18n-placeholder', def.addonPhKey)
                 .attr('placeholder', tr(def.addonPhKey, def.addonPhFb))
-                .val((s && s.addon) || ''));
+                .val((g && g.addon) || ''));
             $wrap.append($card);
             $root.append($wrap);
         });
+        $('#refIntentTotalHint').text(total ? (tr('customProduct.refTotalHint', '已選 {n} / {max} 張').replace('{n}', String(total)).replace('{max}', String(MAX_REF_IMAGES_TOTAL))) : '');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         updateMultiVendorRefWarning();
         updateRefIntentAiNote();
@@ -466,7 +509,8 @@ $(document).ready(function () {
         }
         if (redesignUrl) {
             try { sessionStorage.removeItem('redesignImageUrl'); } catch (e) {}
-            setRefSlot('prototype', redesignUrl, { asset_kind: 'prototype' });
+            clearRefSlot('prototype');
+            addRefImageToSlot('prototype', redesignUrl, { asset_kind: 'prototype' });
             renderIntentSlots();
         }
     }
@@ -1110,23 +1154,29 @@ $(document).ready(function () {
         return ($c.attr('data-title') || $c.find('.vendor-asset-title').text() || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
     }
 
-    function openRefImagePreviewModal(slotKey) {
-        var s = refSlots[slotKey];
-        if (!s || !s.url) return;
+    function openRefImagePreviewModal(slotKey, itemIndex) {
+        var g = refSlots[slotKey];
+        if (!g || !g.items || !g.items.length) return;
+        var idx = (itemIndex != null && !isNaN(itemIndex)) ? itemIndex : 0;
+        if (idx < 0 || idx >= g.items.length) idx = 0;
+        var item = g.items[idx];
+        if (!item || !item.url) return;
         var def = getRefSlotDef(slotKey);
         var label = def ? t(def.titleKey) : (vendorPickerTr('customProduct.refPreviewTitle', '參考圖'));
-        var src = s.source;
+        var src = item.source;
         if (src && src.image_label) label += ' · ' + src.image_label;
         else if (src && src.title) label += ' · ' + src.title;
-        var refItems = src && src.image_label ? [{ url: s.url, label: src.image_label }] : [{ url: s.url, label: '' }];
-        if (openImageLightbox(s.url, label, refItems, 0)) return;
+        var refItems = g.items.map(function (it, i) {
+            return { url: it.url, label: (it.source && it.source.image_label) || ('#' + (i + 1)) };
+        });
+        if (openImageLightbox(item.url, label, refItems, idx)) return;
         $('#pastItemModal').data('redesignCategoryKey', ($('#imageCategoryMainSelect').val() || '').trim())
             .data('redesignSubcategoryKey', ($('#imageCategorySubSelect').val() || '').trim());
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         $('#pastItemModalLabel').text(label);
         var inner = document.getElementById('pastItemModalBodyInner');
-        if (inner) inner.innerHTML = '<img src="' + String(s.url).replace(/"/g, '&quot;') + '" alt="">';
-        $('#pastItemModalPrompt').text((s.addon || '').trim() || '（無）');
+        if (inner) inner.innerHTML = '<img src="' + String(item.url).replace(/"/g, '&quot;') + '" alt="">';
+        $('#pastItemModalPrompt').text((g.addon || '').trim() || '（無）');
         $('#pastItemModalSeed').text('—');
         $('#pastItemModalOwner').text('—');
         applyPastItemModalRefSources(src ? [src] : []);
@@ -1275,10 +1325,26 @@ $(document).ready(function () {
             try { targetKey = window.__refImportTargetSlot; } catch (e) { targetKey = null; }
             try { window.__refImportTargetSlot = null; } catch (e2) {}
             if (!targetKey || !getRefSlotDef(targetKey)) targetKey = intentKeyFromAssetKind(assetKind);
-            var toImport = [imageItems[0]];
-            if (imageItems.length > 1) {
-                var multiMsg = t('customProduct.refSlotSingleImageOnly') || '此插槽僅使用第一張圖；多視角請分開上傳或改選其他素材。';
-                if (!window.confirm(multiMsg)) return;
+            var toImport = imageItems.slice();
+            var roomSlot = MAX_REF_IMAGES_PER_SLOT - countSlotRefImages(targetKey);
+            var roomTotal = MAX_REF_IMAGES_TOTAL - countTotalRefImages();
+            var maxAdd = Math.min(toImport.length, roomSlot, roomTotal);
+            if (maxAdd <= 0) {
+                alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
+                return;
+            }
+            if (toImport.length > maxAdd) {
+                var partialMsg = (t('customProduct.refSlotsPartialImport') || '此類尚可加 {empty} 張，將加入前 {n} 張（共 {total} 張）。')
+                    .replace('{empty}', String(maxAdd))
+                    .replace('{n}', String(maxAdd))
+                    .replace('{total}', String(toImport.length));
+                if (!window.confirm(partialMsg)) return;
+                toImport = toImport.slice(0, maxAdd);
+            } else if (toImport.length > 1) {
+                var confirmMulti = (t('customProduct.importPrototypeAngles') || '將加入 {n} 張至此用途：\n').replace('{n}', String(toImport.length));
+                if (!window.confirm(confirmMulti + toImport.map(function (it, ii) {
+                    return '· ' + ((it.label || '').trim() || ('圖 ' + (ii + 1)));
+                }).join('\n'))) return;
             }
             var newMfrId = ($c.attr('data-manufacturer-id') || '').trim();
             var existingIds = {};
@@ -1290,11 +1356,6 @@ $(document).ready(function () {
                 var mfrLabel = ($c.attr('data-manufacturer-name') || '').trim() || (t('customProduct.vendorFallback') || '廠商');
                 var cmsg = (t('customProduct.multiVendorConfirm') || '參考圖已含其他廠商素材，再加入「{name}」可能無法由單一廠商生產。仍要加入？').replace('{name}', mfrLabel);
                 if (!window.confirm(cmsg)) return;
-            }
-            var existingSlot = refSlots[targetKey];
-            if (existingSlot && existingSlot.url) {
-                var replaceMsg = t('customProduct.refSlotReplaceConfirm') || '此用途已有參考圖，要取代嗎？';
-                if (!window.confirm(replaceMsg)) return;
             }
             var clRaw = $c.attr('data-customization-levels');
             var clLevels = [];
@@ -1321,15 +1382,17 @@ $(document).ready(function () {
                 customization_levels: clLevels,
                 min_order_quantity: (moqNum != null && moqNum >= 1) ? moqNum : null
             };
-            var it = toImport[0];
-            fetchUrlAsDataUrl(it.url)
-                .then(function (dataUrl) {
+            Promise.all(toImport.map(function (it) { return fetchUrlAsDataUrl(it.url); }))
+                .then(function (dataUrls) {
                     var def = getRefSlotDef(targetKey);
-                    setRefSlot(targetKey, dataUrl, Object.assign({}, baseMeta, {
-                        asset_kind: def ? def.assetKind : assetKind,
-                        image_url: it.url,
-                        image_label: (it.label || '').trim()
-                    }));
+                    dataUrls.forEach(function (dataUrl, idx) {
+                        var it = toImport[idx];
+                        addRefImageToSlot(targetKey, dataUrl, Object.assign({}, baseMeta, {
+                            asset_kind: def ? def.assetKind : assetKind,
+                            image_url: it.url,
+                            image_label: (it.label || '').trim()
+                        }));
+                    });
                     renderIntentSlots();
                     if (modalEl && bootstrap.Modal.getInstance(modalEl)) bootstrap.Modal.getInstance(modalEl).hide();
                 })

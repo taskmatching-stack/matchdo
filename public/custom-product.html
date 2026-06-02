@@ -669,21 +669,37 @@
         }
         #custom-product .ref-intent-btn--up:hover { background: #f1f5f9; border-color: #94a3b8; }
         #custom-product .ref-slot-addon { font-size: 0.7rem; margin-top: 0.25rem; padding: 0.2rem 0.35rem; }
-        #custom-product .ref-intent-preview,
-        #custom-product .ref-intent-picker {
+        #custom-product .ref-intent-thumbs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin: 0.2rem 0 0.25rem;
+        }
+        #custom-product .ref-intent-thumb {
             position: relative;
+            width: 52px;
+            height: 52px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: #f1f5f9;
+            overflow: hidden;
+            cursor: zoom-in;
+            flex-shrink: 0;
+        }
+        #custom-product .ref-intent-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        #custom-product .ref-intent-thumb-add {
+            border: 1px dashed #cbd5e1;
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 44px;
-            border-radius: 6px;
-            border: 1px dashed #cbd5e1;
-            background: #f8fafc;
-            overflow: hidden;
-            margin: 0;
+            cursor: pointer;
         }
-        #custom-product .ref-intent-picker { cursor: pointer; margin: 0; }
-        #custom-product .ref-intent-picker:hover { border-color: #445D7E; background: #f0f4f8; }
+        #custom-product .ref-intent-thumb-add:hover { border-color: #445D7E; background: #f0f4f8; }
         #custom-product .ref-intent-file {
             position: absolute;
             inset: 0;
@@ -693,23 +709,8 @@
             cursor: pointer;
             z-index: 2;
         }
-        #custom-product .ref-intent-preview.has-image {
-            border-style: solid;
-            border-color: #cbd5e1;
-            height: auto;
-            min-height: 72px;
-            max-height: 96px;
-            cursor: zoom-in;
-            background: #f1f5f9;
-        }
-        #custom-product .ref-intent-img {
-            width: 100%;
-            height: auto;
-            max-height: 96px;
-            object-fit: contain;
-            display: block;
-        }
-        #custom-product .ref-intent-empty { color: #94a3b8; font-size: 0.95rem; pointer-events: none; }
+        #custom-product .ref-intent-empty { color: #94a3b8; font-size: 0.85rem; pointer-events: none; }
+        #custom-product .ref-intent-count { font-size: 0.65rem; font-weight: 600; color: #64748b; }
         #custom-product .ref-intent-clear {
             position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
             border: none; background: rgba(0,0,0,.55); color: #fff; border-radius: 4px;
@@ -865,7 +866,8 @@
 
                             <div class="form-row full">
                                 <span class="label mb-1 d-block" data-i18n="customProduct.refImages">參考圖（依用途上傳）</span>
-                                <p class="form-text text-muted small mb-1" id="refSourceHint" data-i18n="customProduct.refSourceHint">點虛線框上傳，或素材庫；可不打字。有圖 20 點。</p>
+                                <p class="form-text text-muted small mb-0" id="refSourceHint" data-i18n="customProduct.refSourceHint">每類 0～3 張、共最多 8 張；未選的類別不佔編號。有圖 20 點。</p>
+                                <p class="form-text text-muted small mb-1" id="refIntentTotalHint"></p>
                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none mb-2" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
                                 <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
@@ -1083,7 +1085,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=27" defer></script>
+    <script src="js/custom-product.js?v=28" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
