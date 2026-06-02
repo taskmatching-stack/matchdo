@@ -569,7 +569,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-batch-redraw-gap-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'image-labels-fetch-fallback-20260601';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -798,6 +798,11 @@
             editImageLabelSaveTimer = setTimeout(function () { saveImageLabels(assetId); }, 600);
         }
 
+        function imageLabelsSchemaHint(data) {
+            if (data && data.hint) return data.hint;
+            return '請至 Supabase 執行 docs/add-vendor-asset-image-labels.sql（多角度圖名稱存於 gallery_images；封面名稱需 cover_image_label 欄位）';
+        }
+
         async function saveImageLabels(assetId) {
             if (!assetId) return;
             var coverIn = document.getElementById('edit-cover-label');
@@ -819,11 +824,18 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) {
-                    showToast(data.error || '圖片名稱儲存失敗', 'danger');
+                    var errMsg = data.error || '圖片名稱儲存失敗';
+                    if (r.status === 503 || data.code === 'IMAGE_LABELS_SCHEMA' || errMsg === '查詢失敗') {
+                        errMsg += ' — ' + imageLabelsSchemaHint(data);
+                    }
+                    showToast(errMsg, 'danger');
                     return;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === assetId; });
                 if (idx >= 0) materialsAll[idx] = data;
+                if (data.cover_label_skipped && data.warning) {
+                    showToast(data.warning, 'warning');
+                }
             } catch (err) {
                 showToast(err.message || '圖片名稱儲存失敗', 'danger');
             }
@@ -2191,7 +2203,13 @@
             grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div></div>';
             try {
                 var r = await fetch('/api/me/vendor-assets', { headers: { Authorization: 'Bearer ' + token } });
-                var d = await r.json();
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    var listErr = (d && d.error) ? d.error : ('HTTP ' + r.status);
+                    grid.innerHTML = '<div class="col-12"><div class="alert alert-danger mb-0">' + esc(listErr) + '</div></div>';
+                    showToast(listErr, 'danger');
+                    return;
+                }
                 materialsAll = (d.items || []).map(function (m) {
                     m.asset_kind = normalizeKind(m.asset_kind);
                     return m;
@@ -2199,6 +2217,7 @@
                 renderGrid();
             } catch (e) {
                 grid.innerHTML = '<div class="col-12"><div class="alert alert-danger">' + esc(e.message) + '</div></div>';
+                showToast(e.message || '載入失敗', 'danger');
             }
         }
 

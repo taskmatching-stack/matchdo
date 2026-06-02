@@ -1334,23 +1334,51 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
     });
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
-const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME_MINIMAL = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+
+const VENDOR_ASSET_OPTIONAL_COLS_42703 = [
+    'source_catalog_item_id', 'cover_image_label', 'gallery_images', 'asset_kind', 'part_key',
+    'min_order_quantity', 'customization_levels', 'color_key'
+];
+
+function stripMissingColumnsFromSelect(selectCols, errMessage) {
+    const msg = String(errMessage || '');
+    return selectCols.split(',').map((c) => c.trim()).filter((c) => {
+        if (!c) return false;
+        return !VENDOR_ASSET_OPTIONAL_COLS_42703.some((opt) => opt === c && msg.includes(opt));
+    }).join(', ');
+}
 
 /** 依廠商 id + 素材 id 查一筆；缺欄位時自動降級（與 GET 列表一致，避免 DELETE 誤判 404） */
 async function fetchVendorAssetOwnedByManufacturer(assetId, manufacturerId, selectCols) {
     const id = String(assetId || '').trim();
     if (!id || !manufacturerId) return { data: null, error: null };
-    let cols = selectCols || 'id, manufacturer_id, source_catalog_item_id';
+    let cols = (selectCols || 'id, manufacturer_id, source_catalog_item_id').replace(/\s+/g, ' ').trim();
     async function query(columns) {
         return supabase.from('vendor_assets').select(columns).eq('id', id).eq('manufacturer_id', manufacturerId).maybeSingle();
     }
     let result = await query(cols);
-    if (result.error && result.error.code === '42703') {
-        const legacyCols = cols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'source_catalog_item_id').join(', ');
-        cols = legacyCols || 'id, manufacturer_id';
+    let guard = 0;
+    while (result.error && result.error.code === '42703' && guard < 12) {
+        guard += 1;
+        const nextCols = stripMissingColumnsFromSelect(cols, result.error.message);
+        if (!nextCols || nextCols === cols) {
+            const parts = cols.split(',').map((c) => c.trim()).filter(Boolean);
+            if (parts.length <= 1) break;
+            cols = parts.slice(0, -1).join(', ');
+        } else {
+            cols = nextCols;
+        }
+        if (!cols) cols = 'id, manufacturer_id';
         result = await query(cols);
-        if (result.data && result.data.source_catalog_item_id === undefined) result.data.source_catalog_item_id = null;
+    }
+    if (result.data) {
+        if (result.data.source_catalog_item_id === undefined) result.data.source_catalog_item_id = null;
+        if (result.data.cover_image_label === undefined) result.data.cover_image_label = null;
+        if (result.data.gallery_images === undefined) result.data.gallery_images = [];
+        if (result.data.asset_kind === undefined) result.data.asset_kind = 'prototype';
     }
     if (result.error) return result;
     return result;
@@ -12794,7 +12822,17 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         let { data: list, error } = await runList(VENDOR_ASSET_SELECT_ME);
         if (error && error.code === '42703') {
             ({ data: list, error } = await runList(VENDOR_ASSET_SELECT_ME_LEGACY));
-            if (list) list = list.map((row) => ({ ...row, asset_kind: row.asset_kind || 'prototype' }));
+            if (error && error.code === '42703') {
+                ({ data: list, error } = await runList(VENDOR_ASSET_SELECT_ME_MINIMAL));
+            }
+            if (list) {
+                list = list.map((row) => ({
+                    ...row,
+                    asset_kind: row.asset_kind || 'prototype',
+                    gallery_images: row.gallery_images != null ? row.gallery_images : [],
+                    cover_image_label: row.cover_image_label != null ? row.cover_image_label : null
+                }));
+            }
         }
         if (error) {
             if (error.code === '42P01') return res.json({ items: [] });
@@ -13595,26 +13633,54 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
         if (Object.keys(updates).length <= 1) {
             return res.status(400).json({ error: '請提供 cover_label 或 entries' });
         }
+        const coverLabelRequested = body.cover_label !== undefined;
+        let coverLabelSkipped = false;
         let { data: updated, error } = await supabase.from('vendor_assets')
             .update(updates)
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_ME)
             .single();
-        if (error && error.code === '42703' && String(error.message || '').includes('cover_image_label')) {
-            delete updates.cover_image_label;
+        if (error && error.code === '42703') {
+            if (String(error.message || '').includes('cover_image_label')) {
+                delete updates.cover_image_label;
+                coverLabelSkipped = coverLabelRequested;
+            }
+            if (String(error.message || '').includes('gallery_images')) {
+                delete updates.gallery_images;
+            }
+            if (Object.keys(updates).length <= 1) {
+                return res.status(503).json({
+                    error: '資料庫尚未支援圖片名稱欄位',
+                    code: 'IMAGE_LABELS_SCHEMA',
+                    hint: '請至 Supabase 執行 docs/add-vendor-asset-image-labels.sql 與 docs/add-vendor-asset-gallery-images.sql'
+                });
+            }
             ({ data: updated, error } = await supabase.from('vendor_assets')
                 .update(updates)
                 .eq('id', id)
                 .eq('manufacturer_id', manufacturerId)
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+                .select(VENDOR_ASSET_SELECT_ME_LEGACY)
                 .single());
+            if (error && error.code === '42703') {
+                ({ data: updated, error } = await supabase.from('vendor_assets')
+                    .update(updates)
+                    .eq('id', id)
+                    .eq('manufacturer_id', manufacturerId)
+                    .select(VENDOR_ASSET_SELECT_ME_MINIMAL)
+                    .single());
+            }
         }
         if (error) {
             console.error('PATCH image-labels:', error);
             return res.status(500).json({ error: error.message || '更新失敗' });
         }
-        res.json(mapVendorAssetForApi(updated));
+        const payload = mapVendorAssetForApi(updated);
+        if (coverLabelSkipped) {
+            payload.cover_label_skipped = true;
+            payload.warning = '多角度圖名稱已儲存；封面名稱需執行 docs/add-vendor-asset-image-labels.sql';
+        }
+        res.json(payload);
     } catch (e) {
         console.error('PATCH /api/me/vendor-assets/:id/image-labels:', e);
         res.status(500).json({ error: '系統錯誤' });
