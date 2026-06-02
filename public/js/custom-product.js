@@ -74,8 +74,7 @@ $(document).ready(function () {
                     $(this).addClass('selected');
                     mainHidden.val(selectedKey);
                     updateSubList(selectedKey);
-                        updateRefIntentAiNote();
-                });
+                    });
                 mainList.append(opt);
             });
             function updateSubList(mainKeyFromClick) {
@@ -99,7 +98,6 @@ $(document).ready(function () {
                         subList.find('.cat-option').removeClass('selected');
                         $(this).addClass('selected');
                         subHidden.val($(this).attr('data-key'));
-                        updateRefIntentAiNote();
                     });
                     subList.append(opt);
                 });
@@ -344,23 +342,6 @@ $(document).ready(function () {
         return '';
     }
 
-    function updateRefIntentAiNote() {
-        var $n = $('#refIntentAiNote');
-        if (!$n.length) return;
-        var total = countTotalRefImages();
-        if (!total) {
-            $n.addClass('d-none').empty();
-            return;
-        }
-        var parts = [];
-        REF_INTENT_SLOTS.forEach(function (def) {
-            var n = countSlotRefImages(def.key);
-            if (n) parts.push(tr(def.titleKey, def.titleFb) + '×' + n);
-        });
-        var tpl = tr('customProduct.refAiRoleNote', '共 {total} 張（{slots}），後端依實際順序標 image 1～{total}。');
-        $n.removeClass('d-none').text(tpl.replace(/\{total\}/g, String(total)).replace('{slots}', parts.join('、')));
-    }
-
     function collectReferencePayload() {
         syncRefSlotsFromDom();
         var items = [];
@@ -559,10 +540,8 @@ $(document).ready(function () {
         $wrap.append(renderRefIntentPanel(activeDef));
         $root.append($wrap);
 
-        $('#refIntentTotalHint').text('');
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
-            updateMultiVendorRefWarning();
-        updateRefIntentAiNote();
+        updateMultiVendorRefWarning();
         updateRefPrototypeScopeHint();
     }
     window.__renderIntentSlots = renderIntentSlots;
@@ -720,10 +699,8 @@ $(document).ready(function () {
             for (var i = 0; i < n; i++) $boxes.eq(i).prop('checked', true);
             updateVendorAssetPickModalCount();
         });
-        $(document).on('input', '#refIntentSlots .ref-slot-addon', updateRefIntentAiNote);
         $(document).on('input', '#refIntentSlots .ref-thumb-note', function () {
             syncRefSlotItemNotesFromDom();
-            updateRefIntentAiNote();
         });
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(initRefIntentUi);

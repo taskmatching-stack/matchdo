@@ -12,7 +12,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="matchdo-asset-version" content="34">
+    <meta name="matchdo-asset-version" content="35">
     <title>產品設計 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="keywords" content="客製產品設計,AI設計,廠商媒合,訂製,MATCHDO">
@@ -633,11 +633,6 @@
             position: absolute; width: 0.1px; height: 0.1px; opacity: 0; overflow: hidden; z-index: -1;
         }
         #custom-product #refIntentSlots { width: 100%; }
-        #custom-product #refSourceHint,
-        #custom-product #refIntentAiNote {
-            font-size: 0.875rem;
-            line-height: 1.45;
-        }
         #custom-product .ref-intent-tabs-wrap {
             --ref-brand: #445D7E;
             --ref-brand-muted: #6b7f9a;
@@ -1112,14 +1107,11 @@
 
                             <div class="form-row full">
                                 <span class="label mb-1 d-block" data-i18n="customProduct.refImages">參考圖（依用途上傳）</span>
-                                <p class="form-text text-muted small mb-0" id="refSourceHint" data-i18n="customProduct.refSourceHint">每類 0～3 張、共最多 8 張；未選的類別不佔編號。有圖 20 點。</p>
-                                <p class="form-text text-muted small mb-1 d-none" id="refIntentTotalHint" aria-hidden="true"></p>
                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none mb-2" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
                                 <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
                                 <div id="refIntentSlots" class="mb-1"></div>
                                 <p id="refPrototypeScopeHint" class="alert alert-info py-2 px-3 small mb-2 d-none" role="status"></p>
-                                <p id="refIntentAiNote" class="form-text text-muted small mb-0 d-none" role="status"></p>
                             </div>
 
                             <details id="seedDetails" style="margin-bottom: 0.5rem;">
@@ -1332,7 +1324,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=34" defer></script>
+    <script src="js/custom-product.js?v=35" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
