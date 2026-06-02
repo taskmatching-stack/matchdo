@@ -149,11 +149,17 @@ $(document).ready(function () {
     var MAX_REF_IMAGES_TOTAL = 8;
     var MAX_REF_IMAGES_PER_SLOT = 3;
     var REF_INTENT_SLOTS = [
-        { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', hintFb: '幾何結構與尺寸', addonPhFb: '造型補充（選填）' },
-        { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
-        { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', titleFb: '配件／零件', hintFb: '五金、拉鍊、掛繩', addonPhFb: '配件勿寫顏色' },
-        { key: 'pattern', assetKind: 'other', titleKey: 'customProduct.refSlotPatternTitle', hintKey: 'customProduct.refSlotPatternHint', addonPhKey: 'customProduct.refSlotPatternAddonPh', titleFb: '圖樣／風格', hintFb: '印花、紋理、整體風格', addonPhFb: '圖樣補充（選填）' }
+        { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', tabKey: 'customProduct.refSlotPrototypeTab', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', tabFb: '原型', hintFb: '幾何結構與尺寸', addonPhFb: '造型補充（選填）' },
+        { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', tabKey: 'customProduct.refSlotMaterialTab', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', tabFb: '材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
+        { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', tabKey: 'customProduct.refSlotPartTab', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', titleFb: '配件／零件', tabFb: '配件', hintFb: '五金、拉鍊、掛繩', addonPhFb: '配件勿寫顏色' },
+        { key: 'pattern', assetKind: 'other', titleKey: 'customProduct.refSlotPatternTitle', tabKey: 'customProduct.refSlotPatternTab', hintKey: 'customProduct.refSlotPatternHint', addonPhKey: 'customProduct.refSlotPatternAddonPh', titleFb: '圖樣／風格', tabFb: '圖樣', hintFb: '印花、紋理、整體風格', addonPhFb: '圖樣補充（選填）' }
     ];
+
+    function refIntentTabLabel(def) {
+        var short = tr(def.tabKey, def.tabFb || '');
+        if (short) return short;
+        return tr(def.titleKey, def.titleFb);
+    }
     function emptyRefSlotGroup() { return { items: [], addon: '' }; }
     var refSlots = {
         prototype: emptyRefSlotGroup(),
@@ -477,7 +483,9 @@ $(document).ready(function () {
                 .attr('data-ref-tab', def.key)
                 .attr('aria-selected', isActive ? 'true' : 'false')
                 .toggleClass('active', isActive);
-            $btn.append($('<span class="ref-intent-tab-label"></span>').attr('data-i18n', def.titleKey).text(tr(def.titleKey, def.titleFb)));
+            var tabText = refIntentTabLabel(def);
+            $btn.attr('title', tr(def.titleKey, def.titleFb));
+            $btn.append($('<span class="ref-intent-tab-label"></span>').attr('data-i18n', def.tabKey).text(tabText));
             var $badge = $('<span class="ref-intent-tab-badge"></span>').text(n ? String(n) : '');
             if (!n) $badge.addClass('d-none');
             $btn.append($badge);

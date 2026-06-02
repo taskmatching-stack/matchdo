@@ -613,25 +613,30 @@
             line-height: 1.45;
         }
         #custom-product .ref-intent-tabs-wrap {
-            border: 2px solid #cbd5e1;
-            border-radius: 10px;
+            --ref-brand: #445D7E;
+            --ref-brand-muted: #6b7f9a;
+            --ref-surface: #f8fafc;
+            --ref-border: #e2e8f0;
+            --ref-border-strong: #d1dae6;
+            border: 1px solid var(--ref-border-strong);
+            border-radius: 8px;
             background: #fff;
             overflow: hidden;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
         }
         #custom-product .ref-intent-tabs-nav {
-            display: flex;
-            align-items: flex-end;
-            gap: 0.5rem;
-            padding: 0.5rem 0.5rem 0;
-            border-bottom: 2px solid #cbd5e1;
-            background: #eef2f6;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: end;
+            column-gap: 0.35rem;
+            row-gap: 0.2rem;
+            padding: 0.4rem 0.4rem 0;
+            border-bottom: 1px solid var(--ref-border-strong);
+            background: var(--ref-surface);
         }
         #custom-product .ref-intent-tabs-scroll {
             display: flex;
-            flex: 1 1 auto;
             min-width: 0;
-            gap: 0.35rem;
+            gap: 0.15rem;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
@@ -641,76 +646,77 @@
             flex: 0 0 auto;
             display: inline-flex;
             align-items: center;
-            gap: 0.35rem;
-            border: 1px solid #94a3b8;
-            border-radius: 8px 8px 0 0;
-            background: #f8fafc;
-            color: #475569;
-            font-size: 0.875rem;
+            gap: 0.2rem;
+            border: 1px solid var(--ref-border);
+            border-radius: 6px 6px 0 0;
+            background: #fff;
+            color: #64748b;
+            font-size: 0.8125rem;
             font-weight: 600;
-            line-height: 1.3;
-            padding: 0.45rem 0.55rem;
+            line-height: 1.25;
+            padding: 0.35rem 0.4rem;
             white-space: nowrap;
             cursor: pointer;
-            margin-bottom: -2px;
+            margin-bottom: -1px;
         }
         #custom-product .ref-intent-tab-btn:hover {
-            color: #445D7E;
-            border-color: #445D7E;
-            background: #f0f4f8;
+            color: var(--ref-brand-muted);
+            border-color: #c5d0de;
+            background: #f1f5f9;
         }
         #custom-product .ref-intent-tab-btn.active {
-            color: #445D7E;
+            color: var(--ref-brand);
             background: #fff;
-            border: 2px solid #445D7E;
-            border-bottom: 2px solid #fff;
-            padding-top: 0.5rem;
-            box-shadow: 0 -2px 0 #445D7E inset;
+            border-color: var(--ref-brand-muted);
+            border-bottom-color: #fff;
             z-index: 1;
         }
         #custom-product .ref-intent-tab-label {
-            max-width: 7rem;
+            max-width: 5.25rem;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        html[lang^="en"] #custom-product .ref-intent-tab-label {
+            max-width: 4.25rem;
         }
         #custom-product .ref-intent-tab-btn .ref-intent-tab-badge {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 1.35rem;
-            height: 1.35rem;
-            font-size: 0.75rem;
+            min-width: 1.15rem;
+            height: 1.15rem;
+            font-size: 0.6875rem;
             font-weight: 700;
             line-height: 1;
-            padding: 0 0.35rem;
+            padding: 0 0.28rem;
             border-radius: 999px;
-            background: #445D7E;
+            background: rgba(68, 93, 126, 0.88);
             color: #fff;
             border: none;
-            box-shadow: none;
-        }
-        #custom-product .ref-intent-tab-btn.active .ref-intent-tab-badge {
-            background: #445D7E;
-            color: #fff;
         }
         #custom-product .ref-intent-total-pill {
             flex: 0 0 auto;
-            align-self: center;
-            font-size: 0.875rem;
-            font-weight: 700;
-            color: #445D7E;
+            align-self: end;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--ref-brand-muted);
             white-space: nowrap;
-            padding: 0.25rem 0.45rem;
-            border: 1px solid #445D7E;
+            padding: 0.2rem 0.4rem;
+            border: 1px solid var(--ref-border);
             border-radius: 999px;
             background: #fff;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.25rem;
+            line-height: 1.2;
+        }
+        #custom-product .ref-intent-total-pill:not(:empty) {
+            color: var(--ref-brand);
+            border-color: #c5d0de;
         }
         #custom-product .ref-intent-panel {
             padding: 0.65rem 0.6rem 0.7rem;
             border-top: none;
             background: #fff;
-            border-left: 4px solid #445D7E;
+            border-left: 3px solid rgba(68, 93, 126, 0.35);
         }
         #custom-product .ref-intent-hint {
             font-size: 0.875rem;
@@ -735,11 +741,11 @@
             font-weight: 600;
         }
         #custom-product .ref-intent-btn--lib {
-            color: #445D7E;
-            border: 1px solid #445D7E;
+            color: #5a7290;
+            border: 1px solid #c5d0de;
             background: #fff;
         }
-        #custom-product .ref-intent-btn--lib:hover { background: #f0f4f8; color: #364a63; border-color: #364a63; }
+        #custom-product .ref-intent-btn--lib:hover { background: #f4f7fa; color: #445D7E; border-color: #94a3b8; }
         #custom-product .ref-intent-btn--up {
             color: #475569;
             border: 1px solid #cbd5e1;
@@ -796,7 +802,7 @@
         #custom-product .ref-intent-addon-summary {
             font-size: 0.875rem;
             font-weight: 600;
-            color: #445D7E;
+            color: #5a7290;
             cursor: pointer;
             user-select: none;
         }
@@ -1175,7 +1181,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=30" defer></script>
+    <script src="js/custom-product.js?v=31" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
