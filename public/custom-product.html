@@ -160,12 +160,38 @@
             </div>
         </div>
     </div>
+    <div class="modal fade" id="productPromptRefTipsModal" tabindex="-1" aria-labelledby="productPromptRefTipsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title" id="productPromptRefTipsModalLabel" data-i18n="customProduct.promptRefTipsTitle">提示詞與參考圖技巧</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body small">
+                    <p class="mb-2" data-i18n="customProduct.promptRefTipsMainBody">描述<strong>主產品本體</strong>的顏色、布料、印花、版型時，請在提示詞裡書寫（例：軍綠帆布、海軍藍丹寧、正面燙印 "OPEN"）。</p>
+                    <div class="alert alert-warning py-2 px-2 mb-2" role="note" data-i18n="customProduct.promptRefTipsNoPartInPrompt"><strong>請勿</strong>在提示詞裡改寫<strong>配件</strong>的材質或顏色（例：勿寫「把 D 扣改成金色」「拉鍊換黑色」）。要金色扣、黑色扣，請在下方參考圖加入對應的<strong>配件／零件</strong>圖（廠商通常一色一筆），由參考圖決定外觀。</div>
+                    <ul class="mb-2 ps-3">
+                        <li class="mb-1" data-i18n="customProduct.promptRefTipsMaterialRef"><strong>材料參考</strong>：主產品布料／色卡質感。選圖後可寫「採用參考布料的顏色與質感」，勿把扣具、拉鍊顏色寫進材料描述。</li>
+                        <li class="mb-1" data-i18n="customProduct.promptRefTipsPartRef"><strong>配件／零件</strong>：每種顏色、表面材質廠商會分開上傳；請選與設計相符的那一筆，不要指望用一句提示詞換扣具顏色。</li>
+                        <li class="mb-0" data-i18n="customProduct.promptRefTipsMix">可混用參考圖：① 數位原型（造型）② 材料（主產品質感／色）③ 配件／零件（扣具、拉鍊等各一色一圖）④ 圖樣或草圖。</li>
+                    </ul>
+                    <p class="text-muted mb-0" data-i18n="customProduct.promptRefTipsVendorNote">從「廠商素材庫」篩選時，材料與配件僅依主分類；請依素材類型分別挑選，避免混用。</p>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal" data-i18n="home.close">關閉</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="modal fade" id="vendorAssetsPickerModal" tabindex="-1" aria-labelledby="vendorAssetsPickerLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-scrollable modal-lg">
             <div class="modal-content">
                 <div class="modal-header py-2">
-                    <h6 class="modal-title" id="vendorAssetsPickerLabel" data-i18n="customProduct.selectFromVendorAssets">從廠商素材庫選擇</h6>
+                    <h6 class="modal-title d-flex align-items-center gap-2 mb-0" id="vendorAssetsPickerLabel">
+                        <span data-i18n="customProduct.selectFromVendorAssets">從廠商素材庫選擇</span>
+                        <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
+                    </h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body py-2">
@@ -519,13 +545,21 @@
         #custom-product .form-row.full { grid-template-columns: 1fr; }
         #custom-product .form-row .label { font-size: 0.875rem; color: #374151; font-weight: 500; }
         #custom-product .form-row .label span { color: #6b7280; font-weight: 400; }
-        #custom-product .prompt-help-btn {
+        #custom-product .prompt-help-btn,
+        #custom-product .prompt-ref-tips-btn {
             width: 1.35rem;
             height: 1.35rem;
             padding: 0;
             line-height: 1.2;
             font-size: 0.8rem;
             font-weight: 700;
+        }
+        #custom-product .prompt-ref-tips-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 400;
+            font-size: 0.72rem;
         }
         #custom-product .prompt-label-row .label { margin-bottom: 0; }
         #custom-product .prompt-hero {
@@ -694,9 +728,10 @@
                                 <div class="prompt-label-row d-flex align-items-center gap-2 flex-wrap mb-1">
                                     <label class="label mb-0" for="productPrompt" data-i18n="customProduct.promptLabel">描述你想生成的產品</label>
                                     <button type="button" class="btn btn-outline-secondary btn-sm rounded-circle prompt-help-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptHelpModal" aria-label="操作說明" title="操作說明" data-i18n-title="customProduct.promptHelpBtnTitle">?</button>
+                                    <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
                                 </div>
                                 <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="例：軍綠後背包，正面燙印 &quot;OPEN&quot;"></textarea>
-                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">要印在產品上的字請用半形雙引號 &quot; &quot; 包住；點 ? 看說明。亦可從參考圖「從此圖產生描述」貼上句子。</p>
+                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">要印在產品上的字請用半形雙引號 &quot; &quot; 包住；點 ? 看說明。主產品材質／顏色寫在提示詞；配件顏色請用參考圖（點燈泡圖示）。</p>
                             </div>
 
                             <!-- 桌機版：雙面板 -->
@@ -721,8 +756,11 @@
                             <p class="form-text text-muted small mb-0 mt-1 cat-desktop-hint" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
 
                             <div class="form-row full">
-                                <span class="label" data-i18n="customProduct.refImages">參考圖（最多 8 張，可複選）</span>
-                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可同時選多張（最多 8 張）：點下方空白格「＋」本機上傳，或按「從廠商素材庫選擇」加入。可混用① 數位原型（造型）② 材料參考（質感／色）③ 圖樣或草圖。有參考圖時生圖 20 點。</p>
+                                <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                    <span class="label mb-0" data-i18n="customProduct.refImages">參考圖（最多 8 張，可複選）</span>
+                                    <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
+                                </div>
+                                <p class="form-text text-muted small mb-2" id="refSourceHint" data-i18n="customProduct.refSourceHint">可同時選多張（最多 8 張）：點下方空白格「＋」本機上傳，或按「從廠商素材庫選擇」加入。可混用① 數位原型（造型）② 材料參考（主產品質感／色）③ 配件／零件（扣具、拉鍊等各一色一圖）④ 圖樣或草圖。有參考圖時生圖 20 點。</p>
                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btnRefFromVendorAssets" data-i18n="customProduct.selectFromVendorAssets" title="依目前選擇的分類載入廠商素材">從廠商素材庫選擇</button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
@@ -946,7 +984,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=18" defer></script>
+    <script src="js/custom-product.js?v=19" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); }); }</script>
 </body>
 
