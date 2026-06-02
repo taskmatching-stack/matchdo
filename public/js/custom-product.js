@@ -1695,6 +1695,22 @@ $(document).ready(function () {
             .replace('{max}', String(maxSelect))
             .replace('{slot}', slotDef ? refIntentTabLabel(slotDef) : ''));
 
+        var $scopeBlock = $('#vendorAssetImagesPickScope');
+        $scopeBlock.empty().addClass('d-none');
+        if (targetKey === 'prototype' && baseMeta) {
+            var scopeBadges = buildPrototypeCustomizationBadgesHtml(baseMeta);
+            if (scopeBadges) {
+                var scopeTitle = tr('customProduct.vendorAssetPickScopeTitle', '廠商訂製範圍（此數位原型）');
+                var scopeNote = tr('customProduct.refPrototypeScopePanelNote',
+                    '綠色＝廠商已開放的訂製項目；灰色＝廠商未開放，仍可當參考，下單前請向廠商確認能否製造。');
+                $scopeBlock.removeClass('d-none').append(
+                    $('<div class="vendor-asset-pick-scope-title"></div>').attr('data-i18n', 'customProduct.vendorAssetPickScopeTitle').text(scopeTitle),
+                    $(scopeBadges),
+                    $('<p class="vendor-asset-pick-scope-note mb-0"></p>').attr('data-i18n', 'customProduct.refPrototypeScopePanelNote').text(scopeNote)
+                );
+            }
+        }
+
         var $grid = $('#vendorAssetImagesPickGrid').empty();
         imageItems.forEach(function (it, idx) {
             var label = (it.label || '').trim() || (tr('customProduct.refThumbDefault', '圖') + ' ' + (idx + 1));
