@@ -1057,24 +1057,28 @@ function buildFluxReferenceImageRoleMapAppendix(orderedSources, lang) {
         const titlePart = title
             ? (isEn ? (' ("' + title + '")') : ('（「' + title + '」）'))
             : '';
+        const userNote = (s.user_note || '').trim();
+        const noteSuffix = userNote
+            ? (isEn ? (' Per-image note: ' + userNote + '.') : ('；此圖補充：' + userNote + '。'))
+            : '';
         if (kind === 'prototype') {
             lines.push(isEn
                 ? ('image ' + n + titlePart + ': product prototype — shape, silhouette, proportions, and structure only'
-                    + (n === 1 ? ' (this is input_image, primary geometry anchor).' : '.'))
+                    + (n === 1 ? ' (this is input_image, primary geometry anchor).' : '.') + noteSuffix)
                 : ('image ' + n + titlePart + '：主體原型 — 僅決定造型、輪廓、比例與結構'
-                    + (n === 1 ? '（即 input_image，主要造型錨點）。' : '。')));
+                    + (n === 1 ? '（即 input_image，主要造型錨點）。' : '。') + noteSuffix));
         } else if (kind === 'material') {
             lines.push(isEn
-                ? ('image ' + n + titlePart + ': main body material — fabric, leather, surface texture and color on the product body only.')
-                : ('image ' + n + titlePart + '：主體材料 — 僅作本體布料／皮革的表面質感與色彩。'));
+                ? ('image ' + n + titlePart + ': main body material — fabric, leather, surface texture and color on the product body only.' + noteSuffix)
+                : ('image ' + n + titlePart + '：主體材料 — 僅作本體布料／皮革的表面質感與色彩。' + noteSuffix));
         } else if (kind === 'part') {
             lines.push(isEn
-                ? ('image ' + n + titlePart + ': parts / hardware — zippers, buckles, straps, trims; match exactly; do not recolor parts via text.')
-                : ('image ' + n + titlePart + '：配件／零件 — 五金、拉鍊、扣具、掛繩；外觀以此圖為準，勿用文字改配件顏色。'));
+                ? ('image ' + n + titlePart + ': parts / hardware — zippers, buckles, straps, trims; match exactly; do not recolor parts via text.' + noteSuffix)
+                : ('image ' + n + titlePart + '：配件／零件 — 五金、拉鍊、扣具、掛繩；外觀以此圖為準，勿用文字改配件顏色。' + noteSuffix));
         } else {
             lines.push(isEn
-                ? ('image ' + n + titlePart + ': pattern / style — prints, graphics, or overall look only; not product geometry.')
-                : ('image ' + n + titlePart + '：圖樣／風格 — 僅作印花、圖案或整體風格，不決定造型。'));
+                ? ('image ' + n + titlePart + ': pattern / style — prints, graphics, or overall look only; not product geometry.' + noteSuffix)
+                : ('image ' + n + titlePart + '：圖樣／風格 — 僅作印花、圖案或整體風格，不決定造型。' + noteSuffix));
         }
     });
     const header = isEn

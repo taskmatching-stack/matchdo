@@ -161,6 +161,14 @@ $(document).ready(function () {
         return tr(def.titleKey, def.titleFb);
     }
     function emptyRefSlotGroup() { return { items: [], addon: '' }; }
+
+    var CUSTOMIZATION_LEVEL_DEFS = [
+        { key: 'mono_graphic', labelKey: 'customProduct.customLevelMonoGraphic', fb: '單色表面圖文' },
+        { key: 'color_graphic', labelKey: 'customProduct.customLevelColorGraphic', fb: '彩色表面圖文' },
+        { key: 'color_material', labelKey: 'customProduct.customLevelColorMaterial', fb: '主體顏色／材質' },
+        { key: 'size_part', labelKey: 'customProduct.customLevelSizePart', fb: '尺寸／零件' },
+        { key: 'form_structure', labelKey: 'customProduct.customLevelFormStructure', fb: '造型／結構' }
+    ];
     var refSlots = {
         prototype: emptyRefSlotGroup(),
         material: emptyRefSlotGroup(),
@@ -175,7 +183,7 @@ $(document).ready(function () {
 
     function setRefIntentActiveTab(key) {
         if (!getRefSlotDef(key)) return;
-        syncRefSlotAddonsFromDom();
+        syncRefSlotsFromDom();
         refIntentActiveTab = key;
         renderIntentSlots();
     }
@@ -207,6 +215,20 @@ $(document).ready(function () {
             var key = $(this).attr('data-ref-slot');
             if (key && refSlots[key]) refSlots[key].addon = $(this).val() || '';
         });
+    }
+
+    function syncRefSlotItemNotesFromDom() {
+        $('#refIntentSlots .ref-thumb-note').each(function () {
+            var key = $(this).attr('data-ref-slot');
+            var idx = parseInt($(this).attr('data-ref-index'), 10);
+            if (!key || !refSlots[key] || !refSlots[key].items || isNaN(idx) || idx < 0 || idx >= refSlots[key].items.length) return;
+            refSlots[key].items[idx].note = $(this).val() || '';
+        });
+    }
+
+    function syncRefSlotsFromDom() {
+        syncRefSlotAddonsFromDom();
+        syncRefSlotItemNotesFromDom();
     }
 
     function countTotalRefImages() {
@@ -242,6 +264,7 @@ $(document).ready(function () {
         var def = getRefSlotDef(key);
         refSlots[key].items.push({
             url: url,
+            note: '',
             source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {})
         });
         return true;
@@ -254,7 +277,7 @@ $(document).ready(function () {
     }
 
     function getRefKindCounts() {
-        syncRefSlotAddonsFromDom();
+        syncRefSlotsFromDom();
         var c = { prototype: 0, material: 0, part: 0, other: 0, total: 0 };
         REF_INTENT_SLOTS.forEach(function (def) {
             var n = countSlotRefImages(def.key);
@@ -285,17 +308,38 @@ $(document).ready(function () {
         $ta.trigger('input');
     }
 
+    function collectOrderedRefItemsWithIndex() {
+        syncRefSlotsFromDom();
+        var items = [];
+        REF_INTENT_SLOTS.forEach(function (def) {
+            var g = refSlots[def.key];
+            if (!g || !g.items.length) return;
+            var rank = def.key === 'prototype' ? 0 : (def.key === 'part' ? 1 : (def.key === 'material' ? 2 : 3));
+            g.items.forEach(function (item) {
+                if (!item || !item.url) return;
+                items.push({ rank: rank, item: item, slotKey: def.key });
+            });
+        });
+        items.sort(function (a, b) { return a.rank - b.rank; });
+        return items.slice(0, MAX_REF_IMAGES_TOTAL);
+    }
+
     function composeUserPromptForGenerate() {
-        syncRefSlotAddonsFromDom();
+        syncRefSlotsFromDom();
         var main = ($('#productPrompt').val() || '').trim();
         var addonLines = REF_INTENT_SLOTS.map(function (def) {
             var a = (refSlots[def.key].addon || '').trim();
             if (!a) return '';
             return tr(def.titleKey, def.titleFb) + '：' + a;
         }).filter(Boolean);
-        if (main && addonLines.length) return main + '\n' + addonLines.join('\n');
-        if (main) return main;
-        if (addonLines.length) return addonLines.join('\n');
+        var perImageLines = [];
+        collectOrderedRefItemsWithIndex().forEach(function (row, idx) {
+            var note = (row.item.note || '').trim();
+            if (!note) return;
+            perImageLines.push('image ' + (idx + 1) + '：' + note);
+        });
+        var blocks = [main].concat(addonLines).concat(perImageLines).filter(Boolean);
+        if (blocks.length) return blocks.join('\n');
         if (getRefKindCounts().total > 0) return buildSuggestedPrompt();
         return '';
     }
@@ -318,7 +362,7 @@ $(document).ready(function () {
     }
 
     function collectReferencePayload() {
-        syncRefSlotAddonsFromDom();
+        syncRefSlotsFromDom();
         var items = [];
         REF_INTENT_SLOTS.forEach(function (def) {
             var g = refSlots[def.key];
@@ -326,10 +370,14 @@ $(document).ready(function () {
             var rank = def.key === 'prototype' ? 0 : (def.key === 'part' ? 1 : (def.key === 'material' ? 2 : 3));
             g.items.forEach(function (item) {
                 if (!item || !item.url) return;
+                var note = (item.note || '').trim();
                 items.push({
                     rank: rank,
                     url: item.url,
-                    src: Object.assign({}, item.source || {}, { asset_kind: def.assetKind })
+                    src: Object.assign({}, item.source || {}, {
+                        asset_kind: def.assetKind,
+                        user_note: note || undefined
+                    })
                 });
             });
         });
@@ -419,6 +467,14 @@ $(document).ready(function () {
             });
             $cell.append($thumb);
             $cell.append($('<div class="ref-intent-thumb-caption"></div>').text(capText).attr('title', capText));
+            var notePh = tr('customProduct.refThumbNotePh', '此圖補充，例：裝在左側');
+            var $note = $('<input type="text" class="form-control form-control-sm ref-thumb-note">')
+                .attr('data-ref-slot', slotKey)
+                .attr('data-ref-index', String(ii))
+                .attr('placeholder', notePh)
+                .val((item.note || '').trim());
+            $note.on('click mousedown', function (e) { e.stopPropagation(); });
+            $cell.append($note);
             $thumbs.append($cell);
         });
         if (canAdd) {
@@ -467,7 +523,7 @@ $(document).ready(function () {
     function renderIntentSlots() {
         var $root = $('#refIntentSlots');
         if (!$root.length) return;
-        syncRefSlotAddonsFromDom();
+        syncRefSlotsFromDom();
         ensureRefIntentActiveTab();
         $root.empty();
         var total = countTotalRefImages();
@@ -507,8 +563,70 @@ $(document).ready(function () {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
             updateMultiVendorRefWarning();
         updateRefIntentAiNote();
+        updateRefPrototypeScopeHint();
     }
     window.__renderIntentSlots = renderIntentSlots;
+
+    function customizationLevelLabel(key) {
+        for (var i = 0; i < CUSTOMIZATION_LEVEL_DEFS.length; i++) {
+            if (CUSTOMIZATION_LEVEL_DEFS[i].key === key) {
+                return tr(CUSTOMIZATION_LEVEL_DEFS[i].labelKey, CUSTOMIZATION_LEVEL_DEFS[i].fb);
+            }
+        }
+        return key;
+    }
+
+    function buildPrototypeCustomizationBadgesHtml(item) {
+        var levels = parseCustomizationLevelsClient(item.customization_levels);
+        if (!levels.length) return '';
+        var supportedSet = {};
+        levels.forEach(function (k) { supportedSet[k] = true; });
+        var html = '<div class="vendor-custom-badges d-flex flex-wrap gap-1 mb-1">';
+        CUSTOMIZATION_LEVEL_DEFS.forEach(function (def) {
+            var lbl = customizationLevelLabel(def.key).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            var isSup = !!supportedSet[def.key];
+            var title = isSup
+                ? tr('customProduct.vendorCustomBadgeSupportedTitle', '此原型支援此訂製程度')
+                : tr('customProduct.vendorCustomBadgeUnsupportedTitle', '此原型未支援；仍可加入參考，生圖可能無法製造');
+            html += '<span class="badge vendor-custom-badge ' + (isSup ? 'vendor-custom-badge--supported' : 'vendor-custom-badge--unsupported') +
+                '" title="' + title.replace(/"/g, '&quot;') + '">' + lbl + '</span>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function updateRefPrototypeScopeHint() {
+        var $el = $('#refPrototypeScopeHint');
+        if (!$el.length) return;
+        var protos = [];
+        var g = refSlots.prototype;
+        if (g && g.items) {
+            g.items.forEach(function (item) {
+                if (!item || !item.source) return;
+                var levels = parseCustomizationLevelsClient(item.source.customization_levels);
+                if (!levels.length) return;
+                var title = (item.source.title || '').trim() || refIntentThumbCaption(item, 0);
+                protos.push({ title: title, levels: levels });
+            });
+        }
+        if (!protos.length) {
+            $el.addClass('d-none').empty();
+            return;
+        }
+        var supportedUnion = {};
+        protos.forEach(function (p) {
+            p.levels.forEach(function (k) { supportedUnion[k] = true; });
+        });
+        var supportedLabels = CUSTOMIZATION_LEVEL_DEFS.filter(function (d) { return supportedUnion[d.key]; })
+            .map(function (d) { return customizationLevelLabel(d.key); });
+        var unsupportedLabels = CUSTOMIZATION_LEVEL_DEFS.filter(function (d) { return !supportedUnion[d.key]; })
+            .map(function (d) { return customizationLevelLabel(d.key); });
+        var tpl = tr('customProduct.refPrototypeScopeHint',
+            '已選原型訂製範圍（綠色標籤）：{supported}。未支援項目（灰標）仍可參考：{unsupported}。超出範圍可能無法製造。');
+        $el.removeClass('d-none').text(tpl
+            .replace('{supported}', supportedLabels.join('、') || '—')
+            .replace('{unsupported}', unsupportedLabels.join('、') || '—'));
+    }
 
     function openCategoryVendorPicker(slotKey) {
         var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
@@ -603,6 +721,10 @@ $(document).ready(function () {
             updateVendorAssetPickModalCount();
         });
         $(document).on('input', '#refIntentSlots .ref-slot-addon', updateRefIntentAiNote);
+        $(document).on('input', '#refIntentSlots .ref-thumb-note', function () {
+            syncRefSlotItemNotesFromDom();
+            updateRefIntentAiNote();
+        });
         if (window.i18n && window.i18n.ready) {
             window.i18n.ready.then(initRefIntentUi);
         } else {
@@ -1514,10 +1636,7 @@ $(document).ready(function () {
                 var moqBadge = (t('customProduct.moqBadge') || 'MOQ {n}').replace(/\{n\}/g, String(item.min_order_quantity));
                 meta += '<span class="badge bg-light text-dark border mb-1">' + moqBadge.replace(/</g, '&lt;') + '</span> ';
             }
-            var clLabels = item.customization_level_labels || [];
-            clLabels.forEach(function (lbl) {
-                meta += '<span class="badge bg-light text-secondary border mb-1">' + String(lbl).replace(/</g, '&lt;') + '</span> ';
-            });
+            meta += buildPrototypeCustomizationBadgesHtml(item);
         }
         var pickHint = (t('customProduct.vendorAssetPickHint') || '單擊加入參考圖；雙擊或按 🔍 放大').replace(/"/g, '&quot;');
         var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');

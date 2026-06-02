@@ -208,7 +208,8 @@
                         </div>
                         <p id="vendorAssetsPickerCategoryMfrHint" class="text-muted small mb-0 mt-1 d-none" data-i18n="customProduct.vendorPickerCategoryMfrHint">變更分類會同步至設計頁生圖；下方列表仍為此廠商素材。</p>
                     </div>
-                    <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerEnlargeHint">單擊：單張直接加入；多張時開啟勾選。雙擊或 🔍 可放大預覽（含圖片名稱）。</p>
+                    <p class="text-muted small mb-1" data-i18n="customProduct.vendorPickerEnlargeHint">單擊：單張直接加入；多張時開啟勾選。雙擊或 🔍 可放大預覽（含圖片名稱）。</p>
+                    <p class="text-muted small mb-2" data-i18n="customProduct.vendorPickerCustomLegend">訂製程度：綠色＝此原型支援；灰虛線＝未支援（仍可加入，僅提醒）。</p>
                     <p id="vendorAssetsPickerKindSyncHint" class="text-muted small mb-2 d-none" data-i18n="customProduct.vendorPickerKindSyncHint">篩選「配件／零件」或「材料參考」時僅依主分類，子分類不套用（與廠商上傳方式一致）。數位原型才依子分類。</p>
                     <div id="vendorAssetsPickerMultiVendorHint" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="status"></div>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
@@ -790,9 +791,16 @@
         #custom-product .ref-intent-thumb-cell {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            max-width: 76px;
+            align-items: stretch;
+            width: 88px;
+            max-width: 88px;
             flex-shrink: 0;
+        }
+        #custom-product .ref-thumb-note {
+            font-size: 0.6875rem;
+            padding: 0.2rem 0.3rem;
+            margin-top: 0.15rem;
+            line-height: 1.2;
         }
         #custom-product .ref-intent-thumb-caption {
             width: 100%;
@@ -945,6 +953,19 @@
             word-break: break-word;
             min-height: 2.4em;
         }
+        #vendorAssetsPickerModal .vendor-custom-badge--supported {
+            background: #e8f0e9;
+            color: #2d5a3d;
+            border: 1px solid #9cb8a4;
+            font-weight: 600;
+        }
+        #vendorAssetsPickerModal .vendor-custom-badge--unsupported {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border: 1px dashed #cbd5e1;
+            font-weight: 500;
+        }
+        #vendorAssetsPickerModal .vendor-custom-badges { line-height: 1.2; }
         #vendorAssetsPickerModal .vendor-asset-card { cursor: default; }
         #vendorAssetsPickerModal .vendor-asset-pick-zone { cursor: pointer; }
         #vendorAssetsPickerModal .vendor-asset-pick-zone:hover .vendor-asset-pick-img { opacity: 0.92; }
@@ -1096,6 +1117,7 @@
                                 <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
                                 <div id="refIntentSlots" class="mb-1"></div>
+                                <p id="refPrototypeScopeHint" class="alert alert-info py-2 px-3 small mb-2 d-none" role="status"></p>
                                 <p id="refIntentAiNote" class="form-text text-muted small mb-0 d-none" role="status"></p>
                             </div>
 
@@ -1309,7 +1331,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=32" defer></script>
+    <script src="js/custom-product.js?v=33" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
