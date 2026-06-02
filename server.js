@@ -3048,8 +3048,7 @@ app.post('/api/admin/user-subscriptions', express.json(), async (req, res) => {
         }
         const currentLevel = await readProfileMemberLevel(userId);
         if (!isPaidMemberLevel(currentLevel)) {
-            const levelFromPlan = (plan.name && ['進階', '尊榮', 'VIP'].includes(plan.name)) ? plan.name : '進階';
-            await supabase.from('profiles').update({ member_level: levelFromPlan }).eq('id', userId);
+            await supabase.from('profiles').update({ member_level: memberLevelFromPlanName(plan.name) }).eq('id', userId);
         }
         res.json({
             success: true,
@@ -4872,19 +4871,22 @@ app.post('/api/payment/ecpay/create-subscription', express.json(), async (req, r
         const amount = Math.abs(parseInt(body.amount, 10) || 0);
         const credits = Math.abs(parseInt(body.credits, 10) || 0);
         if (amount <= 0 || credits <= 0) return res.status(400).json({ error: '請填寫月付金額與每期點數' });
+        const planKey = body.plan && String(body.plan).trim() ? String(body.plan).trim() : null;
         const orderId = 'ECP' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        const subInsertPayload = {
+            order_id: orderId,
+            user_id: user.id,
+            provider: 'ecpay',
+            amount,
+            currency: 'TWD',
+            credits_to_grant: credits,
+            status: 'pending',
+            order_type: 'subscription'
+        };
+        if (planKey) subInsertPayload.metadata = { plan_key: planKey };
         const { error: orderErr } = await supabase
             .from('payment_orders')
-            .insert({
-                order_id: orderId,
-                user_id: user.id,
-                provider: 'ecpay',
-                amount,
-                currency: 'TWD',
-                credits_to_grant: credits,
-                status: 'pending',
-                order_type: 'subscription'
-            })
+            .insert(subInsertPayload)
             .select('id')
             .single();
         if (orderErr) {
@@ -5013,27 +5015,10 @@ app.post('/api/payment/notify', express.urlencoded({ extended: true }), async (r
             description: order.order_type === 'subscription' ? '綠界月訂閱' : '綠界儲值',
             metadata: { order_id: orderId, provider: 'ecpay' }
         });
-        if (order.order_type === 'yearly' && order.metadata && order.metadata.plan_key) {
-            const planKey = order.metadata.plan_key;
-            const { data: plan } = await supabase.from('subscription_plans').select('id').eq('plan_key', planKey).maybeSingle();
-            if (plan) {
-                const start = new Date();
-                const end = new Date(start);
-                end.setFullYear(end.getFullYear() + 1);
-                await supabase.from('user_subscriptions').insert({
-                    user_id: order.user_id,
-                    plan_id: plan.id,
-                    start_date: start.toISOString(),
-                    end_date: end.toISOString(),
-                    status: 'active',
-                    auto_renew: false
-                });
-                try {
-                    await syncMembershipCatalogVisibility(order.user_id);
-                } catch (syncErr) {
-                    console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
-                }
-            }
+        if (order.order_type === 'subscription') {
+            await fulfillSubscriptionAfterPayment(order, { mode: 'new' });
+        } else if (order.order_type === 'yearly') {
+            await fulfillSubscriptionAfterPayment(order, { mode: 'new' });
         }
         res.send('1|OK');
     } catch (e) {
@@ -5064,7 +5049,7 @@ app.post('/api/payment/notify-period', express.urlencoded({ extended: true }), a
         const periodIndex = String(body.TotalSuccessTimes || body.total_success_times || '');
         const { data: order, error: ordErr } = await supabase
             .from('payment_orders')
-            .select('id, user_id, credits_to_grant, order_type')
+            .select('id, user_id, credits_to_grant, order_type, metadata')
             .eq('order_id', orderId)
             .single();
         if (ordErr || !order || order.order_type !== 'subscription') return res.send('1|OK');
@@ -5106,6 +5091,7 @@ app.post('/api/payment/notify-period', express.urlencoded({ extended: true }), a
             description: '綠界月訂閱（定期扣款）',
             metadata: { order_id: orderId, provider: 'ecpay', period_index: periodIndex }
         });
+        await fulfillSubscriptionAfterPayment(order, { mode: 'extend' });
         res.send('1|OK');
     } catch (e) {
         console.error('POST /api/payment/notify-period 異常:', e);
@@ -5255,27 +5241,8 @@ app.post('/api/payment/paypal/capture', express.json(), async (req, res) => {
             description: 'PayPal 儲值',
             metadata: { order_id: refId, provider: 'paypal' }
         });
-        if (order.order_type === 'yearly' && order.metadata && order.metadata.plan_key) {
-            const planKey = order.metadata.plan_key;
-            const { data: plan } = await supabase.from('subscription_plans').select('id').eq('plan_key', planKey).maybeSingle();
-            if (plan) {
-                const start = new Date();
-                const end = new Date(start);
-                end.setFullYear(end.getFullYear() + 1);
-                await supabase.from('user_subscriptions').insert({
-                    user_id: order.user_id,
-                    plan_id: plan.id,
-                    start_date: start.toISOString(),
-                    end_date: end.toISOString(),
-                    status: 'active',
-                    auto_renew: false
-                });
-                try {
-                    await syncMembershipCatalogVisibility(order.user_id);
-                } catch (syncErr) {
-                    console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
-                }
-            }
+        if (order.order_type === 'yearly') {
+            await fulfillSubscriptionAfterPayment(order, { mode: 'new' });
         }
         res.json({ success: true, balance_after: balanceAfter });
     } catch (e) {
@@ -7166,6 +7133,123 @@ async function readProfileMemberLevel(userId) {
     } catch (_) {
         return FREE_MEMBER_LEVEL_LABEL;
     }
+}
+
+function memberLevelFromPlanName(planName) {
+    const name = (planName && String(planName).trim()) || '';
+    if (name === '進階' || name === '尊榮' || name === 'VIP') return name;
+    return '進階';
+}
+
+function parsePaymentOrderMetadata(metadata) {
+    if (!metadata) return {};
+    if (typeof metadata === 'object' && !Array.isArray(metadata)) return metadata;
+    if (typeof metadata === 'string') {
+        try { return JSON.parse(metadata); } catch (_) { return {}; }
+    }
+    return {};
+}
+
+/**
+ * 寫入／延長 user_subscriptions，並同步 profiles.member_level（月訂／年付／後台開通共用）
+ * @param {'new'|'extend'} options.mode — new：作廢其他 active 後新建；extend：自現有到期日或今日起延長 duration_months
+ * @param {'always'|'if_free_only'} options.syncMemberLevel
+ */
+async function activateUserSubscriptionFromPlan(userId, plan, options) {
+    if (!userId || !plan || !plan.id) return;
+    options = options || {};
+    const mode = options.mode === 'extend' ? 'extend' : 'new';
+    const syncLevel = options.syncMemberLevel || 'always';
+    const now = new Date();
+    const months = Math.max(1, parseInt(plan.duration_months, 10) || 1);
+
+    if (mode === 'new') {
+        await supabase
+            .from('user_subscriptions')
+            .update({ status: 'expired' })
+            .eq('user_id', userId)
+            .eq('status', 'active');
+        const start = now;
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + months);
+        await supabase.from('user_subscriptions').insert({
+            user_id: userId,
+            plan_id: plan.id,
+            start_date: start.toISOString(),
+            end_date: end.toISOString(),
+            status: 'active',
+            auto_renew: false
+        });
+    } else {
+        const { data: active } = await supabase
+            .from('user_subscriptions')
+            .select('id, end_date')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .gt('end_date', now.toISOString())
+            .order('end_date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        const base = (active && active.end_date && new Date(active.end_date) > now)
+            ? new Date(active.end_date)
+            : now;
+        const end = new Date(base);
+        end.setMonth(end.getMonth() + months);
+        if (active && active.id) {
+            await supabase.from('user_subscriptions').update({
+                end_date: end.toISOString(),
+                status: 'active'
+            }).eq('id', active.id);
+        } else {
+            await supabase
+                .from('user_subscriptions')
+                .update({ status: 'expired' })
+                .eq('user_id', userId)
+                .eq('status', 'active');
+            await supabase.from('user_subscriptions').insert({
+                user_id: userId,
+                plan_id: plan.id,
+                start_date: now.toISOString(),
+                end_date: end.toISOString(),
+                status: 'active',
+                auto_renew: false
+            });
+        }
+    }
+
+    if (syncLevel === 'always') {
+        await supabase.from('profiles').update({ member_level: memberLevelFromPlanName(plan.name) }).eq('id', userId);
+    } else {
+        const currentLevel = await readProfileMemberLevel(userId);
+        if (!isPaidMemberLevel(currentLevel)) {
+            await supabase.from('profiles').update({ member_level: memberLevelFromPlanName(plan.name) }).eq('id', userId);
+        }
+    }
+    try {
+        await syncMembershipCatalogVisibility(userId);
+    } catch (syncErr) {
+        console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+    }
+}
+
+/** 付款訂單含 plan_key 時：開通訂閱並連動會員層級（月訂 extend／年付 new） */
+async function fulfillSubscriptionAfterPayment(order, options) {
+    if (!order || !order.user_id) return;
+    const meta = parsePaymentOrderMetadata(order.metadata);
+    const planKey = meta.plan_key ? String(meta.plan_key).trim() : '';
+    if (!planKey) return;
+    const orderType = order.order_type || '';
+    if (orderType !== 'subscription' && orderType !== 'yearly') return;
+    const { data: plan } = await supabase
+        .from('subscription_plans')
+        .select('id, name, price, duration_months')
+        .eq('plan_key', planKey)
+        .maybeSingle();
+    if (!plan || !(parseInt(plan.price, 10) > 0)) return;
+    const mode = (options && options.mode)
+        ? options.mode
+        : (orderType === 'subscription' ? 'extend' : 'new');
+    await activateUserSubscriptionFromPlan(order.user_id, plan, { mode, syncMemberLevel: 'always' });
 }
 
 /** 是否視為付費會員：有效 user_subscriptions（方案價>0）或 profiles.member_level 非「一般」 */

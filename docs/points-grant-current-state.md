@@ -1,6 +1,6 @@
 # 送點／發點功能說明
 
-更新：2026-03-05（已實作，後台可開關）
+更新：2026-06-02（已實作，後台可開關；付費訂閱連動會員層級見下方 §五）
 
 ---
 
@@ -44,3 +44,16 @@
 
 - **方案設定**中的「每月點數」（`subscription_plans.credits_monthly`）在**每月發點**啟用時，會用來發給**有該方案有效訂閱**的用戶。
 - 無付費訂閱或訂閱已過期者，當月發點數額由「免費會員每月點數」決定。
+
+---
+
+## 五、付費訂閱與會員層級（2026-06-02）
+
+| 付款類型 | 入點 | `user_subscriptions` | `profiles.member_level` |
+|----------|------|----------------------|------------------------|
+| 綠界年付（`order_type=yearly` + `metadata.plan_key`） | notify／capture 成功後 | 自動新建一筆（依方案 `duration_months`） | 依方案名稱（進階／尊榮／VIP，否則進階） |
+| 綠界月訂閱（`order_type=subscription` + `plan_key`） | 首期 notify、每期 notify-period | 首期新建；每期延長到期日 | 同上，每期同步 |
+| 單次儲值 | 僅入點 | 不變 | 不變 |
+| 後台開通 | — | 管理員 API | 僅當目前為「一般」時升級（與付費自動 always 略不同） |
+
+方案頁／點數頁付款須帶 `plan`（`plan_key`），月訂走 `POST /api/payment/ecpay/create-subscription`。

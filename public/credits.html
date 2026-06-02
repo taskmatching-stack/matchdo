@@ -242,7 +242,9 @@
     if (selectedProvider === 'ecpay') {
       var apiUrl = isMonthlySubscription ? '/api/payment/ecpay/create-subscription' : '/api/payment/ecpay/create';
       var bodyPayload = { amount: amount, credits: credits };
-      if (!isMonthlySubscription && (billing === 'yearly' && plan)) {
+      if (isMonthlySubscription && plan) {
+        bodyPayload.plan = plan;
+      } else if (!isMonthlySubscription && (billing === 'yearly' && plan)) {
         bodyPayload.billing = 'yearly';
         bodyPayload.plan = plan;
       }
