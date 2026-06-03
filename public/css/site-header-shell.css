@@ -14,3 +14,34 @@
     display: block !important;
   }
 }
+
+/* 品牌標語：單行小字，放在第二排左側空白或 Logo 旁，不增加導覽列高度 */
+#site-header .site-brand-taglines {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.2rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  line-height: 1.1;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.01em;
+}
+#site-header .site-brand-taglines-sep {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+#site-header .site-brand-taglines-cat,
+#site-header .site-brand-taglines-slo {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#site-header .nav-second-row-left .site-brand-taglines {
+  justify-content: flex-end;
+}
