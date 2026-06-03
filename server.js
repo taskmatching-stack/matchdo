@@ -1379,6 +1379,91 @@ function manufacturerNameMatches(mfr, nameQ) {
     return n.includes(String(nameQ).trim().toLowerCase());
 }
 
+const GENERIC_MANUFACTURER_NAME_SET = new Set(['', '廠商', '厂商', 'manufacturer', 'vendor']);
+
+function isGenericManufacturerDisplayName(name) {
+    const s = String(name || '').trim().toLowerCase();
+    return !s || GENERIC_MANUFACTURER_NAME_SET.has(s);
+}
+
+/** 廠商顯示名：manufacturers.name → contact_json → profiles（與控制台 /api/me/manufacturer 一致） */
+function resolveManufacturerDisplayName(mfr, profileByUserId) {
+    if (!mfr) return '';
+    const direct = String(mfr.name || '').trim();
+    if (!isGenericManufacturerDisplayName(direct)) return direct;
+    const contact = mfr.contact_json && typeof mfr.contact_json === 'object' ? mfr.contact_json : {};
+    const fromContact = String(contact.company_name || contact.display_name || contact.brand_name || '').trim();
+    if (!isGenericManufacturerDisplayName(fromContact)) return fromContact;
+    const uid = mfr.user_id ? String(mfr.user_id) : '';
+    if (uid && profileByUserId && profileByUserId[uid]) {
+        const p = profileByUserId[uid];
+        const fn = String(p.full_name || '').trim();
+        if (!isGenericManufacturerDisplayName(fn)) return fn;
+        const em = String(p.email || '').trim();
+        if (em.includes('@')) {
+            const local = em.split('@')[0];
+            if (!isGenericManufacturerDisplayName(local)) return local;
+        }
+    }
+    return direct || fromContact || '';
+}
+
+function normalizeManufacturerMapKey(id) {
+    return String(id || '').trim().toLowerCase();
+}
+
+function getManufacturerFromMap(mfrMap, manufacturerId) {
+    if (!manufacturerId) return null;
+    const k = normalizeManufacturerMapKey(manufacturerId);
+    return mfrMap[k] || mfrMap[manufacturerId] || null;
+}
+
+function manufacturerNameForVendorAssetItem(mfrMap, manufacturerId) {
+    const mfr = getManufacturerFromMap(mfrMap, manufacturerId);
+    const n = mfr ? String(mfr.name || '').trim() : '';
+    return !isGenericManufacturerDisplayName(n) ? n : '廠商';
+}
+
+/** vendor-assets 列表：批次載入廠商並解析顯示名（含 UUID key 正規化） */
+async function buildManufacturerMapForVendorAssetList(mfrIds, { internalPreview = false } = {}) {
+    const map = {};
+    const ids = [...new Set((mfrIds || []).map((id) => String(id).trim()).filter(Boolean))];
+    if (!ids.length) return map;
+    const mfrSelect = 'id, name, logo_url, vendor_source, contact_json, location, user_id, is_active, expires_at, seed_public_released_at';
+    let mfrQ = supabase.from('manufacturers').select(mfrSelect).in('id', ids);
+    if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
+    let { data: mfrs, error } = await mfrQ;
+    if (error && error.code === '42703') {
+        ({ data: mfrs } = await supabase.from('manufacturers').select('id, name, logo_url, user_id, is_active, expires_at, seed_public_released_at').in('id', ids));
+    }
+    (mfrs || []).forEach((m) => { map[normalizeManufacturerMapKey(m.id)] = m; });
+    if (internalPreview) {
+        const missing = ids.filter((id) => !map[normalizeManufacturerMapKey(id)]);
+        if (missing.length) {
+            const { data: extra } = await supabase.from('manufacturers').select(mfrSelect).in('id', missing);
+            (extra || []).forEach((m) => { map[normalizeManufacturerMapKey(m.id)] = m; });
+        }
+    }
+    const userIds = [...new Set(Object.values(map).map((m) => m.user_id).filter(Boolean))];
+    let profileByUserId = {};
+    if (userIds.length) {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', userIds);
+        (profs || []).forEach((p) => { profileByUserId[String(p.id)] = p; });
+    }
+    Object.keys(map).forEach((key) => {
+        const m = map[key];
+        const display = resolveManufacturerDisplayName(m, profileByUserId);
+        map[key] = { ...m, name: display || m.name || '' };
+    });
+    if (internalPreview) {
+        ids.forEach((mid) => {
+            const k = normalizeManufacturerMapKey(mid);
+            if (!map[k]) map[k] = { id: mid, name: '', is_active: true, vendor_source: null };
+        });
+    }
+    return map;
+}
+
 function manufacturerMatchesServiceArea(mfr, areaCode) {
     if (!areaCode || !mfr) return !areaCode;
     const code = String(areaCode).trim().toLowerCase();
@@ -13257,15 +13342,9 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
             }
         }
         const mfrIds = [...new Set(list.map((r) => r.manufacturer_id).filter(Boolean))];
-        let mfrMap = {};
-        if (mfrIds.length) {
-            let mfrQ = supabase.from('manufacturers').select('id, name, logo_url, vendor_source, user_id, is_active, expires_at, seed_public_released_at').in('id', mfrIds);
-            if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
-            const { data: mfrs } = await mfrQ;
-            (mfrs || []).forEach((m) => { mfrMap[m.id] = m; });
-        }
+        const mfrMap = await buildManufacturerMapForVendorAssetList(mfrIds, { internalPreview });
         list = list.filter((r) => {
-            const mfr = mfrMap[r.manufacturer_id];
+            const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
             if (!mfr) return !!internalPreview;
             if (internalPreview) return true;
             return vendorAssetVisibleToPublicAudience(mfr, r);
@@ -13275,20 +13354,24 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
             list = list.filter((r) => {
                 const title = String(r.title || '').toLowerCase();
                 const desc = String(r.description || '').toLowerCase();
-                const mname = (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? String(mfrMap[r.manufacturer_id].name).toLowerCase() : '';
+                const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
+                const mname = mfr ? String(mfr.name || '').toLowerCase() : '';
                 return title.includes(qLower) || desc.includes(qLower) || mname.includes(qLower);
             });
         }
         const linkCounts = await batchPrototypeLinkCounts(list);
-        const manufacturers = [...new Set(list.map((r) => r.manufacturer_id).filter(Boolean))].map((id) => ({
-            id,
-            name: (mfrMap[id] && mfrMap[id].name) ? mfrMap[id].name : '廠商',
-            logo_url: (mfrMap[id] && mfrMap[id].logo_url) ? mfrMap[id].logo_url : null,
-            profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
-        })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
+        const manufacturers = [...new Set(list.map((r) => r.manufacturer_id).filter(Boolean))].map((id) => {
+            const mfr = getManufacturerFromMap(mfrMap, id);
+            return {
+                id,
+                name: manufacturerNameForVendorAssetItem(mfrMap, id),
+                logo_url: (mfr && mfr.logo_url) ? mfr.logo_url : null,
+                profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
+            };
+        }).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
         const itemsAll = list.map((r) => {
             const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
-            const mfr = mfrMap[r.manufacturer_id];
+            const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
             return {
                 id: r.id,
                 title: r.title,
@@ -13298,7 +13381,7 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
                 subcategory_key: r.subcategory_key,
                 style_key: r.style_key || null,
                 manufacturer_id: r.manufacturer_id,
-                manufacturer_name: mfr ? (mfr.name || '廠商') : '廠商',
+                manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id),
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
                 material_count: counts.material_count,
                 part_count: counts.part_count,
@@ -13502,28 +13585,15 @@ app.get('/api/vendor-assets', async (req, res) => {
         }
         if (colorQ) list = list.filter((r) => vendorAssetMatchesColor(r, colorQ));
         const mfrIds = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))];
-        let mfrMap = {};
-        if (mfrIds.length) {
-            let mfrQ = supabase.from('manufacturers').select('id, name, logo_url, vendor_source, contact_json, location, user_id, is_active, expires_at, seed_public_released_at').in('id', mfrIds);
-            if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
-            const { data: mfrs } = await mfrQ;
-            (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
-            if (internalPreview) {
-                mfrIds.forEach((mid) => {
-                    if (!mfrMap[mid]) {
-                        mfrMap[mid] = { id: mid, name: '廠商', is_active: true, vendor_source: null };
-                    }
-                });
-            }
-        }
+        const mfrMap = await buildManufacturerMapForVendorAssetList(mfrIds, { internalPreview });
         if (manufacturerNameQ) {
-            list = list.filter((r) => manufacturerNameMatches(mfrMap[r.manufacturer_id], manufacturerNameQ));
+            list = list.filter((r) => manufacturerNameMatches(getManufacturerFromMap(mfrMap, r.manufacturer_id), manufacturerNameQ));
         }
         if (serviceAreaCode) {
-            list = list.filter((r) => manufacturerMatchesServiceArea(mfrMap[r.manufacturer_id], serviceAreaCode));
+            list = list.filter((r) => manufacturerMatchesServiceArea(getManufacturerFromMap(mfrMap, r.manufacturer_id), serviceAreaCode));
         }
         if (searchQ) {
-            list = list.filter((r) => vendorAssetMatchesSearch(r, mfrMap[r.manufacturer_id], searchQ));
+            list = list.filter((r) => vendorAssetMatchesSearch(r, getManufacturerFromMap(mfrMap, r.manufacturer_id), searchQ));
         }
         if (catalogGroupAssetIds) {
             list = list.filter((r) => catalogGroupAssetIds.has(r.id));
@@ -13535,18 +13605,21 @@ app.get('/api/vendor-assets', async (req, res) => {
             list = list.filter((r) => vendorAssetMatchesCustomizationFilter(r, customFilterKeys));
         }
         list = list.filter(function (r) {
-            const mfr = mfrMap[r.manufacturer_id];
+            const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
             if (!mfr) return !!internalPreview;
             if (internalPreview) return true;
             return vendorAssetVisibleToPublicAudience(mfr, r);
         });
         const lang = (req.query.lang || '').trim();
-        const manufacturers = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))].map((id) => ({
-            id,
-            name: (mfrMap[id] && mfrMap[id].name) ? mfrMap[id].name : '廠商',
-            logo_url: (mfrMap[id] && mfrMap[id].logo_url) ? mfrMap[id].logo_url : null,
-            profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
-        })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
+        const manufacturers = [...new Set(list.map(r => r.manufacturer_id).filter(Boolean))].map((id) => {
+            const mfr = getManufacturerFromMap(mfrMap, id);
+            return {
+                id,
+                name: manufacturerNameForVendorAssetItem(mfrMap, id),
+                logo_url: (mfr && mfr.logo_url) ? mfr.logo_url : null,
+                profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
+            };
+        }).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
         if (manufacturersOnly) {
             return res.json({ manufacturers });
         }
@@ -13580,12 +13653,12 @@ app.get('/api/vendor-assets', async (req, res) => {
                 min_order_quantity: protoMeta.min_order_quantity,
                 customization_levels: protoMeta.customization_levels,
                 customization_level_labels: protoMeta.customization_level_labels,
-                manufacturer_name: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? mfrMap[r.manufacturer_id].name : '廠商',
-                manufacturer_logo_url: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].logo_url) ? mfrMap[r.manufacturer_id].logo_url : null,
+                manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id),
+                manufacturer_logo_url: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.logo_url) ? m.logo_url : null; })(),
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
-                manufacturer_location: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].location) ? mfrMap[r.manufacturer_id].location : '',
-                manufacturer_user_id: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].user_id) ? mfrMap[r.manufacturer_id].user_id : null,
-                manufacturer_contact: (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].contact_json) ? mfrMap[r.manufacturer_id].contact_json : null,
+                manufacturer_location: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.location) ? m.location : ''; })(),
+                manufacturer_user_id: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.user_id) ? m.user_id : null; })(),
+                manufacturer_contact: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.contact_json) ? m.contact_json : null; })(),
                 ai_tags: r.ai_tags || []
             };
         });

@@ -37,11 +37,18 @@ $(document).ready(function () {
 
     // 圖內容分類：與 browse-styles 共用 CustomProductCatPicker（/api/custom-product-categories）
     let categoriesData = [];
+    function syncCategoriesDataFromPicker() {
+        if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.getCategoriesData) {
+            var d = CustomProductCatPicker.getCategoriesData();
+            if (d && d.length) categoriesData = d;
+        }
+    }
     (function loadCategories() {
         if (!$('#imageCategoryMainList').length) return;
         if (typeof CustomProductCatPicker === 'undefined') return;
         CustomProductCatPicker.init().then(function () {
-            categoriesData = CustomProductCatPicker.getCategoriesData();
+            syncCategoriesDataFromPicker();
+            if (typeof updateVendorStylesCategorySummary === 'function') updateVendorStylesCategorySummary();
         });
     })();
 
@@ -1229,6 +1236,7 @@ $(document).ready(function () {
     }
 
     function getSelectedDesignCategorySummary() {
+        syncCategoriesDataFromPicker();
         var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
         var subKey = ($('#imageCategorySubSelect').val() || '').trim();
         if (!mainKey) return '';
@@ -1949,7 +1957,7 @@ $(document).ready(function () {
     function buildVendorAssetCardHtml(item) {
         var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
         var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        var mfrName = (item.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var mfrName = vendorItemManufacturerName(item).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var mfrLogo = vendorMfrLogoHtml(item.manufacturer_logo_url, 'vendor-asset-mfr-logo');
         var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
         var assetId = (item.id || '').toString().replace(/"/g, '&quot;');
@@ -2203,10 +2211,12 @@ $(document).ready(function () {
         });
     }
 
-    /** 與 buildVendorAssetCardHtml 相同：廠商顯示名稱 */
+    /** 與 buildVendorAssetCardHtml 相同：廠商顯示名稱（略過 API 占位「廠商」） */
     function vendorItemManufacturerName(item) {
-        return (item && item.manufacturer_name ? String(item.manufacturer_name) : '').trim()
-            || (t('customProduct.vendorFallback') || '廠商');
+        var raw = (item && item.manufacturer_name ? String(item.manufacturer_name) : '').trim();
+        var low = raw.toLowerCase();
+        if (raw && raw !== '廠商' && low !== 'vendor' && low !== 'manufacturer' && low !== '厂商') return raw;
+        return (t('customProduct.vendorFallback') || '廠商');
     }
 
     function syncVendorStylesTabFiltersToPicker() {
@@ -2277,6 +2287,7 @@ $(document).ready(function () {
     }
 
     function updateVendorStylesCategorySummary() {
+        syncCategoriesDataFromPicker();
         var $box = $('#bs-category-summary');
         if (!$box.length) return;
         var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
@@ -2454,9 +2465,12 @@ $(document).ready(function () {
     });
 
     document.addEventListener('matchdo:categoryChanged', function () {
+        syncCategoriesDataFromPicker();
         vendorStylesTabOffset = 0;
         if ($('#panel-vendor-styles').hasClass('active') || $('#panel-vendor-styles').hasClass('show')) {
             loadVendorStylesTabList();
+        } else {
+            updateVendorStylesCategorySummary();
         }
     });
 
