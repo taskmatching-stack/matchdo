@@ -13561,6 +13561,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material' || assetKindQ === 'part') ? assetKindQ : null;
         const pageParams = parseVendorAssetsListPageParams(req.query);
         const manufacturersOnly = parseTruthyBody(req.query.manufacturers_only);
+        const prototypeLinkedOnly = parseTruthyBody(req.query.prototype_linked_only);
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const moqFilterRaw = (req.query.min_order_quantity != null ? String(req.query.min_order_quantity) : '').trim();
         const moqFilter = moqFilterRaw ? parseInt(moqFilterRaw, 10) : null;
@@ -13671,11 +13672,19 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (manufacturersOnly) {
             return res.json({ manufacturers });
         }
+        let linkCountsByProto = {};
+        if (assetKindFilter === 'prototype' && list.length && (await vendorPrototypeLinksTableReady())) {
+            linkCountsByProto = await batchPrototypeLinkCounts(list);
+        }
         const items = list.map(r => {
             const kind = normalizeVendorAssetKind(r.asset_kind);
             const pk = kind === 'material' ? null : (r.part_key || null);
             const mapped = mapVendorAssetForApi(r, lang);
             const protoMeta = enrichVendorAssetPrototypeFields(r, lang);
+            const protoLinkCounts = (kind === 'prototype' && linkCountsByProto[r.id])
+                ? linkCountsByProto[r.id]
+                : { material_count: 0, part_count: 0 };
+            const linkCount = protoLinkCounts.material_count + protoLinkCounts.part_count;
             return {
                 id: r.id,
                 manufacturer_id: r.manufacturer_id,
@@ -13701,6 +13710,12 @@ app.get('/api/vendor-assets', async (req, res) => {
                 min_order_quantity: protoMeta.min_order_quantity,
                 customization_levels: protoMeta.customization_levels,
                 customization_level_labels: protoMeta.customization_level_labels,
+                material_count: kind === 'prototype' ? protoLinkCounts.material_count : undefined,
+                part_count: kind === 'prototype' ? protoLinkCounts.part_count : undefined,
+                link_count: kind === 'prototype' ? linkCount : undefined,
+                match_guide_url: kind === 'prototype'
+                    ? '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id)
+                    : null,
                 manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id),
                 manufacturer_logo_url: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.logo_url) ? m.logo_url : null; })(),
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
@@ -13734,8 +13749,12 @@ app.get('/api/vendor-assets', async (req, res) => {
             }
         }
         if (linkedIdSet) {
-            itemsOut = attachPrototypeLinkFlagsToItems(itemsOut, linkedIdSet);
-            if (linkedIdSet.size) itemsOut = sortVendorAssetsWithPrototypeLinks(itemsOut, linkedIdSet, linkSortById);
+            if (prototypeLinkedOnly) {
+                itemsOut = itemsOut.filter((it) => linkedIdSet.has(it.id));
+            } else {
+                itemsOut = attachPrototypeLinkFlagsToItems(itemsOut, linkedIdSet);
+                if (linkedIdSet.size) itemsOut = sortVendorAssetsWithPrototypeLinks(itemsOut, linkedIdSet, linkSortById);
+            }
         }
         const paged = paginateVendorAssetList(itemsOut, pageParams);
         res.json({

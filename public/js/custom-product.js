@@ -2284,18 +2284,32 @@ $(document).ready(function () {
         var mfrLogo = vendorMfrLogoHtml(item.manufacturer_logo_url, 'vendor-asset-mfr-logo');
         var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
         var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
-        var guideUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo;
+        var guideUrl = (item.match_guide_url || ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo)).replace(/"/g, '&quot;');
         var guideLbl = (t('browseStyles.viewMatchGuide') || '看可搭配').replace(/</g, '&lt;');
+        var linkCount = item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0));
+        var hasLinks = linkCount > 0;
+        var linkHint = hasLinks
+            ? '<span class="badge bg-light text-secondary border mb-1">' +
+            (t('browseStyles.linkCountBadge') || '可搭配 {n} 項').replace('{n}', String(linkCount)).replace(/</g, '&lt;') + '</span> '
+            : '';
         var thumb = imgUrl
             ? '<img src="' + imgUrl + '" alt="" loading="lazy" style="height:140px;width:100%;object-fit:cover;">'
             : '<div class="d-flex align-items-center justify-content-center bg-light text-muted" style="height:140px;"><i class="bi bi-image fs-2"></i></div>';
+        var thumbInner = hasLinks
+            ? '<a href="' + guideUrl + '" class="text-decoration-none text-dark">' + thumb + '</a>'
+            : '<div class="text-muted">' + thumb + '</div>';
+        var guideBtn = hasLinks
+            ? '<a href="' + guideUrl + '" class="btn btn-sm btn-primary w-100">' + guideLbl + '</a>'
+            : '<span class="btn btn-sm btn-outline-secondary w-100 disabled" tabindex="-1" aria-disabled="true">' +
+            (t('browseStyles.noLinksYet') || '尚未設定搭配').replace(/</g, '&lt;') + '</span>';
         return '<article class="bs-card h-100 d-flex flex-column">' +
-            '<a href="' + guideUrl.replace(/"/g, '&quot;') + '" class="text-decoration-none text-dark">' + thumb + '</a>' +
+            thumbInner +
             '<div class="bs-card-body p-2 flex-grow-1">' +
+            linkHint +
             '<div class="fw-semibold small text-truncate mb-1" title="' + title + '">' + title + '</div>' +
             '<div class="d-flex align-items-center gap-1">' + mfrLogo +
             '<a href="' + profileUrl + '" class="small text-primary text-decoration-none text-truncate" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a></div></div>' +
-            '<div class="p-2 pt-0"><a href="' + guideUrl.replace(/"/g, '&quot;') + '" class="btn btn-sm btn-primary w-100">' + guideLbl + '</a></div></article>';
+            '<div class="p-2 pt-0">' + guideBtn + '</div></article>';
     }
 
     var vendorStylesTabOffset = 0;
