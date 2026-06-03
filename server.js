@@ -12362,6 +12362,191 @@ async function vendorCatalogGroupsTableReady() {
     return !error || error.code !== '42P01';
 }
 
+async function vendorPrototypeLinksTableReady() {
+    const { error } = await supabase.from('vendor_asset_prototype_links').select('id').limit(1);
+    return !error || error.code !== '42P01';
+}
+
+function parseJsonUuidArrayFromBody(val) {
+    if (val === undefined || val === null) return null;
+    let arr;
+    if (Array.isArray(val)) arr = val;
+    else if (typeof val === 'string') {
+        const s = val.trim();
+        if (!s) return [];
+        try {
+            const parsed = JSON.parse(s);
+            arr = Array.isArray(parsed) ? parsed : [s];
+        } catch (_) {
+            arr = s.split(/[,，]/).map((x) => x.trim()).filter(Boolean);
+        }
+    } else return null;
+    return [...new Set(arr.map((x) => String(x).trim()).filter((x) => /^[0-9a-f-]{36}$/i.test(x)))];
+}
+
+async function fetchVendorAssetsByIdsForManufacturer(manufacturerId, ids, cols) {
+    if (!ids.length) return [];
+    const selectCols = cols || 'id, title, image_url, asset_kind, manufacturer_id';
+    const { data, error } = await supabase
+        .from('vendor_assets')
+        .select(selectCols)
+        .eq('manufacturer_id', manufacturerId)
+        .in('id', ids);
+    if (error) throw error;
+    return data || [];
+}
+
+async function validatePrototypeLinkTargets(manufacturerId, prototypeId, linkedIds) {
+    if (!linkedIds.length) return { ok: true, rows: [] };
+    const rows = await fetchVendorAssetsByIdsForManufacturer(manufacturerId, linkedIds);
+    if (rows.length !== linkedIds.length) {
+        return { ok: false, error: '部分關聯素材不存在或不屬於您的廠商' };
+    }
+    for (const r of rows) {
+        const k = normalizeVendorAssetKind(r.asset_kind);
+        if (k !== 'material' && k !== 'part') {
+            return { ok: false, error: '僅可關聯材料或配件素材' };
+        }
+        if (r.id === prototypeId) return { ok: false, error: '不可將主產品連結至自身' };
+    }
+    return { ok: true, rows };
+}
+
+async function validateLinkedAssetPrototypeTargets(manufacturerId, linkedAssetId, prototypeIds) {
+    if (!prototypeIds.length) return { ok: true, rows: [] };
+    const rows = await fetchVendorAssetsByIdsForManufacturer(manufacturerId, prototypeIds);
+    if (rows.length !== prototypeIds.length) {
+        return { ok: false, error: '部分主產品不存在或不屬於您的廠商' };
+    }
+    for (const r of rows) {
+        if (normalizeVendorAssetKind(r.asset_kind) !== 'prototype') {
+            return { ok: false, error: '僅可關聯數位原型（主產品）' };
+        }
+    }
+    const { data: linkedRow } = await supabase
+        .from('vendor_assets')
+        .select('id, asset_kind')
+        .eq('id', linkedAssetId)
+        .eq('manufacturer_id', manufacturerId)
+        .maybeSingle();
+    if (!linkedRow) return { ok: false, error: '找不到該素材' };
+    const lk = normalizeVendorAssetKind(linkedRow.asset_kind);
+    if (lk !== 'material' && lk !== 'part') {
+        return { ok: false, error: '僅材料或配件可設定關聯主產品' };
+    }
+    return { ok: true, rows };
+}
+
+async function replacePrototypeMaterialPartLinks(manufacturerId, prototypeId, linkedAssetIds) {
+    if (!(await vendorPrototypeLinksTableReady())) return null;
+    const { data: proto } = await supabase
+        .from('vendor_assets')
+        .select('id, asset_kind')
+        .eq('id', prototypeId)
+        .eq('manufacturer_id', manufacturerId)
+        .maybeSingle();
+    if (!proto) return '找不到該主產品';
+    if (normalizeVendorAssetKind(proto.asset_kind) !== 'prototype') return '僅主產品可設定關聯材料／配件';
+    const valid = await validatePrototypeLinkTargets(manufacturerId, prototypeId, linkedAssetIds);
+    if (!valid.ok) return valid.error;
+    const { error: delErr } = await supabase
+        .from('vendor_asset_prototype_links')
+        .delete()
+        .eq('prototype_asset_id', prototypeId)
+        .eq('manufacturer_id', manufacturerId);
+    if (delErr) throw delErr;
+    if (!linkedAssetIds.length) return null;
+    const inserts = linkedAssetIds.map((linkedId, idx) => ({
+        manufacturer_id: manufacturerId,
+        prototype_asset_id: prototypeId,
+        linked_asset_id: linkedId,
+        sort_order: idx
+    }));
+    const { error: insErr } = await supabase.from('vendor_asset_prototype_links').insert(inserts);
+    if (insErr) throw insErr;
+    return null;
+}
+
+async function replaceLinkedAssetPrototypeLinks(manufacturerId, linkedAssetId, prototypeIds) {
+    if (!(await vendorPrototypeLinksTableReady())) return null;
+    const valid = await validateLinkedAssetPrototypeTargets(manufacturerId, linkedAssetId, prototypeIds);
+    if (!valid.ok) return valid.error;
+    const { error: delErr } = await supabase
+        .from('vendor_asset_prototype_links')
+        .delete()
+        .eq('linked_asset_id', linkedAssetId)
+        .eq('manufacturer_id', manufacturerId);
+    if (delErr) throw delErr;
+    if (!prototypeIds.length) return null;
+    const inserts = prototypeIds.map((pid) => ({
+        manufacturer_id: manufacturerId,
+        prototype_asset_id: pid,
+        linked_asset_id: linkedAssetId,
+        sort_order: 0
+    }));
+    const { error: insErr } = await supabase.from('vendor_asset_prototype_links').insert(inserts);
+    if (insErr) throw insErr;
+    return null;
+}
+
+async function getLinkedAssetIdsForPrototype(manufacturerId, prototypeAssetId) {
+    if (!(await vendorPrototypeLinksTableReady())) return { ids: [], sortById: {} };
+    const { data, error } = await supabase
+        .from('vendor_asset_prototype_links')
+        .select('linked_asset_id, sort_order')
+        .eq('prototype_asset_id', prototypeAssetId)
+        .eq('manufacturer_id', manufacturerId)
+        .order('sort_order', { ascending: true });
+    if (error && error.code === '42P01') return { ids: [], sortById: {} };
+    if (error) throw error;
+    const ids = [];
+    const sortById = {};
+    (data || []).forEach((r) => {
+        ids.push(r.linked_asset_id);
+        sortById[r.linked_asset_id] = r.sort_order != null ? r.sort_order : 0;
+    });
+    return { ids, sortById };
+}
+
+async function getPrototypeIdsForLinkedAsset(manufacturerId, linkedAssetId) {
+    if (!(await vendorPrototypeLinksTableReady())) return [];
+    const { data, error } = await supabase
+        .from('vendor_asset_prototype_links')
+        .select('prototype_asset_id')
+        .eq('linked_asset_id', linkedAssetId)
+        .eq('manufacturer_id', manufacturerId);
+    if (error && error.code === '42P01') return [];
+    if (error) throw error;
+    return (data || []).map((r) => r.prototype_asset_id);
+}
+
+function sortVendorAssetsWithPrototypeLinks(items, linkedIdSet, sortById) {
+    if (!linkedIdSet || !linkedIdSet.size) return items;
+    const linked = [];
+    const rest = [];
+    items.forEach((it) => {
+        if (linkedIdSet.has(it.id)) linked.push(it);
+        else rest.push(it);
+    });
+    linked.sort((a, b) => {
+        const sa = sortById[a.id] != null ? sortById[a.id] : 0;
+        const sb = sortById[b.id] != null ? sortById[b.id] : 0;
+        if (sa !== sb) return sa - sb;
+        return String(a.title || '').localeCompare(String(b.title || ''), 'zh-Hant');
+    });
+    return linked.concat(rest);
+}
+
+function attachPrototypeLinkFlagsToItems(items, linkedIdSet) {
+    if (!linkedIdSet || !linkedIdSet.size) {
+        return items.map((it) => ({ ...it, is_linked_to_prototype: false }));
+    }
+    return items.map((it) => ({
+        ...it,
+        is_linked_to_prototype: linkedIdSet.has(it.id)
+    }));
+}
+
 async function getAssetIdsForCatalogGroup(catalogGroupId, manufacturerId) {
     if (!catalogGroupId) return { assetIds: null, error: null };
     const { data: grp, error: grpErr } = await supabase
@@ -12907,6 +13092,29 @@ app.get('/api/vendor-assets', async (req, res) => {
         if (items.length && (await vendorCatalogGroupsTableReady())) {
             itemsOut = await attachCatalogGroupIdsToAssets(items);
         }
+        const forPrototypeAssetId = (req.query.for_prototype_asset_id || '').trim() || null;
+        let linkedIdSet = null;
+        let linkSortById = {};
+        if (forPrototypeAssetId && (await vendorPrototypeLinksTableReady())) {
+            const { data: protoRow, error: protoErr } = await supabase
+                .from('vendor_assets')
+                .select('id, manufacturer_id, asset_kind, is_public')
+                .eq('id', forPrototypeAssetId)
+                .maybeSingle();
+            if (!protoErr && protoRow && normalizeVendorAssetKind(protoRow.asset_kind) === 'prototype') {
+                if (!internalPreview && !protoRow.is_public) {
+                    linkedIdSet = new Set();
+                } else {
+                    const linkPack = await getLinkedAssetIdsForPrototype(protoRow.manufacturer_id, forPrototypeAssetId);
+                    linkedIdSet = new Set(linkPack.ids);
+                    linkSortById = linkPack.sortById;
+                }
+            }
+        }
+        if (linkedIdSet) {
+            itemsOut = attachPrototypeLinkFlagsToItems(itemsOut, linkedIdSet);
+            if (linkedIdSet.size) itemsOut = sortVendorAssetsWithPrototypeLinks(itemsOut, linkedIdSet, linkSortById);
+        }
         const paged = paginateVendorAssetList(itemsOut, pageParams);
         res.json({
             items: paged.items,
@@ -12914,7 +13122,8 @@ app.get('/api/vendor-assets', async (req, res) => {
             limit: paged.limit,
             offset: paged.offset,
             manufacturers,
-            catalog_group_id: catalogGroupId || null
+            catalog_group_id: catalogGroupId || null,
+            for_prototype_asset_id: forPrototypeAssetId || null
         });
     } catch (e) {
         console.error('GET /api/vendor-assets 異常:', e);
@@ -13962,6 +14171,78 @@ app.patch('/api/me/vendor-assets/:id', express.json(), async (req, res) => {
     }
 });
 
+// GET /api/me/vendor-assets/:id/prototype-links — 主產品 ↔ 材料／配件關聯（編輯用）
+app.get('/api/me/vendor-assets/:id/prototype-links', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const id = (req.params.id || '').trim();
+        const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
+            id, manufacturerId, 'id, title, image_url, asset_kind'
+        );
+        if (rowErr) {
+            console.error('GET prototype-links select:', rowErr);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        if (!row) return res.status(404).json({ error: '找不到該素材' });
+        if (!(await vendorPrototypeLinksTableReady())) {
+            return res.json({
+                asset_kind: normalizeVendorAssetKind(row.asset_kind),
+                linked_asset_ids: [],
+                linked_prototype_ids: [],
+                candidates: [],
+                table_ready: false
+            });
+        }
+        const kind = normalizeVendorAssetKind(row.asset_kind);
+        const { data: allRows, error: allErr } = await supabase
+            .from('vendor_assets')
+            .select('id, title, image_url, asset_kind, sort_order, created_at')
+            .eq('manufacturer_id', manufacturerId)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (allErr) return res.status(500).json({ error: '查詢失敗' });
+        const candidates = (allRows || [])
+            .filter((r) => r.id !== id)
+            .map((r) => ({
+                id: r.id,
+                title: r.title,
+                image_url: r.image_url,
+                asset_kind: normalizeVendorAssetKind(r.asset_kind)
+            }));
+        if (kind === 'prototype') {
+            const linkPack = await getLinkedAssetIdsForPrototype(manufacturerId, id);
+            return res.json({
+                asset_kind: kind,
+                linked_asset_ids: linkPack.ids,
+                linked_prototype_ids: [],
+                candidates: candidates.filter((c) => c.asset_kind === 'material' || c.asset_kind === 'part'),
+                table_ready: true
+            });
+        }
+        if (kind === 'material' || kind === 'part') {
+            const linkedPrototypeIds = await getPrototypeIdsForLinkedAsset(manufacturerId, id);
+            return res.json({
+                asset_kind: kind,
+                linked_asset_ids: [],
+                linked_prototype_ids: linkedPrototypeIds,
+                candidates: candidates.filter((c) => c.asset_kind === 'prototype'),
+                table_ready: true
+            });
+        }
+        return res.json({
+            asset_kind: kind,
+            linked_asset_ids: [],
+            linked_prototype_ids: [],
+            candidates: [],
+            table_ready: true
+        });
+    } catch (e) {
+        console.error('GET /api/me/vendor-assets/:id/prototype-links:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // PUT /api/me/vendor-assets/:id — 更新廠商素材（僅本人廠商）；種子廠商不得編輯
 app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) => {
     try {
@@ -14186,6 +14467,23 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         }
         if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
             await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
+        }
+        const finalKind = normalizeVendorAssetKind(updated.asset_kind || assetKind);
+        if (body.linked_asset_ids !== undefined && finalKind === 'prototype') {
+            const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+            if (linkedIds === null) {
+                return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+            }
+            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkedIds);
+            if (linkErr) return res.status(400).json({ error: linkErr });
+        }
+        if (body.linked_prototype_ids !== undefined && (finalKind === 'material' || finalKind === 'part')) {
+            const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
+            if (protoIds === null) {
+                return res.status(400).json({ error: 'linked_prototype_ids 須為 UUID 陣列' });
+            }
+            const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, id, protoIds);
+            if (linkErr) return res.status(400).json({ error: linkErr });
         }
         res.json({
             ...mapVendorAssetForApi(updated),

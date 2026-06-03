@@ -214,6 +214,7 @@
                     <p id="vendorAssetsPickerKindSyncHint" class="text-muted small mb-2 d-none" data-i18n="customProduct.vendorPickerKindSyncHint">篩選「配件／零件」或「材料參考」時僅依主分類，子分類不套用（與廠商上傳方式一致）。數位原型才依子分類。</p>
                     <div id="vendorAssetsPickerMultiVendorHint" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="status"></div>
                     <div id="vendorAssetsPickerPrototypeLockHint" class="alert alert-info py-2 px-3 small mb-2 d-none" role="status"></div>
+                    <div id="vendorAssetsPickerLinkedLegend" class="alert alert-light border py-2 px-3 small mb-2 d-none vendor-picker-linked-legend" role="status"></div>
                     <div id="vendorAssetsPickerUnsupportedScopeHint" class="ref-scope-warn-host d-none mb-2" role="status"></div>
                     <div id="vendorAssetsFilterRow" class="vendor-assets-filters mb-2">
                         <div class="row g-2 align-items-end mb-2">
@@ -1089,6 +1090,19 @@
         #vendorAssetsPickerModal .vendor-asset-card--prototype-locked-out .vendor-asset-pick-zone {
             cursor: not-allowed;
         }
+        #vendorAssetsPickerModal .vendor-asset-card--vendor-linked {
+            border: 2px solid var(--bs-primary, #0d9488);
+            box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.15);
+        }
+        #vendorAssetsPickerModal .vendor-asset-linked-badge {
+            background: rgba(13, 148, 136, 0.12);
+            color: var(--bs-primary, #0d9488);
+            border: 1px solid rgba(13, 148, 136, 0.35);
+        }
+        #vendorAssetsPickerModal .vendor-picker-linked-legend {
+            border-color: rgba(13, 148, 136, 0.35) !important;
+            color: #0f766e;
+        }
         #vendorAssetsPickerModal .vendor-asset-pick-zone { cursor: pointer; }
         #vendorAssetsPickerModal .vendor-asset-pick-zone:hover .vendor-asset-pick-img { opacity: 0.92; }
         #vendorAssetsPickerModal .vendor-asset-card-meta { cursor: text; user-select: text; -webkit-user-select: text; }
@@ -1449,7 +1463,7 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=43" defer></script>
+    <script src="js/custom-product.js?v=44" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

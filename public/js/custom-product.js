@@ -835,6 +835,21 @@ $(document).ready(function () {
         $hint.removeClass('d-none').text(tpl.replace('{title}', title || '—'));
     }
 
+    function updateVendorPickerLinkedLegend() {
+        var $legend = $('#vendorAssetsPickerLinkedLegend');
+        if (!$legend.length) return;
+        var pickerKind = ($('#vendorAssetsAssetKind').val() || '').trim();
+        if (!hasVendorPrototypeLock() || (pickerKind !== 'material' && pickerKind !== 'part')) {
+            $legend.addClass('d-none').empty();
+            return;
+        }
+        var anchor = getPrototypeAnchorSource();
+        var title = anchor && anchor.title ? String(anchor.title).trim() : '';
+        var tpl = tr('customProduct.vendorPickerLinkedLegend',
+            '與主產品「{title}」有關聯的素材會以品牌色標示並排前；其餘仍可選用。');
+        $legend.removeClass('d-none').text(tpl.replace('{title}', title || '—'));
+    }
+
     function applyPrototypeLockToVendorPickerCards($list) {
         var slot = null;
         try { slot = window.__refImportTargetSlot; } catch (e) { slot = null; }
@@ -889,6 +904,7 @@ $(document).ready(function () {
         fillVendorServiceAreaSelect().then(function () {
             updateVendorPickerMultiVendorHint();
             updateVendorPickerPrototypeLockHint();
+            updateVendorPickerLinkedLegend();
             updateVendorPickerUnsupportedScopeHint();
             loadVendorAssetsPickerList();
         });
@@ -1053,6 +1069,7 @@ $(document).ready(function () {
     $('#vendorAssetsAssetKind').on('change', function () {
         syncVendorPickerSubcategoryForAssetKind();
         updateVendorPickerPrototypeFiltersVisibility();
+        updateVendorPickerLinkedLegend();
         scheduleVendorAssetsPickerReload();
     });
 
@@ -1923,9 +1940,14 @@ $(document).ready(function () {
         var coverLabelHtml = coverImgLabel
             ? '<div class="small text-muted text-truncate vendor-asset-image-label" title="' + coverImgLabel.replace(/"/g, '&quot;').replace(/</g, '&lt;') + '">' +
             coverImgLabel.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '';
+        if (item.is_linked_to_prototype) {
+            var linkedBadge = (t('customProduct.vendorAssetLinkedBadge') || '廠商推薦').replace(/</g, '&lt;');
+            meta += '<span class="badge vendor-asset-linked-badge mb-1">' + linkedBadge + '</span> ';
+        }
         var multiBadge = imageUrls.length > 1
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
-        return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card"' +
+        var linkedCardClass = item.is_linked_to_prototype ? ' vendor-asset-card--vendor-linked' : '';
+        return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 vendor-asset-card' + linkedCardClass + '"' +
             ' data-image-url="' + imgUrl + '" data-image-urls="' + imageUrlsJson + '" data-image-items="' + imageItemsJson + '" data-vendor-asset-id="' + assetId + '" data-manufacturer-id="' + mfrId + '"' +
             ' data-manufacturer-name="' + mfrName + '" data-manufacturer-profile-url="' + profileUrl + '"' +
             ' data-asset-kind="' + assetKind + '" data-title="' + title + '"' +
@@ -2044,6 +2066,11 @@ $(document).ready(function () {
         if (customKeys.length) {
             url += '&customization_levels=' + encodeURIComponent(customKeys.join(','));
         }
+        var pickerKind = ($('#vendorAssetsAssetKind').val() || '').trim();
+        var protoLockId = getPrototypeLockVendorAssetId();
+        if (protoLockId && (pickerKind === 'material' || pickerKind === 'part')) {
+            url += '&for_prototype_asset_id=' + encodeURIComponent(protoLockId);
+        }
         url += '&limit=' + encodeURIComponent(String(vendorPickerPageSize));
         url += '&offset=' + encodeURIComponent(String(vendorPickerOffset));
         return url;
@@ -2106,6 +2133,7 @@ $(document).ready(function () {
             bindVendorAssetCardClicks($list, modalEl);
             applyPrototypeLockToVendorPickerCards($list);
             updateVendorPickerPrototypeLockHint();
+            updateVendorPickerLinkedLegend();
             updateVendorPickerUnsupportedScopeHint();
         }).catch(function () {
             $loading.addClass('d-none');

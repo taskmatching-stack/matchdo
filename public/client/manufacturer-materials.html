@@ -415,6 +415,18 @@
                             <div class="mb-3"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control" id="edit-min-order-qty" min="1" step="1" inputmode="numeric" data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
                             <div><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div id="edit-customization-levels" class="border rounded p-2"></div></div>
                         </div>
+                        <div class="mb-3 d-none" id="edit-prototype-links-wrap">
+                            <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
+                            <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksHint">可複選同廠材料或配件；設計端選圖時會優先標示。若需更細結構請另建主產品。</p>
+                            <div id="edit-prototype-links-list" class="border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
+                            <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無其他材料或配件可選。</p>
+                        </div>
+                        <div class="mb-3 d-none" id="edit-linked-prototypes-wrap">
+                            <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
+                            <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesHint">可複選適用此材料／配件的數位原型（主產品）。</p>
+                            <div id="edit-linked-prototypes-list" class="border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
+                            <p id="edit-linked-prototypes-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無其他主產品可選。</p>
+                        </div>
                         <div class="mb-3">
                             <label class="form-label">簡短說明</label>
                             <textarea class="form-control" id="edit-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea>
@@ -571,7 +583,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-kind-guide-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'prototype-links-20260601';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -604,6 +616,7 @@
         var highlightAssetId = null;
         var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_description: 1 };
         var editPending = { tags: null, semantics: null };
+        var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
         var editGalleryOptimizeUrls = new Set();
         var catalogGroupsFlat = [];
@@ -2550,6 +2563,85 @@
             });
         });
 
+        function assetKindLabelShort(kind) {
+            if (kind === 'material') return tr('baseModels.kindMaterial', '材料');
+            if (kind === 'part') return tr('baseModels.kindPart', '配件');
+            if (kind === 'prototype') return tr('baseModels.kindPrototype', '主產品');
+            return kind || '';
+        }
+
+        function renderEditPrototypeLinkCheckboxes(containerId, emptyId, candidates, selectedIds) {
+            var listEl = document.getElementById(containerId);
+            var emptyEl = document.getElementById(emptyId);
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            var selected = new Set((selectedIds || []).map(function (x) { return String(x); }));
+            if (!candidates || !candidates.length) {
+                if (emptyEl) emptyEl.classList.remove('d-none');
+                return;
+            }
+            if (emptyEl) emptyEl.classList.add('d-none');
+            candidates.forEach(function (c) {
+                var cid = String(c.id);
+                var row = document.createElement('label');
+                row.className = 'd-flex align-items-center gap-2 small mb-0';
+                var thumb = c.image_url
+                    ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
+                    : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
+                var title = (c.title || cid).replace(/</g, '&lt;');
+                var kindBadge = assetKindLabelShort(c.asset_kind);
+                row.innerHTML = '<input type="checkbox" class="form-check-input flex-shrink-0" value="' + cid.replace(/"/g, '&quot;') + '"' +
+                    (selected.has(cid) ? ' checked' : '') + '>' + thumb +
+                    '<span class="flex-grow-1 text-truncate" title="' + title + '">' + title +
+                    (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span>';
+                listEl.appendChild(row);
+            });
+        }
+
+        function readEditPrototypeLinkSelections(containerId) {
+            var listEl = document.getElementById(containerId);
+            if (!listEl) return [];
+            return Array.prototype.slice.call(listEl.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(function (inp) { return (inp.value || '').trim(); })
+                .filter(Boolean);
+        }
+
+        async function loadEditPrototypeLinks(assetId) {
+            editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
+            var protoWrap = document.getElementById('edit-prototype-links-wrap');
+            var linkedWrap = document.getElementById('edit-linked-prototypes-wrap');
+            if (protoWrap) protoWrap.classList.add('d-none');
+            if (linkedWrap) linkedWrap.classList.add('d-none');
+            try {
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(assetId) + '/prototype-links', {
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) return;
+                editPrototypeLinksPending.linked_asset_ids = data.linked_asset_ids || [];
+                editPrototypeLinksPending.linked_prototype_ids = data.linked_prototype_ids || [];
+                editPrototypeLinksPending.loaded = true;
+                var kind = normalizeKind(data.asset_kind);
+                if (kind === 'prototype' && protoWrap) {
+                    protoWrap.classList.remove('d-none');
+                    renderEditPrototypeLinkCheckboxes(
+                        'edit-prototype-links-list',
+                        'edit-prototype-links-empty',
+                        data.candidates || [],
+                        data.linked_asset_ids || []
+                    );
+                } else if ((kind === 'material' || kind === 'part') && linkedWrap) {
+                    linkedWrap.classList.remove('d-none');
+                    renderEditPrototypeLinkCheckboxes(
+                        'edit-linked-prototypes-list',
+                        'edit-linked-prototypes-empty',
+                        data.candidates || [],
+                        data.linked_prototype_ids || []
+                    );
+                }
+            } catch (_) { /* ignore */ }
+        }
+
         function openEditModal(id) {
             var m = materialsAll.find(function (x) { return x.id === id; });
             if (!m) return;
@@ -2616,6 +2708,11 @@
             if (subWrap) subWrap.classList.toggle('d-none', hideSubcategoryEdit);
             if (kindNorm === 'prototype') fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
             renderEditCatalogCheckboxes(m.asset_kind, m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; }));
+            var protoLinksWrap = document.getElementById('edit-prototype-links-wrap');
+            var linkedProtosWrap = document.getElementById('edit-linked-prototypes-wrap');
+            if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
+            if (linkedProtosWrap) linkedProtosWrap.classList.add('d-none');
+            loadEditPrototypeLinks(id);
             editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
             editModalEl.show();
         }
@@ -2739,6 +2836,13 @@
                 }
                 fd.append('min_order_quantity', moqStr);
                 fd.append('customization_levels', JSON.stringify(editLevels));
+            }
+            if (editPrototypeLinksPending.loaded) {
+                if (editKind === 'prototype') {
+                    fd.append('linked_asset_ids', JSON.stringify(readEditPrototypeLinkSelections('edit-prototype-links-list')));
+                } else if (editKind === 'material' || editKind === 'part') {
+                    fd.append('linked_prototype_ids', JSON.stringify(readEditPrototypeLinkSelections('edit-linked-prototypes-list')));
+                }
             }
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
