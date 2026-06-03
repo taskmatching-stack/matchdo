@@ -2141,6 +2141,9 @@ $(document).ready(function () {
         if (protoLockId && (pickerKind === 'material' || pickerKind === 'part')) {
             url += '&for_prototype_asset_id=' + encodeURIComponent(protoLockId);
         }
+        if (params.hasPrototypeLinks) {
+            url += '&has_prototype_links=1';
+        }
         url += '&limit=' + encodeURIComponent(String(vendorPickerPageSize));
         url += '&offset=' + encodeURIComponent(String(vendorPickerOffset));
         return url;
@@ -2395,7 +2398,8 @@ $(document).ready(function () {
             window.__vendorAssetsFetchParams = {
                 mode: 'category',
                 mainKey: mainKey,
-                subKey: pickerSubcategoryAppliesToAssetKind('prototype') ? subKey : ''
+                subKey: pickerSubcategoryAppliesToAssetKind('prototype') ? subKey : '',
+                hasPrototypeLinks: true
             };
         } catch (e) {}
         vendorPickerOffset = vendorStylesTabOffset;
@@ -2436,7 +2440,13 @@ $(document).ready(function () {
             $grid.empty();
             if (!items.length) {
                 $grid.addClass('d-none');
-                if ($empty.length) $empty.removeClass('d-none');
+                if ($empty.length) {
+                    $empty.removeClass('d-none');
+                    var $p = $empty.find('p');
+                    if ($p.length) {
+                        $p.text(t('browseStyles.emptyNoLinks') || '此分類下尚無已設定「可搭配」的款式。廠商需於素材庫建立主產品與材料／配件的關聯後才會出現在此。');
+                    }
+                }
                 return;
             }
             $empty.addClass('d-none');

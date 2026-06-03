@@ -13562,6 +13562,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         const pageParams = parseVendorAssetsListPageParams(req.query);
         const manufacturersOnly = parseTruthyBody(req.query.manufacturers_only);
         const prototypeLinkedOnly = parseTruthyBody(req.query.prototype_linked_only);
+        const hasPrototypeLinks = parseTruthyBody(req.query.has_prototype_links);
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const moqFilterRaw = (req.query.min_order_quantity != null ? String(req.query.min_order_quantity) : '').trim();
         const moqFilter = moqFilterRaw ? parseInt(moqFilterRaw, 10) : null;
@@ -13675,6 +13676,12 @@ app.get('/api/vendor-assets', async (req, res) => {
         let linkCountsByProto = {};
         if (assetKindFilter === 'prototype' && list.length && (await vendorPrototypeLinksTableReady())) {
             linkCountsByProto = await batchPrototypeLinkCounts(list);
+        }
+        if (hasPrototypeLinks && assetKindFilter === 'prototype') {
+            list = list.filter((r) => {
+                const c = linkCountsByProto[r.id];
+                return c && (c.material_count + c.part_count) > 0;
+            });
         }
         const items = list.map(r => {
             const kind = normalizeVendorAssetKind(r.asset_kind);
