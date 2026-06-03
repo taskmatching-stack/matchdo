@@ -35,9 +35,11 @@
                     <h4 class="mb-0 fw-bold" data-i18n="supplierManage.heading">上架數位產品庫</h4>
                     <small class="text-muted" data-i18n="supplierManage.pageIntro">對稱製造商「上傳數位版型」流程：分頁上架材料、數位原型、配件／零件。製造商在產業供應商目錄匯入。</small>
                 </div>
-                <a href="/client/industry-supplier-dashboard.html" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierManage.backDashboard">返回供應商控制台</span>
-                </a>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="/client/industry-supplier-dashboard.html" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierManage.backDashboard">返回供應商控制台</span>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -130,12 +132,15 @@
                         <p id="catalog-groups-empty-prototype" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmpty">尚無自訂分類，請在上方輸入名稱後按「新增分類」。</p>
                     </div>
                 </div>
+                <div class="alert alert-info border-0 py-2 mb-3 small" data-i18n="supplierManage.prototypeLinkTreeNote">製造商匯入後，請在「上傳數位版型」頁使用「產品關聯圖」管理材料／配件關聯（供應商端無此圖）。</div>
                 <p class="text-muted small mb-3" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供製造商匯入為數位原型。</p>
                 <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4">
                     <div class="card-body">
                         <form class="add-form" data-kind="prototype" enctype="multipart/form-data">
                             <div class="row g-3">
-                                <div class="col-12"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select><p class="form-text text-muted small mb-0" data-i18n="baseModels.platformCategoryOnlyHint">媒合僅用平台主分類；細項請用上方「我的素材分類」。</p></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">子分類 <span class="text-danger">*</span></label><select class="form-select add-subcategory" required><option value="">— 請選擇 —</option></select></div>
+                                <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.platformCategoryPrototypeHint">數位原型必選平台子分類（影響製造商匯入後設計端生圖提示詞）；「我的分類」僅供瀏覽排序。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
@@ -287,6 +292,7 @@
                         <input type="hidden" id="edit-id">
                         <input type="hidden" id="edit-kind">
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
+                        <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-subcategory" required><option value="">— 請選擇 —</option></select></div>
                         <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3">
@@ -535,9 +541,39 @@
                 return '<option value="' + esc(c.key) + '"' + selAttr + '>' + esc(catNames[c.key] || c.name || c.key) + '</option>';
             }).join('');
         }
+        function fillSubcategorySelect(sel, categoryKey, selectedSubKey) {
+            if (!sel) return;
+            sel.innerHTML = '<option value="">— 請選擇 —</option>';
+            if (!categoryKey) return;
+            var cat = categories.find(function (c) { return c.key === categoryKey; });
+            var subs = (cat && cat.subcategories) ? cat.subcategories : [];
+            subs.forEach(function (s) {
+                var opt = document.createElement('option');
+                opt.value = s.key;
+                opt.textContent = s.name || s.key;
+                if (s.key === selectedSubKey) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            if (!selectedSubKey && subs.length === 1) sel.value = subs[0].key;
+        }
+        function validatePrototypeSubcategory(subSel, categoryKey) {
+            if (!categoryKey) return tr('supplierManage.needCategory', '請選擇主分類');
+            var cat = categories.find(function (c) { return c.key === categoryKey; });
+            var subs = (cat && cat.subcategories) ? cat.subcategories : [];
+            if (!subs.length) return tr('baseModels.needSubcategoryConfigured', '此主分類尚無子分類，請先於後台設定');
+            if (!subSel || !(subSel.value || '').trim()) return tr('baseModels.needSubcategory', '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）');
+            return '';
+        }
         function fillAllCategorySelects(selected) {
             document.querySelectorAll('.add-category').forEach(function (sel) { fillCategorySelect(sel, selected); });
             fillCategorySelect(document.getElementById('edit-category'), selected);
+        }
+        function getCatalogItemSubcategoryKey(item) {
+            if (!item) return '';
+            if (item.subcategory_key) return String(item.subcategory_key).trim();
+            var spec = item.spec_json;
+            if (spec && typeof spec === 'object' && spec.subcategory_key) return String(spec.subcategory_key).trim();
+            return '';
         }
         function contactLine(c) {
             c = c && typeof c === 'object' ? c : {};
@@ -906,7 +942,13 @@
         function openEditModal(item) {
             document.getElementById('edit-id').value = item.id;
             document.getElementById('edit-kind').value = activeKind;
+            var kindNorm = normalizeKind(activeKind);
             fillCategorySelect(document.getElementById('edit-category'), item.category_key);
+            var subWrap = document.getElementById('edit-subcategory-wrap');
+            if (subWrap) subWrap.classList.toggle('d-none', kindNorm !== 'prototype');
+            if (kindNorm === 'prototype') {
+                fillSubcategorySelect(document.getElementById('edit-subcategory'), item.category_key, getCatalogItemSubcategoryKey(item));
+            }
             document.getElementById('edit-title').value = item.title || '';
             document.getElementById('edit-description').value = item.description || '';
             var img = document.getElementById('edit-current-image');
@@ -935,9 +977,13 @@
         document.querySelectorAll('.add-form').forEach(function (form) {
             var kind = form.getAttribute('data-kind');
             var catSel = form.querySelector('.add-category');
+            var subSel = form.querySelector('.add-subcategory');
             var imgInput = form.querySelector('.add-image');
             var preview = form.querySelector('.add-image-preview');
             wireOptimizeBackgroundForm(form);
+            if (kind === 'prototype' && subSel) {
+                catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
+            }
             imgInput.addEventListener('change', function () {
                 showLocalImagePreview(preview, imgInput.files && imgInput.files[0]);
             });
@@ -946,11 +992,16 @@
                 var msgEl = form.querySelector('.add-form-msg');
                 msgEl.textContent = '';
                 if (!catSel.value) { msgEl.textContent = tr('supplierManage.needCategory', '請選擇主分類'); return; }
+                if (kind === 'prototype') {
+                    var subErr = validatePrototypeSubcategory(subSel, catSel.value);
+                    if (subErr) { msgEl.textContent = subErr; return; }
+                }
                 var file = imgInput.files && imgInput.files[0];
                 if (!file) { msgEl.textContent = tr('supplierManage.needImage', '請上傳圖片'); return; }
                 var fd = new FormData();
                 fd.append('item_kind', apiKind(kind));
                 fd.append('category_key', catSel.value);
+                if (kind === 'prototype' && subSel) fd.append('subcategory_key', subSel.value);
                 fd.append('title', (form.querySelector('.add-title').value || '').trim());
                 fd.append('description', (form.querySelector('.add-description').value || '').trim());
                 fd.append('image', file);
@@ -1049,13 +1100,32 @@
                 btn.disabled = false;
             }
         });
+        var editCategoryEl = document.getElementById('edit-category');
+        if (editCategoryEl) {
+            editCategoryEl.addEventListener('change', function () {
+                if (normalizeKind(document.getElementById('edit-kind').value || activeKind) !== 'prototype') return;
+                fillSubcategorySelect(document.getElementById('edit-subcategory'), this.value);
+            });
+        }
         var btnEditSave = document.getElementById('btn-edit-save');
         if (btnEditSave) btnEditSave.addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
+            var editKind = normalizeKind(document.getElementById('edit-kind').value || activeKind);
+            if (editKind === 'prototype') {
+                var editSubErr = validatePrototypeSubcategory(
+                    document.getElementById('edit-subcategory'),
+                    document.getElementById('edit-category').value
+                );
+                if (editSubErr) { toast(editSubErr, 'warning'); return; }
+            }
             var fd = new FormData();
             fd.append('title', document.getElementById('edit-title').value.trim());
             fd.append('description', document.getElementById('edit-description').value.trim());
             fd.append('category_key', document.getElementById('edit-category').value);
+            if (normalizeKind(document.getElementById('edit-kind').value || activeKind) === 'prototype') {
+                var subEl = document.getElementById('edit-subcategory');
+                fd.append('subcategory_key', subEl ? (subEl.value || '') : '');
+            }
             fd.append('ai_tags', JSON.stringify(editPending.tags || []));
             var editGrpEl = document.getElementById('edit-catalog-groups');
             var editGrpIds = [];

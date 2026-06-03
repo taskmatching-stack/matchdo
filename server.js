@@ -13776,7 +13776,15 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const categoryKey = (body.category_key || '').trim();
         if (!categoryKey) return res.status(400).json({ error: '請選擇主分類（category_key）' });
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
-        const subcategoryKey = assetKind === 'material' ? null : ((body.subcategory_key || '').trim() || null);
+        let subcategoryKey = null;
+        if (assetKind === 'prototype') {
+            subcategoryKey = (body.subcategory_key || '').trim();
+            if (!subcategoryKey) {
+                return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
+            }
+        } else if (assetKind !== 'material' && assetKind !== 'part') {
+            subcategoryKey = ((body.subcategory_key || '').trim() || null);
+        }
         const isPrototypeLike = assetKind === 'prototype' || assetKind === 'part';
         let title = (body.title || '').trim() || null;
         let description = (body.description || '').trim() || null;
@@ -14619,7 +14627,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         const id = (req.params.id || '').trim();
         const body = req.body || {};
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, category_key, title, description, asset_kind, material_key, min_order_quantity, customization_levels'
+            id, manufacturerId, 'id, image_url, category_key, subcategory_key, title, description, asset_kind, material_key, min_order_quantity, customization_levels'
         );
         if (rowErr) {
             console.error('PUT /api/me/vendor-assets/:id select:', rowErr);
@@ -14631,7 +14639,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (body.category_key !== undefined) updates.category_key = (String(body.category_key || '').trim()) || row.category_key;
         const assetKindPut = normalizeVendorAssetKind(body.asset_kind !== undefined ? body.asset_kind : row.asset_kind);
         if (body.subcategory_key !== undefined) {
-            updates.subcategory_key = assetKindPut === 'material'
+            updates.subcategory_key = (assetKindPut === 'material' || assetKindPut === 'part')
                 ? null
                 : ((body.subcategory_key || '').trim() || null);
         }
@@ -14670,6 +14678,12 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             }
             if (!levels.length) return res.status(400).json({ error: '請至少選擇一項訂製程度' });
             updates.customization_levels = levels;
+            const finalSubKey = updates.subcategory_key !== undefined
+                ? (updates.subcategory_key || '').trim()
+                : ((row.subcategory_key || '').trim());
+            if (!finalSubKey) {
+                return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
+            }
         }
 
         let file = req.file ? await vendorAssetFileFromMulter(req.file) : null;
@@ -15160,6 +15174,9 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
         if (targetKind === 'prototype' || targetKind === 'part') {
             insertPayload.min_order_quantity = 1;
             insertPayload.customization_levels = ['color_material'];
+        }
+        if (targetKind === 'prototype' && spec.subcategory_key) {
+            insertPayload.subcategory_key = String(spec.subcategory_key).trim();
         }
 
         let inserted;
@@ -16284,6 +16301,9 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemUpload, a
         const itemKind = normalizeSupplierCatalogItemKind(body.item_kind);
         const categoryKey = (body.category_key || '').trim();
         if (!categoryKey) return res.status(400).json({ error: '請選擇平台主分類' });
+        if (itemKind === 'prototype_set' && !(body.subcategory_key || '').trim()) {
+            return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
+        }
         let file = await vendorAssetFileFromMulter(req.file);
         if (!file) return res.status(400).json({ error: '請上傳產品圖片' });
         const ownerId = uploadUser.id || (await getAuthOwnerIdFromReq(req));
@@ -16503,6 +16523,18 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             const coverResolved = await resolveSupplierCatalogCoverUrl(ctx.supplier.id, req, existing.cover_image_url);
             if (coverResolved.error) return res.status(400).json({ error: coverResolved.error });
             patch.cover_image_url = coverResolved.url;
+        }
+        if (itemKind === 'prototype_set') {
+            const mergedSpec = patch.spec_json !== undefined
+                ? patch.spec_json
+                : ((existing.spec_json && typeof existing.spec_json === 'object') ? existing.spec_json : {});
+            const subKeyFinal = (mergedSpec && mergedSpec.subcategory_key) ? String(mergedSpec.subcategory_key).trim() : '';
+            if (body.subcategory_key !== undefined && !String(body.subcategory_key).trim()) {
+                return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
+            }
+            if (!subKeyFinal) {
+                return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
+            }
         }
         patch.updated_at = new Date().toISOString();
         let { data: updated, error } = await supabase

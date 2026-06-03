@@ -259,6 +259,23 @@ $(document).ready(function () {
         return vid ? s : null;
     }
 
+    function syncProductTreeHeaderLink() {
+        var $btn = $('#btn-open-product-tree');
+        if (!$btn.length) return;
+        var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+        var anchor = getPrototypeAnchorSource();
+        var id = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
+        if (id) {
+            $btn.attr('href', '/product-tree.html?prototype_asset_id=' + encodeURIComponent(id) + '&return_to=' + returnTo);
+            $btn.removeClass('disabled btn-outline-secondary').addClass('btn-outline-primary');
+            $btn.attr('title', tr('customProduct.openProductTreeLink', '查看此產品的關聯圖（新分頁）'));
+        } else {
+            $btn.attr('href', '/product-tree.html');
+            $btn.removeClass('btn-outline-primary').addClass('btn-outline-secondary');
+            $btn.attr('title', tr('productTree.pickPrototypeFromLibrary', '請先從「數位原型」素材庫選擇主產品，即可開啟關聯圖'));
+        }
+    }
+
     function getPrototypeLockVendorAssetId() {
         var anchor = getPrototypeAnchorSource();
         return anchor ? String(anchor.vendor_asset_id).trim() : '';
@@ -697,6 +714,7 @@ $(document).ready(function () {
                         $panel.append($('<div class="alert alert-light border small py-2 mb-2 ref-intent-linked-summary"></div>')
                             .text(sumTpl.replace('{m}', String(mc)).replace('{p}', String(pc))));
                     }
+                }
                 var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
                 if (anchorId) {
                     var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
@@ -846,6 +864,7 @@ $(document).ready(function () {
         if (hasVendorPrototypeLock() && !prototypeLinkSummary.loaded && !prototypeLinkSummaryLoading) {
             refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
         }
+        syncProductTreeHeaderLink();
     }
     window.__renderIntentSlots = renderIntentSlots;
 
