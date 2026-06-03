@@ -276,6 +276,48 @@ $(document).ready(function () {
         return set;
     }
 
+    var prototypeLinkSummary = { material_count: 0, part_count: 0, loaded: false };
+    var prototypeLinkSummaryLoading = false;
+
+    function clearPrototypeLinkSummary() {
+        prototypeLinkSummary = { material_count: 0, part_count: 0, loaded: false };
+        prototypeLinkSummaryLoading = false;
+    }
+
+    function isRefTabCoveredByVendorAssociation(tabKey) {
+        if (!hasVendorPrototypeLock() || !prototypeLinkSummary.loaded) return false;
+        if (tabKey === 'material') return prototypeLinkSummary.material_count > 0;
+        if (tabKey === 'part') return prototypeLinkSummary.part_count > 0;
+        return false;
+    }
+
+    function refreshPrototypeLinkSummary(done) {
+        var id = getPrototypeLockVendorAssetId();
+        if (!id) {
+            clearPrototypeLinkSummary();
+            if (typeof done === 'function') done();
+            return;
+        }
+        var anchor = getPrototypeAnchorSource();
+        var url = '/api/vendor-assets/prototype-link-summary?prototype_asset_id=' + encodeURIComponent(id);
+        if (anchor && anchor.manufacturer_id) {
+            url += '&manufacturer_id=' + encodeURIComponent(anchor.manufacturer_id);
+        }
+        prototypeLinkSummaryLoading = true;
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            prototypeLinkSummary = {
+                material_count: Number(data && data.material_count) || 0,
+                part_count: Number(data && data.part_count) || 0,
+                loaded: true
+            };
+        }).catch(function () {
+            prototypeLinkSummary.loaded = true;
+        }).finally(function () {
+            prototypeLinkSummaryLoading = false;
+            if (typeof done === 'function') done();
+        });
+    }
+
     function isRefTabScopeHighlighted(tabKey) {
         if (!hasVendorPrototypeLock()) return false;
         var set = getPrototypeLockLevelsSet();
@@ -286,10 +328,18 @@ $(document).ready(function () {
         return false;
     }
 
+    /** 無關聯時：依主產品 customization_levels；有關聯該類材／配則視為已提供 */
     function isRefSlotSupportedByPrototypeLock(slotKey) {
         if (!slotKey || slotKey === 'prototype') return true;
         if (!hasVendorPrototypeLock()) return true;
+        if (isRefTabCoveredByVendorAssociation(slotKey)) return true;
         return isRefTabScopeHighlighted(slotKey);
+    }
+
+    function shouldShowRefTabScopeWarn(slotKey) {
+        if (!slotKey || slotKey === 'prototype' || !hasVendorPrototypeLock()) return false;
+        if (prototypeLinkSummaryLoading) return false;
+        return !isRefSlotSupportedByPrototypeLock(slotKey);
     }
 
     function getRefSlotScopeLevelKeys(slotKey) {
@@ -390,7 +440,7 @@ $(document).ready(function () {
         var slot = null;
         try { slot = window.__refImportTargetSlot; } catch (e) { slot = null; }
         $hint.empty();
-        if (!slot || slot === 'prototype' || isRefSlotSupportedByPrototypeLock(slot)) {
+        if (!slot || slot === 'prototype' || !shouldShowRefTabScopeWarn(slot)) {
             $hint.addClass('d-none');
             return;
         }
@@ -440,6 +490,7 @@ $(document).ready(function () {
     function clearRefSlot(key) {
         if (!refSlots[key]) return;
         refSlots[key] = emptyRefSlotGroup();
+        if (key === 'prototype') clearPrototypeLinkSummary();
     }
 
     function addRefImageToSlot(key, url, source) {
@@ -626,7 +677,7 @@ $(document).ready(function () {
         $hintRow.append($('<div class="ref-intent-hint flex-grow-1 mb-0"></div>')
             .attr('data-i18n', def.key === 'prototype' && items.length && !hasVendorPrototypeLock() ? 'customProduct.refPrototypeLocalHint' : def.hintKey)
             .text(hintText));
-        if (def.key !== 'prototype' && hasVendorPrototypeLock() && !isRefSlotSupportedByPrototypeLock(def.key)) {
+        if (shouldShowRefTabScopeWarn(def.key)) {
             var scopeVariant = refSlotHasCustomizationContent(def.key) ? 'active' : 'muted';
             var scopeMsg = getUnsupportedRefSlotWarningText(def.key, scopeVariant);
             if (scopeMsg) $hintRow.append(createRefScopeWarnBtn(scopeMsg));
@@ -637,6 +688,25 @@ $(document).ready(function () {
             if (anchor) {
                 var $scope = $('<div class="ref-intent-scope-block"></div>');
                 if (appendPrototypeScopeInline($scope, anchor)) $panel.append($scope);
+                if (prototypeLinkSummary.loaded) {
+                    var mc = prototypeLinkSummary.material_count;
+                    var pc = prototypeLinkSummary.part_count;
+                    if (mc > 0 || pc > 0) {
+                        var sumTpl = tr('customProduct.prototypeLinkedSummary',
+                            '廠商已關聯：材料 {m} 筆、配件 {p} 筆。請在「材料」「配件」分頁點「素材庫」；推薦項目會以品牌色標示。');
+                        $panel.append($('<div class="alert alert-light border small py-2 mb-2 ref-intent-linked-summary"></div>')
+                            .text(sumTpl.replace('{m}', String(mc)).replace('{p}', String(pc))));
+                    }
+                }
+            }
+        } else if ((def.key === 'material' || def.key === 'part') && hasVendorPrototypeLock() && prototypeLinkSummary.loaded) {
+            var linkN = def.key === 'material' ? prototypeLinkSummary.material_count : prototypeLinkSummary.part_count;
+            if (linkN > 0) {
+                var tabLbl = tr(def.tabKey, def.tabFb);
+                var tabTpl = tr('customProduct.refTabLinkedSummary',
+                    '此主產品已關聯 {n} 筆「{tab}」素材。請點「素材庫」；推薦項目會排前並標示「廠商推薦」。');
+                $panel.prepend($('<div class="alert alert-light border small py-2 mb-2 ref-intent-linked-summary"></div>')
+                    .text(tabTpl.replace('{n}', String(linkN)).replace('{tab}', tabLbl)));
             }
         }
         var $thumbs = $('<div class="ref-intent-thumbs"></div>');
@@ -727,6 +797,7 @@ $(document).ready(function () {
             var n = countSlotRefImages(def.key);
             var isActive = def.key === activeDef.key;
             var scopeOn = isRefTabScopeHighlighted(def.key);
+            var tabSupported = isRefSlotSupportedByPrototypeLock(def.key);
             var $btn = $('<button type="button" class="ref-intent-tab-btn" role="tab"></button>')
                 .attr('data-ref-tab', def.key)
                 .attr('aria-selected', isActive ? 'true' : 'false')
@@ -736,7 +807,7 @@ $(document).ready(function () {
                 $btn.toggleClass('ref-intent-tab-btn--scope-off', !vendorLock && !isActive);
             } else {
                 $btn.toggleClass('ref-intent-tab-btn--scope-on', vendorLock && scopeOn && !isActive);
-                $btn.toggleClass('ref-intent-tab-btn--scope-off', vendorLock && !scopeOn && !isActive);
+                $btn.toggleClass('ref-intent-tab-btn--scope-off', vendorLock && !tabSupported && !isActive);
             }
             var tabText = refIntentTabLabel(def);
             $btn.attr('title', tr(def.titleKey, def.titleFb));
@@ -744,7 +815,7 @@ $(document).ready(function () {
             var $badge = $('<span class="ref-intent-tab-badge"></span>').text(n ? String(n) : '');
             if (!n) $badge.addClass('d-none');
             $btn.append($badge);
-            if (vendorLock && def.key !== 'prototype' && !scopeOn) {
+            if (shouldShowRefTabScopeWarn(def.key)) {
                 var tabWarnMsg = getUnsupportedRefSlotWarningText(def.key,
                     refSlotHasCustomizationContent(def.key) ? 'active' : 'muted');
                 if (tabWarnMsg) $btn.append(createRefScopeWarnBtn(tabWarnMsg));
@@ -765,6 +836,9 @@ $(document).ready(function () {
 
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         updateMultiVendorRefWarning();
+        if (hasVendorPrototypeLock() && !prototypeLinkSummary.loaded && !prototypeLinkSummaryLoading) {
+            refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
+        }
     }
     window.__renderIntentSlots = renderIntentSlots;
 
@@ -1690,7 +1764,12 @@ $(document).ready(function () {
                     return;
                 }
                 refIntentActiveTab = targetKey;
-                renderIntentSlots();
+                if (targetKey === 'prototype') {
+                    prototypeLinkSummary.loaded = false;
+                    refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
+                } else {
+                    renderIntentSlots();
+                }
                 var pickEl = document.getElementById('vendorAssetImagesPickModal');
                 if (pickEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                     var pickInst = bootstrap.Modal.getInstance(pickEl);

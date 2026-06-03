@@ -187,6 +187,12 @@
                                     </div>
                                     <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；重繪首張 <span class="add-points-optimize">15</span> 點，每多一張 +<span class="add-points-optimize-extra">5</span> 點）</span></p>
                                 </div>
+                                <div class="col-12 add-prototype-links-block">
+                                    <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksUploadHint">上傳前可預先勾選（亦可上傳後在「編輯」調整）。</p>
+                                    <div class="add-prototype-links-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
+                                    <p class="add-prototype-links-empty text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無其他材料或配件可選。</p>
+                                </div>
                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
                         </form>
@@ -281,6 +287,12 @@
                                     </div>
                                     <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；重繪首張 <span class="add-points-optimize">15</span> 點，每多一張 +<span class="add-points-optimize-extra">5</span> 點）</span></p>
                                 </div>
+                                <div class="col-12 add-linked-prototypes-block">
+                                    <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesUploadHint">上傳前可預先勾選適用的主產品（亦可上傳後在「編輯」調整）。</p>
+                                    <div class="add-linked-prototypes-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
+                                    <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無其他主產品可選。</p>
+                                </div>
                                 <div class="col-12"><button type="submit" class="btn btn-warning btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
                         </form>
@@ -361,6 +373,12 @@
                                     </div>
                                     <p class="form-text text-muted small mb-2 add-optimize-material-hint" data-i18n="baseModels.optimizeMaterialHint">強化滿版色卡／圖樣（織紋、木紋、金屬質感），不換成商品白底照。微距圖請在標題註明，以免生圖時紋路過粗。</p>
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                                </div>
+                                <div class="col-12 add-linked-prototypes-block">
+                                    <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesUploadHint">上傳前可預先勾選適用的主產品（亦可上傳後在「編輯」調整）。</p>
+                                    <div class="add-linked-prototypes-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
+                                    <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無其他主產品可選。</p>
                                 </div>
                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
@@ -583,7 +601,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'prototype-links-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'prototype-links-upload-20260601';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2231,6 +2249,7 @@
                     return m;
                 });
                 renderGrid();
+                renderAllAddFormLinkSections();
             } catch (e) {
                 grid.innerHTML = '<div class="col-12"><div class="alert alert-danger">' + esc(e.message) + '</div></div>';
                 showToast(e.message || '載入失敗', 'danger');
@@ -2442,6 +2461,7 @@
             fillVendorCatalogFilterSelect();
             renderGrid();
             updateSupplierImportUi();
+            renderAllAddFormLinkSections();
         }
 
         document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
@@ -2534,6 +2554,9 @@
                 if (kind === 'prototype') {
                     fd.append('min_order_quantity', form.querySelector('.add-min-order-qty').value.trim());
                     fd.append('customization_levels', JSON.stringify(getSelectedCustomizationLevels(form.querySelector('.add-customization-levels'))));
+                    fd.append('linked_asset_ids', JSON.stringify(readAddFormLinkSelections(form, 'prototype')));
+                } else if (kind === 'material' || kind === 'part') {
+                    fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
                 }
                 var btn = form.querySelector('.btn-add-submit');
                 btn.disabled = true;
@@ -2604,6 +2627,85 @@
             return Array.prototype.slice.call(listEl.querySelectorAll('input[type="checkbox"]:checked'))
                 .map(function (inp) { return (inp.value || '').trim(); })
                 .filter(Boolean);
+        }
+
+        function readAddFormLinkSelections(form, kind) {
+            if (!form) return [];
+            var sel = kind === 'prototype' ? '.add-prototype-links-list' : '.add-linked-prototypes-list';
+            var listEl = form.querySelector(sel);
+            if (!listEl) return [];
+            return Array.prototype.slice.call(listEl.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(function (inp) { return (inp.value || '').trim(); })
+                .filter(Boolean);
+        }
+
+        function renderAddFormLinkSection(form) {
+            if (!form) return;
+            var kind = normalizeKind(form.getAttribute('data-kind'));
+            var protoBlock = form.querySelector('.add-prototype-links-block');
+            var linkedBlock = form.querySelector('.add-linked-prototypes-block');
+            if (protoBlock) protoBlock.classList.toggle('d-none', kind !== 'prototype');
+            if (linkedBlock) linkedBlock.classList.toggle('d-none', kind !== 'material' && kind !== 'part');
+            if (kind === 'prototype') {
+                var candidates = materialsAll.filter(function (m) {
+                    var k = normalizeKind(m.asset_kind);
+                    return k === 'material' || k === 'part';
+                }).map(function (m) {
+                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind };
+                });
+                var listEl = form.querySelector('.add-prototype-links-list');
+                var emptyEl = form.querySelector('.add-prototype-links-empty');
+                if (!listEl) return;
+                listEl.innerHTML = '';
+                if (!candidates.length) {
+                    if (emptyEl) emptyEl.classList.remove('d-none');
+                    return;
+                }
+                if (emptyEl) emptyEl.classList.add('d-none');
+                candidates.forEach(function (c) {
+                    var cid = String(c.id);
+                    var row = document.createElement('label');
+                    row.className = 'd-flex align-items-center gap-2 small mb-0';
+                    var thumb = c.image_url
+                        ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
+                        : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
+                    var title = (c.title || cid).replace(/</g, '&lt;');
+                    row.innerHTML = '<input type="checkbox" class="form-check-input flex-shrink-0" value="' + cid.replace(/"/g, '&quot;') + '">' + thumb +
+                        '<span class="flex-grow-1 text-truncate">' + title + ' <span class="text-muted">(' + assetKindLabelShort(c.asset_kind) + ')</span></span>';
+                    listEl.appendChild(row);
+                });
+            } else if (kind === 'material' || kind === 'part') {
+                var protoCandidates = materialsAll.filter(function (m) {
+                    return normalizeKind(m.asset_kind) === 'prototype';
+                }).map(function (m) {
+                    return { id: m.id, title: m.title, image_url: m.image_url, asset_kind: m.asset_kind };
+                });
+                var lpList = form.querySelector('.add-linked-prototypes-list');
+                var lpEmpty = form.querySelector('.add-linked-prototypes-empty');
+                if (!lpList) return;
+                lpList.innerHTML = '';
+                if (!protoCandidates.length) {
+                    if (lpEmpty) lpEmpty.classList.remove('d-none');
+                    return;
+                }
+                if (lpEmpty) lpEmpty.classList.add('d-none');
+                protoCandidates.forEach(function (c) {
+                    var cid = String(c.id);
+                    var row = document.createElement('label');
+                    row.className = 'd-flex align-items-center gap-2 small mb-0';
+                    var thumb = c.image_url
+                        ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
+                        : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
+                    var title = (c.title || cid).replace(/</g, '&lt;');
+                    row.innerHTML = '<input type="checkbox" class="form-check-input flex-shrink-0" value="' + cid.replace(/"/g, '&quot;') + '">' + thumb +
+                        '<span class="flex-grow-1 text-truncate">' + title + '</span>';
+                    lpList.appendChild(row);
+                });
+            }
+        }
+
+        function renderAllAddFormLinkSections() {
+            document.querySelectorAll('.add-form').forEach(renderAddFormLinkSection);
         }
 
         async function loadEditPrototypeLinks(assetId) {

@@ -12520,6 +12520,35 @@ async function getPrototypeIdsForLinkedAsset(manufacturerId, linkedAssetId) {
     return (data || []).map((r) => r.prototype_asset_id);
 }
 
+async function getPrototypeLinkKindCounts(manufacturerId, prototypeAssetId) {
+    if (!(await vendorPrototypeLinksTableReady())) {
+        return { material_count: 0, part_count: 0 };
+    }
+    const { data: links, error: linkErr } = await supabase
+        .from('vendor_asset_prototype_links')
+        .select('linked_asset_id')
+        .eq('prototype_asset_id', prototypeAssetId)
+        .eq('manufacturer_id', manufacturerId);
+    if (linkErr && linkErr.code === '42P01') return { material_count: 0, part_count: 0 };
+    if (linkErr) throw linkErr;
+    const ids = (links || []).map((r) => r.linked_asset_id).filter(Boolean);
+    if (!ids.length) return { material_count: 0, part_count: 0 };
+    const { data: assets, error: assetErr } = await supabase
+        .from('vendor_assets')
+        .select('id, asset_kind')
+        .eq('manufacturer_id', manufacturerId)
+        .in('id', ids);
+    if (assetErr) throw assetErr;
+    let material_count = 0;
+    let part_count = 0;
+    (assets || []).forEach((r) => {
+        const k = normalizeVendorAssetKind(r.asset_kind);
+        if (k === 'material') material_count += 1;
+        else if (k === 'part') part_count += 1;
+    });
+    return { material_count, part_count };
+}
+
 function sortVendorAssetsWithPrototypeLinks(items, linkedIdSet, sortById) {
     if (!linkedIdSet || !linkedIdSet.size) return items;
     const linked = [];
@@ -12907,6 +12936,38 @@ app.get('/api/manufacturers/:id/catalog-groups', async (req, res) => {
     } catch (e) {
         console.error('GET /api/manufacturers/:id/catalog-groups:', e);
         res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// GET /api/vendor-assets/prototype-link-summary — 設計端：主產品已關聯的材／配筆數（用於頁籤提示）
+app.get('/api/vendor-assets/prototype-link-summary', async (req, res) => {
+    try {
+        const prototypeAssetId = (req.query.prototype_asset_id || '').trim();
+        if (!prototypeAssetId) return res.status(400).json({ error: '缺少 prototype_asset_id' });
+        if (!(await vendorPrototypeLinksTableReady())) {
+            return res.json({ prototype_asset_id: prototypeAssetId, material_count: 0, part_count: 0 });
+        }
+        const { data: protoRow, error: protoErr } = await supabase
+            .from('vendor_assets')
+            .select('id, manufacturer_id, asset_kind, is_public')
+            .eq('id', prototypeAssetId)
+            .maybeSingle();
+        if (protoErr) {
+            console.error('GET prototype-link-summary:', protoErr);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        if (!protoRow || normalizeVendorAssetKind(protoRow.asset_kind) !== 'prototype') {
+            return res.json({ prototype_asset_id: prototypeAssetId, material_count: 0, part_count: 0 });
+        }
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        if (!internalPreview && !protoRow.is_public) {
+            return res.json({ prototype_asset_id: prototypeAssetId, material_count: 0, part_count: 0 });
+        }
+        const counts = await getPrototypeLinkKindCounts(protoRow.manufacturer_id, prototypeAssetId);
+        res.json({ prototype_asset_id: prototypeAssetId, ...counts });
+    } catch (e) {
+        console.error('GET /api/vendor-assets/prototype-link-summary:', e);
+        res.status(500).json({ error: '系統錯誤' });
     }
 });
 
@@ -13674,6 +13735,22 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             return res.status(500).json({ error: '新增素材失敗' });
         }
         await setVendorAssetCatalogGroups(inserted.id, manufacturerId, parseCatalogGroupIdsFromBody(body));
+        if (assetKind === 'prototype' && body.linked_asset_ids !== undefined) {
+            const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+            if (linkedIds === null) {
+                return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+            }
+            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, inserted.id, linkedIds);
+            if (linkErr) return res.status(400).json({ error: linkErr });
+        }
+        if ((assetKind === 'material' || assetKind === 'part') && body.linked_prototype_ids !== undefined) {
+            const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
+            if (protoIds === null) {
+                return res.status(400).json({ error: 'linked_prototype_ids 須為 UUID 陣列' });
+            }
+            const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, inserted.id, protoIds);
+            if (linkErr) return res.status(400).json({ error: linkErr });
+        }
         await recordVisualSemanticsEvent({
             source_type: 'vendor_asset',
             source_id: inserted.id,
