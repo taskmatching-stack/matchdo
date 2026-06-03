@@ -406,7 +406,7 @@
             // 用此廠商版型設計：連到產品設計頁並帶 manufacturer_id，設計頁可從此廠商版型庫導入
             var btnDesignBase = document.getElementById('btnDesignWithVendorBase');
             if (btnDesignBase && v.id) {
-                btnDesignBase.href = '/custom-product.html?manufacturer_id=' + encodeURIComponent(v.id) + '&vendor_name=' + encodeURIComponent(v.name || '');
+                btnDesignBase.href = '/browse-styles.html?manufacturer_id=' + encodeURIComponent(v.id) + '&vendor_name=' + encodeURIComponent(v.name || '');
                 btnDesignBase.classList.remove('d-none');
             }
             var btnGallery = document.getElementById('btnViewPortfolio');

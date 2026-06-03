@@ -267,12 +267,16 @@ $(document).ready(function () {
         var id = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
         if (id) {
             $btn.attr('href', '/product-tree.html?prototype_asset_id=' + encodeURIComponent(id) + '&return_to=' + returnTo);
-            $btn.removeClass('disabled btn-outline-secondary').addClass('btn-outline-primary');
-            $btn.attr('title', tr('customProduct.openProductTreeLink', '查看此產品的關聯圖（新分頁）'));
+            $btn.removeAttr('target').removeAttr('rel');
+            $btn.find('span').attr('data-i18n', 'productTree.guideTitle').text(tr('productTree.guideTitle', '看可搭配'));
+            $btn.removeClass('btn-outline-secondary').addClass('btn-outline-primary');
+            $btn.attr('title', tr('customProduct.openMatchGuide', '查看此款式的可搭配材料與配件'));
         } else {
-            $btn.attr('href', '/product-tree.html');
-            $btn.removeClass('btn-outline-primary').addClass('btn-outline-secondary');
-            $btn.attr('title', tr('productTree.pickPrototypeFromLibrary', '請先從「數位原型」素材庫選擇主產品，即可開啟關聯圖'));
+            $btn.attr('href', '/browse-styles.html');
+            $btn.removeAttr('target').removeAttr('rel');
+            $btn.find('span').attr('data-i18n', 'browseStyles.headerBtn').text(tr('browseStyles.headerBtn', '瀏覽款式／看搭配'));
+            $btn.removeClass('btn-outline-secondary').addClass('btn-outline-primary');
+            $btn.attr('title', tr('browseStyles.headerBtnHint', '選一款數位原型，查看可搭配後開始設計'));
         }
     }
 
@@ -719,8 +723,8 @@ $(document).ready(function () {
                 if (anchorId) {
                     var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
                     var treeUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
-                    var treeTpl = tr('customProduct.openProductTreeLink', '查看此產品的關聯圖（新分頁）');
-                    $panel.append($('<p class="mb-2 mt-1"><a href="' + treeUrl + '" class="small" target="_blank" rel="noopener"></a></p>')
+                    var treeTpl = tr('customProduct.openMatchGuide', '看此款式的可搭配');
+                    $panel.append($('<p class="mb-2 mt-1"><a href="' + treeUrl + '" class="small"></a></p>')
                         .find('a').text(treeTpl));
                 }
             }
@@ -1019,6 +1023,78 @@ $(document).ready(function () {
         $('#generatedImagePreviewWrap').addClass('has-result');
     }
 
+    function applyGuideLinkedAssetsFromSession(treeData) {
+        var raw = null;
+        try { raw = sessionStorage.getItem('matchdo.guideLinkedAssetIds'); } catch (e) {}
+        if (!raw) return Promise.resolve();
+        try { sessionStorage.removeItem('matchdo.guideLinkedAssetIds'); } catch (e) {}
+        var ids;
+        try { ids = JSON.parse(raw); } catch (e) { return Promise.resolve(); }
+        if (!Array.isArray(ids) || !ids.length || !treeData) return Promise.resolve();
+        var linked = treeData.linked_assets || [];
+        var byId = {};
+        linked.forEach(function (a) { if (a && a.id) byId[a.id] = a; });
+        var proto = treeData.prototype || {};
+        var chain = Promise.resolve();
+        ids.forEach(function (aid) {
+            var a = byId[aid];
+            if (!a) return;
+            var slotKey = a.asset_kind === 'material' ? 'material' : (a.asset_kind === 'part' ? 'part' : null);
+            if (!slotKey) return;
+            var imgUrl = (a.image_url || '').trim();
+            if (!imgUrl || !canAddMoreRefImages(slotKey, 1)) return;
+            chain = chain.then(function () {
+                return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
+                    addRefImageToSlot(slotKey, dataUrl, {
+                        vendor_asset_id: a.id,
+                        manufacturer_id: proto.manufacturer_id,
+                        manufacturer_name: proto.manufacturer_name,
+                        title: a.title,
+                        image_url: imgUrl,
+                        asset_kind: a.asset_kind
+                    });
+                });
+            });
+        });
+        return chain;
+    }
+
+    function applyPrototypeAssetIdFromUrl() {
+        if (!urlParams) return;
+        var pid = (urlParams.get('prototype_asset_id') || '').trim();
+        if (!pid || getPrototypeLockVendorAssetId() === pid) return;
+        fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree')
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                if (!res.ok || !res.data || !res.data.prototype) return;
+                var treeData = res.data;
+                var p = treeData.prototype;
+                var imgUrl = (p.image_url || '').trim();
+                if (!imgUrl) return;
+                return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
+                    clearRefSlot('prototype');
+                    addRefImageToSlot('prototype', dataUrl, {
+                        vendor_asset_id: p.id,
+                        manufacturer_id: p.manufacturer_id,
+                        manufacturer_name: p.manufacturer_name,
+                        title: p.title,
+                        image_url: imgUrl,
+                        asset_kind: 'prototype'
+                    });
+                    if (p.manufacturer_id && !refVendorMfrId) {
+                        refVendorMfrId = p.manufacturer_id;
+                        if (p.manufacturer_name) refVendorName = p.manufacturer_name;
+                    }
+                    return applyGuideLinkedAssetsFromSession(treeData);
+                }).then(function () {
+                    renderIntentSlots();
+                    syncProductTreeHeaderLink();
+                    refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
+                });
+            })
+            .catch(function () {});
+    }
+
     function initRefIntentUi() {
         renderIntentSlots();
         var redesignUrl = null;
@@ -1034,6 +1110,8 @@ $(document).ready(function () {
             clearRefSlot('prototype');
             addRefImageToSlot('prototype', redesignUrl, { asset_kind: 'prototype' });
             renderIntentSlots();
+        } else {
+            applyPrototypeAssetIdFromUrl();
         }
     }
 

@@ -2,19 +2,19 @@
 <html lang="zh-TW">
 <head>
     <meta charset="utf-8">
-    <title>產品關聯導覽 - MATCHDO 合做</title>
+    <title>看可搭配 - MATCHDO 合做</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, follow">
-    <meta name="description" content="查看數位主產品可搭配的材料與配件關聯，協助訂製選材。">
+    <meta name="description" content="查看此款式的材料與配件搭配，再開始訂製設計。">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="MATCHDO 合做">
-    <meta property="og:title" content="產品關聯導覽 - MATCHDO 合做">
-    <meta property="og:description" content="查看數位主產品可搭配的材料與配件關聯，協助訂製選材。">
+    <meta property="og:title" content="看可搭配 - MATCHDO 合做">
+    <meta property="og:description" content="查看此款式的材料與配件搭配，再開始訂製設計。">
     <meta property="og:image" content="https://matchdo.cc/img/og-design.jpg">
     <meta property="og:url" content="https://matchdo.cc/product-tree.html">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="產品關聯導覽 - MATCHDO 合做">
-    <meta name="twitter:description" content="查看數位主產品可搭配的材料與配件關聯。">
+    <meta name="twitter:title" content="看可搭配 - MATCHDO 合做">
+    <meta name="twitter:description" content="查看此款式的材料與配件搭配。">
     <meta name="twitter:image" content="https://matchdo.cc/img/og-design.jpg">
     <link rel="canonical" href="https://matchdo.cc/product-tree.html" id="canonicalTag">
     <link rel="alternate" hreflang="zh-TW" href="https://matchdo.cc/product-tree.html" id="hreflangZh">
@@ -33,34 +33,40 @@
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                    <h1 class="h4 mb-0 fw-bold" data-i18n="productTree.guideTitle">產品關聯導覽</h1>
-                    <p class="text-muted small mb-0" data-i18n="productTree.guideIntro">查看此主產品已關聯的材料與配件（唯讀）。</p>
+                    <h1 class="h4 mb-0 fw-bold" data-i18n="productTree.guideTitle">看可搭配</h1>
+                    <p class="text-muted small mb-0" id="vplt-guide-subtitle" data-i18n="productTree.guideIntro">此款式廠商已關聯的材料與配件（供參考，唯讀）。</p>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
+                    <a href="/browse-styles.html" class="btn btn-sm btn-outline-secondary" id="btn-change-style"><i class="bi bi-grid me-1"></i><span data-i18n="productTree.changeStyle">更換款式</span></a>
                     <a href="/custom-product.html" class="btn btn-sm btn-outline-secondary d-none" id="btn-return-design"><i class="bi bi-arrow-left me-1"></i><span data-i18n="productTree.backDesign">返回設計</span></a>
-                    <a href="/custom-product.html" class="btn btn-sm btn-primary"><span data-i18n="productTree.goDesign">前往產品設計</span></a>
+                    <a href="/custom-product.html" class="btn btn-sm btn-primary" id="btn-start-design"><span data-i18n="productTree.startDesign">用此款開始設計</span></a>
                 </div>
             </div>
+            <p class="text-muted small mb-0 mt-2" id="vplt-start-design-hint" data-i18n="productTree.startDesignHint">會回到產品設計頁，沿用參考圖分類與圖生圖邏輯；若在搭配頁已點選材料／配件，一併帶入對應參考槽。</p>
         </div>
     </div>
     <div class="container py-3">
         <div id="vplt-alert" class="alert alert-warning d-none"></div>
         <div id="vplt-app" class="vplt-layout d-none">
-            <aside class="vplt-sidebar vplt-sidebar--list">
-                <h2 class="h6 text-muted mb-2" data-i18n="productTree.prototypeList">主產品</h2>
+            <aside class="vplt-sidebar vplt-sidebar--list d-none" id="vplt-prototype-sidebar">
+                <h2 class="h6 text-muted mb-2" data-i18n="productTree.prototypeList">款式</h2>
                 <div id="vplt-prototype-list" class="vplt-prototype-list"></div>
             </aside>
             <main class="vplt-canvas-wrap">
+                <div id="vplt-vendor-chip" class="small text-muted mb-2 d-none"></div>
                 <div id="vplt-canvas" class="vplt-canvas"></div>
             </main>
-            <aside class="vplt-sidebar vplt-sidebar--side d-none" id="vplt-side-panel">
-                <h2 class="h6 text-muted mb-2" data-i18n="productTree.quickCheck">快速檢查</h2>
-                <div id="vplt-checks" class="small mb-3"></div>
+            <aside class="vplt-sidebar vplt-sidebar--guide" id="vplt-guide-panel">
+                <h2 class="h6 text-muted mb-2" data-i18n="productTree.guidePanelTitle">搭配摘要</h2>
+                <div id="vplt-guide-summary" class="small mb-3 text-secondary"></div>
+                <h3 class="h6 text-muted mb-2" data-i18n="productTree.guideSelected">已選參考</h3>
+                <p class="text-muted small" data-i18n="productTree.guideSelectedHint">點選圖上的材料或配件可加入／移除（僅供規劃，不影響設計頁）。</p>
+                <div id="vplt-guide-selected" class="vplt-guide-selected mb-3"></div>
             </aside>
         </div>
         <div id="vplt-loading" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
     </div>
     <script src="/js/site-header.js" defer></script>
-    <script src="/js/vendor-product-link-tree.js?v=1" defer></script>
+    <script src="/js/vendor-product-link-tree.js?v=3" defer></script>
 </body>
 </html>

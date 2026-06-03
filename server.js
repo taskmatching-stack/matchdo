@@ -5798,7 +5798,7 @@ app.get('/product-tree.html', async (req, res, next) => {
         const htmlPath = path.join(__dirname, 'public', 'product-tree.html');
         if (!fs.existsSync(htmlPath)) return next();
         let html = fs.readFileSync(htmlPath, 'utf8');
-        const fullTitle = titleRaw + ' · 產品關聯｜' + mfrName + '｜MATCHDO 合做';
+        const fullTitle = titleRaw + ' · 看可搭配｜' + mfrName + '｜MATCHDO 合做';
         html = html.replace(/<title>[^<]*<\/title>/, '<title>' + fullTitle + '</title>');
         html = html.replace(/<meta name="description" content="[^"]*">/, '<meta name="description" content="' + descRaw + '">');
         html = html.replace(/<meta name="robots" content="[^"]*">/, '<meta name="robots" content="index, follow">');
@@ -12745,6 +12745,41 @@ async function getPrototypeLinkKindCounts(manufacturerId, prototypeAssetId) {
     return { material_count, part_count };
 }
 
+/** 瀏覽款式列表：批次計算各原型的材料／配件關聯筆數 */
+async function batchPrototypeLinkCounts(prototypeRows) {
+    const out = {};
+    (prototypeRows || []).forEach((r) => {
+        if (r && r.id) out[r.id] = { material_count: 0, part_count: 0 };
+    });
+    const ids = Object.keys(out);
+    if (!ids.length || !(await vendorPrototypeLinksTableReady())) return out;
+    const { data: links, error: linkErr } = await supabase
+        .from('vendor_asset_prototype_links')
+        .select('prototype_asset_id, linked_asset_id, manufacturer_id')
+        .in('prototype_asset_id', ids);
+    if (linkErr) {
+        if (linkErr.code === '42P01') return out;
+        throw linkErr;
+    }
+    const linkedIds = [...new Set((links || []).map((l) => l.linked_asset_id).filter(Boolean))];
+    if (!linkedIds.length) return out;
+    const { data: assets, error: assetErr } = await supabase
+        .from('vendor_assets')
+        .select('id, asset_kind')
+        .in('id', linkedIds);
+    if (assetErr) throw assetErr;
+    const kindById = {};
+    (assets || []).forEach((a) => { kindById[a.id] = normalizeVendorAssetKind(a.asset_kind); });
+    (links || []).forEach((l) => {
+        const pid = l.prototype_asset_id;
+        if (!out[pid]) return;
+        const k = kindById[l.linked_asset_id];
+        if (k === 'material') out[pid].material_count += 1;
+        else if (k === 'part') out[pid].part_count += 1;
+    });
+    return out;
+}
+
 function sortVendorAssetsWithPrototypeLinks(items, linkedIdSet, sortById) {
     if (!linkedIdSet || !linkedIdSet.size) return items;
     const linked = [];
@@ -13165,6 +13200,105 @@ app.put('/api/me/vendor-assets/:id/prototype-links', express.json(), async (req,
         res.json({ prototype_asset_id: id, linked_asset_ids: linkPack.ids, sort_by_id: linkPack.sortById });
     } catch (e) {
         console.error('PUT /api/me/vendor-assets/:id/prototype-links:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/vendor-assets/browse-prototypes — 公開：瀏覽可訂製數位原型（選款式入口）
+app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
+    try {
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        const manufacturerId = (req.query.manufacturer_id || '').trim() || null;
+        const categoryKey = (req.query.category_key || '').trim() || null;
+        const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
+        const searchQ = (req.query.q || req.query.search || '').trim() || null;
+        const page = parseVendorAssetsListPageParams(req.query);
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, sort_order, created_at, asset_kind, is_public, style_key';
+        let q = supabase
+            .from('vendor_assets')
+            .select(selectCols)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false });
+        if (!internalPreview) q = q.eq('is_public', true);
+        if (categoryKey) q = q.eq('category_key', categoryKey);
+        if (subcategoryKey) q = q.eq('subcategory_key', subcategoryKey);
+        if (manufacturerId) q = q.eq('manufacturer_id', manufacturerId);
+        let { data: rows, error } = await q;
+        if (error && error.code === '42703') {
+            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'asset_kind' && c !== 'style_key').join(', ');
+            let q2 = supabase.from('vendor_assets').select(legacyCols).order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+            if (!internalPreview) q2 = q2.eq('is_public', true);
+            if (categoryKey) q2 = q2.eq('category_key', categoryKey);
+            if (subcategoryKey) q2 = q2.eq('subcategory_key', subcategoryKey);
+            if (manufacturerId) q2 = q2.eq('manufacturer_id', manufacturerId);
+            ({ data: rows, error } = await q2);
+        }
+        if (error) {
+            if (error.code === '42P01') return res.status(200).json({ items: [], manufacturers: [], total: 0, limit: page.limit, offset: page.offset });
+            console.error('GET browse-prototypes:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        let list = (rows || []).filter((r) => effectiveVendorAssetKind(r) === 'prototype');
+        const mfrIds = [...new Set(list.map((r) => r.manufacturer_id).filter(Boolean))];
+        let mfrMap = {};
+        if (mfrIds.length) {
+            let mfrQ = supabase.from('manufacturers').select('id, name, logo_url, vendor_source, user_id, is_active, expires_at, seed_public_released_at').in('id', mfrIds);
+            if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
+            const { data: mfrs } = await mfrQ;
+            (mfrs || []).forEach((m) => { mfrMap[m.id] = m; });
+        }
+        list = list.filter((r) => {
+            const mfr = mfrMap[r.manufacturer_id];
+            if (!mfr) return !!internalPreview;
+            if (internalPreview) return true;
+            return vendorAssetVisibleToPublicAudience(mfr, r);
+        });
+        if (searchQ) {
+            const qLower = searchQ.toLowerCase();
+            list = list.filter((r) => {
+                const title = String(r.title || '').toLowerCase();
+                const desc = String(r.description || '').toLowerCase();
+                const mname = (mfrMap[r.manufacturer_id] && mfrMap[r.manufacturer_id].name) ? String(mfrMap[r.manufacturer_id].name).toLowerCase() : '';
+                return title.includes(qLower) || desc.includes(qLower) || mname.includes(qLower);
+            });
+        }
+        const linkCounts = await batchPrototypeLinkCounts(list);
+        const manufacturers = [...new Set(list.map((r) => r.manufacturer_id).filter(Boolean))].map((id) => ({
+            id,
+            name: (mfrMap[id] && mfrMap[id].name) ? mfrMap[id].name : '廠商',
+            logo_url: (mfrMap[id] && mfrMap[id].logo_url) ? mfrMap[id].logo_url : null,
+            profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
+        })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
+        const itemsAll = list.map((r) => {
+            const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
+            const mfr = mfrMap[r.manufacturer_id];
+            return {
+                id: r.id,
+                title: r.title,
+                description: r.description,
+                image_url: r.image_url,
+                category_key: r.category_key,
+                subcategory_key: r.subcategory_key,
+                style_key: r.style_key || null,
+                manufacturer_id: r.manufacturer_id,
+                manufacturer_name: mfr ? (mfr.name || '廠商') : '廠商',
+                manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
+                material_count: counts.material_count,
+                part_count: counts.part_count,
+                link_count: counts.material_count + counts.part_count,
+                match_guide_url: '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id)
+            };
+        });
+        const paged = paginateVendorAssetList(itemsAll, page);
+        res.json({
+            items: paged.items,
+            manufacturers,
+            total: paged.total,
+            limit: paged.limit,
+            offset: paged.offset
+        });
+    } catch (e) {
+        console.error('GET /api/vendor-assets/browse-prototypes:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
