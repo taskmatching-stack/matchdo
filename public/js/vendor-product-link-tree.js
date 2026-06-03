@@ -381,7 +381,7 @@
         if (hintEl) hintEl.classList.remove('d-none');
         var changeBtn = document.getElementById('btn-change-style');
         if (changeBtn && p && p.manufacturer_id) {
-            changeBtn.href = '/browse-styles.html?manufacturer_id=' + encodeURIComponent(p.manufacturer_id);
+            changeBtn.href = '/custom-product.html?tab=vendor-styles&manufacturer_id=' + encodeURIComponent(p.manufacturer_id);
         }
         if (document.body) document.body.classList.add('vplt-page--single');
     }
@@ -442,7 +442,7 @@
     async function loadGuideTree() {
         var pid = qs('prototype_asset_id');
         if (!pid) {
-            window.location.replace('/browse-styles.html');
+            window.location.replace('/custom-product.html?tab=vendor-styles');
             return;
         }
         var r = await fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree');

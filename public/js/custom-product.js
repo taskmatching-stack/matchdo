@@ -35,111 +35,13 @@ $(document).ready(function () {
         } catch (e) {}
     }
 
-    // 圖內容分類：自訂 div 列表（主/子選單、預設選第一項）
+    // 圖內容分類：與 browse-styles 共用 CustomProductCatPicker（/api/custom-product-categories）
     let categoriesData = [];
     (function loadCategories() {
-        const mainList = $('#imageCategoryMainList');
-        const subList = $('#imageCategorySubList');
-        const mainHidden = $('#imageCategoryMainSelect');
-        const subHidden = $('#imageCategorySubSelect');
-        if (!mainList.length) return;
-        function categoryDisplayName(key, fallback) {
-            if (!key) return fallback || '';
-            var t = window.i18n && window.i18n.t ? window.i18n.t.bind(window.i18n) : function () { return ''; };
-            var k = 'category.' + String(key);
-            var translated = t(k);
-            return (translated && translated !== k) ? translated : (fallback || key || '');
-        }
-        function tKey(key) {
-            var t = window.i18n && window.i18n.t ? window.i18n.t.bind(window.i18n) : function (k) { return k; };
-            return t(key) || key;
-        }
-        var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : '';
-        var url = '/api/custom-product-categories';
-        if (lang === 'en') url += '?lang=en';
-        $.get(url).then(function (res) {
-            try {
-                categoriesData = Array.isArray(res && res.categories) ? res.categories : [];
-            } catch (e) {
-                categoriesData = [];
-            }
-            mainList.empty();
-            categoriesData.forEach(function (c) {
-                var key = (c.key != null && c.key !== '') ? String(c.key) : '';
-                var displayName = categoryDisplayName(key, c.name || c.key);
-                var opt = $('<div class="cat-option" role="option" tabindex="0" data-key="' + key.replace(/"/g, '&quot;') + '">').text(displayName);
-                opt.on('click', function () {
-                    var selectedKey = $(this).attr('data-key');
-                    mainList.find('.cat-option').removeClass('selected');
-                    $(this).addClass('selected');
-                    mainHidden.val(selectedKey);
-                    updateSubList(selectedKey);
-                    });
-                mainList.append(opt);
-            });
-            function updateSubList(mainKeyFromClick) {
-                var mainKey = mainKeyFromClick != null ? mainKeyFromClick : mainHidden.val();
-                subList.removeClass('empty').empty();
-                subHidden.val('');
-                if (!mainKey) {
-                    subList.addClass('empty').text(tKey('customProduct.selectMainFirst'));
-                    return;
-                }
-                var cat = categoriesData.find(function (c) { return (c.key != null ? String(c.key) : '') === String(mainKey); });
-                if (!cat || !cat.subcategories || cat.subcategories.length === 0) {
-                    subList.addClass('empty').text(tKey('customProduct.noSubcategory'));
-                    return;
-                }
-                (cat.subcategories || []).forEach(function (sub) {
-                    var subKey = (sub.key != null && sub.key !== '') ? String(sub.key) : '';
-                    var subDisplayName = categoryDisplayName(subKey, sub.name || sub.key);
-                    var opt = $('<div class="cat-option" role="option" tabindex="0" data-key="' + subKey.replace(/"/g, '&quot;') + '">').text(subDisplayName);
-                    opt.on('click', function () {
-                        subList.find('.cat-option').removeClass('selected');
-                        $(this).addClass('selected');
-                        subHidden.val($(this).attr('data-key'));
-                    });
-                    subList.append(opt);
-                });
-                subList.find('.cat-option').first().addClass('selected');
-                subHidden.val(cat.subcategories[0].key);
-            }
-            if (categoriesData.length > 0) {
-                var firstKey = categoriesData[0].key != null ? String(categoriesData[0].key) : '';
-                var preMain = '';
-                var preSub = '';
-                try {
-                    preMain = (sessionStorage.getItem('redesignCategoryKey') || '').trim();
-                    preSub = (sessionStorage.getItem('redesignSubcategoryKey') || '').trim();
-                    if (!preMain && typeof URLSearchParams !== 'undefined') {
-                        var rp = new URLSearchParams(window.location.search);
-                        preMain = (rp.get('category_key') || '').trim();
-                        preSub = (rp.get('subcategory_key') || '').trim();
-                    }
-                    if (preMain || preSub) {
-                        sessionStorage.removeItem('redesignCategoryKey');
-                        sessionStorage.removeItem('redesignSubcategoryKey');
-                    }
-                } catch (e) {}
-                var mainKeyToUse = firstKey;
-                if (preMain && categoriesData.some(function (c) { return (c.key != null ? String(c.key) : '') === preMain; })) {
-                    mainKeyToUse = preMain;
-                }
-                mainList.find('.cat-option').removeClass('selected');
-                mainList.find('.cat-option[data-key="' + mainKeyToUse.replace(/"/g, '&quot;') + '"]').addClass('selected');
-                mainHidden.val(mainKeyToUse);
-                updateSubList(mainKeyToUse);
-                if (preSub) {
-                    var subOpt = subList.find('.cat-option[data-key="' + preSub.replace(/"/g, '&quot;') + '"]');
-                    if (subOpt.length) {
-                        subList.find('.cat-option').removeClass('selected');
-                        subOpt.addClass('selected');
-                        subHidden.val(preSub);
-                    }
-                }
-            }
-        }).fail(function () {
-            mainList.addClass('empty').text(tKey('customProduct.loadFailed'));
+        if (!$('#imageCategoryMainList').length) return;
+        if (typeof CustomProductCatPicker === 'undefined') return;
+        CustomProductCatPicker.init().then(function () {
+            categoriesData = CustomProductCatPicker.getCategoriesData();
         });
     })();
 
@@ -257,27 +159,6 @@ $(document).ready(function () {
         var s = g.items[0].source || {};
         var vid = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
         return vid ? s : null;
-    }
-
-    function syncProductTreeHeaderLink() {
-        var $btn = $('#btn-open-product-tree');
-        if (!$btn.length) return;
-        var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-        var anchor = getPrototypeAnchorSource();
-        var id = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
-        if (id) {
-            $btn.attr('href', '/product-tree.html?prototype_asset_id=' + encodeURIComponent(id) + '&return_to=' + returnTo);
-            $btn.removeAttr('target').removeAttr('rel');
-            $btn.find('span').attr('data-i18n', 'productTree.guideTitle').text(tr('productTree.guideTitle', '看可搭配'));
-            $btn.removeClass('btn-outline-secondary').addClass('btn-outline-primary');
-            $btn.attr('title', tr('customProduct.openMatchGuide', '查看此款式的可搭配材料與配件'));
-        } else {
-            $btn.attr('href', '/browse-styles.html');
-            $btn.removeAttr('target').removeAttr('rel');
-            $btn.find('span').attr('data-i18n', 'browseStyles.headerBtn').text(tr('browseStyles.headerBtn', '瀏覽款式／看搭配'));
-            $btn.removeClass('btn-outline-secondary').addClass('btn-outline-primary');
-            $btn.attr('title', tr('browseStyles.headerBtnHint', '選一款數位原型，查看可搭配後開始設計'));
-        }
     }
 
     function getPrototypeLockVendorAssetId() {
@@ -868,7 +749,6 @@ $(document).ready(function () {
         if (hasVendorPrototypeLock() && !prototypeLinkSummary.loaded && !prototypeLinkSummaryLoading) {
             refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
         }
-        syncProductTreeHeaderLink();
     }
     window.__renderIntentSlots = renderIntentSlots;
 
@@ -1088,7 +968,6 @@ $(document).ready(function () {
                     return applyGuideLinkedAssetsFromSession(treeData);
                 }).then(function () {
                     renderIntentSlots();
-                    syncProductTreeHeaderLink();
                     refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
                 });
             })
@@ -3319,11 +3198,13 @@ $(document).ready(function () {
     // 動態網址：?tab=product-design | scene-sim | pattern-extract
     function getTabParamFromButtonId(buttonId) {
         if (buttonId === 'tab-product-design') return 'product-design';
+        if (buttonId === 'tab-vendor-styles') return 'vendor-styles';
         if (buttonId === 'tab-scene-sim') return 'scene-sim';
         if (buttonId === 'tab-pattern-extract') return 'pattern-extract';
         return 'product-design';
     }
     function getTabButtonIdFromParam(param) {
+        if (param === 'vendor-styles') return 'tab-vendor-styles';
         if (param === 'scene-sim') return 'tab-scene-sim';
         if (param === 'pattern-extract') return 'tab-pattern-extract';
         return 'tab-product-design';
@@ -3331,7 +3212,7 @@ $(document).ready(function () {
     function applyTabFromUrl() {
         var params = new URLSearchParams(window.location.search);
         var tabParam = params.get('tab') || 'product-design';
-        if (tabParam !== 'product-design' && tabParam !== 'scene-sim' && tabParam !== 'pattern-extract') tabParam = 'product-design';
+        if (tabParam !== 'product-design' && tabParam !== 'vendor-styles' && tabParam !== 'scene-sim' && tabParam !== 'pattern-extract') tabParam = 'product-design';
         var tabId = getTabButtonIdFromParam(tabParam);
         var tabEl = document.getElementById(tabId);
         if (tabEl && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
@@ -3341,7 +3222,11 @@ $(document).ready(function () {
     }
     function updateUrlForTab(tabParam) {
         var base = window.location.pathname || '/custom-product.html';
-        var url = tabParam === 'product-design' ? base : base + '?tab=' + encodeURIComponent(tabParam);
+        var params = new URLSearchParams(window.location.search);
+        if (tabParam === 'product-design') params.delete('tab');
+        else params.set('tab', tabParam);
+        var q = params.toString();
+        var url = q ? base + '?' + q : base;
         if (window.history && window.history.replaceState) {
             window.history.replaceState({ tab: tabParam }, '', url);
         }
@@ -3352,10 +3237,9 @@ $(document).ready(function () {
     $('#designTabs').on('shown.bs.tab', function (e) {
         var targetId = (e.target && e.target.id) ? e.target.id : '';
         var tabParam = getTabParamFromButtonId(targetId);
-        var base = window.location.pathname || '/custom-product.html';
-        var url = tabParam === 'product-design' ? base : base + '?tab=' + encodeURIComponent(tabParam);
+        updateUrlForTab(tabParam);
         if (window.history && window.history.pushState) {
-            window.history.pushState({ tab: tabParam }, '', url);
+            window.history.pushState({ tab: tabParam }, '', window.location.pathname + window.location.search);
         }
         if (tabParam === 'pattern-extract' && typeof updatePatternExtractResolutionDisplay === 'function') {
             updatePatternExtractResolutionDisplay();

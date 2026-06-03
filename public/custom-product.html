@@ -66,6 +66,8 @@
 
     <!-- Template Stylesheet -->
     <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/custom-product-cat-picker.css" rel="stylesheet">
+    <link href="/css/browse-styles.css" rel="stylesheet">
     <link href="/css/theme-custom.css" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
     <!-- JSON-LD Structured Data -->
@@ -1193,17 +1195,17 @@
     <div class="container-fluid py-4" style="background: #f1f5f9;">
         <div class="container">
             <div id="custom-product" class="py-2">
-                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-1">
-                    <div>
-                        <h1 class="page-title mb-0" data-i18n="customProduct.pageTitle">產品設計</h1>
-                        <p class="page-sub mb-0" data-i18n="customProduct.pageSub">輸入描述、選分類與參考圖，一鍵生成</p>
-                    </div>
-                    <a href="/browse-styles.html" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-open-product-tree" title="瀏覽款式或查看已選原型的可搭配"><i class="bi bi-grid-3x3-gap me-1"></i><span data-i18n="browseStyles.headerBtn">瀏覽款式／看搭配</span></a>
+                <div class="mb-1">
+                    <h1 class="page-title mb-0" data-i18n="customProduct.pageTitle">產品設計</h1>
+                    <p class="page-sub mb-0" data-i18n="customProduct.pageSub">輸入描述、選分類與參考圖，一鍵生成</p>
                 </div>
 
                 <ul class="nav nav-tabs mb-3" id="designTabs" role="tablist">
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="tab-product-design" data-bs-toggle="tab" data-bs-target="#panel-product-design" type="button" role="tab" aria-controls="panel-product-design" aria-selected="true" data-i18n="customProduct.productDesignTab">產品設計</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-vendor-styles" data-bs-toggle="tab" data-bs-target="#panel-vendor-styles" type="button" role="tab" aria-controls="panel-vendor-styles" aria-selected="false" data-i18n="customProduct.vendorStylesTab">廠商版型</button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-scene-sim" data-bs-toggle="tab" data-bs-target="#panel-scene-sim" type="button" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-i18n="home.sceneSim">實境模擬</button>
@@ -1282,6 +1284,37 @@
                         </div>
                     </div>
                 </form>
+                    </div>
+                    <div class="tab-pane fade" id="panel-vendor-styles" role="tabpanel" aria-labelledby="tab-vendor-styles">
+                        <p class="text-muted small mb-2" data-i18n="customProduct.vendorStylesTabHint">與「產品設計」Tab 共用主／子分類。選定款式後可查看可搭配材料／配件，再帶回設計 Tab 生圖。</p>
+                        <div id="bs-category-summary" class="alert alert-light border small py-2 mb-2 d-none">
+                            <span data-i18n="customProduct.vendorStylesCurrentCategory">目前分類：</span>
+                            <strong id="bs-cat-main-label"></strong>／<strong id="bs-cat-sub-label"></strong>
+                            <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" id="bs-go-set-category" data-i18n="customProduct.vendorStylesChangeCategory">到產品設計變更分類</button>
+                        </div>
+                        <div id="bs-vendor-banner" class="bs-vendor-banner mb-3 d-none"></div>
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="bs-filter-vendor" data-i18n="browseStyles.filterVendor">廠商</label>
+                                <select id="bs-filter-vendor" class="form-select form-select-sm">
+                                    <option value="" data-i18n="browseStyles.filterAllVendors">全部廠商</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="bs-filter-q" data-i18n="browseStyles.filterSearch">搜尋</label>
+                                <input type="search" id="bs-filter-q" class="form-control form-control-sm" data-i18n-placeholder="browseStyles.searchPlaceholder" placeholder="款式或廠商名稱">
+                            </div>
+                        </div>
+                        <div id="bs-alert" class="alert alert-warning d-none"></div>
+                        <div id="bs-loading" class="text-center py-4 text-muted">
+                            <div class="spinner-border spinner-border-sm me-2"></div><span data-i18n="browseStyles.loading">載入中…</span>
+                        </div>
+                        <div id="bs-empty" class="text-center py-4 text-muted d-none">
+                            <i class="bi bi-inbox display-6 d-block mb-2 opacity-50"></i>
+                            <p class="mb-0" data-i18n="browseStyles.empty">此分類下尚無公開的廠商數位原型，請到「產品設計」換分類或稍後再試。</p>
+                        </div>
+                        <div id="bs-grid" class="bs-grid d-none"></div>
+                        <nav id="bs-pager" class="d-flex justify-content-center gap-2 mt-3 d-none" aria-label="pagination"></nav>
                     </div>
                     <div class="tab-pane fade" id="panel-scene-sim" role="tabpanel" aria-labelledby="tab-scene-sim">
                         <div class="create-panel scene-sim-panel">
@@ -1468,7 +1501,9 @@
     <script src="js/site-common.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
-    <script src="js/custom-product.js?v=51" defer></script>
+    <script src="js/custom-product-cat-picker.js?v=2" defer></script>
+    <script src="js/browse-styles.js?v=4" defer></script>
+    <script src="js/custom-product.js?v=54" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
