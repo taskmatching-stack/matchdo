@@ -1,6 +1,5 @@
 /**
- * 廠商公開款式瀏覽：嵌入 custom-product「廠商版型」Tab，或從 browse-styles.html 導向該 Tab。
- * 分類與「產品設計」Tab 共用 #imageCategoryMainSelect / #imageCategorySubSelect。
+ * 廠商版型 Tab：與產品設計「素材庫」相同 API（GET /api/vendor-assets?asset_kind=prototype）
  */
 (function (global) {
     'use strict';
@@ -11,7 +10,6 @@
         total: 0,
         manufacturerId: '',
         vendorName: '',
-        embedded: false,
         mounted: false
     };
 
@@ -54,8 +52,7 @@
 
     function categoryLabel(key, fb) {
         if (!key) return fb || '';
-        var k = 'category.' + String(key);
-        return tr(k, fb || key);
+        return tr('category.' + String(key), fb || key);
     }
 
     function updateCategorySummary() {
@@ -81,28 +78,41 @@
         box.classList.remove('d-none');
     }
 
-    function getFilters() {
+    /** 與 custom-product.js buildVendorAssetsFetchUrl（category + asset_kind=prototype）一致 */
+    function buildVendorAssetsUrl() {
         var cats = getCategoryKeys();
-        return {
-            category_key: cats.mainKey || '',
-            subcategory_key: cats.subKey || '',
-            manufacturer_id: (document.getElementById('bs-filter-vendor') || {}).value || state.manufacturerId || '',
-            q: (document.getElementById('bs-filter-q') || {}).value || ''
-        };
+        var mainKey = (cats.mainKey || '').trim();
+        var subKey = (cats.subKey || '').trim();
+        var manufacturerId = ((document.getElementById('bs-filter-vendor') || {}).value || state.manufacturerId || '').trim();
+        var keyword = ((document.getElementById('bs-filter-q') || {}).value || '').trim();
+        var url = '';
+        if (mainKey) {
+            url = '/api/vendor-assets?category_key=' + encodeURIComponent(mainKey);
+            if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
+            if (manufacturerId) url += '&manufacturer_id=' + encodeURIComponent(manufacturerId);
+        } else if (manufacturerId) {
+            url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(manufacturerId);
+        } else {
+            return '';
+        }
+        url += '&asset_kind=prototype';
+        if (keyword) url += '&q=' + encodeURIComponent(keyword);
+        url += '&limit=' + encodeURIComponent(String(state.limit));
+        url += '&offset=' + encodeURIComponent(String(state.offset));
+        return url;
     }
 
-    function buildQuery(extra) {
-        var f = getFilters();
-        var p = new URLSearchParams();
-        if (f.category_key) p.set('category_key', f.category_key);
-        if (f.subcategory_key) p.set('subcategory_key', f.subcategory_key);
-        var mid = f.manufacturer_id || state.manufacturerId;
-        if (mid) p.set('manufacturer_id', mid);
-        if (f.q) p.set('q', f.q);
-        p.set('limit', String(state.limit));
-        p.set('offset', String(state.offset));
-        if (extra) Object.keys(extra).forEach(function (k) { p.set(k, extra[k]); });
-        return p.toString();
+    function fetchVendorAssets(url) {
+        var fetchOpts = {};
+        if (typeof global.AuthService !== 'undefined' && typeof global.AuthService.getSession === 'function') {
+            return global.AuthService.getSession().then(function (session) {
+                if (session && session.access_token) {
+                    fetchOpts.headers = { Authorization: 'Bearer ' + session.access_token };
+                }
+                return fetch(url, fetchOpts);
+            });
+        }
+        return fetch(url, fetchOpts);
     }
 
     function fillVendorSelect(manufacturers) {
@@ -189,18 +199,16 @@
             var thumb = it.image_url
                 ? '<img src="' + esc(it.image_url) + '" alt="">'
                 : '<i class="bi bi-image text-muted fs-2"></i>';
-            var mTpl = tr('browseStyles.linkSummary', '材料 {m} · 配件 {p}');
-            var linkLbl = mTpl.replace('{m}', String(it.material_count || 0)).replace('{p}', String(it.part_count || 0));
             var card = document.createElement('article');
             card.className = 'bs-card';
             var profileUrl = it.manufacturer_profile_url || ('/vendor-profile.html?id=' + encodeURIComponent(it.manufacturer_id || ''));
+            var mname = it.manufacturer_name || tr('browseStyles.vendorDefault', '廠商');
             card.innerHTML =
                 '<a href="' + esc(guideUrl) + '" class="text-decoration-none text-dark">' +
                 '<div class="bs-card-thumb">' + thumb + '</div></a>' +
                 '<div class="bs-card-body">' +
                 '<div class="bs-card-title">' + esc(it.title || '') + '</div>' +
-                '<div class="bs-card-vendor"><a href="' + esc(profileUrl) + '">' + esc(it.manufacturer_name || '') + '</a></div>' +
-                '<div class="bs-card-badges"><span class="badge bg-light text-secondary border">' + esc(linkLbl) + '</span></div>' +
+                '<div class="bs-card-vendor"><a href="' + esc(profileUrl) + '">' + esc(mname) + '</a></div>' +
                 '</div>' +
                 '<div class="bs-card-actions">' +
                 '<a href="' + esc(guideUrl) + '" class="btn btn-sm btn-primary w-100">' +
@@ -211,17 +219,18 @@
 
     async function loadItems() {
         updateCategorySummary();
-        var cats = getCategoryKeys();
+        var url = buildVendorAssetsUrl();
         var loading = document.getElementById('bs-loading');
         var empty = document.getElementById('bs-empty');
         var grid = document.getElementById('bs-grid');
         var alertEl = document.getElementById('bs-alert');
-        if (!cats.mainKey) {
+        if (!url) {
             if (loading) loading.classList.add('d-none');
             if (grid) grid.classList.add('d-none');
             if (empty) {
                 empty.classList.remove('d-none');
-                empty.querySelector('p').textContent = tr('customProduct.vendorStylesPickCategoryFirst', '請先到「產品設計」Tab 選擇主分類與子分類。');
+                var p = empty.querySelector('p');
+                if (p) p.textContent = tr('customProduct.vendorStylesPickCategoryFirst', '請先到「產品設計」Tab 選擇主分類與子分類。');
             }
             return;
         }
@@ -229,15 +238,22 @@
         if (alertEl) alertEl.classList.add('d-none');
         if (empty) empty.classList.add('d-none');
         try {
-            var r = await fetch('/api/vendor-assets/browse-prototypes?' + buildQuery());
+            var r = await fetchVendorAssets(url);
             var data = await r.json().catch(function () { return {}; });
-            if (!r.ok) throw new Error(data.error || tr('browseStyles.loadFailed', '載入失敗'));
-            state.total = data.total || 0;
+            if (!r.ok) throw new Error(data.error || data.message || tr('browseStyles.loadFailed', '載入失敗'));
+            var items = (data && data.items) ? data.items : [];
+            items = items.filter(function (it) {
+                var k = (it.asset_kind || 'prototype').toLowerCase();
+                return k === 'prototype';
+            });
+            state.total = (data && data.total != null) ? Number(data.total) : items.length;
+            if (!Number.isFinite(state.total)) state.total = items.length;
             fillVendorSelect(data.manufacturers || []);
-            renderGrid(data.items || []);
+            renderGrid(items);
             renderPager();
         } catch (e) {
             if (alertEl) {
+                alertEl.className = 'alert alert-warning';
                 alertEl.textContent = e.message;
                 alertEl.classList.remove('d-none');
             }
@@ -254,6 +270,7 @@
         var vendorSel = document.getElementById('bs-filter-vendor');
         var qInput = document.getElementById('bs-filter-q');
         var goCat = document.getElementById('bs-go-set-category');
+        var openPicker = document.getElementById('bs-open-vendor-picker');
         if (vendorSel) vendorSel.addEventListener('change', onFilterChange);
         if (qInput) qInput.addEventListener('input', debounce(onFilterChange, 400));
         if (goCat) {
@@ -264,9 +281,14 @@
                 }
             });
         }
-        document.addEventListener('matchdo:categoryChanged', function () {
-            onFilterChange();
-        });
+        if (openPicker) {
+            openPicker.addEventListener('click', function () {
+                if (typeof global.openVendorPickerForRefSlot === 'function') {
+                    global.openVendorPickerForRefSlot('prototype');
+                }
+            });
+        }
+        document.addEventListener('matchdo:categoryChanged', onFilterChange);
         var tabVendor = document.getElementById('tab-vendor-styles');
         if (tabVendor) {
             tabVendor.addEventListener('shown.bs.tab', function () {
@@ -278,7 +300,6 @@
     function mountEmbedded() {
         if (state.mounted) return;
         state.mounted = true;
-        state.embedded = true;
         state.manufacturerId = qs('manufacturer_id');
         state.vendorName = qs('vendor_name');
         if (state.manufacturerId) showVendorBanner();
@@ -305,7 +326,7 @@
         }
     }
 
-    global.VendorStyleBrowse = { loadItems: loadItems, mountEmbedded: mountEmbedded };
+    global.VendorStyleBrowse = { loadItems: loadItems };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
