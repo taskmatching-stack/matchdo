@@ -1421,44 +1421,86 @@ function getManufacturerFromMap(mfrMap, manufacturerId) {
 function manufacturerNameForVendorAssetItem(mfrMap, manufacturerId) {
     const mfr = getManufacturerFromMap(mfrMap, manufacturerId);
     const n = mfr ? String(mfr.name || '').trim() : '';
-    return !isGenericManufacturerDisplayName(n) ? n : '廠商';
+    return n || '廠商';
 }
 
-/** vendor-assets 列表：批次載入廠商並解析顯示名（含 UUID key 正規化） */
+function indexManufacturerInMap(map, mfr) {
+    if (!mfr || !mfr.id) return;
+    map[normalizeManufacturerMapKey(mfr.id)] = mfr;
+    if (mfr.user_id) map[normalizeManufacturerMapKey(mfr.user_id)] = mfr;
+}
+
+/** vendor-assets 列表：批次載入廠商並解析顯示名（id + user_id 雙向索引） */
 async function buildManufacturerMapForVendorAssetList(mfrIds, { internalPreview = false } = {}) {
     const map = {};
     const ids = [...new Set((mfrIds || []).map((id) => String(id).trim()).filter(Boolean))];
     if (!ids.length) return map;
     const mfrSelect = 'id, name, logo_url, vendor_source, contact_json, location, user_id, is_active, expires_at, seed_public_released_at';
-    let mfrQ = supabase.from('manufacturers').select(mfrSelect).in('id', ids);
-    if (!internalPreview) mfrQ = mfrQ.eq('is_active', true);
-    let { data: mfrs, error } = await mfrQ;
-    if (error && error.code === '42703') {
-        ({ data: mfrs } = await supabase.from('manufacturers').select('id, name, logo_url, user_id, is_active, expires_at, seed_public_released_at').in('id', ids));
+
+    async function queryManufacturers(col, values, activeOnly) {
+        if (!values.length) return [];
+        let q = supabase.from('manufacturers').select(mfrSelect).in(col, values);
+        if (activeOnly) q = q.eq('is_active', true);
+        let { data, error } = await q;
+        if (error && error.code === '42703') {
+            ({ data } = await supabase.from('manufacturers').select('id, name, logo_url, user_id, is_active, expires_at, seed_public_released_at').in(col, values));
+        }
+        return data || [];
     }
-    (mfrs || []).forEach((m) => { map[normalizeManufacturerMapKey(m.id)] = m; });
-    if (internalPreview) {
-        const missing = ids.filter((id) => !map[normalizeManufacturerMapKey(id)]);
-        if (missing.length) {
-            const { data: extra } = await supabase.from('manufacturers').select(mfrSelect).in('id', missing);
-            (extra || []).forEach((m) => { map[normalizeManufacturerMapKey(m.id)] = m; });
+
+    (await queryManufacturers('id', ids, !internalPreview)).forEach((m) => indexManufacturerInMap(map, m));
+
+    let unresolved = ids.filter((id) => !getManufacturerFromMap(map, id));
+    if (unresolved.length) {
+        (await queryManufacturers('user_id', unresolved, !internalPreview)).forEach((m) => indexManufacturerInMap(map, m));
+        unresolved = ids.filter((id) => !getManufacturerFromMap(map, id));
+    }
+
+    if (internalPreview && unresolved.length) {
+        (await queryManufacturers('id', unresolved, false)).forEach((m) => indexManufacturerInMap(map, m));
+        unresolved = ids.filter((id) => !getManufacturerFromMap(map, id));
+        if (unresolved.length) {
+            (await queryManufacturers('user_id', unresolved, false)).forEach((m) => indexManufacturerInMap(map, m));
         }
     }
+
     const userIds = [...new Set(Object.values(map).map((m) => m.user_id).filter(Boolean))];
     let profileByUserId = {};
     if (userIds.length) {
         const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', userIds);
         (profs || []).forEach((p) => { profileByUserId[String(p.id)] = p; });
     }
+
+    const seenMfrIds = new Set();
     Object.keys(map).forEach((key) => {
         const m = map[key];
-        const display = resolveManufacturerDisplayName(m, profileByUserId);
-        map[key] = { ...m, name: display || m.name || '' };
+        if (!m || !m.id || seenMfrIds.has(m.id)) return;
+        seenMfrIds.add(m.id);
+        let displayName = String(m.name || '').trim();
+        if (!displayName) displayName = resolveManufacturerDisplayName(m, profileByUserId);
+        indexManufacturerInMap(map, { ...m, name: displayName });
     });
+
+    const needAuthMeta = [...seenMfrIds].map((id) => getManufacturerFromMap(map, id)).filter((m) => m && m.user_id && isGenericManufacturerDisplayName(m.name));
+    for (const m of needAuthMeta) {
+        try {
+            const { data: au, error: auErr } = await supabase.auth.admin.getUserById(m.user_id);
+            if (auErr || !au || !au.user) continue;
+            const meta = au.user.user_metadata && typeof au.user.user_metadata === 'object' ? au.user.user_metadata : {};
+            const cand = String(meta.full_name || meta.name || meta.display_name || '').trim()
+                || (au.user.email ? String(au.user.email).split('@')[0] : '');
+            if (!isGenericManufacturerDisplayName(cand)) {
+                indexManufacturerInMap(map, { ...m, name: cand });
+            }
+        } catch (_) { /* ignore */ }
+    }
+
     if (internalPreview) {
         ids.forEach((mid) => {
             const k = normalizeManufacturerMapKey(mid);
-            if (!map[k]) map[k] = { id: mid, name: '', is_active: true, vendor_source: null };
+            if (!getManufacturerFromMap(map, mid)) {
+                map[k] = { id: mid, name: '', is_active: true, vendor_source: null };
+            }
         });
     }
     return map;
@@ -12009,10 +12051,16 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         const internalPreview = await getRequestInternalPreviewFlag(req);
         const fullSelect = 'id, name, description, location, rating, contact_json, capabilities, verified, categories, user_id, logo_url, is_active, expires_at, vendor_source, seed_public_released_at';
         let resq = await supabase.from('manufacturers').select(fullSelect).eq('id', id).maybeSingle();
+        if (!resq.error && !resq.data) {
+            resq = await supabase.from('manufacturers').select(fullSelect).eq('user_id', id).maybeSingle();
+        }
 
         if (resq.error) {
             console.warn('GET /api/manufacturers/:id 完整查詢失敗:', resq.error.code, resq.error.message);
             resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories, expires_at').eq('id', id).maybeSingle();
+            if (!resq.error && !resq.data) {
+                resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories, expires_at').eq('user_id', id).maybeSingle();
+            }
             if (!resq.error && resq.data) {
                 resq.data.rating = null;
                 resq.data.capabilities = null;
