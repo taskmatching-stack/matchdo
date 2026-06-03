@@ -2203,6 +2203,276 @@ $(document).ready(function () {
         });
     }
 
+    /** 與 buildVendorAssetCardHtml 相同：廠商顯示名稱 */
+    function vendorItemManufacturerName(item) {
+        return (item && item.manufacturer_name ? String(item.manufacturer_name) : '').trim()
+            || (t('customProduct.vendorFallback') || '廠商');
+    }
+
+    function syncVendorStylesTabFiltersToPicker() {
+        var bsId = ($('#bs-manufacturer-id').val() || '').trim();
+        var bsName = ($('#bs-manufacturer-name').val() || '').trim();
+        var bsQ = ($('#bs-filter-q').val() || '').trim();
+        $('#vendorAssetsManufacturerId').val(bsId);
+        $('#vendorAssetsManufacturerName').val(bsName);
+        $('#vendorAssetsSearch').val(bsQ);
+        $('#vendorAssetsAssetKind').val('prototype');
+    }
+
+    function buildVendorStyleBrowseCardHtml(item) {
+        var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
+        var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var mfrName = vendorItemManufacturerName(item).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        var mfrLogo = vendorMfrLogoHtml(item.manufacturer_logo_url, 'vendor-asset-mfr-logo');
+        var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
+        var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
+        var guideUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo;
+        var guideLbl = (t('browseStyles.viewMatchGuide') || '看可搭配').replace(/</g, '&lt;');
+        var thumb = imgUrl
+            ? '<img src="' + imgUrl + '" alt="" loading="lazy" style="height:140px;width:100%;object-fit:cover;">'
+            : '<div class="d-flex align-items-center justify-content-center bg-light text-muted" style="height:140px;"><i class="bi bi-image fs-2"></i></div>';
+        return '<article class="bs-card h-100 d-flex flex-column">' +
+            '<a href="' + guideUrl.replace(/"/g, '&quot;') + '" class="text-decoration-none text-dark">' + thumb + '</a>' +
+            '<div class="bs-card-body p-2 flex-grow-1">' +
+            '<div class="fw-semibold small text-truncate mb-1" title="' + title + '">' + title + '</div>' +
+            '<div class="d-flex align-items-center gap-1">' + mfrLogo +
+            '<a href="' + profileUrl + '" class="small text-primary text-decoration-none text-truncate" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a></div></div>' +
+            '<div class="p-2 pt-0"><a href="' + guideUrl.replace(/"/g, '&quot;') + '" class="btn btn-sm btn-primary w-100">' + guideLbl + '</a></div></article>';
+    }
+
+    var vendorStylesTabOffset = 0;
+    var vendorStylesTabPageSize = 24;
+    var vendorStylesTabLoadSeq = 0;
+    var vendorStylesMfrSuggestTimer = null;
+
+    function hideBsManufacturerSuggest() {
+        $('#bs-manufacturer-suggest').addClass('d-none').empty();
+    }
+
+    function fetchBsManufacturerSuggest(q) {
+        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+        if (!mainKey) return;
+        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+        var url = '/api/manufacturers?category_key=' + encodeURIComponent(mainKey) +
+            '&q=' + encodeURIComponent(q) + '&per_page=15';
+        if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
+        fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            var list = (data && data.manufacturers) ? data.manufacturers : [];
+            var $box = $('#bs-manufacturer-suggest');
+            if (!$box.length) return;
+            if (!list.length) {
+                hideBsManufacturerSuggest();
+                return;
+            }
+            var html = list.map(function (m) {
+                var name = (m.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                var id = (m.id || '').toString().replace(/"/g, '&quot;');
+                var logo = vendorMfrLogoHtml(m.logo_url, 'vendor-mfr-suggest-logo');
+                return '<button type="button" class="list-group-item list-group-item-action vendor-mfr-suggest-item" role="option"' +
+                    ' data-mfr-id="' + id + '" data-mfr-name="' + name + '">' + logo +
+                    '<span class="text-truncate">' + name + '</span></button>';
+            }).join('');
+            $box.html(html).removeClass('d-none');
+        }).catch(function () { hideBsManufacturerSuggest(); });
+    }
+
+    function updateVendorStylesCategorySummary() {
+        var $box = $('#bs-category-summary');
+        if (!$box.length) return;
+        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+        if (!mainKey) {
+            $box.addClass('d-none');
+            return;
+        }
+        var cat = categoriesData.find(function (c) { return String(c.key) === String(mainKey); });
+        var sub = cat && cat.subcategories
+            ? cat.subcategories.find(function (s) { return String(s.key) === String(subKey); })
+            : null;
+        var mainLbl = categoryLabelForKey(mainKey, cat ? cat.name : mainKey);
+        var subLbl = subKey ? categoryLabelForKey(subKey, sub ? sub.name : subKey) : '—';
+        $('#bs-cat-main-label').text(mainLbl);
+        $('#bs-cat-sub-label').text(subLbl);
+        $box.removeClass('d-none');
+    }
+
+    function loadVendorStylesTabList() {
+        if (!$('#panel-vendor-styles').length) return;
+        updateVendorStylesCategorySummary();
+        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+        var $loading = $('#bs-loading');
+        var $empty = $('#bs-empty');
+        var $grid = $('#bs-grid');
+        var $alert = $('#bs-alert');
+        if (!mainKey) {
+            if ($loading.length) $loading.addClass('d-none');
+            if ($grid.length) $grid.addClass('d-none');
+            if ($empty.length) {
+                $empty.removeClass('d-none');
+                var $p = $empty.find('p');
+                if ($p.length) {
+                    $p.text(t('customProduct.vendorStylesPickCategoryFirst') || '請先到「產品設計」Tab 選擇主分類與子分類。');
+                }
+            }
+            return;
+        }
+        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+        syncVendorStylesTabFiltersToPicker();
+        try {
+            window.__vendorAssetsFetchParams = {
+                mode: 'category',
+                mainKey: mainKey,
+                subKey: pickerSubcategoryAppliesToAssetKind('prototype') ? subKey : ''
+            };
+        } catch (e) {}
+        vendorPickerOffset = vendorStylesTabOffset;
+        vendorPickerPageSize = vendorStylesTabPageSize;
+        var url = buildVendorAssetsFetchUrl(window.__vendorAssetsFetchParams);
+        if (!url) return;
+        var seq = ++vendorStylesTabLoadSeq;
+        if ($loading.length) $loading.removeClass('d-none');
+        if ($alert.length) $alert.addClass('d-none');
+        if ($empty.length) $empty.addClass('d-none');
+        var fetchOpts = {};
+        var fetchPromise = (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function')
+            ? window.AuthService.getSession().then(function (session) {
+                if (session && session.access_token) {
+                    fetchOpts.headers = { Authorization: 'Bearer ' + session.access_token };
+                }
+                return fetch(url, fetchOpts);
+            })
+            : fetch(url, fetchOpts);
+        fetchPromise.then(function (r) {
+            return r.json().then(function (data) { return { ok: r.ok, data: data || {} }; });
+        }).then(function (res) {
+            if (seq !== vendorStylesTabLoadSeq) return;
+            if ($loading.length) $loading.addClass('d-none');
+            if (!res.ok) {
+                if ($alert.length) {
+                    $alert.removeClass('d-none').text(res.data.error || res.data.message || (t('customProduct.loadFailed') || '載入失敗'));
+                }
+                return;
+            }
+            var items = (res.data && res.data.items) ? res.data.items : [];
+            items = applyClientVendorAssetFilters(items);
+            items = items.filter(function (it) {
+                return (it.asset_kind || 'prototype').toLowerCase() === 'prototype';
+            });
+            if (!$grid.length) return;
+            $grid.empty();
+            if (!items.length) {
+                $grid.addClass('d-none');
+                if ($empty.length) $empty.removeClass('d-none');
+                return;
+            }
+            $empty.addClass('d-none');
+            $grid.removeClass('d-none');
+            items.forEach(function (item) {
+                $grid.append(buildVendorStyleBrowseCardHtml(item));
+            });
+            renderVendorStylesTabPager((res.data && res.data.total != null) ? Number(res.data.total) : items.length);
+        }).catch(function () {
+            if (seq !== vendorStylesTabLoadSeq) return;
+            if ($loading.length) $loading.addClass('d-none');
+            if ($empty.length) {
+                $empty.removeClass('d-none');
+                $empty.find('p').text(t('customProduct.loadFailed') || '載入失敗');
+            }
+        });
+    }
+    window.loadVendorStylesTabList = loadVendorStylesTabList;
+
+    function renderVendorStylesTabPager(total) {
+        var $nav = $('#bs-pager');
+        if (!$nav.length) return;
+        if (!Number.isFinite(total) || total <= vendorStylesTabPageSize) {
+            $nav.addClass('d-none').empty();
+            return;
+        }
+        $nav.removeClass('d-none');
+        var page = Math.floor(vendorStylesTabOffset / vendorStylesTabPageSize) + 1;
+        var pages = Math.max(1, Math.ceil(total / vendorStylesTabPageSize));
+        $nav.html(
+            '<button type="button" class="btn btn-sm btn-outline-secondary" id="bs-pager-prev"' + (vendorStylesTabOffset <= 0 ? ' disabled' : '') + '>' +
+            (t('browseStyles.prevPage') || '上一頁') + '</button>' +
+            '<span class="align-self-center small text-muted px-2">' + page + ' / ' + pages + '</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary" id="bs-pager-next"' +
+            (vendorStylesTabOffset + vendorStylesTabPageSize >= total ? ' disabled' : '') + '>' +
+            (t('browseStyles.nextPage') || '下一頁') + '</button>'
+        );
+    }
+
+    $(document).on('input', '#bs-manufacturer-name', function () {
+        $('#bs-manufacturer-id').val('');
+        var q = ($(this).val() || '').trim();
+        clearTimeout(vendorStylesMfrSuggestTimer);
+        vendorStylesMfrSuggestTimer = setTimeout(function () {
+            if (q.length >= 1) fetchBsManufacturerSuggest(q);
+            else hideBsManufacturerSuggest();
+            vendorStylesTabOffset = 0;
+            loadVendorStylesTabList();
+        }, 320);
+    });
+
+    $(document).on('mousedown', '#bs-manufacturer-suggest .vendor-mfr-suggest-item', function (e) {
+        e.preventDefault();
+        var id = ($(this).attr('data-mfr-id') || '').trim();
+        var name = ($(this).attr('data-mfr-name') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+        $('#bs-manufacturer-id').val(id);
+        $('#bs-manufacturer-name').val(name);
+        hideBsManufacturerSuggest();
+        vendorStylesTabOffset = 0;
+        loadVendorStylesTabList();
+    });
+
+    $(document).on('blur', '#bs-manufacturer-name', function () {
+        setTimeout(hideBsManufacturerSuggest, 180);
+    });
+
+    $(document).on('input', '#bs-filter-q', function () {
+        clearTimeout(vendorStylesMfrSuggestTimer);
+        vendorStylesMfrSuggestTimer = setTimeout(function () {
+            vendorStylesTabOffset = 0;
+            loadVendorStylesTabList();
+        }, 400);
+    });
+
+    $(document).on('click', '#bs-pager-prev', function () {
+        vendorStylesTabOffset = Math.max(0, vendorStylesTabOffset - vendorStylesTabPageSize);
+        loadVendorStylesTabList();
+    });
+    $(document).on('click', '#bs-pager-next', function () {
+        vendorStylesTabOffset += vendorStylesTabPageSize;
+        loadVendorStylesTabList();
+    });
+
+    $(document).on('click', '#bs-go-set-category', function () {
+        var tabEl = document.getElementById('tab-product-design');
+        if (tabEl && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(tabEl).show();
+        }
+    });
+
+    document.addEventListener('matchdo:categoryChanged', function () {
+        vendorStylesTabOffset = 0;
+        if ($('#panel-vendor-styles').hasClass('active') || $('#panel-vendor-styles').hasClass('show')) {
+            loadVendorStylesTabList();
+        }
+    });
+
+    (function initVendorStylesTabFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        var mfrId = (params.get('manufacturer_id') || '').trim();
+        var mfrName = (params.get('vendor_name') || '').trim();
+        if (mfrId) {
+            $('#bs-manufacturer-id').val(mfrId);
+            if (mfrName) $('#bs-manufacturer-name').val(decodeURIComponent(mfrName));
+        }
+        if (params.get('tab') === 'vendor-styles') {
+            setTimeout(loadVendorStylesTabList, 0);
+        }
+    })();
+
     $('#vendorAssetsManufacturerName').on('input', function () {
         var $cell = $('.vendor-picker-mfr-name-cell');
         if ($cell.hasClass('d-none')) return;
@@ -3243,6 +3513,10 @@ $(document).ready(function () {
         }
         if (tabParam === 'pattern-extract' && typeof updatePatternExtractResolutionDisplay === 'function') {
             updatePatternExtractResolutionDisplay();
+        }
+        if (tabParam === 'vendor-styles') {
+            vendorStylesTabOffset = 0;
+            loadVendorStylesTabList();
         }
     });
     // 瀏覽器前進/後退時依網址切換 Tab

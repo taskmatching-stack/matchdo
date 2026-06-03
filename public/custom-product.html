@@ -1294,11 +1294,11 @@
                         </div>
                         <div id="bs-vendor-banner" class="bs-vendor-banner mb-3 d-none"></div>
                         <div class="row g-2 align-items-end mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label small mb-1" for="bs-filter-vendor" data-i18n="browseStyles.filterVendor">廠商</label>
-                                <select id="bs-filter-vendor" class="form-select form-select-sm">
-                                    <option value="" data-i18n="browseStyles.filterAllVendors">全部廠商</option>
-                                </select>
+                            <div class="col-md-6 position-relative">
+                                <label class="form-label small mb-1" for="bs-manufacturer-name" data-i18n="customProduct.filterVendorName">廠商名稱</label>
+                                <input type="search" class="form-control form-control-sm" id="bs-manufacturer-name" autocomplete="off" data-i18n-placeholder="customProduct.vendorNamePlaceholder" placeholder="輸入廠商名稱">
+                                <input type="hidden" id="bs-manufacturer-id" value="">
+                                <div id="bs-manufacturer-suggest" class="vendor-mfr-suggest-list list-group position-absolute w-100 shadow-sm d-none" role="listbox" style="z-index:10;max-height:240px;overflow-y:auto;top:100%"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small mb-1" for="bs-filter-q" data-i18n="browseStyles.filterSearch">搜尋</label>
@@ -1502,8 +1502,8 @@
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=2" defer></script>
-    <script src="js/browse-styles.js?v=6" defer></script>
-    <script src="js/custom-product.js?v=54" defer></script>
+    <script src="js/browse-styles.js?v=7" defer></script>
+    <script src="js/custom-product.js?v=55" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
