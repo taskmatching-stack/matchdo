@@ -24,16 +24,15 @@
 | `016cb0d` | browse 流程、`browse-prototypes`、product-tree guide、deep link |
 | `0e06dc7` | 設計頁 Tab「廠商版型」、`custom-product-cat-picker`、導覽入口 |
 | `e1688f9` | 廠商版型列表改打 `/api/vendor-assets`（不再依賴 browse-prototypes 查詢邏輯） |
+| `980c35b` | 廠商版型 Tab 與素材庫共用 `buildVendorAssetsFetchUrl`；廠商名稱輸入 + `/api/manufacturers` 建議 |
 
 ---
 
 ## 最近提交（2026-06-03）
 
-| 狀態 | 說明 |
-|------|------|
-| 待 push | `fix: 廠商版型 Tab 與產品設計素材庫共用載入與廠商名稱篩選` — `custom-product.html`、`custom-product.js`、`browse-styles.js` |
-
-**內容：** 廠商篩選改 `#bs-manufacturer-name` + `/api/manufacturers` 建議；`loadVendorStylesTabList()` 經 `syncVendorStylesTabFiltersToPicker` 共用 `buildVendorAssetsFetchUrl`／`applyClientVendorAssetFilters`；`browse-styles.js` 瘦身为 redirect + Tab shown 委派。
+| Commit | 說明 |
+|--------|------|
+| `980c35b` | 廠商版型 Tab 與產品設計素材庫共用載入與廠商名稱篩選（`#bs-manufacturer-name` + `/api/manufacturers`；`syncVendorStylesTabFiltersToPicker` → `buildVendorAssetsFetchUrl`） |
 
 ---
 
