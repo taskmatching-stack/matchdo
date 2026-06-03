@@ -62,7 +62,7 @@
 
 關聯標示 **不隱藏** 未關聯素材，僅排序與視覺提示。
 
-規劃中的圖形化關聯樹見 `docs/vendor-product-link-tree-ui-plan.md`。
+圖形化關聯樹（**獨立頁**、以主產品為單位各畫一棵）見 `docs/vendor-product-link-tree-ui-plan.md`（決策已確認，待實作）。
 
 ## 部署前
 

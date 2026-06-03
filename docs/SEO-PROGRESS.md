@@ -11,6 +11,8 @@
 | 頁面 | SEO 政策 |
 |------|----------|
 | `/client/industry-*.html`、`supplier-catalog-manage.html`、`my-supplier-references.html` | **noindex**（登入工作區，不進 sitemap） |
+| `/client/vendor-product-link-tree.html` | **noindex**（廠商產品關聯編輯；規劃見 `vendor-product-link-tree-ui-plan.md`） |
+| `/product-tree.html?prototype_asset_id=` | 公開 guide；**index** 僅當主產品 `is_public`；動態 OG；sitemap Phase 2 |
 | 供應商語意資料 | `supplier_catalog_items.ai_tags` + `visual_semantics_events`（`source_type=catalog_item`）；見 `add-supplier-catalog-ai-fields.sql` |
 | 未來供應商公開 SEO 頁 | **尚未定案**（勿用現有 `?id=` 工作區當收錄落地頁） |
 
