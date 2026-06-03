@@ -697,6 +697,13 @@ $(document).ready(function () {
                         $panel.append($('<div class="alert alert-light border small py-2 mb-2 ref-intent-linked-summary"></div>')
                             .text(sumTpl.replace('{m}', String(mc)).replace('{p}', String(pc))));
                     }
+                var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
+                if (anchorId) {
+                    var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+                    var treeUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
+                    var treeTpl = tr('customProduct.openProductTreeLink', '查看此產品的關聯圖（新分頁）');
+                    $panel.append($('<p class="mb-2 mt-1"><a href="' + treeUrl + '" class="small" target="_blank" rel="noopener"></a></p>')
+                        .find('a').text(treeTpl));
                 }
             }
         } else if ((def.key === 'material' || def.key === 'part') && hasVendorPrototypeLock() && prototypeLinkSummary.loaded) {

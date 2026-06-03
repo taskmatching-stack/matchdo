@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>產品關聯圖 - MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, follow">
+    <link href="../img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <link href="/css/vendor-product-link-tree.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/i18n.js"></script>
+</head>
+<body class="vplt-page vplt-page--vendor" data-vplt-mode="vendor">
+    <div id="site-header"></div>
+    <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h1 class="h4 mb-0 fw-bold" data-i18n="productTree.vendorTitle">產品關聯圖</h1>
+                    <p class="text-muted small mb-0" data-i18n="productTree.vendorIntro">以主產品為中心管理材料／配件關聯；拖曳右側素材至中央即可連結。</p>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="/client/manufacturer-materials.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="productTree.backMaterials">返回素材庫</span></a>
+                    <button type="button" class="btn btn-sm btn-primary" id="btn-save-links" disabled><i class="bi bi-check-lg me-1"></i><span data-i18n="productTree.save">儲存關聯</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container py-3">
+        <div id="auth-alert" class="alert alert-warning d-none">請先 <a href="/index.html">登入</a>。</div>
+        <div id="vplt-alert" class="alert alert-warning d-none"></div>
+        <div id="vplt-app" class="vplt-layout d-none">
+            <aside class="vplt-sidebar vplt-sidebar--list">
+                <h2 class="h6 text-muted mb-2" data-i18n="productTree.prototypeList">主產品</h2>
+                <div id="vplt-prototype-list" class="vplt-prototype-list"></div>
+            </aside>
+            <main class="vplt-canvas-wrap">
+                <div id="vplt-canvas" class="vplt-canvas"></div>
+            </main>
+            <aside class="vplt-sidebar vplt-sidebar--side" id="vplt-side-panel">
+                <h2 class="h6 text-muted mb-2" data-i18n="productTree.quickCheck">快速檢查</h2>
+                <div id="vplt-checks" class="small mb-3"></div>
+                <h2 class="h6 text-muted mb-2" data-i18n="productTree.orphanPool">未關聯素材</h2>
+                <p class="text-muted small" data-i18n="productTree.orphanHint">點擊加入目前主產品，或拖曳至中央主產品節點。</p>
+                <div id="vplt-orphan-pool" class="vplt-orphan-pool"></div>
+            </aside>
+        </div>
+        <div id="vplt-loading" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
+    </div>
+    <script src="/js/site-header.js" defer></script>
+    <script src="/js/vendor-product-link-tree.js?v=1" defer></script>
+</body>
+</html>

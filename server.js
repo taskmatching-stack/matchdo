@@ -5749,6 +5749,87 @@ app.get('/img/favicon-32x32.png', (req, res) => sendIcon(req, res, 'favicon-32x3
 app.get('/img/favicon-16x16.png', (req, res) => sendIcon(req, res, 'favicon-16x16.png'));
 app.get('/img/apple-touch-icon.png', (req, res) => sendIcon(req, res, 'apple-touch-icon.png'));
 
+// product-tree 動態 OG：有 prototype_asset_id 時依主產品輸出 meta
+app.get('/product-tree.html', async (req, res, next) => {
+    const prototypeId = (req.query.prototype_asset_id || '').trim();
+    if (!prototypeId) return next();
+    try {
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        let payload = await buildPublicPrototypeLinkTree(prototypeId);
+        if (payload.error === 'not_public' && internalPreview) {
+            const { data: protoRow } = await supabase
+                .from('vendor_assets')
+                .select('id, manufacturer_id, title, description, image_url, asset_kind, is_public')
+                .eq('id', prototypeId)
+                .maybeSingle();
+            if (protoRow && normalizeVendorAssetKind(protoRow.asset_kind) === 'prototype') {
+                let mfrName = '廠商';
+                const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('id', protoRow.manufacturer_id).maybeSingle();
+                if (mfr) mfrName = mfr.name || mfrName;
+                payload = {
+                    prototype: {
+                        id: protoRow.id,
+                        title: protoRow.title,
+                        description: protoRow.description,
+                        image_url: protoRow.image_url,
+                        manufacturer_id: protoRow.manufacturer_id,
+                        manufacturer_name: mfrName
+                    },
+                    linked_assets: [],
+                    material_count: 0,
+                    part_count: 0
+                };
+            }
+        }
+        if (payload.error || !payload.prototype) return next();
+        const p = payload.prototype;
+        const origin = (req.get('x-forwarded-proto') && req.get('host')) ? `${req.get('x-forwarded-proto')}://${req.get('host')}` : null;
+        const base = origin || BASE_URL;
+        const pageUrl = base + '/product-tree.html?prototype_asset_id=' + encodeURIComponent(prototypeId);
+        let coverUrl = p.image_url || null;
+        const supabaseOrigin = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+        if (coverUrl && coverUrl.startsWith('http') && supabaseOrigin && coverUrl.startsWith(supabaseOrigin + '/')) {
+            coverUrl = base + '/api/proxy-image?url=' + encodeURIComponent(coverUrl);
+        }
+        const titleRaw = (p.title || '主產品').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const mfrName = (p.manufacturer_name || '廠商').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const descRaw = ((p.description || '') + ' — 查看可搭配的材料與配件。MATCHDO 合做').trim().slice(0, 160)
+            .replace(/</g, '&lt;').replace(/"/g, '&quot;') || (titleRaw + ' 產品關聯 — MATCHDO 合做');
+        const htmlPath = path.join(__dirname, 'public', 'product-tree.html');
+        if (!fs.existsSync(htmlPath)) return next();
+        let html = fs.readFileSync(htmlPath, 'utf8');
+        const fullTitle = titleRaw + ' · 產品關聯｜' + mfrName + '｜MATCHDO 合做';
+        html = html.replace(/<title>[^<]*<\/title>/, '<title>' + fullTitle + '</title>');
+        html = html.replace(/<meta name="description" content="[^"]*">/, '<meta name="description" content="' + descRaw + '">');
+        html = html.replace(/<meta name="robots" content="[^"]*">/, '<meta name="robots" content="index, follow">');
+        html = html.replace(/<meta property="og:title" content="[^"]*">/, '<meta property="og:title" content="' + fullTitle + '">');
+        html = html.replace(/<meta property="og:description" content="[^"]*">/, '<meta property="og:description" content="' + descRaw + '">');
+        html = html.replace(/<meta property="og:image" content="[^"]*">/, '<meta property="og:image" content="' + (coverUrl || (base + '/img/og-design.jpg')) + '">');
+        html = html.replace(/<meta property="og:url" content="[^"]*">/, '<meta property="og:url" content="' + pageUrl.replace(/"/g, '&quot;') + '">');
+        html = html.replace(/<meta name="twitter:title" content="[^"]*">/, '<meta name="twitter:title" content="' + fullTitle + '">');
+        html = html.replace(/<meta name="twitter:description" content="[^"]*">/, '<meta name="twitter:description" content="' + descRaw + '">');
+        html = html.replace(/<meta name="twitter:image" content="[^"]*">/, '<meta name="twitter:image" content="' + (coverUrl || (base + '/img/og-design.jpg')) + '">');
+        html = html.replace(/<link rel="canonical" href="[^"]*" id="canonicalTag">/, '<link rel="canonical" href="' + pageUrl.replace(/"/g, '&quot;') + '" id="canonicalTag">');
+        html = html.replace(/<link rel="alternate" hreflang="zh-TW" href="[^"]*" id="hreflangZh">/, '<link rel="alternate" hreflang="zh-TW" href="' + pageUrl.replace(/"/g, '&quot;') + '" id="hreflangZh">');
+        html = html.replace(/<link rel="alternate" hreflang="en" href="[^"]*" id="hreflangEn">/, '<link rel="alternate" hreflang="en" href="' + pageUrl.replace(/"/g, '&quot;') + '&lang=en" id="hreflangEn">');
+        html = html.replace(/<link rel="alternate" hreflang="x-default" href="[^"]*">/, '<link rel="alternate" hreflang="x-default" href="' + pageUrl.replace(/"/g, '&quot;') + '">');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.send(html);
+    } catch (e) {
+        console.error('GET /product-tree.html 動態 OG 異常:', e && e.message);
+        next();
+    }
+});
+
+app.get('/product-tree/:prototypeAssetId', (req, res) => {
+    const id = (req.params.prototypeAssetId || '').trim();
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return res.status(404).send('Not found');
+    const params = new URLSearchParams(req.query);
+    params.set('prototype_asset_id', id);
+    res.redirect(301, '/product-tree.html?' + params.toString());
+});
+
 // vendor-profile 動態 OG：有 ?id= 時依廠商資料輸出 meta，供社群爬蟲與分享預覽
 app.get('/vendor-profile.html', async (req, res, next) => {
     const id = (req.query.id || '').trim();
@@ -12520,6 +12601,121 @@ async function getPrototypeIdsForLinkedAsset(manufacturerId, linkedAssetId) {
     return (data || []).map((r) => r.prototype_asset_id);
 }
 
+function mapVendorAssetLinkTreeNode(r) {
+    if (!r) return null;
+    return {
+        id: r.id,
+        title: r.title || '',
+        image_url: r.image_url || null,
+        asset_kind: normalizeVendorAssetKind(r.asset_kind),
+        is_public: !!r.is_public
+    };
+}
+
+async function buildVendorProductLinkTreePayload(manufacturerId) {
+    const cols = 'id, title, image_url, asset_kind, sort_order, created_at, is_public';
+    const { data: assets, error: assetErr } = await supabase
+        .from('vendor_assets')
+        .select(cols)
+        .eq('manufacturer_id', manufacturerId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+    if (assetErr) throw assetErr;
+    const prototypes = [];
+    const linkableAssets = [];
+    (assets || []).forEach((r) => {
+        const node = mapVendorAssetLinkTreeNode(r);
+        if (!node) return;
+        if (node.asset_kind === 'prototype') prototypes.push(node);
+        else if (node.asset_kind === 'material' || node.asset_kind === 'part') linkableAssets.push(node);
+    });
+    const tableReady = await vendorPrototypeLinksTableReady();
+    let links = [];
+    if (tableReady) {
+        const { data: linkRows, error: linkErr } = await supabase
+            .from('vendor_asset_prototype_links')
+            .select('prototype_asset_id, linked_asset_id, sort_order')
+            .eq('manufacturer_id', manufacturerId)
+            .order('sort_order', { ascending: true });
+        if (linkErr && linkErr.code !== '42P01') throw linkErr;
+        links = linkRows || [];
+    }
+    const linkedAssetIdSet = new Set(links.map((l) => l.linked_asset_id));
+    const orphans = linkableAssets.filter((a) => !linkedAssetIdSet.has(a.id)).map((a) => a.id);
+    const checks = [];
+    prototypes.forEach((p) => {
+        const n = links.filter((l) => l.prototype_asset_id === p.id).length;
+        if (!n) {
+            checks.push({
+                prototype_id: p.id,
+                code: 'no_links',
+                severity: 'info',
+                message: '尚未關聯材料或配件'
+            });
+        }
+    });
+    return {
+        manufacturer_id: manufacturerId,
+        prototypes,
+        assets: linkableAssets,
+        links,
+        orphans,
+        checks,
+        table_ready: tableReady
+    };
+}
+
+async function buildPublicPrototypeLinkTree(prototypeAssetId) {
+    const { data: proto, error: protoErr } = await supabase
+        .from('vendor_assets')
+        .select('id, manufacturer_id, title, description, image_url, asset_kind, is_public')
+        .eq('id', prototypeAssetId)
+        .maybeSingle();
+    if (protoErr) throw protoErr;
+    if (!proto || normalizeVendorAssetKind(proto.asset_kind) !== 'prototype') {
+        return { error: 'not_found' };
+    }
+    const internalPreview = false;
+    if (!proto.is_public) return { error: 'not_public' };
+    let mfrName = '廠商';
+    const { data: mfr } = await supabase.from('manufacturers').select('id, name, is_active').eq('id', proto.manufacturer_id).eq('is_active', true).maybeSingle();
+    if (!mfr) return { error: 'not_found' };
+    mfrName = mfr.name || mfrName;
+    const linkPack = await getLinkedAssetIdsForPrototype(proto.manufacturer_id, prototypeAssetId);
+    const linkedIds = linkPack.ids || [];
+    let linkedAssets = [];
+    if (linkedIds.length) {
+        const { data: rows } = await supabase
+            .from('vendor_assets')
+            .select('id, title, image_url, asset_kind, is_public')
+            .eq('manufacturer_id', proto.manufacturer_id)
+            .in('id', linkedIds);
+        const byId = {};
+        (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r); });
+        linkedAssets = linkedIds.map((id, idx) => {
+            const node = byId[id];
+            if (!node) return null;
+            return {
+                ...node,
+                sort_order: linkPack.sortById[id] != null ? linkPack.sortById[id] : idx
+            };
+        }).filter(Boolean);
+    }
+    return {
+        prototype: {
+            id: proto.id,
+            title: proto.title,
+            description: proto.description,
+            image_url: proto.image_url,
+            manufacturer_id: proto.manufacturer_id,
+            manufacturer_name: mfrName
+        },
+        linked_assets: linkedAssets,
+        material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,
+        part_count: linkedAssets.filter((a) => a.asset_kind === 'part').length
+    };
+}
+
 async function getPrototypeLinkKindCounts(manufacturerId, prototypeAssetId) {
     if (!(await vendorPrototypeLinksTableReady())) {
         return { material_count: 0, part_count: 0 };
@@ -12935,6 +13131,98 @@ app.get('/api/manufacturers/:id/catalog-groups', async (req, res) => {
         res.json({ ...payload, manufacturer_id: manufacturerId, manufacturer_name: mfr.name });
     } catch (e) {
         console.error('GET /api/manufacturers/:id/catalog-groups:', e);
+        res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// GET /api/me/vendor-product-link-tree — 廠商：全廠主產品關聯樹資料
+app.get('/api/me/vendor-product-link-tree', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const payload = await buildVendorProductLinkTreePayload(manufacturerId);
+        res.json(payload);
+    } catch (e) {
+        console.error('GET /api/me/vendor-product-link-tree:', e);
+        res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// PUT /api/me/vendor-assets/:id/prototype-links — 以主產品為準整批更新關聯
+app.put('/api/me/vendor-assets/:id/prototype-links', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const id = (req.params.id || '').trim();
+        const linkedIds = parseJsonUuidArrayFromBody(req.body.linked_asset_ids);
+        if (linkedIds === null) return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+        const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkedIds);
+        if (linkErr) return res.status(400).json({ error: linkErr });
+        const linkPack = await getLinkedAssetIdsForPrototype(manufacturerId, id);
+        res.json({ prototype_asset_id: id, linked_asset_ids: linkPack.ids, sort_by_id: linkPack.sortById });
+    } catch (e) {
+        console.error('PUT /api/me/vendor-assets/:id/prototype-links:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/vendor-assets/:id/link-tree — 公開：單一主產品關聯子樹（guide 頁）
+app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
+    try {
+        const id = (req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        const payload = await buildPublicPrototypeLinkTree(id);
+        if (payload.error === 'not_found') return res.status(404).json({ error: '找不到主產品' });
+        if (payload.error === 'not_public') {
+            if (!internalPreview) return res.status(404).json({ error: '此主產品未公開' });
+            const { data: protoRow } = await supabase
+                .from('vendor_assets')
+                .select('id, manufacturer_id, title, description, image_url, asset_kind, is_public')
+                .eq('id', id)
+                .maybeSingle();
+            if (!protoRow) return res.status(404).json({ error: '找不到主產品' });
+            let mfrName = '廠商';
+            const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('id', protoRow.manufacturer_id).maybeSingle();
+            if (mfr) mfrName = mfr.name || mfrName;
+            const linkPack = await getLinkedAssetIdsForPrototype(protoRow.manufacturer_id, id);
+            const linkedIds = linkPack.ids || [];
+            let linkedAssets = [];
+            if (linkedIds.length) {
+                const { data: rows } = await supabase
+                    .from('vendor_assets')
+                    .select('id, title, image_url, asset_kind, is_public')
+                    .eq('manufacturer_id', protoRow.manufacturer_id)
+                    .in('id', linkedIds);
+                const byId = {};
+                (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r); });
+                linkedAssets = linkedIds.map((lid, idx) => {
+                    const node = byId[lid];
+                    if (!node) return null;
+                    return { ...node, sort_order: linkPack.sortById[lid] != null ? linkPack.sortById[lid] : idx };
+                }).filter(Boolean);
+            }
+            return res.json({
+                prototype: {
+                    id: protoRow.id,
+                    title: protoRow.title,
+                    description: protoRow.description,
+                    image_url: protoRow.image_url,
+                    manufacturer_id: protoRow.manufacturer_id,
+                    manufacturer_name: mfrName
+                },
+                linked_assets: linkedAssets,
+                material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,
+                part_count: linkedAssets.filter((a) => a.asset_kind === 'part').length,
+                preview: true
+            });
+        }
+        res.json(payload);
+    } catch (e) {
+        console.error('GET /api/vendor-assets/:id/link-tree:', e);
         res.status(500).json({ error: '查詢失敗' });
     }
 });
