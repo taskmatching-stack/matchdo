@@ -144,6 +144,46 @@
 }
 .vplt-child-card--material { border-color: #22c55e; }
 .vplt-child-card--part { border-color: #f59e0b; }
+.vplt-child-card--has-variants {
+    width: min(100%, 168px);
+}
+.vplt-variant-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: center;
+    margin-top: 0.35rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid #f1f5f9;
+}
+.vplt-variant-chip {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 2px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    line-height: 0;
+}
+.vplt-variant-chip.is-active {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.35);
+}
+.vplt-variant-chip img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    margin: 0;
+}
+.vplt-variant-active-label {
+    font-size: 0.65rem;
+    line-height: 1.2;
+    margin-bottom: 0.15rem;
+}
 .vplt-child-card img {
     width: 72px;
     height: 72px;

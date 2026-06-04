@@ -915,33 +915,47 @@ $(document).ready(function () {
 
     function applyGuideLinkedAssetsFromSession(treeData) {
         var raw = null;
-        try { raw = sessionStorage.getItem('matchdo.guideLinkedAssetIds'); } catch (e) {}
+        try {
+            raw = sessionStorage.getItem('matchdo.guideLinkedAssetRefs') ||
+                sessionStorage.getItem('matchdo.guideLinkedAssetIds');
+        } catch (e) {}
         if (!raw) return Promise.resolve();
-        try { sessionStorage.removeItem('matchdo.guideLinkedAssetIds'); } catch (e) {}
-        var ids;
-        try { ids = JSON.parse(raw); } catch (e) { return Promise.resolve(); }
-        if (!Array.isArray(ids) || !ids.length || !treeData) return Promise.resolve();
+        try {
+            sessionStorage.removeItem('matchdo.guideLinkedAssetIds');
+            sessionStorage.removeItem('matchdo.guideLinkedAssetRefs');
+        } catch (e) {}
+        var parsed;
+        try { parsed = JSON.parse(raw); } catch (e) { return Promise.resolve(); }
+        if (!Array.isArray(parsed) || !parsed.length || !treeData) return Promise.resolve();
+        var refs = parsed.map(function (entry) {
+            if (entry && typeof entry === 'object' && entry.id) return entry;
+            return { id: String(entry || '') };
+        }).filter(function (r) { return r.id; });
         var linked = treeData.linked_assets || [];
         var byId = {};
         linked.forEach(function (a) { if (a && a.id) byId[a.id] = a; });
         var proto = treeData.prototype || {};
         var chain = Promise.resolve();
-        ids.forEach(function (aid) {
-            var a = byId[aid];
+        refs.forEach(function (ref) {
+            var a = byId[ref.id];
             if (!a) return;
             var slotKey = a.asset_kind === 'material' ? 'material' : (a.asset_kind === 'part' ? 'part' : null);
             if (!slotKey) return;
-            var imgUrl = (a.image_url || '').trim();
+            var imgUrl = (ref.image_url || a.image_url || '').trim();
             if (!imgUrl || !canAddMoreRefImages(slotKey, 1)) return;
+            var refTitle = (a.title || '').trim();
+            var variantLabel = (ref.label || '').trim();
+            if (variantLabel) refTitle = refTitle ? (refTitle + ' · ' + variantLabel) : variantLabel;
             chain = chain.then(function () {
                 return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
                     addRefImageToSlot(slotKey, dataUrl, {
                         vendor_asset_id: a.id,
                         manufacturer_id: proto.manufacturer_id,
                         manufacturer_name: proto.manufacturer_name,
-                        title: a.title,
+                        title: refTitle || a.title,
                         image_url: imgUrl,
-                        asset_kind: a.asset_kind
+                        asset_kind: a.asset_kind,
+                        gallery_label: variantLabel || undefined
                     });
                 });
             });
