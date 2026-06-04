@@ -119,17 +119,26 @@
     align-items: center;
     gap: 1rem;
 }
+.vplt-page--guide .vplt-layout {
+    overflow: visible;
+}
 .vplt-page--guide .vplt-canvas-wrap {
     width: 100%;
     border: none;
     border-radius: 0;
-    background: #fff;
+    background: transparent;
     padding: 0.5rem 0 1.25rem;
     min-height: 0;
+    overflow: visible;
 }
 .vplt-page--guide .vplt-canvas {
     align-items: stretch;
     width: 100%;
+    overflow: visible;
+}
+.vplt-page--guide .vplt-guide-sections,
+.vplt-page--guide .vplt-guide-section {
+    overflow: visible;
 }
 .vplt-root-wrap {
     width: 100%;
@@ -206,20 +215,24 @@
 .vplt-guide-section--material .vplt-guide-section-title {
     color: #16a34a;
 }
-/* 僅橫向選單列突破 container 全寬；標題與右側摘要維持版心 */
+/* 橫向選單：突破 container 至螢幕全寬（父層不可 overflow:hidden） */
 .vplt-page--guide .vplt-guide-rail-scroll {
+    position: relative;
+    left: 50%;
+    right: 50%;
     width: 100vw;
     max-width: 100vw;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    padding-left: max(1rem, calc(50vw - 50%));
-    padding-right: max(1rem, calc(50vw - 50%));
+    margin-left: -50vw;
+    margin-right: -50vw;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
     box-sizing: border-box;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     padding-top: 0.15rem;
     padding-bottom: 0.35rem;
+    background: #fff;
 }
 .vplt-guide-rail {
     display: flex;
@@ -229,8 +242,8 @@
     justify-content: flex-start;
     gap: 2rem;
     width: max-content;
-    min-width: 100%;
-    padding: 0 0.15rem;
+    min-width: min(100%, max-content);
+    padding: 0 0.5rem;
     box-sizing: border-box;
 }
 .vplt-guide-tile {

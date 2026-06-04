@@ -121,10 +121,6 @@
             state.guideSelectedIds.push(assetId);
             enforceGuideSelectionRules(assetId);
         }
-        var tile = document.querySelector('.vplt-guide-tile[data-guide-asset="' + assetId + '"]');
-        if (tile) tile.classList.add('vplt-guide-tile--picked');
-        var card = document.querySelector('.vplt-child-card[data-guide-asset="' + assetId + '"]');
-        if (card) card.classList.add('vplt-child-card--picked');
         renderGuidePanel();
     }
 
@@ -566,7 +562,7 @@
         var subKind = multi && colorLab ? '' : ('<span class="vplt-guide-tile-kind">' + esc(guideKindLabelForKey(kindKey)) + '</span>');
         var isActive = !multi || imgUrl === activeUrl;
         var pickCls = (picked && isActive) ? ' vplt-guide-tile--picked' : '';
-        var activeCls = isActive ? ' vplt-guide-tile--active-color' : '';
+        var activeCls = (isRoot && isActive) ? ' vplt-guide-tile--active-color' : '';
         var selCls = isRoot ? '' : ' vplt-guide-tile--selectable';
         var variantAttrs = multi && it && it.url
             ? ' data-variant-url="' + esc(it.url) + '" data-variant-label="' + esc(colorLab) + '"'
