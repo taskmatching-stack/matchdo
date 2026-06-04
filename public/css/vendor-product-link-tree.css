@@ -120,6 +120,19 @@
     align-items: stretch;
     width: 100%;
 }
+.vplt-root-wrap {
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+.vplt-variant-unit--root {
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 100%;
+}
+.vplt-child-card--prototype {
+    border-color: #0d9488;
+    border-width: 2px;
+}
 .vplt-root-card {
     border: 2px solid #0d9488;
     border-radius: 12px;
