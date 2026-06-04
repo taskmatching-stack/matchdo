@@ -124,6 +124,7 @@
 }
 .vplt-page--guide .vplt-canvas-wrap {
     width: 100%;
+    min-width: 0;
     border: none;
     border-radius: 0;
     background: transparent;
@@ -224,24 +225,17 @@
 .vplt-guide-section-title {
     color: #1d1d1f;
 }
-/* 橫向選單：突破 container 至螢幕全寬（父層不可 overflow:hidden） */
+/* 橫向選單：僅占主內容欄全寬，不另做 100vw 左推 */
 .vplt-page--guide .vplt-guide-rail-scroll {
-    position: relative;
-    left: 50%;
-    right: 50%;
-    width: 100vw;
-    max-width: 100vw;
-    margin-left: -50vw;
-    margin-right: -50vw;
-    padding-left: max(12px, env(safe-area-inset-left, 0px));
-    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0.15rem 0 0.35rem;
     box-sizing: border-box;
     overflow-x: auto;
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
-    padding-top: 0.15rem;
-    padding-bottom: 0.35rem;
-    background: #fff;
+    background: transparent;
 }
 .vplt-guide-rail {
     display: flex;
