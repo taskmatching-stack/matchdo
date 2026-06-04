@@ -192,14 +192,61 @@
     margin: 0 0 0.2rem 0.15rem;
     padding: 0.2rem 0.45rem;
 }
-.vplt-variant-unit .vplt-child-card--has-variants {
+/* 主產品／材料／配件：統一外框尺寸（標籤在框外） */
+.vplt-variant-unit > .vplt-child-card {
     width: 100%;
-    max-width: 100%;
+    max-width: min(100%, 200px);
     flex: none;
     text-align: center;
     padding: 0.55rem 0.45rem 0.5rem;
     box-sizing: border-box;
     transition: box-shadow 0.25s ease;
+}
+.vplt-variant-unit--root > .vplt-child-card {
+    max-width: 100%;
+}
+.vplt-variant-unit > .vplt-child-card:not(.vplt-child-card--has-variants) .vplt-card-thumb {
+    width: 84px;
+    height: 84px;
+    object-fit: cover;
+    border-radius: 6px;
+    display: block;
+    margin: 0 auto 0.1rem;
+}
+.vplt-variant-unit .vplt-child-card--has-variants {
+    width: 100%;
+    max-width: 100%;
+}
+/* 多色：右側箭頭與大框（含標題列）同高 */
+.vplt-child-card.vplt-card-with-side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 28px;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "content side"
+        "title side";
+    column-gap: 0.3rem;
+    align-items: stretch;
+}
+.vplt-card-with-side .vplt-variant-layout {
+    grid-area: content;
+    width: 100%;
+    margin: 0;
+}
+.vplt-card-with-side .vplt-variant-side-toggle {
+    grid-area: side;
+    position: static;
+    width: 28px;
+    min-width: 28px;
+    flex: none;
+    align-self: stretch;
+    height: auto;
+    min-height: 0;
+    padding: 0.25rem 0.08rem;
+    font-size: 0.9rem;
+}
+.vplt-card-with-side .vplt-child-title {
+    grid-area: title;
 }
 .vplt-variant-unit--expanded .vplt-child-card--has-variants {
     z-index: 2;
@@ -233,35 +280,34 @@
     flex: 0 0 0;
     width: 0;
     min-width: 0;
+    max-height: 0;
     overflow: hidden;
     opacity: 0;
     transition:
         flex 0.38s cubic-bezier(0.4, 0, 0.2, 1),
         width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+        max-height 0.38s cubic-bezier(0.4, 0, 0.2, 1),
         opacity 0.28s ease 0.04s;
 }
 .vplt-child-card--has-variants.vplt-child-card--expanded .vplt-variant-expanded-wrap {
     flex: 1 1 auto;
     width: auto;
+    max-height: 120px;
     opacity: 1;
 }
 .vplt-variant-side-toggle {
-    flex: 0 0 34px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.2rem;
-    align-self: center;
-    height: 92px;
-    padding: 0.35rem 0.2rem;
+    gap: 0.15rem;
     border: 1px solid #99f6e4;
     border-radius: 8px;
     background: #f0fdfa;
     color: #0d9488;
     cursor: pointer;
-    font-size: 1rem;
     line-height: 1;
+    box-sizing: border-box;
     transition: background 0.2s ease, border-color 0.2s ease;
 }
 .vplt-variant-side-toggle:hover {

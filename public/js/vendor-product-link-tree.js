@@ -464,13 +464,28 @@
         return '<div class="vplt-variant-unit' + unitExpandedCls + (kindKey === 'prototype' ? ' vplt-variant-unit--root' : '') + '">' +
             '<span class="badge bg-light text-secondary vplt-kind-out">' + esc(kindOut) + '</span>' +
             '<div class="vplt-child-card vplt-child-card--' + esc(cardKind) + clickCls + pickCls +
-            ' vplt-child-card--has-variants' + expandedCls + '" data-guide-asset="' + esc(aid) + '">' +
+            ' vplt-child-card--has-variants vplt-card-with-side' + expandedCls + '" data-guide-asset="' + esc(aid) + '">' +
             removeBtn +
             '<div class="vplt-variant-layout">' +
             variantCollapsedBlockHtml(a, aid) +
             variantExpandedBlockHtml(a, aid) +
-            variantSideToggleHtml(a, aid) +
             '</div>' +
+            variantSideToggleHtml(a, aid) +
+            '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div></div>';
+    }
+
+    function guideSimpleCardHtml(a, aid, kindKey, removeBtn, clickCls, pickCls) {
+        var kindOut = kindKey === 'prototype'
+            ? tr('productTree.rootLabel', '主產品')
+            : kindLabel(kindKey);
+        var cardKind = kindKey === 'prototype' ? 'prototype' : kindKey;
+        var rootCls = kindKey === 'prototype' ? ' vplt-variant-unit--root' : '';
+        return '<div class="vplt-variant-unit' + rootCls + '">' +
+            '<span class="badge bg-light text-secondary vplt-kind-out">' + esc(kindOut) + '</span>' +
+            '<div class="vplt-child-card vplt-child-card--' + esc(cardKind) + clickCls + pickCls +
+            '" data-guide-asset="' + esc(aid) + '">' +
+            removeBtn +
+            simpleThumbHtml(a, aid) +
             '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div></div>';
     }
 
@@ -479,24 +494,16 @@
         if (assetHasColorVariants(a)) {
             return guideVariantUnitHtml(a, aid, k, removeBtn, clickCls, pickCls);
         }
-        return '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + '" data-guide-asset="' + esc(aid) + '">' +
-            removeBtn +
-            '<span class="badge bg-light text-secondary vplt-kind-badge">' + esc(kindLabel(k)) + '</span>' +
-            simpleThumbHtml(a, aid) +
-            '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div>';
+        return guideSimpleCardHtml(a, aid, k, removeBtn, clickCls, pickCls);
     }
 
     function rootCardHtml(proto) {
         var pid = proto.id;
         var dropAttr = IS_VENDOR ? ' id="vplt-root-drop"' : '';
-        if (assetHasColorVariants(proto)) {
-            var unit = guideVariantUnitHtml(proto, pid, 'prototype', '', '', '');
-            return '<div class="vplt-root-wrap"' + dropAttr + '>' + unit + '</div>';
-        }
-        return '<div class="vplt-root-card vplt-child-card--prototype"' + dropAttr + ' data-guide-asset="' + esc(pid) + '">' +
-            simpleThumbHtml(proto, pid) +
-            '<div class="fw-semibold">' + esc(proto.title || '') + '</div>' +
-            '<div class="small text-muted">' + esc(tr('productTree.rootLabel', '主產品')) + '</div></div>';
+        var inner = assetHasColorVariants(proto)
+            ? guideVariantUnitHtml(proto, pid, 'prototype', '', '', '')
+            : guideSimpleCardHtml(proto, pid, 'prototype', '', '', '');
+        return '<div class="vplt-root-wrap"' + dropAttr + '>' + inner + '</div>';
     }
 
     function prototypeById(id) {
