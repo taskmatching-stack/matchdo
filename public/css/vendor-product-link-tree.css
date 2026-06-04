@@ -6,22 +6,16 @@
 }
 @media (min-width: 992px) {
     .vplt-page--guide .vplt-layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto;
+        grid-template-columns: 1fr minmax(220px, 280px);
+        grid-template-rows: none;
         gap: 1.25rem;
     }
-    .vplt-page--guide .vplt-canvas-wrap {
-        grid-column: 1;
-        order: 0;
-    }
     .vplt-page--guide .vplt-sidebar--guide {
-        grid-column: 1;
-        max-width: none;
-        border-top: 1px solid #e8e8ed;
-        padding-top: 1rem;
+        border-top: none;
+        padding-top: 0;
     }
     .vplt-page--guide.vplt-page--single .vplt-layout {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr minmax(220px, 280px);
     }
 }
 @media (max-width: 991px) {
@@ -212,12 +206,20 @@
 .vplt-guide-section--material .vplt-guide-section-title {
     color: #16a34a;
 }
-.vplt-guide-rail-scroll {
-    width: 100%;
+/* 僅橫向選單列突破 container 全寬；標題與右側摘要維持版心 */
+.vplt-page--guide .vplt-guide-rail-scroll {
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: max(1rem, calc(50vw - 50%));
+    padding-right: max(1rem, calc(50vw - 50%));
+    box-sizing: border-box;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    padding: 0.15rem 0 0.35rem;
+    padding-top: 0.15rem;
+    padding-bottom: 0.35rem;
 }
 .vplt-guide-rail {
     display: flex;
@@ -241,11 +243,12 @@
     text-align: center;
     border: none;
     background: transparent;
-    padding: 0;
+    padding: 0.15rem;
     margin: 0;
     position: relative;
     cursor: default;
     outline: none;
+    border-radius: 12px;
 }
 .vplt-guide-tile--selectable {
     cursor: pointer;
@@ -261,7 +264,50 @@
     align-items: flex-end;
     justify-content: center;
     margin-bottom: 0.4rem;
-    transition: box-shadow 0.15s ease;
+    padding: 0.35rem;
+    box-sizing: border-box;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    background: #f5f5f7;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.vplt-guide-tile--selectable:not(.vplt-guide-tile--picked) .vplt-guide-tile-media {
+    border-color: #d1d5db;
+    border-style: dashed;
+    background: #fafafa;
+}
+.vplt-guide-tile--prototype .vplt-guide-tile-media {
+    border-style: solid;
+    border-color: #e5e7eb;
+    background: #f9fafb;
+}
+.vplt-guide-tile--prototype.vplt-guide-tile--active-color .vplt-guide-tile-media {
+    border-color: #0d9488;
+    background: #f0fdfa;
+    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
+}
+.vplt-guide-tile-badge {
+    position: absolute;
+    top: 0.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.2;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.vplt-guide-tile-badge--picked {
+    background: #0d9488;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(13, 148, 136, 0.35);
+}
+.vplt-guide-tile-badge--preview {
+    background: #334155;
+    color: #fff;
 }
 .vplt-guide-tile-media--empty {
     min-height: 5.5rem;
@@ -320,12 +366,22 @@
 .vplt-guide-tile--part .vplt-guide-tile-kind {
     color: #d97706;
 }
+.vplt-guide-tile--picked {
+    background: #ecfdf5;
+}
 .vplt-guide-tile--picked .vplt-guide-tile-media {
-    box-shadow: 0 0 0 2px #0d9488;
-    border-radius: 10px;
+    border: 3px solid #0d9488;
+    border-style: solid;
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(13, 148, 136, 0.28);
 }
 .vplt-guide-tile--picked .vplt-guide-tile-name {
-    font-weight: 600;
+    font-weight: 700;
+    color: #0f766e;
+}
+.vplt-guide-tile--selectable:focus-visible {
+    outline: 2px solid #0d9488;
+    outline-offset: 3px;
 }
 .vplt-guide-rail-note {
     max-width: 28rem;

@@ -375,8 +375,25 @@
                 tiles.forEach(function (tile) {
                     var url = (tile.getAttribute('data-variant-url') || '').trim();
                     var on = !url || url === activeUrl;
+                    var isPicked = picked && on;
+                    var isProto = tile.classList.contains('vplt-guide-tile--prototype');
                     tile.classList.toggle('vplt-guide-tile--active-color', on);
-                    tile.classList.toggle('vplt-guide-tile--picked', picked && on);
+                    tile.classList.toggle('vplt-guide-tile--picked', isPicked);
+                    tile.setAttribute('aria-pressed', isPicked ? 'true' : 'false');
+                    var media = tile.querySelector('.vplt-guide-tile-media');
+                    if (!media) return;
+                    media.querySelectorAll('.vplt-guide-tile-badge').forEach(function (b) { b.remove(); });
+                    if (isPicked && !isProto) {
+                        var pickedBadge = document.createElement('span');
+                        pickedBadge.className = 'vplt-guide-tile-badge vplt-guide-tile-badge--picked';
+                        pickedBadge.textContent = tr('productTree.guidePickedBadge', '已選');
+                        media.insertBefore(pickedBadge, media.firstChild);
+                    } else if (isProto && on && url) {
+                        var prevBadge = document.createElement('span');
+                        prevBadge.className = 'vplt-guide-tile-badge vplt-guide-tile-badge--preview';
+                        prevBadge.textContent = tr('productTree.guidePreviewBadge', '預覽中');
+                        media.insertBefore(prevBadge, media.firstChild);
+                    }
                 });
                 return;
             }
@@ -524,11 +541,12 @@
         return kindLabel(kindKey);
     }
 
-    function guideTileMediaFromUrl(url, alt) {
+    function guideTileMediaFromUrl(url, alt, badgeHtml) {
         if (!url) {
             return '<div class="vplt-guide-tile-media vplt-guide-tile-media--empty" aria-hidden="true"></div>';
         }
         return '<div class="vplt-guide-tile-media">' +
+            (badgeHtml || '') +
             '<img src="' + esc(url) + '" alt="' + esc(alt || '') + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
             '</div>';
     }
@@ -553,9 +571,18 @@
         var variantAttrs = multi && it && it.url
             ? ' data-variant-url="' + esc(it.url) + '" data-variant-label="' + esc(colorLab) + '"'
             : '';
+        var badgeHtml = '';
+        if (picked && isActive && !isRoot) {
+            badgeHtml = '<span class="vplt-guide-tile-badge vplt-guide-tile-badge--picked">' +
+                esc(tr('productTree.guidePickedBadge', '已選')) + '</span>';
+        } else if (isRoot && isActive && multi) {
+            badgeHtml = '<span class="vplt-guide-tile-badge vplt-guide-tile-badge--preview">' +
+                esc(tr('productTree.guidePreviewBadge', '預覽中')) + '</span>';
+        }
+        var pickedAttr = (picked && isActive && !isRoot) ? ' aria-pressed="true"' : ' aria-pressed="false"';
         return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + selCls + pickCls + activeCls + '"' +
-            ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + ' tabindex="0">' +
-            guideTileMediaFromUrl(imgUrl, colorLab || a.title || '') +
+            ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + pickedAttr + ' tabindex="0">' +
+            guideTileMediaFromUrl(imgUrl, colorLab || a.title || '', badgeHtml) +
             '<span class="vplt-guide-tile-name">' + displayName + '</span>' +
             subKind +
             '</div>';
