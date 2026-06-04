@@ -138,16 +138,20 @@
         return '<div class="vplt-variant-active-label text-muted">' + esc(v.label) + '</div>';
     }
 
-    function variantExpandBtnHtml(a, assetId) {
+    function variantSideToggleHtml(a, assetId) {
         if (IS_VENDOR) return '';
         var items = variantImageItems(a);
         if (items.length <= 1) return '';
         var expanded = isVariantPanelExpanded(assetId);
-        var btnText = expanded
+        var n = items.length;
+        var label = expanded
             ? tr('productTree.collapseVariants', '收合色款')
-            : (tr('productTree.expandVariants', '選色款') + ' (' + items.length + ')');
-        return '<button type="button" class="vplt-variant-expand-btn" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
-            esc(btnText) + ' <i class="bi bi-chevron-' + (expanded ? 'left' : 'right') + '" aria-hidden="true"></i></button>';
+            : (tr('productTree.expandVariants', '選色款') + ' (' + n + ')');
+        return '<button type="button" class="vplt-variant-side-toggle" aria-expanded="' + (expanded ? 'true' : 'false') + '"' +
+            ' title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
+            '<i class="bi bi-chevron-' + (expanded ? 'left' : 'right') + '" aria-hidden="true"></i>' +
+            (expanded ? '' : '<span class="vplt-variant-side-count">' + n + '</span>') +
+            '</button>';
     }
 
     /** 展開後：橫向色帶（全寬）；手機改底部 sheet */
@@ -362,19 +366,26 @@
                 childrenHtml += '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + variantCls + expandedCls + '" data-guide-asset="' + esc(aid) + '">' + removeBtn +
                     '<span class="badge bg-light text-secondary vplt-kind-badge">' + esc(kindLabel(k)) + '</span>';
                 if (hasVariants) {
+                    childrenHtml += '<div class="vplt-variant-layout">' +
+                        '<div class="vplt-variant-main">';
                     if (!expanded) {
                         childrenHtml += displayUrl
                             ? enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl)
                             : '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>';
                         childrenHtml += variantLabelHtml(a, aid);
+                    } else {
+                        childrenHtml += variantPickerPanelHtml(a, aid);
                     }
-                    childrenHtml += variantExpandBtnHtml(a, aid) + variantPickerPanelHtml(a, aid);
+                    childrenHtml += '<div class="vplt-child-title">' + esc(a.title || aid) + '</div>' +
+                        '</div>' + variantSideToggleHtml(a, aid) + '</div>';
                 } else if (displayUrl) {
                     childrenHtml += enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl);
+                    childrenHtml += '<div class="vplt-child-title">' + esc(a.title || aid) + '</div>';
                 } else {
                     childrenHtml += '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>';
+                    childrenHtml += '<div class="vplt-child-title">' + esc(a.title || aid) + '</div>';
                 }
-                childrenHtml += '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div>';
+                childrenHtml += '</div>';
             });
             childrenHtml += '</div>';
         }
@@ -396,13 +407,13 @@
             canvas.querySelectorAll('[data-guide-asset]').forEach(function (card) {
                 card.addEventListener('click', function (e) {
                     if (e.target.closest(
-                        'img.matchdo-enlarge-trigger, .vplt-variant-expand-btn, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn'
+                        'img.matchdo-enlarge-trigger, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn'
                     )) return;
                     if (card.classList.contains('vplt-child-card--has-variants')) return;
                     toggleGuideSelection(card.getAttribute('data-guide-asset'));
                 });
             });
-            canvas.querySelectorAll('.vplt-variant-expand-btn').forEach(function (btn) {
+            canvas.querySelectorAll('.vplt-variant-side-toggle').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
