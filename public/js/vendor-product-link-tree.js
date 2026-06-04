@@ -17,7 +17,7 @@
         guideManufacturerName: '',
         guideSelectedIds: [],
         guideVariantByAssetId: {},
-        guideExpandedAssetId: null,
+        guideExpandedAssetIds: Object.create(null),
         guidePayload: null,
         guideLinkMetaByAssetId: {}
     };
@@ -106,7 +106,7 @@
     }
 
     function isVariantPanelExpanded(assetId) {
-        return state.guideExpandedAssetId === assetId;
+        return !!state.guideExpandedAssetIds[assetId];
     }
 
     function applyGuideVariantChoice(assetId, url, label) {
@@ -296,7 +296,10 @@
         var expanded = isVariantPanelExpanded(assetId);
         var unit = card.closest('.vplt-variant-unit');
         card.classList.toggle('vplt-child-card--expanded', expanded);
-        if (unit) unit.classList.toggle('vplt-variant-unit--expanded', expanded);
+        if (unit) {
+            var guidePage = document.body && document.body.classList.contains('vplt-page--guide');
+            unit.classList.toggle('vplt-variant-unit--expanded', expanded && !guidePage);
+        }
         var collapsed = card.querySelector('.vplt-variant-collapsed');
         var expandedWrap = card.querySelector('.vplt-variant-expanded-wrap');
         if (collapsed) collapsed.setAttribute('aria-hidden', expanded ? 'true' : 'false');
@@ -310,13 +313,14 @@
         canvas.querySelectorAll('.vplt-child-card--has-variants').forEach(syncVariantCardExpanded);
     }
 
-    function setGuideVariantExpanded(assetId) {
-        state.guideExpandedAssetId = assetId || null;
-        syncAllVariantCardsExpanded();
-    }
-
     function toggleGuideVariantExpanded(assetId) {
-        setGuideVariantExpanded(state.guideExpandedAssetId === assetId ? null : assetId);
+        if (!assetId) return;
+        if (state.guideExpandedAssetIds[assetId]) {
+            delete state.guideExpandedAssetIds[assetId];
+        } else {
+            state.guideExpandedAssetIds[assetId] = true;
+        }
+        syncAllVariantCardsExpanded();
     }
 
     function refreshVariantCardVisuals(assetId) {
@@ -984,7 +988,7 @@
         state.checks = [];
         state.guideSelectedIds = [];
         state.guideVariantByAssetId = {};
-        state.guideExpandedAssetId = null;
+        state.guideExpandedAssetIds = Object.create(null);
         if (variantImageItems(p).length > 1) {
             var protoDef = defaultGuideVariant(p);
             if (protoDef) state.guideVariantByAssetId[p.id] = protoDef;
@@ -1132,20 +1136,9 @@
         }
     }
 
-    function wireGuideExpandDismiss() {
-        if (IS_VENDOR || window.__vpltExpandDismissWired) return;
-        window.__vpltExpandDismissWired = true;
-        document.addEventListener('click', function (e) {
-            if (!state.guideExpandedAssetId) return;
-            if (e.target.closest('.vplt-variant-unit--expanded')) return;
-            setGuideVariantExpanded(null);
-        });
-    }
-
     function init() {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         wireVariantSheetUi();
-        wireGuideExpandDismiss();
         if (IS_VENDOR) initVendor();
         else initGuide();
     }
