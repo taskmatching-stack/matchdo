@@ -645,6 +645,16 @@
                     toggleGuideSelection(card.getAttribute('data-guide-asset'));
                 });
             });
+            canvas.querySelectorAll('.vplt-variant-unit').forEach(function (unit) {
+                unit.addEventListener('click', function (e) {
+                    if (e.target.closest(
+                        '.vplt-variant-zoom-btn, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn'
+                    )) return;
+                    var card = unit.querySelector('[data-guide-asset]');
+                    if (!card) return;
+                    toggleGuideSelection(card.getAttribute('data-guide-asset'));
+                });
+            });
         }
 
         if (IS_VENDOR) {

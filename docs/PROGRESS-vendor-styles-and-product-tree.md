@@ -132,7 +132,8 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 ## 待辦（Phase C，未做）
 
 - [ ] 分享 URL、手機版體驗
-- [ ] 多選材料／配件一次帶入 refs
+- [ ] 多選材料／配件一次帶入 refs（設計頁已支援多筆 `guideLinkedAssetRefs`；見下「擇一組」）
+- [ ] **廠商設定擇一組**：`vendor_asset_prototype_links.pick_group`（同組訂製者只能選一個；留空＝可與其他並選）
 - [ ] 可選：精簡 `GET /api/vendor-assets/browse-prototypes` 避免 API 分叉
 - [ ] 更新 `docs/網站完整功能說明.md`
 - [ ] `#bs-open-vendor-picker` 一鍵開素材庫（若產品要此按鈕）
