@@ -12736,17 +12736,23 @@ async function getPrototypeIdsForLinkedAsset(manufacturerId, linkedAssetId) {
 
 function mapVendorAssetLinkTreeNode(r) {
     if (!r) return null;
+    const kind = normalizeVendorAssetKind(r.asset_kind);
+    const imageItems = buildVendorAssetImageItems(r);
+    const imageUrls = imageItems.map((it) => it.url).filter(Boolean);
     return {
         id: r.id,
         title: r.title || '',
+        description: (r.description != null ? String(r.description) : '').trim(),
         image_url: r.image_url || null,
-        asset_kind: normalizeVendorAssetKind(r.asset_kind),
-        is_public: !!r.is_public
+        asset_kind: kind,
+        is_public: !!r.is_public,
+        image_urls: imageUrls,
+        image_items: imageItems
     };
 }
 
 async function buildVendorProductLinkTreePayload(manufacturerId) {
-    const cols = 'id, title, image_url, asset_kind, sort_order, created_at, is_public';
+    const cols = 'id, title, description, image_url, cover_image_label, gallery_images, asset_kind, sort_order, created_at, is_public';
     const { data: assets, error: assetErr } = await supabase
         .from('vendor_assets')
         .select(cols)
@@ -12801,7 +12807,7 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
 async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     const { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
-        .select('id, manufacturer_id, title, description, image_url, asset_kind, is_public')
+        .select('id, manufacturer_id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
         .eq('id', prototypeAssetId)
         .maybeSingle();
     if (protoErr) throw protoErr;
@@ -12820,7 +12826,7 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     if (linkedIds.length) {
         const { data: rows } = await supabase
             .from('vendor_assets')
-            .select('id, title, image_url, asset_kind, is_public')
+            .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
             .eq('manufacturer_id', proto.manufacturer_id)
             .in('id', linkedIds);
         const byId = {};
@@ -12834,12 +12840,10 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
             };
         }).filter(Boolean);
     }
+    const protoNode = mapVendorAssetLinkTreeNode(proto) || {};
     return {
         prototype: {
-            id: proto.id,
-            title: proto.title,
-            description: proto.description,
-            image_url: proto.image_url,
+            ...protoNode,
             manufacturer_id: proto.manufacturer_id,
             manufacturer_name: mfrName
         },
@@ -13464,7 +13468,7 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
             if (!internalPreview) return res.status(404).json({ error: '此主產品未公開' });
             const { data: protoRow } = await supabase
                 .from('vendor_assets')
-                .select('id, manufacturer_id, title, description, image_url, asset_kind, is_public')
+                .select('id, manufacturer_id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
                 .eq('id', id)
                 .maybeSingle();
             if (!protoRow) return res.status(404).json({ error: '找不到主產品' });
@@ -13477,7 +13481,7 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
             if (linkedIds.length) {
                 const { data: rows } = await supabase
                     .from('vendor_assets')
-                    .select('id, title, image_url, asset_kind, is_public')
+                    .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
                     .eq('manufacturer_id', protoRow.manufacturer_id)
                     .in('id', linkedIds);
                 const byId = {};
@@ -13488,12 +13492,10 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
                     return { ...node, sort_order: linkPack.sortById[lid] != null ? linkPack.sortById[lid] : idx };
                 }).filter(Boolean);
             }
+            const previewProtoNode = mapVendorAssetLinkTreeNode(protoRow) || {};
             return res.json({
                 prototype: {
-                    id: protoRow.id,
-                    title: protoRow.title,
-                    description: protoRow.description,
-                    image_url: protoRow.image_url,
+                    ...previewProtoNode,
                     manufacturer_id: protoRow.manufacturer_id,
                     manufacturer_name: mfrName
                 },

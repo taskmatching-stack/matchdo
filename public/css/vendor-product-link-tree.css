@@ -252,3 +252,14 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
+.vplt-root-card img.matchdo-enlarge-trigger,
+.vplt-child-card img.matchdo-enlarge-trigger,
+.vplt-prototype-item img.matchdo-enlarge-trigger,
+.vplt-orphan-item img.matchdo-enlarge-trigger,
+.vplt-guide-sel-item img.matchdo-enlarge-trigger {
+    cursor: zoom-in;
+}
+.vplt-root-card img.matchdo-enlarge-trigger {
+    display: block;
+    margin: 0 auto 0.5rem;
+}

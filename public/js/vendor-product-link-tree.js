@@ -41,6 +41,46 @@
         return kind || '';
     }
 
+    function assetImageItems(a) {
+        if (!a) return [];
+        if (Array.isArray(a.image_items) && a.image_items.length) {
+            return a.image_items.filter(function (it) { return it && it.url; });
+        }
+        if (Array.isArray(a.image_urls) && a.image_urls.length) {
+            return a.image_urls.map(function (u, i) {
+                return { url: u, label: '', sort_order: i, is_cover: i === 0 };
+            });
+        }
+        var u = (a.image_url || '').trim();
+        return u ? [{ url: u, label: '', sort_order: 0, is_cover: true }] : [];
+    }
+
+    function assetLightboxCaption(a) {
+        if (!a) return '';
+        var parts = [(a.title || '').trim(), kindLabel(a.asset_kind)];
+        var desc = (a.description || '').trim();
+        if (desc) parts.push(desc.length > 160 ? desc.slice(0, 160) + '…' : desc);
+        return parts.filter(Boolean).join(' · ');
+    }
+
+    function dataImageItemsAttr(a) {
+        var items = assetImageItems(a);
+        if (!items.length) return '';
+        return ' data-image-items="' + esc(JSON.stringify(items)) + '"';
+    }
+
+    function enlargeImgHtml(a, className, style) {
+        var items = assetImageItems(a);
+        if (!items.length) return '';
+        var cap = assetLightboxCaption(a);
+        var cls = 'matchdo-enlarge-trigger' + (className ? ' ' + className : '');
+        var st = style ? ' style="' + style + '"' : '';
+        var title = esc(tr('baseModels.clickImageEnlarge', '點擊放大'));
+        return '<img src="' + esc(items[0].url) + '" alt="" class="' + cls + '"' + st +
+            dataImageItemsAttr(a) +
+            ' data-lightbox-caption="' + esc(cap) + '" title="' + title + '" loading="lazy">';
+    }
+
     function assetById(id) {
         return state.assets.find(function (a) { return a.id === id; }) || null;
     }
@@ -111,8 +151,8 @@
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'vplt-prototype-item' + (p.id === state.selectedPrototypeId ? ' active' : '');
-            var thumb = p.image_url
-                ? '<img src="' + esc(p.image_url) + '" alt="">'
+            var thumb = assetImageItems(p).length
+                ? enlargeImgHtml(p, '', 'width:40px;height:40px;object-fit:cover;border-radius:6px')
                 : '<span class="rounded bg-light d-inline-block" style="width:40px;height:40px"></span>';
             btn.innerHTML = thumb +
                 '<span class="flex-grow-1 min-w-0"><span class="vplt-proto-title d-block">' + esc(p.title || p.id) + '</span>' +
@@ -152,14 +192,16 @@
                 var pickCls = picked ? ' vplt-child-card--picked' : '';
                 childrenHtml += '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + '" data-guide-asset="' + esc(aid) + '">' + removeBtn +
                     '<span class="badge bg-light text-secondary vplt-kind-badge">' + esc(kindLabel(k)) + '</span>' +
-                    (a.image_url ? '<img src="' + esc(a.image_url) + '" alt="">' : '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>') +
+                    (assetImageItems(a).length
+                        ? enlargeImgHtml(a, 'vplt-card-thumb', '')
+                        : '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>') +
                     '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div>';
             });
             childrenHtml += '</div>';
         }
         canvas.innerHTML =
             '<div class="vplt-root-card" id="vplt-root-drop">' +
-            (proto.image_url ? '<img src="' + esc(proto.image_url) + '" alt="">' : '') +
+            (assetImageItems(proto).length ? enlargeImgHtml(proto, 'vplt-root-thumb', '') : '') +
             '<div class="fw-semibold">' + esc(proto.title || '') + '</div>' +
             '<div class="small text-muted">' + esc(tr('productTree.rootLabel', '主產品')) + '</div></div>' +
             childrenHtml;
@@ -173,7 +215,8 @@
 
         if (!IS_VENDOR) {
             canvas.querySelectorAll('[data-guide-asset]').forEach(function (card) {
-                card.addEventListener('click', function () {
+                card.addEventListener('click', function (e) {
+                    if (e.target.closest('img.matchdo-enlarge-trigger')) return;
                     toggleGuideSelection(card.getAttribute('data-guide-asset'));
                 });
             });
@@ -247,7 +290,9 @@
             row.className = 'vplt-orphan-item';
             row.draggable = true;
             row.setAttribute('data-asset-id', a.id);
-            row.innerHTML = (a.image_url ? '<img src="' + esc(a.image_url) + '" alt="">' : '') +
+            row.innerHTML = (assetImageItems(a).length
+                ? enlargeImgHtml(a, 'vplt-orphan-thumb', 'width:36px;height:36px;object-fit:cover;border-radius:4px')
+                : '') +
                 '<span class="text-truncate flex-grow-1">' + esc(a.title || a.id) + ' <span class="text-muted">(' + esc(kindLabel(a.asset_kind)) + ')</span></span>' +
                 '<button type="button" class="btn btn-sm btn-outline-primary py-0">+</button>';
             row.addEventListener('dragstart', function (e) {
@@ -304,7 +349,9 @@
             if (!a) return;
             var row = document.createElement('div');
             row.className = 'vplt-guide-sel-item';
-            row.innerHTML = (a.image_url ? '<img src="' + esc(a.image_url) + '" alt="">' : '') +
+            row.innerHTML = (assetImageItems(a).length
+                ? enlargeImgHtml(a, 'vplt-guide-sel-thumb', 'width:32px;height:32px;object-fit:cover;border-radius:4px')
+                : '') +
                 '<span class="flex-grow-1 text-truncate">' + esc(a.title || aid) + ' <span class="text-muted">(' + esc(kindLabel(a.asset_kind)) + ')</span></span>' +
                 '<button type="button" class="btn btn-sm btn-link text-danger py-0">&times;</button>';
             row.querySelector('button').addEventListener('click', function (e) {
@@ -393,13 +440,24 @@
         state.prototypes = [{
             id: p.id,
             title: p.title,
+            description: p.description,
             image_url: p.image_url,
+            image_urls: p.image_urls,
+            image_items: p.image_items,
             asset_kind: 'prototype',
             manufacturer_id: p.manufacturer_id,
             manufacturer_name: p.manufacturer_name
         }];
         state.assets = (data.linked_assets || []).map(function (a) {
-            return { id: a.id, title: a.title, image_url: a.image_url, asset_kind: a.asset_kind };
+            return {
+                id: a.id,
+                title: a.title,
+                description: a.description,
+                image_url: a.image_url,
+                image_urls: a.image_urls,
+                image_items: a.image_items,
+                asset_kind: a.asset_kind
+            };
         });
         state.links = (data.linked_assets || []).map(function (a, idx) {
             return {
@@ -416,9 +474,23 @@
         renderGuidePanel();
     }
 
+    function normalizeAssetNode(a) {
+        if (!a) return a;
+        return {
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            image_url: a.image_url,
+            image_urls: a.image_urls,
+            image_items: a.image_items,
+            asset_kind: a.asset_kind,
+            is_public: a.is_public
+        };
+    }
+
     function applyVendorPayload(data) {
-        state.prototypes = data.prototypes || [];
-        state.assets = data.assets || [];
+        state.prototypes = (data.prototypes || []).map(normalizeAssetNode);
+        state.assets = (data.assets || []).map(normalizeAssetNode);
         state.links = data.links || [];
         state.orphans = data.orphans || [];
         state.checks = data.checks || [];
