@@ -225,19 +225,16 @@
 .vplt-guide-section-title {
     color: #1d1d1f;
 }
-/* 橫向選單：不顯示捲軸條，僅左右箭頭（viewport 裁切捲軸區） */
+/* 橫向選單：同一結構；箭頭浮在內容上，不推擠左緣（與標題對齊） */
 .vplt-guide-rail-nav {
-    display: flex;
-    align-items: center;
-    gap: 0.15rem;
-    width: 100%;
     position: relative;
+    width: 100%;
 }
 .vplt-guide-rail-nav:not(.vplt-guide-rail-nav--overflow) .vplt-guide-rail-arrow {
     display: none;
 }
 .vplt-guide-rail-viewport {
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
     overflow: hidden;
 }
@@ -265,27 +262,36 @@
     appearance: none;
 }
 .vplt-guide-rail-arrow {
-    flex: 0 0 1.75rem;
-    width: 1.75rem;
-    height: 2.75rem;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 4;
+    width: 2rem;
+    height: 3.25rem;
     margin: 0;
     padding: 0;
     border: none;
     border-radius: 0;
-    background: transparent;
     color: #86868b;
     font-size: 1.35rem;
     line-height: 1;
     cursor: pointer;
-    align-self: center;
     transition: color 0.15s ease, opacity 0.15s ease;
+}
+.vplt-guide-rail-arrow--prev {
+    left: 0;
+    background: linear-gradient(90deg, #fff 55%, rgba(255, 255, 255, 0));
+}
+.vplt-guide-rail-arrow--next {
+    right: 0;
+    background: linear-gradient(270deg, #fff 55%, rgba(255, 255, 255, 0));
 }
 .vplt-guide-rail-arrow:hover:not(:disabled) {
     color: #1d1d1f;
 }
 .vplt-guide-rail-arrow:disabled {
-    opacity: 0.22;
-    cursor: default;
+    opacity: 0;
+    pointer-events: none;
 }
 .vplt-guide-rail {
     display: flex;
@@ -296,7 +302,8 @@
     gap: 2rem;
     width: max-content;
     min-width: min(100%, max-content);
-    padding: 0 0.5rem;
+    padding: 0;
+    margin: 0;
     box-sizing: border-box;
 }
 .vplt-guide-tile {
