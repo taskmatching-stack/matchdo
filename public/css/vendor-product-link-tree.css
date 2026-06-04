@@ -304,8 +304,11 @@
     width: 0;
     height: 0;
 }
-.vplt-variant-option {
+.vplt-variant-option-cell {
+    position: relative;
     flex: 0 0 auto;
+}
+.vplt-variant-option {
     width: 96px;
     display: flex;
     flex-direction: column;
@@ -319,20 +322,52 @@
     text-align: center;
     box-sizing: border-box;
 }
+.vplt-variant-zoom-btn {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    z-index: 2;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #0d9488;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 0.95rem;
+}
+.vplt-variant-zoom-btn:hover {
+    background: #f0fdfa;
+    color: #0f766e;
+}
+.vplt-variant-thumb-wrap {
+    position: relative;
+    display: inline-block;
+    margin: 0 auto 0.1rem;
+}
+.vplt-variant-thumb-wrap .vplt-variant-zoom-btn {
+    top: 0.2rem;
+    right: 0.2rem;
+}
 .vplt-variant-option.is-active {
     border-color: #0d9488;
     background: #f0fdfa;
     box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.3);
 }
-.vplt-variant-option img.matchdo-enlarge-trigger {
+.vplt-variant-option img {
     width: 84px;
     height: 84px;
     object-fit: cover;
     border-radius: 6px;
     display: block;
     margin: 0;
-    cursor: zoom-in;
-    pointer-events: auto;
+    pointer-events: none;
 }
 .vplt-child-card--has-variants .vplt-card-thumb {
     width: 84px;
@@ -344,7 +379,7 @@
     color: #475569;
     width: 100%;
     word-break: break-word;
-    cursor: pointer;
+    pointer-events: none;
 }
 .vplt-variant-unit .vplt-child-title {
     text-align: center;
@@ -460,8 +495,10 @@
     gap: 0.5rem;
     -webkit-overflow-scrolling: touch;
 }
+.vplt-variant-sheet-grid .vplt-variant-option-cell {
+    width: 100%;
+}
 .vplt-variant-sheet-grid .vplt-variant-option {
-    flex: none;
     width: 100%;
 }
 .vplt-variant-sheet-grid .vplt-variant-option img {

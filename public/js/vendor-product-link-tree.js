@@ -118,9 +118,36 @@
         renderGuidePanel();
     }
 
-    /** 點圖放大；點色名或按鈕留白處才選色 */
+    function openVariantLightbox(a, it) {
+        if (!a || !it || !it.url) return;
+        if (!window.MatchdoImageLightbox || typeof window.MatchdoImageLightbox.open !== 'function') return;
+        var cap = assetLightboxCaption(a);
+        var items = variantImageItems(a).map(function (x) {
+            return { url: x.url, label: (x.label || '').trim() };
+        });
+        var url = (it.url || '').trim();
+        var idx = 0;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].url === url) { idx = i; break; }
+        }
+        var lab = (it.label || '').trim();
+        var fullCap = cap + (lab ? ' · ' + lab : '');
+        window.MatchdoImageLightbox.open({
+            imageItems: items,
+            index: idx,
+            caption: fullCap,
+            alt: lab || cap
+        });
+    }
+
+    function variantZoomBtnHtml(a, it) {
+        var zoomTitle = tr('baseModels.clickImageEnlarge', '放大預覽');
+        return '<button type="button" class="vplt-variant-zoom-btn" aria-label="' + esc(zoomTitle) + '"' +
+            ' title="' + esc(zoomTitle) + '"><i class="bi bi-zoom-in" aria-hidden="true"></i></button>';
+    }
+
     function onVariantOptionPointer(e, opt, assetId, afterPick) {
-        if (e.target.closest('img.matchdo-enlarge-trigger')) return;
+        if (e.target.closest('.vplt-variant-zoom-btn')) return;
         e.preventDefault();
         e.stopPropagation();
         var url = (opt.getAttribute('data-variant-url') || '').trim();
@@ -135,18 +162,39 @@
         });
     }
 
-    function buildVariantOptionButtonHtml(a, it, activeUrl, cap) {
+    function wireVariantZoomButtons(root, assetIdResolver) {
+        if (!root) return;
+        root.querySelectorAll('.vplt-variant-zoom-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var cell = btn.closest('.vplt-variant-option-cell');
+                var opt = cell && cell.querySelector('.vplt-variant-option');
+                var aid = assetIdResolver(btn, opt, cell);
+                var a = assetById(aid);
+                if (!a) return;
+                var url = opt
+                    ? (opt.getAttribute('data-variant-url') || '').trim()
+                    : assetDisplayImageUrl(a, aid);
+                var it = variantImageItems(a).find(function (x) { return x.url === url; }) ||
+                    { url: url, label: '' };
+                openVariantLightbox(a, it);
+            });
+        });
+    }
+
+    function buildVariantOptionCellHtml(a, it, activeUrl, cap) {
         var isActive = it.url === activeUrl;
         var lab = (it.label || '').trim();
-        return '<button type="button" role="option" class="vplt-variant-option' + (isActive ? ' is-active' : '') + '"' +
+        return '<div class="vplt-variant-option-cell">' +
+            '<button type="button" role="option" class="vplt-variant-option' + (isActive ? ' is-active' : '') + '"' +
             ' data-variant-url="' + esc(it.url) + '"' +
             ' data-variant-label="' + esc(lab) + '"' +
             ' aria-selected="' + (isActive ? 'true' : 'false') + '"' +
             ' title="' + esc(lab || tr('productTree.colorVariant', '色款')) + '">' +
-            '<img src="' + esc(it.url) + '" alt="' + esc(lab) + '" class="matchdo-enlarge-trigger"' +
-            dataImageItemsAttr(a) +
-            ' data-lightbox-caption="' + esc(cap + (lab ? ' · ' + lab : '')) + '" loading="lazy">' +
-            '<span class="vplt-variant-option-label">' + esc(lab || '—') + '</span></button>';
+            '<img src="' + esc(it.url) + '" alt="' + esc(lab) + '" loading="lazy">' +
+            '<span class="vplt-variant-option-label">' + esc(lab || '—') + '</span></button>' +
+            variantZoomBtnHtml(a, it) + '</div>';
     }
 
     function variantLabelHtml(a, assetId) {
@@ -174,9 +222,15 @@
 
     function variantCollapsedBlockHtml(a, assetId) {
         var displayUrl = assetDisplayImageUrl(a, assetId);
-        var inner = displayUrl
-            ? enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl)
-            : '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>';
+        var inner = '';
+        if (displayUrl) {
+            var lab = (getGuideVariant(assetId) && getGuideVariant(assetId).label) || '';
+            inner = '<div class="vplt-variant-thumb-wrap">' +
+                '<img src="' + esc(displayUrl) + '" alt="' + esc(lab) + '" class="vplt-card-thumb" loading="lazy">' +
+                variantZoomBtnHtml(a, { url: displayUrl, label: lab }) + '</div>';
+        } else {
+            inner = '<div class="bg-light rounded mx-auto mb-1" style="width:84px;height:84px"></div>';
+        }
         inner += variantLabelHtml(a, assetId);
         return '<div class="vplt-variant-collapsed" aria-hidden="false">' +
             '<div class="vplt-variant-collapsed-inner">' + inner + '</div></div>';
@@ -192,7 +246,7 @@
         var v = getGuideVariant(assetId);
         var activeLabel = (v && v.label) ? v.label : '';
         var stripInner = items.map(function (it) {
-            return buildVariantOptionButtonHtml(a, it, activeUrl, cap);
+            return buildVariantOptionCellHtml(a, it, activeUrl, cap);
         }).join('');
         var browseLbl = (tr('productTree.browseAllColors', '瀏覽全部 {n} 色') || '瀏覽全部 {n} 色').replace('{n}', String(items.length));
         return '<div class="vplt-variant-picker" data-variant-picker-asset="' + esc(assetId) + '">' +
@@ -260,7 +314,11 @@
         if (!card || !a) return;
         var displayUrl = assetDisplayImageUrl(a, assetId);
         var thumb = card.querySelector('.vplt-variant-collapsed .vplt-card-thumb');
-        if (thumb && displayUrl) thumb.src = displayUrl;
+        if (thumb && displayUrl) {
+            thumb.src = displayUrl;
+            var v0 = getGuideVariant(assetId);
+            if (v0 && v0.label) thumb.alt = v0.label;
+        }
         var labelEl = card.querySelector('.vplt-variant-active-label');
         var v = getGuideVariant(assetId);
         if (labelEl) {
@@ -318,11 +376,12 @@
                 (tr('productTree.pickColorVariant', '選擇色款'));
         }
         grid.innerHTML = items.map(function (it) {
-            return buildVariantOptionButtonHtml(a, it, activeUrl, cap);
+            return buildVariantOptionCellHtml(a, it, activeUrl, cap);
         }).join('');
         grid.querySelectorAll('.vplt-variant-option').forEach(function (opt) {
             wireVariantOptionClick(opt, assetId, closeVariantSheet);
         });
+        wireVariantZoomButtons(grid, function () { return assetId; });
         sheet.classList.add('open');
         sheet.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -514,7 +573,7 @@
             canvas.querySelectorAll('[data-guide-asset]').forEach(function (card) {
                 card.addEventListener('click', function (e) {
                     if (e.target.closest(
-                        'img.matchdo-enlarge-trigger, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn'
+                        '.vplt-variant-zoom-btn, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn'
                     )) return;
                     if (card.classList.contains('vplt-child-card--has-variants')) return;
                     toggleGuideSelection(card.getAttribute('data-guide-asset'));
@@ -534,6 +593,10 @@
                 var card = opt.closest('[data-guide-asset]');
                 if (!card) return;
                 wireVariantOptionClick(opt, card.getAttribute('data-guide-asset'));
+            });
+            wireVariantZoomButtons(canvas, function (btn, opt, cell) {
+                var card = (cell || btn).closest('[data-guide-asset]');
+                return card ? card.getAttribute('data-guide-asset') : '';
             });
         }
 
