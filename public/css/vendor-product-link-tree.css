@@ -400,8 +400,28 @@
     pointer-events: none;
     user-select: none;
 }
-.vplt-page--guide .vplt-guide-tile-media .vplt-variant-zoom-btn {
-    display: none !important;
+.vplt-page--guide .vplt-guide-tile-media .vplt-guide-tile-zoom-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0.2rem;
+    right: 0.2rem;
+    z-index: 6;
+    width: 1.65rem;
+    height: 1.65rem;
+    padding: 0;
+    pointer-events: auto;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #0d9488;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    opacity: 0.92;
+}
+.vplt-page--guide .vplt-guide-tile-media .vplt-guide-tile-zoom-btn:hover {
+    background: #f0fdfa;
+    color: #0f766e;
+    opacity: 1;
 }
 .vplt-guide-tile--active-view .vplt-guide-tile-name {
     font-weight: 600;

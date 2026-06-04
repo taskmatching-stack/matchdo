@@ -124,11 +124,21 @@
         renderGuidePanel();
     }
 
+    function guideLightboxItems(a) {
+        var raw = variantImageItems(a);
+        return raw.map(function (x, idx) {
+            return {
+                url: x.url,
+                label: guideTileOptionLabel(a, x, idx, raw.length)
+            };
+        });
+    }
+
     function openVariantLightbox(a, it) {
         if (!a || !it || !it.url) return;
         if (!window.MatchdoImageLightbox || typeof window.MatchdoImageLightbox.open !== 'function') return;
         var cap = assetLightboxCaption(a);
-        var items = variantImageItems(a).map(function (x) {
+        var items = !IS_VENDOR ? guideLightboxItems(a) : variantImageItems(a).map(function (x) {
             return { url: x.url, label: (x.label || '').trim() };
         });
         var url = (it.url || '').trim();
@@ -176,19 +186,24 @@
     function wireVariantZoomButtons(root, assetIdResolver) {
         if (!root) return;
         root.querySelectorAll('.vplt-variant-zoom-btn').forEach(function (btn) {
+            if (btn.__vpltZoomWired) return;
+            btn.__vpltZoomWired = true;
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 var cell = btn.closest('.vplt-variant-option-cell');
                 var opt = cell && cell.querySelector('.vplt-variant-option');
+                var tile = btn.closest('.vplt-guide-tile');
                 var aid = assetIdResolver(btn, opt, cell);
                 var a = assetById(aid);
                 if (!a) return;
-                var url = opt
-                    ? (opt.getAttribute('data-variant-url') || '').trim()
-                    : assetDisplayImageUrl(a, aid);
-                var it = variantImageItems(a).find(function (x) { return x.url === url; }) ||
-                    { url: url, label: '' };
+                var url = (btn.getAttribute('data-zoom-url') || '').trim();
+                if (!url && opt) url = (opt.getAttribute('data-variant-url') || '').trim();
+                if (!url && tile) url = (tile.getAttribute('data-variant-url') || '').trim();
+                if (!url) url = assetDisplayImageUrl(a, aid);
+                var label = (btn.getAttribute('data-zoom-label') || '').replace(/&quot;/g, '"').trim();
+                if (!label && tile) label = (tile.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
+                var it = { url: url, label: label };
                 openVariantLightbox(a, it);
             });
         });
@@ -569,13 +584,25 @@
         return '';
     }
 
-    function guideTileMediaFromUrl(url, alt, badgeHtml) {
+    function guideTileZoomBtnHtml(a, url, label) {
+        if (!url) return '';
+        var zoomTitle = tr('baseModels.clickImageEnlarge', '放大預覽');
+        return '<button type="button" class="vplt-variant-zoom-btn vplt-guide-tile-zoom-btn"' +
+            ' data-zoom-url="' + esc(url) + '"' +
+            ' data-zoom-label="' + esc(label || '') + '"' +
+            ' aria-label="' + esc(zoomTitle) + '" title="' + esc(zoomTitle) + '">' +
+            '<i class="bi bi-zoom-in" aria-hidden="true"></i></button>';
+    }
+
+    function guideTileMediaHtml(a, it, optionLabel, badgeHtml) {
+        var url = (it && it.url) ? it.url : '';
         if (!url) {
             return '<div class="vplt-guide-tile-media vplt-guide-tile-media--empty" aria-hidden="true"></div>';
         }
         return '<div class="vplt-guide-tile-media">' +
             (badgeHtml || '') +
-            '<img src="' + esc(url) + '" alt="' + esc(alt || '') + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
+            '<img src="' + esc(url) + '" alt="' + esc(optionLabel || '') + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
+            guideTileZoomBtnHtml(a, url, optionLabel) +
             '</div>';
     }
 
@@ -604,7 +631,7 @@
         var pressedAttr = isPicked ? ' aria-pressed="true"' : ' aria-pressed="false"';
         return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + interCls + pickCls + activeCls + '"' +
             ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + pressedAttr + ' tabindex="0">' +
-            guideTileMediaFromUrl(imgUrl, optionLabel, badgeHtml) +
+            guideTileMediaHtml(a, it, optionLabel, badgeHtml) +
             '<span class="vplt-guide-tile-name">' + displayName + '</span>' +
             subKind +
             '</div>';
@@ -737,7 +764,8 @@
         canvas.querySelectorAll('.vplt-guide-tile').forEach(function (tile) {
             if (tile.__vpltTileWired) return;
             tile.__vpltTileWired = true;
-            tile.addEventListener('click', function () {
+            tile.addEventListener('click', function (e) {
+                if (e.target.closest('.vplt-variant-zoom-btn')) return;
                 var aid = tile.getAttribute('data-guide-asset');
                 var url = (tile.getAttribute('data-variant-url') || '').trim();
                 var label = (tile.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
@@ -913,6 +941,10 @@
         if (!IS_VENDOR) {
             canvas.innerHTML = renderGuideCanvas(proto, linkedIds);
             wireGuideRail(canvas);
+            wireVariantZoomButtons(canvas, function (btn) {
+                var tile = btn.closest('.vplt-guide-tile');
+                return tile ? tile.getAttribute('data-guide-asset') : '';
+            });
             return;
         }
         var childrenHtml = '';
