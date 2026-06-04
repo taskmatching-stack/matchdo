@@ -596,10 +596,17 @@
 
     function guideSectionHtml(sectionKind, heading, tilesHtml) {
         if (!tilesHtml) return '';
+        var prevLbl = esc(tr('productTree.railScrollPrev', '向左捲動'));
+        var nextLbl = esc(tr('productTree.railScrollNext', '向右捲動'));
         return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + '">' +
             '<h3 class="vplt-guide-section-title">' + heading + '</h3>' +
+            '<div class="vplt-guide-rail-nav">' +
+            '<button type="button" class="vplt-guide-rail-arrow vplt-guide-rail-arrow--prev" aria-label="' + prevLbl + '">' +
+            '<i class="bi bi-chevron-left" aria-hidden="true"></i></button>' +
             '<div class="vplt-guide-rail-scroll" tabindex="0">' +
-            '<div class="vplt-guide-rail" role="list">' + tilesHtml + '</div>' +
+            '<div class="vplt-guide-rail" role="list">' + tilesHtml + '</div></div>' +
+            '<button type="button" class="vplt-guide-rail-arrow vplt-guide-rail-arrow--next" aria-label="' + nextLbl + '">' +
+            '<i class="bi bi-chevron-right" aria-hidden="true"></i></button>' +
             '</div></section>';
     }
 
@@ -651,8 +658,55 @@
         return '<div class="vplt-guide-sections">' + sections + '</div>';
     }
 
+    function wireGuideRailNav(canvas) {
+        if (!canvas) return;
+        canvas.querySelectorAll('.vplt-guide-rail-nav').forEach(function (nav) {
+            if (nav.__vpltNavWired) return;
+            nav.__vpltNavWired = true;
+            var scroll = nav.querySelector('.vplt-guide-rail-scroll');
+            var prev = nav.querySelector('.vplt-guide-rail-arrow--prev');
+            var next = nav.querySelector('.vplt-guide-rail-arrow--next');
+            if (!scroll || !prev || !next) return;
+
+            function updateArrows() {
+                var max = scroll.scrollWidth - scroll.clientWidth;
+                var sl = scroll.scrollLeft;
+                var overflow = max > 4;
+                nav.classList.toggle('vplt-guide-rail-nav--overflow', overflow);
+                prev.disabled = !overflow || sl <= 4;
+                next.disabled = !overflow || sl >= max - 4;
+            }
+
+            function scrollStep(dir) {
+                var step = Math.max(Math.round(scroll.clientWidth * 0.72), 180);
+                scroll.scrollBy({ left: dir * step, behavior: 'smooth' });
+            }
+
+            prev.addEventListener('click', function (e) {
+                e.preventDefault();
+                scrollStep(-1);
+            });
+            next.addEventListener('click', function (e) {
+                e.preventDefault();
+                scrollStep(1);
+            });
+            scroll.addEventListener('scroll', updateArrows, { passive: true });
+            if (typeof ResizeObserver !== 'undefined') {
+                var ro = new ResizeObserver(updateArrows);
+                ro.observe(scroll);
+                var rail = scroll.querySelector('.vplt-guide-rail');
+                if (rail) ro.observe(rail);
+            } else {
+                window.addEventListener('resize', updateArrows);
+            }
+            updateArrows();
+            setTimeout(updateArrows, 120);
+        });
+    }
+
     function wireGuideRail(canvas) {
         if (!canvas) return;
+        wireGuideRailNav(canvas);
         canvas.querySelectorAll('.vplt-guide-tile').forEach(function (tile) {
             if (tile.__vpltTileWired) return;
             tile.__vpltTileWired = true;

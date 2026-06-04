@@ -225,17 +225,59 @@
 .vplt-guide-section-title {
     color: #1d1d1f;
 }
-/* 橫向選單：僅占主內容欄全寬，不另做 100vw 左推 */
+/* 橫向選單：隱藏捲軸，用左右箭頭（類 Apple Mac 列） */
+.vplt-guide-rail-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    width: 100%;
+    position: relative;
+}
+.vplt-guide-rail-nav:not(.vplt-guide-rail-nav--overflow) .vplt-guide-rail-arrow {
+    display: none;
+}
 .vplt-page--guide .vplt-guide-rail-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
     width: 100%;
     max-width: 100%;
     margin: 0;
     padding: 0.15rem 0 0.35rem;
     box-sizing: border-box;
     overflow-x: auto;
-    overflow-y: visible;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     background: transparent;
+}
+.vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
+}
+.vplt-guide-rail-arrow {
+    flex: 0 0 1.75rem;
+    width: 1.75rem;
+    height: 2.75rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: #86868b;
+    font-size: 1.35rem;
+    line-height: 1;
+    cursor: pointer;
+    align-self: center;
+    transition: color 0.15s ease, opacity 0.15s ease;
+}
+.vplt-guide-rail-arrow:hover:not(:disabled) {
+    color: #1d1d1f;
+}
+.vplt-guide-rail-arrow:disabled {
+    opacity: 0.22;
+    cursor: default;
 }
 .vplt-guide-rail {
     display: flex;
