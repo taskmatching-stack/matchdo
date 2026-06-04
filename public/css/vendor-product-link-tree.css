@@ -161,8 +161,16 @@
 .vplt-child-card--part { border-color: #f59e0b; }
 .vplt-child-card--has-variants {
     width: min(100%, 168px);
+    max-width: 100%;
+    flex: 0 1 auto;
     text-align: center;
     padding: 0.5rem 0.4rem 0.5rem 0.5rem;
+    transition:
+        flex 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        padding 0.35s ease,
+        box-shadow 0.25s ease;
 }
 .vplt-child-card--has-variants.vplt-child-card--expanded {
     width: 100%;
@@ -172,6 +180,37 @@
     padding: 0.5rem 0.5rem 0.55rem 0.6rem;
     box-sizing: border-box;
     z-index: 2;
+}
+.vplt-variant-collapsed {
+    max-height: 160px;
+    opacity: 1;
+    overflow: hidden;
+    transition:
+        max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.28s ease,
+        margin 0.35s ease;
+}
+.vplt-child-card--has-variants.vplt-child-card--expanded .vplt-variant-collapsed {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    pointer-events: none;
+}
+.vplt-variant-collapsed-inner {
+    overflow: hidden;
+}
+.vplt-variant-expanded-wrap {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition:
+        max-height 0.42s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.32s ease 0.05s;
+}
+.vplt-child-card--has-variants.vplt-child-card--expanded .vplt-variant-expanded-wrap {
+    max-height: 300px;
+    opacity: 1;
 }
 .vplt-variant-layout {
     display: flex;
@@ -208,14 +247,28 @@
     cursor: pointer;
     font-size: 1rem;
     line-height: 1;
+    transition: background 0.2s ease, border-color 0.2s ease;
 }
 .vplt-variant-side-toggle:hover {
     background: #ccfbf1;
+}
+.vplt-variant-side-toggle i {
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.vplt-child-card--expanded .vplt-variant-side-toggle i {
+    transform: rotate(0deg);
 }
 .vplt-variant-side-count {
     font-size: 0.62rem;
     font-weight: 700;
     line-height: 1;
+    transition: opacity 0.2s ease, transform 0.25s ease;
+}
+.vplt-child-card--expanded .vplt-variant-side-count {
+    opacity: 0;
+    transform: scale(0.6);
+    max-height: 0;
+    overflow: hidden;
 }
 .vplt-variant-active-label {
     font-size: 0.65rem;
@@ -242,6 +295,15 @@
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
+    transform: translateX(14px);
+    opacity: 0;
+    transition:
+        transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.32s ease 0.08s;
+}
+.vplt-child-card--has-variants.vplt-child-card--expanded .vplt-variant-hstrip {
+    transform: translateX(0);
+    opacity: 1;
 }
 .vplt-variant-hstrip::-webkit-scrollbar {
     height: 6px;
@@ -294,8 +356,22 @@
 .vplt-child-card--has-variants.vplt-child-card--expanded .vplt-variant-main .vplt-child-title {
     margin-top: 0.45rem;
 }
-.vplt-children .vplt-child-card--has-variants.vplt-child-card--expanded {
-    order: 10;
+.vplt-children {
+    transition: gap 0.35s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+    .vplt-child-card--has-variants,
+    .vplt-variant-collapsed,
+    .vplt-variant-expanded-wrap,
+    .vplt-variant-hstrip,
+    .vplt-variant-side-toggle i,
+    .vplt-variant-side-count {
+        transition: none !important;
+    }
+    .vplt-child-card--has-variants.vplt-child-card--expanded .vplt-variant-hstrip {
+        transform: none;
+        opacity: 1;
+    }
 }
 @media (max-width: 991px) {
     .vplt-child-card--has-variants.vplt-child-card--expanded {
@@ -317,6 +393,15 @@
         padding: 0;
         background: transparent;
         border: none;
+        transform: translateX(12px);
+        opacity: 0;
+        transition:
+            transform 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.3s ease 0.06s;
+    }
+    .vplt-child-card--has-variants.vplt-child-card--expanded .vplt-variant-mobile-bar {
+        transform: translateX(0);
+        opacity: 1;
     }
     .vplt-variant-mobile-label {
         flex: 1 1 auto;
