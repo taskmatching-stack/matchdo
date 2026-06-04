@@ -334,9 +334,6 @@
     cursor: zoom-in;
     pointer-events: auto;
 }
-.vplt-variant-option-label {
-    cursor: pointer;
-}
 .vplt-child-card--has-variants .vplt-card-thumb {
     width: 84px;
     height: 84px;
@@ -347,6 +344,7 @@
     color: #475569;
     width: 100%;
     word-break: break-word;
+    cursor: pointer;
 }
 .vplt-variant-unit .vplt-child-title {
     text-align: center;
