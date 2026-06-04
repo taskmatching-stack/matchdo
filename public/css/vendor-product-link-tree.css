@@ -166,7 +166,7 @@
     gap: 0.75rem;
 }
 
-/* Guide 收合態：主產品／材料／配件 統一 168×152px（標題最多兩行，不依內容撐高） */
+/* Guide：框 168×118px；標題+分類在框外 caption */
 .vplt-page--guide .vplt-root-wrap {
     display: flex;
     justify-content: center;
@@ -185,9 +185,9 @@
 .vplt-page--guide .vplt-variant-unit:not(.vplt-variant-unit--expanded) > .vplt-child-card {
     width: 168px !important;
     max-width: 168px !important;
-    height: 152px;
-    min-height: 152px;
-    max-height: 152px;
+    height: 118px;
+    min-height: 118px;
+    max-height: 118px;
     overflow: hidden;
     box-sizing: border-box;
 }
@@ -209,39 +209,59 @@
 }
 .vplt-page--guide .vplt-card-with-side:not(.vplt-child-card--expanded),
 .vplt-page--guide .vplt-card-with-side.vplt-child-card--expanded {
-    height: 152px;
-    min-height: 152px;
-    max-height: 152px;
-    grid-template-rows: minmax(0, 1fr) auto;
+    height: 118px;
+    min-height: 118px;
+    max-height: 118px;
+    grid-template-rows: 1fr;
     grid-template-columns: minmax(0, 1fr) 24px;
+    grid-template-areas: "content side";
 }
 .vplt-page--guide .vplt-card-with-side .vplt-variant-layout {
-    padding: 0.4rem 0 0.3rem 0.45rem;
+    grid-area: content;
+    padding: 0.4rem 0 0.35rem 0.45rem;
     min-height: 0;
     align-items: center;
 }
-.vplt-page--guide .vplt-card-with-side .vplt-child-title {
-    padding: 0.15rem 0.45rem 0.35rem;
-    margin-top: 0;
+.vplt-page--guide .vplt-card-with-side .vplt-variant-side-toggle {
+    grid-area: side;
 }
 .vplt-page--guide .vplt-variant-unit > .vplt-child-card--prototype,
 .vplt-page--guide .vplt-variant-unit > .vplt-child-card--material,
 .vplt-page--guide .vplt-variant-unit > .vplt-child-card--part {
     border-width: 1px;
 }
-.vplt-page--guide .vplt-variant-unit:not(.vplt-variant-unit--expanded) .vplt-child-title {
-    font-size: 0.7rem;
-    line-height: 1.25;
-    min-height: 2.5em;
-    max-height: 2.5em;
-    margin-top: 0.25rem;
+/* 框外：標題 + 分類（分類緊接標題後，無小框 badge） */
+.vplt-page--guide .vplt-unit-caption {
     width: 100%;
+    margin-top: 0.3rem;
+    padding: 0 0.1rem;
+    text-align: center;
+    font-size: 0.7rem;
+    line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     word-break: break-word;
-    text-align: center;
+}
+.vplt-page--guide .vplt-unit-title {
+    font-weight: 600;
+    color: #334155;
+}
+.vplt-page--guide .vplt-unit-kind {
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: #94a3b8;
+    margin-left: 0.2rem;
+}
+.vplt-page--guide .vplt-unit-caption--prototype .vplt-unit-kind {
+    color: #0d9488;
+}
+.vplt-page--guide .vplt-unit-caption--material .vplt-unit-kind {
+    color: #16a34a;
+}
+.vplt-page--guide .vplt-unit-caption--part .vplt-unit-kind {
+    color: #d97706;
 }
 .vplt-page--guide .vplt-variant-active-label {
     flex: 0 0 1.2em;
@@ -254,7 +274,7 @@
     white-space: nowrap;
     max-width: 100px;
 }
-/* Guide：展開色帶時仍維持 168×152，避免整頁上下跳動 */
+/* Guide：展開色帶時框高不變，避免整頁上下跳動 */
 .vplt-page--guide .vplt-variant-unit--expanded {
     width: 168px;
     max-width: 168px;
@@ -263,9 +283,9 @@
 .vplt-page--guide .vplt-variant-unit--expanded > .vplt-child-card {
     width: 168px !important;
     max-width: 168px !important;
-    height: 152px;
-    min-height: 152px;
-    max-height: 152px;
+    height: 118px;
+    min-height: 118px;
+    max-height: 118px;
     overflow: hidden;
 }
 .vplt-page--guide .vplt-child-card--expanded .vplt-variant-layout {
@@ -336,7 +356,7 @@
     margin: 0 0 0.2rem 0.15rem;
     padding: 0.2rem 0.45rem;
 }
-/* 主產品／材料／配件：統一外框尺寸（標籤在框外） */
+/* 主產品／材料／配件：統一外框尺寸（分類在標題後、框內） */
 .vplt-variant-unit > .vplt-child-card {
     width: 100%;
     max-width: min(100%, 200px);
@@ -365,10 +385,8 @@
 .vplt-child-card.vplt-card-with-side {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 22px;
-    grid-template-rows: auto auto;
-    grid-template-areas:
-        "content side"
-        "title side";
+    grid-template-rows: 1fr;
+    grid-template-areas: "content side";
     column-gap: 0;
     align-items: stretch;
 }
@@ -388,9 +406,6 @@
     min-height: 0;
     padding: 0 0.1rem;
     font-size: 0.95rem;
-}
-.vplt-card-with-side .vplt-child-title {
-    grid-area: title;
 }
 .vplt-variant-unit--expanded .vplt-child-card--has-variants {
     z-index: 2;

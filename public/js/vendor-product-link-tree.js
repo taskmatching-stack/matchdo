@@ -457,16 +457,27 @@
             variantZoomBtnHtml(a, { url: displayUrl, label: lab }) + '</div>';
     }
 
+    function guideKindLabelForKey(kindKey) {
+        if (kindKey === 'prototype') return tr('productTree.rootLabel', '主產品');
+        return kindLabel(kindKey);
+    }
+
+    /** 框外說明：商品名 + 分類（分類在標題後，皆不在有邊框的框內） */
+    function guideUnitCaptionHtml(a, aid, kindKey) {
+        var title = esc(a.title || aid);
+        var kindLbl = esc(guideKindLabelForKey(kindKey));
+        var kindCls = kindKey === 'prototype' ? 'prototype' : (kindKey === 'material' ? 'material' : 'part');
+        return '<div class="vplt-unit-caption vplt-unit-caption--' + esc(kindCls) + '">' +
+            '<span class="vplt-unit-title">' + title + '</span>' +
+            '<span class="vplt-unit-kind">' + kindLbl + '</span></div>';
+    }
+
     function guideVariantUnitHtml(a, aid, kindKey, removeBtn, clickCls, pickCls) {
         var expanded = isVariantPanelExpanded(aid);
         var expandedCls = expanded ? ' vplt-child-card--expanded' : '';
         var unitExpandedCls = expanded ? ' vplt-variant-unit--expanded' : '';
-        var kindOut = kindKey === 'prototype'
-            ? tr('productTree.rootLabel', '主產品')
-            : kindLabel(kindKey);
         var cardKind = kindKey === 'prototype' ? 'prototype' : kindKey;
         return '<div class="vplt-variant-unit' + unitExpandedCls + (kindKey === 'prototype' ? ' vplt-variant-unit--root' : '') + '">' +
-            '<span class="badge bg-light text-secondary vplt-kind-out">' + esc(kindOut) + '</span>' +
             '<div class="vplt-child-card vplt-child-card--' + esc(cardKind) + clickCls + pickCls +
             ' vplt-child-card--has-variants vplt-card-with-side' + expandedCls + '" data-guide-asset="' + esc(aid) + '">' +
             removeBtn +
@@ -475,22 +486,22 @@
             variantExpandedBlockHtml(a, aid) +
             '</div>' +
             variantSideToggleHtml(a, aid) +
-            '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div></div>';
+            '</div>' +
+            guideUnitCaptionHtml(a, aid, kindKey) +
+            '</div>';
     }
 
     function guideSimpleCardHtml(a, aid, kindKey, removeBtn, clickCls, pickCls) {
-        var kindOut = kindKey === 'prototype'
-            ? tr('productTree.rootLabel', '主產品')
-            : kindLabel(kindKey);
         var cardKind = kindKey === 'prototype' ? 'prototype' : kindKey;
         var rootCls = kindKey === 'prototype' ? ' vplt-variant-unit--root' : '';
         return '<div class="vplt-variant-unit' + rootCls + '">' +
-            '<span class="badge bg-light text-secondary vplt-kind-out">' + esc(kindOut) + '</span>' +
             '<div class="vplt-child-card vplt-child-card--' + esc(cardKind) + clickCls + pickCls +
             '" data-guide-asset="' + esc(aid) + '">' +
             removeBtn +
             simpleThumbHtml(a, aid) +
-            '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div></div>';
+            '</div>' +
+            guideUnitCaptionHtml(a, aid, kindKey) +
+            '</div>';
     }
 
     function linkedAssetCardHtml(a, aid, removeBtn, clickCls, pickCls) {
@@ -663,7 +674,7 @@
             canvas.querySelectorAll('.vplt-variant-unit').forEach(function (unit) {
                 unit.addEventListener('click', function (e) {
                     if (e.target.closest(
-                        '.vplt-variant-zoom-btn, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn'
+                        '.vplt-variant-zoom-btn, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn, .vplt-unit-caption'
                     )) return;
                     var card = unit.querySelector('[data-guide-asset]');
                     if (!card) return;
