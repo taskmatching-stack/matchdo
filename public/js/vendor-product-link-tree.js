@@ -369,19 +369,14 @@
         var displayUrl = assetDisplayImageUrl(a, assetId);
         var activeUrl = displayUrl;
         if (!IS_VENDOR) {
-            var tile = document.querySelector('.vplt-guide-tile[data-guide-asset="' + assetId + '"]');
-            if (tile) {
-                var gImg = tile.querySelector('.vplt-guide-tile-img');
-                if (gImg && displayUrl) {
-                    gImg.src = displayUrl;
-                    var gv = getGuideVariant(assetId);
-                    if (gv && gv.label) gImg.alt = gv.label;
-                }
-                tile.querySelectorAll('.vplt-guide-swatch:not(.vplt-guide-swatch--more)').forEach(function (btn) {
-                    var url = (btn.getAttribute('data-variant-url') || '').trim();
-                    var on = url === activeUrl;
-                    btn.classList.toggle('is-active', on);
-                    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+            var tiles = document.querySelectorAll('.vplt-guide-tile[data-guide-asset="' + assetId + '"]');
+            if (tiles.length) {
+                var picked = state.guideSelectedIds.indexOf(assetId) >= 0;
+                tiles.forEach(function (tile) {
+                    var url = (tile.getAttribute('data-variant-url') || '').trim();
+                    var on = !url || url === activeUrl;
+                    tile.classList.toggle('vplt-guide-tile--active-color', on);
+                    tile.classList.toggle('vplt-guide-tile--picked', picked && on);
                 });
                 return;
             }
@@ -529,114 +524,125 @@
         return kindLabel(kindKey);
     }
 
-    function guideTileMediaHtml(a, assetId) {
-        var displayUrl = assetDisplayImageUrl(a, assetId);
-        if (!displayUrl) {
+    function guideTileMediaFromUrl(url, alt) {
+        if (!url) {
             return '<div class="vplt-guide-tile-media vplt-guide-tile-media--empty" aria-hidden="true"></div>';
         }
-        var lab = '';
-        var v = getGuideVariant(assetId);
-        if (v && v.label) lab = v.label;
         return '<div class="vplt-guide-tile-media">' +
-            '<img src="' + esc(displayUrl) + '" alt="' + esc(lab) + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
+            '<img src="' + esc(url) + '" alt="' + esc(alt || '') + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
             '</div>';
     }
 
-    function guideTileSwatchesHtml(a, assetId) {
-        var items = variantImageItems(a);
-        if (items.length <= 1) return '';
-        var activeUrl = assetDisplayImageUrl(a, assetId);
-        var maxShow = 5;
-        var pickLbl = esc(tr('productTree.pickColorVariant', '選擇色款'));
-        var html = '<div class="vplt-guide-swatches" role="listbox" aria-label="' + pickLbl + '">';
-        items.slice(0, maxShow).forEach(function (it) {
-            var on = it.url === activeUrl;
-            var lab = (it.label || '').trim();
-            html += '<button type="button" class="vplt-guide-swatch' + (on ? ' is-active' : '') + '" role="option"' +
-                ' data-variant-url="' + esc(it.url) + '"' +
-                ' data-variant-label="' + esc(lab) + '"' +
-                ' aria-selected="' + (on ? 'true' : 'false') + '"' +
-                ' title="' + esc(lab || tr('productTree.colorVariant', '色款')) + '">' +
-                '<img src="' + esc(it.url) + '" alt="" loading="lazy"></button>';
-        });
-        if (items.length > maxShow) {
-            html += '<button type="button" class="vplt-guide-swatch vplt-guide-swatch--more" data-browse-asset="' + esc(assetId) + '"' +
-                ' aria-label="' + esc(tr('productTree.browseAllColors', '瀏覽全部色款')) + '">+' +
-                (items.length - maxShow) + '</button>';
-        }
-        html += '</div>';
-        return html;
-    }
-
-    /** Apple 風格：圖上、名稱下、分類標籤（無框線） */
-    function guideTileHtml(a, aid, kindKey, picked) {
+    /** 單一圖塊；多色時每色一塊，全部顯示在橫條上 */
+    function guideTileHtml(a, aid, kindKey, picked, variantIt) {
         var isRoot = kindKey === 'prototype';
         var kindCls = kindKey === 'prototype' ? 'prototype' : (kindKey === 'material' ? 'material' : 'part');
-        var title = esc(a.title || a.id || '');
-        var kindLbl = esc(guideKindLabelForKey(kindKey));
-        var pickCls = picked ? ' vplt-guide-tile--picked' : '';
+        var items = variantImageItems(a);
+        var it = variantIt || items[0] || null;
+        var imgUrl = (it && it.url) ? it.url : assetDisplayImageUrl(a, aid);
+        var activeUrl = assetDisplayImageUrl(a, aid);
+        var multi = items.length > 1;
+        var colorLab = (it && it.label) ? String(it.label).trim() : '';
+        var productTitle = esc(a.title || a.id || '');
+        var displayName = multi && colorLab ? esc(colorLab) : productTitle;
+        var subKind = multi && colorLab ? '' : ('<span class="vplt-guide-tile-kind">' + esc(guideKindLabelForKey(kindKey)) + '</span>');
+        var isActive = !multi || imgUrl === activeUrl;
+        var pickCls = (picked && isActive) ? ' vplt-guide-tile--picked' : '';
+        var activeCls = isActive ? ' vplt-guide-tile--active-color' : '';
         var selCls = isRoot ? '' : ' vplt-guide-tile--selectable';
-        return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + selCls + pickCls + '"' +
-            ' data-guide-asset="' + esc(aid) + '" role="listitem">' +
-            guideTileMediaHtml(a, aid) +
-            guideTileSwatchesHtml(a, aid) +
-            '<span class="vplt-guide-tile-name">' + title + '</span>' +
-            '<span class="vplt-guide-tile-kind">' + kindLbl + '</span>' +
+        var variantAttrs = multi && it && it.url
+            ? ' data-variant-url="' + esc(it.url) + '" data-variant-label="' + esc(colorLab) + '"'
+            : '';
+        return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + selCls + pickCls + activeCls + '"' +
+            ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + ' tabindex="0">' +
+            guideTileMediaFromUrl(imgUrl, colorLab || a.title || '') +
+            '<span class="vplt-guide-tile-name">' + displayName + '</span>' +
+            subKind +
             '</div>';
+    }
+
+    function guideTilesForAsset(a, aid, kindKey, picked) {
+        var items = variantImageItems(a);
+        if (items.length <= 1) {
+            return [guideTileHtml(a, aid, kindKey, picked, items[0] || null)];
+        }
+        return items.map(function (it) {
+            return guideTileHtml(a, aid, kindKey, picked, it);
+        });
+    }
+
+    function guideSectionHtml(sectionKind, heading, tilesHtml) {
+        if (!tilesHtml) return '';
+        return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + '">' +
+            '<h3 class="vplt-guide-section-title">' + heading + '</h3>' +
+            '<div class="vplt-guide-rail-scroll" tabindex="0">' +
+            '<div class="vplt-guide-rail" role="list">' + tilesHtml + '</div>' +
+            '</div></section>';
     }
 
     function renderGuideCanvas(proto, linkedIds) {
-        var tiles = [guideTileHtml(proto, proto.id, 'prototype', false)];
+        var sections = '';
+        var protoTiles = guideTilesForAsset(proto, proto.id, 'prototype', false).join('');
+        sections += guideSectionHtml('prototype', esc(guideKindLabelForKey('prototype')), protoTiles);
+
+        var partIds = [];
+        var materialIds = [];
         linkedIds.forEach(function (aid) {
             var a = assetById(aid);
             if (!a) return;
-            var picked = state.guideSelectedIds.indexOf(aid) >= 0;
-            tiles.push(guideTileHtml(a, aid, a.asset_kind, picked));
+            if (a.asset_kind === 'part') partIds.push(aid);
+            else if (a.asset_kind === 'material') materialIds.push(aid);
         });
-        var total = tiles.length;
-        var railMode = total <= 6 ? 'spread' : 'scroll';
-        var emptyMsg = !linkedIds.length
-            ? '<p class="vplt-guide-rail-note text-muted small mb-0 mt-3 text-center">' +
-            esc(tr('productTree.noLinksYet', '尚未關聯材料或配件')) + '</p>'
-            : '';
-        return '<div class="vplt-guide-rail-outer">' +
-            '<div class="vplt-guide-rail-scroll" tabindex="0" aria-label="' +
-            esc(tr('productTree.guideRailLabel', '可搭配項目')) + '">' +
-            '<div class="vplt-guide-rail vplt-guide-rail--' + railMode + '" role="list" data-tile-count="' + total + '">' +
-            tiles.join('') + '</div></div>' + emptyMsg + '</div>';
+
+        partIds.forEach(function (aid) {
+            var a = assetById(aid);
+            if (!a) return;
+            var picked = state.guideSelectedIds.indexOf(aid) >= 0;
+            var head = esc(a.title || aid) + ' <span class="vplt-guide-section-tag">' +
+                esc(guideKindLabelForKey('part')) + '</span>';
+            sections += guideSectionHtml('part', head, guideTilesForAsset(a, aid, 'part', picked).join(''));
+        });
+
+        if (materialIds.length) {
+            var matTiles = [];
+            materialIds.forEach(function (aid) {
+                var a = assetById(aid);
+                if (!a) return;
+                var picked = state.guideSelectedIds.indexOf(aid) >= 0;
+                matTiles = matTiles.concat(guideTilesForAsset(a, aid, 'material', picked));
+            });
+            sections += guideSectionHtml('material', esc(guideKindLabelForKey('material')), matTiles.join(''));
+        }
+
+        if (!linkedIds.length) {
+            sections += '<p class="vplt-guide-rail-note text-muted small mb-0 mt-2">' +
+                esc(tr('productTree.noLinksYet', '尚未關聯材料或配件')) + '</p>';
+        }
+
+        return '<div class="vplt-guide-sections">' + sections + '</div>';
     }
 
     function wireGuideRail(canvas) {
         if (!canvas) return;
-        canvas.querySelectorAll('.vplt-guide-swatch:not(.vplt-guide-swatch--more)').forEach(function (btn) {
-            if (btn.__vpltSwatchWired) return;
-            btn.__vpltSwatchWired = true;
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var tile = btn.closest('.vplt-guide-tile');
-                if (!tile) return;
-                onVariantOptionPointer(e, btn, tile.getAttribute('data-guide-asset'));
-            });
-        });
-        canvas.querySelectorAll('.vplt-guide-swatch--more').forEach(function (btn) {
-            if (btn.__vpltMoreWired) return;
-            btn.__vpltMoreWired = true;
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                openVariantSheet(btn.getAttribute('data-browse-asset'));
-            });
-        });
-        canvas.querySelectorAll('.vplt-guide-tile--selectable').forEach(function (tile) {
-            tile.addEventListener('click', function (e) {
-                if (e.target.closest('.vplt-guide-swatches, .vplt-guide-swatch')) return;
-                toggleGuideSelection(tile.getAttribute('data-guide-asset'));
+        canvas.querySelectorAll('.vplt-guide-tile').forEach(function (tile) {
+            if (tile.__vpltTileWired) return;
+            tile.__vpltTileWired = true;
+            tile.addEventListener('click', function () {
+                var aid = tile.getAttribute('data-guide-asset');
+                var url = (tile.getAttribute('data-variant-url') || '').trim();
+                var label = (tile.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
+                if (url) {
+                    applyGuideVariantChoice(aid, url, label);
+                    return;
+                }
+                if (tile.classList.contains('vplt-guide-tile--selectable')) {
+                    toggleGuideSelection(aid);
+                }
             });
             tile.addEventListener('keydown', function (e) {
                 if (e.key !== 'Enter' && e.key !== ' ') return;
                 e.preventDefault();
-                toggleGuideSelection(tile.getAttribute('data-guide-asset'));
+                tile.click();
             });
         });
     }
