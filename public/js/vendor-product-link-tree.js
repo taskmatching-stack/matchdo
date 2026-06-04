@@ -313,14 +313,37 @@
         canvas.querySelectorAll('.vplt-child-card--has-variants').forEach(syncVariantCardExpanded);
     }
 
+    function isGuideMobileVariantUi() {
+        return !IS_VENDOR && typeof window.matchMedia === 'function' &&
+            window.matchMedia('(max-width: 768px)').matches;
+    }
+
     function toggleGuideVariantExpanded(assetId) {
         if (!assetId) return;
+        if (isGuideMobileVariantUi()) {
+            if (state.guideExpandedAssetIds[assetId]) {
+                closeVariantSheet();
+            } else {
+                state.guideExpandedAssetIds[assetId] = true;
+                openVariantSheet(assetId);
+                syncAllVariantCardsExpanded();
+            }
+            return;
+        }
         if (state.guideExpandedAssetIds[assetId]) {
             delete state.guideExpandedAssetIds[assetId];
         } else {
             state.guideExpandedAssetIds[assetId] = true;
         }
         syncAllVariantCardsExpanded();
+        var card = document.querySelector('.vplt-child-card--has-variants[data-guide-asset="' + assetId + '"]');
+        if (card && state.guideExpandedAssetIds[assetId]) {
+            card.querySelectorAll('.vplt-variant-option').forEach(function (opt) {
+                if (opt.__vpltOptWired) return;
+                opt.__vpltOptWired = true;
+                wireVariantOptionClick(opt, assetId);
+            });
+        }
     }
 
     function refreshVariantCardVisuals(assetId) {
@@ -369,11 +392,17 @@
     function closeVariantSheet() {
         var sheet = document.getElementById('vpltVariantSheet');
         if (!sheet) return;
+        var openAssetId = sheet.getAttribute('data-open-asset-id') || '';
         sheet.classList.remove('open');
         sheet.setAttribute('aria-hidden', 'true');
+        sheet.removeAttribute('data-open-asset-id');
         document.body.style.overflow = '';
         var grid = document.getElementById('vpltVariantSheetGrid');
         if (grid) grid.innerHTML = '';
+        if (openAssetId && state.guideExpandedAssetIds[openAssetId]) {
+            delete state.guideExpandedAssetIds[openAssetId];
+            syncAllVariantCardsExpanded();
+        }
     }
 
     function openVariantSheet(assetId) {
@@ -384,6 +413,7 @@
         var grid = document.getElementById('vpltVariantSheetGrid');
         var titleEl = document.getElementById('vpltVariantSheetTitle');
         if (!sheet || !grid) return;
+        sheet.setAttribute('data-open-asset-id', assetId);
         var activeUrl = assetDisplayImageUrl(a, assetId);
         var cap = assetLightboxCaption(a);
         if (titleEl) {
