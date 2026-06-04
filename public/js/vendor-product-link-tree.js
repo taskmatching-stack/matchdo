@@ -603,10 +603,20 @@
             '</div></section>';
     }
 
+    /** 區塊標題：分類在前、商品名在後（主產品 · 角粒殼3.0） */
+    function guideSectionHeadingHtml(kindKey, a) {
+        var kindLbl = esc(guideKindLabelForKey(kindKey));
+        var kindSpan = '<span class="vplt-guide-section-tag vplt-guide-section-tag--' + esc(kindKey) + '">' + kindLbl + '</span>';
+        if (!a) return kindSpan;
+        var title = esc(a.title || a.id || '');
+        if (!title) return kindSpan;
+        return kindSpan + ' <span class="vplt-guide-section-name">' + title + '</span>';
+    }
+
     function renderGuideCanvas(proto, linkedIds) {
         var sections = '';
         var protoTiles = guideTilesForAsset(proto, proto.id, 'prototype', false).join('');
-        sections += guideSectionHtml('prototype', esc(guideKindLabelForKey('prototype')), protoTiles);
+        sections += guideSectionHtml('prototype', guideSectionHeadingHtml('prototype', proto), protoTiles);
 
         var partIds = [];
         var materialIds = [];
@@ -621,9 +631,8 @@
             var a = assetById(aid);
             if (!a) return;
             var picked = state.guideSelectedIds.indexOf(aid) >= 0;
-            var head = esc(a.title || aid) + ' <span class="vplt-guide-section-tag">' +
-                esc(guideKindLabelForKey('part')) + '</span>';
-            sections += guideSectionHtml('part', head, guideTilesForAsset(a, aid, 'part', picked).join(''));
+            sections += guideSectionHtml('part', guideSectionHeadingHtml('part', a),
+                guideTilesForAsset(a, aid, 'part', picked).join(''));
         });
 
         if (materialIds.length) {
@@ -634,7 +643,10 @@
                 var picked = state.guideSelectedIds.indexOf(aid) >= 0;
                 matTiles = matTiles.concat(guideTilesForAsset(a, aid, 'material', picked));
             });
-            sections += guideSectionHtml('material', esc(guideKindLabelForKey('material')), matTiles.join(''));
+            var matHead = materialIds.length === 1
+                ? guideSectionHeadingHtml('material', assetById(materialIds[0]))
+                : guideSectionHeadingHtml('material', null);
+            sections += guideSectionHtml('material', matHead, matTiles.join(''));
         }
 
         if (!linkedIds.length) {

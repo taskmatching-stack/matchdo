@@ -206,14 +206,23 @@
     line-height: 1.3;
 }
 .vplt-guide-section-tag {
-    font-weight: 500;
-    color: #d97706;
+    font-weight: 700;
 }
-.vplt-guide-section--prototype .vplt-guide-section-title {
+.vplt-guide-section-tag--prototype {
     color: #0d9488;
 }
-.vplt-guide-section--material .vplt-guide-section-title {
+.vplt-guide-section-tag--part {
+    color: #d97706;
+}
+.vplt-guide-section-tag--material {
     color: #16a34a;
+}
+.vplt-guide-section-name {
+    font-weight: 600;
+    color: #1d1d1f;
+}
+.vplt-guide-section-title {
+    color: #1d1d1f;
 }
 /* 橫向選單：突破 container 至螢幕全寬（父層不可 overflow:hidden） */
 .vplt-page--guide .vplt-guide-rail-scroll {
