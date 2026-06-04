@@ -225,7 +225,7 @@
 .vplt-guide-section-title {
     color: #1d1d1f;
 }
-/* 橫向選單：隱藏捲軸，用左右箭頭（類 Apple Mac 列） */
+/* 橫向選單：不顯示捲軸條，僅左右箭頭（viewport 裁切捲軸區） */
 .vplt-guide-rail-nav {
     display: flex;
     align-items: center;
@@ -236,25 +236,33 @@
 .vplt-guide-rail-nav:not(.vplt-guide-rail-nav--overflow) .vplt-guide-rail-arrow {
     display: none;
 }
-.vplt-page--guide .vplt-guide-rail-scroll {
+.vplt-guide-rail-viewport {
     flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
+}
+.vplt-page--guide .vplt-guide-rail-scroll {
     width: 100%;
     max-width: 100%;
-    margin: 0;
-    padding: 0.15rem 0 0.35rem;
-    box-sizing: border-box;
-    overflow-x: auto;
+    margin: 0 0 -18px;
+    padding: 0.15rem 0 18px;
+    box-sizing: content-box;
+    overflow-x: scroll;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
     background: transparent;
 }
-.vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar {
-    display: none;
-    height: 0;
-    width: 0;
+.vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar,
+.vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar-thumb,
+.vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar-track {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+    -webkit-appearance: none;
+    appearance: none;
 }
 .vplt-guide-rail-arrow {
     flex: 0 0 1.75rem;

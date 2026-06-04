@@ -603,8 +603,9 @@
             '<div class="vplt-guide-rail-nav">' +
             '<button type="button" class="vplt-guide-rail-arrow vplt-guide-rail-arrow--prev" aria-label="' + prevLbl + '">' +
             '<i class="bi bi-chevron-left" aria-hidden="true"></i></button>' +
+            '<div class="vplt-guide-rail-viewport">' +
             '<div class="vplt-guide-rail-scroll" tabindex="0">' +
-            '<div class="vplt-guide-rail" role="list">' + tilesHtml + '</div></div>' +
+            '<div class="vplt-guide-rail" role="list">' + tilesHtml + '</div></div></div>' +
             '<button type="button" class="vplt-guide-rail-arrow vplt-guide-rail-arrow--next" aria-label="' + nextLbl + '">' +
             '<i class="bi bi-chevron-right" aria-hidden="true"></i></button>' +
             '</div></section>';
