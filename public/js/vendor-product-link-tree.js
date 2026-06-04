@@ -212,6 +212,7 @@
 
     function variantLabelHtml(a, assetId) {
         if (IS_VENDOR || variantImageItems(a).length <= 1) return '';
+        if (!IS_VENDOR && document.body && document.body.classList.contains('vplt-page--guide')) return '';
         var v = getGuideVariant(assetId);
         if (!v || !v.label) return '';
         return '<div class="vplt-variant-active-label text-muted">' + esc(v.label) + '</div>';
@@ -492,14 +493,14 @@
         return kindLabel(kindKey);
     }
 
-    /** 框外說明：商品名 + 分類（分類在標題後，皆不在有邊框的框內） */
-    function guideUnitCaptionHtml(a, aid, kindKey) {
-        var title = esc(a.title || aid);
+    /** 框外標題列：主產品／配件／材料 + 商品名（在框上方，框內僅圖+箭頭） */
+    function guideUnitHeadHtml(a, kindKey) {
+        var title = esc(a.title || a.id || '');
         var kindLbl = esc(guideKindLabelForKey(kindKey));
         var kindCls = kindKey === 'prototype' ? 'prototype' : (kindKey === 'material' ? 'material' : 'part');
-        return '<div class="vplt-unit-caption vplt-unit-caption--' + esc(kindCls) + '">' +
-            '<span class="vplt-unit-title">' + title + '</span>' +
-            '<span class="vplt-unit-kind">' + kindLbl + '</span></div>';
+        return '<div class="vplt-unit-head vplt-unit-head--' + esc(kindCls) + '">' +
+            '<span class="vplt-unit-kind">' + kindLbl + '</span>' +
+            '<span class="vplt-unit-title">' + title + '</span></div>';
     }
 
     function guideVariantUnitHtml(a, aid, kindKey, removeBtn, clickCls, pickCls) {
@@ -508,6 +509,7 @@
         var unitExpandedCls = expanded ? ' vplt-variant-unit--expanded' : '';
         var cardKind = kindKey === 'prototype' ? 'prototype' : kindKey;
         return '<div class="vplt-variant-unit' + unitExpandedCls + (kindKey === 'prototype' ? ' vplt-variant-unit--root' : '') + '">' +
+            guideUnitHeadHtml(a, kindKey) +
             '<div class="vplt-child-card vplt-child-card--' + esc(cardKind) + clickCls + pickCls +
             ' vplt-child-card--has-variants vplt-card-with-side' + expandedCls + '" data-guide-asset="' + esc(aid) + '">' +
             removeBtn +
@@ -516,22 +518,19 @@
             variantExpandedBlockHtml(a, aid) +
             '</div>' +
             variantSideToggleHtml(a, aid) +
-            '</div>' +
-            guideUnitCaptionHtml(a, aid, kindKey) +
-            '</div>';
+            '</div></div>';
     }
 
     function guideSimpleCardHtml(a, aid, kindKey, removeBtn, clickCls, pickCls) {
         var cardKind = kindKey === 'prototype' ? 'prototype' : kindKey;
         var rootCls = kindKey === 'prototype' ? ' vplt-variant-unit--root' : '';
         return '<div class="vplt-variant-unit' + rootCls + '">' +
+            guideUnitHeadHtml(a, kindKey) +
             '<div class="vplt-child-card vplt-child-card--' + esc(cardKind) + clickCls + pickCls +
             '" data-guide-asset="' + esc(aid) + '">' +
             removeBtn +
             simpleThumbHtml(a, aid) +
-            '</div>' +
-            guideUnitCaptionHtml(a, aid, kindKey) +
-            '</div>';
+            '</div></div>';
     }
 
     function linkedAssetCardHtml(a, aid, removeBtn, clickCls, pickCls) {
@@ -704,7 +703,7 @@
             canvas.querySelectorAll('.vplt-variant-unit').forEach(function (unit) {
                 unit.addEventListener('click', function (e) {
                     if (e.target.closest(
-                        '.vplt-variant-zoom-btn, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn, .vplt-unit-caption'
+                        '.vplt-variant-zoom-btn, .vplt-variant-side-toggle, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn, .vplt-unit-head'
                     )) return;
                     var card = unit.querySelector('[data-guide-asset]');
                     if (!card) return;
