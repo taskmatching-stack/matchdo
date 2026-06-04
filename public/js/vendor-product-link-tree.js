@@ -635,19 +635,13 @@
                 guideTilesForAsset(a, aid, 'part', picked).join(''));
         });
 
-        if (materialIds.length) {
-            var matTiles = [];
-            materialIds.forEach(function (aid) {
-                var a = assetById(aid);
-                if (!a) return;
-                var picked = state.guideSelectedIds.indexOf(aid) >= 0;
-                matTiles = matTiles.concat(guideTilesForAsset(a, aid, 'material', picked));
-            });
-            var matHead = materialIds.length === 1
-                ? guideSectionHeadingHtml('material', assetById(materialIds[0]))
-                : guideSectionHeadingHtml('material', null);
-            sections += guideSectionHtml('material', matHead, matTiles.join(''));
-        }
+        materialIds.forEach(function (aid) {
+            var a = assetById(aid);
+            if (!a) return;
+            var picked = state.guideSelectedIds.indexOf(aid) >= 0;
+            sections += guideSectionHtml('material', guideSectionHeadingHtml('material', a),
+                guideTilesForAsset(a, aid, 'material', picked).join(''));
+        });
 
         if (!linkedIds.length) {
             sections += '<p class="vplt-guide-rail-note text-muted small mb-0 mt-2">' +
