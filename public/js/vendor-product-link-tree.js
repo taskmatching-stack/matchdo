@@ -18,7 +18,8 @@
         guideSelectedIds: [],
         guideVariantByAssetId: {},
         guideExpandedAssetId: null,
-        guidePayload: null
+        guidePayload: null,
+        guideLinkMetaByAssetId: {}
     };
 
     function tr(key, fb) {
@@ -116,7 +117,10 @@
             renderGuidePanel();
             return;
         }
-        if (state.guideSelectedIds.indexOf(assetId) < 0) state.guideSelectedIds.push(assetId);
+        if (state.guideSelectedIds.indexOf(assetId) < 0) {
+            state.guideSelectedIds.push(assetId);
+            enforceGuideSelectionRules(assetId);
+        }
         var card = document.querySelector('[data-guide-asset="' + assetId + '"]');
         if (card) card.classList.add('vplt-child-card--picked');
         renderGuidePanel();
@@ -753,6 +757,28 @@
         renderOrphanPool();
     }
 
+    function getGuideLinkMeta(assetId) {
+        return state.guideLinkMetaByAssetId[assetId] || { allow_multi_pick: true, pick_group: null };
+    }
+
+    function normalizePickGroup(g) {
+        var s = (g || '').trim();
+        return s || null;
+    }
+
+    function enforceGuideSelectionRules(selectedId) {
+        var meta = getGuideLinkMeta(selectedId);
+        var group = normalizePickGroup(meta.pick_group);
+        state.guideSelectedIds = state.guideSelectedIds.filter(function (aid) {
+            if (aid === selectedId) return true;
+            var m = getGuideLinkMeta(aid);
+            var g2 = normalizePickGroup(m.pick_group);
+            if (group && g2 === group) return false;
+            if (!meta.allow_multi_pick && m.allow_multi_pick === false) return false;
+            return true;
+        });
+    }
+
     function toggleGuideSelection(assetId) {
         if (!assetId) return;
         var idx = state.guideSelectedIds.indexOf(assetId);
@@ -760,6 +786,7 @@
             state.guideSelectedIds.splice(idx, 1);
         } else {
             state.guideSelectedIds.push(assetId);
+            enforceGuideSelectionRules(assetId);
             var a = assetById(assetId);
             if (a && variantImageItems(a).length > 1 && !state.guideVariantByAssetId[assetId]) {
                 var def = defaultGuideVariant(a);
@@ -919,7 +946,14 @@
             manufacturer_id: p.manufacturer_id,
             manufacturer_name: p.manufacturer_name
         }];
+        state.guideLinkMetaByAssetId = {};
         state.assets = (data.linked_assets || []).map(function (a) {
+            if (a && a.id) {
+                state.guideLinkMetaByAssetId[a.id] = {
+                    allow_multi_pick: a.allow_multi_pick !== false,
+                    pick_group: a.pick_group || null
+                };
+            }
             return {
                 id: a.id,
                 title: a.title,
@@ -927,7 +961,9 @@
                 image_url: a.image_url,
                 image_urls: a.image_urls,
                 image_items: a.image_items,
-                asset_kind: a.asset_kind
+                asset_kind: a.asset_kind,
+                allow_multi_pick: a.allow_multi_pick !== false,
+                pick_group: a.pick_group || null
             };
         });
         state.links = (data.linked_assets || []).map(function (a, idx) {

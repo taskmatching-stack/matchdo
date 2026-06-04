@@ -194,7 +194,7 @@
                                 </div>
                                 <div class="col-12 add-prototype-links-block">
                                     <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
-                                    <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksUploadHint">上傳前可預先勾選（亦可上傳後在「編輯」調整）。</p>
+                                    <p class="text-muted small mb-2">上傳前可預先勾選並設定多選規則（亦可上傳後在「編輯」調整）。</p>
                                     <div class="add-prototype-links-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
                                     <p class="add-prototype-links-empty text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無其他材料或配件可選。</p>
                                 </div>
@@ -440,7 +440,7 @@
                         </div>
                         <div class="mb-3 d-none" id="edit-prototype-links-wrap">
                             <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
-                            <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksHint">可複選同廠材料或配件；設計端選圖時會優先標示。若需更細結構請另建主產品。</p>
+                            <p class="text-muted small mb-2">勾選關聯後可設定「可與其他並選」或「擇一組」代碼；訂製者在「看可搭配」頁會依規則互斥選取。</p>
                             <div id="edit-prototype-links-list" class="border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
                             <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無其他材料或配件可選。</p>
                         </div>
@@ -2341,9 +2341,13 @@
                     : '<span class="badge bg-success mb-2 me-1">上架中</span>';
                 var togglePubBtn = isSeedVendor ? ''
                     : ('<button class="btn btn-outline-secondary btn-sm btn-toggle-pub flex-fill" type="button" data-id="' + esc(m.id) + '" data-public="' + (m.is_public === false ? '0' : '1') + '" title="' + esc(tr('baseModels.togglePublish', '上架／下架')) + '"><i class="bi bi-eye' + (m.is_public === false ? '' : '-slash') + '"></i></button>');
+                var insightsBtn = (m.asset_kind === 'prototype' && !isSeedVendor)
+                    ? ('<a class="btn btn-outline-info btn-sm flex-fill" href="/client/vendor-prototype-insights.html?prototype_asset_id=' +
+                        encodeURIComponent(m.id) + '" title="設計洞察"><i class="bi bi-bar-chart"></i></a>')
+                    : '';
                 var actionBtns = isSeedVendor
                     ? ('<span class="text-muted small">由管理員於種子後台調整上下架</span>')
-                    : (togglePubBtn +
+                    : (togglePubBtn + insightsBtn +
                        '<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
@@ -2572,7 +2576,7 @@
                 if (kind === 'prototype') {
                     fd.append('min_order_quantity', form.querySelector('.add-min-order-qty').value.trim());
                     fd.append('customization_levels', JSON.stringify(getSelectedCustomizationLevels(form.querySelector('.add-customization-levels'))));
-                    fd.append('linked_asset_ids', JSON.stringify(readAddFormLinkSelections(form, 'prototype')));
+                    fd.append('linked_links', JSON.stringify(readPrototypeLinkEntries(form.querySelector('.add-prototype-links-list'))));
                 } else if (kind === 'material' || kind === 'part') {
                     fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
                 }
@@ -2615,12 +2619,36 @@
             return kind || '';
         }
 
-        function renderEditPrototypeLinkCheckboxes(containerId, emptyId, candidates, selectedIds) {
-            var listEl = document.getElementById(containerId);
-            var emptyEl = document.getElementById(emptyId);
+        function buildPrototypeLinkMetaMap(linkedLinks, selectedIds) {
+            var map = {};
+            (linkedLinks || []).forEach(function (lk) {
+                var id = String(lk.linked_asset_id || lk.id || '');
+                if (!id) return;
+                map[id] = {
+                    allow_multi_pick: lk.allow_multi_pick !== false,
+                    pick_group: (lk.pick_group && String(lk.pick_group).trim()) || ''
+                };
+            });
+            (selectedIds || []).forEach(function (sid) {
+                var id = String(sid);
+                if (!map[id]) map[id] = { allow_multi_pick: true, pick_group: '' };
+            });
+            return map;
+        }
+
+        function syncPrototypeLinkMetaVisibility(rowWrap) {
+            if (!rowWrap) return;
+            var chk = rowWrap.querySelector('.proto-link-check');
+            var meta = rowWrap.querySelector('.proto-link-meta');
+            if (!chk || !meta) return;
+            meta.classList.toggle('d-none', !chk.checked);
+        }
+
+        function renderPrototypeLinkRows(listEl, emptyEl, candidates, selectedIds, linkedLinks) {
             if (!listEl) return;
             listEl.innerHTML = '';
             var selected = new Set((selectedIds || []).map(function (x) { return String(x); }));
+            var metaMap = buildPrototypeLinkMetaMap(linkedLinks, selectedIds);
             if (!candidates || !candidates.length) {
                 if (emptyEl) emptyEl.classList.remove('d-none');
                 return;
@@ -2628,27 +2656,68 @@
             if (emptyEl) emptyEl.classList.add('d-none');
             candidates.forEach(function (c) {
                 var cid = String(c.id);
-                var row = document.createElement('label');
-                row.className = 'd-flex align-items-center gap-2 small mb-0';
+                var meta = metaMap[cid] || { allow_multi_pick: true, pick_group: '' };
+                var rowWrap = document.createElement('div');
+                rowWrap.className = 'prototype-link-row border-bottom pb-2 mb-2';
                 var thumb = c.image_url
                     ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
                     : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
                 var title = (c.title || cid).replace(/</g, '&lt;');
                 var kindBadge = assetKindLabelShort(c.asset_kind);
-                row.innerHTML = '<input type="checkbox" class="form-check-input flex-shrink-0" value="' + cid.replace(/"/g, '&quot;') + '"' +
+                rowWrap.innerHTML =
+                    '<label class="d-flex align-items-center gap-2 small mb-0">' +
+                    '<input type="checkbox" class="form-check-input flex-shrink-0 proto-link-check" value="' + cid.replace(/"/g, '&quot;') + '"' +
                     (selected.has(cid) ? ' checked' : '') + '>' + thumb +
                     '<span class="flex-grow-1 text-truncate" title="' + title + '">' + title +
-                    (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span>';
-                listEl.appendChild(row);
+                    (kindBadge ? ' <span class="text-muted">(' + kindBadge + ')</span>' : '') + '</span></label>' +
+                    '<div class="proto-link-meta ms-4 ps-2' + (selected.has(cid) ? '' : ' d-none') + '">' +
+                    '<div class="form-check form-check-inline small mb-1">' +
+                    '<input type="checkbox" class="form-check-input proto-link-allow-multi"' + (meta.allow_multi_pick ? ' checked' : '') + '>' +
+                    '<label class="form-check-label">可與其他並選</label></div>' +
+                    '<div class="input-group input-group-sm" style="max-width:14rem">' +
+                    '<span class="input-group-text">擇一組</span>' +
+                    '<input type="text" class="form-control proto-link-pick-group" placeholder="留空＝無" value="' +
+                    String(meta.pick_group || '').replace(/"/g, '&quot;').replace(/</g, '&lt;') + '"></div></div>';
+                var chk = rowWrap.querySelector('.proto-link-check');
+                if (chk) {
+                    chk.addEventListener('change', function () { syncPrototypeLinkMetaVisibility(rowWrap); });
+                }
+                listEl.appendChild(rowWrap);
             });
+        }
+
+        function renderEditPrototypeLinkCheckboxes(containerId, emptyId, candidates, selectedIds, linkedLinks) {
+            renderPrototypeLinkRows(
+                document.getElementById(containerId),
+                document.getElementById(emptyId),
+                candidates,
+                selectedIds,
+                linkedLinks
+            );
+        }
+
+        function readPrototypeLinkEntries(listEl) {
+            if (!listEl) return [];
+            var out = [];
+            listEl.querySelectorAll('.prototype-link-row').forEach(function (row) {
+                var chk = row.querySelector('.proto-link-check');
+                if (!chk || !chk.checked) return;
+                var id = (chk.value || '').trim();
+                if (!id) return;
+                var allowMulti = row.querySelector('.proto-link-allow-multi');
+                var pickGroup = row.querySelector('.proto-link-pick-group');
+                out.push({
+                    linked_asset_id: id,
+                    allow_multi_pick: allowMulti ? !!allowMulti.checked : true,
+                    pick_group: pickGroup && String(pickGroup.value || '').trim() ? String(pickGroup.value).trim() : null
+                });
+            });
+            return out;
         }
 
         function readEditPrototypeLinkSelections(containerId) {
             var listEl = document.getElementById(containerId);
-            if (!listEl) return [];
-            return Array.prototype.slice.call(listEl.querySelectorAll('input[type="checkbox"]:checked'))
-                .map(function (inp) { return (inp.value || '').trim(); })
-                .filter(Boolean);
+            return readPrototypeLinkEntries(listEl).map(function (e) { return e.linked_asset_id; });
         }
 
         function readAddFormLinkSelections(form, kind) {
@@ -2683,19 +2752,7 @@
                     if (emptyEl) emptyEl.classList.remove('d-none');
                     return;
                 }
-                if (emptyEl) emptyEl.classList.add('d-none');
-                candidates.forEach(function (c) {
-                    var cid = String(c.id);
-                    var row = document.createElement('label');
-                    row.className = 'd-flex align-items-center gap-2 small mb-0';
-                    var thumb = c.image_url
-                        ? '<img src="' + String(c.image_url).replace(/"/g, '&quot;') + '" alt="" class="rounded border flex-shrink-0" style="width:40px;height:40px;object-fit:cover">'
-                        : '<span class="rounded border bg-light flex-shrink-0 d-inline-block" style="width:40px;height:40px"></span>';
-                    var title = (c.title || cid).replace(/</g, '&lt;');
-                    row.innerHTML = '<input type="checkbox" class="form-check-input flex-shrink-0" value="' + cid.replace(/"/g, '&quot;') + '">' + thumb +
-                        '<span class="flex-grow-1 text-truncate">' + title + ' <span class="text-muted">(' + assetKindLabelShort(c.asset_kind) + ')</span></span>';
-                    listEl.appendChild(row);
-                });
+                renderPrototypeLinkRows(listEl, emptyEl, candidates, [], []);
             } else if (kind === 'material' || kind === 'part') {
                 var protoCandidates = materialsAll.filter(function (m) {
                     return normalizeKind(m.asset_kind) === 'prototype';
@@ -2752,7 +2809,8 @@
                         'edit-prototype-links-list',
                         'edit-prototype-links-empty',
                         data.candidates || [],
-                        data.linked_asset_ids || []
+                        data.linked_asset_ids || [],
+                        data.linked_links || []
                     );
                 } else if ((kind === 'material' || kind === 'part') && linkedWrap) {
                     linkedWrap.classList.remove('d-none');
@@ -2970,7 +3028,7 @@
             }
             if (editPrototypeLinksPending.loaded) {
                 if (editKind === 'prototype') {
-                    fd.append('linked_asset_ids', JSON.stringify(readEditPrototypeLinkSelections('edit-prototype-links-list')));
+                    fd.append('linked_links', JSON.stringify(readPrototypeLinkEntries(document.getElementById('edit-prototype-links-list'))));
                 } else if (editKind === 'material' || editKind === 'part') {
                     fd.append('linked_prototype_ids', JSON.stringify(readEditPrototypeLinkSelections('edit-linked-prototypes-list')));
                 }

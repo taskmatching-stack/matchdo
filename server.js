@@ -12598,6 +12598,221 @@ function parseJsonUuidArrayFromBody(val) {
     return [...new Set(arr.map((x) => String(x).trim()).filter((x) => /^[0-9a-f-]{36}$/i.test(x)))];
 }
 
+let _vendorPrototypeLinkSelectCols = null;
+
+async function vendorPrototypeLinkSelectColumns() {
+    if (_vendorPrototypeLinkSelectCols) return _vendorPrototypeLinkSelectCols;
+    const full = 'linked_asset_id, sort_order, allow_multi_pick, pick_group';
+    const { error } = await supabase.from('vendor_asset_prototype_links').select(full).limit(1);
+    if (error && (error.code === '42703' || String(error.message || '').includes('allow_multi_pick') || String(error.message || '').includes('pick_group'))) {
+        _vendorPrototypeLinkSelectCols = 'linked_asset_id, sort_order';
+    } else {
+        _vendorPrototypeLinkSelectCols = full;
+    }
+    return _vendorPrototypeLinkSelectCols;
+}
+
+function vendorPrototypeLinkMetaColumnsReady(cols) {
+    return cols && String(cols).indexOf('allow_multi_pick') >= 0;
+}
+
+function normalizePrototypeLinkEntries(linkedInput) {
+    if (linkedInput === undefined || linkedInput === null) return [];
+    let arr = linkedInput;
+    if (typeof linkedInput === 'string') {
+        const s = linkedInput.trim();
+        if (!s) return [];
+        try {
+            arr = JSON.parse(s);
+        } catch (_) {
+            return [];
+        }
+    }
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    const seen = new Set();
+    arr.forEach(function (item) {
+        let id = '';
+        let allowMulti = true;
+        let pickGroup = null;
+        if (typeof item === 'string') {
+            id = item.trim();
+        } else if (item && typeof item === 'object') {
+            id = String(item.linked_asset_id || item.id || '').trim();
+            if (item.allow_multi_pick === false) allowMulti = false;
+            if (item.pick_group != null && String(item.pick_group).trim()) {
+                pickGroup = String(item.pick_group).trim();
+            }
+        }
+        if (!id || !/^[0-9a-f-]{36}$/i.test(id) || seen.has(id)) return;
+        seen.add(id);
+        out.push({
+            linked_asset_id: id,
+            allow_multi_pick: allowMulti,
+            pick_group: pickGroup
+        });
+    });
+    return out;
+}
+
+/** @returns {Array|null|undefined} null = 格式錯誤；undefined = 未提供 */
+function parseLinkedLinksFromBody(body) {
+    if (!body) return undefined;
+    if (body.linked_links !== undefined) {
+        let raw = body.linked_links;
+        if (typeof raw === 'string') {
+            const s = raw.trim();
+            if (!s) return [];
+            try {
+                raw = JSON.parse(s);
+            } catch (_) {
+                return null;
+            }
+        }
+        if (!Array.isArray(raw)) return null;
+        return normalizePrototypeLinkEntries(raw);
+    }
+    if (body.linked_asset_ids !== undefined) {
+        const ids = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+        if (ids === null) return null;
+        return normalizePrototypeLinkEntries(ids);
+    }
+    return undefined;
+}
+
+function parseReferenceSourcesList(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+            return [];
+        }
+    }
+    return [];
+}
+
+function productReferencesPrototype(sources, prototypeAssetId) {
+    const pid = String(prototypeAssetId || '').trim();
+    if (!pid) return false;
+    return parseReferenceSourcesList(sources).some(function (s) {
+        return s && String(s.vendor_asset_id || '') === pid &&
+            normalizeVendorAssetKind(s.asset_kind || 'prototype') === 'prototype';
+    });
+}
+
+function buildComboKeyFromReferenceSources(sources) {
+    const ids = parseReferenceSourcesList(sources)
+        .filter(function (s) {
+            if (!s || !s.vendor_asset_id) return false;
+            const k = normalizeVendorAssetKind(s.asset_kind || '');
+            return k === 'material' || k === 'part';
+        })
+        .map(function (s) { return String(s.vendor_asset_id); })
+        .sort();
+    return ids.join('|');
+}
+
+function buildComboLabelFromReferenceSources(sources, titleById) {
+    const parts = parseReferenceSourcesList(sources)
+        .filter(function (s) {
+            if (!s || !s.vendor_asset_id) return false;
+            const k = normalizeVendorAssetKind(s.asset_kind || '');
+            return k === 'material' || k === 'part';
+        })
+        .map(function (s) {
+            const id = String(s.vendor_asset_id);
+            const t = (s.title || titleById[id] || '').trim();
+            const k = normalizeVendorAssetKind(s.asset_kind || '');
+            const kindLbl = k === 'material' ? '材料' : (k === 'part' ? '配件' : '');
+            return (t || id) + (kindLbl ? '（' + kindLbl + '）' : '');
+        });
+    return parts.length ? parts.join(' · ') : '僅主產品';
+}
+
+async function buildVendorPrototypeDesignInsights(manufacturerId, prototypeAssetId) {
+    const { data: proto, error: protoErr } = await supabase
+        .from('vendor_assets')
+        .select('id, title, image_url, asset_kind')
+        .eq('id', prototypeAssetId)
+        .eq('manufacturer_id', manufacturerId)
+        .maybeSingle();
+    if (protoErr) throw protoErr;
+    if (!proto || normalizeVendorAssetKind(proto.asset_kind) !== 'prototype') {
+        return { error: 'not_found' };
+    }
+    const titleById = {};
+    const { data: mfrAssets, error: assetErr } = await supabase
+        .from('vendor_assets')
+        .select('id, title, asset_kind')
+        .eq('manufacturer_id', manufacturerId);
+    if (assetErr) throw assetErr;
+    (mfrAssets || []).forEach(function (a) {
+        if (a && a.id) titleById[a.id] = (a.title || '').trim() || a.id;
+    });
+    const { data: products, error: prodErr } = await supabase
+        .from('custom_products')
+        .select('id, title, ai_generated_image_url, reference_sources, created_at')
+        .not('reference_sources', 'is', null)
+        .not('ai_generated_image_url', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(3000);
+    if (prodErr) throw prodErr;
+    const matched = [];
+    const comboCounts = {};
+    (products || []).forEach(function (row) {
+        if (!productReferencesPrototype(row.reference_sources, prototypeAssetId)) return;
+        const comboKey = buildComboKeyFromReferenceSources(row.reference_sources);
+        const comboLabel = buildComboLabelFromReferenceSources(row.reference_sources, titleById);
+        matched.push({
+            id: row.id,
+            title: row.title || '',
+            ai_generated_image_url: row.ai_generated_image_url,
+            created_at: row.created_at,
+            combo_key: comboKey,
+            combo_label: comboLabel
+        });
+        if (!comboCounts[comboKey]) {
+            comboCounts[comboKey] = { combo_key: comboKey, combo_label: comboLabel, count: 0 };
+        }
+        comboCounts[comboKey].count += 1;
+    });
+    const generationCount = matched.length;
+    const topCombos = Object.values(comboCounts)
+        .sort(function (a, b) { return b.count - a.count; })
+        .slice(0, 12)
+        .map(function (c) {
+            return {
+                combo_key: c.combo_key,
+                combo_label: c.combo_label,
+                count: c.count,
+                share_pct: generationCount ? Math.round((c.count / generationCount) * 1000) / 10 : 0
+            };
+        });
+    const recentGenerations = matched.slice(0, 48).map(function (m) {
+        return {
+            id: m.id,
+            title: m.title,
+            ai_generated_image_url: m.ai_generated_image_url,
+            created_at: m.created_at,
+            combo_label: m.combo_label
+        };
+    });
+    return {
+        prototype: {
+            id: proto.id,
+            title: proto.title || '',
+            image_url: proto.image_url || null
+        },
+        generation_count: generationCount,
+        top_combos: topCombos,
+        recent_generations: recentGenerations,
+        scanned_products: (products || []).length
+    };
+}
+
 async function fetchVendorAssetsByIdsForManufacturer(manufacturerId, ids, cols) {
     if (!ids.length) return [];
     const selectCols = cols || 'id, title, image_url, asset_kind, manufacturer_id';
@@ -12651,8 +12866,10 @@ async function validateLinkedAssetPrototypeTargets(manufacturerId, linkedAssetId
     return { ok: true, rows };
 }
 
-async function replacePrototypeMaterialPartLinks(manufacturerId, prototypeId, linkedAssetIds) {
+async function replacePrototypeMaterialPartLinks(manufacturerId, prototypeId, linkedInput) {
     if (!(await vendorPrototypeLinksTableReady())) return null;
+    const entries = normalizePrototypeLinkEntries(linkedInput);
+    const linkedAssetIds = entries.map(function (e) { return e.linked_asset_id; });
     const { data: proto } = await supabase
         .from('vendor_assets')
         .select('id, asset_kind')
@@ -12669,13 +12886,22 @@ async function replacePrototypeMaterialPartLinks(manufacturerId, prototypeId, li
         .eq('prototype_asset_id', prototypeId)
         .eq('manufacturer_id', manufacturerId);
     if (delErr) throw delErr;
-    if (!linkedAssetIds.length) return null;
-    const inserts = linkedAssetIds.map((linkedId, idx) => ({
-        manufacturer_id: manufacturerId,
-        prototype_asset_id: prototypeId,
-        linked_asset_id: linkedId,
-        sort_order: idx
-    }));
+    if (!entries.length) return null;
+    const cols = await vendorPrototypeLinkSelectColumns();
+    const metaOk = vendorPrototypeLinkMetaColumnsReady(cols);
+    const inserts = entries.map(function (e, idx) {
+        const row = {
+            manufacturer_id: manufacturerId,
+            prototype_asset_id: prototypeId,
+            linked_asset_id: e.linked_asset_id,
+            sort_order: idx
+        };
+        if (metaOk) {
+            row.allow_multi_pick = e.allow_multi_pick !== false;
+            row.pick_group = e.pick_group || null;
+        }
+        return row;
+    });
     const { error: insErr } = await supabase.from('vendor_asset_prototype_links').insert(inserts);
     if (insErr) throw insErr;
     return null;
@@ -12704,22 +12930,47 @@ async function replaceLinkedAssetPrototypeLinks(manufacturerId, linkedAssetId, p
 }
 
 async function getLinkedAssetIdsForPrototype(manufacturerId, prototypeAssetId) {
-    if (!(await vendorPrototypeLinksTableReady())) return { ids: [], sortById: {} };
+    const pack = await getLinkedLinksForPrototype(manufacturerId, prototypeAssetId);
+    return { ids: pack.ids, sortById: pack.sortById, metaById: pack.metaById };
+}
+
+async function getLinkedLinksForPrototype(manufacturerId, prototypeAssetId) {
+    if (!(await vendorPrototypeLinksTableReady())) return { ids: [], sortById: {}, metaById: {} };
+    const cols = await vendorPrototypeLinkSelectColumns();
     const { data, error } = await supabase
         .from('vendor_asset_prototype_links')
-        .select('linked_asset_id, sort_order')
+        .select(cols)
         .eq('prototype_asset_id', prototypeAssetId)
         .eq('manufacturer_id', manufacturerId)
         .order('sort_order', { ascending: true });
-    if (error && error.code === '42P01') return { ids: [], sortById: {} };
+    if (error && error.code === '42P01') return { ids: [], sortById: {}, metaById: {} };
     if (error) throw error;
+    const metaOk = vendorPrototypeLinkMetaColumnsReady(cols);
     const ids = [];
     const sortById = {};
+    const metaById = {};
     (data || []).forEach((r) => {
         ids.push(r.linked_asset_id);
         sortById[r.linked_asset_id] = r.sort_order != null ? r.sort_order : 0;
+        metaById[r.linked_asset_id] = {
+            allow_multi_pick: !metaOk || r.allow_multi_pick !== false,
+            pick_group: metaOk && r.pick_group ? String(r.pick_group).trim() : null
+        };
     });
-    return { ids, sortById };
+    return { ids, sortById, metaById };
+}
+
+function attachLinkMetaToLinkedAssetNodes(linkedAssets, metaById) {
+    const meta = metaById || {};
+    return (linkedAssets || []).map(function (node) {
+        if (!node || !node.id) return node;
+        const m = meta[node.id] || {};
+        return {
+            ...node,
+            allow_multi_pick: m.allow_multi_pick !== false,
+            pick_group: m.pick_group || null
+        };
+    });
 }
 
 async function getPrototypeIdsForLinkedAsset(manufacturerId, linkedAssetId) {
@@ -12771,9 +13022,11 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
     const tableReady = await vendorPrototypeLinksTableReady();
     let links = [];
     if (tableReady) {
+        const linkCols = await vendorPrototypeLinkSelectColumns();
+        const linkSelect = 'prototype_asset_id, ' + linkCols;
         const { data: linkRows, error: linkErr } = await supabase
             .from('vendor_asset_prototype_links')
-            .select('prototype_asset_id, linked_asset_id, sort_order')
+            .select(linkSelect)
             .eq('manufacturer_id', manufacturerId)
             .order('sort_order', { ascending: true });
         if (linkErr && linkErr.code !== '42P01') throw linkErr;
@@ -12834,9 +13087,12 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
         linkedAssets = linkedIds.map((id, idx) => {
             const node = byId[id];
             if (!node) return null;
+            const m = (linkPack.metaById && linkPack.metaById[id]) || {};
             return {
                 ...node,
-                sort_order: linkPack.sortById[id] != null ? linkPack.sortById[id] : idx
+                sort_order: linkPack.sortById[id] != null ? linkPack.sortById[id] : idx,
+                allow_multi_pick: m.allow_multi_pick !== false,
+                pick_group: m.pick_group || null
             };
         }).filter(Boolean);
     }
@@ -13329,12 +13585,31 @@ app.put('/api/me/vendor-assets/:id/prototype-links', express.json(), async (req,
         if (!seedUser) return res.status(401).json({ error: '請先登入' });
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
-        const linkedIds = parseJsonUuidArrayFromBody(req.body.linked_asset_ids);
-        if (linkedIds === null) return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
-        const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkedIds);
+        let entries = parseLinkedLinksFromBody(req.body);
+        if (entries === undefined) {
+            const linkedIds = parseJsonUuidArrayFromBody(req.body.linked_asset_ids);
+            if (linkedIds === null) return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+            entries = normalizePrototypeLinkEntries(linkedIds);
+        } else if (entries === null) {
+            return res.status(400).json({ error: 'linked_links 格式錯誤' });
+        }
+        const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, entries);
         if (linkErr) return res.status(400).json({ error: linkErr });
         const linkPack = await getLinkedAssetIdsForPrototype(manufacturerId, id);
-        res.json({ prototype_asset_id: id, linked_asset_ids: linkPack.ids, sort_by_id: linkPack.sortById });
+        const linkedLinks = (linkPack.ids || []).map(function (lid) {
+            const m = (linkPack.metaById && linkPack.metaById[lid]) || {};
+            return {
+                linked_asset_id: lid,
+                allow_multi_pick: m.allow_multi_pick !== false,
+                pick_group: m.pick_group || null
+            };
+        });
+        res.json({
+            prototype_asset_id: id,
+            linked_asset_ids: linkPack.ids,
+            linked_links: linkedLinks,
+            sort_by_id: linkPack.sortById
+        });
     } catch (e) {
         console.error('PUT /api/me/vendor-assets/:id/prototype-links:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -13489,7 +13764,13 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
                 linkedAssets = linkedIds.map((lid, idx) => {
                     const node = byId[lid];
                     if (!node) return null;
-                    return { ...node, sort_order: linkPack.sortById[lid] != null ? linkPack.sortById[lid] : idx };
+                    const m = (linkPack.metaById && linkPack.metaById[lid]) || {};
+                    return {
+                        ...node,
+                        sort_order: linkPack.sortById[lid] != null ? linkPack.sortById[lid] : idx,
+                        allow_multi_pick: m.allow_multi_pick !== false,
+                        pick_group: m.pick_group || null
+                    };
                 }).filter(Boolean);
             }
             const previewProtoNode = mapVendorAssetLinkTreeNode(protoRow) || {};
@@ -14332,12 +14613,18 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             return res.status(500).json({ error: '新增素材失敗' });
         }
         await setVendorAssetCatalogGroups(inserted.id, manufacturerId, parseCatalogGroupIdsFromBody(body));
-        if (assetKind === 'prototype' && body.linked_asset_ids !== undefined) {
-            const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
-            if (linkedIds === null) {
-                return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+        if (assetKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
+            let linkEntries = parseLinkedLinksFromBody(body);
+            if (linkEntries === undefined) {
+                const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+                if (linkedIds === null) {
+                    return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+                }
+                linkEntries = normalizePrototypeLinkEntries(linkedIds);
+            } else if (linkEntries === null) {
+                return res.status(400).json({ error: 'linked_links 格式錯誤' });
             }
-            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, inserted.id, linkedIds);
+            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, inserted.id, linkEntries);
             if (linkErr) return res.status(400).json({ error: linkErr });
         }
         if ((assetKind === 'material' || assetKind === 'part') && body.linked_prototype_ids !== undefined) {
@@ -14886,9 +15173,18 @@ app.get('/api/me/vendor-assets/:id/prototype-links', async (req, res) => {
             }));
         if (kind === 'prototype') {
             const linkPack = await getLinkedAssetIdsForPrototype(manufacturerId, id);
+            const linkedLinks = (linkPack.ids || []).map(function (lid) {
+                const m = (linkPack.metaById && linkPack.metaById[lid]) || {};
+                return {
+                    linked_asset_id: lid,
+                    allow_multi_pick: m.allow_multi_pick !== false,
+                    pick_group: m.pick_group || null
+                };
+            });
             return res.json({
                 asset_kind: kind,
                 linked_asset_ids: linkPack.ids,
+                linked_links: linkedLinks,
                 linked_prototype_ids: [],
                 candidates: candidates.filter((c) => c.asset_kind === 'material' || c.asset_kind === 'part'),
                 table_ready: true
@@ -14914,6 +15210,21 @@ app.get('/api/me/vendor-assets/:id/prototype-links', async (req, res) => {
     } catch (e) {
         console.error('GET /api/me/vendor-assets/:id/prototype-links:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/me/vendor-assets/:id/design-insights — 主產品：生圖次數、熱門搭配、近期成圖
+app.get('/api/me/vendor-assets/:id/design-insights', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const id = (req.params.id || '').trim();
+        const payload = await buildVendorPrototypeDesignInsights(manufacturerId, id);
+        if (payload.error === 'not_found') return res.status(404).json({ error: '找不到該主產品' });
+        res.json(payload);
+    } catch (e) {
+        console.error('GET /api/me/vendor-assets/:id/design-insights:', e);
+        res.status(500).json({ error: '查詢失敗' });
     }
 });
 
@@ -15149,12 +15460,18 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
         }
         const finalKind = normalizeVendorAssetKind(updated.asset_kind || assetKind);
-        if (body.linked_asset_ids !== undefined && finalKind === 'prototype') {
-            const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
-            if (linkedIds === null) {
-                return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+        if (finalKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
+            let linkEntries = parseLinkedLinksFromBody(body);
+            if (linkEntries === undefined) {
+                const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+                if (linkedIds === null) {
+                    return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+                }
+                linkEntries = normalizePrototypeLinkEntries(linkedIds);
+            } else if (linkEntries === null) {
+                return res.status(400).json({ error: 'linked_links 格式錯誤' });
             }
-            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkedIds);
+            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkEntries);
             if (linkErr) return res.status(400).json({ error: linkErr });
         }
         if (body.linked_prototype_ids !== undefined && (finalKind === 'material' || finalKind === 'part')) {

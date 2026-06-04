@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>主產品設計洞察 - MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <link href="../img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <style>
+        .insight-stat { border-radius: 12px; border: none; box-shadow: 0 2px 12px rgba(0,0,0,.07); }
+        .gen-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
+        .combo-bar { height: 8px; border-radius: 4px; background: #0d6efd; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
+        <div class="container" style="max-width: 1100px;">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <h4 class="mb-0 fw-bold">主產品設計洞察</h4>
+                    <small class="text-muted">依訂製者已儲存、且含本款主產品參考的血緣統計</small>
+                </div>
+                <a href="/client/manufacturer-materials.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>數位版型</a>
+            </div>
+        </div>
+    </div>
+    <div class="container py-4" style="max-width: 1100px;">
+        <div id="load-alert" class="alert alert-warning d-none"></div>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <label class="form-label fw-semibold">選擇主產品</label>
+                <select class="form-select" id="proto-select"><option value="">載入中…</option></select>
+            </div>
+        </div>
+        <div id="insights-body" class="d-none">
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card insight-stat h-100 p-3">
+                        <div class="text-muted small">生圖次數（已儲存設計稿）</div>
+                        <div class="fs-2 fw-bold text-primary" id="stat-gen-count">0</div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card insight-stat h-100 p-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <img id="proto-thumb" src="" alt="" class="rounded border flex-shrink-0 d-none" style="width:64px;height:64px;object-fit:cover">
+                            <div>
+                                <div class="fw-semibold" id="proto-title">—</div>
+                                <div class="text-muted small" id="proto-scan-note"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="bi bi-pie-chart me-2 text-primary"></i>最常搭配方式</h5>
+                    <div id="combos-empty" class="text-muted small d-none">尚無搭配統計（需有訂製者以此主產品參考生圖並儲存）。</div>
+                    <div id="combos-list"></div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="bi bi-images me-2 text-primary"></i>使用者生成圖（近期）</h5>
+                    <div id="gens-empty" class="text-muted small d-none">尚無成圖紀錄。</div>
+                    <div class="row g-3" id="gens-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="../js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/matchdo-image-lightbox.js"></script>
+    <script>
+    (function () {
+        'use strict';
+        var token = null;
+        var prototypes = [];
+
+        function qs(name) {
+            return new URLSearchParams(window.location.search).get(name) || '';
+        }
+
+        function esc(s) {
+            return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        }
+
+        function showAlert(msg, kind) {
+            var el = document.getElementById('load-alert');
+            if (!el) return;
+            el.className = 'alert alert-' + (kind || 'warning');
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+
+        async function getToken() {
+            if (token) return token;
+            if (typeof window.getAuthToken === 'function') {
+                token = await window.getAuthToken();
+                return token;
+            }
+            return null;
+        }
+
+        async function loadPrototypes() {
+            var tok = await getToken();
+            if (!tok) {
+                showAlert('請先登入', 'danger');
+                return;
+            }
+            var r = await fetch('/api/me/vendor-assets?asset_kind=prototype', {
+                headers: { Authorization: 'Bearer ' + tok }
+            });
+            var data = await r.json().catch(function () { return []; });
+            if (!r.ok) {
+                showAlert((data && data.error) || '載入失敗', 'danger');
+                return;
+            }
+            prototypes = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+            var sel = document.getElementById('proto-select');
+            if (!sel) return;
+            sel.innerHTML = '';
+            if (!prototypes.length) {
+                sel.innerHTML = '<option value="">尚無主產品</option>';
+                showAlert('請先在數位版型上傳主產品。', 'info');
+                return;
+            }
+            prototypes.forEach(function (p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = (p.title || p.id).slice(0, 80);
+                sel.appendChild(opt);
+            });
+            var pre = qs('prototype_asset_id');
+            if (pre && prototypes.some(function (p) { return p.id === pre; })) sel.value = pre;
+            else sel.value = prototypes[0].id;
+            sel.addEventListener('change', function () { loadInsights(sel.value); });
+            loadInsights(sel.value);
+        }
+
+        async function loadInsights(prototypeId) {
+            if (!prototypeId) return;
+            var tok = await getToken();
+            var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(prototypeId) + '/design-insights', {
+                headers: { Authorization: 'Bearer ' + tok }
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (!r.ok) {
+                showAlert(data.error || '查詢失敗', 'danger');
+                document.getElementById('insights-body').classList.add('d-none');
+                return;
+            }
+            document.getElementById('load-alert').classList.add('d-none');
+            document.getElementById('insights-body').classList.remove('d-none');
+            document.getElementById('stat-gen-count').textContent = String(data.generation_count || 0);
+            document.getElementById('proto-title').textContent = (data.prototype && data.prototype.title) || '—';
+            var note = document.getElementById('proto-scan-note');
+            if (note) {
+                note.textContent = '掃描最近 ' + (data.scanned_products || 0) + ' 筆含參考血緣的設計稿';
+            }
+            var thumb = document.getElementById('proto-thumb');
+            if (thumb && data.prototype && data.prototype.image_url) {
+                thumb.src = data.prototype.image_url;
+                thumb.classList.remove('d-none');
+            } else if (thumb) {
+                thumb.classList.add('d-none');
+            }
+            var combos = data.top_combos || [];
+            var combosList = document.getElementById('combos-list');
+            var combosEmpty = document.getElementById('combos-empty');
+            if (combosList) combosList.innerHTML = '';
+            if (!combos.length) {
+                if (combosEmpty) combosEmpty.classList.remove('d-none');
+            } else {
+                if (combosEmpty) combosEmpty.classList.add('d-none');
+                var maxCount = combos[0].count || 1;
+                combos.forEach(function (c) {
+                    var row = document.createElement('div');
+                    row.className = 'mb-3';
+                    row.innerHTML =
+                        '<div class="d-flex justify-content-between small mb-1">' +
+                        '<span>' + esc(c.combo_label) + '</span>' +
+                        '<span class="text-muted">' + c.count + ' 次 · ' + (c.share_pct || 0) + '%</span></div>' +
+                        '<div class="combo-bar" style="width:' + Math.max(8, Math.round((c.count / maxCount) * 100)) + '%"></div>';
+                    combosList.appendChild(row);
+                });
+            }
+            var gens = data.recent_generations || [];
+            var grid = document.getElementById('gens-grid');
+            var gensEmpty = document.getElementById('gens-empty');
+            if (grid) grid.innerHTML = '';
+            if (!gens.length) {
+                if (gensEmpty) gensEmpty.classList.remove('d-none');
+            } else {
+                if (gensEmpty) gensEmpty.classList.add('d-none');
+                gens.forEach(function (g) {
+                    var col = document.createElement('div');
+                    col.className = 'col-6 col-md-4 col-lg-3';
+                    var url = g.ai_generated_image_url || '';
+                    var cap = (g.combo_label || g.title || '').trim();
+                    var dateStr = g.created_at ? String(g.created_at).slice(0, 10) : '';
+                    col.innerHTML = url
+                        ? '<img src="' + esc(url) + '" class="gen-thumb matchdo-enlarge-trigger" alt="" loading="lazy" data-image-urls="' + esc(JSON.stringify([url])) + '">' +
+                          '<div class="small text-truncate mt-1" title="' + esc(cap) + '">' + esc(cap) + '</div>' +
+                          '<div class="text-muted small">' + esc(dateStr) + '</div>'
+                        : '<div class="text-muted small">無圖</div>';
+                    grid.appendChild(col);
+                });
+                if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.wire === 'function') {
+                    window.MatchdoImageLightbox.wire(grid);
+                }
+            }
+            var u = new URL(window.location.href);
+            u.searchParams.set('prototype_asset_id', prototypeId);
+            window.history.replaceState({}, '', u.pathname + u.search);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof window.initSiteHeader === 'function') window.initSiteHeader();
+            loadPrototypes();
+        });
+    })();
+    </script>
+</body>
+</html>
