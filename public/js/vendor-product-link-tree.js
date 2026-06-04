@@ -112,7 +112,6 @@
         if (!url) return;
         state.guideVariantByAssetId[assetId] = { url: url, label: label || '' };
         if (state.guideSelectedIds.indexOf(assetId) < 0) state.guideSelectedIds.push(assetId);
-        setGuideVariantExpanded(null);
         refreshVariantCardVisuals(assetId);
         var card = document.querySelector('[data-guide-asset="' + assetId + '"]');
         if (card) card.classList.add('vplt-child-card--picked');

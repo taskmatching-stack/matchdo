@@ -296,14 +296,13 @@
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 .vplt-variant-hstrip::-webkit-scrollbar {
-    height: 6px;
-}
-.vplt-variant-hstrip::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
+    display: none;
+    width: 0;
+    height: 0;
 }
 .vplt-variant-option {
     flex: 0 0 auto;
@@ -572,9 +571,16 @@
 .vplt-child-card.vplt-child-card--clickable {
     cursor: pointer;
 }
-.vplt-child-card.vplt-child-card--clickable:hover {
+.vplt-child-card.vplt-child-card--clickable:not(.vplt-child-card--has-variants):hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.vplt-child-card--has-variants,
+.vplt-variant-unit {
+    transform: none;
+}
+.vplt-variant-option:hover {
+    border-color: #5eead4;
 }
 .vplt-root-card img.matchdo-enlarge-trigger,
 .vplt-child-card img.matchdo-enlarge-trigger,
