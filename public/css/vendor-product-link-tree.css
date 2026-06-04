@@ -200,27 +200,33 @@
     width: 100%;
     margin-top: 0.35rem;
 }
-.vplt-variant-panel {
-    width: 100%;
-    margin-top: 0.35rem;
-    overflow: visible;
-}
 .vplt-variant-mobile-bar {
     display: none;
 }
-.vplt-variant-grid-wide {
+.vplt-variant-hstrip {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: stretch;
-    justify-content: flex-start;
     gap: 0.5rem;
     width: 100%;
-    overflow: visible;
+    margin: 0.25rem 0 0;
+    padding: 0.2rem 0.1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+.vplt-variant-hstrip::-webkit-scrollbar {
+    height: 6px;
+}
+.vplt-variant-hstrip::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
 }
 .vplt-variant-option {
-    flex: 1 1 calc(12.5% - 0.5rem);
-    min-width: 72px;
-    max-width: 108px;
+    flex: 0 0 auto;
+    width: 76px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -261,52 +267,35 @@
 .vplt-child-card--has-variants.vplt-child-card--expanded .vplt-child-title {
     text-align: center;
 }
-@media (max-width: 1200px) {
-    .vplt-variant-option {
-        flex: 1 1 calc(16.666% - 0.5rem);
-    }
+.vplt-children .vplt-child-card--has-variants.vplt-child-card--expanded {
+    order: 10;
 }
 @media (max-width: 991px) {
-    .vplt-variant-option {
-        flex: 1 1 calc(25% - 0.5rem);
-        max-width: none;
-    }
     .vplt-child-card--has-variants.vplt-child-card--expanded {
         width: min(100%, 100%);
     }
 }
-/* 手機：預覽 + 底部 sheet 瀏覽色款 */
+/* 手機：文字 + 底部 sheet（不重複封面縮圖） */
 @media (max-width: 768px) {
-    .vplt-variant-grid-wide {
+    .vplt-variant-hstrip {
         display: none;
     }
     .vplt-variant-mobile-bar {
         display: flex;
         flex-direction: column;
+        align-items: stretch;
         gap: 0.5rem;
         width: 100%;
-    }
-    .vplt-variant-mobile-preview {
-        display: flex;
-        align-items: center;
-        gap: 0.65rem;
         padding: 0.5rem;
         background: #f8fafc;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
     }
-    .vplt-variant-mobile-thumb {
-        width: 56px;
-        height: 56px;
-        object-fit: cover;
-        border-radius: 8px;
-        flex-shrink: 0;
-        cursor: zoom-in;
-    }
     .vplt-variant-mobile-label {
         font-size: 0.875rem;
         font-weight: 600;
         color: #0d9488;
+        text-align: center;
     }
     .vplt-variant-browse-btn {
         width: 100%;
@@ -381,8 +370,6 @@
 }
 .vplt-variant-sheet-grid .vplt-variant-option {
     flex: none;
-    min-width: 0;
-    max-width: none;
     width: 100%;
 }
 .vplt-variant-sheet-grid .vplt-variant-option img {

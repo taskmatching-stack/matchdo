@@ -57,6 +57,17 @@
         return u ? [{ url: u, label: '', sort_order: 0, is_cover: true }] : [];
     }
 
+    /** 色款列：依 url 去重，避免封面與圖庫重複 */
+    function variantImageItems(a) {
+        var seen = {};
+        return assetImageItems(a).filter(function (it) {
+            var u = (it.url || '').trim();
+            if (!u || seen[u]) return false;
+            seen[u] = true;
+            return true;
+        });
+    }
+
     function assetLightboxCaption(a) {
         if (!a) return '';
         var parts = [(a.title || '').trim(), kindLabel(a.asset_kind)];
@@ -121,7 +132,7 @@
     }
 
     function variantLabelHtml(a, assetId) {
-        if (IS_VENDOR || assetImageItems(a).length <= 1) return '';
+        if (IS_VENDOR || variantImageItems(a).length <= 1) return '';
         var v = getGuideVariant(assetId);
         if (!v || !v.label) return '';
         return '<div class="vplt-variant-active-label text-muted">' + esc(v.label) + '</div>';
@@ -129,44 +140,37 @@
 
     function variantExpandBtnHtml(a, assetId) {
         if (IS_VENDOR) return '';
-        var items = assetImageItems(a);
+        var items = variantImageItems(a);
         if (items.length <= 1) return '';
         var expanded = isVariantPanelExpanded(assetId);
         var btnText = expanded
             ? tr('productTree.collapseVariants', '收合色款')
             : (tr('productTree.expandVariants', '選色款') + ' (' + items.length + ')');
         return '<button type="button" class="vplt-variant-expand-btn" aria-expanded="' + (expanded ? 'true' : 'false') + '">' +
-            esc(btnText) + ' <i class="bi bi-chevron-' + (expanded ? 'up' : 'down') + '" aria-hidden="true"></i></button>';
+            esc(btnText) + ' <i class="bi bi-chevron-' + (expanded ? 'left' : 'right') + '" aria-hidden="true"></i></button>';
     }
 
-    /** 展開後：桌機同寬換行；手機預覽列 + 底部 sheet */
+    /** 展開後：橫向色帶（全寬）；手機改底部 sheet */
     function variantPickerPanelHtml(a, assetId) {
         if (IS_VENDOR || !isVariantPanelExpanded(assetId)) return '';
-        var items = assetImageItems(a);
+        var items = variantImageItems(a);
         if (items.length <= 1) return '';
         var activeUrl = assetDisplayImageUrl(a, assetId);
         var cap = assetLightboxCaption(a);
         var v = getGuideVariant(assetId);
         var activeLabel = (v && v.label) ? v.label : '';
-        var gridInner = items.map(function (it) {
+        var stripInner = items.map(function (it) {
             return buildVariantOptionButtonHtml(a, it, activeUrl, cap);
         }).join('');
         var browseLbl = (tr('productTree.browseAllColors', '瀏覽全部 {n} 色') || '瀏覽全部 {n} 色').replace('{n}', String(items.length));
         return '<div class="vplt-variant-picker" data-variant-picker-asset="' + esc(assetId) + '">' +
             '<div class="vplt-variant-mobile-bar">' +
-            '<div class="vplt-variant-mobile-preview">' +
-            (activeUrl
-                ? '<img src="' + esc(activeUrl) + '" alt="" class="matchdo-enlarge-trigger vplt-variant-mobile-thumb"' +
-                dataImageItemsAttr(a) + ' data-lightbox-caption="' + esc(cap) + '" loading="lazy">'
-                : '') +
             '<span class="vplt-variant-mobile-label">' + esc(activeLabel || tr('productTree.pickColorHint', '點下方瀏覽色款')) + '</span>' +
-            '</div>' +
             '<button type="button" class="btn btn-sm btn-outline-primary vplt-variant-browse-btn" data-browse-asset="' + esc(assetId) + '">' +
             esc(browseLbl) + ' <i class="bi bi-chevron-up" aria-hidden="true"></i></button>' +
             '</div>' +
-            '<div class="vplt-variant-panel" role="listbox" aria-label="' +
-            esc(tr('productTree.pickColorVariant', '選擇色款')) + '">' +
-            '<div class="vplt-variant-grid-wide">' + gridInner + '</div></div></div>';
+            '<div class="vplt-variant-hstrip" role="listbox" aria-label="' +
+            esc(tr('productTree.pickColorVariant', '選擇色款')) + '">' + stripInner + '</div></div>';
     }
 
     function closeVariantSheet() {
@@ -182,7 +186,7 @@
     function openVariantSheet(assetId) {
         var a = assetById(assetId);
         if (!a) return;
-        var items = assetImageItems(a);
+        var items = variantImageItems(a);
         var sheet = document.getElementById('vpltVariantSheet');
         var grid = document.getElementById('vpltVariantSheetGrid');
         var titleEl = document.getElementById('vpltVariantSheetTitle');
@@ -350,7 +354,7 @@
                 var picked = !IS_VENDOR && state.guideSelectedIds.indexOf(aid) >= 0;
                 var clickCls = !IS_VENDOR ? ' vplt-child-card--clickable' : '';
                 var pickCls = picked ? ' vplt-child-card--picked' : '';
-                var hasVariants = !IS_VENDOR && assetImageItems(a).length > 1;
+                var hasVariants = !IS_VENDOR && variantImageItems(a).length > 1;
                 var expanded = hasVariants && isVariantPanelExpanded(aid);
                 var variantCls = hasVariants ? ' vplt-child-card--has-variants' : '';
                 var expandedCls = expanded ? ' vplt-child-card--expanded' : '';
@@ -358,10 +362,13 @@
                 childrenHtml += '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + variantCls + expandedCls + '" data-guide-asset="' + esc(aid) + '">' + removeBtn +
                     '<span class="badge bg-light text-secondary vplt-kind-badge">' + esc(kindLabel(k)) + '</span>';
                 if (hasVariants) {
-                    childrenHtml += displayUrl
-                        ? enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl)
-                        : '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>';
-                    childrenHtml += variantLabelHtml(a, aid) + variantExpandBtnHtml(a, aid) + variantPickerPanelHtml(a, aid);
+                    if (!expanded) {
+                        childrenHtml += displayUrl
+                            ? enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl)
+                            : '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>';
+                        childrenHtml += variantLabelHtml(a, aid);
+                    }
+                    childrenHtml += variantExpandBtnHtml(a, aid) + variantPickerPanelHtml(a, aid);
                 } else if (displayUrl) {
                     childrenHtml += enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl);
                 } else {
@@ -389,7 +396,7 @@
             canvas.querySelectorAll('[data-guide-asset]').forEach(function (card) {
                 card.addEventListener('click', function (e) {
                     if (e.target.closest(
-                        'img.matchdo-enlarge-trigger, .vplt-variant-expand-btn, .vplt-variant-picker, .vplt-variant-option, .vplt-variant-browse-btn'
+                        'img.matchdo-enlarge-trigger, .vplt-variant-expand-btn, .vplt-variant-picker, .vplt-variant-hstrip, .vplt-variant-option, .vplt-variant-browse-btn'
                     )) return;
                     if (card.classList.contains('vplt-child-card--has-variants')) return;
                     toggleGuideSelection(card.getAttribute('data-guide-asset'));
@@ -524,7 +531,7 @@
         } else {
             state.guideSelectedIds.push(assetId);
             var a = assetById(assetId);
-            if (a && assetImageItems(a).length > 1 && !state.guideVariantByAssetId[assetId]) {
+            if (a && variantImageItems(a).length > 1 && !state.guideVariantByAssetId[assetId]) {
                 var def = defaultGuideVariant(a);
                 if (def) state.guideVariantByAssetId[assetId] = def;
             }
