@@ -213,7 +213,9 @@
         var assetId = card.getAttribute('data-guide-asset');
         var a = assetById(assetId);
         var expanded = isVariantPanelExpanded(assetId);
+        var unit = card.closest('.vplt-variant-unit');
         card.classList.toggle('vplt-child-card--expanded', expanded);
+        if (unit) unit.classList.toggle('vplt-variant-unit--expanded', expanded);
         var collapsed = card.querySelector('.vplt-variant-collapsed');
         var expandedWrap = card.querySelector('.vplt-variant-expanded-wrap');
         if (collapsed) collapsed.setAttribute('aria-hidden', expanded ? 'true' : 'false');
@@ -460,24 +462,28 @@
                 var expanded = hasVariants && isVariantPanelExpanded(aid);
                 var variantCls = hasVariants ? ' vplt-child-card--has-variants' : '';
                 var expandedCls = expanded ? ' vplt-child-card--expanded' : '';
+                var unitExpandedCls = expanded ? ' vplt-variant-unit--expanded' : '';
                 var displayUrl = assetDisplayImageUrl(a, aid);
-                childrenHtml += '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + variantCls + expandedCls + '" data-guide-asset="' + esc(aid) + '">' + removeBtn +
-                    '<span class="badge bg-light text-secondary vplt-kind-badge">' + esc(kindLabel(k)) + '</span>';
                 if (hasVariants) {
-                    childrenHtml += '<div class="vplt-variant-layout">' +
-                        '<div class="vplt-variant-main">' +
+                    childrenHtml += '<div class="vplt-variant-unit' + unitExpandedCls + '">' +
+                        '<span class="badge bg-light text-secondary vplt-kind-out">' + esc(kindLabel(k)) + '</span>' +
+                        '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + variantCls + expandedCls + '" data-guide-asset="' + esc(aid) + '">' + removeBtn +
+                        '<div class="vplt-variant-layout">' +
                         variantCollapsedBlockHtml(a, aid) +
                         variantExpandedBlockHtml(a, aid) +
-                        '<div class="vplt-child-title">' + esc(a.title || aid) + '</div>' +
-                        '</div>' + variantSideToggleHtml(a, aid) + '</div>';
-                } else if (displayUrl) {
-                    childrenHtml += enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl);
-                    childrenHtml += '<div class="vplt-child-title">' + esc(a.title || aid) + '</div>';
+                        variantSideToggleHtml(a, aid) +
+                        '</div>' +
+                        '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div></div>';
                 } else {
-                    childrenHtml += '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>';
-                    childrenHtml += '<div class="vplt-child-title">' + esc(a.title || aid) + '</div>';
+                    childrenHtml += '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + '" data-guide-asset="' + esc(aid) + '">' + removeBtn +
+                        '<span class="badge bg-light text-secondary vplt-kind-badge">' + esc(kindLabel(k)) + '</span>';
+                    if (displayUrl) {
+                        childrenHtml += enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl);
+                    } else {
+                        childrenHtml += '<div class="bg-light rounded mx-auto mb-1" style="width:72px;height:72px"></div>';
+                    }
+                    childrenHtml += '<div class="vplt-child-title">' + esc(a.title || aid) + '</div></div>';
                 }
-                childrenHtml += '</div>';
             });
             childrenHtml += '</div>';
         }
@@ -949,7 +955,7 @@
         window.__vpltExpandDismissWired = true;
         document.addEventListener('click', function (e) {
             if (!state.guideExpandedAssetId) return;
-            if (e.target.closest('.vplt-child-card--expanded')) return;
+            if (e.target.closest('.vplt-variant-unit--expanded')) return;
             setGuideVariantExpanded(null);
         });
     }
