@@ -323,10 +323,10 @@
     outline: none;
     border-radius: 12px;
 }
-.vplt-guide-tile--selectable {
+.vplt-guide-tile--interactive {
     cursor: pointer;
 }
-.vplt-guide-tile--selectable:hover .vplt-guide-tile-name {
+.vplt-guide-tile--interactive:hover .vplt-guide-tile-name {
     color: #000;
 }
 .vplt-guide-tile-media {
@@ -344,18 +344,14 @@
     background: #f5f5f7;
     transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
-.vplt-guide-tile--selectable:not(.vplt-guide-tile--picked) .vplt-guide-tile-media {
+.vplt-guide-tile--interactive:not(.vplt-guide-tile--picked):not(.vplt-guide-tile--active-view) .vplt-guide-tile-media {
     border-color: #d1d5db;
     border-style: dashed;
     background: #fafafa;
 }
-.vplt-guide-tile--prototype .vplt-guide-tile-media {
-    border-style: solid;
-    border-color: #e5e7eb;
-    background: #f9fafb;
-}
-.vplt-guide-tile--prototype.vplt-guide-tile--active-color .vplt-guide-tile-media {
+.vplt-guide-tile--active-view .vplt-guide-tile-media {
     border-color: #0d9488;
+    border-style: solid;
     background: #f0fdfa;
     box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
 }
@@ -407,7 +403,7 @@
 .vplt-page--guide .vplt-guide-tile-media .vplt-variant-zoom-btn {
     display: none !important;
 }
-.vplt-guide-tile--active-color .vplt-guide-tile-name {
+.vplt-guide-tile--active-view .vplt-guide-tile-name {
     font-weight: 600;
 }
 .vplt-guide-tile-name {
@@ -452,7 +448,7 @@
     font-weight: 700;
     color: #0f766e;
 }
-.vplt-guide-tile--selectable:focus-visible {
+.vplt-guide-tile--interactive:focus-visible {
     outline: 2px solid #0d9488;
     outline-offset: 3px;
 }
