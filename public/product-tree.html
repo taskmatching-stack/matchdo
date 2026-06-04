@@ -25,7 +25,7 @@
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
-    <link href="/css/vendor-product-link-tree.css?v=9" rel="stylesheet">
+    <link href="/css/vendor-product-link-tree.css?v=10" rel="stylesheet">
     <script src="/js/i18n.js"></script>
 </head>
 <body class="vplt-page vplt-page--guide" data-vplt-mode="guide">
@@ -62,14 +62,24 @@
                 <h2 class="h6 text-muted mb-2" data-i18n="productTree.guidePanelTitle">搭配摘要</h2>
                 <div id="vplt-guide-summary" class="small mb-3 text-secondary"></div>
                 <h3 class="h6 text-muted mb-2" data-i18n="productTree.guideSelected">已選參考</h3>
-                <p class="text-muted small" data-i18n="productTree.guideSelectedHint">多色款橫向列出，點色款圖選定；點圖片可放大預覽。</p>
+                <p class="text-muted small" data-i18n="productTree.guideSelectedHint">手機：點「瀏覽全部色款」展開選色；電腦：色款同寬自動排列。點圖可放大。</p>
                 <div id="vplt-guide-selected" class="vplt-guide-selected mb-3"></div>
             </aside>
         </div>
         <div id="vplt-loading" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>載入中…</div>
     </div>
+    <div id="vpltVariantSheet" class="vplt-variant-sheet" aria-hidden="true">
+        <div class="vplt-variant-sheet-backdrop"></div>
+        <div class="vplt-variant-sheet-panel">
+            <div class="vplt-variant-sheet-header">
+                <span id="vpltVariantSheetTitle" class="vplt-variant-sheet-title">選擇色款</span>
+                <button type="button" id="vpltVariantSheetClose" class="vplt-variant-sheet-close" aria-label="關閉">✕</button>
+            </div>
+            <div id="vpltVariantSheetGrid" class="vplt-variant-sheet-grid" role="listbox"></div>
+        </div>
+    </div>
     <script src="/js/site-header.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
-    <script src="/js/vendor-product-link-tree.js?v=7" defer></script>
+    <script src="/js/vendor-product-link-tree.js?v=8" defer></script>
 </body>
 </html>

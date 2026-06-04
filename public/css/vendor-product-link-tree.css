@@ -113,6 +113,13 @@
     align-items: center;
     gap: 1rem;
 }
+.vplt-page--guide .vplt-canvas-wrap {
+    width: 100%;
+}
+.vplt-page--guide .vplt-canvas {
+    align-items: stretch;
+    width: 100%;
+}
 .vplt-root-card {
     border: 2px solid #0d9488;
     border-radius: 12px;
@@ -136,7 +143,10 @@
     justify-content: center;
     gap: 0.75rem;
     width: 100%;
-    max-width: 720px;
+    max-width: none;
+}
+.vplt-page--guide .vplt-children {
+    justify-content: stretch;
 }
 .vplt-child-card {
     width: 120px;
@@ -154,42 +164,40 @@
     max-width: 100%;
     flex: 1 1 100%;
     text-align: left;
-    padding: 0.65rem 0.5rem;
+    padding: 0.65rem 0.75rem;
+    box-sizing: border-box;
 }
-.vplt-variant-hstrip {
+.vplt-variant-picker {
+    width: 100%;
+    margin-top: 0.35rem;
+}
+.vplt-variant-mobile-bar {
+    display: none;
+}
+.vplt-variant-grid-wide {
     display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: stretch;
+    justify-content: flex-start;
     gap: 0.5rem;
     width: 100%;
-    margin: 0.35rem 0 0.25rem;
-    padding: 0.25rem 0.1rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-}
-.vplt-variant-hstrip::-webkit-scrollbar {
-    height: 6px;
-}
-.vplt-variant-hstrip::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
+    overflow: visible;
 }
 .vplt-variant-option {
-    flex: 0 0 auto;
+    flex: 1 1 calc(12.5% - 0.5rem);
+    min-width: 72px;
+    max-width: 108px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.25rem;
-    width: 76px;
     padding: 0.35rem;
     border: 2px solid #e2e8f0;
     border-radius: 8px;
     background: #fff;
     cursor: pointer;
     text-align: center;
+    box-sizing: border-box;
 }
 .vplt-variant-option.is-active {
     border-color: #0d9488;
@@ -218,6 +226,132 @@
 }
 .vplt-children .vplt-child-card--has-variants {
     order: 10;
+}
+@media (max-width: 1200px) {
+    .vplt-variant-option {
+        flex: 1 1 calc(16.666% - 0.5rem);
+    }
+}
+@media (max-width: 991px) {
+    .vplt-variant-option {
+        flex: 1 1 calc(25% - 0.5rem);
+        max-width: none;
+    }
+}
+/* 手機：預覽 + 底部 sheet 瀏覽色款 */
+@media (max-width: 768px) {
+    .vplt-variant-grid-wide {
+        display: none;
+    }
+    .vplt-variant-mobile-bar {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    .vplt-variant-mobile-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.5rem;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+    }
+    .vplt-variant-mobile-thumb {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 8px;
+        flex-shrink: 0;
+        cursor: zoom-in;
+    }
+    .vplt-variant-mobile-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #0d9488;
+    }
+    .vplt-variant-browse-btn {
+        width: 100%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+    }
+}
+.vplt-variant-sheet {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 1085;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.vplt-variant-sheet.open {
+    pointer-events: auto;
+    opacity: 1;
+}
+.vplt-variant-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+}
+.vplt-variant-sheet-panel {
+    position: relative;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    max-height: 78vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.vplt-variant-sheet.open .vplt-variant-sheet-panel {
+    transform: translateY(0);
+}
+.vplt-variant-sheet-header {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    gap: 0.5rem;
+}
+.vplt-variant-sheet-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    text-align: center;
+}
+.vplt-variant-sheet-close {
+    border: none;
+    background: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #6b7280;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+}
+.vplt-variant-sheet-grid {
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+.vplt-variant-sheet-grid .vplt-variant-option {
+    flex: none;
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+}
+.vplt-variant-sheet-grid .vplt-variant-option img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
 }
 .vplt-child-card img {
     width: 72px;

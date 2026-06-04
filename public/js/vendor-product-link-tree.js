@@ -100,30 +100,105 @@
         renderGuidePanel();
     }
 
-    /** 多色款：橫向一排全部展開 */
-    function variantHstripHtml(a, assetId) {
+    function buildVariantOptionButtonHtml(a, it, activeUrl, cap) {
+        var isActive = it.url === activeUrl;
+        var lab = (it.label || '').trim();
+        return '<button type="button" role="option" class="vplt-variant-option' + (isActive ? ' is-active' : '') + '"' +
+            ' data-variant-url="' + esc(it.url) + '"' +
+            ' data-variant-label="' + esc(lab) + '"' +
+            ' aria-selected="' + (isActive ? 'true' : 'false') + '"' +
+            ' title="' + esc(lab || tr('productTree.colorVariant', '色款')) + '">' +
+            '<img src="' + esc(it.url) + '" alt="' + esc(lab) + '" class="matchdo-enlarge-trigger"' +
+            dataImageItemsAttr(a) +
+            ' data-lightbox-caption="' + esc(cap + (lab ? ' · ' + lab : '')) + '" loading="lazy">' +
+            '<span class="vplt-variant-option-label">' + esc(lab || '—') + '</span></button>';
+    }
+
+    /** 桌機：同寬自動換行；手機：預覽列 + 底部 sheet 瀏覽全部色款 */
+    function variantPickerBlockHtml(a, assetId) {
         if (IS_VENDOR) return '';
         var items = assetImageItems(a);
         if (items.length <= 1) return '';
         var activeUrl = assetDisplayImageUrl(a, assetId);
         var cap = assetLightboxCaption(a);
-        var html = '<div class="vplt-variant-hstrip" role="listbox" aria-label="' +
-            esc(tr('productTree.pickColorVariant', '選擇色款')) + '">';
-        items.forEach(function (it) {
-            var isActive = it.url === activeUrl;
-            var lab = (it.label || '').trim();
-            html += '<button type="button" role="option" class="vplt-variant-option' + (isActive ? ' is-active' : '') + '"' +
-                ' data-variant-url="' + esc(it.url) + '"' +
-                ' data-variant-label="' + esc(lab) + '"' +
-                ' aria-selected="' + (isActive ? 'true' : 'false') + '"' +
-                ' title="' + esc(lab || tr('productTree.colorVariant', '色款')) + '">' +
-                '<img src="' + esc(it.url) + '" alt="' + esc(lab) + '" class="matchdo-enlarge-trigger"' +
-                dataImageItemsAttr(a) +
-                ' data-lightbox-caption="' + esc(cap + (lab ? ' · ' + lab : '')) + '" loading="lazy">' +
-                '<span class="vplt-variant-option-label">' + esc(lab || '—') + '</span></button>';
+        var v = getGuideVariant(assetId);
+        var activeLabel = (v && v.label) ? v.label : '';
+        var gridInner = items.map(function (it) {
+            return buildVariantOptionButtonHtml(a, it, activeUrl, cap);
+        }).join('');
+        var browseLbl = (tr('productTree.browseAllColors', '瀏覽全部 {n} 色') || '瀏覽全部 {n} 色').replace('{n}', String(items.length));
+        return '<div class="vplt-variant-picker" data-variant-picker-asset="' + esc(assetId) + '">' +
+            '<div class="vplt-variant-mobile-bar">' +
+            '<div class="vplt-variant-mobile-preview">' +
+            (activeUrl
+                ? '<img src="' + esc(activeUrl) + '" alt="" class="matchdo-enlarge-trigger vplt-variant-mobile-thumb"' +
+                dataImageItemsAttr(a) + ' data-lightbox-caption="' + esc(cap) + '" loading="lazy">'
+                : '') +
+            '<span class="vplt-variant-mobile-label">' + esc(activeLabel || tr('productTree.pickColorHint', '點下方瀏覽色款')) + '</span>' +
+            '</div>' +
+            '<button type="button" class="btn btn-sm btn-outline-primary vplt-variant-browse-btn" data-browse-asset="' + esc(assetId) + '">' +
+            esc(browseLbl) + ' <i class="bi bi-chevron-up" aria-hidden="true"></i></button>' +
+            '</div>' +
+            '<div class="vplt-variant-grid-wide" role="listbox" aria-label="' +
+            esc(tr('productTree.pickColorVariant', '選擇色款')) + '">' + gridInner + '</div></div>';
+    }
+
+    function closeVariantSheet() {
+        var sheet = document.getElementById('vpltVariantSheet');
+        if (!sheet) return;
+        sheet.classList.remove('open');
+        sheet.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        var grid = document.getElementById('vpltVariantSheetGrid');
+        if (grid) grid.innerHTML = '';
+    }
+
+    function openVariantSheet(assetId) {
+        var a = assetById(assetId);
+        if (!a) return;
+        var items = assetImageItems(a);
+        var sheet = document.getElementById('vpltVariantSheet');
+        var grid = document.getElementById('vpltVariantSheetGrid');
+        var titleEl = document.getElementById('vpltVariantSheetTitle');
+        if (!sheet || !grid) return;
+        var activeUrl = assetDisplayImageUrl(a, assetId);
+        var cap = assetLightboxCaption(a);
+        if (titleEl) {
+            titleEl.textContent = (a.title || tr('productTree.colorVariant', '色款')) + ' — ' +
+                (tr('productTree.pickColorVariant', '選擇色款'));
+        }
+        grid.innerHTML = items.map(function (it) {
+            return buildVariantOptionButtonHtml(a, it, activeUrl, cap);
+        }).join('');
+        grid.querySelectorAll('.vplt-variant-option').forEach(function (opt) {
+            opt.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var url = (opt.getAttribute('data-variant-url') || '').trim();
+                var label = (opt.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
+                applyGuideVariantChoice(assetId, url, label);
+                closeVariantSheet();
+            });
         });
-        html += '</div>';
-        return html;
+        sheet.classList.add('open');
+        sheet.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function wireVariantSheetUi() {
+        if (IS_VENDOR || window.__vpltVariantSheetWired) return;
+        window.__vpltVariantSheetWired = true;
+        var sheet = document.getElementById('vpltVariantSheet');
+        if (!sheet) return;
+        sheet.querySelector('.vplt-variant-sheet-backdrop').addEventListener('click', closeVariantSheet);
+        document.getElementById('vpltVariantSheetClose').addEventListener('click', closeVariantSheet);
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.vplt-variant-browse-btn');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            openVariantSheet(btn.getAttribute('data-browse-asset'));
+        });
     }
 
     function enlargeImgHtml(a, className, style, displayUrl) {
@@ -255,7 +330,7 @@
                 childrenHtml += '<div class="vplt-child-card vplt-child-card--' + esc(k) + clickCls + pickCls + variantCls + '" data-guide-asset="' + esc(aid) + '">' + removeBtn +
                     '<span class="badge bg-light text-secondary vplt-kind-badge">' + esc(kindLabel(k)) + '</span>';
                 if (hasVariants) {
-                    childrenHtml += variantHstripHtml(a, aid);
+                    childrenHtml += variantPickerBlockHtml(a, aid);
                 } else if (displayUrl) {
                     childrenHtml += enlargeImgHtml(a, 'vplt-card-thumb', '', displayUrl);
                 } else {
@@ -282,7 +357,9 @@
         if (!IS_VENDOR) {
             canvas.querySelectorAll('[data-guide-asset]').forEach(function (card) {
                 card.addEventListener('click', function (e) {
-                    if (e.target.closest('img.matchdo-enlarge-trigger, .vplt-variant-hstrip, .vplt-variant-option')) return;
+                    if (e.target.closest(
+                        'img.matchdo-enlarge-trigger, .vplt-variant-picker, .vplt-variant-option, .vplt-variant-browse-btn'
+                    )) return;
                     if (card.classList.contains('vplt-child-card--has-variants')) return;
                     toggleGuideSelection(card.getAttribute('data-guide-asset'));
                 });
@@ -717,6 +794,7 @@
 
     function init() {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
+        wireVariantSheetUi();
         if (IS_VENDOR) initVendor();
         else initGuide();
     }
