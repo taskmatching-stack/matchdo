@@ -118,6 +118,23 @@
         renderGuidePanel();
     }
 
+    /** 點圖放大；點色名或按鈕留白處才選色 */
+    function onVariantOptionPointer(e, opt, assetId, afterPick) {
+        if (e.target.closest('img.matchdo-enlarge-trigger')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var url = (opt.getAttribute('data-variant-url') || '').trim();
+        var label = (opt.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
+        applyGuideVariantChoice(assetId, url, label);
+        if (typeof afterPick === 'function') afterPick();
+    }
+
+    function wireVariantOptionClick(opt, assetId, afterPick) {
+        opt.addEventListener('click', function (e) {
+            onVariantOptionPointer(e, opt, assetId, afterPick);
+        });
+    }
+
     function buildVariantOptionButtonHtml(a, it, activeUrl, cap) {
         var isActive = it.url === activeUrl;
         var lab = (it.label || '').trim();
@@ -304,14 +321,7 @@
             return buildVariantOptionButtonHtml(a, it, activeUrl, cap);
         }).join('');
         grid.querySelectorAll('.vplt-variant-option').forEach(function (opt) {
-            opt.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var url = (opt.getAttribute('data-variant-url') || '').trim();
-                var label = (opt.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
-                applyGuideVariantChoice(assetId, url, label);
-                closeVariantSheet();
-            });
+            wireVariantOptionClick(opt, assetId, closeVariantSheet);
         });
         sheet.classList.add('open');
         sheet.setAttribute('aria-hidden', 'false');
@@ -521,16 +531,9 @@
             });
             syncAllVariantCardsExpanded();
             canvas.querySelectorAll('.vplt-variant-option').forEach(function (opt) {
-                opt.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var card = opt.closest('[data-guide-asset]');
-                    if (!card) return;
-                    var aid = card.getAttribute('data-guide-asset');
-                    var url = (opt.getAttribute('data-variant-url') || '').trim();
-                    var label = (opt.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
-                    applyGuideVariantChoice(aid, url, label);
-                });
+                var card = opt.closest('[data-guide-asset]');
+                if (!card) return;
+                wireVariantOptionClick(opt, card.getAttribute('data-guide-asset'));
             });
         }
 

@@ -324,7 +324,7 @@
     background: #f0fdfa;
     box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.3);
 }
-.vplt-variant-option img {
+.vplt-variant-option img.matchdo-enlarge-trigger {
     width: 84px;
     height: 84px;
     object-fit: cover;
@@ -332,6 +332,10 @@
     display: block;
     margin: 0;
     cursor: zoom-in;
+    pointer-events: auto;
+}
+.vplt-variant-option-label {
+    cursor: pointer;
 }
 .vplt-child-card--has-variants .vplt-card-thumb {
     width: 84px;
