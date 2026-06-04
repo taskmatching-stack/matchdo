@@ -10,7 +10,29 @@
     }
     .vplt-sidebar--list { order: 1; }
     .vplt-canvas-wrap { order: 2; }
-    .vplt-sidebar--side { order: 3; }
+    .vplt-sidebar--side,
+    .vplt-sidebar--guide { order: 3; }
+    .vplt-page--guide .page-title-bar .d-flex.gap-2 {
+        width: 100%;
+    }
+    .vplt-page--guide .page-title-bar .btn {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .vplt-canvas-wrap {
+        padding: 0.75rem;
+        min-height: 280px;
+    }
+    .vplt-children {
+        gap: 0.5rem;
+    }
+    .vplt-child-card {
+        width: calc(50% - 0.35rem);
+        max-width: 140px;
+    }
+    .vplt-sidebar--guide {
+        max-height: none;
+    }
 }
 .vplt-prototype-list {
     max-height: 70vh;

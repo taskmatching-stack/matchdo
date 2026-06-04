@@ -67,7 +67,7 @@
     <!-- Template Stylesheet -->
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/custom-product-cat-picker.css" rel="stylesheet">
-    <link href="/css/browse-styles.css" rel="stylesheet">
+    <link href="/css/browse-styles.css?v=2" rel="stylesheet">
     <link href="/css/theme-custom.css" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
     <!-- JSON-LD Structured Data -->
@@ -504,6 +504,45 @@
             .cat-bs-item .cat-bs-check { color: #445D7E; width: 1.1rem; flex-shrink: 0; }
             .cat-bs-item .cat-bs-placeholder-icon { width: 1.1rem; flex-shrink: 0; }
             .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #9ca3af; font-size: 0.75rem; }
+
+            /* 廠商版型 Tab（手機） */
+            #panel-vendor-styles { padding-bottom: 0.5rem; }
+            #panel-vendor-styles #bs-cat-mobile-btn {
+                display: flex !important;
+                align-items: center;
+                gap: 0.5rem;
+                width: 100%;
+                padding: 0.65rem 0.875rem;
+                margin-bottom: 0.5rem;
+                background: #fff;
+                border: 1.5px solid #e5e7eb;
+                border-radius: 10px;
+                color: #6b7280;
+                font-size: 0.875rem;
+                text-align: left;
+                cursor: pointer;
+            }
+            #panel-vendor-styles #bs-cat-mobile-btn.has-value {
+                border-color: #445D7E;
+                color: #445D7E;
+                font-weight: 500;
+            }
+            #panel-vendor-styles .bs-change-cat-desktop { display: none !important; }
+            #panel-vendor-styles .row.g-2 > [class*="col-"] {
+                flex: 0 0 100%;
+                max-width: 100%;
+            }
+            #panel-vendor-styles .bs-grid:not(.d-none) {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.65rem;
+            }
+            #panel-vendor-styles .bs-card-title,
+            #panel-vendor-styles .bs-card .fw-semibold.small { font-size: 0.8rem; }
+            #panel-vendor-styles .bs-card-actions .btn,
+            #panel-vendor-styles .bs-card .btn { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
+            #bs-manufacturer-suggest { z-index: 1095 !important; }
+            #panel-vendor-styles { position: relative; z-index: 1; }
 
         }
         @keyframes canvas-pulse {
@@ -1287,10 +1326,15 @@
                     </div>
                     <div class="tab-pane fade" id="panel-vendor-styles" role="tabpanel" aria-labelledby="tab-vendor-styles">
                         <p class="text-muted small mb-2" data-i18n="customProduct.vendorStylesTabHint">與「產品設計」Tab 共用主／子分類。選定款式後可查看可搭配材料／配件，再帶回設計 Tab 生圖。</p>
+                        <button type="button" id="bs-cat-mobile-btn" class="cat-mobile-btn d-none" aria-haspopup="dialog" aria-controls="catBottomSheet">
+                            <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                            <span id="bsCatMobileBtnLabel" data-i18n="customProduct.categoryRequired">分類（必選）</span>
+                            <i class="bi bi-chevron-down ms-auto" aria-hidden="true"></i>
+                        </button>
                         <div id="bs-category-summary" class="alert alert-light border small py-2 mb-2 d-none">
                             <span data-i18n="customProduct.vendorStylesCurrentCategory">目前分類：</span>
                             <strong id="bs-cat-main-label"></strong>／<strong id="bs-cat-sub-label"></strong>
-                            <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" id="bs-go-set-category" data-i18n="customProduct.vendorStylesChangeCategory">到產品設計變更分類</button>
+                            <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline bs-change-cat-desktop" id="bs-go-set-category" data-i18n="customProduct.vendorStylesChangeCategory">到產品設計變更分類</button>
                         </div>
                         <div id="bs-vendor-banner" class="bs-vendor-banner mb-3 d-none"></div>
                         <div class="row g-2 align-items-end mb-3">
@@ -1503,7 +1547,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=2" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=59" defer></script>
+    <script src="js/custom-product.js?v=61" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

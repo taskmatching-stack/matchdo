@@ -49,6 +49,9 @@ $(document).ready(function () {
         CustomProductCatPicker.init().then(function () {
             syncCategoriesDataFromPicker();
             if (typeof updateVendorStylesCategorySummary === 'function') updateVendorStylesCategorySummary();
+            if (typeof loadVendorStylesTabList === 'function' && isVendorStylesTabActive()) {
+                loadVendorStylesTabList();
+            }
         });
     })();
 
@@ -2280,6 +2283,36 @@ $(document).ready(function () {
         $('#vendorAssetsAssetKind').val('prototype');
     }
 
+    function isVendorStylesTabActive() {
+        var $panel = $('#panel-vendor-styles');
+        if ($panel.length && ($panel.hasClass('active') || $panel.hasClass('show'))) return true;
+        try {
+            return new URLSearchParams(window.location.search).get('tab') === 'vendor-styles';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /** 廠商版型 Tab 專用查詢（不依素材庫 modal 子分類／asset_kind 狀態） */
+    function buildVendorStylesTabFetchUrl(mainKey, subKey) {
+        if (!mainKey) return '';
+        var url = '/api/vendor-assets?category_key=' + encodeURIComponent(mainKey) +
+            '&asset_kind=prototype&has_prototype_links=1';
+        if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
+        var mfrId = ($('#bs-manufacturer-id').val() || '').trim();
+        if (mfrId) {
+            url += '&manufacturer_id=' + encodeURIComponent(mfrId);
+        } else {
+            var mfrName = ($('#bs-manufacturer-name').val() || '').trim();
+            if (mfrName) url += '&manufacturer_name=' + encodeURIComponent(mfrName);
+        }
+        var keyword = ($('#bs-filter-q').val() || '').trim();
+        if (keyword) url += '&q=' + encodeURIComponent(keyword);
+        url += '&limit=' + encodeURIComponent(String(vendorStylesTabPageSize));
+        url += '&offset=' + encodeURIComponent(String(vendorStylesTabOffset));
+        return url;
+    }
+
     function buildVendorStyleBrowseCardHtml(item) {
         var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
         var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -2370,6 +2403,9 @@ $(document).ready(function () {
         $('#bs-cat-main-label').text(mainLbl);
         $('#bs-cat-sub-label').text(subLbl);
         $box.removeClass('d-none');
+        if (typeof window.updateCategoryMobileBtnLabels === 'function') {
+            window.updateCategoryMobileBtnLabels();
+        }
     }
 
     function loadVendorStylesTabList() {
@@ -2387,24 +2423,31 @@ $(document).ready(function () {
                 $empty.removeClass('d-none');
                 var $p = $empty.find('p');
                 if ($p.length) {
-                    $p.text(t('customProduct.vendorStylesPickCategoryFirst') || '請先到「產品設計」Tab 選擇主分類與子分類。');
+                    var pickMsg = (window.matchMedia('(max-width: 768px)').matches)
+                        ? (t('customProduct.vendorStylesPickCategoryMobile') || '請點上方「分類」選擇主分類與子分類。')
+                        : (t('customProduct.vendorStylesPickCategoryFirst') || '請先到「產品設計」Tab 選擇主分類與子分類。');
+                    $p.text(pickMsg);
                 }
             }
             return;
         }
         var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+        var subForApi = pickerSubcategoryAppliesToAssetKind('prototype') ? subKey : '';
+        if (pickerSubcategoryAppliesToAssetKind('prototype') && !subForApi) {
+            var cat = categoriesData.find(function (c) { return String(c.key) === String(mainKey); });
+            if (cat && cat.subcategories && cat.subcategories.length) {
+                if ($loading.length) $loading.addClass('d-none');
+                if ($grid.length) $grid.addClass('d-none');
+                if ($empty.length) {
+                    $empty.removeClass('d-none');
+                    $empty.find('p').text(t('customProduct.vendorStylesPickSubcategory') ||
+                        '請選擇子分類（點上方「分類」）。');
+                }
+                return;
+            }
+        }
         syncVendorStylesTabFiltersToPicker();
-        try {
-            window.__vendorAssetsFetchParams = {
-                mode: 'category',
-                mainKey: mainKey,
-                subKey: pickerSubcategoryAppliesToAssetKind('prototype') ? subKey : '',
-                hasPrototypeLinks: true
-            };
-        } catch (e) {}
-        vendorPickerOffset = vendorStylesTabOffset;
-        vendorPickerPageSize = vendorStylesTabPageSize;
-        var url = buildVendorAssetsFetchUrl(window.__vendorAssetsFetchParams);
+        var url = buildVendorStylesTabFetchUrl(mainKey, subForApi);
         if (!url) return;
         var seq = ++vendorStylesTabLoadSeq;
         if ($loading.length) $loading.removeClass('d-none');
@@ -2532,6 +2575,10 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '#bs-go-set-category', function () {
+        if (window.matchMedia('(max-width: 768px)').matches && typeof window.matchdoOpenCategorySheet === 'function') {
+            window.matchdoOpenCategorySheet();
+            return;
+        }
         var tabEl = document.getElementById('tab-product-design');
         if (tabEl && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
             bootstrap.Tab.getOrCreateInstance(tabEl).show();
@@ -2541,10 +2588,9 @@ $(document).ready(function () {
     document.addEventListener('matchdo:categoryChanged', function () {
         syncCategoriesDataFromPicker();
         vendorStylesTabOffset = 0;
-        if ($('#panel-vendor-styles').hasClass('active') || $('#panel-vendor-styles').hasClass('show')) {
+        updateVendorStylesCategorySummary();
+        if (isVendorStylesTabActive()) {
             loadVendorStylesTabList();
-        } else {
-            updateVendorStylesCategorySummary();
         }
     });
 
@@ -2558,6 +2604,7 @@ $(document).ready(function () {
         }
         if (params.get('tab') === 'vendor-styles') {
             setTimeout(loadVendorStylesTabList, 0);
+            setTimeout(loadVendorStylesTabList, 400);
         }
     })();
 
@@ -2827,30 +2874,38 @@ $(document).ready(function () {
         autoGrowPrompt();
     }
 
-    // ── 手機版分類 Bottom Sheet ──────────────────────────────────────
+    // ── 手機版分類 Bottom Sheet（產品設計 Tab + 廠商版型 Tab 共用）──
     (function catBottomSheet() {
-        if (window.innerWidth > 768) return;
+        var catSheetInited = false;
+        var currentMainCat = null;
 
-        var $btn     = $('#catMobileBtn');
-        var $sheet   = $('#catBottomSheet');
-        var $list    = $('#catBsList');
-        var $title   = $('#catBsTitle');
-        var $back    = $('#catBsBack');
-        var $close   = $('#catBsClose');
-        var currentMainCat = null; // 目前在看哪個主分類的子分類
+        function isMobileCategoryUi() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
 
-        // 更新按鈕標籤（讀現有隱藏 input 對應的 .cat-option 文字）
+        function catSheetEls() {
+            return {
+                $sheet: $('#catBottomSheet'),
+                $list: $('#catBsList'),
+                $title: $('#catBsTitle'),
+                $back: $('#catBsBack'),
+                $close: $('#catBsClose')
+            };
+        }
+
+        // 更新手機分類按鈕標籤（產品設計 #catMobileBtn、廠商版型 #bs-cat-mobile-btn）
         function updateBtnLabel() {
             var mainText = $('#imageCategoryMainList .cat-option.selected').text().trim();
             var subText  = $('#imageCategorySubList  .cat-option.selected').text().trim();
-            if (mainText) {
-                $('#catMobileBtnLabel').text(mainText + (subText ? ' › ' + subText : ''));
-                $btn.addClass('has-value');
-            } else {
-                $('#catMobileBtnLabel').text('分類（必選）');
-                $btn.removeClass('has-value');
-            }
+            var label = mainText
+                ? mainText + (subText ? ' › ' + subText : '')
+                : (t('customProduct.categoryRequired') || '分類（必選）');
+            $('#catMobileBtnLabel, #bsCatMobileBtnLabel').text(label);
+            var $mobileBtns = $('#catMobileBtn, #bs-cat-mobile-btn');
+            if (mainText) $mobileBtns.addClass('has-value');
+            else $mobileBtns.removeClass('has-value');
         }
+        window.updateCategoryMobileBtnLabels = updateBtnLabel;
 
         // 用 MutationObserver 監聽 subList 內容/class 變動，同步更新按鈕
         function watchList(id) {
@@ -2866,10 +2921,11 @@ $(document).ready(function () {
 
         // 顯示主分類列表
         function showMainStep() {
+            var els = catSheetEls();
             currentMainCat = null;
-            $title.text('選擇主分類');
-            $back.css('visibility', 'hidden');
-            $list.empty();
+            els.$title.text('選擇主分類');
+            els.$back.css('visibility', 'hidden');
+            els.$list.empty();
             var curMainKey = $('#imageCategoryMainSelect').val();
             categoriesData.forEach(function(c) {
                 var key = c.key != null ? String(c.key) : '';
@@ -2894,18 +2950,19 @@ $(document).ready(function () {
                         closeSheet();
                     }
                 });
-                $list.append($item);
+                els.$list.append($item);
             });
         }
 
         // 顯示子分類列表
         function showSubStep(mainCat) {
+            var els = catSheetEls();
             currentMainCat = mainCat;
             var key = mainCat.key != null ? String(mainCat.key) : '';
             var mainName = $('#imageCategoryMainList .cat-option[data-key="' + key.replace(/"/g, '&quot;') + '"]').text().trim() || mainCat.name || key;
-            $title.text(mainName);
-            $back.css('visibility', 'visible');
-            $list.empty();
+            els.$title.text(mainName);
+            els.$back.css('visibility', 'visible');
+            els.$list.empty();
             // 先觸發主分類 click，同步填好 sub list（現有 JS 邏輯）
             $('#imageCategoryMainList .cat-option[data-key="' + key.replace(/"/g, '&quot;') + '"]').trigger('click');
             var curSubKey = $('#imageCategorySubSelect').val();
@@ -2925,32 +2982,55 @@ $(document).ready(function () {
                     $('#imageCategorySubList .cat-option[data-key="' + subKey.replace(/"/g, '&quot;') + '"]').trigger('click');
                     closeSheet();
                 });
-                $list.append($item);
+                els.$list.append($item);
             });
         }
 
         function openSheet() {
+            if (!isMobileCategoryUi()) return;
             showMainStep();
-            $sheet.addClass('open').attr('aria-hidden', 'false');
+            var els = catSheetEls();
+            els.$sheet.addClass('open').attr('aria-hidden', 'false');
             document.body.style.overflow = 'hidden';
         }
 
         function closeSheet() {
-            $sheet.removeClass('open').attr('aria-hidden', 'true');
+            var els = catSheetEls();
+            els.$sheet.removeClass('open').attr('aria-hidden', 'true');
             document.body.style.overflow = '';
             updateBtnLabel();
         }
 
-        $btn.on('click', openSheet);
-        $close.on('click', closeSheet);
-        $back.on('click', showMainStep);
-        $sheet.find('.cat-bs-backdrop').on('click', closeSheet);
+        function bindMobileCategoryUi() {
+            if (catSheetInited || !isMobileCategoryUi()) return;
+            catSheetInited = true;
+            var els = catSheetEls();
+            els.$close.on('click', closeSheet);
+            els.$back.on('click', showMainStep);
+            els.$sheet.find('.cat-bs-backdrop').on('click', closeSheet);
+            $('#catMobileBtn').show();
+            $('#bs-cat-mobile-btn').removeClass('d-none').show();
+            setTimeout(updateBtnLabel, 600);
+        }
 
-        // 顯示按鈕（JS 確認是手機才顯示）
-        $btn.show();
+        $(document).on('click', '#catMobileBtn, #bs-cat-mobile-btn', function (e) {
+            if (!isMobileCategoryUi()) return;
+            e.preventDefault();
+            bindMobileCategoryUi();
+            openSheet();
+        });
 
-        // loadCategories 是非同步，等它跑完再更新標籤
-        setTimeout(updateBtnLabel, 600);
+        window.matchdoOpenCategorySheet = function () {
+            bindMobileCategoryUi();
+            openSheet();
+        };
+
+        bindMobileCategoryUi();
+        try {
+            window.matchMedia('(max-width: 768px)').addEventListener('change', function (e) {
+                if (e.matches) bindMobileCategoryUi();
+            });
+        } catch (e) { /* ignore */ }
     })();
 
     // 儲存此生成結果為訂製產品（含前端輸入的提示詞 generation_prompt）
@@ -3576,6 +3656,9 @@ $(document).ready(function () {
         if (tabEl && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
             var tab = new bootstrap.Tab(tabEl);
             tab.show();
+        }
+        if (tabParam === 'vendor-styles' && typeof loadVendorStylesTabList === 'function') {
+            setTimeout(loadVendorStylesTabList, 50);
         }
     }
     function updateUrlForTab(tabParam) {
