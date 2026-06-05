@@ -501,13 +501,16 @@ function parseGalleryImages(raw) {
         }
         let label = '';
         let aiDerived = '';
+        let sourceUrl = '';
         if (entry && typeof entry === 'object') {
             if (entry.label != null) label = String(entry.label).trim();
             if (entry.ai_derived != null) aiDerived = String(entry.ai_derived).trim();
+            if (entry.source_url != null) sourceUrl = String(entry.source_url).trim();
         }
         if (url) {
             const row = { url: url, sort_order: sortOrder, label: label };
             if (aiDerived === 'redraw' || aiDerived === 'upscale') row.ai_derived = aiDerived;
+            if (sourceUrl) row.source_url = sourceUrl;
             out.push(row);
         }
     });
@@ -613,6 +616,7 @@ function buildVendorAssetImageItems(row) {
             is_cover: false
         };
         if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') item.ai_derived = g.ai_derived;
+        if (g.source_url) item.source_url = String(g.source_url).trim();
         items.push(item);
     });
     return items;
@@ -639,7 +643,8 @@ function reorderVendorAssetCoverFromUrl(row, targetUrl) {
     items.forEach(function (it) {
         metaByUrl[it.url] = {
             label: it.label || '',
-            ai_derived: it.ai_derived === 'redraw' || it.ai_derived === 'upscale' ? it.ai_derived : ''
+            ai_derived: it.ai_derived === 'redraw' || it.ai_derived === 'upscale' ? it.ai_derived : '',
+            source_url: it.source_url ? String(it.source_url).trim() : ''
         };
     });
     const reordered = urls[0] === url ? urls.slice() : [url].concat(urls.filter(function (u) { return u !== url; }));
@@ -650,6 +655,7 @@ function reorderVendorAssetCoverFromUrl(row, targetUrl) {
             const meta = metaByUrl[u] || {};
             const g = { url: u, sort_order: i + 1, label: meta.label || '' };
             if (meta.ai_derived) g.ai_derived = meta.ai_derived;
+            if (meta.source_url) g.source_url = meta.source_url;
             return g;
         })
     };
@@ -15035,6 +15041,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             if (!newEntries.length) {
                 return res.status(500).json({ error: '上傳重繪結果失敗' });
             }
+            newEntries.forEach(function (e) { e.source_url = sourceUrl; });
             updatePayload = {
                 gallery_images: existing.concat(newEntries),
                 updated_at: new Date().toISOString()
@@ -15164,6 +15171,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         if (!newEntries.length) {
             return res.status(500).json({ error: '上傳放大結果失敗' });
         }
+        newEntries.forEach(function (e) { e.source_url = sourceUrl; });
         const updatePayload = {
             gallery_images: existing.concat(newEntries),
             updated_at: new Date().toISOString()
@@ -15343,6 +15351,7 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 if (byUrl[g.url] === undefined) return g;
                 const next = { url: g.url, sort_order: g.sort_order, label: byUrl[g.url] };
                 if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') next.ai_derived = g.ai_derived;
+                if (g.source_url) next.source_url = g.source_url;
                 return next;
             });
             updates.gallery_images = gallery;

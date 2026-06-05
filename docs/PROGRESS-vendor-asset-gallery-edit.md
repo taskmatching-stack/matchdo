@@ -56,7 +56,7 @@
 - **新增角度圖**／**一次選多張** → 待傳清單逐張勾 **AI 重繪** →「僅上傳所選」／「上傳並重繪勾選」→ `POST .../gallery-images`（可加 `optimize_image_indices`）。
 - 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）。
 - **更換封面**：下方「更換封面」+ 儲存時 `PUT` 單圖（與多角度 API 分開）。
-- **AI 重繪（逐張）**：縮圖「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: false`）**追加**一張新圖（label 與來源相同、`ai_derived: redraw`；編輯格可顯示 **重繪新圖** badge，不寫進對外名稱）。編輯待傳清單預覽後上傳亦為原圖+新圖兩張。
+- **AI 重繪（逐張）**：縮圖「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: false`）**追加**一張新圖（`ai_derived` + `source_url`；編輯 UI **與待傳清單相同**：新圖縮圖在同格下方，不另開一格）。舊資料無 `source_url` 時前端會依名稱嘗試併格。
 
 ### 後端
 

@@ -501,7 +501,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」／「<strong>AI 放大</strong>」：每張圖（含 AI 放大新圖）都可按，會<strong>追加</strong>新圖。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請點 <strong>?</strong> 前往 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。<strong>不另收上傳費</strong>。</p>
+                                <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」／「<strong>AI 放大</strong>」：新圖會出現在同一格下方（與待傳清單相同）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。<strong>不另收上傳費</strong>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-modal-fix-20260605b';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-gallery-grouped-derived-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1246,11 +1246,11 @@
             return { needed: true, megapixels: mp, hint: VENDOR_UPSCALE_RULE_TEXT, showAiEditHelp: false };
         }
 
-        function pendingUpscaleAiEditHelpHtml(showHelp) {
+        function pendingUpscaleAiEditHelpHtml(showHelp, extraClass) {
             if (!showHelp) return '';
-            return '<a href="' + esc(AI_EDIT_UPSCALE_URL) + '" class="pending-upscale-ai-edit-help" target="_blank" rel="noopener" ' +
-                'title="' + esc(AI_EDIT_UPSCALE_HELP_TITLE) + '" aria-label="前往我的 AI 編輯區放大">' +
-                '<i class="bi bi-question-circle"></i></a>';
+            var cls = 'pending-upscale-ai-edit-help' + (extraClass ? ' ' + extraClass : '');
+            return '<a href="' + esc(AI_EDIT_UPSCALE_URL) + '" class="' + esc(cls) + '" target="_blank" rel="noopener" ' +
+                'title="' + esc(AI_EDIT_UPSCALE_HELP_TITLE) + '">AI 編輯區</a>';
         }
 
         function probeImageDimensionsFromFile(file) {
@@ -1344,9 +1344,55 @@
                 btn.disabled = !probe.needed;
                 btn.title = probe.hint || (probe.needed ? VENDOR_UPSCALE_RULE_TEXT : AI_EDIT_UPSCALE_HELP_TITLE);
                 if (!probe.needed && probe.showAiEditHelp) {
-                    btn.insertAdjacentHTML('afterend', pendingUpscaleAiEditHelpHtml(true));
+                    btn.insertAdjacentHTML('afterend', pendingUpscaleAiEditHelpHtml(true, 'gallery-upscale-ai-edit-help'));
                 }
             });
+        }
+
+        function groupGalleryDisplayItems(items) {
+            var urlSet = {};
+            (items || []).forEach(function (it) { if (it && it.url) urlSet[it.url] = true; });
+            var childrenBySource = {};
+            var roots = [];
+            var orphanDerived = [];
+            (items || []).forEach(function (it) {
+                if (!it || !it.url) return;
+                var src = String(it.source_url || '').trim();
+                var kind = vendorImageDerivedKind(it);
+                if (kind && src && urlSet[src]) {
+                    if (!childrenBySource[src]) childrenBySource[src] = [];
+                    childrenBySource[src].push(it);
+                } else if (kind) {
+                    orphanDerived.push(it);
+                } else {
+                    roots.push(it);
+                }
+            });
+            orphanDerived.forEach(function (orph) {
+                var want = stripLegacyDerivedLabelSuffix(orph.label || '');
+                var candidates = roots.filter(function (r) {
+                    return !vendorImageDerivedKind(r) && displayGalleryImageLabel(r) === want;
+                });
+                if (candidates.length === 1) {
+                    var purl = candidates[0].url;
+                    if (!childrenBySource[purl]) childrenBySource[purl] = [];
+                    childrenBySource[purl].push(orph);
+                } else {
+                    roots.push(orph);
+                }
+            });
+            return roots.map(function (primary) {
+                return { primary: primary, derived: childrenBySource[primary.url] || [] };
+            });
+        }
+
+        function galleryDerivedThumbHtml(d, imageItemsJson) {
+            var kind = vendorImageDerivedKind(d);
+            var title = kind === 'upscale' ? 'AI 放大新圖（≤1MP）' : '重繪新圖';
+            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">' + esc(title) + '</span>' +
+                '<img src="' + esc(d.url) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle(title)) + '"' +
+                ' data-image-items="' + imageItemsJson + '">' +
+                '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del mt-1" data-url="' + esc(d.url) + '">移除新圖</button></div>';
         }
 
         async function previewPendingRedraw(form, item, idx) {
@@ -1882,21 +1928,23 @@
                 syncEditGalleryRedrawSettings();
                 return;
             }
-            grid.innerHTML = items.map(function (it, idx) {
+            var groups = groupGalleryDisplayItems(items);
+            var lightboxItemsJson = esc(JSON.stringify(items.map(function (x) {
+                return { url: x.url, label: displayGalleryImageLabel(x) };
+            }))).replace(/"/g, '&quot;');
+            grid.innerHTML = groups.map(function (group, idx) {
+                var it = group.primary;
                 var url = it.url;
-                var isNew = editGalleryHighlightUrls.has(url);
-                var derivedKind = vendorImageDerivedKind(it);
-                var isRedrawNew = derivedKind === 'redraw';
-                var isUpscaleNew = derivedKind === 'upscale';
-                var isDerived = !!derivedKind;
+                var derived = group.derived || [];
+                var isNew = editGalleryHighlightUrls.has(url) || derived.some(function (d) { return editGalleryHighlightUrls.has(d.url); });
                 var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                var redrawNewBadge = isRedrawNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">重繪新圖</span>' : '';
-                var upscaleNewBadge = isUpscaleNew ? '<span class="badge bg-info text-dark mb-1 ms-1" style="font-size:0.65rem">AI 放大新圖</span>' : '';
-                var newBadge = (isNew && !isDerived) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
+                var newBadge = (isNew && !derived.length) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
+                var hasDerived = derived.length > 0;
                 var displayLabel = displayGalleryImageLabel(it);
                 var labelField = (it.is_cover || idx === 0)
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(displayLabel) + '">';
+                var derivedHtml = derived.map(function (d) { return galleryDerivedThumbHtml(d, lightboxItemsJson); }).join('');
                 var actions = '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
@@ -1905,10 +1953,11 @@
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'
                         : '') +
                     '</div>';
-                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || isDerived) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
-                    coverBadge + redrawNewBadge + upscaleNewBadge + newBadge +
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || hasDerived) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
+                    coverBadge + newBadge +
                     '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
-                    ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: displayGalleryImageLabel(x) }; }))).replace(/"/g, '&quot;') + '">' +
+                    ' data-image-items="' + lightboxItemsJson + '">' +
+                    derivedHtml +
                     labelField +
                     actions +
                     '</div></div>';
@@ -1944,8 +1993,8 @@
                     upscaleGalleryImage(btn.getAttribute('data-url'));
                 });
             });
-            items.forEach(function (it) {
-                probeGalleryUrlForUpscale(it.url);
+            groups.forEach(function (group) {
+                probeGalleryUrlForUpscale(group.primary.url);
             });
             syncGalleryUpscaleButtons();
             syncEditGalleryRedrawSettings();
