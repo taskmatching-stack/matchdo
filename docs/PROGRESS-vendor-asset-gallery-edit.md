@@ -51,6 +51,7 @@
 
 ### 編輯素材（Modal）
 
+- **Modal 實例**：全頁只建立一次 `bootstrap.Modal`（CDN 5.0 無 `getOrCreateInstance`）；儲存後只 `populateEditModal` 不重建，關閉時清殘留 `.modal-backdrop`。
 - **產品圖片（多角度）**：縮圖格、封面標籤、非封面可刪除。
 - **新增角度圖**／**一次選多張** → 待傳清單逐張勾 **AI 重繪** →「僅上傳所選」／「上傳並重繪勾選」→ `POST .../gallery-images`（可加 `optimize_image_indices`）。
 - 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）。

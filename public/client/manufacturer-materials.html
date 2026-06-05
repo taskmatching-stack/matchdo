@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-modal-revert-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-modal-fix-20260605b';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -639,6 +639,7 @@
         var activeKind = 'prototype';
         var deleteTargetId = null;
         var editModalEl = null;
+        var editModalHiddenBound = false;
         var deleteModalEl = null;
         var pendingByForm = {};
         var capabilities = null;
@@ -655,6 +656,50 @@
             editGalleryUploading = false;
             gridDisableEditGalleryActions(false);
         }
+
+        function cleanupStrayModalBackdrops() {
+            if (document.querySelectorAll('.modal.show').length) return;
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+
+        function bindEditModalHiddenOnce() {
+            if (editModalHiddenBound) return;
+            var el = document.getElementById('edit-modal');
+            if (!el) return;
+            editModalHiddenBound = true;
+            el.addEventListener('hidden.bs.modal', function () {
+                releaseEditGalleryBusyState();
+                cleanupStrayModalBackdrops();
+                if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.close === 'function') {
+                    window.MatchdoImageLightbox.close();
+                }
+            });
+        }
+
+        function ensureEditModal() {
+            var el = document.getElementById('edit-modal');
+            if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
+            bindEditModalHiddenOnce();
+            if (!editModalEl) editModalEl = new bootstrap.Modal(el, { backdrop: true, keyboard: true });
+            return editModalEl;
+        }
+
+        function showEditModal() {
+            var el = document.getElementById('edit-modal');
+            if (!el) return;
+            if (!el.classList.contains('show')) cleanupStrayModalBackdrops();
+            var modal = ensureEditModal();
+            if (modal) modal.show();
+        }
+
+        function hideEditModal() {
+            if (editModalEl) editModalEl.hide();
+            else cleanupStrayModalBackdrops();
+        }
+
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
@@ -1043,6 +1088,24 @@
             if (lbl.indexOf('（重繪）') >= 0) return 'redraw';
             if (lbl.indexOf('（放大）') >= 0) return 'upscale';
             return '';
+        }
+
+        function stripLegacyDerivedLabelSuffix(label) {
+            var lbl = String(label || '').trim();
+            if (!lbl) return '';
+            var prev;
+            do {
+                prev = lbl;
+                lbl = lbl.replace(/（重繪）$/, '').replace(/（放大）$/, '').trim();
+            } while (lbl !== prev);
+            return lbl;
+        }
+
+        function displayGalleryImageLabel(it) {
+            var lbl = (it && it.label) ? String(it.label).trim() : '';
+            if (!lbl) return '';
+            if (vendorImageDerivedKind(it)) return stripLegacyDerivedLabelSuffix(lbl) || lbl;
+            return lbl;
         }
 
         /** 依勾選組出要上傳的檔案（順序：原圖 → 重繪 → 放大）；名稱不變，衍生類型用 ai_derived */
@@ -1830,9 +1893,10 @@
                 var redrawNewBadge = isRedrawNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">重繪新圖</span>' : '';
                 var upscaleNewBadge = isUpscaleNew ? '<span class="badge bg-info text-dark mb-1 ms-1" style="font-size:0.65rem">AI 放大新圖</span>' : '';
                 var newBadge = (isNew && !isDerived) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
+                var displayLabel = displayGalleryImageLabel(it);
                 var labelField = (it.is_cover || idx === 0)
-                    ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
-                    : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
+                    ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
+                    : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(displayLabel) + '">';
                 var actions = '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
@@ -1844,7 +1908,7 @@
                 return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || isDerived) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
                     coverBadge + redrawNewBadge + upscaleNewBadge + newBadge +
                     '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
-                    ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: (x.label || '').trim() }; }))).replace(/"/g, '&quot;') + '">' +
+                    ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: displayGalleryImageLabel(x) }; }))).replace(/"/g, '&quot;') + '">' +
                     labelField +
                     actions +
                     '</div></div>';
@@ -3674,9 +3738,9 @@
             } catch (_) { /* ignore */ }
         }
 
-        function openEditModal(id) {
+        function populateEditModal(id) {
             var m = materialsAll.find(function (x) { return x.id === id; });
-            if (!m) return;
+            if (!m) return false;
             var kindNorm = normalizeKind(m.asset_kind);
             var isProto = kindNorm === 'prototype';
             var isPart = kindNorm === 'part';
@@ -3746,8 +3810,12 @@
             if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
             if (linkedProtosWrap) linkedProtosWrap.classList.add('d-none');
             loadEditPrototypeLinks(id);
-            editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
-            editModalEl.show();
+            return true;
+        }
+
+        function openEditModal(id) {
+            if (!populateEditModal(id)) return;
+            showEditModal();
         }
 
         function onEditCoverFileChange(isPrototype) {
@@ -3895,10 +3963,11 @@
                 await loadMaterials();
                 var saved = materialsAll.find(function (x) { return x.id === id; }) || data;
                 if (normalizeKind(saved.asset_kind) === 'prototype' || normalizeKind(saved.asset_kind) === 'part') {
-                    openEditModal(id);
+                    populateEditModal(id);
+                    cleanupStrayModalBackdrops();
                     setEditGalleryStatus('已儲存。圖庫內容如下；若要白底請對各圖按「AI 重繪」', 'success');
-                } else if (editModalEl) {
-                    editModalEl.hide();
+                } else {
+                    hideEditModal();
                 }
             } catch (err) { showToast(err.message, 'danger'); }
         });
