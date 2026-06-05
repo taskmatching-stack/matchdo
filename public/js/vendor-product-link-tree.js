@@ -391,7 +391,8 @@
                     var url = (tile.getAttribute('data-variant-url') || '').trim();
                     var on = !url || url === activeUrl;
                     var isPicked = kindKey !== 'prototype' && picked && on;
-                    tile.classList.toggle('vplt-guide-tile--active-view', multi && on);
+                    var showActive = multi && on && (kindKey === 'prototype' || picked);
+                    tile.classList.toggle('vplt-guide-tile--active-view', showActive);
                     tile.classList.toggle('vplt-guide-tile--picked', isPicked);
                     tile.setAttribute('aria-pressed', isPicked ? 'true' : 'false');
                     var media = tile.querySelector('.vplt-guide-tile-media');
@@ -623,7 +624,8 @@
         var isActive = !multi || imgUrl === activeUrl;
         var isPicked = kindKey !== 'prototype' && picked && isActive;
         var pickCls = isPicked ? ' vplt-guide-tile--picked' : '';
-        var activeCls = (multi && isActive) ? ' vplt-guide-tile--active-view' : '';
+        var showActive = multi && isActive && (kindKey === 'prototype' || picked);
+        var activeCls = showActive ? ' vplt-guide-tile--active-view' : '';
         var interCls = (multi || kindKey !== 'prototype') ? ' vplt-guide-tile--interactive' : '';
         var variantAttrs = multi && it && it.url
             ? ' data-variant-url="' + esc(it.url) + '" data-variant-label="' + esc(optionLabel) + '"'

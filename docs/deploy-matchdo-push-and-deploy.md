@@ -96,9 +96,24 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 
 ---
 
-## 五、選用：設好後只需 push（Cloud Build 觸發）
+## 五、日後選用：GitHub push 自動部署 Cloud Run（**現階段不啟用**）
 
-若不想每次手動跑部署指令，可在 GCP **一次性**設定：
+> **決策（2026-06-06）**：計畫日後改設 **Cloud Build 觸發**（push `main` 即建置並部署），但**現在不適合啟用**——擔心每次 push 會自動上線**非預期或尚未驗收的版本**。  
+> **目前正式流程維持 §一～§三**：先 push，再**手動**於 Cloud Shell 部署；**禁止**現在去 GCP 建立觸發條件，也**禁止** Agent 代為設定。
+
+### 為何日後仍值得做
+
+- 直接從 GitHub 拉程式建映像，不經本機硬碟
+- 不必每次開 Cloud Shell 貼指令
+- 與「只部署已 push 的 `main`」語意一致
+
+### 啟用前條件（將來要設時再對照）
+
+1. 團隊習慣：**只有確定要上線的 commit 才 push `main`**（或改用工 develop 分支、僅合併後觸發）
+2. 每次 push 前已確認 `git log -1` 為預期版本
+3. 願意到 [Cloud Build → 記錄](https://console.cloud.google.com/cloud-build/builds?project=matchdo) 追蹤自動部署結果
+
+### 將來設定步驟（現勿執行）
 
 1. [Cloud Build → 觸發條件](https://console.cloud.google.com/cloud-build/triggers?project=matchdo)
 2. **建立觸發條件** → 來源 **GitHub（第 2 代）** → `taskmatching-stack/matchdo`
@@ -106,9 +121,9 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 4. 類型：**部署至 Cloud Run** → 區域 `asia-northeast1`、服務 `matchdo`、允許未驗證的呼叫
 5. 儲存
 
-之後流程變成：**改程式 → commit → `git push origin main`**，到 [Cloud Build → 記錄](https://console.cloud.google.com/cloud-build/builds?project=matchdo) 看進度即可。
+啟用後流程才變成：**改程式 → commit → `git push origin main`** 即自動上線。
 
-**注意**：未建立觸發條件前，**僅 push 不會上線**。
+**現狀**：未建立觸發條件，**僅 push 不會上線**（見 §一）。
 
 ---
 

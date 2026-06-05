@@ -31,3 +31,4 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 - ❌ 未 push 就部署
 - ❌ 未設觸發卻說「push 就好」
 - ❌ 跳過 `git fetch` + `reset --hard` 直接 deploy 本機未同步目錄
+- ❌ **現在**建立 Cloud Build GitHub 自動觸發（見 `docs/deploy-matchdo-push-and-deploy.md` §五：日後再做，擔心 push 即上錯版）
