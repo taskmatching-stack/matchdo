@@ -1,8 +1,26 @@
 # 進度紀錄：廠商素材多角度圖（新增／編輯）
 
-**最後更新：** 2026-06-02  
-**狀態：** ✅ 已上線驗證（編輯窗選檔即上傳、列表顯示多張）  
+> **新對話：** 先讀 **`docs/session-handoff-2026-06-03.md`**（單一入口），再讀本檔。若還要改 guide／廠商版型 Tab，另讀 `docs/PROGRESS-vendor-styles-and-product-tree.md`。
+
+**最後更新：** 2026-06-05  
+**狀態：** ✅ 逐張重繪取代原圖 + 不重複收上傳費（見下方最新 commit）；部署後確認 `__MATCHDO_MATERIALS_BUILD=per-image-redraw-replace-20260605`  
 **頁面：** [`/client/manufacturer-materials.html`](https://matchdo.cc/client/manufacturer-materials.html)（僅 `public/client/`，勿改根目錄同名檔）
+
+**一句話：** 主產品／配件 = 多圖 + **AI 重繪**（雙按鈕分流）；材料 = 材質圖 AI 優化；展示底色只是重繪附帶參數。
+
+---
+
+## 〇、新對話快速索引
+
+| 要看什麼 | 章節 |
+|----------|------|
+| 功能已完成什麼 | §二 |
+| 改 HTML／JS 別弄壞 | §三 |
+| 曾壞過什麼 | §四 |
+| git／部署／禁忌 | §五 |
+| **驗收 checkbox** | **§七** |
+| **待辦 T1～T6** | **§八** |
+| 全站入口＋P0 | `docs/session-handoff-2026-06-03.md` §3 |
 
 ---
 
@@ -19,19 +37,25 @@
 
 ## 二、已完成（2026-06-01 確認可用）
 
-### 新增素材（表單上方）
+### 新增素材（表單上方，prototype／part）
 
 - 可「新增圖片」逐張或「一次選多張」加入待傳清單（`pending-image-card`）。
-- 第一張為封面；可逐張勾選 **AI 重繪**；扣點：首張重繪價 + 每多一張 `points_optimize_extra`（預設 +5）。
+- 第一張為封面；可逐張勾選 **AI 重繪**（勾選後可選展示底色等參數，屬重繪附帶選項，非獨立功能）。
+- **兩顆按鈕（2026-06-04）：**「僅上傳並發布」／「AI 重繪並發布」— 分流是否走重繪管線，避免誤觸扣點。
+- 扣點：首張重繪價 + 每多一張 `points_optimize_extra`（預設 +5）。
 - 送出：`POST /api/me/vendor-assets`（`image` + `gallery[]`）。
+
+### 新增素材（material）
+
+- 單圖；**材質圖 AI 優化**（非產品 AI 重繪）；維持單一「上傳並發布」。
 
 ### 編輯素材（Modal）
 
 - **產品圖片（多角度）**：縮圖格、封面標籤、非封面可刪除。
-- **新增角度圖**／**一次選多張** → 選檔後**立即** `POST /api/me/vendor-assets/:id/gallery-images`。
-- 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）；可勾「本批新圖 AI 重繪」。
+- **新增角度圖**／**一次選多張** → 待傳清單逐張勾 **AI 重繪** →「僅上傳所選」／「上傳並重繪勾選」→ `POST .../gallery-images`（可加 `optimize_image_indices`）。
+- 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）。
 - **更換封面**：下方「更換封面」+ 儲存時 `PUT` 單圖（與多角度 API 分開）。
-- **AI 重繪（與新增一致）**：縮圖下方勾選「AI 重繪」→「對勾選的圖 AI 重繪」→ `POST .../gallery-images/redraw`（依 `source_url`），結果**追加**至 `gallery_images`，原圖保留；扣點 = `points_vendor_asset_optimize_extra`（預設 5）× 勾選張數。底色區塊僅在勾選重繪或「本批新圖 AI 重繪」時顯示。
+- **AI 重繪（逐張）**：縮圖下方「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: true` 預設）**取代原圖**；封面補差額（重繪全價−上傳費）、角度圖用 `points_optimize_extra`；編輯區加圖不收上傳費。
 
 ### 後端
 
@@ -50,12 +74,14 @@
 **編輯多角度僅一條路徑，勿疊第二套：**
 
 ```
-#btn-edit-add-gallery / #btn-edit-add-gallery-multi
-  → #edit-add-gallery-input-one | -multi（hidden file）
-  → onEditGalleryFilesSelected()
-  → uploadEditGalleryFiles()
+#btn-edit-pick-gallery-one / -multi
+  → #edit-add-gallery-input-one | -multi
+  → onEditGalleryFilesSelected() → appendFilesToEditGalleryPending()
+  → #btn-edit-upload-pending-only | -redraw → uploadEditGalleryFiles(files, optIdx?)
   → POST .../gallery-images
   → renderEditGallery() + setEditGalleryStatus()
+
+各圖「AI 重繪」→ redrawGalleryImage() → POST .../gallery-images/redraw（replace: true）
 ```
 
 - 綁定：`bindEditGalleryUpload()`（`editGalleryUploadBound` 防重複綁定）。
@@ -92,7 +118,17 @@
 | `964649d` | 零件列表 API 回傳 gallery |
 | `5051759` | 編輯恢復角度圖按鈕 |
 | `91ce645` | 修正 label／按鈕 JS 不一致 |
-| `95b4b98` | 按鈕接線 + 狀態提示 + 版本標記（**目前穩定線**） |
+| `95b4b98` | 按鈕接線 + 狀態提示 + 版本標記 |
+| `e718384` | 主產品／配件：上傳與 AI 重繪按鈕分流；編輯區單張重繪 |
+| `02a834b` | 恢復新增表單 AI 重繪勾選 + 上傳／重繪雙按鈕 |
+| *本 push* | **逐張重繪取代原圖**；`computeGalleryImageRedrawPoints`；編輯待傳清單；不重複收上傳費（`per-image-redraw-replace-20260605`） |
+
+**部署紀錄（2026-06-03）：** Cloud Shell 曾部署到 `e718384`（revision `matchdo-00344-n8b`），比 `02a834b` 舊一版（缺少 AI 重繪勾選還原）。請再部署以對齊 git。
+
+**維護禁忌（2026-06-03 使用者驗收）：**
+
+- **核心功能是 AI 重繪**（prototype／part）；material 是材質圖 AI 優化。勿為改文案或「釐清底色」而拆掉勾選、雙按鈕、`gallery-images/redraw` 或上傳分流邏輯。
+- 展示底色只是重繪時的局部參數（`optimize_background`），**不要把它當成獨立功能來重構頁面**。
 
 ---
 
@@ -100,20 +136,51 @@
 
 1. Supabase：`docs/add-vendor-asset-gallery-images.sql`（若尚未執行）。
 2. `git push origin main` 後 Cloud Shell 部署（見 `.cursor/rules/deployment.mdc`）。
-3. 冒煙：編輯原型 → 新增角度圖 → 見綠色「已加入，目前共 N 張圖」；公開廠商頁素材庫張數一致。
+3. 冒煙：見下方 **§七 驗收清單**。
 
 ---
 
-## 七、相關文件
+## 七、上線後驗收清單
+
+- [ ] Cloud Run 已部署 **`02a834b` 或更新**（若 log 停在 `e718384` 則 AI 重繪勾選未還原）
+- [ ] 主產品／配件新增：多圖待傳清單、逐張勾 **AI 重繪**、「僅上傳並發布」／「AI 重繪並發布」雙按鈕可用
+- [ ] 主產品／配件新增：勾選重繪後可送出且扣點正確；未勾選走「僅上傳」不誤扣重繪點
+- [ ] 材料新增：單圖上傳；材質圖 AI 優化（非產品重繪）
+- [ ] 編輯 Modal：新增角度圖選檔即上傳；各圖「AI 重繪」追加結果、原圖保留
+- [ ] 公開廠商頁素材庫：多角度張數與後台一致
+
+---
+
+## 八、待辦清單（未做／可選）
+
+| # | 項目 | 優先 | 備註 |
+|---|------|------|------|
+| T1 | **push + 再部署** `02a834b` | P0 | 線上若仍 `e718384`（`matchdo-00344-n8b`）必做 |
+| T2 | push 本進度檔更新 | P0 | 與 `PROGRESS-vendor-styles-and-product-tree.md` 同步 |
+| T3 | `user-manual.md` §8.3 補「僅上傳／AI 重繪並發布」雙按鈕 | P2 | 使用者操作說明 |
+| T4 | `網站完整功能說明.md` 素材上傳段落對齊 | P2 | 與本檔 §二 一致 |
+| T5 | 移除 `__MATCHDO_MATERIALS_BUILD`／`edit-gallery-build-hint` | P3 | 穩定後除錯用可清 |
+| T6 | 清理 `getOptimizeBackgroundValue` 內無 DOM 的 `edit-pending-optimize-bg` | P3 | 不影響功能 |
+
+**勿做（除非另開需求）：**
+
+- [ ] ~~把展示底色當獨立功能重構頁面~~
+- [ ] ~~為改文案拆掉 AI 重繪勾選、雙按鈕或 `gallery-images/redraw` 流程~~
+
+---
+
+## 九、相關文件
 
 | 文件 | 內容 |
 |------|------|
 | `docs/add-vendor-asset-gallery-images.sql` | DB migration |
 | `docs/vendor-asset-prototype-moq-customization-notes.md` | MOQ／訂製程度 + **§多角度圖** |
-| `docs/matchdo-todo.md` | 總進度「近期完成」 |
+| `docs/session-handoff-2026-06-03.md` | **新對話單一入口**（部署、P0、語意、檔案表） |
+| `docs/PROGRESS-vendor-styles-and-product-tree.md` | 同後台之關聯樹／guide（與本檔並讀） |
+| `docs/matchdo-todo.md` | 全站總表「近期完成」 |
 | `docs/user-manual.md` §8.3 | 廠商操作說明 |
 | `docs/網站完整功能說明.md` | 全站功能表 |
 
 ---
 
-（若再改編輯區 HTML，請同 PR 更新 `bindEditGalleryUpload` 與本檔 §三。）
+（若再改編輯區 HTML，請同 PR 更新 `bindEditGalleryUpload` 與本檔 §三、§八。）

@@ -8230,6 +8230,22 @@ async function computeVendorAssetOptimizeTotalPoints(optCount, assetKind) {
     return optPts + Math.max(0, optCount - 1) * extraPer;
 }
 
+/** 編輯區單張 AI 重繪：封面已付上傳費時只補差額；其餘角度／已重繪圖用 extra */
+async function computeGalleryImageRedrawPoints(assetKind, row, sourceUrl) {
+    const extraPer = await getPointsVendorAssetOptimizeExtraPer();
+    const items = buildVendorAssetImageItems(row);
+    const src = items.find((it) => it.url === sourceUrl);
+    const label = (src && src.label) || '';
+    if (label.includes('（重繪）')) return extraPer;
+    const coverUrl = String(row.image_url || '').trim();
+    if (coverUrl && coverUrl === sourceUrl) {
+        const uploadPts = await getPointsVendorAssetUpload();
+        const optPts = await getPointsVendorAssetOptimizeForKind(assetKind);
+        return Math.max(extraPer, optPts - uploadPts);
+    }
+    return extraPer;
+}
+
 async function getPointsVendorAssetDescription() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_description');
     const v = rows && rows[0] && rows[0].value != null ? parseInt(rows[0].value, 10) : NaN;
@@ -14685,7 +14701,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
     }
 });
 
-// POST /api/me/vendor-assets/:id/gallery-images/redraw — 依現有圖 URL 單張 AI 重繪，結果追加為新角度圖（不取代原圖）
+// POST /api/me/vendor-assets/:id/gallery-images/redraw — 單張 AI 重繪（預設取代原圖，不另占張數、不重複收上傳費）
 app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
@@ -14694,9 +14710,11 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         if (!seedUser) return res.status(401).json({ error: '請先登入' });
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
-        const sourceUrl = String((req.body && req.body.source_url) || '').trim();
+        const body = req.body || {};
+        const sourceUrl = String(body.source_url || '').trim();
         if (!sourceUrl) return res.status(400).json({ error: '請提供 source_url' });
-        const optimizeBackground = (req.body && (req.body.optimize_background || req.body.background_color)) || '';
+        const replaceInPlace = body.replace !== false && body.replace !== '0' && body.replace !== 'false';
+        const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
             id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label'
         );
@@ -14711,12 +14729,14 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             return res.status(400).json({ error: '來源圖片不屬於此素材' });
         }
         const existing = parseGalleryImages(row.gallery_images);
-        const totalNow = allUrls.length;
-        const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
-        if (room <= 0) {
-            return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+        if (!replaceInPlace) {
+            const totalNow = allUrls.length;
+            const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
+            if (room <= 0) {
+                return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+            }
         }
-        const pointsRequired = await getPointsVendorAssetOptimizeExtraPer();
+        const pointsRequired = await computeGalleryImageRedrawPoints(assetKind, row, sourceUrl);
         let ownerId = seedUser.id;
         let isAdmin = false;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
@@ -14747,18 +14767,48 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
             return res.status(mapped.status).json(mapped.body);
         }
-        const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
         const sourceItems = buildVendorAssetImageItems(row);
         const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
         const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
-        const redrawLabel = (srcLabel ? (srcLabel + '（重繪）') : 'AI重繪').slice(0, 120);
-        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort, [redrawLabel]);
-        if (!newEntries.length) {
-            return res.status(500).json({ error: '上傳重繪結果失敗' });
+        const coverUrl = String(row.image_url || '').trim();
+        const isCover = coverUrl === sourceUrl;
+        let updatePayload;
+        if (replaceInPlace) {
+            const { publicUrl: newUrl } = await uploadToSupabaseStorage(
+                'custom-products', `vendor-assets/${manufacturerId}`, file
+            );
+            const keepLabel = (srcLabel || labelFromImageUrl(newUrl)).replace(/（重繪）$/, '').slice(0, 120);
+            if (isCover) {
+                updatePayload = {
+                    image_url: newUrl,
+                    cover_image_label: keepLabel || labelFromImageUrl(newUrl),
+                    gallery_images: existing,
+                    updated_at: new Date().toISOString()
+                };
+            } else {
+                const merged = existing.map(function (g) {
+                    if (g.url !== sourceUrl) return g;
+                    return { url: newUrl, sort_order: g.sort_order, label: keepLabel || g.label || '' };
+                });
+                updatePayload = {
+                    gallery_images: merged,
+                    updated_at: new Date().toISOString()
+                };
+            }
+        } else {
+            const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
+            const redrawLabel = (srcLabel ? (srcLabel + '（重繪）') : 'AI重繪').slice(0, 120);
+            const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort, [redrawLabel]);
+            if (!newEntries.length) {
+                return res.status(500).json({ error: '上傳重繪結果失敗' });
+            }
+            updatePayload = {
+                gallery_images: existing.concat(newEntries),
+                updated_at: new Date().toISOString()
+            };
         }
-        const merged = existing.concat(newEntries);
         const { data: updated, error } = await supabase.from('vendor_assets')
-            .update({ gallery_images: merged, updated_at: new Date().toISOString() })
+            .update(updatePayload)
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
             .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
@@ -14787,7 +14837,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             ...mapVendorAssetForApi(updated),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
-            redraw_from_url: sourceUrl
+            redraw_from_url: sourceUrl,
+            replaced_in_place: replaceInPlace
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/:id/gallery-images/redraw:', e);

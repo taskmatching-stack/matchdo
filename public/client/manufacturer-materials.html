@@ -191,7 +191,7 @@
                                         </div>
                                         <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">以原圖只換背景；保留產品本體上的字樣／Logo，不保留背景文字、不新增文字。自訂色請選「自訂色」後點色票。</p>
                                     </div>
-                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；勾選重繪後按「AI 重繪並發布」另計）</span></p>
+                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 重繪，不另收上傳費）</span></p>
                                     <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-prototype-links-block">
@@ -296,7 +296,7 @@
                                             <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
                                         </div>
                                     </div>
-                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；勾選重繪後按「AI 重繪並發布」另計）</span></p>
+                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 重繪，不另收上傳費）</span></p>
                                     <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-linked-prototypes-block">
@@ -494,16 +494,22 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0">點各圖下方「AI 重繪」會<strong>追加</strong>白底新圖（原圖保留），完成後立即顯示在上方；每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點。</p>
+                                <p class="form-text text-muted small mb-0">點各圖下方「AI 重繪」會<strong>取代該張原圖</strong>（不另占張數）；封面補差額、角度圖每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點，<strong>不另收上傳費</strong>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
                             <input type="file" class="d-none" id="edit-add-gallery-input-multi" accept="image/*" multiple>
                             <div class="d-flex flex-wrap gap-2 mb-2">
-                                <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.addGalleryImages">上傳圖片</span></button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張上傳</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-pick-gallery-one"><i class="bi bi-plus-lg me-1"></i>新增圖片</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-pick-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
                             </div>
-                            <p class="form-text text-muted small mb-1">選檔後<strong>立即上傳</strong>原圖（最多 12 張，與 AI 重繪分開）。若要白底效果，請用上方各圖的「AI 重繪」按鈕。</p>
+                            <div id="edit-gallery-pending" class="row g-2 mb-2 d-none"></div>
+                            <div id="edit-gallery-pending-actions" class="d-flex flex-wrap gap-2 mb-2 d-none">
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-edit-upload-pending-only"><i class="bi bi-cloud-upload me-1"></i>僅上傳所選</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-upload-pending-redraw" disabled><i class="bi bi-magic me-1"></i>上傳並重繪勾選</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-edit-clear-pending">清除待傳</button>
+                            </div>
+                            <p class="form-text text-muted small mb-1">選檔後先預覽，可逐張勾選 AI 重繪再送出；已上傳的圖請用上方各圖「AI 重繪」（不另收上傳費）。</p>
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
@@ -602,7 +608,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-redraw-two-buttons-20260604';
+        window.__MATCHDO_MATERIALS_BUILD = 'per-image-redraw-replace-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -926,6 +932,25 @@
             return opt + Math.max(0, optimizeCount - 1) * extra;
         }
 
+        function calcRedrawPointsForUrl(m, url) {
+            var extra = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
+            var upload = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
+            var opt = optimizePointsForKind(m && m.asset_kind);
+            if (!m || !url) return extra;
+            var items = assetImageItems(m);
+            var src = items.find(function (it) { return it.url === url; });
+            var label = (src && src.label) || '';
+            if (label.indexOf('（重繪）') >= 0) return extra;
+            if (String(m.image_url || '').trim() === url) return Math.max(extra, opt - upload);
+            return extra;
+        }
+
+        function calcGalleryBatchRedrawPoints(m, optimizeIndices, fileCount) {
+            if (!optimizeIndices || !optimizeIndices.length) return 0;
+            var kind = m && m.asset_kind;
+            return calcAddFormPointsEstimate(kind, optimizeIndices.length, fileCount);
+        }
+
         function getPendingImages(form) {
             if (!form._pendingImages) form._pendingImages = [];
             return form._pendingImages;
@@ -1012,16 +1037,20 @@
             var optCount = list.filter(function (p) { return p.optimize; }).length;
             var upload = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
             var valEl = form.querySelector('.add-points-estimate-val');
-            if (valEl) valEl.textContent = String(upload);
+            var hintEl = form.querySelector('.add-points-estimate-hint');
             var redrawLine = form.querySelector('.add-points-redraw-estimate-line');
             var redrawVal = form.querySelector('.add-points-redraw-estimate-val');
             var redrawBtn = form.querySelector('.btn-add-submit-redraw');
             if (optCount > 0) {
                 var redrawPts = calcAddFormPointsEstimate(kind, optCount, list.length);
+                if (valEl) valEl.textContent = String(redrawPts);
+                if (hintEl) hintEl.textContent = '（AI 重繪並發布，已含重繪、不重複收上傳費）';
                 if (redrawVal) redrawVal.textContent = String(redrawPts);
-                if (redrawLine) redrawLine.classList.remove('d-none');
+                if (redrawLine) redrawLine.classList.add('d-none');
                 if (redrawBtn) redrawBtn.disabled = false;
             } else {
+                if (valEl) valEl.textContent = String(upload);
+                if (hintEl) hintEl.textContent = '（僅上傳 ' + upload + ' 點；之後可逐張 AI 重繪，不另收上傳費）';
                 if (redrawLine) redrawLine.classList.add('d-none');
                 if (redrawBtn) redrawBtn.disabled = true;
             }
@@ -1087,13 +1116,97 @@
             }
         }
 
-        function getEditGalleryRedrawPoints() {
-            return uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
+        function getEditGalleryPendingImages() {
+            if (!window._editGalleryPending) window._editGalleryPending = [];
+            return window._editGalleryPending;
+        }
+
+        function clearEditGalleryPending() {
+            var wrap = document.getElementById('edit-gallery-pending');
+            if (wrap) {
+                wrap.querySelectorAll('img[data-object-url]').forEach(function (img) {
+                    var u = img.getAttribute('data-object-url');
+                    if (u) { try { URL.revokeObjectURL(u); } catch (_) {} }
+                });
+                wrap.innerHTML = '';
+                wrap.classList.add('d-none');
+            }
+            window._editGalleryPending = [];
+            var actions = document.getElementById('edit-gallery-pending-actions');
+            if (actions) actions.classList.add('d-none');
+            var redrawBtn = document.getElementById('btn-edit-upload-pending-redraw');
+            if (redrawBtn) redrawBtn.disabled = true;
+        }
+
+        function renderEditGalleryPending() {
+            var wrap = document.getElementById('edit-gallery-pending');
+            var actions = document.getElementById('edit-gallery-pending-actions');
+            var list = getEditGalleryPendingImages();
+            if (!wrap) return;
+            wrap.querySelectorAll('img[data-object-url]').forEach(function (img) {
+                var u = img.getAttribute('data-object-url');
+                if (u) { try { URL.revokeObjectURL(u); } catch (_) {} }
+            });
+            wrap.innerHTML = '';
+            if (!list.length) {
+                wrap.classList.add('d-none');
+                if (actions) actions.classList.add('d-none');
+                return;
+            }
+            wrap.classList.remove('d-none');
+            if (actions) actions.classList.remove('d-none');
+            var optCount = list.filter(function (p) { return p.optimize; }).length;
+            var redrawBtn = document.getElementById('btn-edit-upload-pending-redraw');
+            if (redrawBtn) redrawBtn.disabled = optCount <= 0;
+            list.forEach(function (item, idx) {
+                var col = document.createElement('div');
+                col.className = 'col-6 col-sm-4 col-md-3';
+                var card = document.createElement('div');
+                card.className = 'pending-image-card';
+                var url = URL.createObjectURL(item.file);
+                card.innerHTML = '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" alt="">' +
+                    '<div class="form-check form-check-sm mt-1 mb-0">' +
+                    '<input class="form-check-input edit-pending-optimize-chk" type="checkbox" id="epo-' + esc(item.id) + '"' + (item.optimize ? ' checked' : '') + '>' +
+                    '<label class="form-check-label small" for="epo-' + esc(item.id) + '">AI 重繪</label></div>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm pending-remove mt-1">移除</button>';
+                col.appendChild(card);
+                wrap.appendChild(col);
+                card.querySelector('.edit-pending-optimize-chk').addEventListener('change', function () {
+                    item.optimize = this.checked;
+                    renderEditGalleryPending();
+                });
+                card.querySelector('.pending-remove').addEventListener('click', function () {
+                    var i = list.indexOf(item);
+                    if (i >= 0) list.splice(i, 1);
+                    renderEditGalleryPending();
+                });
+            });
+        }
+
+        function appendFilesToEditGalleryPending(fileList) {
+            if (!fileList || !fileList.length) return;
+            var list = getEditGalleryPendingImages();
+            var id = document.getElementById('edit-id').value;
+            var m = materialsAll.find(function (x) { return x.id === id; });
+            var current = m ? assetImageUrls(m).length : 0;
+            for (var i = 0; i < fileList.length; i++) {
+                if (current + list.length >= PROTOTYPE_MAX_IMAGES) {
+                    showToast('最多 ' + PROTOTYPE_MAX_IMAGES + ' 張圖片', 'warning');
+                    break;
+                }
+                list.push({
+                    id: 'ep' + Date.now() + '-' + i,
+                    file: fileList[i],
+                    optimize: false
+                });
+            }
+            renderEditGalleryPending();
         }
 
         function syncEditGalleryRedrawSettings() {
+            var extra = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
             document.querySelectorAll('.edit-gallery-redraw-points-extra').forEach(function (el) {
-                el.textContent = String(getEditGalleryRedrawPoints());
+                el.textContent = String(extra);
             });
             var settings = document.getElementById('edit-gallery-redraw-settings');
             var grid = document.getElementById('edit-gallery-grid');
@@ -1193,8 +1306,9 @@
                 setEditGalleryStatus('上一批仍在傳送中，請稍候', 'warning');
                 return false;
             }
-            var pts = getEditGalleryRedrawPoints();
-            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪並追加為新角度圖？（-' + pts + ' 點，原圖保留）')) return false;
+            var m = materialsAll.find(function (x) { return x.id === id; });
+            var pts = calcRedrawPointsForUrl(m, sourceUrl);
+            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪並取代原圖？（-' + pts + ' 點，不另收上傳費）')) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             var statusPrefix = opts.batchTotal ? ('AI 重繪中（' + opts.batchIndex + '/' + opts.batchTotal + '）…') : 'AI 重繪中…';
@@ -1213,6 +1327,7 @@
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         source_url: sourceUrl,
+                        replace: true,
                         optimize_background: getEditGalleryOptimizeBackground()
                     })
                 });
@@ -1236,11 +1351,13 @@
                 var lastNew = markNewGalleryUrls(urlsBeforeRedraw, data);
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
-                if (urlCount <= countBefore) {
+                if (data.replaced_in_place === false && urlCount <= countBefore) {
                     setEditGalleryStatus('重繪完成但未新增圖片，可能已達上限', 'warning');
                     return false;
                 }
-                var okMsg = '已追加 AI 重繪圖（共 ' + urlCount + ' 張，綠框為新圖）';
+                var okMsg = data.replaced_in_place !== false
+                    ? '已 AI 重繪並取代原圖（共 ' + urlCount + ' 張）'
+                    : ('已追加 AI 重繪圖（共 ' + urlCount + ' 張，綠框為新圖）');
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
@@ -1265,12 +1382,18 @@
         function gridDisableEditGalleryActions(disabled) {
             var inputOne = document.getElementById('edit-add-gallery-input-one');
             var inputMulti = document.getElementById('edit-add-gallery-input-multi');
-            var btnAdd = document.getElementById('btn-edit-add-gallery');
-            var btnMulti = document.getElementById('btn-edit-add-gallery-multi');
+            var btnPickOne = document.getElementById('btn-edit-pick-gallery-one');
+            var btnPickMulti = document.getElementById('btn-edit-pick-gallery-multi');
+            var btnPendingOnly = document.getElementById('btn-edit-upload-pending-only');
+            var btnPendingRedraw = document.getElementById('btn-edit-upload-pending-redraw');
+            var btnPendingClear = document.getElementById('btn-edit-clear-pending');
             if (inputOne) inputOne.disabled = disabled;
             if (inputMulti) inputMulti.disabled = disabled;
-            if (btnAdd) btnAdd.disabled = disabled;
-            if (btnMulti) btnMulti.disabled = disabled;
+            if (btnPickOne) btnPickOne.disabled = disabled;
+            if (btnPickMulti) btnPickMulti.disabled = disabled;
+            if (btnPendingOnly) btnPendingOnly.disabled = disabled;
+            if (btnPendingRedraw) btnPendingRedraw.disabled = disabled;
+            if (btnPendingClear) btnPendingClear.disabled = disabled;
             var grid = document.getElementById('edit-gallery-grid');
             if (grid) {
                 grid.querySelectorAll('.btn-gallery-redraw-one, .btn-gallery-del, .btn-gallery-set-cover').forEach(function (el) {
@@ -1376,7 +1499,7 @@
             el.classList.remove('d-none');
         }
 
-        async function uploadEditGalleryFiles(fileList) {
+        async function uploadEditGalleryFiles(fileList, optimizeIndices) {
             var id = document.getElementById('edit-id').value;
             if (!id) {
                 setEditGalleryStatus('找不到作品 ID，請關閉編輯視窗後重試', 'danger');
@@ -1393,6 +1516,12 @@
             }
             var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
             var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
+            var mBefore = idxBefore >= 0 ? materialsAll[idxBefore] : null;
+            var optIdx = optimizeIndices || [];
+            if (optIdx.length) {
+                var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, fileList.length);
+                if (!window.confirm('上傳 ' + fileList.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點，不含上傳費）')) return false;
+            }
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             var fd = new FormData();
@@ -1402,7 +1531,11 @@
                 uploadLabels.push(labelFromFilename(fileList[i].name));
             }
             if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
-            setEditGalleryStatus('上傳原圖中 ' + fileList.length + ' 張…', 'info');
+            if (optIdx.length) {
+                fd.append('optimize_image_indices', JSON.stringify(optIdx));
+                fd.append('optimize_background', getEditGalleryOptimizeBackground());
+            }
+            setEditGalleryStatus((optIdx.length ? '上傳並重繪中 ' : '上傳原圖中 ') + fileList.length + ' 張…', 'info');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
@@ -1447,7 +1580,9 @@
                     showToast(migHint, 'danger');
                     return false;
                 }
-                setEditGalleryStatus('已上傳原圖，目前共 ' + urlCount + ' 張；若要白底請對各圖按「AI 重繪」', 'success');
+                setEditGalleryStatus(optIdx.length
+                    ? '已上傳並重繪，目前共 ' + urlCount + ' 張'
+                    : ('已上傳原圖，目前共 ' + urlCount + ' 張；若要白底請對各圖按「AI 重繪」'), 'success');
                 var okMsg = tr('baseModels.galleryAdded', '已新增角度圖') + '（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 showToast(okMsg);
@@ -1476,8 +1611,28 @@
             }
             var list = inputEl.multiple ? Array.prototype.slice.call(inputEl.files) : [inputEl.files[0]];
             inputEl.value = '';
-            setEditGalleryStatus('已選 ' + list.length + ' 張，開始上傳…', 'info');
-            uploadEditGalleryFiles(list).catch(function (err) {
+            appendFilesToEditGalleryPending(list);
+            setEditGalleryStatus('已加入 ' + list.length + ' 張待傳，請勾選要重繪的圖後按上傳', 'info');
+        }
+
+        function submitEditGalleryPending(withRedraw) {
+            var list = getEditGalleryPendingImages();
+            if (!list.length) {
+                setEditGalleryStatus('請先選擇圖片', 'warning');
+                return;
+            }
+            var files = list.map(function (p) { return p.file; });
+            var optIdx = [];
+            if (withRedraw) {
+                list.forEach(function (p, i) { if (p.optimize) optIdx.push(i); });
+                if (!optIdx.length) {
+                    setEditGalleryStatus('請勾選要 AI 重繪的圖片', 'warning');
+                    return;
+                }
+            }
+            uploadEditGalleryFiles(files, optIdx).then(function (ok) {
+                if (ok) clearEditGalleryPending();
+            }).catch(function (err) {
                 var msg = (err && err.message) ? err.message : '上傳失敗';
                 setEditGalleryStatus(msg, 'danger');
                 showToast(msg, 'danger');
@@ -1489,21 +1644,30 @@
             if (editGalleryUploadBound) return;
             var one = document.getElementById('edit-add-gallery-input-one');
             var multi = document.getElementById('edit-add-gallery-input-multi');
-            var btnOne = document.getElementById('btn-edit-add-gallery');
-            var btnMulti = document.getElementById('btn-edit-add-gallery-multi');
-            if (!one || !multi || !btnOne || !btnMulti) {
+            var btnPickOne = document.getElementById('btn-edit-pick-gallery-one');
+            var btnPickMulti = document.getElementById('btn-edit-pick-gallery-multi');
+            if (!one || !multi || !btnPickOne || !btnPickMulti) {
                 console.error('bindEditGalleryUpload: 缺少編輯角度圖 DOM');
                 return;
             }
             editGalleryUploadBound = true;
-            btnOne.addEventListener('click', function () {
+            btnPickOne.addEventListener('click', function () {
                 if (!editGalleryUploading) one.click();
             });
-            btnMulti.addEventListener('click', function () {
+            btnPickMulti.addEventListener('click', function () {
                 if (!editGalleryUploading) multi.click();
             });
             one.addEventListener('change', function () { onEditGalleryFilesSelected(one); });
             multi.addEventListener('change', function () { onEditGalleryFilesSelected(multi); });
+            var btnOnly = document.getElementById('btn-edit-upload-pending-only');
+            var btnRedraw = document.getElementById('btn-edit-upload-pending-redraw');
+            var btnClear = document.getElementById('btn-edit-clear-pending');
+            if (btnOnly) btnOnly.addEventListener('click', function () { submitEditGalleryPending(false); });
+            if (btnRedraw) btnRedraw.addEventListener('click', function () { submitEditGalleryPending(true); });
+            if (btnClear) btnClear.addEventListener('click', function () {
+                clearEditGalleryPending();
+                setEditGalleryStatus('', '');
+            });
         }
         function showToast(msg, type) {
             type = type || 'success';
@@ -2492,7 +2656,7 @@
                 }
                 if (withRedraw) {
                     var redrawPts = calcAddFormPointsEstimate(kind, optIdx.length, pending.length);
-                    if (!window.confirm('上傳並對 ' + optIdx.length + ' 張勾選圖 AI 重繪？（預估 -' + redrawPts + ' 點）')) return;
+                    if (!window.confirm('上傳並對 ' + optIdx.length + ' 張勾選圖 AI 重繪？（預估 -' + redrawPts + ' 點，已含重繪、不重複收上傳費）')) return;
                 }
             }
             msgEl.textContent = '';
@@ -2565,8 +2729,8 @@
                     editGalleryHighlightUrls.clear();
                     openEditModal(newAssetId);
                     setEditGalleryStatus(withRedraw
-                        ? '已上傳並重繪。圖庫如下，可點圖放大或繼續對其他圖按「AI 重繪」'
-                        : '已上傳原圖。若要白底，請勾選或點各圖「AI 重繪」', 'success');
+                        ? '已上傳並重繪。可對其他圖逐張按「AI 重繪」（不另收上傳費）'
+                        : '已上傳原圖。若要白底，請對各圖按「AI 重繪」（不另收上傳費）', 'success');
                 }
             } catch (err) {
                 msgEl.textContent = err.message || 'failed';
@@ -2863,6 +3027,7 @@
             if (isProtoLike) {
                 renderEditGallery(m);
             }
+            clearEditGalleryPending();
             editGalleryUploading = false;
             setEditGalleryStatus('', null);
             var buildHint = document.getElementById('edit-gallery-build-hint');
