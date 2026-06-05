@@ -1,0 +1,8 @@
+.git/
+.gitignore
+.history/
+node_modules/
+.env
+.env.*
+*.log
+.cursor/
