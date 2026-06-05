@@ -113,8 +113,8 @@
     function applyGuideVariantChoice(assetId, url, label) {
         if (!url) return;
         state.guideVariantByAssetId[assetId] = { url: url, label: label || '' };
-        refreshVariantCardVisuals(assetId);
         if (prototypeById(assetId)) {
+            renderCanvas();
             renderGuidePanel();
             return;
         }
@@ -122,6 +122,8 @@
             state.guideSelectedIds.push(assetId);
             enforceGuideSelectionRules(assetId);
         }
+        // 須整頁重繪：pick_group 互斥會從 guideSelectedIds 移除其他配件，僅 refresh 單格會留下幽靈青框
+        renderCanvas();
         renderGuidePanel();
     }
 
