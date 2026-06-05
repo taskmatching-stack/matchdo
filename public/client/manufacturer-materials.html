@@ -515,7 +515,7 @@
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-edit-upload-pending-only"><i class="bi bi-cloud-upload me-1"></i>上傳所選</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-edit-clear-pending">清除待傳</button>
                             </div>
-                            <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」或「AI 放大」再按「上傳所選」；<strong>點圖片＝預覽放大</strong>（只看大圖）。已上傳的圖請用上方各圖按鈕（不另收上傳費）。</p>
+                            <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」或「AI 放大」；按「<strong>上傳所選</strong>」或下方「<strong>儲存</strong>」都會把待傳圖寫入圖庫。<strong>點圖片＝預覽放大</strong>。已上傳的圖請用上方各圖按鈕（不另收上傳費）。</p>
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-scroll-unlock-after-upload-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-save-uploads-pending-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2337,7 +2337,8 @@
             el.classList.remove('d-none');
         }
 
-        async function uploadEditGalleryFiles(fileList, optimizeIndices) {
+        async function uploadEditGalleryFiles(fileList, optimizeIndices, opts) {
+            opts = opts || {};
             var id = document.getElementById('edit-id').value;
             if (!id) {
                 setEditGalleryStatus('找不到作品 ID，請關閉編輯視窗後重試', 'danger');
@@ -2388,11 +2389,13 @@
                     uploadDerived.push('');
                 });
             }
-            if (optIdx.length) {
-                var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, uploadFiles.length);
-                if (!window.confirm('上傳 ' + uploadFiles.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點）')) return false;
-            } else if (usePending && uploadFiles.length) {
-                if (!window.confirm('上傳已勾選的 ' + uploadFiles.length + ' 張圖片？')) return false;
+            if (!opts.skipConfirm) {
+                if (optIdx.length) {
+                    var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, uploadFiles.length);
+                    if (!window.confirm('上傳 ' + uploadFiles.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點）')) return false;
+                } else if (usePending && uploadFiles.length) {
+                    if (!window.confirm('上傳已勾選的 ' + uploadFiles.length + ' 張圖片？')) return false;
+                }
             }
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
@@ -2487,6 +2490,26 @@
             setEditGalleryStatus('已加入 ' + list.length + ' 張待傳，請勾選要重繪的圖後按上傳', 'info');
         }
 
+        async function flushEditGalleryPendingBeforeSave() {
+            var list = getEditGalleryPendingImages();
+            if (!list.length) return true;
+            var pendingErr = validatePendingUploadList(list);
+            if (pendingErr) {
+                setEditGalleryStatus(pendingErr, 'danger');
+                showToast(pendingErr, 'danger');
+                return false;
+            }
+            var entriesCount = 0;
+            list.forEach(function (p) { entriesCount += pendingUploadEntries(p).length; });
+            if (!window.confirm('尚有 ' + list.length + ' 組待傳圖（共 ' + entriesCount + ' 張），將與「儲存」一併上傳。繼續？')) {
+                return false;
+            }
+            var files = list.map(function (p) { return p.file; });
+            var ok = await uploadEditGalleryFiles(files, [], { skipConfirm: true });
+            if (ok) clearEditGalleryPending();
+            return !!ok;
+        }
+
         function submitEditGalleryPending() {
             var list = getEditGalleryPendingImages();
             if (!list.length) {
@@ -2494,9 +2517,7 @@
                 return;
             }
             var files = list.map(function (p) { return p.file; });
-            var optIdx = [];
-            list.forEach(function (p, i) { if (p.optimize && !p.redrawFile) optIdx.push(i); });
-            uploadEditGalleryFiles(files, optIdx).then(function (ok) {
+            uploadEditGalleryFiles(files, []).then(function (ok) {
                 if (ok) clearEditGalleryPending();
             }).catch(function (err) {
                 var msg = (err && err.message) ? err.message : '上傳失敗';
@@ -4019,6 +4040,10 @@
         document.getElementById('btn-edit-save').addEventListener('click', async function () {
             var id = document.getElementById('edit-id').value;
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
+            if ((editKind === 'prototype' || editKind === 'part') && getEditGalleryPendingImages().length) {
+                var pendingOk = await flushEditGalleryPendingBeforeSave();
+                if (!pendingOk) return;
+            }
             if (editKind === 'prototype') {
                 var editSubErr = validatePrototypeSubcategory(
                     document.getElementById('edit-subcategory'),
