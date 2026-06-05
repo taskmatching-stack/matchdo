@@ -1,5 +1,7 @@
 node_modules
 .git
+.gitignore
+.gcloudignore
 .env
 .env.*
 *.log
@@ -8,3 +10,5 @@ uploads
 client_secret*.json
 credentials*.json
 .history
+.cursor
+.cursorignore
