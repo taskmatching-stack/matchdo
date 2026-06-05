@@ -31,6 +31,8 @@
         .pending-redraw-new-row { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #dee2e6; }
         .pending-redraw-new-row label { font-size: 0.65rem; color: #198754; margin-bottom: 2px; display: block; }
         .pending-redraw-new-row img { width: 100%; max-height: 72px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid #198754; }
+        .pending-upload-check { display: block; font-size: 0.7rem; color: #495057; margin-top: 4px; cursor: pointer; user-select: none; }
+        .pending-upload-check .form-check-input { margin-top: 0.15rem; cursor: pointer; }
         .pending-redraw-thumb { display: block; max-height: 56px; max-width: 100%; width: auto; margin-top: 4px; border-radius: 6px; border: 1px solid #198754; object-fit: contain; cursor: zoom-in; background: #fff; }
         .pending-upscale-ai-edit-help { display: inline-flex; align-items: center; color: #0dcaf0; text-decoration: none; font-size: 1rem; line-height: 1; margin-left: 2px; vertical-align: middle; }
         .pending-upscale-ai-edit-help:hover { color: #0aa2c0; }
@@ -612,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-upscale-stability-fix-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-pending-upload-pick-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1004,20 +1006,108 @@
             updateAddFormPointsEstimate(form);
         }
 
-        function pendingRedrawThumbHtml(item) {
+        function pendingUploadCheckHtml(checked, inputClass, labelText) {
+            var c = checked !== false ? ' checked' : '';
+            return '<label class="form-check pending-upload-check">' +
+                '<input type="checkbox" class="form-check-input ' + inputClass + '"' + c + '> ' +
+                esc(labelText) + '</label>';
+        }
+
+        function pendingHasDerivedPreview(item) {
+            return !!(item.redrawPreviewUrl || item.upscalePreviewUrl);
+        }
+
+        /** 依勾選組出要上傳的檔案（順序：原圖 → 重繪 → 放大） */
+        function pendingUploadEntries(item) {
+            var baseLabel = (item.label || labelFromFilename(item.file && item.file.name)).trim();
+            var out = [];
+            if (item.file && item.uploadOriginal !== false) {
+                out.push({ file: item.file, label: baseLabel });
+            }
+            if (item.redrawFile && item.uploadRedraw !== false) {
+                out.push({
+                    file: item.redrawFile,
+                    label: (baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120)
+                });
+            }
+            if (item.upscaleFile && item.uploadUpscale !== false) {
+                out.push({
+                    file: item.upscaleFile,
+                    label: (baseLabel ? baseLabel + '（放大）' : '放大').slice(0, 120)
+                });
+            }
+            return out;
+        }
+
+        function validatePendingUploadList(list) {
+            if (!list || !list.length) return tr('baseModels.needImage', '請至少新增一張圖片');
+            for (var i = 0; i < list.length; i++) {
+                if (!pendingUploadEntries(list[i]).length) {
+                    return '第 ' + (i + 1) + ' 組圖片：請至少勾選一張要上傳（原圖或新圖）';
+                }
+            }
+            return '';
+        }
+
+        function wirePendingUploadCheckboxes(card, item, prefix) {
+            var orig = card.querySelector('.' + prefix + '-upload-original');
+            if (orig) {
+                orig.addEventListener('change', function () {
+                    item.uploadOriginal = orig.checked;
+                    if (!pendingUploadEntries(item).length) {
+                        item.uploadOriginal = true;
+                        orig.checked = true;
+                        showToast('每組至少須上傳一張圖', 'warning');
+                    }
+                });
+            }
+            var rd = card.querySelector('.' + prefix + '-upload-redraw');
+            if (rd) {
+                rd.addEventListener('change', function () {
+                    item.uploadRedraw = rd.checked;
+                    if (!pendingUploadEntries(item).length) {
+                        item.uploadRedraw = true;
+                        rd.checked = true;
+                        showToast('每組至少須上傳一張圖', 'warning');
+                    }
+                });
+            }
+            var up = card.querySelector('.' + prefix + '-upload-upscale');
+            if (up) {
+                up.addEventListener('change', function () {
+                    item.uploadUpscale = up.checked;
+                    if (!pendingUploadEntries(item).length) {
+                        item.uploadUpscale = true;
+                        up.checked = true;
+                        showToast('每組至少須上傳一張圖', 'warning');
+                    }
+                });
+            }
+        }
+
+        function pendingOriginalUploadCheckHtml(item, prefix) {
+            if (!pendingHasDerivedPreview(item)) return '';
+            return pendingUploadCheckHtml(item.uploadOriginal !== false, prefix + '-upload-original', '上傳原圖');
+        }
+
+        function pendingRedrawThumbHtml(item, prefix) {
             if (!item.redrawPreviewUrl) return '';
-            return '<div class="pending-redraw-new-row"><label>重繪新圖</label>' +
-                '<img src="' + esc(item.redrawPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="重繪新圖預覽"></div>';
+            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">重繪新圖</span>' +
+                '<img src="' + esc(item.redrawPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="重繪新圖預覽">' +
+                pendingUploadCheckHtml(item.uploadRedraw !== false, prefix + '-upload-redraw', '上傳此張') +
+                '</div>';
         }
 
-        function pendingUpscaleThumbHtml(item) {
+        function pendingUpscaleThumbHtml(item, prefix) {
             if (!item.upscalePreviewUrl) return '';
-            return '<div class="pending-redraw-new-row"><label>放大新圖（≤1MP）</label>' +
-                '<img src="' + esc(item.upscalePreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="放大新圖預覽"></div>';
+            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">放大新圖（≤1MP）</span>' +
+                '<img src="' + esc(item.upscalePreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="放大新圖預覽">' +
+                pendingUploadCheckHtml(item.uploadUpscale !== false, prefix + '-upload-upscale', '上傳此張') +
+                '</div>';
         }
 
-        function pendingDerivedThumbsHtml(item) {
-            return pendingRedrawThumbHtml(item) + pendingUpscaleThumbHtml(item);
+        function pendingDerivedThumbsHtml(item, prefix) {
+            return pendingRedrawThumbHtml(item, prefix || 'pending') + pendingUpscaleThumbHtml(item, prefix || 'pending');
         }
 
         function pendingRedrawNewThumbHtml(item) {
@@ -1196,9 +1286,10 @@
                 item.redrawPreviewUrl = previewDataUrlFromResponse(data);
                 item.redrawChargedPts = data.points_deducted || 0;
                 item.optimize = true;
-                item.useRedraw = true;
+                item.uploadRedraw = true;
+                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
                 item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
-                var okMsg = '已產生重繪新圖（原圖保留）';
+                var okMsg = '已產生重繪新圖，請勾選要上傳的圖片';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
             } catch (err) {
@@ -1243,9 +1334,10 @@
                 }
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
                 item.upscaleChargedPts = data.points_deducted || 0;
-                item.useUpscale = true;
+                item.uploadUpscale = true;
+                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
                 item.upscaleFile = base64ToRedrawFile(data.preview_base64, 'upscale-' + idx + '.jpg');
-                var okMsg = '已產生放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '，原圖保留）';
+                var okMsg = '已產生放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '），請勾選要上傳的圖片';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
             } catch (err) {
@@ -1262,7 +1354,7 @@
             item.redrawFile = null;
             item.redrawChargedPts = 0;
             item.optimize = false;
-            item.useRedraw = false;
+            item.uploadRedraw = false;
             item.imageBusy = false;
             renderPendingImages(form);
             updateAddFormPointsEstimate(form);
@@ -1272,7 +1364,7 @@
             item.upscalePreviewUrl = null;
             item.upscaleFile = null;
             item.upscaleChargedPts = 0;
-            item.useUpscale = false;
+            item.uploadUpscale = false;
             item.imageBusy = false;
             renderPendingImages(form);
             updateAddFormPointsEstimate(form);
@@ -1295,7 +1387,7 @@
                 var imgHtml = item.imageBusy
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
                     : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="原圖（點擊放大）">';
-                card.innerHTML = coverBadge + imgHtml + pendingDerivedThumbsHtml(item) +
+                card.innerHTML = coverBadge + imgHtml + pendingOriginalUploadCheckHtml(item, 'pending') + pendingDerivedThumbsHtml(item, 'pending') +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
@@ -1313,6 +1405,7 @@
                 card.querySelector('.pending-upscale-btn').addEventListener('click', function () {
                     previewPendingUpscale(form, item, idx);
                 });
+                wirePendingUploadCheckboxes(card, item, 'pending');
                 var clearBtn = card.querySelector('.pending-clear-redraw');
                 if (clearBtn) {
                     clearBtn.addEventListener('click', function () { clearPendingRedrawPreview(form, item); });
@@ -1364,7 +1457,7 @@
             if (hintEl) {
                 hintEl.textContent = charged > 0
                     ? '（發布上傳 ' + upload + ' 點；已預覽重繪 -' + charged + ' 點，發布時採用預覽不再重扣）'
-                    : '（發布上傳 ' + upload + ' 點；各圖可「AI 重繪」或「原圖放大」預覽，不另收上傳費）';
+                    : '（發布上傳 ' + upload + ' 點；重繪／放大後請勾選要上傳的圖，可只傳原圖或只傳新圖）';
             }
             if (redrawLine) redrawLine.classList.add('d-none');
             syncAddFormOptimizeBgWrap(form);
@@ -1393,6 +1486,9 @@
                     file: fileList[i],
                     optimize: false,
                     label: labelFromFilename(fileList[i].name),
+                    uploadOriginal: true,
+                    uploadRedraw: false,
+                    uploadUpscale: false,
                     upscaleProbeDone: false,
                     upscaleNeeded: true
                 });
@@ -1484,9 +1580,10 @@
                 item.redrawPreviewUrl = previewDataUrlFromResponse(data);
                 item.redrawChargedPts = data.points_deducted || 0;
                 item.optimize = true;
-                item.useRedraw = true;
+                item.uploadRedraw = true;
+                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
                 item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
-                showToast('已產生重繪新圖（原圖保留）' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+                showToast('已產生重繪新圖，請勾選要上傳的圖片' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
             } finally {
@@ -1525,9 +1622,10 @@
                 if (!r.ok) { showToast(upscaleApiErrorMessage(data), 'danger'); return; }
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
                 item.upscaleChargedPts = data.points_deducted || 0;
-                item.useUpscale = true;
+                item.uploadUpscale = true;
+                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
                 item.upscaleFile = base64ToRedrawFile(data.preview_base64, 'upscale-' + idx + '.jpg');
-                showToast('已產生放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '，原圖保留）' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+                showToast('已產生放大新圖，請勾選要上傳的圖片' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || '放大失敗', 'danger');
             } finally {
@@ -1562,7 +1660,7 @@
                 var imgHtml = item.imageBusy
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
                     : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" alt="">';
-                card.innerHTML = imgHtml + pendingDerivedThumbsHtml(item) +
+                card.innerHTML = imgHtml + pendingOriginalUploadCheckHtml(item, 'edit-pending') + pendingDerivedThumbsHtml(item, 'edit-pending') +
                     '<div class="pending-actions mt-1">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     '<button type="button" class="btn btn-outline-info btn-sm edit-pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-zoom-in me-1"></i>原圖放大</button>' +
@@ -1578,6 +1676,7 @@
                 card.querySelector('.edit-pending-upscale-btn').addEventListener('click', function () {
                     previewEditPendingUpscale(item, idx);
                 });
+                wirePendingUploadCheckboxes(card, item, 'edit-pending');
                 var clr = card.querySelector('.edit-pending-clear-redraw');
                 if (clr) {
                     clr.addEventListener('click', function () {
@@ -1585,7 +1684,7 @@
                         item.redrawFile = null;
                         item.redrawChargedPts = 0;
                         item.optimize = false;
-                        item.useRedraw = false;
+                        item.uploadRedraw = false;
                         renderEditGalleryPending();
                     });
                 }
@@ -1595,7 +1694,7 @@
                         item.upscalePreviewUrl = null;
                         item.upscaleFile = null;
                         item.upscaleChargedPts = 0;
-                        item.useUpscale = false;
+                        item.uploadUpscale = false;
                         renderEditGalleryPending();
                     });
                 }
@@ -1623,6 +1722,9 @@
                     id: 'ep' + Date.now() + '-' + i,
                     file: fileList[i],
                     optimize: false,
+                    uploadOriginal: true,
+                    uploadRedraw: false,
+                    uploadUpscale: false,
                     upscaleProbeDone: false,
                     upscaleNeeded: true
                 });
@@ -2043,20 +2145,21 @@
             var uploadLabels = [];
             var optIdx = [];
             if (usePending) {
+                var pendingErr = validatePendingUploadList(pendingList);
+                if (pendingErr) {
+                    setEditGalleryStatus(pendingErr, 'danger');
+                    showToast(pendingErr, 'danger');
+                    return false;
+                }
                 pendingList.forEach(function (p) {
-                    var baseLabel = labelFromFilename(p.file && p.file.name);
-                    uploadFiles.push(p.file);
-                    uploadLabels.push(baseLabel);
-                    if (p.redrawFile && p.useRedraw !== false) {
-                        uploadFiles.push(p.redrawFile);
-                        uploadLabels.push((baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120));
-                    }
-                    if (p.upscaleFile && p.useUpscale !== false) {
-                        uploadFiles.push(p.upscaleFile);
-                        uploadLabels.push((baseLabel ? baseLabel + '（放大）' : '放大').slice(0, 120));
-                    }
-                    if (p.optimize && !p.redrawFile && !p.upscaleFile) {
-                        optIdx.push(uploadFiles.length - 1);
+                    var entries = pendingUploadEntries(p);
+                    var startIdx = uploadFiles.length;
+                    entries.forEach(function (ent) {
+                        uploadFiles.push(ent.file);
+                        uploadLabels.push(ent.label);
+                    });
+                    if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
+                        optIdx.push(startIdx);
                     }
                 });
             } else {
@@ -2067,8 +2170,8 @@
             if (optIdx.length) {
                 var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, uploadFiles.length);
                 if (!window.confirm('上傳 ' + uploadFiles.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點）')) return false;
-            } else if (usePending && pendingList.some(function (p) { return p.redrawFile && p.useRedraw !== false; })) {
-                if (!window.confirm('上傳 ' + uploadFiles.length + ' 張（含重繪新圖，原圖保留）？')) return false;
+            } else if (usePending && uploadFiles.length) {
+                if (!window.confirm('上傳已勾選的 ' + uploadFiles.length + ' 張圖片？')) return false;
             }
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
@@ -3190,20 +3293,20 @@
             var uploadFiles = [];
             var uploadLabels = [];
             if (kind === 'prototype' || kind === 'part') {
+                var pendingSelErr = validatePendingUploadList(pending);
+                if (pendingSelErr) {
+                    msgEl.textContent = pendingSelErr;
+                    return;
+                }
                 pending.forEach(function (p) {
-                    var baseLabel = (p.label || labelFromFilename(p.file && p.file.name)).trim();
-                    uploadFiles.push(p.file);
-                    uploadLabels.push(baseLabel);
-                    if (p.redrawFile && p.useRedraw !== false) {
-                        uploadFiles.push(p.redrawFile);
-                        uploadLabels.push((baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120));
-                    }
-                    if (p.upscaleFile && p.useUpscale !== false) {
-                        uploadFiles.push(p.upscaleFile);
-                        uploadLabels.push((baseLabel ? baseLabel + '（放大）' : '放大').slice(0, 120));
-                    }
-                    if (p.optimize && !p.redrawFile && !p.upscaleFile) {
-                        optIdx.push(uploadFiles.length - 1);
+                    var entries = pendingUploadEntries(p);
+                    var startIdx = uploadFiles.length;
+                    entries.forEach(function (ent) {
+                        uploadFiles.push(ent.file);
+                        uploadLabels.push(ent.label);
+                    });
+                    if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
+                        optIdx.push(startIdx);
                     }
                 });
             }
