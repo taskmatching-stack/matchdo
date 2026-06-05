@@ -842,6 +842,13 @@
                 var url = (tile.getAttribute('data-variant-url') || '').trim();
                 var label = (tile.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
                 if (url) {
+                    var picked = state.guideSelectedIds.indexOf(aid) >= 0;
+                    var cur = getGuideVariant(aid);
+                    var sameVariant = picked && cur && cur.url === url;
+                    if (sameVariant && !prototypeById(aid)) {
+                        toggleGuideSelection(aid);
+                        return;
+                    }
                     applyGuideVariantChoice(aid, url, label);
                     return;
                 }

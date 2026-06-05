@@ -25,11 +25,13 @@
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
-    <link href="/css/vendor-product-link-tree.css?v=45" rel="stylesheet">
+    <link href="/css/vendor-product-link-tree.css?v=46" rel="stylesheet">
     <script src="/js/i18n.js"></script>
 </head>
 <body class="vplt-page vplt-page--guide" data-vplt-mode="guide">
     <div id="site-header"></div>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/site-header.js"></script>
     <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
         <div class="container">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -62,7 +64,7 @@
                 <h2 class="h6 text-muted mb-2" data-i18n="productTree.guidePanelTitle">搭配摘要</h2>
                 <div id="vplt-guide-summary" class="small mb-3 text-secondary"></div>
                 <h3 class="h6 text-muted mb-2" data-i18n="productTree.guideSelected">已選參考</h3>
-                <p class="text-muted small" data-i18n="productTree.guideSelectedHint">能否複選依廠商設定；點配件標題展開／收合；點圖選色或選取；🔍 放大不影響已選。</p>
+                <p class="text-muted small" data-i18n="productTree.guideSelectedHint">能否複選依廠商設定；點配件標題展開／收合；點圖選取，已選色款再點一次可取消；右側 × 也可移除；🔍 放大不影響已選。</p>
                 <div id="vplt-guide-selected" class="vplt-guide-selected mb-3"></div>
             </aside>
         </div>
@@ -78,8 +80,7 @@
             <div id="vpltVariantSheetGrid" class="vplt-variant-sheet-grid" role="listbox"></div>
         </div>
     </div>
-    <script src="/js/site-header.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
-    <script src="/js/vendor-product-link-tree.js?v=45" defer></script>
+    <script src="/js/vendor-product-link-tree.js?v=46" defer></script>
 </body>
 </html>
