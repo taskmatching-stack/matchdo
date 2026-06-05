@@ -367,28 +367,21 @@
 .vplt-guide-tile-media {
     position: relative;
     width: 100%;
-    min-height: 5.5rem;
+    min-height: 6.75rem;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
     margin-bottom: 0.4rem;
-    padding: 0.35rem;
+    padding: 0;
     box-sizing: border-box;
-    border: 2px solid transparent;
-    border-radius: 12px;
-    background: #f5f5f7;
-    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-}
-.vplt-guide-tile--interactive:not(.vplt-guide-tile--picked):not(.vplt-guide-tile--active-view) .vplt-guide-tile-media {
-    border-color: #d1d5db;
-    border-style: dashed;
-    background: #fafafa;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    transition: box-shadow 0.15s ease;
 }
 .vplt-guide-tile--active-view .vplt-guide-tile-media {
-    border-color: #0d9488;
-    border-style: solid;
-    background: #f0fdfa;
-    box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
+    box-shadow: 0 0 0 3px #0d9488;
+    border-radius: 12px;
 }
 .vplt-guide-tile-badge {
     position: absolute;
@@ -424,13 +417,13 @@
 .vplt-guide-tile-img {
     width: auto;
     max-width: 100%;
-    height: 5.5rem;
-    max-height: 5.5rem;
+    height: 6.75rem;
+    max-height: 6.75rem;
     object-fit: contain;
     display: block;
     margin: 0 auto;
     border: none;
-    border-radius: 0;
+    border-radius: 12px;
     cursor: default;
     pointer-events: none;
     user-select: none;
@@ -490,14 +483,9 @@
 .vplt-guide-tile--part .vplt-guide-tile-kind {
     color: #d97706;
 }
-.vplt-guide-tile--picked {
-    background: #ecfdf5;
-}
 .vplt-guide-tile--picked .vplt-guide-tile-media {
-    border: 3px solid #0d9488;
-    border-style: solid;
-    background: #fff;
-    box-shadow: 0 4px 16px rgba(13, 148, 136, 0.28);
+    box-shadow: 0 0 0 3px #0d9488, 0 4px 14px rgba(13, 148, 136, 0.22);
+    border-radius: 12px;
 }
 .vplt-guide-tile--picked .vplt-guide-tile-name {
     font-weight: 700;
@@ -521,11 +509,11 @@
         max-width: 6.25rem;
     }
     .vplt-guide-tile-img {
-        height: 4.75rem;
-        max-height: 4.75rem;
+        height: 5.75rem;
+        max-height: 5.75rem;
     }
     .vplt-guide-tile-media {
-        min-height: 4.75rem;
+        min-height: 5.75rem;
     }
 }
 .vplt-child-card {
