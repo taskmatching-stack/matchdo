@@ -27,11 +27,7 @@
         .pending-image-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: zoom-in; }
         .pending-image-card .pending-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
         .pending-image-card.is-new-redraw { border-color: #198754; box-shadow: 0 0 0 2px rgba(25,135,84,.35); }
-        .pending-compare-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        .pending-compare-col label { font-size: 0.65rem; color: #6c757d; margin-bottom: 2px; display: block; }
-        .pending-compare-col .pending-redraw-slot { min-height: 4.5rem; display: flex; align-items: center; justify-content: center; background: #eef1f4; border-radius: 6px; border: 1px dashed #ced4da; color: #868e96; font-size: 0.7rem; text-align: center; padding: 4px; }
-        .pending-compare-col .pending-redraw-slot.has-preview { background: transparent; border-style: solid; border-color: #198754; padding: 0; }
-        .pending-compare-col .pending-redraw-slot.has-preview img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
+        .pending-redraw-badge { font-size: 0.65rem; }
         .material-img-count { position: absolute; top: 8px; left: 8px; z-index: 1; }
         .add-card { border: 2px dashed #cdd4dc; border-radius: 12px; cursor: pointer; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9ab0; transition: border-color .15s, color .15s, background .15s; }
         .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
@@ -176,7 +172,7 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；右欄按「AI 重繪」預覽後再發布。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；圖下方按「AI 重繪」後再發布。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
@@ -282,7 +278,7 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；右欄按「AI 重繪」預覽後再發布。可編輯每張圖名稱（預設檔名）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；圖下方按「AI 重繪」。可編輯每張圖名稱（預設檔名）。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                 </div>
@@ -497,7 +493,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0">點各圖「AI 重繪」後，右欄顯示結果與原圖對照；封面補差額、角度圖每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點，<strong>不另收上傳費</strong>。</p>
+                                <p class="form-text text-muted small mb-0">點各圖下方「AI 重繪」；封面補差額、角度圖每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點，<strong>不另收上傳費</strong>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
@@ -511,7 +507,7 @@
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-edit-upload-pending-only"><i class="bi bi-cloud-upload me-1"></i>上傳所選</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-edit-clear-pending">清除待傳</button>
                             </div>
-                            <p class="form-text text-muted small mb-1">選檔後先預覽，右欄可逐張按「AI 重繪」；已上傳的圖請用上方對照區（不另收上傳費）。</p>
+                            <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」再按「上傳所選」；已上傳的圖請用上方各圖按鈕（不另收上傳費）。</p>
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
@@ -610,7 +606,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'per-image-redraw-compare-cols-20260605b';
+        window.__MATCHDO_MATERIALS_BUILD = 'per-image-redraw-btn-only-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -646,7 +642,6 @@
         var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
         var editGalleryHighlightUrls = new Set();
-        var editGalleryRedrawBySource = {};
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
@@ -1003,14 +998,10 @@
             updateAddFormPointsEstimate(form);
         }
 
-        function pendingRedrawSlotHtml(item) {
-            if (item.redrawPreviewUrl) {
-                return '<div class="pending-redraw-slot has-preview"><img src="' + esc(item.redrawPreviewUrl) + '" class="matchdo-enlarge-trigger" alt="" title="重繪預覽"></div>';
-            }
-            if (item.redrawLoading) {
-                return '<div class="pending-redraw-slot">重繪中…</div>';
-            }
-            return '<div class="pending-redraw-slot">按「AI 重繪」預覽</div>';
+        function pendingCardImageSrc(item, originalObjectUrl) {
+            if (item.redrawLoading) return '';
+            if (item.redrawPreviewUrl) return item.redrawPreviewUrl;
+            return originalObjectUrl;
         }
 
         async function previewPendingRedraw(form, item, idx) {
@@ -1080,21 +1071,22 @@
             wrap.innerHTML = '';
             list.forEach(function (item, idx) {
                 var col = document.createElement('div');
-                col.className = 'col-12 col-md-6 col-lg-4';
+                col.className = 'col-6 col-sm-4 col-md-3';
                 var card = document.createElement('div');
                 card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '') + (item.redrawPreviewUrl ? ' is-new-redraw' : '');
                 card.dataset.pendingId = item.id;
                 var url = URL.createObjectURL(item.file);
+                var imgSrc = pendingCardImageSrc(item, url);
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                card.innerHTML = coverBadge +
-                    '<div class="pending-compare-cols mb-1">' +
-                    '<div class="pending-compare-col"><label>原圖</label>' +
-                    '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="點擊放大預覽"></div>' +
-                    '<div class="pending-compare-col"><label>AI 重繪</label>' + pendingRedrawSlotHtml(item) + '</div></div>' +
+                var redrawBadge = item.redrawPreviewUrl ? '<span class="badge bg-success mb-1 ms-1 pending-redraw-badge">已重繪</span>' : '';
+                var imgHtml = item.redrawLoading
+                    ? '<div class="text-muted small text-center py-4">重繪中…</div>'
+                    : '<img src="' + esc(imgSrc) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="點擊放大預覽">';
+                card.innerHTML = coverBadge + redrawBadge + imgHtml +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.redrawLoading ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-redraw">清除重繪</button>' : '') +
+                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-redraw">還原原圖</button>' : '') +
                     (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
@@ -1230,8 +1222,6 @@
             window._editGalleryPending = [];
             var actions = document.getElementById('edit-gallery-pending-actions');
             if (actions) actions.classList.add('d-none');
-            var redrawBtn = document.getElementById('btn-edit-upload-pending-redraw');
-            if (redrawBtn) redrawBtn.disabled = true;
         }
 
         async function previewEditPendingRedraw(item, idx) {
@@ -1294,18 +1284,19 @@
             if (actions) actions.classList.remove('d-none');
             list.forEach(function (item, idx) {
                 var col = document.createElement('div');
-                col.className = 'col-12 col-md-6';
+                col.className = 'col-6 col-sm-4 col-md-3';
                 var card = document.createElement('div');
                 card.className = 'pending-image-card' + (item.redrawPreviewUrl ? ' is-new-redraw' : '');
                 var url = URL.createObjectURL(item.file);
-                card.innerHTML =
-                    '<div class="pending-compare-cols mb-1">' +
-                    '<div class="pending-compare-col"><label>原圖</label>' +
-                    '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" alt=""></div>' +
-                    '<div class="pending-compare-col"><label>AI 重繪</label>' + pendingRedrawSlotHtml(item) + '</div></div>' +
-                    '<div class="pending-actions">' +
+                var imgSrc = pendingCardImageSrc(item, url);
+                var redrawBadge = item.redrawPreviewUrl ? '<span class="badge bg-success mb-1 pending-redraw-badge">已重繪</span>' : '';
+                var imgHtml = item.redrawLoading
+                    ? '<div class="text-muted small text-center py-4">重繪中…</div>'
+                    : '<img src="' + esc(imgSrc) + '" data-object-url="' + esc(url) + '" alt="">';
+                card.innerHTML = redrawBadge + imgHtml +
+                    '<div class="pending-actions mt-1">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.redrawLoading ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-redraw">清除</button>' : '') +
+                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-redraw">還原</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
                 wrap.appendChild(col);
@@ -1384,57 +1375,21 @@
             return lastNew;
         }
 
-        function rebuildEditGalleryRedrawMap(m) {
-            editGalleryRedrawBySource = {};
-            var items = assetImageItems(m);
-            items.forEach(function (it) {
-                var label = (it.label || '').trim();
-                var match = label.match(/^(.+)（重繪）$/);
-                if (!match) return;
-                var baseLabel = match[1].trim();
-                var orig = items.find(function (x) {
-                    var xl = (x.label || '').trim();
-                    return xl === baseLabel || xl.replace(/（重繪）$/, '') === baseLabel;
-                });
-                if (orig && orig.url !== it.url) editGalleryRedrawBySource[orig.url] = it.url;
-            });
-        }
-
-        function galleryRedrawResultUrl(sourceUrl) {
-            return editGalleryRedrawBySource[sourceUrl] || null;
-        }
-
-        function isGalleryRedrawOnlyItem(it) {
-            var label = (it.label || '');
-            if (label.indexOf('（重繪）') >= 0) return true;
-            var vals = Object.keys(editGalleryRedrawBySource).map(function (k) { return editGalleryRedrawBySource[k]; });
-            return vals.indexOf(it.url) >= 0;
-        }
-
-        function editGalleryRedrawSlotHtml(redrawUrl) {
-            if (redrawUrl) {
-                return '<div class="pending-redraw-slot has-preview"><img src="' + esc(redrawUrl) + '" class="matchdo-enlarge-trigger" alt="" title="重繪結果"></div>';
-            }
-            return '<div class="pending-redraw-slot">按「AI 重繪」產生</div>';
-        }
-
         function renderEditGallery(m) {
             var grid = document.getElementById('edit-gallery-grid');
             if (!grid) return;
             var items = assetImageItems(m);
             var editId = document.getElementById('edit-id').value;
-            var displayItems = items.filter(function (it) { return !isGalleryRedrawOnlyItem(it); });
-            if (!displayItems.length) {
+            if (!items.length) {
                 grid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">—</p></div>';
                 syncEditGalleryRedrawSettings();
                 return;
             }
-            grid.innerHTML = displayItems.map(function (it, idx) {
+            grid.innerHTML = items.map(function (it, idx) {
                 var url = it.url;
-                var redrawUrl = galleryRedrawResultUrl(url);
-                var isNew = editGalleryHighlightUrls.has(url) || (redrawUrl && editGalleryHighlightUrls.has(redrawUrl));
+                var isNew = editGalleryHighlightUrls.has(url);
                 var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                var newBadge = isNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新重繪</span>' : '';
+                var newBadge = isNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">已更新</span>' : '';
                 var labelField = (it.is_cover || idx === 0)
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
@@ -1445,12 +1400,10 @@
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'
                         : '') +
                     '</div>';
-                return '<div class="col-12 col-md-6"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + (redrawUrl ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + (isNew ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
                     coverBadge + newBadge +
-                    '<div class="pending-compare-cols mb-1">' +
-                    '<div class="pending-compare-col"><label>原圖</label>' +
-                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '"></div>' +
-                    '<div class="pending-compare-col"><label>AI 重繪</label>' + editGalleryRedrawSlotHtml(redrawUrl) + '</div></div>' +
+                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '"' +
+                    ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: (x.label || '').trim() }; }))).replace(/"/g, '&quot;') + '">' +
                     labelField +
                     actions +
                     '</div></div>';
@@ -1493,7 +1446,7 @@
             }
             var m = materialsAll.find(function (x) { return x.id === id; });
             var pts = calcRedrawPointsForUrl(m, sourceUrl);
-            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪？（-' + pts + ' 點，結果顯示於右欄對照，不另收上傳費）')) return false;
+            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪？（-' + pts + ' 點，不另收上傳費）')) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             var statusPrefix = opts.batchTotal ? ('AI 重繪中（' + opts.batchIndex + '/' + opts.batchTotal + '）…') : 'AI 重繪中…';
@@ -1512,7 +1465,7 @@
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         source_url: sourceUrl,
-                        replace: false,
+                        replace: true,
                         optimize_background: getEditGalleryOptimizeBackground()
                     })
                 });
@@ -1534,14 +1487,9 @@
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 if (idx >= 0) materialsAll[idx] = data;
                 var lastNew = markNewGalleryUrls(urlsBeforeRedraw, data);
-                if (lastNew) editGalleryRedrawBySource[sourceUrl] = lastNew;
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
-                if (urlCount <= countBefore) {
-                    setEditGalleryStatus('重繪完成但未新增圖片，可能已達上限', 'warning');
-                    return false;
-                }
-                var okMsg = '已產生 AI 重繪對照（共 ' + urlCount + ' 張，右欄為新結果）';
+                var okMsg = '已 AI 重繪並更新此圖（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
@@ -1634,10 +1582,6 @@
             if (!id || !url) return;
             if (!window.confirm(tr('baseModels.confirmRemoveImage', '確定移除此圖？'))) return;
             editGalleryHighlightUrls.delete(url);
-            delete editGalleryRedrawBySource[url];
-            Object.keys(editGalleryRedrawBySource).forEach(function (k) {
-                if (editGalleryRedrawBySource[k] === url) delete editGalleryRedrawBySource[k];
-            });
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
                     method: 'DELETE',
@@ -3206,7 +3150,6 @@
             if (editGalHintProto) editGalHintProto.classList.toggle('d-none', !isProto);
             if (editGalHintPart) editGalHintPart.classList.toggle('d-none', !isPart);
             if (isProtoLike) {
-                rebuildEditGalleryRedrawMap(m);
                 renderEditGallery(m);
             }
             clearEditGalleryPending();
