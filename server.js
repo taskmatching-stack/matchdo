@@ -14781,7 +14781,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
     }
 });
 
-// POST /api/me/vendor-assets/:id/gallery-images/redraw — 單張 AI 重繪（預設取代原圖，不另占張數、不重複收上傳費）
+// POST /api/me/vendor-assets/:id/gallery-images/redraw — 單張 AI 重繪（預設追加新圖，原圖保留；body.replace=true 才取代）
 app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
@@ -14793,7 +14793,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         const body = req.body || {};
         const sourceUrl = String(body.source_url || '').trim();
         if (!sourceUrl) return res.status(400).json({ error: '請提供 source_url' });
-        const replaceInPlace = body.replace !== false && body.replace !== '0' && body.replace !== 'false';
+        const replaceInPlace = parseTruthyBody(body.replace);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
             id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label'

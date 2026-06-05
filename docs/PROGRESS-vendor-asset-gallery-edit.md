@@ -3,7 +3,7 @@
 > **新對話：** 先讀 **`docs/session-handoff-2026-06-03.md`**（單一入口），再讀本檔。若還要改 guide／廠商版型 Tab，另讀 `docs/PROGRESS-vendor-styles-and-product-tree.md`。
 
 **最後更新：** 2026-06-05  
-**狀態：** ✅ 逐張重繪取代原圖 + 不重複收上傳費（見下方最新 commit）；部署後確認 `__MATCHDO_MATERIALS_BUILD=per-image-redraw-replace-20260605`  
+**狀態：** ✅ 逐張 AI 重繪**追加新圖**（原圖保留）+ 預覽重繪不重複收上傳費；部署後確認 `__MATCHDO_MATERIALS_BUILD=redraw-append-new-image-20260605`  
 **頁面：** [`/client/manufacturer-materials.html`](https://matchdo.cc/client/manufacturer-materials.html)（僅 `public/client/`，勿改根目錄同名檔）
 
 **一句話：** 主產品／配件 = 多圖 + **AI 重繪**（雙按鈕分流）；材料 = 材質圖 AI 優化；展示底色只是重繪附帶參數。
@@ -40,10 +40,10 @@
 ### 新增素材（表單上方，prototype／part）
 
 - 可「新增圖片」逐張或「一次選多張」加入待傳清單（`pending-image-card`）。
-- 第一張為封面；可逐張勾選 **AI 重繪**（勾選後可選展示底色等參數，屬重繪附帶選項，非獨立功能）。
-- **兩顆按鈕（2026-06-04）：**「僅上傳並發布」／「AI 重繪並發布」— 分流是否走重繪管線，避免誤觸扣點。
-- 扣點：首張重繪價 + 每多一張 `points_optimize_extra`（預設 +5）。
-- 送出：`POST /api/me/vendor-assets`（`image` + `gallery[]`）。
+- 第一張為封面；各卡 **「AI 重繪」** 預覽後在卡下方顯示**重繪新圖**縮圖（原圖仍為主圖，非並排大欄）。
+- 發布：原圖 + 重繪檔各上一張；重繪圖 label 為 `原名（重繪）`；預覽已扣點則發布不再重扣重繪費。
+- 扣點：封面重繪補差額、角度圖 `points_optimize_extra`（見 `computeGalleryImageRedrawPoints`）。
+- 送出：`POST /api/me/vendor-assets`（`image` + `gallery[]` + `image_labels`）。
 
 ### 新增素材（material）
 
@@ -55,7 +55,7 @@
 - **新增角度圖**／**一次選多張** → 待傳清單逐張勾 **AI 重繪** →「僅上傳所選」／「上傳並重繪勾選」→ `POST .../gallery-images`（可加 `optimize_image_indices`）。
 - 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）。
 - **更換封面**：下方「更換封面」+ 儲存時 `PUT` 單圖（與多角度 API 分開）。
-- **AI 重繪（逐張）**：縮圖下方「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: true` 預設）**取代原圖**；封面補差額（重繪全價−上傳費）、角度圖用 `points_optimize_extra`；編輯區加圖不收上傳費。
+- **AI 重繪（逐張）**：縮圖「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: false`）**追加**一張新圖（label 含 `（重繪）`、格上 **重繪新圖** badge）；`（重繪）` 圖不再顯示重繪按鈕。編輯待傳清單預覽後上傳亦為原圖+新圖兩張。
 
 ### 後端
 
@@ -81,7 +81,7 @@
   → POST .../gallery-images
   → renderEditGallery() + setEditGalleryStatus()
 
-各圖「AI 重繪」→ redrawGalleryImage() → POST .../gallery-images/redraw（replace: true）
+各圖「AI 重繪」→ redrawGalleryImage() → POST .../gallery-images/redraw（replace: false，追加新圖）
 ```
 
 - 綁定：`bindEditGalleryUpload()`（`editGalleryUploadBound` 防重複綁定）。
@@ -121,7 +121,7 @@
 | `95b4b98` | 按鈕接線 + 狀態提示 + 版本標記 |
 | `e718384` | 主產品／配件：上傳與 AI 重繪按鈕分流；編輯區單張重繪 |
 | `02a834b` | 恢復新增表單 AI 重繪勾選 + 上傳／重繪雙按鈕 |
-| *本 push* | **逐張重繪取代原圖**；`computeGalleryImageRedrawPoints`；編輯待傳清單；不重複收上傳費（`per-image-redraw-replace-20260605`） |
+| *本 push* | **逐張重繪追加新圖**（非取代）；`preview-image-redraw` + `replace: false`；`redraw-append-new-image-20260605` |
 
 **部署紀錄（2026-06-03）：** Cloud Shell 曾部署到 `e718384`（revision `matchdo-00344-n8b`），比 `02a834b` 舊一版（缺少 AI 重繪勾選還原）。請再部署以對齊 git。
 

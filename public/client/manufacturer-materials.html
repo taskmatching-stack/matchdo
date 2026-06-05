@@ -28,6 +28,10 @@
         .pending-image-card .pending-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
         .pending-image-card.is-new-redraw { border-color: #198754; box-shadow: 0 0 0 2px rgba(25,135,84,.35); }
         .pending-redraw-badge { font-size: 0.65rem; }
+        .pending-redraw-new-row { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #dee2e6; }
+        .pending-redraw-new-row label { font-size: 0.65rem; color: #198754; margin-bottom: 2px; display: block; }
+        .pending-redraw-new-row img { width: 100%; max-height: 72px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid #198754; }
+        .pending-redraw-thumb { display: block; max-height: 56px; max-width: 100%; width: auto; margin-top: 4px; border-radius: 6px; border: 1px solid #198754; object-fit: contain; cursor: zoom-in; background: #fff; }
         .material-img-count { position: absolute; top: 8px; left: 8px; z-index: 1; }
         .add-card { border: 2px dashed #cdd4dc; border-radius: 12px; cursor: pointer; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9ab0; transition: border-color .15s, color .15s, background .15s; }
         .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
@@ -493,7 +497,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0">點各圖下方「AI 重繪」；封面補差額、角度圖每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點，<strong>不另收上傳費</strong>。</p>
+                                <p class="form-text text-muted small mb-0">點各圖下方「AI 重繪」會<strong>追加</strong>新圖（原圖保留）；每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點起，<strong>不另收上傳費</strong>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
@@ -606,7 +610,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'per-image-redraw-btn-only-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'redraw-append-new-image-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -998,16 +1002,20 @@
             updateAddFormPointsEstimate(form);
         }
 
-        function pendingCardImageSrc(item, originalObjectUrl) {
-            if (item.redrawLoading) return '';
-            if (item.redrawPreviewUrl) return item.redrawPreviewUrl;
-            return originalObjectUrl;
+        function pendingRedrawThumbHtml(item) {
+            if (!item.redrawPreviewUrl) return '';
+            return '<div class="pending-redraw-new-row"><label>重繪新圖</label>' +
+                '<img src="' + esc(item.redrawPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="重繪新圖預覽"></div>';
+        }
+
+        function pendingRedrawNewThumbHtml(item) {
+            return pendingRedrawThumbHtml(item);
         }
 
         async function previewPendingRedraw(form, item, idx) {
             if (item.redrawLoading) return;
             var pts = calcPendingPreviewRedrawPoints(form, idx);
-            if (!window.confirm('AI 重繪預覽？（-' + pts + ' 點，發布時採用則不再重跑）')) return;
+            if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；發布時一併上傳新圖）')) return;
             item.redrawLoading = true;
             renderPendingImages(form);
             try {
@@ -1040,7 +1048,7 @@
                 item.optimize = true;
                 item.useRedraw = true;
                 item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
-                var okMsg = '重繪預覽完成';
+                var okMsg = '已產生重繪新圖（原圖保留）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
             } catch (err) {
@@ -1076,17 +1084,15 @@
                 card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '') + (item.redrawPreviewUrl ? ' is-new-redraw' : '');
                 card.dataset.pendingId = item.id;
                 var url = URL.createObjectURL(item.file);
-                var imgSrc = pendingCardImageSrc(item, url);
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                var redrawBadge = item.redrawPreviewUrl ? '<span class="badge bg-success mb-1 ms-1 pending-redraw-badge">已重繪</span>' : '';
                 var imgHtml = item.redrawLoading
                     ? '<div class="text-muted small text-center py-4">重繪中…</div>'
-                    : '<img src="' + esc(imgSrc) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="點擊放大預覽">';
-                card.innerHTML = coverBadge + redrawBadge + imgHtml +
+                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="原圖（點擊放大）">';
+                card.innerHTML = coverBadge + imgHtml + pendingRedrawThumbHtml(item) +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.redrawLoading ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-redraw">還原原圖</button>' : '') +
+                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-redraw">清除重繪新圖</button>' : '') +
                     (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
@@ -1227,7 +1233,7 @@
         async function previewEditPendingRedraw(item, idx) {
             if (item.redrawLoading) return;
             var pts = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
-            if (!window.confirm('AI 重繪預覽？（-' + pts + ' 點）')) return;
+            if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；上傳時一併送出新圖）')) return;
             item.redrawLoading = true;
             renderEditGalleryPending();
             try {
@@ -1256,7 +1262,7 @@
                 item.optimize = true;
                 item.useRedraw = true;
                 item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
-                showToast('重繪預覽完成' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+                showToast('已產生重繪新圖（原圖保留）' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
             } finally {
@@ -1288,15 +1294,13 @@
                 var card = document.createElement('div');
                 card.className = 'pending-image-card' + (item.redrawPreviewUrl ? ' is-new-redraw' : '');
                 var url = URL.createObjectURL(item.file);
-                var imgSrc = pendingCardImageSrc(item, url);
-                var redrawBadge = item.redrawPreviewUrl ? '<span class="badge bg-success mb-1 pending-redraw-badge">已重繪</span>' : '';
                 var imgHtml = item.redrawLoading
                     ? '<div class="text-muted small text-center py-4">重繪中…</div>'
-                    : '<img src="' + esc(imgSrc) + '" data-object-url="' + esc(url) + '" alt="">';
-                card.innerHTML = redrawBadge + imgHtml +
+                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" alt="">';
+                card.innerHTML = imgHtml + pendingRedrawNewThumbHtml(item) +
                     '<div class="pending-actions mt-1">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.redrawLoading ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-redraw">還原</button>' : '') +
+                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-redraw">清除重繪新圖</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
                 wrap.appendChild(col);
@@ -1310,6 +1314,7 @@
                         item.redrawFile = null;
                         item.redrawChargedPts = 0;
                         item.optimize = false;
+                        item.useRedraw = false;
                         renderEditGalleryPending();
                     });
                 }
@@ -1388,20 +1393,23 @@
             grid.innerHTML = items.map(function (it, idx) {
                 var url = it.url;
                 var isNew = editGalleryHighlightUrls.has(url);
+                var lbl = (it.label || '').trim();
+                var isRedrawNew = lbl.indexOf('（重繪）') >= 0;
                 var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                var newBadge = isNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">已更新</span>' : '';
+                var redrawNewBadge = isRedrawNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">重繪新圖</span>' : '';
+                var newBadge = (isNew && !isRedrawNew) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
                 var labelField = (it.is_cover || idx === 0)
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
                 var actions = '<div class="pending-actions">' +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    (!isRedrawNew ? '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' : '') +
                     (!(it.is_cover || idx === 0)
                         ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'
                         : '') +
                     '</div>';
-                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + (isNew ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
-                    coverBadge + newBadge +
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || isRedrawNew) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
+                    coverBadge + redrawNewBadge + newBadge +
                     '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '"' +
                     ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: (x.label || '').trim() }; }))).replace(/"/g, '&quot;') + '">' +
                     labelField +
@@ -1446,7 +1454,7 @@
             }
             var m = materialsAll.find(function (x) { return x.id === id; });
             var pts = calcRedrawPointsForUrl(m, sourceUrl);
-            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪？（-' + pts + ' 點，不另收上傳費）')) return false;
+            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪並新增一張新圖？（-' + pts + ' 點，原圖保留）')) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             var statusPrefix = opts.batchTotal ? ('AI 重繪中（' + opts.batchIndex + '/' + opts.batchTotal + '）…') : 'AI 重繪中…';
@@ -1465,7 +1473,7 @@
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         source_url: sourceUrl,
-                        replace: true,
+                        replace: false,
                         optimize_background: getEditGalleryOptimizeBackground()
                     })
                 });
@@ -1489,7 +1497,7 @@
                 var lastNew = markNewGalleryUrls(urlsBeforeRedraw, data);
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
-                var okMsg = '已 AI 重繪並更新此圖（共 ' + urlCount + ' 張）';
+                var okMsg = '已新增重繪新圖（原圖保留，共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
@@ -1647,37 +1655,46 @@
             var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
             var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
             var mBefore = idxBefore >= 0 ? materialsAll[idxBefore] : null;
-            function pendingFile(p) {
-                return (p.redrawFile && p.useRedraw !== false) ? p.redrawFile : p.file;
+            var pendingList = getEditGalleryPendingImages();
+            var usePending = pendingList.length === fileList.length;
+            var uploadFiles = [];
+            var uploadLabels = [];
+            var optIdx = [];
+            if (usePending) {
+                pendingList.forEach(function (p) {
+                    var baseLabel = labelFromFilename(p.file && p.file.name);
+                    uploadFiles.push(p.file);
+                    uploadLabels.push(baseLabel);
+                    if (p.redrawFile && p.useRedraw !== false) {
+                        uploadFiles.push(p.redrawFile);
+                        uploadLabels.push((baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120));
+                    } else if (p.optimize && !p.redrawFile) {
+                        optIdx.push(uploadFiles.length - 1);
+                    }
+                });
+            } else {
+                uploadFiles = Array.prototype.slice.call(fileList);
+                optIdx = optimizeIndices || [];
+                uploadFiles.forEach(function (f) { uploadLabels.push(labelFromFilename(f.name)); });
             }
-            var optIdx = optimizeIndices || [];
             if (optIdx.length) {
-                var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, fileList.length);
-                if (!window.confirm('上傳 ' + fileList.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點）')) return false;
+                var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, uploadFiles.length);
+                if (!window.confirm('上傳 ' + uploadFiles.length + ' 張並對 ' + optIdx.length + ' 張 AI 重繪？（預估 -' + batchPts + ' 點）')) return false;
+            } else if (usePending && pendingList.some(function (p) { return p.redrawFile && p.useRedraw !== false; })) {
+                if (!window.confirm('上傳 ' + uploadFiles.length + ' 張（含重繪新圖，原圖保留）？')) return false;
             }
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             var fd = new FormData();
-            var uploadLabels = [];
-            var pendingList = getEditGalleryPendingImages();
-            var usePending = pendingList.length === fileList.length;
-            for (var i = 0; i < fileList.length; i++) {
-                var f = usePending ? pendingFile(pendingList[i]) : fileList[i];
-                fd.append('images', f);
-                uploadLabels.push(labelFromFilename((usePending ? pendingList[i].file : fileList[i]).name));
-            }
-            if (usePending) {
-                optIdx = [];
-                pendingList.forEach(function (p, i) {
-                    if (p.optimize && !p.redrawFile) optIdx.push(i);
-                });
+            for (var ui = 0; ui < uploadFiles.length; ui++) {
+                fd.append('images', uploadFiles[ui]);
             }
             if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
             if (optIdx.length) {
                 fd.append('optimize_image_indices', JSON.stringify(optIdx));
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
             }
-            setEditGalleryStatus((optIdx.length ? '上傳並重繪中 ' : '上傳原圖中 ') + fileList.length + ' 張…', 'info');
+            setEditGalleryStatus((optIdx.length ? '上傳並重繪中 ' : '上傳原圖中 ') + uploadFiles.length + ' 張…', 'info');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
@@ -2781,13 +2798,20 @@
                     return;
                 }
             }
-            function pendingPublishFile(p) {
-                return (p.redrawFile && p.useRedraw !== false) ? p.redrawFile : p.file;
-            }
             var optIdx = [];
+            var uploadFiles = [];
+            var uploadLabels = [];
             if (kind === 'prototype' || kind === 'part') {
-                pending.forEach(function (p, i) {
-                    if (p.optimize && !p.redrawFile) optIdx.push(i);
+                pending.forEach(function (p) {
+                    var baseLabel = (p.label || labelFromFilename(p.file && p.file.name)).trim();
+                    uploadFiles.push(p.file);
+                    uploadLabels.push(baseLabel);
+                    if (p.redrawFile && p.useRedraw !== false) {
+                        uploadFiles.push(p.redrawFile);
+                        uploadLabels.push((baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120));
+                    } else if (p.optimize && !p.redrawFile) {
+                        optIdx.push(uploadFiles.length - 1);
+                    }
                 });
             }
             msgEl.textContent = '';
@@ -2800,12 +2824,13 @@
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
             if (kind === 'prototype' || kind === 'part') {
-                fd.append('image', pendingPublishFile(pending[0]));
-                for (var pi = 1; pi < pending.length; pi++) fd.append('gallery', pendingPublishFile(pending[pi]));
-                var imageLabels = pending.map(function (p) {
-                    return (p.label || labelFromFilename(p.file && p.file.name)).trim();
-                });
-                fd.append('image_labels', JSON.stringify(imageLabels));
+                if (!uploadFiles.length) {
+                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+                    return;
+                }
+                fd.append('image', uploadFiles[0]);
+                for (var pi = 1; pi < uploadFiles.length; pi++) fd.append('gallery', uploadFiles[pi]);
+                fd.append('image_labels', JSON.stringify(uploadLabels));
                 if (optIdx.length) {
                     fd.append('optimize_image_indices', JSON.stringify(optIdx));
                     fd.append('optimize_background', getOptimizeBackgroundValue(form));
