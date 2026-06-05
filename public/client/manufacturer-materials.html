@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-upload-new-only-default-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-scroll-unlock-after-upload-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -657,12 +657,50 @@
             gridDisableEditGalleryActions(false);
         }
 
+        function isModalActuallyVisible(modalEl) {
+            if (!modalEl || !modalEl.classList.contains('show')) return false;
+            var st = window.getComputedStyle(modalEl);
+            return st.display !== 'none' && st.visibility !== 'hidden';
+        }
+
+        /** 移除殘留 backdrop／body 鎖定（關閉 modal 後若仍無法捲動即由此修復） */
+        function unlockPageScroll(force) {
+            var anyVisible = false;
+            document.querySelectorAll('.modal').forEach(function (m) {
+                if (isModalActuallyVisible(m)) anyVisible = true;
+            });
+            var backdrops = document.querySelectorAll('.modal-backdrop');
+            if (backdrops.length > 1) {
+                for (var bi = backdrops.length - 1; bi >= 1; bi--) backdrops[bi].remove();
+            }
+            if (force || !anyVisible) {
+                document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('overflow');
+                document.body.style.removeProperty('padding-right');
+                document.documentElement.style.removeProperty('overflow');
+            }
+        }
+
         function cleanupStrayModalBackdrops() {
-            if (document.querySelectorAll('.modal.show').length) return;
-            document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
-            document.body.classList.remove('modal-open');
-            document.body.style.removeProperty('overflow');
-            document.body.style.removeProperty('padding-right');
+            unlockPageScroll(false);
+        }
+
+        function dedupeModalBackdrops() {
+            var backs = document.querySelectorAll('.modal-backdrop');
+            if (backs.length > 1) {
+                for (var i = backs.length - 1; i >= 1; i--) backs[i].remove();
+            }
+        }
+
+        function bindModalScrollUnlock(el, onHiddenExtra) {
+            if (!el || el.dataset.scrollUnlockBound === '1') return;
+            el.dataset.scrollUnlockBound = '1';
+            el.addEventListener('shown.bs.modal', function () { dedupeModalBackdrops(); });
+            el.addEventListener('hidden.bs.modal', function () {
+                if (typeof onHiddenExtra === 'function') onHiddenExtra();
+                setTimeout(function () { unlockPageScroll(false); }, 100);
+            });
         }
 
         function bindEditModalHiddenOnce() {
@@ -670,13 +708,18 @@
             var el = document.getElementById('edit-modal');
             if (!el) return;
             editModalHiddenBound = true;
-            el.addEventListener('hidden.bs.modal', function () {
+            bindModalScrollUnlock(el, function () {
                 releaseEditGalleryBusyState();
-                cleanupStrayModalBackdrops();
                 if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.close === 'function') {
                     window.MatchdoImageLightbox.close();
                 }
             });
+        }
+
+        function bindAllPageModalsScrollUnlock() {
+            bindEditModalHiddenOnce();
+            bindModalScrollUnlock(document.getElementById('delete-modal'));
+            bindModalScrollUnlock(document.getElementById('supplier-import-modal'));
         }
 
         function ensureEditModal() {
@@ -696,8 +739,12 @@
         }
 
         function hideEditModal() {
-            if (editModalEl) editModalEl.hide();
-            else cleanupStrayModalBackdrops();
+            if (editModalEl) {
+                editModalEl.hide();
+                setTimeout(function () { unlockPageScroll(false); }, 350);
+            } else {
+                unlockPageScroll(false);
+            }
         }
 
         var catalogGroupsFlat = [];
@@ -3560,16 +3607,17 @@
                 applyUploadPricingToForms();
                 await loadMaterials();
                 switchKind(kind);
-                if (newAssetId && (kind === 'prototype' || kind === 'part')) {
+                if (newAssetId) {
                     editGalleryHighlightUrls.clear();
-                    openEditModal(newAssetId);
-                    setEditGalleryStatus('已上傳。若要白底，請對各圖按「AI 重繪」比較原圖與結果（不另收上傳費）', 'success');
+                    highlightImportedAsset(newAssetId);
                 }
+                unlockPageScroll(false);
             } catch (err) {
                 msgEl.textContent = err.message || 'failed';
             } finally {
                 btns.forEach(function (b) { b.disabled = false; });
                 updateAddFormPointsEstimate(form);
+                unlockPageScroll(false);
             }
         }
 
@@ -4384,6 +4432,7 @@
         });
 
         async function init() {
+            bindAllPageModalsScrollUnlock();
             initPrototypeMetaFields();
             var localeReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
             await localeReady;
