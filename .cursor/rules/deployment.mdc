@@ -21,11 +21,11 @@ Cloud Shell 的 `git fetch origin main && reset --hard` **只會拉到遠端已�
 ## 正確指令：Google Cloud Shell
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated
 ```
 
 在瀏覽器開 **Google Cloud Shell** 貼上執行，一行搞定。  
-（用 `fetch + reset --hard` 避免本地與 origin 分叉時 pull 失敗。）
+（用 `fetch + reset --hard` 避免本地與 origin 分叉時 pull 失敗。勿加 `--clear-base-image`，舊版 gcloud 會報錯。）
 
 ## 絕對禁止
 
