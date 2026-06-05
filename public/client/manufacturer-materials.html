@@ -180,7 +180,7 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；圖下方按「AI 重繪」後再發布。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；點圖片＝預覽放大；圖下方可按「AI 重繪」或「AI 放大」後再發布。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
@@ -286,7 +286,7 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；圖下方按「AI 重繪」。可編輯每張圖名稱（預設檔名）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；點圖片＝預覽放大；圖下方可按「AI 重繪」或「AI 放大」。可編輯每張圖名稱（預設檔名）。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                 </div>
@@ -479,7 +479,7 @@
                         </div>
                         <div class="mb-3 d-none" id="edit-images-material-wrap">
                             <label class="form-label">參考圖</label>
-                            <div id="edit-current-image-wrap" class="mb-2 d-none"><img id="edit-current-image" src="" alt="" class="rounded border matchdo-enlarge-trigger" title="點擊放大"></div>
+                            <div id="edit-current-image-wrap" class="mb-2 d-none"><img id="edit-current-image" src="" alt="" class="rounded border matchdo-enlarge-trigger" data-i18n-title="baseModels.previewEnlarge" title="預覽放大"></div>
                             <label class="form-label small text-muted mb-1">更換圖片（選填）</label>
                             <input type="file" class="form-control" id="edit-image" accept="image/*">
                             <div id="edit-new-image-preview" class="add-image-preview mt-2 d-none"></div>
@@ -501,7 +501,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0">「AI 重繪」或「AI 放大」皆<strong>追加</strong>新圖（原圖保留）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；圖片 <strong>&lt;0.5 MP</strong> 可按「AI 放大」（<strong>依原圖比例</strong>，總解析度<strong>最高 1MP</strong>，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請點 <strong>?</strong> 前往 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>（4×、≤4MP）。<strong>點圖片</strong>為預覽放大，與「AI 放大」不同。<strong>不另收上傳費</strong>。</p>
+                                <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點、不產生新檔。「<strong>AI 重繪</strong>」或「<strong>AI 放大</strong>」：會<strong>追加</strong>新圖（原圖保留）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；圖片 <strong>&lt;0.5 MP</strong> 可按「AI 放大」（依原圖比例，總解析度最高 1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請點 <strong>?</strong> 前往 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>（4×、≤4MP）。<strong>不另收上傳費</strong>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
@@ -515,7 +515,7 @@
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-edit-upload-pending-only"><i class="bi bi-cloud-upload me-1"></i>上傳所選</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-edit-clear-pending">清除待傳</button>
                             </div>
-                            <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」再按「上傳所選」；已上傳的圖請用上方各圖按鈕（不另收上傳費）。</p>
+                            <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」或「AI 放大」再按「上傳所選」；<strong>點圖片＝預覽放大</strong>（只看大圖）。已上傳的圖請用上方各圖按鈕（不另收上傳費）。</p>
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-ai-upscale-label-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-preview-enlarge-term-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -903,7 +903,7 @@
             img.src = url;
             img.className = 'rounded border matchdo-enlarge-trigger';
             img.alt = '';
-            img.title = tr('baseModels.clickImageEnlarge', '點擊放大');
+            img.title = trPreviewEnlargeTitle();
             container.appendChild(img);
         }
 
@@ -924,7 +924,7 @@
                 img.className = 'rounded border matchdo-enlarge-trigger me-2 mb-2';
                 img.style.cssText = 'max-height:120px;max-width:46%;object-fit:contain;vertical-align:top';
                 img.alt = '';
-                img.title = (i === 0 ? (tr('baseModels.coverImage', '封面') + ' · ') : '') + tr('baseModels.clickImageEnlarge', '點擊放大');
+                img.title = (i === 0 ? trPreviewEnlargeTitle(tr('baseModels.coverImage', '封面')) : trPreviewEnlargeTitle());
                 container.appendChild(img);
             }
         }
@@ -1106,7 +1106,7 @@
         function pendingRedrawThumbHtml(item, prefix) {
             if (!item.redrawPreviewUrl) return '';
             return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">重繪新圖</span>' +
-                '<img src="' + esc(item.redrawPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="重繪新圖預覽">' +
+                '<img src="' + esc(item.redrawPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle('重繪新圖')) + '">' +
                 pendingUploadCheckHtml(item.uploadRedraw !== false, prefix + '-upload-redraw', '上傳此張') +
                 '</div>';
         }
@@ -1114,7 +1114,7 @@
         function pendingUpscaleThumbHtml(item, prefix) {
             if (!item.upscalePreviewUrl) return '';
             return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">AI 放大新圖（≤1MP）</span>' +
-                '<img src="' + esc(item.upscalePreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="AI 放大新圖預覽">' +
+                '<img src="' + esc(item.upscalePreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle('AI 放大新圖')) + '">' +
                 pendingUploadCheckHtml(item.uploadUpscale !== false, prefix + '-upload-upscale', '上傳此張') +
                 '</div>';
         }
@@ -1136,8 +1136,18 @@
         var VENDOR_UPSCALE_MAX_MP = 1;
         var VENDOR_AI_UPSCALE_BTN = 'AI 放大';
         var VENDOR_UPSCALE_RULE_TEXT = '依原圖比例放大，總解析度最高 1MP';
+
+        function trPreviewEnlargeTitle(suffix) {
+            var base = tr('baseModels.previewEnlarge', '預覽放大');
+            return suffix ? (base + '（' + suffix + '）') : base;
+        }
+
+        function trPreviewEnlargeHint() {
+            return tr('baseModels.previewEnlargeHint', '點圖片可預覽放大（只看大圖，不扣點、不產生新檔）。');
+        }
+
         function upscaleApiErrorMessage(data, fallback) {
-            var msg = (data && (data.error || data.message)) || fallback || '放大失敗';
+            var msg = (data && (data.error || data.message)) || fallback || 'AI 放大失敗';
             if (data && data.details) msg += '：' + data.details;
             return msg;
         }
@@ -1356,7 +1366,7 @@
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
             } catch (err) {
-                showToast(err.message || '放大失敗', 'danger');
+                showToast(err.message || 'AI 放大失敗', 'danger');
             } finally {
                 item.imageBusy = false;
                 renderPendingImages(form);
@@ -1401,7 +1411,7 @@
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var imgHtml = item.imageBusy
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
-                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大預覽')) + '">';
+                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">';
                 card.innerHTML = coverBadge + imgHtml + pendingOriginalUploadCheckHtml(item, 'pending') + pendingDerivedThumbsHtml(item, 'pending') +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     '<div class="pending-actions">' +
@@ -1642,7 +1652,7 @@
                 item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-' + idx + '.jpg');
                 showToast('已產生 AI 放大新圖，請勾選要上傳的圖片' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
-                showToast(err.message || '放大失敗', 'danger');
+                showToast(err.message || 'AI 放大失敗', 'danger');
             } finally {
                 item.imageBusy = false;
                 renderEditGalleryPending();
@@ -1674,7 +1684,7 @@
                 var url = URL.createObjectURL(item.file);
                 var imgHtml = item.imageBusy
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
-                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">';
+                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">';
                 card.innerHTML = imgHtml + pendingOriginalUploadCheckHtml(item, 'edit-pending') + pendingDerivedThumbsHtml(item, 'edit-pending') +
                     '<div class="pending-actions mt-1">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
@@ -1824,7 +1834,7 @@
                     '</div>';
                 return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || isDerived) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
                     coverBadge + redrawNewBadge + upscaleNewBadge + newBadge +
-                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '"' +
+                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
                     ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: (x.label || '').trim() }; }))).replace(/"/g, '&quot;') + '">' +
                     labelField +
                     actions +
@@ -1911,7 +1921,7 @@
                     return false;
                 }
                 if (!r.ok) {
-                    var errMsg = upscaleApiErrorMessage(data, '放大失敗 (HTTP ' + r.status + ')');
+                    var errMsg = upscaleApiErrorMessage(data, 'AI 放大失敗 (HTTP ' + r.status + ')');
                     setEditGalleryStatus(errMsg, 'danger');
                     showToast(errMsg, 'danger');
                     return false;
@@ -1934,7 +1944,7 @@
                 }
                 return true;
             } catch (err) {
-                setEditGalleryStatus(err.message || '放大失敗', 'danger');
+                setEditGalleryStatus(err.message || 'AI 放大失敗', 'danger');
                 showToast(err.message, 'danger');
                 return false;
             } finally {
@@ -3169,7 +3179,7 @@
                     : '';
                 var hl = highlightAssetId === m.id ? ' border border-success border-3' : '';
                 return '<div class="col-sm-6 col-md-4 col-lg-3" id="asset-card-' + esc(m.id) + '"><div class="card material-card h-100' + hl + '">' +
-                    (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大（可多張切換）')) + '"' + urlsAttr + itemsAttr + '></div>' : '') +
+                    (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="' + esc(trPreviewEnlargeTitle('可多張切換')) + '"' + urlsAttr + itemsAttr + '></div>' : '') +
                     '<div class="card-body p-3">' + kindBadge + pubBadge + supplierRefLine +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' + coverLabelHtml +
                     '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + myCats + tagsHtml +
@@ -4084,7 +4094,7 @@
                         ? '<button type="button" class="btn btn-sm btn-outline-success btn-show-imported-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(tr('baseModels.showInRefImage', '顯示於參考圖')) + '</button>'
                         : '<button type="button" class="btn btn-sm btn-success btn-import-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(importLabel) + '</button>';
                     return '<div class="col-md-6"><div class="card h-100">' +
-                        (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top matchdo-enlarge-trigger" style="height:140px;object-fit:cover;cursor:zoom-in" alt="" title="點擊放大">' : '') +
+                        (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top matchdo-enlarge-trigger" style="height:140px;object-fit:cover;cursor:zoom-in" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">' : '') +
                         '<div class="card-body p-3"><div class="text-muted small mb-1">' + esc(item.supplier_name || '') + '</div>' +
                         '<div class="fw-semibold mb-1">' + esc(item.title || '') + '</div>' +
                         '<p class="small text-muted mb-2">' + esc(item.description || specLine || '') + '</p>' +
