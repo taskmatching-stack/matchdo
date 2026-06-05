@@ -14174,6 +14174,85 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
     }
 });
 
+/** 待傳清單單張預覽重繪扣點（封面補差額、角度圖 extra） */
+async function computePendingPreviewRedrawPoints(assetKind, isCover) {
+    const extraPer = await getPointsVendorAssetOptimizeExtraPer();
+    if (!isCover) return extraPer;
+    const uploadPts = await getPointsVendorAssetUpload();
+    const optPts = await getPointsVendorAssetOptimizeForKind(assetKind);
+    return Math.max(extraPer, optPts - uploadPts);
+}
+
+// POST /api/me/vendor-assets/preview-image-redraw — 上傳前單張 AI 重繪預覽（扣點一次，發布時不再重跑）
+app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), async (req, res) => {
+    try {
+        const uploadUser = await assertCanUploadProductsAndAssets(req, res);
+        if (!uploadUser) return;
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return res.status(400).json({ error: '請上傳圖片' });
+        const body = req.body || {};
+        const assetKind = normalizeVendorAssetKind(body.asset_kind);
+        if (assetKind !== 'prototype' && assetKind !== 'part') {
+            return res.status(400).json({ error: '僅數位原型或配件／零件可預覽 AI 重繪' });
+        }
+        const isCover = parseTruthyBody(body.is_cover);
+        const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const titleForPrompt = (body.title || '').trim() || null;
+        const pointsRequired = await computePendingPreviewRedrawPoints(assetKind, isCover);
+        let ownerId = seedUser.id;
+        let isAdmin = false;
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+        isAdmin = profile?.role === 'admin';
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        let optimized;
+        try {
+            optimized = await maybeOptimizeVendorAssetMulterFile(
+                file, titleForPrompt, assetKind, null, optimizeBackground
+            );
+        } catch (optErr) {
+            console.error('preview-image-redraw optimize:', optErr);
+            const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
+            return res.status(mapped.status).json(mapped.body);
+        }
+        const previewName = `preview-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+        const { publicUrl } = await uploadToSupabaseStorage(
+            'custom-products', `vendor-assets-preview/${manufacturerId}`, { ...optimized, originalname: previewName }
+        );
+        let balanceAfter = null;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'vendor_asset_optimize',
+                `上傳前單張 AI 重繪預覽（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, preview: true, is_cover: isCover }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
+            }
+            balanceAfter = consumed.balance_after;
+        }
+        res.json({
+            preview_url: publicUrl,
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/preview-image-redraw:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // POST /api/me/vendor-assets/generate-tags — 上傳前預覽 AI 標籤（Gemini 讀圖）
 app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (req, res) => {
     try {
