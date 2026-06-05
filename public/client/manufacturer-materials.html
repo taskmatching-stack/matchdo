@@ -26,6 +26,7 @@
         .pending-image-card.is-cover { border-color: #0d6efd; box-shadow: 0 0 0 1px #0d6efd33; }
         .pending-image-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: zoom-in; }
         .pending-image-card .pending-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .pending-image-card.is-new-redraw { border-color: #198754; box-shadow: 0 0 0 2px rgba(25,135,84,.35); }
         .material-img-count { position: absolute; top: 8px; left: 8px; z-index: 1; }
         .add-card { border: 2px dashed #cdd4dc; border-radius: 12px; cursor: pointer; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9ab0; transition: border-color .15s, color .15s, background .15s; }
         .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
@@ -170,27 +171,13 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）。上傳後請在「編輯」對各圖按「AI 重繪」預覽白底效果（與上傳分開、會扣點）。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
-                                    <div class="add-optimize-bg-wrap d-none mb-2">
-                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
-                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
-                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
-                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
-                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
-                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
-                                            </select>
-                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
-                                        </div>
-                                        <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">以原圖只換背景；保留產品本體上的字樣／Logo，不保留背景文字、不新增文字。自訂色請選「自訂色」後點色票。</p>
-                                    </div>
-                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；重繪首張 <span class="add-points-optimize">15</span> 點，每多一張 +<span class="add-points-optimize-extra">5</span> 點）</span></p>
+                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（本步驟僅上傳；AI 重繪請上傳後在編輯視窗操作）</span></p>
                                 </div>
                                 <div class="col-12 add-prototype-links-block">
                                     <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
@@ -272,25 +259,12 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。可編輯每張圖名稱（預設檔名）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）。上傳後請在「編輯」對各圖按「AI 重繪」預覽白底效果（與上傳分開、會扣點）。可編輯每張圖名稱（預設檔名）。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
-                                    <div class="add-optimize-bg-wrap d-none mb-2">
-                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
-                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
-                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
-                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
-                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
-                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
-                                            </select>
-                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
-                                        </div>
-                                    </div>
-                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；重繪首張 <span class="add-points-optimize">15</span> 點，每多一張 +<span class="add-points-optimize-extra">5</span> 點）</span></p>
+                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（本步驟僅上傳；AI 重繪請上傳後在編輯視窗操作）</span></p>
                                 </div>
                                 <div class="col-12 add-linked-prototypes-block">
                                     <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
@@ -471,25 +445,9 @@
                             <label class="form-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
-                            <div id="edit-gallery-redraw-bar" class="flex-wrap align-items-center gap-2 mb-2 d-none">
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-gallery-redraw-selected" disabled>
-                                    <i class="bi bi-magic me-1"></i>對勾選的圖 AI 重繪
-                                </button>
-                                <p class="text-muted small mb-0 edit-gallery-redraw-estimate-line">
-                                    <span data-i18n="baseModels.estimatedPoints">預估扣點：</span>
-                                    <strong id="edit-gallery-redraw-estimate-val">0</strong>
-                                    <span data-i18n="baseModels.pointsUnit">點</span>
-                                    <span class="text-muted">（每張 +<span class="edit-gallery-redraw-points-extra">5</span> 點，新圖追加、原圖保留）</span>
-                                </p>
-                            </div>
-                            <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">新增產品圖</span></label>
-                            <div class="form-check form-check-sm mb-2">
-                                <input class="form-check-input" type="checkbox" id="edit-gallery-optimize-next">
-                                <label class="form-check-label small" for="edit-gallery-optimize-next">本批新圖 AI 重繪（會扣點）</label>
-                            </div>
-                            <div id="edit-gallery-optimize-bg-wrap" class="add-optimize-bg-wrap mb-2 d-none">
+                            <div id="edit-gallery-redraw-settings" class="border rounded p-2 mb-3 d-none">
                                 <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
                                     <select class="form-select form-select-sm" id="edit-gallery-optimize-bg" style="max-width:11rem">
                                         <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
                                         <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
@@ -499,15 +457,16 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">僅在勾選 AI 重繪時套用；自訂色請選「自訂色」後點色票。</p>
+                                <p class="form-text text-muted small mb-0">點各圖下方「AI 重繪」會<strong>追加</strong>白底新圖（原圖保留），完成後立即顯示在上方；每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點。</p>
                             </div>
+                            <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
                             <input type="file" class="d-none" id="edit-add-gallery-input-multi" accept="image/*" multiple>
                             <div class="d-flex flex-wrap gap-2 mb-2">
-                                <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-plus-lg me-1"></i><span data-i18n="baseModels.addGalleryImages">新增產品圖</span></button>
-                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-edit-add-gallery"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.addGalleryImages">上傳圖片</span></button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-add-gallery-multi"><i class="bi bi-images me-1"></i>一次選多張上傳</button>
                             </div>
-                            <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">在圖下方勾選要 AI 重繪的張數（可複選），再按「對勾選的圖 AI 重繪」；新圖會<strong>追加</strong>、不取代原圖。選檔後<strong>立即上傳</strong>（第一張為封面，最多 12 張）；可勾選「本批新圖 AI 重繪」處理新上傳的圖。</p>
+                            <p class="form-text text-muted small mb-1">選檔後<strong>立即上傳</strong>原圖（最多 12 張，與 AI 重繪分開）。若要白底效果，請用上方各圖的「AI 重繪」按鈕。</p>
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
@@ -606,7 +565,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'prototype-links-upload-20260601';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-redraw-split-20260604';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -641,7 +600,7 @@
         var editPending = { tags: null, semantics: null };
         var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
-        var editGalleryOptimizeUrls = new Set();
+        var editGalleryHighlightUrls = new Set();
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
@@ -967,20 +926,13 @@
                 var url = URL.createObjectURL(item.file);
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 card.innerHTML = coverBadge +
-                    '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="">' +
+                    '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="點擊放大預覽">' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
-                    '<div class="form-check form-check-sm mt-1 mb-0">' +
-                    '<input class="form-check-input pending-optimize-chk" type="checkbox" id="po-' + esc(item.id) + '"' + (item.optimize ? ' checked' : '') + '>' +
-                    '<label class="form-check-label small" for="po-' + esc(item.id) + '">AI 重繪</label></div>' +
                     '<div class="pending-actions">' +
                     (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
                 wrap.appendChild(col);
-                card.querySelector('.pending-optimize-chk').addEventListener('change', function () {
-                    item.optimize = this.checked;
-                    updateAddFormPointsEstimate(form);
-                });
                 var labelIn = card.querySelector('.pending-image-label');
                 if (labelIn) {
                     labelIn.addEventListener('input', function () {
@@ -1012,12 +964,9 @@
             if (!form) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
             if (kind === 'material') return;
-            var list = getPendingImages(form);
-            var optCount = list.filter(function (p) { return p.optimize; }).length;
-            var pts = calcAddFormPointsEstimate(kind, optCount, list.length);
+            var upload = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
             var valEl = form.querySelector('.add-points-estimate-val');
-            if (valEl) valEl.textContent = String(pts);
-            syncAddFormOptimizeBgWrap(form);
+            if (valEl) valEl.textContent = String(upload);
         }
 
         function clearSupplierRefForManualUpload(form) {
@@ -1083,20 +1032,37 @@
             return uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
         }
 
-        function editGalleryOptimizeCheckboxId(idx) {
-            return 'edit-go-' + idx;
-        }
-
-        function updateEditGalleryRedrawEstimate() {
-            var n = editGalleryOptimizeUrls.size;
-            var pts = n * getEditGalleryRedrawPoints();
-            var valEl = document.getElementById('edit-gallery-redraw-estimate-val');
-            if (valEl) valEl.textContent = String(pts);
-            var btn = document.getElementById('btn-edit-gallery-redraw-selected');
-            if (btn) btn.disabled = n === 0 || editGalleryUploading;
+        function syncEditGalleryRedrawSettings() {
             document.querySelectorAll('.edit-gallery-redraw-points-extra').forEach(function (el) {
                 el.textContent = String(getEditGalleryRedrawPoints());
             });
+            var settings = document.getElementById('edit-gallery-redraw-settings');
+            var grid = document.getElementById('edit-gallery-grid');
+            var hasItems = grid && grid.querySelector('.pending-image-card');
+            if (settings) settings.classList.toggle('d-none', !hasItems);
+        }
+
+        function scrollEditGalleryToUrl(url) {
+            if (!url) return;
+            var grid = document.getElementById('edit-gallery-grid');
+            if (!grid) return;
+            grid.querySelectorAll('[data-gallery-url]').forEach(function (card) {
+                if (card.getAttribute('data-gallery-url') === url && card.scrollIntoView) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            });
+        }
+
+        function markNewGalleryUrls(beforeUrls, afterAsset) {
+            var before = new Set(beforeUrls || []);
+            var lastNew = '';
+            assetImageUrls(afterAsset).forEach(function (u) {
+                if (!before.has(u)) {
+                    editGalleryHighlightUrls.add(u);
+                    lastNew = u;
+                }
+            });
+            return lastNew;
         }
 
         function renderEditGallery(m) {
@@ -1104,42 +1070,31 @@
             if (!grid) return;
             var items = assetImageItems(m);
             var editId = document.getElementById('edit-id').value;
-            var redrawBar = document.getElementById('edit-gallery-redraw-bar');
             if (!items.length) {
                 grid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0">—</p></div>';
-                if (redrawBar) {
-                    redrawBar.classList.add('d-none');
-                    redrawBar.classList.remove('d-flex');
-                }
-                updateEditGalleryRedrawEstimate();
-                syncEditGalleryOptimizeBgWrap();
+                syncEditGalleryRedrawSettings();
                 return;
-            }
-            if (redrawBar) {
-                redrawBar.classList.remove('d-none');
-                redrawBar.classList.add('d-flex');
             }
             grid.innerHTML = items.map(function (it, idx) {
                 var url = it.url;
-                var chkId = editGalleryOptimizeCheckboxId(idx);
-                var checked = editGalleryOptimizeUrls.has(url);
+                var isNew = editGalleryHighlightUrls.has(url);
                 var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
+                var newBadge = isNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新重繪</span>' : '';
                 var labelField = (it.is_cover || idx === 0)
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
-                var actions = !(it.is_cover || idx === 0)
-                    ? '<div class="pending-actions">' +
-                    '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
-                    '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button></div>'
-                    : '';
-                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + '">' +
-                    coverBadge +
+                var actions = '<div class="pending-actions">' +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    (!(it.is_cover || idx === 0)
+                        ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'
+                        : '') +
+                    '</div>';
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + (isNew ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
+                    coverBadge + newBadge +
                     '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '"' +
-                    ' data-image-items="' + esc(JSON.stringify([{ url: url, label: (it.label || '').trim() }])).replace(/"/g, '&quot;') + '">' +
+                    ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: (x.label || '').trim() }; }))).replace(/"/g, '&quot;') + '">' +
                     labelField +
-                    '<div class="form-check form-check-sm mt-1 mb-0">' +
-                    '<input class="form-check-input edit-gallery-optimize-chk" type="checkbox" id="' + chkId + '" data-url="' + esc(url) + '"' + (checked ? ' checked' : '') + '>' +
-                    '<label class="form-check-label small" for="' + chkId + '">AI 重繪</label></div>' +
                     actions +
                     '</div></div>';
             }).join('');
@@ -1162,56 +1117,13 @@
                     removeGalleryImage(btn.getAttribute('data-url'));
                 });
             });
-            grid.querySelectorAll('.edit-gallery-optimize-chk').forEach(function (chk) {
-                chk.addEventListener('change', function () {
-                    var u = chk.getAttribute('data-url');
-                    if (!u) return;
-                    if (chk.checked) editGalleryOptimizeUrls.add(u);
-                    else editGalleryOptimizeUrls.delete(u);
-                    updateEditGalleryRedrawEstimate();
-                    syncEditGalleryOptimizeBgWrap();
+            grid.querySelectorAll('.btn-gallery-redraw-one').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    redrawGalleryImage(btn.getAttribute('data-url'));
                 });
             });
-            updateEditGalleryRedrawEstimate();
-            syncEditGalleryOptimizeBgWrap();
-        }
-
-        async function runEditGalleryRedrawSelected() {
-            var urls = Array.from(editGalleryOptimizeUrls);
-            if (!urls.length) {
-                showToast('請先勾選要 AI 重繪的圖片', 'warning');
-                return;
-            }
-            var pts = urls.length * getEditGalleryRedrawPoints();
-            var batchExtra = urls.length > 1
-                ? '\n\n將依序處理（每張間隔約 ' + (EDIT_GALLERY_REDRAW_BATCH_GAP_MS / 1000) + ' 秒）。建議每次 1～2 張以降低偶發失敗；每張結果仍可能略有差異。'
-                : '';
-            if (!window.confirm('對 ' + urls.length + ' 張圖 AI 重繪並追加為新圖？（-' + pts + ' 點，原圖保留）' + batchExtra)) return;
-            var done = 0;
-            var id = document.getElementById('edit-id').value;
-            for (var i = 0; i < urls.length; i++) {
-                if (i > 0) {
-                    setEditGalleryStatus('稍候再處理下一張（' + (i + 1) + '/' + urls.length + '）…', 'info');
-                    await sleepMs(EDIT_GALLERY_REDRAW_BATCH_GAP_MS);
-                }
-                var ok = await redrawGalleryImage(urls[i], {
-                    skipConfirm: true,
-                    batchIndex: i + 1,
-                    batchTotal: urls.length,
-                    skipReload: i < urls.length - 1
-                });
-                if (!ok) break;
-                done++;
-            }
-            if (done > 0) {
-                showToast('已完成 ' + done + ' 張 AI 重繪' + (done < urls.length ? '（其餘已略過）' : ''), done === urls.length ? 'success' : 'warning');
-                await loadMaterials();
-                var refreshed = materialsAll.find(function (x) { return x.id === id; });
-                if (refreshed) renderEditGallery(refreshed);
-            }
-            if (done === urls.length) editGalleryOptimizeUrls.clear();
-            updateEditGalleryRedrawEstimate();
-            syncEditGalleryOptimizeBgWrap();
+            syncEditGalleryRedrawSettings();
         }
 
         async function redrawGalleryImage(sourceUrl, opts) {
@@ -1236,6 +1148,7 @@
                 }
                 var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
                 var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
+                var urlsBeforeRedraw = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]) : [];
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/redraw', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
@@ -1261,20 +1174,23 @@
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 if (idx >= 0) materialsAll[idx] = data;
+                var lastNew = markNewGalleryUrls(urlsBeforeRedraw, data);
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
                 if (urlCount <= countBefore) {
                     setEditGalleryStatus('重繪完成但未新增圖片，可能已達上限', 'warning');
                     return false;
                 }
-                var okMsg = '已追加 AI 重繪圖（共 ' + urlCount + ' 張）';
+                var okMsg = '已追加 AI 重繪圖（共 ' + urlCount + ' 張，綠框為新圖）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
-                if (!opts.skipConfirm) showToast(okMsg);
+                showToast(okMsg);
+                if (lastNew) scrollEditGalleryToUrl(lastNew);
                 if (!opts.skipReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
                     if (refreshed) renderEditGallery(refreshed);
+                    if (lastNew) scrollEditGalleryToUrl(lastNew);
                 }
                 return true;
             } catch (err) {
@@ -1284,7 +1200,6 @@
             } finally {
                 editGalleryUploading = false;
                 gridDisableEditGalleryActions(false);
-                updateEditGalleryRedrawEstimate();
             }
         }
 
@@ -1298,10 +1213,8 @@
             if (btnAdd) btnAdd.disabled = disabled;
             if (btnMulti) btnMulti.disabled = disabled;
             var grid = document.getElementById('edit-gallery-grid');
-            var redrawBtn = document.getElementById('btn-edit-gallery-redraw-selected');
-            if (redrawBtn) redrawBtn.disabled = disabled || editGalleryOptimizeUrls.size === 0;
             if (grid) {
-                grid.querySelectorAll('.edit-gallery-optimize-chk, .btn-gallery-del, .btn-gallery-set-cover').forEach(function (el) {
+                grid.querySelectorAll('.btn-gallery-redraw-one, .btn-gallery-del, .btn-gallery-set-cover').forEach(function (el) {
                     el.disabled = disabled;
                 });
             }
@@ -1356,7 +1269,7 @@
             var id = document.getElementById('edit-id').value;
             if (!id || !url) return;
             if (!window.confirm(tr('baseModels.confirmRemoveImage', '確定移除此圖？'))) return;
-            editGalleryOptimizeUrls.delete(url);
+            editGalleryHighlightUrls.delete(url);
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
                     method: 'DELETE',
@@ -1377,10 +1290,7 @@
             var sel = document.getElementById('edit-gallery-optimize-bg');
             var custom = document.getElementById('edit-gallery-optimize-bg-custom');
             if (custom && sel) custom.classList.toggle('d-none', sel.value !== 'custom');
-            var bgWrap = document.getElementById('edit-gallery-optimize-bg-wrap');
-            var nextChk = document.getElementById('edit-gallery-optimize-next');
-            var showBg = editGalleryOptimizeUrls.size > 0 || !!(nextChk && nextChk.checked);
-            if (bgWrap) bgWrap.classList.toggle('d-none', !showBg);
+            syncEditGalleryRedrawSettings();
         }
 
         function getEditGalleryOptimizeBackground() {
@@ -1427,21 +1337,13 @@
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
             var fd = new FormData();
-            var optimizeNext = document.getElementById('edit-gallery-optimize-next');
-            var wantOpt = !!(optimizeNext && optimizeNext.checked);
-            var optIdx = [];
             var uploadLabels = [];
             for (var i = 0; i < fileList.length; i++) {
                 fd.append('images', fileList[i]);
                 uploadLabels.push(labelFromFilename(fileList[i].name));
-                if (wantOpt) optIdx.push(i);
             }
             if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
-            if (optIdx.length) {
-                fd.append('optimize_image_indices', JSON.stringify(optIdx));
-                fd.append('optimize_background', getEditGalleryOptimizeBackground());
-            }
-            setEditGalleryStatus('上傳中 ' + fileList.length + ' 張…', 'info');
+            setEditGalleryStatus('上傳原圖中 ' + fileList.length + ' 張…', 'info');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
@@ -1472,7 +1374,12 @@
                     return false;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+                var urlsBeforeUpload = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]) : [];
                 if (idx >= 0) materialsAll[idx] = data;
+                var lastNew = '';
+                assetImageUrls(data).forEach(function (u) {
+                    if (urlsBeforeUpload.indexOf(u) === -1) lastNew = u;
+                });
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
                 if (urlCount <= countBefore) {
@@ -1481,14 +1388,14 @@
                     showToast(migHint, 'danger');
                     return false;
                 }
-                setEditGalleryStatus('已加入，目前共 ' + urlCount + ' 張圖', 'success');
+                setEditGalleryStatus('已上傳原圖，目前共 ' + urlCount + ' 張；若要白底請對各圖按「AI 重繪」', 'success');
                 var okMsg = tr('baseModels.galleryAdded', '已新增角度圖') + '（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 showToast(okMsg);
                 await loadMaterials();
                 var refreshed = materialsAll.find(function (x) { return x.id === id; });
                 if (refreshed) renderEditGallery(refreshed);
-                if (optimizeNext) optimizeNext.checked = false;
+                if (lastNew) scrollEditGalleryToUrl(lastNew);
                 syncEditGalleryOptimizeBgWrap();
                 return true;
             } catch (err) {
@@ -1538,12 +1445,6 @@
             });
             one.addEventListener('change', function () { onEditGalleryFilesSelected(one); });
             multi.addEventListener('change', function () { onEditGalleryFilesSelected(multi); });
-            var redrawBtn = document.getElementById('btn-edit-gallery-redraw-selected');
-            if (redrawBtn) {
-                redrawBtn.addEventListener('click', function () {
-                    if (!editGalleryUploading) runEditGalleryRedrawSelected();
-                });
-            }
         }
         function showToast(msg, type) {
             type = type || 'success';
@@ -1694,14 +1595,10 @@
 
         function syncAddFormOptimizeBgWrap(form) {
             if (!form) return;
+            var kind = form.getAttribute('data-kind');
+            if (kind === 'prototype' || kind === 'part') return;
             var wrap = form.querySelector('.add-optimize-bg-wrap');
             if (!wrap) return;
-            var kind = form.getAttribute('data-kind');
-            if (kind === 'prototype' || kind === 'part') {
-                var list = getPendingImages(form);
-                wrap.classList.toggle('d-none', !list.some(function (p) { return p.optimize; }));
-                return;
-            }
             var chk = form.querySelector('.add-optimize-product');
             if (!chk) return;
             wrap.classList.toggle('d-none', !chk.checked);
@@ -1736,10 +1633,7 @@
                 });
                 updateAddFormPointsEstimate(form);
             });
-            document.querySelectorAll('.edit-gallery-redraw-points-extra').forEach(function (el) {
-                el.textContent = String(getEditGalleryRedrawPoints());
-            });
-            updateEditGalleryRedrawEstimate();
+            syncEditGalleryRedrawSettings();
         }
 
         function updateEditOptimizeLabel(assetKind) {
@@ -2403,7 +2297,10 @@
                     btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
                 });
                 grid.querySelectorAll('.btn-edit').forEach(function (btn) {
-                    btn.addEventListener('click', function () { openEditModal(btn.dataset.id); });
+                    btn.addEventListener('click', function () {
+                        editGalleryHighlightUrls.clear();
+                        openEditModal(btn.dataset.id);
+                    });
                 });
                 grid.querySelectorAll('.btn-toggle-pub').forEach(function (btn) {
                     btn.addEventListener('click', function () {
@@ -2551,16 +2448,10 @@
                 if (kind === 'prototype' || kind === 'part') {
                     fd.append('image', pending[0].file);
                     for (var pi = 1; pi < pending.length; pi++) fd.append('gallery', pending[pi].file);
-                    var optIdx = [];
-                    pending.forEach(function (p, i) { if (p.optimize) optIdx.push(i); });
                     var imageLabels = pending.map(function (p) {
                         return (p.label || labelFromFilename(p.file && p.file.name)).trim();
                     });
                     fd.append('image_labels', JSON.stringify(imageLabels));
-                    if (optIdx.length) {
-                        fd.append('optimize_image_indices', JSON.stringify(optIdx));
-                        fd.append('optimize_background', getOptimizeBackgroundValue(form));
-                    }
                 } else {
                     var matLabel = labelFromFilename(file && file.name);
                     if (matLabel) fd.append('image_labels', JSON.stringify([matLabel]));
@@ -2599,6 +2490,7 @@
                         window.location.href = '/client/vendor-product-link-tree.html?prototype_asset_id=' + encodeURIComponent(data.id);
                         return;
                     }
+                    var newAssetId = data.id;
                     form.reset();
                     clearSupplierRefFromForm(form);
                     clearPendingImages(form);
@@ -2606,6 +2498,11 @@
                     applyUploadPricingToForms();
                     await loadMaterials();
                     switchKind(kind);
+                    if (newAssetId && (kind === 'prototype' || kind === 'part')) {
+                        editGalleryHighlightUrls.clear();
+                        openEditModal(newAssetId);
+                        setEditGalleryStatus('上傳完成。點各圖「AI 重繪」可預覽白底效果（與上傳分開扣點）', 'success');
+                    }
                 } catch (err) {
                     msgEl.textContent = err.message || 'failed';
                 } finally { btn.disabled = false; }
@@ -2864,15 +2761,12 @@
             if (editGalHintProto) editGalHintProto.classList.toggle('d-none', !isProto);
             if (editGalHintPart) editGalHintPart.classList.toggle('d-none', !isPart);
             if (isProtoLike) {
-                editGalleryOptimizeUrls.clear();
                 renderEditGallery(m);
             }
             editGalleryUploading = false;
             setEditGalleryStatus('', null);
             var buildHint = document.getElementById('edit-gallery-build-hint');
             if (buildHint) buildHint.textContent = '頁面版本 ' + (window.__MATCHDO_MATERIALS_BUILD || '—');
-            var optNext = document.getElementById('edit-gallery-optimize-next');
-            if (optNext) optNext.checked = false;
             syncEditGalleryOptimizeBgWrap();
             var galOne = document.getElementById('edit-add-gallery-input-one');
             var galMulti = document.getElementById('edit-add-gallery-input-multi');
@@ -2882,6 +2776,8 @@
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : [];
             editPending.semantics = m.image_semantics_json || null;
             renderEditTags(true);
+            var editImgOpts = document.getElementById('edit-image-options');
+            if (editImgOpts) editImgOpts.classList.toggle('d-none', isProtoLike);
             toggleEditImageOptions(false);
             updateEditOptimizeLabel(m.asset_kind);
             fillCategorySelect(document.getElementById('edit-category'), m.category_key);
@@ -2905,16 +2801,12 @@
             var file = input && input.files && input.files[0];
             var hasFile = !!file;
             showLocalImagePreview(document.getElementById(previewId), file);
-            toggleEditImageOptions(hasFile);
+            toggleEditImageOptions(hasFile && !isPrototype);
         }
         document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
         bindEditGalleryUpload();
-        var editGalleryOptNext = document.getElementById('edit-gallery-optimize-next');
-        if (editGalleryOptNext) {
-            editGalleryOptNext.addEventListener('change', syncEditGalleryOptimizeBgWrap);
-        }
         var editGalleryBgSel = document.getElementById('edit-gallery-optimize-bg');
         if (editGalleryBgSel) {
             editGalleryBgSel.addEventListener('change', function () {
@@ -3003,7 +2895,7 @@
             if (editPending.semantics) fd.append('image_semantics_json', JSON.stringify(editPending.semantics));
             if (file) {
                 fd.append('image', file);
-                if (document.getElementById('edit-optimize-image').checked) {
+                if (editKind === 'material' && document.getElementById('edit-optimize-image').checked) {
                     fd.append('optimize_product_image', '1');
                     fd.append('optimize_background', getOptimizeBackgroundValue(document.getElementById('edit-form')));
                 }
@@ -3045,8 +2937,14 @@
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
                 showToast(okMsg);
-                if (editModalEl) editModalEl.hide();
-                loadMaterials();
+                await loadMaterials();
+                var saved = materialsAll.find(function (x) { return x.id === id; }) || data;
+                if (normalizeKind(saved.asset_kind) === 'prototype' || normalizeKind(saved.asset_kind) === 'part') {
+                    openEditModal(id);
+                    setEditGalleryStatus('已儲存。圖庫內容如下；若要白底請對各圖按「AI 重繪」', 'success');
+                } else if (editModalEl) {
+                    editModalEl.hide();
+                }
             } catch (err) { showToast(err.message, 'danger'); }
         });
 

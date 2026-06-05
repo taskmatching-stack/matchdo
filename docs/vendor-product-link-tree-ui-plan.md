@@ -173,7 +173,7 @@ https://matchdo.cc/product-tree/{manufacturer_slug}/{product_slug}
 | 模式 | 誰用 | **獨立網址** | 能力 |
 |------|------|--------------|------|
 | **vendor** | 登入廠商 | `/client/vendor-product-link-tree.html`（**noindex**） | 拖曳連結、解除、排序、快速檢查 |
-| **guide** | 訂製者／分享 | `/product-tree.html?prototype_asset_id=`（**可 index**，見 §8） | Phase 1：**唯讀**樹 + 返回設計頁 |
+| **guide** | 訂製者／分享 | `/product-tree.html?prototype_asset_id=`（**可 index**，見 §8） | **已上線**：分區橫向圖列 + 複選材／配帶回設計 + 色款／角度全顯示（見 `PROGRESS-vendor-styles-and-product-tree.md`）；**非**中央卡片樹 |
 
 查詢參數：
 
@@ -226,7 +226,7 @@ https://matchdo.cc/product-tree/{manufacturer_slug}/{product_slug}
 
 - 已鎖定廠商數位原型時：「查看此產品的關聯圖」→ **公開**  
   `/product-tree.html?prototype_asset_id=…&return_to=…`（利於 SEO／分享；見 §8）
-- Phase 1 為唯讀 guide；是否要在 guide 內「選為參考」留待後續決定。
+- guide 已支援「選為參考」：`matchdo.guideLinkedAssetRefs`、色款選擇、`pick_group` 擇一（2026-06-04）。
 
 ---
 
@@ -265,10 +265,10 @@ Phase 1 建議 **卡片樹 + CSS 連線**（每主產品一棵，實作快、行
 
 ### Phase 1 — 獨立頁 + 雙入口 + 基礎 SEO
 
-- [ ] `public/client/vendor-product-link-tree.html`（vendor，noindex）
-- [ ] `public/product-tree.html`（guide 殼）+ `server.js` 動態 OG／canonical
-- [ ] `public/js/vendor-product-link-tree.js`（共用）
-- [ ] `GET /api/me/vendor-product-link-tree`、`GET /api/vendor-assets/:id/link-tree`
+- [x] `public/client/vendor-product-link-tree.html`（vendor，noindex）
+- [x] `public/product-tree.html`（guide 殼）+ `server.js` 動態 OG／canonical
+- [x] `public/js/vendor-product-link-tree.js`（共用；guide＝橫條模式）
+- [x] `GET /api/me/vendor-product-link-tree`、`GET /api/vendor-assets/:id/link-tree`
 - [ ] vendor：拖曳連結、快速檢查、孤兒池
 - [ ] 素材庫 → **client** URL；設計頁 → **公開** `product-tree.html`
 - [ ] **不做**設計頁內嵌 chip／小樹

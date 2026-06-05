@@ -27,7 +27,8 @@
 | **廠商關聯** | 同一主產品可掛 **多筆** 材料、**多筆** 配件（`linked_asset_ids` 複選），看可搭配頁 **全部列出**。 |
 | **訂製者多選** | 看可搭配頁可 **複選** 多筆已關聯材／配，帶入產品設計參考（`matchdo.guideLinkedAssetRefs`）；材料槽、配件槽各最多 3 張參考圖。 |
 | **多色款** | 同一筆材／配／主產品可多張圖庫色款；訂製者選定 **一個色** 帶入（非一次選多色）。 |
-| **廠商設定「擇一組」** | **規劃中**（`pick_group`）：同組只能選一個配件／材料；未分組則可與其他並選。後台 UI 待做。 |
+| **廠商設定「擇一組」** | 已實作：`allow_multi_pick`、`pick_group`（`docs/add-vendor-asset-prototype-link-pick-group.sql`）；`manufacturer-materials.html` 關聯編輯；guide 端 `enforceGuideSelectionRules`。 |
+| **看可搭配 UI** | `product-tree.html`：分區橫向圖列（非卡片樹）；詳見 `docs/PROGRESS-vendor-styles-and-product-tree.md`。 |
 
 ## API
 
@@ -71,7 +72,11 @@
 
 關聯標示 **不隱藏** 未關聯素材，僅排序與視覺提示。
 
-圖形化關聯樹（**獨立頁**、以主產品為單位各畫一棵）見 `docs/vendor-product-link-tree-ui-plan.md`（決策已確認，待實作）。
+圖形化關聯：
+
+- **廠商編輯**：`/client/vendor-product-link-tree.html`（vendor 模式，拖曳卡片樹）。
+- **訂製者看可搭配**：`/product-tree.html`（guide 模式，橫向圖列 + 選色／已選；見進度檔）。
+- 規劃總覽：`docs/vendor-product-link-tree-ui-plan.md`（guide 實作與原「中央樹」草圖有差異，以進度檔為準）。
 
 ## 部署前
 

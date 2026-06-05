@@ -1,4 +1,4 @@
-# 廠商版型 Tab × 產品關聯樹 — 工作進度交接（2026-06-03）
+# 廠商版型 Tab × 產品關聯樹 — 工作進度交接（2026-06-03，guide UI 更新 2026-06-04）
 
 > 給新對話視窗用：延續「客製產品設計頁內廠商版型訂製 + 產品關聯樹」功能，**不要另開平行 API／分類來源**。
 
@@ -12,7 +12,7 @@
 4. **廠商名稱**：與控制台相同欄位 `manufacturers.name`；列表經 `buildManufacturerMapForVendorAssetList`；前端可再以 `GET /api/manufacturers/:id` 補名。篩選建議用 `GET /api/manufacturers?category_key&subcategory_key&q=…`。
 5. **看可搭配**（`product-tree.html`）：`GET /api/vendor-assets/:id/link-tree` — **只顯示**該主產品已關聯的材料／配件（非分類下全部素材）。
 6. **產品設計 → 素材庫**（材料／配件）：仍顯示同分類全部素材，已關聯者排前並標「廠商推薦」；可選 `prototype_linked_only=1` + `for_prototype_asset_id` 僅回傳關聯項。
-7. **選款式後**：`product-tree.html?prototype_asset_id=…&return_to=…` → 帶回產品設計 Tab（`prototype_asset_id`、`matchdo.guideLinkedAssetIds` 等）。
+7. **選款式後**：`product-tree.html?prototype_asset_id=…&return_to=…` → 帶回產品設計 Tab（`prototype_asset_id`、`matchdo.guideLinkedAssetRefs` 含色款 URL；舊 key `guideLinkedAssetIds` 仍相容）。
 8. **數位原型子分類**：上傳／篩選仍必填（與產品設計一致）。
 
 ---
@@ -32,8 +32,16 @@
 | `980b0f8` | 廠商名稱補強（id/user_id 索引、auth metadata、`enrichVendorAssetItemsManufacturerNames`） |
 | `8f91465` | 列表回傳 `link_count`；卡片顯示「可搭配 N 項」 |
 | `7d5b134` | **廠商版型 Tab `has_prototype_links=1`** — 只列已設關聯的款式（2026-06-03 使用者驗收 OK） |
+| `2fded54`～`472a025` | guide 關聯樹互動、多展開、標題位置等迭代 |
+| `5ca8f98` | guide：Apple 風橫向選單列（初版） |
+| `23f1637` | guide：主產品／每配件／每材料各一橫條；色款全顯示 |
+| `38bdf0a` | guide：已選狀態可見；版心 `container`（非全頁 fluid） |
+| `94d2c81` | guide：圖格 🔍 放大（燈箱），不影響選取 |
+| （廠商後台同批） | `pick_group`／`allow_multi_pick`、設計洞察 API、素材庫關聯編輯強化 |
 
-**目前前端版本：** `custom-product.js?v=60`（手機：廠商版型 Tab 分類 Bottom Sheet、`browse-styles.css?v=2`）
+**目前前端版本（看可搭配）：** `vendor-product-link-tree.css/js?v=44`（`product-tree.html`）
+
+**目前前端版本（客製 Tab）：** `custom-product.js?v=60`（手機：廠商版型 Tab 分類 Bottom Sheet、`browse-styles.css?v=2`）
 
 ---
 
@@ -50,13 +58,23 @@ custom-product.html
                  — 卡片：link_count 徽章 +「看可搭配」→ product-tree.html
   Tab 實境模擬 / 圖樣提取 — 不變
 
-product-tree.html（guide）
-  → GET /api/vendor-assets/:id/link-tree → 僅 linked_assets
+product-tree.html（guide，2026-06-04 現況）
+  → GET /api/vendor-assets/:id/link-tree
+  → 版面：container 版心 + 左主欄「搭配摘要」
+  → 主產品／每個配件／每個材料：各一區塊標題（分類 · 商品名）+ 橫向圖列
+  → 多圖（色款／角度）：每圖一格；標籤「色款 N」「角度 N」（不用檔名當 caption）
+  → 選取：點圖格選色／加入已選；配件／材料顯示「已選」綠框
+  → 主產品：點角度僅「預覽中」，不進 guideLinkedAssetRefs
+  → 橫向捲動：隱藏捲軸條 + 左右 ‹ › 箭頭（浮在列上，不推擠左緣）
+  → 右上角 🔍：燈箱瀏覽該品所有圖（stopPropagation，不觸發選取）
+  → sessionStorage：matchdo.guideLinkedAssetRefs、guideVariantByAssetId
 
 /browse-styles.html → redirect ?tab=vendor-styles
 
 廠商後台設定關聯：
-  manufacturer-materials.html → 產品關聯圖 / PUT prototype-links
+  manufacturer-materials.html → 產品關聯圖（vendor 模式，卡片樹編輯）
+  → 關聯編輯：allow_multi_pick、pick_group（擇一組）
+  → vendor-prototype-insights.html → 訂製者用圖統計（需 link 資料）
 ```
 
 ---
@@ -86,7 +104,10 @@ product-tree.html（guide）
 | `public/product-tree.html` | 看可搭配頁 |
 | `server.js` | `GET /api/vendor-assets`、`buildManufacturerMapForVendorAssetList`、`GET …/link-tree` |
 | `docs/add-vendor-asset-prototype-links.sql` | 關聯表 |
+| `docs/add-vendor-asset-prototype-link-pick-group.sql` | `allow_multi_pick`、`pick_group`（**部署前必跑**） |
 | `docs/vendor-asset-prototype-links.md` | 關聯語意與 API 說明 |
+| `public/css/vendor-product-link-tree.css` | guide 橫條樣式、箭頭、已選態 |
+| `public/client/vendor-prototype-insights.html` | 廠商：訂製洞察 |
 
 ---
 
@@ -105,6 +126,29 @@ product-tree.html（guide）
 關聯樹需已執行：
 
 - `docs/add-vendor-asset-prototype-links.sql` → 表 `vendor_asset_prototype_links`
+- `docs/add-vendor-asset-prototype-link-pick-group.sql` → 欄位 `allow_multi_pick`、`pick_group`（看可搭配「擇一組」用）
+
+---
+
+## 看可搭配頁（guide）— 2026-06-04 定案行為
+
+與原 `vendor-product-link-tree-ui-plan.md` 的「中央卡片樹」不同，**訂製者端已改為橫向選單列**（類 Apple Mac 產品列），廠商編輯頁仍為 vendor 卡片樹。
+
+| 項目 | 行為 |
+|------|------|
+| 資料來源 | 僅 `link-tree` 回傳之 `linked_assets`（非整分類素材庫） |
+| 區塊 | **主產品** 一列；**每個配件** 一列；**每個材料** 一列 |
+| 標題 | `主產品 · 角粒殼3.0`、`配件 · …`、`材料 · …` |
+| 多圖 | 全部並排；不隱藏 `+N`；不併成單格小圓點 |
+| 選取規則 | `enforceGuideSelectionRules`：`pick_group` 同組互斥 |
+| 帶回設計 | `buildStartDesignUrl` + `matchdo.guideLinkedAssetRefs`（含 `variant_url`） |
+
+**勿再犯（guide UI）：**
+
+- 不要用 `100vw` 把整頁推到螢幕最左（僅主內容欄全寬即可）。
+- 不要用 flex 內嵌箭頭佔寬導致與主產品列左緣不對齊（箭頭改 `absolute` 浮層）。
+- 不要在 `applyGuideVariantChoice` 後對 `querySelector` 第一格硬加 `已選`（會雙重高亮）。
+- 不要用檔名／UUID 當圖下標籤（用色款名或「角度 N／色款 N」）。
 
 ---
 
@@ -123,20 +167,26 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 - [x] `?tab=vendor-styles`：只顯示已設「主產品↔材／配」關聯的款式（2026-06-03 已確認）
 - [x] 分類摘要為中文（`custom-product-categories` + cat-picker）
 - [x] 卡片廠商名稱為真實名稱（非整排「廠商」）
-- [ ] 「看可搭配」頁僅顯示該款已關聯的材／配
-- [ ] 回產品設計帶 `prototype_asset_id` 與 guide 選取之 refs
+- [x] 「看可搭配」僅顯示該款已關聯材／配（API 不變；UI 2026-06-04 驗收）
+- [x] guide：主產品／配件／材料分區橫條、色款全顯示、標題「分類 · 名稱」
+- [x] guide：已選／預覽中狀態可辨、🔍 放大不誤觸選取
+- [ ] 回產品設計帶 `prototype_asset_id` 與 guide 選取之 refs（需端對端點一次「用此款開始設計」）
 - [ ] `/browse-styles.html` redirect 到 `?tab=vendor-styles`
+- [ ] Supabase 已執行 `add-vendor-asset-prototype-link-pick-group.sql`（線上 pick_group 才會生效）
 
 ---
 
 ## 待辦（Phase C，未做）
 
-- [ ] 分享 URL、手機版體驗
-- [ ] 多選材料／配件一次帶入 refs（設計頁已支援多筆 `guideLinkedAssetRefs`；見下「擇一組」）
-- [ ] **廠商設定擇一組**：`vendor_asset_prototype_links.pick_group`（同組訂製者只能選一個；留空＝可與其他並選）
+- [ ] 分享 URL、手機版 guide 體驗優化
+- [x] 多選材料／配件帶入 refs（`guideLinkedAssetRefs` + 設計頁參考槽）
+- [x] **廠商設定擇一組** UI + API（`pick_group`／`allow_multi_pick`；SQL 見上）
+- [x] 廠商設計洞察頁（`GET …/design-insights`、控制台入口）
+- [ ] guide 與原規劃「卡片樹」文件對齊說明（`vendor-product-link-tree-ui-plan.md` 仍寫樹狀—實作為橫條）
 - [ ] 可選：精簡 `GET /api/vendor-assets/browse-prototypes` 避免 API 分叉
 - [ ] 更新 `docs/網站完整功能說明.md`
 - [ ] `#bs-open-vendor-picker` 一鍵開素材庫（若產品要此按鈕）
+- [ ] Phase 2 SEO：`sitemap-product-trees.xml`（見 `vendor-product-link-tree-ui-plan.md` §8）
 
 ---
 
@@ -146,5 +196,6 @@ Cursor agent transcripts：
 
 - `c34f087d-a5f6-4a90-95ce-7d670795ff87` — Phase 1～廠商版型 Tab 初版
 - 2026-06-03 對話 — 廠商名稱、分類中文、`has_prototype_links` 列表過濾
+- `04206a2e-bd2d-44ec-a58e-68cec9616193` — guide 橫條 UI、選取態、放大、對齊與捲動箭頭（2026-06-04）
 
 新對話可說：「請讀 `docs/PROGRESS-vendor-styles-and-product-tree.md` 繼續。」
