@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-gallery-grouped-derived-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-upload-new-only-default-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1134,14 +1134,35 @@
             return '';
         }
 
+        function syncPendingUploadCheckboxUi(item, card, prefix) {
+            var orig = card.querySelector('.' + prefix + '-upload-original');
+            var rd = card.querySelector('.' + prefix + '-upload-redraw');
+            var up = card.querySelector('.' + prefix + '-upload-upscale');
+            if (orig) orig.checked = item.uploadOriginal !== false;
+            if (rd) rd.checked = item.uploadRedraw !== false;
+            if (up) up.checked = item.uploadUpscale !== false;
+        }
+
+        /** 勾選上傳新圖時不保留原圖；勾選上傳原圖時不併傳已產生的新圖 */
+        function applyPendingUploadExclusive(item, card, prefix, changed) {
+            if (changed === 'redraw' || changed === 'upscale') {
+                if (item.uploadRedraw || item.uploadUpscale) item.uploadOriginal = false;
+            } else if (changed === 'original' && item.uploadOriginal !== false) {
+                item.uploadRedraw = false;
+                item.uploadUpscale = false;
+            }
+            if (card && prefix) syncPendingUploadCheckboxUi(item, card, prefix);
+        }
+
         function wirePendingUploadCheckboxes(card, item, prefix) {
             var orig = card.querySelector('.' + prefix + '-upload-original');
             if (orig) {
                 orig.addEventListener('change', function () {
                     item.uploadOriginal = orig.checked;
+                    applyPendingUploadExclusive(item, card, prefix, 'original');
                     if (!pendingUploadEntries(item).length) {
                         item.uploadOriginal = true;
-                        orig.checked = true;
+                        applyPendingUploadExclusive(item, card, prefix, 'original');
                         showToast('每組至少須上傳一張圖', 'warning');
                     }
                 });
@@ -1150,9 +1171,10 @@
             if (rd) {
                 rd.addEventListener('change', function () {
                     item.uploadRedraw = rd.checked;
+                    applyPendingUploadExclusive(item, card, prefix, 'redraw');
                     if (!pendingUploadEntries(item).length) {
                         item.uploadRedraw = true;
-                        rd.checked = true;
+                        applyPendingUploadExclusive(item, card, prefix, 'redraw');
                         showToast('每組至少須上傳一張圖', 'warning');
                     }
                 });
@@ -1161,9 +1183,10 @@
             if (up) {
                 up.addEventListener('change', function () {
                     item.uploadUpscale = up.checked;
+                    applyPendingUploadExclusive(item, card, prefix, 'upscale');
                     if (!pendingUploadEntries(item).length) {
                         item.uploadUpscale = true;
-                        up.checked = true;
+                        applyPendingUploadExclusive(item, card, prefix, 'upscale');
                         showToast('每組至少須上傳一張圖', 'warning');
                     }
                 });
@@ -1430,9 +1453,9 @@
                 item.redrawChargedPts = data.points_deducted || 0;
                 item.optimize = true;
                 item.uploadRedraw = true;
-                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
+                item.uploadOriginal = false;
                 item.redrawFile = await fileFromPreviewResponse(data, 'redraw-' + idx + '.jpg');
-                var okMsg = '已產生重繪新圖，請勾選要上傳的圖片';
+                var okMsg = '已產生重繪新圖，預設只上傳新圖（不保留原圖）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
             } catch (err) {
@@ -1478,9 +1501,9 @@
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
                 item.upscaleChargedPts = data.points_deducted || 0;
                 item.uploadUpscale = true;
-                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
+                item.uploadOriginal = false;
                 item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-' + idx + '.jpg');
-                var okMsg = '已產生 AI 放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '），請勾選要上傳的圖片';
+                var okMsg = '已產生 AI 放大新圖，預設只上傳新圖（不保留原圖）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
             } catch (err) {
@@ -1498,6 +1521,7 @@
             item.redrawChargedPts = 0;
             item.optimize = false;
             item.uploadRedraw = false;
+            if (!pendingHasDerivedPreview(item)) item.uploadOriginal = true;
             item.imageBusy = false;
             renderPendingImages(form);
             updateAddFormPointsEstimate(form);
@@ -1508,6 +1532,7 @@
             item.upscaleFile = null;
             item.upscaleChargedPts = 0;
             item.uploadUpscale = false;
+            if (!pendingHasDerivedPreview(item)) item.uploadOriginal = true;
             item.imageBusy = false;
             renderPendingImages(form);
             updateAddFormPointsEstimate(form);
@@ -1724,9 +1749,9 @@
                 item.redrawChargedPts = data.points_deducted || 0;
                 item.optimize = true;
                 item.uploadRedraw = true;
-                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
+                item.uploadOriginal = false;
                 item.redrawFile = await fileFromPreviewResponse(data, 'redraw-' + idx + '.jpg');
-                showToast('已產生重繪新圖，請勾選要上傳的圖片' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+                showToast('已產生重繪新圖，預設只上傳新圖（不保留原圖）' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
             } finally {
@@ -1766,9 +1791,9 @@
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
                 item.upscaleChargedPts = data.points_deducted || 0;
                 item.uploadUpscale = true;
-                if (item.uploadOriginal === undefined) item.uploadOriginal = true;
+                item.uploadOriginal = false;
                 item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-' + idx + '.jpg');
-                showToast('已產生 AI 放大新圖，請勾選要上傳的圖片' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+                showToast('已產生 AI 放大新圖，預設只上傳新圖（不保留原圖）' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || 'AI 放大失敗', 'danger');
             } finally {
@@ -1828,6 +1853,7 @@
                         item.redrawChargedPts = 0;
                         item.optimize = false;
                         item.uploadRedraw = false;
+                        if (!pendingHasDerivedPreview(item)) item.uploadOriginal = true;
                         renderEditGalleryPending();
                     });
                 }
@@ -1838,6 +1864,7 @@
                         item.upscaleFile = null;
                         item.upscaleChargedPts = 0;
                         item.uploadUpscale = false;
+                        if (!pendingHasDerivedPreview(item)) item.uploadOriginal = true;
                         renderEditGalleryPending();
                     });
                 }

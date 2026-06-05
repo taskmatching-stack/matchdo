@@ -41,7 +41,7 @@
 
 - 可「新增圖片」逐張或「一次選多張」加入待傳清單（`pending-image-card`）。
 - 第一張為封面；各卡 **「AI 重繪」** 預覽後在卡下方顯示**重繪新圖**縮圖（原圖仍為主圖，非並排大欄）。
-- 發布：原圖 + 重繪檔各上一張；**名稱維持使用者自訂**（不強加 `（重繪）`／`（放大）`）；衍生圖以 `gallery_images[].ai_derived`（`redraw`｜`upscale`）標記；預覽已扣點則發布不再重扣重繪費。
+- 發布：產生 AI 新圖後**預設只上傳新圖**（不勾原圖）；勾「上傳原圖」與「上傳此張」互斥。**名稱維持使用者自訂**（不強加 `（重繪）`／`（放大）`）；衍生圖以 `gallery_images[].ai_derived`（`redraw`｜`upscale`）標記；預覽已扣點則發布不再重扣重繪費。
 - 扣點：封面重繪補差額、角度圖 `points_optimize_extra`（見 `computeGalleryImageRedrawPoints`）。
 - 送出：`POST /api/me/vendor-assets`（`image` + `gallery[]` + `image_labels`）。
 
