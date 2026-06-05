@@ -8244,6 +8244,22 @@ async function computeVendorAssetOptimizeTotalPoints(optCount, assetKind) {
     return optPts + Math.max(0, optCount - 1) * extraPer;
 }
 
+/** 圖片名稱去掉尾端（重繪）（放大）後再追加新後綴，避免「xxx（放大）（重繪）」無限疊加 */
+function stripVendorImageDerivedSuffixes(label) {
+    let s = String(label || '').trim();
+    let prev;
+    do {
+        prev = s;
+        s = s.replace(/（重繪）$/, '').replace(/（放大）$/, '').trim();
+    } while (s !== prev);
+    return s;
+}
+
+function appendVendorImageDerivedSuffix(baseLabel, suffix) {
+    const base = stripVendorImageDerivedSuffixes(baseLabel);
+    return ((base || '') + suffix).slice(0, 120);
+}
+
 /** 編輯區單張 AI 重繪：封面已付上傳費時只補差額；其餘角度／已重繪圖用 extra */
 async function computeGalleryImageRedrawPoints(assetKind, row, sourceUrl) {
     const extraPer = await getPointsVendorAssetOptimizeExtraPer();
@@ -14964,7 +14980,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             }
         } else {
             const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
-            const redrawLabel = (srcLabel ? (srcLabel + '（重繪）') : 'AI重繪').slice(0, 120);
+            const redrawLabel = appendVendorImageDerivedSuffix(srcLabel, '（重繪）') || 'AI重繪';
             const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort, [redrawLabel]);
             if (!newEntries.length) {
                 return res.status(500).json({ error: '上傳重繪結果失敗' });
@@ -15051,9 +15067,6 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         const sourceItems = buildVendorAssetImageItems(row);
         const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
         const srcLabel = (srcItem && srcItem.label) || '';
-        if (srcLabel.includes('（放大）') || srcLabel.includes('（重繪）')) {
-            return res.status(400).json({ error: '請對原圖操作，勿對衍生圖重複放大' });
-        }
         const pointsRequired = await getPointsVendorAssetUpscale();
         let ownerId = seedUser.id;
         let isAdmin = false;
@@ -15091,7 +15104,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
             });
         }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
-        const upscaleLabel = (srcLabel ? (srcLabel + '（放大）') : '4×放大').slice(0, 120);
+        const upscaleLabel = appendVendorImageDerivedSuffix(srcLabel, '（放大）') || '4×放大';
         const upscaleFile = {
             buffer: upscaled.buffer,
             mimetype: upscaled.mimetype,

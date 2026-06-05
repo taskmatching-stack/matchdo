@@ -501,7 +501,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點、不產生新檔。「<strong>AI 重繪</strong>」或「<strong>AI 放大</strong>」：會<strong>追加</strong>新圖（原圖保留）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；圖片 <strong>&lt;0.5 MP</strong> 可按「AI 放大」（依原圖比例，總解析度最高 1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請點 <strong>?</strong> 前往 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>（4×、≤4MP）。<strong>不另收上傳費</strong>。</p>
+                                <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」／「<strong>AI 放大</strong>」：每張圖（含 AI 放大新圖）都可按，會<strong>追加</strong>新圖。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請點 <strong>?</strong> 前往 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。<strong>不另收上傳費</strong>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-preview-enlarge-term-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-upload-derived-fix-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -650,6 +650,40 @@
         var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
         var editGalleryHighlightUrls = new Set();
+        var editModalBound = false;
+
+        function getEditModalInstance() {
+            var el = document.getElementById('edit-modal');
+            if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
+            return bootstrap.Modal.getOrCreateInstance(el);
+        }
+
+        function releaseEditGalleryBusyState() {
+            editGalleryUploading = false;
+            gridDisableEditGalleryActions(false);
+        }
+
+        function cleanupStrayModalBackdrops() {
+            if (document.querySelectorAll('.modal.show').length) return;
+            document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+
+        function bindEditModalLifecycle() {
+            if (editModalBound) return;
+            var el = document.getElementById('edit-modal');
+            if (!el) return;
+            editModalBound = true;
+            el.addEventListener('hidden.bs.modal', function () {
+                releaseEditGalleryBusyState();
+                cleanupStrayModalBackdrops();
+                if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.close === 'function') {
+                    window.MatchdoImageLightbox.close();
+                }
+            });
+        }
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
         var catalogGroupsDbReady = true;
@@ -1825,8 +1859,8 @@
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
                 var actions = '<div class="pending-actions">' +
-                    (!isDerived ? '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' : '') +
-                    (!isDerived ? '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' : '') +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
                     (!(it.is_cover || idx === 0)
                         ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'
@@ -1872,8 +1906,6 @@
                 });
             });
             items.forEach(function (it) {
-                var lbl = (it.label || '').trim();
-                if (lbl.indexOf('（重繪）') >= 0 || lbl.indexOf('（放大）') >= 0) return;
                 probeGalleryUrlForUpscale(it.url);
             });
             syncGalleryUpscaleButtons();
@@ -1948,8 +1980,7 @@
                 showToast(err.message, 'danger');
                 return false;
             } finally {
-                editGalleryUploading = false;
-                gridDisableEditGalleryActions(false);
+                releaseEditGalleryBusyState();
             }
         }
 
@@ -2023,8 +2054,7 @@
                 showToast(err.message, 'danger');
                 return false;
             } finally {
-                editGalleryUploading = false;
-                gridDisableEditGalleryActions(false);
+                releaseEditGalleryBusyState();
             }
         }
 
@@ -2089,8 +2119,7 @@
                 setEditGalleryStatus(err.message || '設定封面失敗', 'danger');
                 showToast(err.message, 'danger');
             } finally {
-                editGalleryUploading = false;
-                gridDisableEditGalleryActions(false);
+                releaseEditGalleryBusyState();
             }
         }
 
@@ -2271,8 +2300,7 @@
                 showToast(err.message, 'danger');
                 return false;
             } finally {
-                editGalleryUploading = false;
-                gridDisableEditGalleryActions(false);
+                releaseEditGalleryBusyState();
             }
         }
 
@@ -2304,6 +2332,8 @@
                 var msg = (err && err.message) ? err.message : '上傳失敗';
                 setEditGalleryStatus(msg, 'danger');
                 showToast(msg, 'danger');
+            }).finally(function () {
+                releaseEditGalleryBusyState();
             });
         }
 
@@ -3699,7 +3729,11 @@
                 renderEditGallery(m);
             }
             clearEditGalleryPending();
-            editGalleryUploading = false;
+            releaseEditGalleryBusyState();
+            cleanupStrayModalBackdrops();
+            if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.close === 'function') {
+                window.MatchdoImageLightbox.close();
+            }
             setEditGalleryStatus('', null);
             var buildHint = document.getElementById('edit-gallery-build-hint');
             if (buildHint) buildHint.textContent = '頁面版本 ' + (window.__MATCHDO_MATERIALS_BUILD || '—');
@@ -3727,8 +3761,9 @@
             if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
             if (linkedProtosWrap) linkedProtosWrap.classList.add('d-none');
             loadEditPrototypeLinks(id);
-            editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
-            editModalEl.show();
+            bindEditModalLifecycle();
+            var modal = getEditModalInstance();
+            if (modal) modal.show();
         }
 
         function onEditCoverFileChange(isPrototype) {
@@ -3742,6 +3777,7 @@
         document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
+        bindEditModalLifecycle();
         bindEditGalleryUpload();
         var editGalleryBgSel = document.getElementById('edit-gallery-optimize-bg');
         if (editGalleryBgSel) {
@@ -3878,8 +3914,9 @@
                 if (normalizeKind(saved.asset_kind) === 'prototype' || normalizeKind(saved.asset_kind) === 'part') {
                     openEditModal(id);
                     setEditGalleryStatus('已儲存。圖庫內容如下；若要白底請對各圖按「AI 重繪」', 'success');
-                } else if (editModalEl) {
-                    editModalEl.hide();
+                } else {
+                    var em = getEditModalInstance();
+                    if (em) em.hide();
                 }
             } catch (err) { showToast(err.message, 'danger'); }
         });
