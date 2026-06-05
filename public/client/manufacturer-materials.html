@@ -32,6 +32,8 @@
         .pending-redraw-new-row label { font-size: 0.65rem; color: #198754; margin-bottom: 2px; display: block; }
         .pending-redraw-new-row img { width: 100%; max-height: 72px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid #198754; }
         .pending-redraw-thumb { display: block; max-height: 56px; max-width: 100%; width: auto; margin-top: 4px; border-radius: 6px; border: 1px solid #198754; object-fit: contain; cursor: zoom-in; background: #fff; }
+        .pending-upscale-ai-edit-help { display: inline-flex; align-items: center; color: #0dcaf0; text-decoration: none; font-size: 1rem; line-height: 1; margin-left: 2px; vertical-align: middle; }
+        .pending-upscale-ai-edit-help:hover { color: #0aa2c0; }
         .material-img-count { position: absolute; top: 8px; left: 8px; z-index: 1; }
         .add-card { border: 2px dashed #cdd4dc; border-radius: 12px; cursor: pointer; min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #8a9ab0; transition: border-color .15s, color .15s, background .15s; }
         .add-card:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f7ff; }
@@ -497,7 +499,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0">點各圖下方「AI 重繪」會<strong>追加</strong>新圖（原圖保留）；每張約 <span class="edit-gallery-redraw-points-extra">5</span> 點起，<strong>不另收上傳費</strong>。</p>
+                                <p class="form-text text-muted small mb-0">「AI 重繪」或「原圖放大」皆<strong>追加</strong>新圖（原圖保留）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；原圖 <strong>&lt;0.5 MP</strong> 可按「原圖放大」（<strong>依原圖比例</strong>，總解析度<strong>最高 1MP</strong>，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請點 <strong>?</strong> 前往 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>（4×、≤4MP）。<strong>不另收上傳費</strong>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
@@ -610,7 +612,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'redraw-append-new-image-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-upscale-aspect-1mp-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -641,7 +643,7 @@
         var supplierImportModal = null;
         var supplierImportFilterId = null;
         var highlightAssetId = null;
-        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_description: 1 };
+        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_upscale: 5, points_description: 1 };
         var editPending = { tags: null, semantics: null };
         var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
@@ -1008,15 +1010,158 @@
                 '<img src="' + esc(item.redrawPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="重繪新圖預覽"></div>';
         }
 
+        function pendingUpscaleThumbHtml(item) {
+            if (!item.upscalePreviewUrl) return '';
+            return '<div class="pending-redraw-new-row"><label>放大新圖（≤1MP）</label>' +
+                '<img src="' + esc(item.upscalePreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="放大新圖預覽"></div>';
+        }
+
+        function pendingDerivedThumbsHtml(item) {
+            return pendingRedrawThumbHtml(item) + pendingUpscaleThumbHtml(item);
+        }
+
         function pendingRedrawNewThumbHtml(item) {
-            return pendingRedrawThumbHtml(item);
+            return pendingDerivedThumbsHtml(item);
+        }
+
+        function vendorAssetUpscalePoints() {
+            return uploadPricing.points_upscale != null ? uploadPricing.points_upscale : 5;
+        }
+
+        var ONE_MP_PX = 1024 * 1024;
+        var VENDOR_UPSCALE_MIN_MP = 0.5;
+        var VENDOR_UPSCALE_MAX_MP = 1;
+        var VENDOR_UPSCALE_RULE_TEXT = '依原圖比例放大，總解析度最高 1MP';
+        var AI_EDIT_UPSCALE_URL = '/client/ai-edit.html';
+        var AI_EDIT_UPSCALE_HELP_TITLE = '圖片已 ≥0.5 MP。若仍需要更大解析度，請至「我的 AI 編輯區」→ 放大（4×，輸出 ≤4MP，10 點/次）';
+        var galleryUpscaleProbe = {};
+
+        function evaluatePendingUpscaleNeed(width, height) {
+            var w = width | 0;
+            var h = height | 0;
+            if (w <= 0 || h <= 0) {
+                return { needed: true, megapixels: 0, hint: '無法讀取尺寸，送出時由伺服器判斷', showAiEditHelp: false };
+            }
+            var px = w * h;
+            var mp = px / ONE_MP_PX;
+            if (mp >= VENDOR_UPSCALE_MIN_MP) {
+                return {
+                    needed: false,
+                    megapixels: mp,
+                    hint: '約 ' + mp.toFixed(2) + ' MP（≥0.5 MP），請用 AI 編輯區放大',
+                    showAiEditHelp: true
+                };
+            }
+            return { needed: true, megapixels: mp, hint: VENDOR_UPSCALE_RULE_TEXT, showAiEditHelp: false };
+        }
+
+        function pendingUpscaleAiEditHelpHtml(showHelp) {
+            if (!showHelp) return '';
+            return '<a href="' + esc(AI_EDIT_UPSCALE_URL) + '" class="pending-upscale-ai-edit-help" target="_blank" rel="noopener" ' +
+                'title="' + esc(AI_EDIT_UPSCALE_HELP_TITLE) + '" aria-label="前往我的 AI 編輯區放大">' +
+                '<i class="bi bi-question-circle"></i></a>';
+        }
+
+        function probeImageDimensionsFromFile(file) {
+            return new Promise(function (resolve) {
+                if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+                    resolve({ width: 0, height: 0 });
+                    return;
+                }
+                var objUrl = URL.createObjectURL(file);
+                var img = new Image();
+                img.onload = function () {
+                    URL.revokeObjectURL(objUrl);
+                    resolve({ width: img.naturalWidth || 0, height: img.naturalHeight || 0 });
+                };
+                img.onerror = function () {
+                    URL.revokeObjectURL(objUrl);
+                    resolve({ width: 0, height: 0 });
+                };
+                img.src = objUrl;
+            });
+        }
+
+        function probeImageDimensionsFromUrl(url) {
+            return new Promise(function (resolve) {
+                if (!url) {
+                    resolve({ width: 0, height: 0 });
+                    return;
+                }
+                var img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = function () {
+                    resolve({ width: img.naturalWidth || 0, height: img.naturalHeight || 0 });
+                };
+                img.onerror = function () {
+                    resolve({ width: 0, height: 0 });
+                };
+                img.src = url;
+            });
+        }
+
+        function applyItemUpscaleProbe(item, width, height) {
+            var ev = evaluatePendingUpscaleNeed(width, height);
+            item.upscaleProbeDone = true;
+            item.upscaleNeeded = ev.needed;
+            item.upscaleMegapixels = ev.megapixels;
+            item.upscaleHint = ev.hint;
+            item.upscaleShowAiEditHelp = !!ev.showAiEditHelp;
+        }
+
+        function pendingUpscaleBtnDisabled(item) {
+            return !!item.imageBusy || item.upscaleProbeDone !== true || item.upscaleNeeded === false;
+        }
+
+        function pendingUpscaleBtnTitle(item) {
+            if (item.imageBusy) return '';
+            if (item.upscaleProbeDone !== true) return '正在檢查解析度…';
+            if (item.upscaleNeeded === false) return item.upscaleHint || '已 ≥0.5 MP，請用 AI 編輯區放大';
+            return item.upscaleHint || ('原圖 <0.5 MP 才可放大（' + VENDOR_UPSCALE_RULE_TEXT + '）');
+        }
+
+        function probePendingItemUpscale(form, item, rerenderFn) {
+            if (!item || !item.file) return Promise.resolve();
+            item.upscaleProbeDone = false;
+            return probeImageDimensionsFromFile(item.file).then(function (dim) {
+                applyItemUpscaleProbe(item, dim.width, dim.height);
+                if (typeof rerenderFn === 'function') rerenderFn();
+            });
+        }
+
+        function probeGalleryUrlForUpscale(url) {
+            if (!url) return Promise.resolve();
+            return probeImageDimensionsFromUrl(url).then(function (dim) {
+                galleryUpscaleProbe[url] = evaluatePendingUpscaleNeed(dim.width, dim.height);
+                syncGalleryUpscaleButtons();
+            });
+        }
+
+        function syncGalleryUpscaleButtons() {
+            var grid = document.getElementById('edit-gallery-grid');
+            if (!grid) return;
+            grid.querySelectorAll('.gallery-upscale-ai-edit-help').forEach(function (el) { el.remove(); });
+            grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
+                var url = btn.getAttribute('data-url');
+                var probe = galleryUpscaleProbe[url];
+                if (!probe) {
+                    btn.disabled = true;
+                    btn.title = '正在檢查解析度…';
+                    return;
+                }
+                btn.disabled = !probe.needed;
+                btn.title = probe.hint || (probe.needed ? VENDOR_UPSCALE_RULE_TEXT : AI_EDIT_UPSCALE_HELP_TITLE);
+                if (!probe.needed && probe.showAiEditHelp) {
+                    btn.insertAdjacentHTML('afterend', pendingUpscaleAiEditHelpHtml(true));
+                }
+            });
         }
 
         async function previewPendingRedraw(form, item, idx) {
-            if (item.redrawLoading) return;
+            if (item.imageBusy) return;
             var pts = calcPendingPreviewRedrawPoints(form, idx);
             if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；發布時一併上傳新圖）')) return;
-            item.redrawLoading = true;
+            item.imageBusy = true;
             renderPendingImages(form);
             try {
                 var tok = token || (await getToken());
@@ -1054,7 +1199,54 @@
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
             } finally {
-                item.redrawLoading = false;
+                item.imageBusy = false;
+                renderPendingImages(form);
+                updateAddFormPointsEstimate(form);
+            }
+        }
+
+        async function previewPendingUpscale(form, item, idx) {
+            if (item.imageBusy) return;
+            if (item.upscaleProbeDone && item.upscaleNeeded === false) {
+                showToast((item.upscaleHint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
+                return;
+            }
+            var pts = vendorAssetUpscalePoints();
+            if (!window.confirm('原圖放大並追加新圖？（-' + pts + ' 點，原圖須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
+            item.imageBusy = true;
+            renderPendingImages(form);
+            try {
+                var tok = token || (await getToken());
+                if (!tok) { showToast('請先登入', 'danger'); return; }
+                var kind = form.getAttribute('data-kind') || 'prototype';
+                var fd = new FormData();
+                fd.append('image', item.file);
+                fd.append('asset_kind', kind);
+                var r = await fetch('/api/me/vendor-assets/preview-image-upscale', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok },
+                    body: fd
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    return;
+                }
+                if (!r.ok) {
+                    showToast(data.error || '放大失敗', 'danger');
+                    return;
+                }
+                item.upscalePreviewUrl = previewDataUrlFromResponse(data);
+                item.upscaleChargedPts = data.points_deducted || 0;
+                item.useUpscale = true;
+                item.upscaleFile = base64ToRedrawFile(data.preview_base64, 'upscale-' + idx + '.jpg');
+                var okMsg = '已產生放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '，原圖保留）';
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
+                showToast(okMsg);
+            } catch (err) {
+                showToast(err.message || '放大失敗', 'danger');
+            } finally {
+                item.imageBusy = false;
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
             }
@@ -1066,7 +1258,17 @@
             item.redrawChargedPts = 0;
             item.optimize = false;
             item.useRedraw = false;
-            item.redrawLoading = false;
+            item.imageBusy = false;
+            renderPendingImages(form);
+            updateAddFormPointsEstimate(form);
+        }
+
+        function clearPendingUpscalePreview(form, item) {
+            item.upscalePreviewUrl = null;
+            item.upscaleFile = null;
+            item.upscaleChargedPts = 0;
+            item.useUpscale = false;
+            item.imageBusy = false;
             renderPendingImages(form);
             updateAddFormPointsEstimate(form);
         }
@@ -1081,18 +1283,21 @@
                 var col = document.createElement('div');
                 col.className = 'col-6 col-sm-4 col-md-3';
                 var card = document.createElement('div');
-                card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '') + (item.redrawPreviewUrl ? ' is-new-redraw' : '');
+                card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '') + ((item.redrawPreviewUrl || item.upscalePreviewUrl) ? ' is-new-redraw' : '');
                 card.dataset.pendingId = item.id;
                 var url = URL.createObjectURL(item.file);
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                var imgHtml = item.redrawLoading
-                    ? '<div class="text-muted small text-center py-4">重繪中…</div>'
+                var imgHtml = item.imageBusy
+                    ? '<div class="text-muted small text-center py-4">處理中…</div>'
                     : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="原圖（點擊放大）">';
-                card.innerHTML = coverBadge + imgHtml + pendingRedrawThumbHtml(item) +
+                card.innerHTML = coverBadge + imgHtml + pendingDerivedThumbsHtml(item) +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     '<div class="pending-actions">' +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.redrawLoading ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-zoom-in me-1"></i>原圖放大</button>' +
+                    pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
                     (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-redraw">清除重繪新圖</button>' : '') +
+                    (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-upscale">清除放大新圖</button>' : '') +
                     (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
@@ -1100,9 +1305,16 @@
                 card.querySelector('.pending-redraw-btn').addEventListener('click', function () {
                     previewPendingRedraw(form, item, idx);
                 });
+                card.querySelector('.pending-upscale-btn').addEventListener('click', function () {
+                    previewPendingUpscale(form, item, idx);
+                });
                 var clearBtn = card.querySelector('.pending-clear-redraw');
                 if (clearBtn) {
                     clearBtn.addEventListener('click', function () { clearPendingRedrawPreview(form, item); });
+                }
+                var clearUp = card.querySelector('.pending-clear-upscale');
+                if (clearUp) {
+                    clearUp.addEventListener('click', function () { clearPendingUpscalePreview(form, item); });
                 }
                 var labelIn = card.querySelector('.pending-image-label');
                 if (labelIn) {
@@ -1137,7 +1349,9 @@
             if (kind === 'material') return;
             var list = getPendingImages(form);
             var upload = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
-            var charged = list.reduce(function (s, p) { return s + (p.redrawChargedPts || 0); }, 0);
+            var charged = list.reduce(function (s, p) {
+                return s + (p.redrawChargedPts || 0) + (p.upscaleChargedPts || 0);
+            }, 0);
             var valEl = form.querySelector('.add-points-estimate-val');
             var hintEl = form.querySelector('.add-points-estimate-hint');
             var redrawLine = form.querySelector('.add-points-redraw-estimate-line');
@@ -1145,7 +1359,7 @@
             if (hintEl) {
                 hintEl.textContent = charged > 0
                     ? '（發布上傳 ' + upload + ' 點；已預覽重繪 -' + charged + ' 點，發布時採用預覽不再重扣）'
-                    : '（發布上傳 ' + upload + ' 點；各圖按「AI 重繪」預覽，不另收上傳費）';
+                    : '（發布上傳 ' + upload + ' 點；各圖可「AI 重繪」或「原圖放大」預覽，不另收上傳費）';
             }
             if (redrawLine) redrawLine.classList.add('d-none');
             syncAddFormOptimizeBgWrap(form);
@@ -1173,7 +1387,9 @@
                     id: 'p' + Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2),
                     file: fileList[i],
                     optimize: false,
-                    label: labelFromFilename(fileList[i].name)
+                    label: labelFromFilename(fileList[i].name),
+                    upscaleProbeDone: false,
+                    upscaleNeeded: true
                 });
                 added++;
             }
@@ -1181,6 +1397,9 @@
                 clearSupplierRefForManualUpload(form);
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
+                list.slice(-added).forEach(function (item) {
+                    probePendingItemUpscale(form, item, function () { renderPendingImages(form); });
+                });
             }
             return added;
         }
@@ -1231,10 +1450,10 @@
         }
 
         async function previewEditPendingRedraw(item, idx) {
-            if (item.redrawLoading) return;
+            if (item.imageBusy) return;
             var pts = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
             if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；上傳時一併送出新圖）')) return;
-            item.redrawLoading = true;
+            item.imageBusy = true;
             renderEditGalleryPending();
             try {
                 var tok = token || (await getToken());
@@ -1266,7 +1485,48 @@
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
             } finally {
-                item.redrawLoading = false;
+                item.imageBusy = false;
+                renderEditGalleryPending();
+            }
+        }
+
+        async function previewEditPendingUpscale(item, idx) {
+            if (item.imageBusy) return;
+            if (item.upscaleProbeDone && item.upscaleNeeded === false) {
+                showToast((item.upscaleHint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
+                return;
+            }
+            var pts = vendorAssetUpscalePoints();
+            if (!window.confirm('原圖放大並追加新圖？（-' + pts + ' 點，原圖須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
+            item.imageBusy = true;
+            renderEditGalleryPending();
+            try {
+                var tok = token || (await getToken());
+                if (!tok) { showToast('請先登入', 'danger'); return; }
+                var m = materialsAll.find(function (x) { return x.id === document.getElementById('edit-id').value; });
+                var fd = new FormData();
+                fd.append('image', item.file);
+                fd.append('asset_kind', m ? m.asset_kind : 'prototype');
+                var r = await fetch('/api/me/vendor-assets/preview-image-upscale', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok },
+                    body: fd
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    return;
+                }
+                if (!r.ok) { showToast(data.error || '放大失敗', 'danger'); return; }
+                item.upscalePreviewUrl = previewDataUrlFromResponse(data);
+                item.upscaleChargedPts = data.points_deducted || 0;
+                item.useUpscale = true;
+                item.upscaleFile = base64ToRedrawFile(data.preview_base64, 'upscale-' + idx + '.jpg');
+                showToast('已產生放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '，原圖保留）' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
+            } catch (err) {
+                showToast(err.message || '放大失敗', 'danger');
+            } finally {
+                item.imageBusy = false;
                 renderEditGalleryPending();
             }
         }
@@ -1292,20 +1552,26 @@
                 var col = document.createElement('div');
                 col.className = 'col-6 col-sm-4 col-md-3';
                 var card = document.createElement('div');
-                card.className = 'pending-image-card' + (item.redrawPreviewUrl ? ' is-new-redraw' : '');
+                card.className = 'pending-image-card' + ((item.redrawPreviewUrl || item.upscalePreviewUrl) ? ' is-new-redraw' : '');
                 var url = URL.createObjectURL(item.file);
-                var imgHtml = item.redrawLoading
-                    ? '<div class="text-muted small text-center py-4">重繪中…</div>'
+                var imgHtml = item.imageBusy
+                    ? '<div class="text-muted small text-center py-4">處理中…</div>'
                     : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" alt="">';
-                card.innerHTML = imgHtml + pendingRedrawNewThumbHtml(item) +
+                card.innerHTML = imgHtml + pendingDerivedThumbsHtml(item) +
                     '<div class="pending-actions mt-1">' +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.redrawLoading ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    '<button type="button" class="btn btn-outline-info btn-sm edit-pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-zoom-in me-1"></i>原圖放大</button>' +
+                    pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
                     (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-redraw">清除重繪新圖</button>' : '') +
+                    (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-upscale">清除放大新圖</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
                 wrap.appendChild(col);
                 card.querySelector('.edit-pending-redraw-btn').addEventListener('click', function () {
                     previewEditPendingRedraw(item, idx);
+                });
+                card.querySelector('.edit-pending-upscale-btn').addEventListener('click', function () {
+                    previewEditPendingUpscale(item, idx);
                 });
                 var clr = card.querySelector('.edit-pending-clear-redraw');
                 if (clr) {
@@ -1315,6 +1581,16 @@
                         item.redrawChargedPts = 0;
                         item.optimize = false;
                         item.useRedraw = false;
+                        renderEditGalleryPending();
+                    });
+                }
+                var clrUp = card.querySelector('.edit-pending-clear-upscale');
+                if (clrUp) {
+                    clrUp.addEventListener('click', function () {
+                        item.upscalePreviewUrl = null;
+                        item.upscaleFile = null;
+                        item.upscaleChargedPts = 0;
+                        item.useUpscale = false;
                         renderEditGalleryPending();
                     });
                 }
@@ -1332,6 +1608,7 @@
             var id = document.getElementById('edit-id').value;
             var m = materialsAll.find(function (x) { return x.id === id; });
             var current = m ? assetImageUrls(m).length : 0;
+            var added = 0;
             for (var i = 0; i < fileList.length; i++) {
                 if (current + list.length >= PROTOTYPE_MAX_IMAGES) {
                     showToast('最多 ' + PROTOTYPE_MAX_IMAGES + ' 張圖片', 'warning');
@@ -1340,16 +1617,27 @@
                 list.push({
                     id: 'ep' + Date.now() + '-' + i,
                     file: fileList[i],
-                    optimize: false
+                    optimize: false,
+                    upscaleProbeDone: false,
+                    upscaleNeeded: true
                 });
+                added++;
             }
             renderEditGalleryPending();
+            if (added) {
+                list.slice(-added).forEach(function (item) {
+                    probePendingItemUpscale(null, item, function () { renderEditGalleryPending(); });
+                });
+            }
         }
 
         function syncEditGalleryRedrawSettings() {
             var extra = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
             document.querySelectorAll('.edit-gallery-redraw-points-extra').forEach(function (el) {
                 el.textContent = String(extra);
+            });
+            document.querySelectorAll('.edit-gallery-upscale-points').forEach(function (el) {
+                el.textContent = String(vendorAssetUpscalePoints());
             });
             var settings = document.getElementById('edit-gallery-redraw-settings');
             var grid = document.getElementById('edit-gallery-grid');
@@ -1395,21 +1683,25 @@
                 var isNew = editGalleryHighlightUrls.has(url);
                 var lbl = (it.label || '').trim();
                 var isRedrawNew = lbl.indexOf('（重繪）') >= 0;
+                var isUpscaleNew = lbl.indexOf('（放大）') >= 0;
+                var isDerived = isRedrawNew || isUpscaleNew;
                 var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var redrawNewBadge = isRedrawNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">重繪新圖</span>' : '';
-                var newBadge = (isNew && !isRedrawNew) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
+                var upscaleNewBadge = isUpscaleNew ? '<span class="badge bg-info text-dark mb-1 ms-1" style="font-size:0.65rem">放大新圖</span>' : '';
+                var newBadge = (isNew && !isDerived) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
                 var labelField = (it.is_cover || idx === 0)
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
                 var actions = '<div class="pending-actions">' +
-                    (!isRedrawNew ? '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' : '') +
+                    (!isDerived ? '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' : '') +
+                    (!isDerived ? '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" disabled title="正在檢查解析度…"><i class="bi bi-zoom-in me-1"></i>原圖放大</button>' : '') +
                     (!(it.is_cover || idx === 0)
                         ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'
                         : '') +
                     '</div>';
-                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || isRedrawNew) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
-                    coverBadge + redrawNewBadge + newBadge +
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || isDerived) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
+                    coverBadge + redrawNewBadge + upscaleNewBadge + newBadge +
                     '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '"' +
                     ' data-image-items="' + esc(JSON.stringify(items.map(function (x) { return { url: x.url, label: (x.label || '').trim() }; }))).replace(/"/g, '&quot;') + '">' +
                     labelField +
@@ -1441,7 +1733,92 @@
                     redrawGalleryImage(btn.getAttribute('data-url'));
                 });
             });
+            grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    upscaleGalleryImage(btn.getAttribute('data-url'));
+                });
+            });
+            items.forEach(function (it) {
+                var lbl = (it.label || '').trim();
+                if (lbl.indexOf('（重繪）') >= 0 || lbl.indexOf('（放大）') >= 0) return;
+                probeGalleryUrlForUpscale(it.url);
+            });
+            syncGalleryUpscaleButtons();
             syncEditGalleryRedrawSettings();
+        }
+
+        async function upscaleGalleryImage(sourceUrl, opts) {
+            opts = opts || {};
+            var id = document.getElementById('edit-id').value;
+            if (!id || !sourceUrl) return false;
+            if (editGalleryUploading) {
+                setEditGalleryStatus('上一批仍在傳送中，請稍候', 'warning');
+                return false;
+            }
+            var probe = galleryUpscaleProbe[sourceUrl];
+            if (probe && !probe.needed) {
+                showToast((probe.hint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
+                return false;
+            }
+            var pts = vendorAssetUpscalePoints();
+            if (!opts.skipConfirm && !window.confirm('以此圖放大並新增一張新圖？（-' + pts + ' 點，原圖須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return false;
+            editGalleryUploading = true;
+            gridDisableEditGalleryActions(true);
+            setEditGalleryStatus('原圖放大中…', 'info');
+            try {
+                var tok = token || (await getToken());
+                if (!tok) {
+                    setEditGalleryStatus('請先登入', 'danger');
+                    return false;
+                }
+                var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
+                var urlsBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]) : [];
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/upscale', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_url: sourceUrl })
+                });
+                var rawBody = await r.text();
+                var data = {};
+                try { data = rawBody ? JSON.parse(rawBody) : {}; } catch (parseErr) { data = {}; }
+                if (r.status === 402) {
+                    var msg402 = (data.error || '點數不足') + ' (' + (data.required || '') + ')';
+                    setEditGalleryStatus(msg402, 'danger');
+                    showToast(msg402, 'danger');
+                    return false;
+                }
+                if (!r.ok) {
+                    var errMsg = data.error || data.message || ('放大失敗 (HTTP ' + r.status + ')');
+                    setEditGalleryStatus(errMsg, 'danger');
+                    showToast(errMsg, 'danger');
+                    return false;
+                }
+                var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+                if (idx >= 0) materialsAll[idx] = data;
+                var lastNew = markNewGalleryUrls(urlsBefore, data);
+                renderEditGallery(data);
+                var urlCount = assetImageUrls(data).length;
+                var okMsg = '已新增放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '，原圖保留，共 ' + urlCount + ' 張）';
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                setEditGalleryStatus(okMsg, 'success');
+                showToast(okMsg);
+                if (lastNew) scrollEditGalleryToUrl(lastNew);
+                if (!opts.skipReload) {
+                    await loadMaterials();
+                    var refreshed = materialsAll.find(function (x) { return x.id === id; });
+                    if (refreshed) renderEditGallery(refreshed);
+                    if (lastNew) scrollEditGalleryToUrl(lastNew);
+                }
+                return true;
+            } catch (err) {
+                setEditGalleryStatus(err.message || '放大失敗', 'danger');
+                showToast(err.message, 'danger');
+                return false;
+            } finally {
+                editGalleryUploading = false;
+                gridDisableEditGalleryActions(false);
+            }
         }
 
         async function redrawGalleryImage(sourceUrl, opts) {
@@ -1534,7 +1911,7 @@
             if (btnPendingClear) btnPendingClear.disabled = disabled;
             var grid = document.getElementById('edit-gallery-grid');
             if (grid) {
-                grid.querySelectorAll('.btn-gallery-redraw-one, .btn-gallery-del, .btn-gallery-set-cover').forEach(function (el) {
+                grid.querySelectorAll('.btn-gallery-redraw-one, .btn-gallery-upscale-one, .btn-gallery-del, .btn-gallery-set-cover').forEach(function (el) {
                     el.disabled = disabled;
                 });
             }
@@ -1668,7 +2045,12 @@
                     if (p.redrawFile && p.useRedraw !== false) {
                         uploadFiles.push(p.redrawFile);
                         uploadLabels.push((baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120));
-                    } else if (p.optimize && !p.redrawFile) {
+                    }
+                    if (p.upscaleFile && p.useUpscale !== false) {
+                        uploadFiles.push(p.upscaleFile);
+                        uploadLabels.push((baseLabel ? baseLabel + '（放大）' : '放大').slice(0, 120));
+                    }
+                    if (p.optimize && !p.redrawFile && !p.upscaleFile) {
                         optIdx.push(uploadFiles.length - 1);
                     }
                 });
@@ -2075,6 +2457,7 @@
                     uploadPricing.points_optimize = d.points_optimize != null ? d.points_optimize : 15;
                     uploadPricing.points_optimize_material = d.points_optimize_material != null ? d.points_optimize_material : 10;
                     uploadPricing.points_optimize_extra = d.points_optimize_extra != null ? d.points_optimize_extra : 5;
+                    uploadPricing.points_upscale = d.points_upscale != null ? d.points_upscale : 5;
                     uploadPricing.points_description = d.points_description != null ? d.points_description : 1;
                 }
             } catch (_) {}
@@ -2809,7 +3192,12 @@
                     if (p.redrawFile && p.useRedraw !== false) {
                         uploadFiles.push(p.redrawFile);
                         uploadLabels.push((baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120));
-                    } else if (p.optimize && !p.redrawFile) {
+                    }
+                    if (p.upscaleFile && p.useUpscale !== false) {
+                        uploadFiles.push(p.upscaleFile);
+                        uploadLabels.push((baseLabel ? baseLabel + '（放大）' : '放大').slice(0, 120));
+                    }
+                    if (p.optimize && !p.redrawFile && !p.upscaleFile) {
                         optIdx.push(uploadFiles.length - 1);
                     }
                 });
