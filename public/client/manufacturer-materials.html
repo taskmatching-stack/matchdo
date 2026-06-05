@@ -171,13 +171,28 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）。上傳後請在「編輯」對各圖按「AI 重繪」預覽白底效果（與上傳分開、會扣點）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
-                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（本步驟僅上傳；AI 重繪請上傳後在編輯視窗操作）</span></p>
+                                    <div class="add-optimize-bg-wrap d-none mb-2">
+                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
+                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
+                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
+                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
+                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
+                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
+                                            </select>
+                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
+                                        </div>
+                                        <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">以原圖只換背景；保留產品本體上的字樣／Logo，不保留背景文字、不新增文字。自訂色請選「自訂色」後點色票。</p>
+                                    </div>
+                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；勾選重繪後按「AI 重繪並發布」另計）</span></p>
+                                    <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-prototype-links-block">
                                     <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
@@ -185,7 +200,11 @@
                                     <div class="add-prototype-links-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
                                     <p class="add-prototype-links-empty text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無其他材料或配件可選。</p>
                                 </div>
-                                <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                                <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+                                    <button type="button" class="btn btn-primary btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">僅上傳並發布</span></button>
+                                    <button type="button" class="btn btn-outline-primary btn-add-submit-redraw" disabled><i class="bi bi-magic me-1"></i><span data-i18n="baseModels.uploadPublishRedraw">AI 重繪並發布</span></button>
+                                    <span class="small text-danger add-form-msg"></span>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -259,12 +278,26 @@
                                     </div>
                                     <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（等同參考圖）或自行上傳；匯入後會出現在下方清單。</p>
-                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）。上傳後請在「編輯」對各圖按「AI 重繪」預覽白底效果（與上傳分開、會扣點）。可編輯每張圖名稱（預設檔名）。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.partMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；在圖下方勾選要 AI 重繪的張數（可複選）。可編輯每張圖名稱（預設檔名）。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
-                                    <p class="text-muted small mb-0 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（本步驟僅上傳；AI 重繪請上傳後在編輯視窗操作）</span></p>
+                                    <div class="add-optimize-bg-wrap d-none mb-2">
+                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
+                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
+                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
+                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
+                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
+                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
+                                            </select>
+                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
+                                        </div>
+                                    </div>
+                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；勾選重繪後按「AI 重繪並發布」另計）</span></p>
+                                    <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-linked-prototypes-block">
                                     <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
@@ -272,7 +305,11 @@
                                     <div class="add-linked-prototypes-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
                                     <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無其他主產品可選。</p>
                                 </div>
-                                <div class="col-12"><button type="submit" class="btn btn-warning btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
+                                <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+                                    <button type="button" class="btn btn-warning btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">僅上傳並發布</span></button>
+                                    <button type="button" class="btn btn-outline-warning btn-add-submit-redraw" disabled><i class="bi bi-magic me-1"></i><span data-i18n="baseModels.uploadPublishRedraw">AI 重繪並發布</span></button>
+                                    <span class="small text-danger add-form-msg"></span>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -565,7 +602,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-redraw-split-20260604';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-redraw-two-buttons-20260604';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -928,11 +965,18 @@
                 card.innerHTML = coverBadge +
                     '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="點擊放大預覽">' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
+                    '<div class="form-check form-check-sm mt-1 mb-0">' +
+                    '<input class="form-check-input pending-optimize-chk" type="checkbox" id="po-' + esc(item.id) + '"' + (item.optimize ? ' checked' : '') + '>' +
+                    '<label class="form-check-label small" for="po-' + esc(item.id) + '">AI 重繪</label></div>' +
                     '<div class="pending-actions">' +
                     (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
                 wrap.appendChild(col);
+                card.querySelector('.pending-optimize-chk').addEventListener('change', function () {
+                    item.optimize = this.checked;
+                    updateAddFormPointsEstimate(form);
+                });
                 var labelIn = card.querySelector('.pending-image-label');
                 if (labelIn) {
                     labelIn.addEventListener('input', function () {
@@ -964,9 +1008,24 @@
             if (!form) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
             if (kind === 'material') return;
+            var list = getPendingImages(form);
+            var optCount = list.filter(function (p) { return p.optimize; }).length;
             var upload = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
             var valEl = form.querySelector('.add-points-estimate-val');
             if (valEl) valEl.textContent = String(upload);
+            var redrawLine = form.querySelector('.add-points-redraw-estimate-line');
+            var redrawVal = form.querySelector('.add-points-redraw-estimate-val');
+            var redrawBtn = form.querySelector('.btn-add-submit-redraw');
+            if (optCount > 0) {
+                var redrawPts = calcAddFormPointsEstimate(kind, optCount, list.length);
+                if (redrawVal) redrawVal.textContent = String(redrawPts);
+                if (redrawLine) redrawLine.classList.remove('d-none');
+                if (redrawBtn) redrawBtn.disabled = false;
+            } else {
+                if (redrawLine) redrawLine.classList.add('d-none');
+                if (redrawBtn) redrawBtn.disabled = true;
+            }
+            syncAddFormOptimizeBgWrap(form);
         }
 
         function clearSupplierRefForManualUpload(form) {
@@ -1595,10 +1654,14 @@
 
         function syncAddFormOptimizeBgWrap(form) {
             if (!form) return;
-            var kind = form.getAttribute('data-kind');
-            if (kind === 'prototype' || kind === 'part') return;
             var wrap = form.querySelector('.add-optimize-bg-wrap');
             if (!wrap) return;
+            var kind = form.getAttribute('data-kind');
+            if (kind === 'prototype' || kind === 'part') {
+                var list = getPendingImages(form);
+                wrap.classList.toggle('d-none', !list.some(function (p) { return p.optimize; }));
+                return;
+            }
             var chk = form.querySelector('.add-optimize-product');
             if (!chk) return;
             wrap.classList.toggle('d-none', !chk.checked);
@@ -2385,6 +2448,134 @@
             btn.addEventListener('click', function () { switchKind(btn.getAttribute('data-kind')); });
         });
 
+        async function submitAddForm(form, withRedraw) {
+            var kind = form.getAttribute('data-kind');
+            var catSel = form.querySelector('.add-category');
+            var subSel = form.querySelector('.add-subcategory');
+            var imgInput = form.querySelector('.add-image');
+            var msgEl = form.querySelector('.add-form-msg');
+            if (form.dataset.supplierImported === '1') {
+                msgEl.textContent = tr('baseModels.supplierAlreadyInList', '此品已從供應商匯入，請見下方清單');
+                if (form.dataset.supplierVendorAssetId) highlightImportedAsset(form.dataset.supplierVendorAssetId);
+                return;
+            }
+            if (!catSel.value) { msgEl.textContent = '—'; return; }
+            var pending = getPendingImages(form);
+            var file = imgInput && imgInput.files && imgInput.files[0];
+            if ((kind === 'prototype' || kind === 'part') && !pending.length) {
+                msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+                return;
+            }
+            if (kind === 'material' && !file) { msgEl.textContent = '—'; return; }
+            if (kind === 'prototype') {
+                var subErr = validatePrototypeSubcategory(subSel, catSel.value);
+                if (subErr) { msgEl.textContent = subErr; return; }
+                var moqEl = form.querySelector('.add-min-order-qty');
+                var moqVal = moqEl ? String(moqEl.value || '').trim() : '';
+                if (!moqVal || parseInt(moqVal, 10) < 1) {
+                    msgEl.textContent = tr('baseModels.needMinOrderQty', '請填寫最小訂購量');
+                    return;
+                }
+                var clBox = form.querySelector('.add-customization-levels');
+                var clErr = validateCustomizationLevelsSelection(getSelectedCustomizationLevels(clBox));
+                if (clErr) {
+                    msgEl.textContent = clErr;
+                    return;
+                }
+            }
+            var optIdx = [];
+            if (kind === 'prototype' || kind === 'part') {
+                pending.forEach(function (p, i) { if (p.optimize) optIdx.push(i); });
+                if (withRedraw && !optIdx.length) {
+                    msgEl.textContent = '請先勾選要 AI 重繪的圖片';
+                    return;
+                }
+                if (withRedraw) {
+                    var redrawPts = calcAddFormPointsEstimate(kind, optIdx.length, pending.length);
+                    if (!window.confirm('上傳並對 ' + optIdx.length + ' 張勾選圖 AI 重繪？（預估 -' + redrawPts + ' 點）')) return;
+                }
+            }
+            msgEl.textContent = '';
+            var fd = new FormData();
+            fd.append('asset_kind', kind);
+            fd.append('category_key', catSel.value);
+            if (kind === 'prototype' && subSel) fd.append('subcategory_key', subSel.value || '');
+            fd.append('title', form.querySelector('.add-title').value || '');
+            fd.append('description', form.querySelector('.add-description').value || '');
+            fd.append('ui_locale', getUiLocaleForUpload());
+            fd.append('usage_type', 'reference_only');
+            if (kind === 'prototype' || kind === 'part') {
+                fd.append('image', pending[0].file);
+                for (var pi = 1; pi < pending.length; pi++) fd.append('gallery', pending[pi].file);
+                var imageLabels = pending.map(function (p) {
+                    return (p.label || labelFromFilename(p.file && p.file.name)).trim();
+                });
+                fd.append('image_labels', JSON.stringify(imageLabels));
+                if (withRedraw && optIdx.length) {
+                    fd.append('optimize_image_indices', JSON.stringify(optIdx));
+                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                }
+            } else {
+                var matLabel = labelFromFilename(file && file.name);
+                if (matLabel) fd.append('image_labels', JSON.stringify([matLabel]));
+                fd.append('image', file);
+                var optimizeChk = form.querySelector('.add-optimize-product');
+                if (optimizeChk && optimizeChk.checked) {
+                    fd.append('optimize_product_image', '1');
+                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                }
+            }
+            var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-' + kind));
+            if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
+            if (kind === 'prototype') {
+                fd.append('min_order_quantity', form.querySelector('.add-min-order-qty').value.trim());
+                fd.append('customization_levels', JSON.stringify(getSelectedCustomizationLevels(form.querySelector('.add-customization-levels'))));
+                fd.append('linked_links', JSON.stringify(readPrototypeLinkEntries(form.querySelector('.add-prototype-links-list'))));
+            } else if (kind === 'material' || kind === 'part') {
+                fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
+            }
+            var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit-redraw, .btn-add-submit');
+            btns.forEach(function (b) { b.disabled = true; });
+            try {
+                var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    msgEl.textContent = (data.error || tr('baseModels.insufficientPoints', '點數不足')) +
+                        ' (' + tr('baseModels.needPoints', '需要') + ' ' + (data.required || '') + ')';
+                    return;
+                }
+                if (!r.ok) { msgEl.textContent = data.error || 'failed'; return; }
+                var okMsg = tr('baseModels.uploadSuccess', withRedraw ? '上傳並重繪成功' : '上傳成功');
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
+                showToast(okMsg);
+                if (kind === 'prototype' && data.id && window.confirm(tr('productTree.gotoAfterUpload', '是否前往「產品關聯圖」設定材料／配件關聯？'))) {
+                    window.location.href = '/client/vendor-product-link-tree.html?prototype_asset_id=' + encodeURIComponent(data.id);
+                    return;
+                }
+                var newAssetId = data.id;
+                form.reset();
+                clearSupplierRefFromForm(form);
+                clearPendingImages(form);
+                showLocalImagePreview(form.querySelector('.add-image-preview'), null);
+                applyUploadPricingToForms();
+                await loadMaterials();
+                switchKind(kind);
+                if (newAssetId && (kind === 'prototype' || kind === 'part')) {
+                    editGalleryHighlightUrls.clear();
+                    openEditModal(newAssetId);
+                    setEditGalleryStatus(withRedraw
+                        ? '已上傳並重繪。圖庫如下，可點圖放大或繼續對其他圖按「AI 重繪」'
+                        : '已上傳原圖。若要白底，請勾選或點各圖「AI 重繪」', 'success');
+                }
+            } catch (err) {
+                msgEl.textContent = err.message || 'failed';
+            } finally {
+                btns.forEach(function (b) { b.disabled = false; });
+                updateAddFormPointsEstimate(form);
+            }
+        }
+
         document.querySelectorAll('.add-form').forEach(function (form) {
             var kind = form.getAttribute('data-kind');
             var catSel = form.querySelector('.add-category');
@@ -2404,108 +2595,17 @@
             }
             wirePendingImageUpload(form);
 
-            form.addEventListener('submit', async function (e) {
+            var btnUploadOnly = form.querySelector('.btn-add-submit-only');
+            var btnUploadRedraw = form.querySelector('.btn-add-submit-redraw');
+            if (btnUploadOnly) {
+                btnUploadOnly.addEventListener('click', function () { submitAddForm(form, false); });
+            }
+            if (btnUploadRedraw) {
+                btnUploadRedraw.addEventListener('click', function () { submitAddForm(form, true); });
+            }
+            form.addEventListener('submit', function (e) {
                 e.preventDefault();
-                var msgEl = form.querySelector('.add-form-msg');
-                if (form.dataset.supplierImported === '1') {
-                    msgEl.textContent = tr('baseModels.supplierAlreadyInList', '此品已從供應商匯入，請見下方清單');
-                    if (form.dataset.supplierVendorAssetId) highlightImportedAsset(form.dataset.supplierVendorAssetId);
-                    return;
-                }
-                if (!catSel.value) { msgEl.textContent = '—'; return; }
-                var pending = getPendingImages(form);
-                var file = imgInput && imgInput.files && imgInput.files[0];
-                if ((kind === 'prototype' || kind === 'part') && !pending.length) {
-                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
-                    return;
-                }
-                if (kind === 'material' && !file) { msgEl.textContent = '—'; return; }
-                if (kind === 'prototype') {
-                    var subErr = validatePrototypeSubcategory(subSel, catSel.value);
-                    if (subErr) { msgEl.textContent = subErr; return; }
-                    var moqEl = form.querySelector('.add-min-order-qty');
-                    var moqVal = moqEl ? String(moqEl.value || '').trim() : '';
-                    if (!moqVal || parseInt(moqVal, 10) < 1) {
-                        msgEl.textContent = tr('baseModels.needMinOrderQty', '請填寫最小訂購量');
-                        return;
-                    }
-                    var clBox = form.querySelector('.add-customization-levels');
-                    var clErr = validateCustomizationLevelsSelection(getSelectedCustomizationLevels(clBox));
-                    if (clErr) {
-                        msgEl.textContent = clErr;
-                        return;
-                    }
-                }
-                msgEl.textContent = '';
-                var fd = new FormData();
-                fd.append('asset_kind', kind);
-                fd.append('category_key', catSel.value);
-                if (kind === 'prototype' && subSel) fd.append('subcategory_key', subSel.value || '');
-                fd.append('title', form.querySelector('.add-title').value || '');
-                fd.append('description', form.querySelector('.add-description').value || '');
-                fd.append('ui_locale', getUiLocaleForUpload());
-                fd.append('usage_type', 'reference_only');
-                if (kind === 'prototype' || kind === 'part') {
-                    fd.append('image', pending[0].file);
-                    for (var pi = 1; pi < pending.length; pi++) fd.append('gallery', pending[pi].file);
-                    var imageLabels = pending.map(function (p) {
-                        return (p.label || labelFromFilename(p.file && p.file.name)).trim();
-                    });
-                    fd.append('image_labels', JSON.stringify(imageLabels));
-                } else {
-                    var matLabel = labelFromFilename(file && file.name);
-                    if (matLabel) fd.append('image_labels', JSON.stringify([matLabel]));
-                    fd.append('image', file);
-                    var optimizeChk = form.querySelector('.add-optimize-product');
-                    if (optimizeChk && optimizeChk.checked) {
-                        fd.append('optimize_product_image', '1');
-                        fd.append('optimize_background', getOptimizeBackgroundValue(form));
-                    }
-                }
-                var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-' + kind));
-                if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
-                if (kind === 'prototype') {
-                    fd.append('min_order_quantity', form.querySelector('.add-min-order-qty').value.trim());
-                    fd.append('customization_levels', JSON.stringify(getSelectedCustomizationLevels(form.querySelector('.add-customization-levels'))));
-                    fd.append('linked_links', JSON.stringify(readPrototypeLinkEntries(form.querySelector('.add-prototype-links-list'))));
-                } else if (kind === 'material' || kind === 'part') {
-                    fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
-                }
-                var btn = form.querySelector('.btn-add-submit');
-                btn.disabled = true;
-                try {
-                    var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
-                    var data = await r.json().catch(function () { return {}; });
-                    if (r.status === 402) {
-                        msgEl.textContent = (data.error || tr('baseModels.insufficientPoints', '點數不足')) +
-                            ' (' + tr('baseModels.needPoints', '需要') + ' ' + (data.required || '') + ')';
-                        return;
-                    }
-                    if (!r.ok) { msgEl.textContent = data.error || 'failed'; return; }
-                    var okMsg = tr('baseModels.uploadSuccess', '上傳成功');
-                    if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
-                    if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
-                    showToast(okMsg);
-                    if (kind === 'prototype' && data.id && window.confirm(tr('productTree.gotoAfterUpload', '是否前往「產品關聯圖」設定材料／配件關聯？'))) {
-                        window.location.href = '/client/vendor-product-link-tree.html?prototype_asset_id=' + encodeURIComponent(data.id);
-                        return;
-                    }
-                    var newAssetId = data.id;
-                    form.reset();
-                    clearSupplierRefFromForm(form);
-                    clearPendingImages(form);
-                    showLocalImagePreview(form.querySelector('.add-image-preview'), null);
-                    applyUploadPricingToForms();
-                    await loadMaterials();
-                    switchKind(kind);
-                    if (newAssetId && (kind === 'prototype' || kind === 'part')) {
-                        editGalleryHighlightUrls.clear();
-                        openEditModal(newAssetId);
-                        setEditGalleryStatus('上傳完成。點各圖「AI 重繪」可預覽白底效果（與上傳分開扣點）', 'success');
-                    }
-                } catch (err) {
-                    msgEl.textContent = err.message || 'failed';
-                } finally { btn.disabled = false; }
+                submitAddForm(form, false);
             });
         });
 
