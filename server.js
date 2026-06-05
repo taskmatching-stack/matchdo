@@ -14267,7 +14267,7 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         const body = req.body || {};
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
         if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '僅數位原型或配件／零件可原圖放大' });
+            return res.status(400).json({ error: '僅數位原型或配件／零件可使用 AI 放大' });
         }
         const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(req.file.buffer);
         if (!upscaleNeed.needed) {
@@ -14319,7 +14319,7 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
                 ownerId,
                 pointsRequired,
                 'vendor_asset_upscale',
-                `上傳前原圖放大預覽（${pointsRequired} 點）`,
+                `上傳前 AI 放大預覽（${pointsRequired} 點）`,
                 { manufacturer_id: manufacturerId, preview: true, max_output_mp: 1 }
             );
             if (!consumed.ok) {
@@ -15036,7 +15036,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         if (!row) return res.status(404).json({ error: '找不到該素材' });
         const assetKind = normalizeVendorAssetKind(row.asset_kind);
         if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '僅數位原型或配件／零件可原圖放大' });
+            return res.status(400).json({ error: '僅數位原型或配件／零件可使用 AI 放大' });
         }
         const allUrls = getVendorAssetAllImageUrls(row);
         if (allUrls.indexOf(sourceUrl) < 0) {
@@ -15123,7 +15123,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
                 ownerId,
                 pointsRequired,
                 'vendor_asset_upscale',
-                `單張多角度圖原圖放大（${pointsRequired} 點）`,
+                `單張多角度圖 AI 放大（${pointsRequired} 點）`,
                 { manufacturer_id: manufacturerId, asset_id: id, source_url: sourceUrl }
             );
             if (!consumed.ok) {
