@@ -41,7 +41,7 @@
 
 - 可「新增圖片」逐張或「一次選多張」加入待傳清單（`pending-image-card`）。
 - 第一張為封面；各卡 **「AI 重繪」** 預覽後在卡下方顯示**重繪新圖**縮圖（原圖仍為主圖，非並排大欄）。
-- 發布：原圖 + 重繪檔各上一張；重繪圖 label 為 `原名（重繪）`；預覽已扣點則發布不再重扣重繪費。
+- 發布：原圖 + 重繪檔各上一張；**名稱維持使用者自訂**（不強加 `（重繪）`／`（放大）`）；衍生圖以 `gallery_images[].ai_derived`（`redraw`｜`upscale`）標記；預覽已扣點則發布不再重扣重繪費。
 - 扣點：封面重繪補差額、角度圖 `points_optimize_extra`（見 `computeGalleryImageRedrawPoints`）。
 - 送出：`POST /api/me/vendor-assets`（`image` + `gallery[]` + `image_labels`）。
 
@@ -55,7 +55,7 @@
 - **新增角度圖**／**一次選多張** → 待傳清單逐張勾 **AI 重繪** →「僅上傳所選」／「上傳並重繪勾選」→ `POST .../gallery-images`（可加 `optimize_image_indices`）。
 - 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）。
 - **更換封面**：下方「更換封面」+ 儲存時 `PUT` 單圖（與多角度 API 分開）。
-- **AI 重繪（逐張）**：縮圖「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: false`）**追加**一張新圖（label 含 `（重繪）`、格上 **重繪新圖** badge）；`（重繪）` 圖不再顯示重繪按鈕。編輯待傳清單預覽後上傳亦為原圖+新圖兩張。
+- **AI 重繪（逐張）**：縮圖「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: false`）**追加**一張新圖（label 與來源相同、`ai_derived: redraw`；編輯格可顯示 **重繪新圖** badge，不寫進對外名稱）。編輯待傳清單預覽後上傳亦為原圖+新圖兩張。
 
 ### 後端
 

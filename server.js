@@ -500,10 +500,16 @@ function parseGalleryImages(raw) {
             if (entry.sort_order != null && !isNaN(entry.sort_order)) sortOrder = parseInt(entry.sort_order, 10);
         }
         let label = '';
-        if (entry && typeof entry === 'object' && entry.label != null) {
-            label = String(entry.label).trim();
+        let aiDerived = '';
+        if (entry && typeof entry === 'object') {
+            if (entry.label != null) label = String(entry.label).trim();
+            if (entry.ai_derived != null) aiDerived = String(entry.ai_derived).trim();
         }
-        if (url) out.push({ url: url, sort_order: sortOrder, label: label });
+        if (url) {
+            const row = { url: url, sort_order: sortOrder, label: label };
+            if (aiDerived === 'redraw' || aiDerived === 'upscale') row.ai_derived = aiDerived;
+            out.push(row);
+        }
     });
     out.sort(function (a, b) { return a.sort_order - b.sort_order; });
     return out;
@@ -544,6 +550,41 @@ function parseImageLabelsBody(body, count) {
     return out;
 }
 
+function parseImageAiDerivedBody(body, count) {
+    const out = [];
+    if (!body || count <= 0) return out;
+    let raw = body.image_ai_derived;
+    if (raw == null || raw === '') return out;
+    if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (_) { return out; }
+    }
+    if (!Array.isArray(raw)) return out;
+    for (let i = 0; i < count; i++) {
+        const v = raw[i] != null ? String(raw[i]).trim() : '';
+        out.push(v === 'redraw' || v === 'upscale' ? v : '');
+    }
+    return out;
+}
+
+function vendorImageLabelFromSource(srcLabel, fallback) {
+    const clean = stripVendorImageDerivedSuffixes(srcLabel);
+    return (clean || fallback || '').slice(0, 120);
+}
+
+function legacyVendorImageDerivedKind(label) {
+    const s = String(label || '');
+    if (s.includes('（重繪）')) return 'redraw';
+    if (s.includes('（放大）')) return 'upscale';
+    return '';
+}
+
+function vendorImageDerivedKind(item) {
+    if (!item) return '';
+    const d = item.ai_derived != null ? String(item.ai_derived).trim() : '';
+    if (d === 'redraw' || d === 'upscale') return d;
+    return legacyVendorImageDerivedKind(item.label);
+}
+
 function buildVendorAssetImageItems(row) {
     if (!row) return [];
     const kind = normalizeVendorAssetKind(row.asset_kind);
@@ -565,12 +606,14 @@ function buildVendorAssetImageItems(row) {
     }
     parseGalleryImages(row.gallery_images).forEach(function (g, idx) {
         if (!g.url) return;
-        items.push({
+        const item = {
             url: g.url,
             sort_order: g.sort_order != null ? g.sort_order : idx + 1,
             label: String(g.label || '').trim() || labelFromImageUrl(g.url),
             is_cover: false
-        });
+        };
+        if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') item.ai_derived = g.ai_derived;
+        items.push(item);
     });
     return items;
 }
@@ -592,14 +635,22 @@ function reorderVendorAssetCoverFromUrl(row, targetUrl) {
     const items = buildVendorAssetImageItems(row);
     const urls = items.map(function (it) { return it.url; });
     if (!urls.length || urls.indexOf(url) < 0) return null;
-    const labelByUrl = {};
-    items.forEach(function (it) { labelByUrl[it.url] = it.label || ''; });
+    const metaByUrl = {};
+    items.forEach(function (it) {
+        metaByUrl[it.url] = {
+            label: it.label || '',
+            ai_derived: it.ai_derived === 'redraw' || it.ai_derived === 'upscale' ? it.ai_derived : ''
+        };
+    });
     const reordered = urls[0] === url ? urls.slice() : [url].concat(urls.filter(function (u) { return u !== url; }));
     return {
         image_url: reordered[0],
-        cover_image_label: labelByUrl[reordered[0]] || '',
+        cover_image_label: (metaByUrl[reordered[0]] && metaByUrl[reordered[0]].label) || '',
         gallery_images: reordered.slice(1).map(function (u, i) {
-            return { url: u, sort_order: i + 1, label: labelByUrl[u] || '' };
+            const meta = metaByUrl[u] || {};
+            const g = { url: u, sort_order: i + 1, label: meta.label || '' };
+            if (meta.ai_derived) g.ai_derived = meta.ai_derived;
+            return g;
         })
     };
 }
@@ -1211,10 +1262,11 @@ function mapVendorAssetForApi(row, lang) {
     };
 }
 
-async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides) {
+async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds) {
     const entries = [];
     const list = Array.isArray(files) ? files : [];
     const labels = Array.isArray(labelOverrides) ? labelOverrides : [];
+    const derived = Array.isArray(derivedKinds) ? derivedKinds : [];
     for (let i = 0; i < list.length; i++) {
         const normalized = await vendorAssetFileFromMulter(list[i]);
         if (!normalized) continue;
@@ -1222,7 +1274,10 @@ async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrd
         const lab = (labels[i] != null && String(labels[i]).trim())
             ? String(labels[i]).trim()
             : labelFromOriginalFilename(normalized.originalname);
-        entries.push({ url: publicUrl, sort_order: startSortOrder + i, label: lab || labelFromImageUrl(publicUrl) });
+        const entry = { url: publicUrl, sort_order: startSortOrder + i, label: lab || labelFromImageUrl(publicUrl) };
+        const dk = derived[i] != null ? String(derived[i]).trim() : '';
+        if (dk === 'redraw' || dk === 'upscale') entry.ai_derived = dk;
+        entries.push(entry);
     }
     return entries;
 }
@@ -8244,7 +8299,7 @@ async function computeVendorAssetOptimizeTotalPoints(optCount, assetKind) {
     return optPts + Math.max(0, optCount - 1) * extraPer;
 }
 
-/** 圖片名稱去掉尾端（重繪）（放大）後再追加新後綴，避免「xxx（放大）（重繪）」無限疊加 */
+/** 舊版曾自動在名稱尾端加（重繪）（放大）；僅用於清理舊資料顯示名稱 */
 function stripVendorImageDerivedSuffixes(label) {
     let s = String(label || '').trim();
     let prev;
@@ -8255,18 +8310,12 @@ function stripVendorImageDerivedSuffixes(label) {
     return s;
 }
 
-function appendVendorImageDerivedSuffix(baseLabel, suffix) {
-    const base = stripVendorImageDerivedSuffixes(baseLabel);
-    return ((base || '') + suffix).slice(0, 120);
-}
-
 /** 編輯區單張 AI 重繪：封面已付上傳費時只補差額；其餘角度／已重繪圖用 extra */
 async function computeGalleryImageRedrawPoints(assetKind, row, sourceUrl) {
     const extraPer = await getPointsVendorAssetOptimizeExtraPer();
     const items = buildVendorAssetImageItems(row);
     const src = items.find((it) => it.url === sourceUrl);
-    const label = (src && src.label) || '';
-    if (label.includes('（重繪）')) return extraPer;
+    if (vendorImageDerivedKind(src)) return extraPer;
     const coverUrl = String(row.image_url || '').trim();
     if (coverUrl && coverUrl === sourceUrl) {
         const uploadPts = await getPointsVendorAssetUpload();
@@ -14709,8 +14758,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 galleryToUpload.push(gf);
             }
             if (galleryToUpload.length) {
+                const galleryDerived = parseImageAiDerivedBody(body, 1 + galleryToUpload.length).slice(1, 1 + galleryToUpload.length);
                 galleryImages = await uploadVendorAssetGalleryFiles(
-                    manufacturerId, galleryToUpload, 1, imageLabels.slice(1, 1 + galleryToUpload.length)
+                    manufacturerId, galleryToUpload, 1, imageLabels.slice(1, 1 + galleryToUpload.length), galleryDerived
                 );
             }
         }
@@ -14960,7 +15010,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             const { publicUrl: newUrl } = await uploadToSupabaseStorage(
                 'custom-products', `vendor-assets/${manufacturerId}`, file
             );
-            const keepLabel = (srcLabel || labelFromImageUrl(newUrl)).replace(/（重繪）$/, '').slice(0, 120);
+            const keepLabel = vendorImageLabelFromSource(srcLabel, labelFromImageUrl(newUrl));
             if (isCover) {
                 updatePayload = {
                     image_url: newUrl,
@@ -14980,8 +15030,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             }
         } else {
             const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
-            const redrawLabel = appendVendorImageDerivedSuffix(srcLabel, '（重繪）') || 'AI重繪';
-            const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort, [redrawLabel]);
+            const redrawLabel = vendorImageLabelFromSource(srcLabel, labelFromImageUrl(sourceUrl) || 'AI重繪');
+            const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort, [redrawLabel], ['redraw']);
             if (!newEntries.length) {
                 return res.status(500).json({ error: '上傳重繪結果失敗' });
             }
@@ -15104,13 +15154,13 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
             });
         }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
-        const upscaleLabel = appendVendorImageDerivedSuffix(srcLabel, '（放大）') || '4×放大';
+        const upscaleLabel = vendorImageLabelFromSource(srcLabel, labelFromImageUrl(sourceUrl) || '放大');
         const upscaleFile = {
             buffer: upscaled.buffer,
             mimetype: upscaled.mimetype,
             originalname: 'upscale-' + Date.now() + '.jpg'
         };
-        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [upscaleFile], startSort, [upscaleLabel]);
+        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [upscaleFile], startSort, [upscaleLabel], ['upscale']);
         if (!newEntries.length) {
             return res.status(500).json({ error: '上傳放大結果失敗' });
         }
@@ -15224,7 +15274,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
         const uploadLabels = parseImageLabelsBody(body, sliceCount);
-        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, startSort, uploadLabels);
+        const uploadDerived = parseImageAiDerivedBody(body, sliceCount);
+        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived);
         const merged = existing.concat(newEntries);
         const { data: updated, error } = await supabase.from('vendor_assets')
             .update({ gallery_images: merged, updated_at: new Date().toISOString() })
@@ -15290,7 +15341,9 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             });
             const gallery = parseGalleryImages(row.gallery_images).map(function (g) {
                 if (byUrl[g.url] === undefined) return g;
-                return { url: g.url, sort_order: g.sort_order, label: byUrl[g.url] };
+                const next = { url: g.url, sort_order: g.sort_order, label: byUrl[g.url] };
+                if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') next.ai_derived = g.ai_derived;
+                return next;
             });
             updates.gallery_images = gallery;
         }

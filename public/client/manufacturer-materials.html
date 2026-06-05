@@ -1020,7 +1020,7 @@
             var items = assetImageItems(m);
             var src = items.find(function (it) { return it.url === url; });
             var label = (src && src.label) || '';
-            if (label.indexOf('（重繪）') >= 0) return extra;
+            if (vendorImageDerivedKind(src)) return extra;
             if (String(m.image_url || '').trim() === url) return Math.max(extra, opt - upload);
             return extra;
         }
@@ -1064,24 +1064,28 @@
             return !!(item.redrawPreviewUrl || item.upscalePreviewUrl);
         }
 
-        /** 依勾選組出要上傳的檔案（順序：原圖 → 重繪 → 放大） */
+        function vendorImageDerivedKind(it) {
+            if (!it) return '';
+            var d = it.ai_derived != null ? String(it.ai_derived).trim() : '';
+            if (d === 'redraw' || d === 'upscale') return d;
+            var lbl = (it.label || '');
+            if (lbl.indexOf('（重繪）') >= 0) return 'redraw';
+            if (lbl.indexOf('（放大）') >= 0) return 'upscale';
+            return '';
+        }
+
+        /** 依勾選組出要上傳的檔案（順序：原圖 → 重繪 → 放大）；名稱不變，衍生類型用 ai_derived */
         function pendingUploadEntries(item) {
-            var baseLabel = (item.label || labelFromFilename(item.file && item.file.name)).trim();
+            var baseLabel = (item.label || labelFromFilename(item.file && item.file.name)).trim().slice(0, 120);
             var out = [];
             if (item.file && item.uploadOriginal !== false) {
-                out.push({ file: item.file, label: baseLabel });
+                out.push({ file: item.file, label: baseLabel, aiDerived: '' });
             }
             if (item.redrawFile && item.uploadRedraw !== false) {
-                out.push({
-                    file: item.redrawFile,
-                    label: (baseLabel ? baseLabel + '（重繪）' : 'AI重繪').slice(0, 120)
-                });
+                out.push({ file: item.redrawFile, label: baseLabel || 'AI重繪', aiDerived: 'redraw' });
             }
             if (item.upscaleFile && item.uploadUpscale !== false) {
-                out.push({
-                    file: item.upscaleFile,
-                    label: (baseLabel ? baseLabel + '（放大）' : '放大').slice(0, 120)
-                });
+                out.push({ file: item.upscaleFile, label: baseLabel || '放大', aiDerived: 'upscale' });
             }
             return out;
         }
@@ -1847,10 +1851,10 @@
             grid.innerHTML = items.map(function (it, idx) {
                 var url = it.url;
                 var isNew = editGalleryHighlightUrls.has(url);
-                var lbl = (it.label || '').trim();
-                var isRedrawNew = lbl.indexOf('（重繪）') >= 0;
-                var isUpscaleNew = lbl.indexOf('（放大）') >= 0;
-                var isDerived = isRedrawNew || isUpscaleNew;
+                var derivedKind = vendorImageDerivedKind(it);
+                var isRedrawNew = derivedKind === 'redraw';
+                var isUpscaleNew = derivedKind === 'upscale';
+                var isDerived = !!derivedKind;
                 var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var redrawNewBadge = isRedrawNew ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">重繪新圖</span>' : '';
                 var upscaleNewBadge = isUpscaleNew ? '<span class="badge bg-info text-dark mb-1 ms-1" style="font-size:0.65rem">AI 放大新圖</span>' : '';
@@ -2198,6 +2202,7 @@
             var uploadFiles = [];
             var uploadLabels = [];
             var optIdx = [];
+            var uploadDerived = [];
             if (usePending) {
                 var pendingErr = validatePendingUploadList(pendingList);
                 if (pendingErr) {
@@ -2211,6 +2216,7 @@
                     entries.forEach(function (ent) {
                         uploadFiles.push(ent.file);
                         uploadLabels.push(ent.label);
+                        uploadDerived.push(ent.aiDerived || '');
                     });
                     if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
                         optIdx.push(startIdx);
@@ -2219,7 +2225,10 @@
             } else {
                 uploadFiles = Array.prototype.slice.call(fileList);
                 optIdx = optimizeIndices || [];
-                uploadFiles.forEach(function (f) { uploadLabels.push(labelFromFilename(f.name)); });
+                uploadFiles.forEach(function (f) {
+                    uploadLabels.push(labelFromFilename(f.name));
+                    uploadDerived.push('');
+                });
             }
             if (optIdx.length) {
                 var batchPts = calcGalleryBatchRedrawPoints(mBefore, optIdx, uploadFiles.length);
@@ -2234,6 +2243,9 @@
                 fd.append('images', uploadFiles[ui]);
             }
             if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
+            if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
+                fd.append('image_ai_derived', JSON.stringify(uploadDerived));
+            }
             if (optIdx.length) {
                 fd.append('optimize_image_indices', JSON.stringify(optIdx));
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
@@ -3347,6 +3359,7 @@
             var optIdx = [];
             var uploadFiles = [];
             var uploadLabels = [];
+            var uploadDerived = [];
             if (kind === 'prototype' || kind === 'part') {
                 var pendingSelErr = validatePendingUploadList(pending);
                 if (pendingSelErr) {
@@ -3359,6 +3372,7 @@
                     entries.forEach(function (ent) {
                         uploadFiles.push(ent.file);
                         uploadLabels.push(ent.label);
+                        uploadDerived.push(ent.aiDerived || '');
                     });
                     if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
                         optIdx.push(startIdx);
@@ -3382,6 +3396,9 @@
                 fd.append('image', uploadFiles[0]);
                 for (var pi = 1; pi < uploadFiles.length; pi++) fd.append('gallery', uploadFiles[pi]);
                 fd.append('image_labels', JSON.stringify(uploadLabels));
+                if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
+                    fd.append('image_ai_derived', JSON.stringify(uploadDerived));
+                }
                 if (optIdx.length) {
                     fd.append('optimize_image_indices', JSON.stringify(optIdx));
                     fd.append('optimize_background', getOptimizeBackgroundValue(form));
