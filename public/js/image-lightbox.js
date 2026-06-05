@@ -245,9 +245,31 @@
         return itemLabel || title || img.getAttribute('data-lightbox-caption') || img.getAttribute('title') || img.alt || '';
     }
 
+    function isInteractiveClickTarget(el) {
+        return !!(el && el.closest('button, input, select, textarea, label, a'));
+    }
+
+    /** 編輯彈窗內待傳／圖庫卡片：點圖或卡片空白區可放大預覽（避開按鈕、勾選） */
+    function findEnlargeableImgFromClick(target) {
+        if (!target) return null;
+        var direct = target.closest('img.matchdo-enlarge-trigger, img.js-preview-enlarge');
+        if (direct && direct.src && !/placehold\.co/i.test(direct.src)) return direct;
+        var card = target.closest('#edit-modal .pending-image-card');
+        if (!card || isInteractiveClickTarget(target)) return null;
+        var clickedImg = target.closest('img[src]');
+        if (clickedImg && card.contains(clickedImg) && clickedImg.src && !/placehold\.co/i.test(clickedImg.src)) {
+            return clickedImg;
+        }
+        var imgs = card.querySelectorAll('img[src]');
+        for (var i = 0; i < imgs.length; i++) {
+            if (imgs[i].src && !/placehold\.co/i.test(imgs[i].src)) return imgs[i];
+        }
+        return null;
+    }
+
     function bindDelegatedClicks() {
         document.addEventListener('click', function (e) {
-            var img = e.target.closest('img.matchdo-enlarge-trigger, img.js-preview-enlarge');
+            var img = findEnlargeableImgFromClick(e.target);
             if (!img || !img.src) return;
             if (/placehold\.co/i.test(img.src)) return;
             e.preventDefault();

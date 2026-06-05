@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-upscale-fix-20260605b';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-lightbox-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1673,7 +1673,7 @@
                 var url = URL.createObjectURL(item.file);
                 var imgHtml = item.imageBusy
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
-                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" alt="">';
+                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(tr('baseModels.clickImageEnlarge', '點擊放大')) + '">';
                 card.innerHTML = imgHtml + pendingOriginalUploadCheckHtml(item, 'edit-pending') + pendingDerivedThumbsHtml(item, 'edit-pending') +
                     '<div class="pending-actions mt-1">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
