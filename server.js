@@ -14270,7 +14270,7 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         if (assetKind !== 'prototype' && assetKind !== 'part') {
             return res.status(400).json({ error: '僅數位原型或配件／零件可原圖放大' });
         }
-        const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(file.buffer, 1);
+        const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(file.buffer);
         if (!upscaleNeed.needed) {
             return res.status(400).json({
                 error: vendorUpscaleRejectMessage(upscaleNeed),
@@ -14300,10 +14300,10 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         try {
             upscaled = await vendorMaterialUpscale(file.buffer, file.mimetype, STABILITY_API_KEY);
         } catch (upErr) {
-            console.error('preview-image-upscale:', upErr.details || upErr.message);
+            console.error('preview-image-upscale:', upErr.status, upErr.details || upErr.message);
             return res.status(502).json({
                 error: '放大服務暫時無法使用，請稍後再試',
-                details: upErr.status === 401 ? 'API Key 無效' : undefined
+                details: upErr.status === 401 ? 'API Key 無效' : (upErr.details || upErr.message || '').slice(0, 200)
             });
         }
         const previewName = `upscale-preview-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
@@ -15068,7 +15068,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         if (!resImg.ok) return res.status(503).json({ error: '無法讀取來源圖片' });
         const imgBuf = Buffer.from(await resImg.arrayBuffer());
         const imgMime = (resImg.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
-        const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(imgBuf, 1);
+        const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(imgBuf);
         if (!upscaleNeed.needed) {
             return res.status(400).json({
                 error: vendorUpscaleRejectMessage(upscaleNeed),
@@ -15083,8 +15083,11 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         try {
             upscaled = await vendorMaterialUpscale(imgBuf, imgMime, STABILITY_API_KEY);
         } catch (upErr) {
-            console.error('gallery-images/upscale:', upErr.details || upErr.message);
-            return res.status(502).json({ error: '放大服務暫時無法使用，請稍後再試' });
+            console.error('gallery-images/upscale:', upErr.status, upErr.details || upErr.message);
+            return res.status(502).json({
+                error: '放大服務暫時無法使用，請稍後再試',
+                details: upErr.status === 401 ? 'API Key 無效' : (upErr.details || upErr.message || '').slice(0, 200)
+            });
         }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
         const upscaleLabel = (srcLabel ? (srcLabel + '（放大）') : '4×放大').slice(0, 120);

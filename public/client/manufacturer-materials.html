@@ -612,7 +612,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-upscale-aspect-1mp-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-upscale-stability-fix-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1032,6 +1032,11 @@
         var VENDOR_UPSCALE_MIN_MP = 0.5;
         var VENDOR_UPSCALE_MAX_MP = 1;
         var VENDOR_UPSCALE_RULE_TEXT = '依原圖比例放大，總解析度最高 1MP';
+        function upscaleApiErrorMessage(data, fallback) {
+            var msg = (data && (data.error || data.message)) || fallback || '放大失敗';
+            if (data && data.details) msg += '：' + data.details;
+            return msg;
+        }
         var AI_EDIT_UPSCALE_URL = '/client/ai-edit.html';
         var AI_EDIT_UPSCALE_HELP_TITLE = '圖片已 ≥0.5 MP。若仍需要更大解析度，請至「我的 AI 編輯區」→ 放大（4×，輸出 ≤4MP，10 點/次）';
         var galleryUpscaleProbe = {};
@@ -1233,7 +1238,7 @@
                     return;
                 }
                 if (!r.ok) {
-                    showToast(data.error || '放大失敗', 'danger');
+                    showToast(upscaleApiErrorMessage(data), 'danger');
                     return;
                 }
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
@@ -1517,7 +1522,7 @@
                     showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
-                if (!r.ok) { showToast(data.error || '放大失敗', 'danger'); return; }
+                if (!r.ok) { showToast(upscaleApiErrorMessage(data), 'danger'); return; }
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
                 item.upscaleChargedPts = data.points_deducted || 0;
                 item.useUpscale = true;
@@ -1789,7 +1794,7 @@
                     return false;
                 }
                 if (!r.ok) {
-                    var errMsg = data.error || data.message || ('放大失敗 (HTTP ' + r.status + ')');
+                    var errMsg = upscaleApiErrorMessage(data, '放大失敗 (HTTP ' + r.status + ')');
                     setEditGalleryStatus(errMsg, 'danger');
                     showToast(errMsg, 'danger');
                     return false;
