@@ -610,7 +610,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'per-image-redraw-compare-cols-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'per-image-redraw-compare-cols-20260605b';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -949,11 +949,17 @@
             return new File([blob], filename || 'redraw.jpg', { type: blob.type || 'image/jpeg' });
         }
 
-        async function previewUrlToRedrawFile(url, filename) {
-            var r = await fetch(url, { credentials: 'omit' });
-            if (!r.ok) throw new Error('無法讀取重繪預覽');
-            var blob = await r.blob();
-            return new File([blob], filename || 'redraw.jpg', { type: blob.type || 'image/jpeg' });
+        function base64ToRedrawFile(b64, filename) {
+            if (!b64) throw new Error('無法讀取重繪預覽');
+            var bin = atob(b64);
+            var arr = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            return new File([arr], filename || 'redraw.jpg', { type: 'image/jpeg' });
+        }
+
+        function previewDataUrlFromResponse(data) {
+            if (data.preview_base64) return 'data:image/jpeg;base64,' + data.preview_base64;
+            return data.preview_url || '';
         }
 
         function calcRedrawPointsForUrl(m, url) {
@@ -1038,11 +1044,11 @@
                     showToast(data.error || '重繪失敗', 'danger');
                     return;
                 }
-                item.redrawPreviewUrl = data.preview_url;
+                item.redrawPreviewUrl = previewDataUrlFromResponse(data);
                 item.redrawChargedPts = data.points_deducted || 0;
                 item.optimize = true;
                 item.useRedraw = true;
-                item.redrawFile = await previewUrlToRedrawFile(data.preview_url, 'redraw-' + idx + '.jpg');
+                item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
                 var okMsg = '重繪預覽完成';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
@@ -1255,11 +1261,11 @@
                     return;
                 }
                 if (!r.ok) { showToast(data.error || '重繪失敗', 'danger'); return; }
-                item.redrawPreviewUrl = data.preview_url;
+                item.redrawPreviewUrl = previewDataUrlFromResponse(data);
                 item.redrawChargedPts = data.points_deducted || 0;
                 item.optimize = true;
                 item.useRedraw = true;
-                item.redrawFile = await previewUrlToRedrawFile(data.preview_url, 'redraw-' + idx + '.jpg');
+                item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
                 showToast('重繪預覽完成' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');

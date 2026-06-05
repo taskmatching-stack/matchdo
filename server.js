@@ -14244,6 +14244,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         }
         res.json({
             preview_url: publicUrl,
+            preview_base64: optimized.buffer.toString('base64'),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter
         });
