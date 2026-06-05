@@ -18,6 +18,7 @@
         guideSelectedIds: [],
         guideVariantByAssetId: {},
         guideExpandedAssetIds: Object.create(null),
+        guidePartSectionExpanded: Object.create(null),
         guidePayload: null,
         guideLinkMetaByAssetId: {}
     };
@@ -647,13 +648,40 @@
         });
     }
 
-    function guideSectionHtml(sectionKind, heading, tilesHtml) {
-        if (!tilesHtml) return '';
+    function isGuidePartSectionExpanded(assetId) {
+        return !!state.guidePartSectionExpanded[assetId];
+    }
+
+    function setGuidePartSectionExpanded(assetId, expanded) {
+        if (!assetId) return;
+        if (expanded) state.guidePartSectionExpanded[assetId] = true;
+        else delete state.guidePartSectionExpanded[assetId];
+    }
+
+    function syncGuidePartSectionDom(section) {
+        if (!section) return;
+        var aid = section.getAttribute('data-guide-section-asset') || '';
+        var expanded = isGuidePartSectionExpanded(aid);
+        section.classList.toggle('vplt-guide-section--expanded', expanded);
+        section.classList.toggle('vplt-guide-section--collapsed', !expanded);
+        var btn = section.querySelector('[data-guide-section-toggle]');
+        var body = section.querySelector('.vplt-guide-section-body');
+        var chevron = section.querySelector('.vplt-guide-section-chevron');
+        if (btn) btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (body) {
+            if (expanded) body.removeAttribute('hidden');
+            else body.setAttribute('hidden', '');
+        }
+        if (chevron) {
+            chevron.classList.toggle('bi-chevron-down', !expanded);
+            chevron.classList.toggle('bi-chevron-up', expanded);
+        }
+    }
+
+    function guideSectionRailHtml(tilesHtml) {
         var prevLbl = esc(tr('productTree.railScrollPrev', '向左捲動'));
         var nextLbl = esc(tr('productTree.railScrollNext', '向右捲動'));
-        return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + '">' +
-            '<h3 class="vplt-guide-section-title">' + heading + '</h3>' +
-            '<div class="vplt-guide-rail-nav">' +
+        return '<div class="vplt-guide-rail-nav">' +
             '<button type="button" class="vplt-guide-rail-arrow vplt-guide-rail-arrow--prev" aria-label="' + prevLbl + '">' +
             '<i class="bi bi-chevron-left" aria-hidden="true"></i></button>' +
             '<div class="vplt-guide-rail-viewport">' +
@@ -661,7 +689,34 @@
             '<div class="vplt-guide-rail" role="list">' + tilesHtml + '</div></div></div>' +
             '<button type="button" class="vplt-guide-rail-arrow vplt-guide-rail-arrow--next" aria-label="' + nextLbl + '">' +
             '<i class="bi bi-chevron-right" aria-hidden="true"></i></button>' +
-            '</div></section>';
+            '</div>';
+    }
+
+    function guideSectionHtml(sectionKind, heading, tilesHtml, sectionAssetId) {
+        if (!tilesHtml) return '';
+        var rail = guideSectionRailHtml(tilesHtml);
+        var isPartCollapsible = sectionKind === 'part' && sectionAssetId && !IS_VENDOR;
+        if (!isPartCollapsible) {
+            return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + '">' +
+                '<h3 class="vplt-guide-section-title">' + heading + '</h3>' +
+                rail + '</section>';
+        }
+        var expanded = isGuidePartSectionExpanded(sectionAssetId);
+        var stateCls = expanded ? ' vplt-guide-section--expanded' : ' vplt-guide-section--collapsed';
+        var expandLbl = esc(tr('productTree.sectionExpand', '展開配件選項'));
+        var collapseLbl = esc(tr('productTree.sectionCollapse', '收合配件選項'));
+        var toggleAria = expanded ? collapseLbl : expandLbl;
+        var chevronCls = expanded ? 'bi-chevron-up' : 'bi-chevron-down';
+        return '<section class="vplt-guide-section vplt-guide-section--part vplt-guide-section--collapsible' + stateCls + '"' +
+            ' data-guide-section-asset="' + esc(sectionAssetId) + '">' +
+            '<button type="button" class="vplt-guide-section-toggle"' +
+            ' data-guide-section-toggle="' + esc(sectionAssetId) + '"' +
+            ' aria-expanded="' + (expanded ? 'true' : 'false') + '" aria-label="' + toggleAria + '">' +
+            '<h3 class="vplt-guide-section-title">' + heading +
+            ' <i class="bi ' + chevronCls + ' vplt-guide-section-chevron" aria-hidden="true"></i></h3>' +
+            '</button>' +
+            '<div class="vplt-guide-section-body"' + (expanded ? '' : ' hidden') + '>' + rail + '</div>' +
+            '</section>';
     }
 
     /** 區塊標題：分類在前、商品名在後（主產品 · 角粒殼3.0） */
@@ -693,7 +748,7 @@
             if (!a) return;
             var picked = state.guideSelectedIds.indexOf(aid) >= 0;
             sections += guideSectionHtml('part', guideSectionHeadingHtml('part', a),
-                guideTilesForAsset(a, aid, 'part', picked).join(''));
+                guideTilesForAsset(a, aid, 'part', picked).join(''), aid);
         });
 
         materialIds.forEach(function (aid) {
@@ -758,8 +813,25 @@
         });
     }
 
+    function wireGuideSectionToggles(canvas) {
+        if (!canvas) return;
+        canvas.querySelectorAll('[data-guide-section-toggle]').forEach(function (btn) {
+            if (btn.__vpltSecWired) return;
+            btn.__vpltSecWired = true;
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                var aid = btn.getAttribute('data-guide-section-toggle');
+                if (!aid) return;
+                var section = btn.closest('.vplt-guide-section');
+                setGuidePartSectionExpanded(aid, !isGuidePartSectionExpanded(aid));
+                syncGuidePartSectionDom(section);
+            });
+        });
+    }
+
     function wireGuideRail(canvas) {
         if (!canvas) return;
+        wireGuideSectionToggles(canvas);
         wireGuideRailNav(canvas);
         canvas.querySelectorAll('.vplt-guide-tile').forEach(function (tile) {
             if (tile.__vpltTileWired) return;
@@ -1312,6 +1384,7 @@
         state.guideSelectedIds = [];
         state.guideVariantByAssetId = {};
         state.guideExpandedAssetIds = Object.create(null);
+        state.guidePartSectionExpanded = Object.create(null);
         if (variantImageItems(p).length > 1) {
             var protoDef = defaultGuideVariant(p);
             if (protoDef) state.guideVariantByAssetId[p.id] = protoDef;

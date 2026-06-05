@@ -225,6 +225,41 @@
 .vplt-guide-section-title {
     color: #1d1d1f;
 }
+/* 配件區：標題可收合，預設收合；展開狀態不因選圖而重繪關閉 */
+.vplt-guide-section--collapsible .vplt-guide-section-toggle {
+    display: block;
+    width: 100%;
+    margin: 0 0 0.65rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+}
+.vplt-guide-section--collapsible .vplt-guide-section-toggle:focus-visible {
+    outline: 2px solid #0d9488;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.vplt-guide-section--collapsible .vplt-guide-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin: 0;
+    width: 100%;
+}
+.vplt-guide-section-chevron {
+    font-size: 0.95rem;
+    color: #86868b;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.vplt-guide-section--collapsed .vplt-guide-section-body[hidden] {
+    display: none !important;
+}
 /* 橫向選單：同一結構；箭頭浮在內容上，不推擠左緣（與標題對齊） */
 .vplt-guide-rail-nav {
     position: relative;
