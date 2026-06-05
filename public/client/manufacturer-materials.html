@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-pending-upload-pick-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-upscale-fix-20260605b';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -953,11 +953,24 @@
         }
 
         function base64ToRedrawFile(b64, filename) {
-            if (!b64) throw new Error('無法讀取重繪預覽');
+            if (!b64) throw new Error('無法讀取預覽圖');
             var bin = atob(b64);
             var arr = new Uint8Array(bin.length);
             for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
             return new File([arr], filename || 'redraw.jpg', { type: 'image/jpeg' });
+        }
+
+        /** 預覽 API 回傳 base64 或 URL，組成待上傳 File */
+        async function fileFromPreviewResponse(data, filename) {
+            if (data && data.preview_base64) {
+                try {
+                    return base64ToRedrawFile(data.preview_base64, filename);
+                } catch (_) { /* fall through to URL */ }
+            }
+            if (data && data.preview_url) {
+                return blobUrlToRedrawFile(data.preview_url, filename);
+            }
+            throw new Error('無法讀取預覽圖');
         }
 
         function previewDataUrlFromResponse(data) {
@@ -1184,7 +1197,6 @@
                     return;
                 }
                 var img = new Image();
-                img.crossOrigin = 'anonymous';
                 img.onload = function () {
                     resolve({ width: img.naturalWidth || 0, height: img.naturalHeight || 0 });
                 };
@@ -1205,7 +1217,9 @@
         }
 
         function pendingUpscaleBtnDisabled(item) {
-            return !!item.imageBusy || item.upscaleProbeDone !== true || item.upscaleNeeded === false;
+            if (item.imageBusy) return true;
+            if (item.upscaleProbeDone === true && item.upscaleNeeded === false) return true;
+            return false;
         }
 
         function pendingUpscaleBtnTitle(item) {
@@ -1240,8 +1254,8 @@
                 var url = btn.getAttribute('data-url');
                 var probe = galleryUpscaleProbe[url];
                 if (!probe) {
-                    btn.disabled = true;
-                    btn.title = '正在檢查解析度…';
+                    btn.disabled = false;
+                    btn.title = '解析度檢查中，仍可嘗試；' + VENDOR_UPSCALE_RULE_TEXT;
                     return;
                 }
                 btn.disabled = !probe.needed;
@@ -1288,7 +1302,7 @@
                 item.optimize = true;
                 item.uploadRedraw = true;
                 if (item.uploadOriginal === undefined) item.uploadOriginal = true;
-                item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
+                item.redrawFile = await fileFromPreviewResponse(data, 'redraw-' + idx + '.jpg');
                 var okMsg = '已產生重繪新圖，請勾選要上傳的圖片';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
@@ -1336,7 +1350,7 @@
                 item.upscaleChargedPts = data.points_deducted || 0;
                 item.uploadUpscale = true;
                 if (item.uploadOriginal === undefined) item.uploadOriginal = true;
-                item.upscaleFile = base64ToRedrawFile(data.preview_base64, 'upscale-' + idx + '.jpg');
+                item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-' + idx + '.jpg');
                 var okMsg = '已產生放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '），請勾選要上傳的圖片';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
@@ -1582,7 +1596,7 @@
                 item.optimize = true;
                 item.uploadRedraw = true;
                 if (item.uploadOriginal === undefined) item.uploadOriginal = true;
-                item.redrawFile = base64ToRedrawFile(data.preview_base64, 'redraw-' + idx + '.jpg');
+                item.redrawFile = await fileFromPreviewResponse(data, 'redraw-' + idx + '.jpg');
                 showToast('已產生重繪新圖，請勾選要上傳的圖片' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
@@ -1624,7 +1638,7 @@
                 item.upscaleChargedPts = data.points_deducted || 0;
                 item.uploadUpscale = true;
                 if (item.uploadOriginal === undefined) item.uploadOriginal = true;
-                item.upscaleFile = base64ToRedrawFile(data.preview_base64, 'upscale-' + idx + '.jpg');
+                item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-' + idx + '.jpg');
                 showToast('已產生放大新圖，請勾選要上傳的圖片' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
             } catch (err) {
                 showToast(err.message || '放大失敗', 'danger');
@@ -1801,7 +1815,7 @@
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
                 var actions = '<div class="pending-actions">' +
                     (!isDerived ? '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' : '') +
-                    (!isDerived ? '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" disabled title="正在檢查解析度…"><i class="bi bi-zoom-in me-1"></i>原圖放大</button>' : '') +
+                    (!isDerived ? '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-zoom-in me-1"></i>原圖放大</button>' : '') +
                     (!(it.is_cover || idx === 0)
                         ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'

@@ -14263,14 +14263,13 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         const seedUser = await getRequestUserFromAuthHeader(req);
         if (!seedUser) return res.status(401).json({ error: '請先登入' });
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
-        const file = await vendorAssetFileFromMulter(req.file);
-        if (!file) return res.status(400).json({ error: '請上傳圖片' });
+        if (!req.file || !req.file.buffer) return res.status(400).json({ error: '請上傳圖片' });
         const body = req.body || {};
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
         if (assetKind !== 'prototype' && assetKind !== 'part') {
             return res.status(400).json({ error: '僅數位原型或配件／零件可原圖放大' });
         }
-        const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(file.buffer);
+        const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(req.file.buffer);
         if (!upscaleNeed.needed) {
             return res.status(400).json({
                 error: vendorUpscaleRejectMessage(upscaleNeed),
@@ -14296,6 +14295,8 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
                 return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
             }
         }
+        const file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return res.status(400).json({ error: '請上傳圖片' });
         let upscaled;
         try {
             upscaled = await vendorMaterialUpscale(file.buffer, file.mimetype, STABILITY_API_KEY);
