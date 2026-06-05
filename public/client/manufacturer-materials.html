@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-upload-derived-fix-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-modal-revert-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -650,39 +650,10 @@
         var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
         var editGalleryHighlightUrls = new Set();
-        var editModalBound = false;
-
-        function getEditModalInstance() {
-            var el = document.getElementById('edit-modal');
-            if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
-            return bootstrap.Modal.getOrCreateInstance(el);
-        }
 
         function releaseEditGalleryBusyState() {
             editGalleryUploading = false;
             gridDisableEditGalleryActions(false);
-        }
-
-        function cleanupStrayModalBackdrops() {
-            if (document.querySelectorAll('.modal.show').length) return;
-            document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
-            document.body.classList.remove('modal-open');
-            document.body.style.removeProperty('overflow');
-            document.body.style.removeProperty('padding-right');
-        }
-
-        function bindEditModalLifecycle() {
-            if (editModalBound) return;
-            var el = document.getElementById('edit-modal');
-            if (!el) return;
-            editModalBound = true;
-            el.addEventListener('hidden.bs.modal', function () {
-                releaseEditGalleryBusyState();
-                cleanupStrayModalBackdrops();
-                if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.close === 'function') {
-                    window.MatchdoImageLightbox.close();
-                }
-            });
         }
         var catalogGroupsFlat = [];
         var catalogGroupsByKind = { prototype: [], material: [], part: [] };
@@ -3746,11 +3717,8 @@
                 renderEditGallery(m);
             }
             clearEditGalleryPending();
-            releaseEditGalleryBusyState();
-            cleanupStrayModalBackdrops();
-            if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.close === 'function') {
-                window.MatchdoImageLightbox.close();
-            }
+            editGalleryUploading = false;
+            gridDisableEditGalleryActions(false);
             setEditGalleryStatus('', null);
             var buildHint = document.getElementById('edit-gallery-build-hint');
             if (buildHint) buildHint.textContent = '頁面版本 ' + (window.__MATCHDO_MATERIALS_BUILD || '—');
@@ -3778,9 +3746,8 @@
             if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
             if (linkedProtosWrap) linkedProtosWrap.classList.add('d-none');
             loadEditPrototypeLinks(id);
-            bindEditModalLifecycle();
-            var modal = getEditModalInstance();
-            if (modal) modal.show();
+            editModalEl = new bootstrap.Modal(document.getElementById('edit-modal'));
+            editModalEl.show();
         }
 
         function onEditCoverFileChange(isPrototype) {
@@ -3794,7 +3761,6 @@
         document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
-        bindEditModalLifecycle();
         bindEditGalleryUpload();
         var editGalleryBgSel = document.getElementById('edit-gallery-optimize-bg');
         if (editGalleryBgSel) {
@@ -3931,9 +3897,8 @@
                 if (normalizeKind(saved.asset_kind) === 'prototype' || normalizeKind(saved.asset_kind) === 'part') {
                     openEditModal(id);
                     setEditGalleryStatus('已儲存。圖庫內容如下；若要白底請對各圖按「AI 重繪」', 'success');
-                } else {
-                    var em = getEditModalInstance();
-                    if (em) em.hide();
+                } else if (editModalEl) {
+                    editModalEl.hide();
                 }
             } catch (err) { showToast(err.message, 'danger'); }
         });
