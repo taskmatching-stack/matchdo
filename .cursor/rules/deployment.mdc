@@ -1,61 +1,33 @@
 ---
-description: 部署方式：GitHub push + Cloud Build 觸發 → Cloud Run；Cloud Shell／本機 gcloud 僅備援
+description: 部署方式：先 push GitHub，再 Cloud Shell 或本機 gcloud（從 origin/main 部署）
 alwaysApply: true
 ---
 
 # 部署方式
 
-## 版本管理（永遠不變）
+完整說明見 **`docs/deploy-matchdo-push-and-deploy.md`**（繁體中文）。
 
-**GitHub = 程式版本庫。** 所有要上線的修改都必須：
+## 部署前必做（Agent 責任）
 
-1. 本機 `git commit`
-2. **`git push origin main`**（Agent 在請使用者部署前須先 push 成功）
+1. 本機 commit → **`git push origin main`** 成功
+2. 註明 commit hash（`git log -1 --oneline`）
+3. **才**提供部署指令
 
-Push **不會**自動上線，除非 GCP 已設好下方「觸發條件」。
+禁止未 push 就叫使用者部署。
 
-## 主要方式：push 到 GitHub → Cloud Build 自動部署（建議）
+## 正確部署指令（Cloud Shell 或本機 PowerShell 相同邏輯）
 
-**一次性設定**（GCP 主控台，不用 Cloud Shell）：
-
-1. 開啟 [Cloud Build → 觸發條件](https://console.cloud.google.com/cloud-build/triggers?project=matchdo)
-2. **建立觸發條件**
-3. **來源**：GitHub（第 2 代）→ 連線 `taskmatching-stack/matchdo`（尚未連線則先授權）
-4. **分支**：`^main$`
-5. **組態**：類型選 **Cloud Run**（或「將原始碼部署至 Cloud Run」）
-   - 區域：`asia-northeast1`
-   - 服務名稱：`matchdo`
-   - 驗證：**允許未驗證的呼叫**（allow unauthenticated）
-6. 儲存
-
-**之後每次上線**（Agent 與使用者）：
-
-1. 改程式 → commit → **`git push origin main`**
-2. 到 [Cloud Build → 記錄](https://console.cloud.google.com/cloud-build/builds?project=matchdo) 看建置（通常 **約 5～10 分鐘**）
-3. 成功後 `matchdo.cc` 即為新版本
-
-**優點**：不受 Cloud Shell 用量限制；不必本機裝 gcloud；與 GitHub 版本一致。
-
-## 備援：Cloud Shell 或本機 gcloud（觸發失敗／緊急時）
+**Cloud Shell：**
 
 ```bash
 cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated
 ```
 
-（本機：在專案根目錄、已 `gcloud auth login` 且 `gcloud config set project matchdo` 後執行同上 deploy 指令。勿加 `--clear-base-image`。）
+**本機 PowerShell（Shell 額度滿時）：** 先 `gcloud config set account taskmatching@gmail.com`、`gcloud config set project matchdo`，再於專案目錄執行 `git fetch` + `reset --hard origin/main` + 同上 `gcloud run deploy`（見文件）。
 
-## 部署前必做（Agent 責任）
+## 禁止
 
-- **禁止**未 push 就叫使用者部署或等觸發
-- push 成功後才說「可到 Cloud Build 看進度」或給備援指令
-- 註明 commit hash（`git log -1 --oneline`）
-
-## 絕對禁止
-
-- ❌ 未 push 就請部署
-- ❌ 寫「push 就好」但觸發條件尚未建立（須先完成一次性設定）
-- ❌ 建議 Zeabur／Vercel 作為 matchdo.cc 正式環境（本專案正式為 GCP Cloud Run）
-
-## 參考
-
-`docs/deploy-zeabur-github.md` — GCP Cloud Run 方案二（含觸發條件詳述）
+- ❌ 加 `--clear-base-image`
+- ❌ 未 push 就部署
+- ❌ 未設觸發卻說「push 就好」
+- ❌ 跳過 `git fetch` + `reset --hard` 直接 deploy 本機未同步目錄
