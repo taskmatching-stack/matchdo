@@ -844,10 +844,18 @@
                 if (url) {
                     var picked = state.guideSelectedIds.indexOf(aid) >= 0;
                     var cur = getGuideVariant(aid);
-                    var sameVariant = picked && cur && cur.url === url;
-                    if (sameVariant && !prototypeById(aid)) {
-                        toggleGuideSelection(aid);
-                        return;
+                    var sameVariant = cur && cur.url === url;
+                    if (sameVariant) {
+                        if (prototypeById(aid)) {
+                            clearGuideVariantPreview(aid);
+                            renderCanvas();
+                            renderGuidePanel();
+                            return;
+                        }
+                        if (picked) {
+                            toggleGuideSelection(aid);
+                            return;
+                        }
                     }
                     applyGuideVariantChoice(aid, url, label);
                     return;
@@ -1192,11 +1200,17 @@
         });
     }
 
+    function clearGuideVariantPreview(assetId) {
+        if (!assetId) return;
+        delete state.guideVariantByAssetId[assetId];
+    }
+
     function toggleGuideSelection(assetId) {
         if (!assetId) return;
         var idx = state.guideSelectedIds.indexOf(assetId);
         if (idx >= 0) {
             state.guideSelectedIds.splice(idx, 1);
+            clearGuideVariantPreview(assetId);
         } else {
             state.guideSelectedIds.push(assetId);
             enforceGuideSelectionRules(assetId);

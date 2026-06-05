@@ -55,11 +55,11 @@ git log -1 --oneline
 2. 若額度未滿、Shell 能開，**整行貼上執行**：
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
 ```
 
 3. 等待約 **5～10 分鐘**（上傳、建置、部署）。
-4. 成功時會出現 `Done.` 與 `Service URL: https://matchdo-...run.app`。
+4. 成功時會出現 `Done.`、`revision [...] has been deployed and is serving 100 percent of traffic` 與 `Service URL`。
 
 **若 Shell 顯示「超過 Cloud Shell 用量上限」**：改用法 B，或等額度重置後再貼同一行。
 
@@ -73,21 +73,26 @@ gcloud config set project matchdo
 cd "d:\AI建站\ai-matching"
 git fetch origin main
 git reset --hard origin/main
-gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated
+gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+```
+
+或整行（與方式 A 參數完全相同，僅目錄改本機路徑）：
+
+```powershell
+gcloud config set account taskmatching@gmail.com; gcloud config set project matchdo; cd "d:\AI建站\ai-matching"; git fetch origin main; git reset --hard origin/main; gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
 ```
 
 成功／失敗訊息與方式 A 相同。
 
 ---
 
-## 四、絕對不要加的參數
+## 四、不要做的事
 
-```bash
-# ❌ 錯誤：舊版 gcloud 會失敗
-gcloud run deploy ... --clear-base-image
-```
-
-目前正確指令**只有** `--source . --region=asia-northeast1 --allow-unauthenticated`，不要自行加參數。
+| ❌ 錯誤 | 說明 |
+|--------|------|
+| `gcloud run services update-traffic ...` | 只切流量，**不是**重新建置上線 |
+| 拆掉 `fetch` + `reset --hard` 直接 deploy | 可能部署本機未 push 的舊檔 |
+| 自行改 `gcloud run deploy` 參數 | 方式 A／B 須一致：`--source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image` |
 
 ---
 
