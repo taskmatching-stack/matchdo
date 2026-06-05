@@ -614,7 +614,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-edit-save-uploads-pending-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'vendor-materials-audit-fix-20260605';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4038,8 +4038,12 @@
         });
 
         document.getElementById('btn-edit-save').addEventListener('click', async function () {
+            var saveBtn = document.getElementById('btn-edit-save');
+            if (saveBtn && saveBtn.disabled) return;
             var id = document.getElementById('edit-id').value;
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
+            if (saveBtn) saveBtn.disabled = true;
+            try {
             if ((editKind === 'prototype' || editKind === 'part') && getEditGalleryPendingImages().length) {
                 var pendingOk = await flushEditGalleryPendingBeforeSave();
                 if (!pendingOk) return;
@@ -4112,21 +4116,35 @@
                 await loadMaterials();
                 var saved = materialsAll.find(function (x) { return x.id === id; }) || data;
                 if (normalizeKind(saved.asset_kind) === 'prototype' || normalizeKind(saved.asset_kind) === 'part') {
+                    var latest = materialsAll.find(function (x) { return x.id === id; }) || saved;
                     populateEditModal(id);
-                    cleanupStrayModalBackdrops();
-                    setEditGalleryStatus('已儲存。圖庫內容如下；若要白底請對各圖按「AI 重繪」', 'success');
+                    if (latest && latest.image_items) renderEditGallery(latest);
+                    unlockPageScroll(false);
+                    var nImg = assetImageUrls(latest).length;
+                    setEditGalleryStatus('已儲存。圖庫共 ' + nImg + ' 張；若要白底請對各圖按「AI 重繪」', 'success');
                 } else {
                     hideEditModal();
                 }
             } catch (err) { showToast(err.message, 'danger'); }
+            } finally {
+                if (saveBtn) saveBtn.disabled = false;
+                unlockPageScroll(false);
+            }
         });
+
+        function ensureDeleteModal() {
+            var el = document.getElementById('delete-modal');
+            if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
+            if (!deleteModalEl) deleteModalEl = new bootstrap.Modal(el);
+            return deleteModalEl;
+        }
 
         function openDeleteModal(id, title) {
             if (isSeedVendor) return;
             deleteTargetId = id;
             document.getElementById('delete-confirm-text').textContent = (title || id);
-            deleteModalEl = new bootstrap.Modal(document.getElementById('delete-modal'));
-            deleteModalEl.show();
+            var dm = ensureDeleteModal();
+            if (dm) dm.show();
         }
 
         document.getElementById('btn-delete-confirm').addEventListener('click', async function () {

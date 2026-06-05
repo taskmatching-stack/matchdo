@@ -1,0 +1,49 @@
+---
+description: 勿擅自改動已穩定程式；最小 diff、先對齊現況再修
+alwaysApply: true
+---
+
+# 最小改動・勿破壞已驗證行為
+
+## 必守
+
+1. **只改使用者明確要求的範圍**  
+   未要求的功能、文案、流程、UI 版面 **不要「順便」改**。修 A 時不得重構 B。
+
+2. **健康的 code 預設保留**  
+   能跑、使用者已接受的互動（例如待傳清單「原圖 + 新圖同一格」、上傳後可捲動列表）**不得為了「更好」而改掉**，除非使用者當次有說要改。
+
+3. **先查再改，避免重工**  
+   動手前確認：頁面載入的 **Bootstrap／套件版本**（本專案 `manufacturer-materials.html` 等為 **Bootstrap 5.0.0 CDN**，**沒有** `Modal.getOrCreateInstance`）、`docs/PROGRESS-*.md`、同檔案既有慣例。  
+   **禁止**用較新版本 API 取代後又 revert。
+
+4. **Modal／捲動**  
+   - 編輯用 Modal：**全頁只建立一次** `new bootstrap.Modal(el)`，關閉時清 `modal-backdrop` 與 `body.modal-open`。  
+   - **不要**在未要求時「上傳成功自動彈編輯窗」（會鎖住背景捲動）。  
+   - 補丁時用 `unlockPageScroll` 類邏輯，不要每開一次 `new Modal()`。
+
+5. **對外可見資料**  
+   圖片名稱、燈箱標題：**不要**自動加 `（重繪）`／`（放大）` 等後綴；衍生圖用 `gallery_images[].ai_derived`、`source_url` 等**內部欄位**。
+
+6. **上傳勾選**  
+   使用者勾「上傳新圖」時預設**不併傳原圖**（與待傳 UI 互斥）；勿改回「原圖 + 新圖各上一張」除非使用者要求。
+
+## 修 bug 時
+
+- **最小 diff**：針對根因一處修好，不要連鎖改文案、重排元件、換套件。  
+- **一個問題一種修法**：失敗後換做法前，先還原錯誤改動，不要疊第二、第三層補丁。  
+- 改 `public/client/manufacturer-materials.html` 等大型頁時，更新 `window.__MATCHDO_MATERIALS_BUILD` 方便確認部署版本。
+
+## 本專案曾因此重工（勿再犯）
+
+| 擅自改動 | 後果 |
+|----------|------|
+| `getOrCreateInstance`（需 BS 5.2+） | 編輯鈕整頁 JS 掛掉 |
+| 每次 `openEditModal` 新建 Modal | 灰屏、無法捲動 |
+| 上傳後強開編輯 Modal | 不能往下滑列表 |
+| 新圖拆成獨立一格 + 問號說明重複插入 | 破壞使用者喜歡的同一框 UI |
+| 名稱強加後綴 | 設計者／消費者看到亂命名 |
+
+## 部署
+
+功能修完且使用者要上線時：**commit + push `main`** 後，再請使用者在 Cloud Shell 部署（見 `deployment.mdc`）。

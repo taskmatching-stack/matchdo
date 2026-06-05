@@ -136,19 +136,35 @@
 ## 六、部署與 SQL（營運勾選）
 
 1. Supabase：`docs/add-vendor-asset-gallery-images.sql`（若尚未執行）。
-2. `git push origin main` 後 Cloud Shell 部署（見 `.cursor/rules/deployment.mdc`）。
-3. 冒煙：見下方 **§七 驗收清單**。
+2. Agent：**先 `git push origin main`**，再請使用者在 Cloud Shell 部署。
+3. **一行部署**（勿加 `--clear-base-image`，舊 gcloud 會失敗）：
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated
+```
+
+4. 編輯窗底部版本應為 **`vendor-materials-audit-fix-20260605`** 或更新。
 
 ---
 
-## 七、上線後驗收清單
+## 七、上線後驗收清單（2026-06-05 全面檢討）
 
-- [ ] Cloud Run 已部署 **`02a834b` 或更新**（若 log 停在 `e718384` 則 AI 重繪勾選未還原）
-- [ ] 主產品／配件新增：多圖待傳清單、逐張勾 **AI 重繪**、「僅上傳並發布」／「AI 重繪並發布」雙按鈕可用
-- [ ] 主產品／配件新增：勾選重繪後可送出且扣點正確；未勾選走「僅上傳」不誤扣重繪點
-- [ ] 材料新增：單圖上傳；材質圖 AI 優化（非產品重繪）
-- [ ] 編輯 Modal：新增角度圖選檔即上傳；各圖「AI 重繪」追加結果、原圖保留
-- [ ] 公開廠商頁素材庫：多角度張數與後台一致
+| # | 操作 | 通過條件 |
+|---|------|----------|
+| 1 | 列表點 **編輯** | 無 Console 紅字；無 `getOrCreateInstance` |
+| 2 | 關閉編輯窗 | 頁面可上下捲動 |
+| 3 | **上傳並發布**（配件 tab） | 不強開編輯窗；列表可捲動；新卡高亮 |
+| 4 | 編輯 → **+ 新增圖片** → **儲存** | 待傳圖一併上傳；狀態列顯示「圖庫共 N 張」且 N≥2 |
+| 5 | 或：待傳後按 **上傳所選** | 上方圖庫立即多一張 |
+| 6 | AI 重繪 | 新圖在**同一格**下方，名稱無 `（重繪）` 後綴 |
+| 7 | AI 放大旁 | 至多一個「AI 編輯區」連結，無一排 `?` |
+
+**2026-06-05 相關 commit（`main`）：** `13f9e60` 名稱／`ai_derived` → `744f44e` modal → `b940e6d` 同格新圖 → `8e3de19` 只傳新圖 → `2affa69` 捲動 → `6ee15cf` 儲存帶待傳 → `2309587` 部署說明
+
+**編輯圖片兩條路（勿混）：**
+
+- **待傳區** →「上傳所選」或「儲存」→ `POST .../gallery-images`
+- **已上傳圖** →「AI 重繪」→ `POST .../gallery-images/redraw`（追加，非取代封面除非 replace）
 
 ---
 
