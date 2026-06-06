@@ -2,6 +2,10 @@
 FROM node:20-slim
 WORKDIR /app
 
+# PDF 匯出中文標籤（產品關聯鏈）
+RUN apt-get update && apt-get install -y --no-install-recommends fontconfig fonts-noto-cjk \
+    && fc-cache -f && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 RUN npm ci --omit=dev
 

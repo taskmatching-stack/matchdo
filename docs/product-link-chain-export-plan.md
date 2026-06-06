@@ -109,8 +109,8 @@
 
 | 階段 | 內容 |
 |------|------|
-| **P1** | 後端 `export.pdf`（單一主產品）+ `product-tree.html` 下載鈕；驗收：**PDF 無網站介面、全部色款／角度可見** |
-| **P2** | 廠商 `vendor-product-link-tree.html` 同入口；未公開素材權限 |
+| **P1** | 後端 `export.pdf` + `product-tree.html`「下載 PDF」— **已實作，待部署驗收** |
+| **P2** | 廠商 `vendor-product-link-tree.html` 同入口（Bearer 下載、可含未公開）— **已實作，待部署驗收** |
 | **P3（可選）** | 全廠多款式合併 PDF 或批次下載（後議）；**ZIP 原圖包不在此路線** |
 
 **不做：** `window.print()` 印現有 guide 頁；現階段不做 ZIP。

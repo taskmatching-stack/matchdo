@@ -86,6 +86,7 @@ const {
     vendorUpscaleRejectMessage,
     AI_EDIT_UPSCALE_PAGE
 } = require('./lib/stability-fast-upscale');
+const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const { registerSitemapRoutes } = require('./routes/sitemap');
 
 async function vendorAssetFileFromMulter(file) {
@@ -13194,6 +13195,70 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     };
 }
 
+async function buildVendorPrototypeLinkTreeExport(manufacturerId, prototypeAssetId) {
+    const { data: proto, error: protoErr } = await supabase
+        .from('vendor_assets')
+        .select('id, manufacturer_id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+        .eq('id', prototypeAssetId)
+        .eq('manufacturer_id', manufacturerId)
+        .maybeSingle();
+    if (protoErr) throw protoErr;
+    if (!proto || normalizeVendorAssetKind(proto.asset_kind) !== 'prototype') {
+        return { error: 'not_found' };
+    }
+    let mfrName = '廠商';
+    const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('id', manufacturerId).maybeSingle();
+    if (mfr) mfrName = mfr.name || mfrName;
+    const linkPack = await getLinkedAssetIdsForPrototype(manufacturerId, prototypeAssetId);
+    const linkedIds = linkPack.ids || [];
+    let linkedAssets = [];
+    if (linkedIds.length) {
+        const { data: rows } = await supabase
+            .from('vendor_assets')
+            .select('id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+            .eq('manufacturer_id', manufacturerId)
+            .in('id', linkedIds);
+        const byId = {};
+        (rows || []).forEach((r) => { byId[r.id] = mapVendorAssetLinkTreeNode(r); });
+        linkedAssets = linkedIds.map((id, idx) => {
+            const node = byId[id];
+            if (!node) return null;
+            const m = (linkPack.metaById && linkPack.metaById[id]) || {};
+            return {
+                ...node,
+                sort_order: linkPack.sortById[id] != null ? linkPack.sortById[id] : idx,
+                allow_multi_pick: m.allow_multi_pick !== false,
+                pick_group: m.pick_group || null
+            };
+        }).filter(Boolean);
+    }
+    const protoNode = mapVendorAssetLinkTreeNode(proto) || {};
+    return {
+        prototype: {
+            ...protoNode,
+            manufacturer_id: proto.manufacturer_id,
+            manufacturer_name: mfrName
+        },
+        linked_assets: linkedAssets,
+        material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,
+        part_count: linkedAssets.filter((a) => a.asset_kind === 'part').length
+    };
+}
+
+async function sendProductLinkTreePdfResponse(res, payload) {
+    if (!payload || payload.error || !payload.prototype) {
+        return res.status(404).json({ error: '找不到主產品' });
+    }
+    const pdf = await productLinkTreePdf.generateProductLinkTreePdf(payload);
+    const fname = productLinkTreePdf.safePdfFilename(payload.prototype.title);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+        'Content-Disposition',
+        "attachment; filename=\"matchdo-link-tree.pdf\"; filename*=UTF-8''" + encodeURIComponent(fname)
+    );
+    res.send(pdf);
+}
+
 async function getPrototypeLinkKindCounts(manufacturerId, prototypeAssetId) {
     if (!(await vendorPrototypeLinksTableReady())) {
         return { material_count: 0, part_count: 0 };
@@ -13875,6 +13940,47 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
     } catch (e) {
         console.error('GET /api/vendor-assets/:id/link-tree:', e);
         res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// GET /api/vendor-assets/:id/link-tree/export.pdf — 公開：關聯鏈 PDF（無網站 UI）
+app.get('/api/vendor-assets/:id/link-tree/export.pdf', async (req, res) => {
+    try {
+        const id = (req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        let payload = await buildPublicPrototypeLinkTree(id);
+        if (payload.error === 'not_public' && internalPreview) {
+            const { data: protoRow } = await supabase.from('vendor_assets').select('manufacturer_id').eq('id', id).maybeSingle();
+            if (protoRow && protoRow.manufacturer_id) {
+                payload = await buildVendorPrototypeLinkTreeExport(protoRow.manufacturer_id, id);
+            }
+        }
+        if (payload.error === 'not_found') return res.status(404).json({ error: '找不到主產品' });
+        if (payload.error === 'not_public') return res.status(404).json({ error: '此主產品未公開' });
+        if (!internalPreview) {
+            payload.linked_assets = (payload.linked_assets || []).filter(function (a) { return a.is_public; });
+        }
+        await sendProductLinkTreePdfResponse(res, payload);
+    } catch (e) {
+        console.error('GET /api/vendor-assets/:id/link-tree/export.pdf:', e);
+        res.status(500).json({ error: 'PDF 產生失敗' });
+    }
+});
+
+// GET /api/me/vendor-assets/:id/link-tree/export.pdf — 廠商：關聯鏈 PDF（可含未公開）
+app.get('/api/me/vendor-assets/:id/link-tree/export.pdf', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const id = (req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const payload = await buildVendorPrototypeLinkTreeExport(manufacturerId, id);
+        if (payload.error === 'not_found') return res.status(404).json({ error: '找不到主產品' });
+        await sendProductLinkTreePdfResponse(res, payload);
+    } catch (e) {
+        console.error('GET /api/me/vendor-assets/:id/link-tree/export.pdf:', e);
+        res.status(500).json({ error: 'PDF 產生失敗' });
     }
 });
 

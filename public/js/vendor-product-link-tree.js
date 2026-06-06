@@ -1178,6 +1178,7 @@
         renderCanvas();
         renderChecks();
         renderOrphanPool();
+        wireExportPdfButton(id);
     }
 
     function getGuideLinkMeta(assetId) {
@@ -1318,6 +1319,50 @@
         } catch (e) {}
     }
 
+    function wireExportPdfButton(prototypeId) {
+        var btn = document.getElementById('btn-export-pdf');
+        if (!btn || !prototypeId) return;
+        if (!btn.__vpltExportWired) {
+            btn.__vpltExportWired = true;
+            btn.addEventListener('click', function (e) {
+                if (!IS_VENDOR) return;
+                e.preventDefault();
+                var pid = state.selectedPrototypeId;
+                if (!pid || !state.token) {
+                    showAlert(tr('productTree.loginRequired', '請先登入'), 'warning');
+                    return;
+                }
+                var url = '/api/me/vendor-assets/' + encodeURIComponent(pid) + '/link-tree/export.pdf';
+                fetch(url, { headers: { Authorization: 'Bearer ' + state.token } })
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('pdf');
+                        return r.blob();
+                    })
+                    .then(function (blob) {
+                        var a = document.createElement('a');
+                        var objUrl = URL.createObjectURL(blob);
+                        a.href = objUrl;
+                        a.download = 'matchdo-link-tree.pdf';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        setTimeout(function () { URL.revokeObjectURL(objUrl); }, 3000);
+                    })
+                    .catch(function () {
+                        showAlert(tr('productTree.exportPdfFailed', 'PDF 下載失敗'), 'danger');
+                    });
+            });
+        }
+        if (IS_VENDOR) {
+            btn.href = '#';
+            btn.classList.remove('d-none');
+        } else {
+            btn.href = '/api/vendor-assets/' + encodeURIComponent(prototypeId) + '/link-tree/export.pdf';
+            btn.removeAttribute('target');
+            btn.classList.remove('d-none');
+        }
+    }
+
     function wireStartDesignButton(p) {
         var startBtn = document.getElementById('btn-start-design');
         if (!startBtn || !p || !p.id) return;
@@ -1351,6 +1396,7 @@
             }
         }
         wireStartDesignButton(p);
+        if (p && p.id) wireExportPdfButton(p.id);
         var hintEl = document.getElementById('vplt-start-design-hint');
         if (hintEl) hintEl.classList.remove('d-none');
         var changeBtn = document.getElementById('btn-change-style');
