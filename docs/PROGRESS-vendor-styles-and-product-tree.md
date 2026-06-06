@@ -176,17 +176,6 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 
 ---
 
-## 已知問題（guide 青框／取消選取）— **2026-06-06**
-
-| 現象 | 右側「已選參考」顯示**尚未點選**，但圖格（如配件「奶茶」）仍留**青綠色框線** |
-|------|------|
-| **根因** | ① `applyGuideVariantChoice` 只 `refreshVariantCardVisuals` 單一資產，**pick_group 互斥**從 `guideSelectedIds` 移除其他配件時，被踢掉的圖格 DOM **未重繪**；② 取消選取後 `active-view` 曾與「預覽色款」綁定，未與 `picked` 同步（`8ba6e82`／`1d5250f` 已改邏輯，**線上可能未部署**） |
-| **修復 commit** | `1d5250f`（picked 才顯示 active-view）+ 待 push：**`applyGuideVariantChoice` 改為 `renderCanvas()` 整頁重繪**（v=50） |
-| **驗收** | 選「奶茶」→ 再點取消 **或** 改選同組另一色 → 青框消失且右側與圖格一致；部署後 **Ctrl+F5**，確認 `vendor-product-link-tree.js?v=50` |
-| **線上狀態** | 截至 2026-06-06，Cloud Run 可能仍為 `00374` 以前 revision，**使用者仍會看到舊 bug** |
-
----
-
 ## 待辦（Phase C，未做）
 
 - [ ] 分享 URL、手機版 guide 體驗優化
