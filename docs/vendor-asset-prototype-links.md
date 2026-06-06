@@ -77,6 +77,7 @@
 - **廠商編輯**：`/client/vendor-product-link-tree.html`（vendor 模式，拖曳卡片樹）。
 - **訂製者看可搭配**：`/product-tree.html`（guide 模式，橫向圖列 + 選色／已選；見進度檔）。
 - 規劃總覽：`docs/vendor-product-link-tree-ui-plan.md`（guide 實作與原「中央樹」草圖有差異，以進度檔為準）。
+- **關聯鏈匯出 PDF**（無網站 UI）：`docs/product-link-chain-export-plan.md`（規劃中，未實作）。
 
 ## 部署前
 
