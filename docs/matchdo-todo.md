@@ -85,6 +85,7 @@
 | **`docs/design-direction-analysis-time-fields.md`** | 風向分析可撈的時間／語意／地區欄位（`custom_products` 等）。 |
 | **`docs/vendor-profile-slug-plan.md`** | **選用／後排**：廠商公開頁自訂網址（`/vendor/{slug}`），取代或並存 `vendor-profile.html?id=UUID`；實作清單與工時見該檔。 |
 | **`docs/admin-ai-settings-models.md`** | **後台 AI 模型設定**：`/admin/ai-settings.html` 三槽（翻譯／讀圖分析／標籤讀圖）、API 與 `payment_config`；**暫定**讀圖分析 → `gemini-3.1-pro-preview`，標籤維持 `gemini-3.1-flash-lite`。 |
+| **`docs/manufacturer-taxonomy-plan.md`** | **規劃中（MT-0）**：廠商素材三維度（生產模式／標準材質／工藝能力）；基線 `552a296`；分期 MT-1～MT-5；**定案前不實作**。 |
 | **`docs/vendor-asset-prototype-moq-customization-notes.md`** | **已實作（文件）**：數位原型 MOQ／訂製程度篩選與生圖製造限制句；**多角度圖**（§多角度圖）；**材料參考**紋理尺度附錄。程式見 `server.js`、`manufacturer-materials.html`。 |
 | **`docs/PROGRESS-vendor-asset-gallery-edit.md`** | **已完成**：編輯／新增多角度圖、API、排查紀錄、維護注意（勿 label／按鈕 JS 不一致）。 |
 | **`docs/design-analysis-material-backtrace.md`** | **待開發**：設計分析須能從 `reference_sources`／`vendor_assets`（材料、版型）**回推訂製需求**；與成品 `ai_tags` 分離，見 MB-0～MB-4。（≠ 生圖材質附錄，後者已上程式） |
