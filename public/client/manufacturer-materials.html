@@ -161,6 +161,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
                                 <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
                                     <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
+                                    <p class="text-muted small mb-2">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                                     <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
                                     <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
                                     <div class="mt-3">
@@ -278,6 +279,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
                                 <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
                                     <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
+                                    <p class="text-muted small mb-2">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                                     <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
                                     <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
                                     <div class="mt-3">
@@ -475,6 +477,7 @@
                         <div class="mb-3 d-none taxonomy-capability-block" id="edit-taxonomy-wrap" data-cap-keys="[]" data-cap-custom="[]">
                             <div class="mb-2"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select" id="edit-production-type"><option value="">— 未指定 —</option></select></div>
                             <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
+                            <p class="text-muted small mb-2">每列：工藝大類 → 細類 → 標籤；「+ 新增工藝」再加一列，可跨大類選多項。</p>
                             <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
                             <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
                             <div class="mt-3">
@@ -647,7 +650,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'taxonomy-row-add-20260610';
+        window.__MATCHDO_MATERIALS_BUILD = 'taxonomy-cascade-rows-20260611';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2667,8 +2670,50 @@
             return capabilityTaxonomyNodes.find(function (n) { return n.key === key; });
         }
 
-        function capabilityAllLeaves() {
-            return capabilityTaxonomyNodes.filter(function (n) { return n.depth === 2; });
+        function sortTaxonomyNodes(list) {
+            return list.slice().sort(function (a, b) {
+                var so = (a.sort_order || 0) - (b.sort_order || 0);
+                if (so !== 0) return so;
+                return String(a.name_zh || a.key).localeCompare(String(b.name_zh || b.key), 'zh-Hant');
+            });
+        }
+
+        function capabilityRoots() {
+            return sortTaxonomyNodes(capabilityTaxonomyNodes.filter(function (n) { return n.depth === 0; }));
+        }
+
+        function capabilityParentsForRoot(rootKey) {
+            if (!rootKey) return [];
+            return sortTaxonomyNodes(capabilityTaxonomyNodes.filter(function (n) {
+                return n.depth === 1 && n.parent_key === rootKey;
+            }));
+        }
+
+        function capabilityLeavesForParent(parentKey) {
+            if (!parentKey) return [];
+            return sortTaxonomyNodes(capabilityTaxonomyNodes.filter(function (n) {
+                return n.depth === 2 && n.parent_key === parentKey;
+            }));
+        }
+
+        function inferCapabilityPath(leafKey) {
+            var leaf = capabilityTaxonomyByKey(leafKey);
+            if (!leaf) return { root: '', parent: '', leaf: leafKey || '' };
+            if (leaf.depth === 2) {
+                var parent = capabilityTaxonomyByKey(leaf.parent_key);
+                var root = parent ? capabilityTaxonomyByKey(parent.parent_key) : null;
+                return {
+                    root: root ? root.key : '',
+                    parent: parent ? parent.key : '',
+                    leaf: leaf.key
+                };
+            }
+            if (leaf.depth === 1) {
+                var root1 = capabilityTaxonomyByKey(leaf.parent_key);
+                return { root: root1 ? root1.key : '', parent: leaf.key, leaf: '' };
+            }
+            if (leaf.depth === 0) return { root: leaf.key, parent: '', leaf: '' };
+            return { root: '', parent: '', leaf: '' };
         }
 
         function fillProductionTypeSelect(sel, selectedKey) {
@@ -2723,34 +2768,79 @@
             return n ? (n.name_zh || n.key) : key;
         }
 
-        function fillCapabilityPickSelect(sel) {
+        function appendCapLoadingOption(sel, text) {
+            var opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = text || '（工藝清單載入中…）';
+            opt.disabled = true;
+            sel.appendChild(opt);
+        }
+
+        function fillCapRootSelect(sel, selectedKey) {
             if (!sel) return;
-            sel.innerHTML = '<option value="">— 選擇工藝 —</option>';
+            sel.innerHTML = '<option value="">— 工藝大類 —</option>';
             if (!taxonomyApiReady || !capabilityTaxonomyNodes.length) {
-                var opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = '（工藝清單載入中或尚未設定）';
-                opt.disabled = true;
-                sel.appendChild(opt);
+                appendCapLoadingOption(sel, taxonomyApiReady ? '（尚無工藝資料，請執行 SQL）' : '（載入中…）');
                 return;
             }
-            capabilityAllLeaves()
-                .slice()
-                .sort(function (a, b) {
-                    return String(a.name_zh || a.key).localeCompare(String(b.name_zh || b.key), 'zh-Hant');
-                })
-                .forEach(function (leaf) {
-                    var opt = document.createElement('option');
-                    opt.value = leaf.key;
-                    opt.textContent = leaf.name_zh || leaf.key;
-                    sel.appendChild(opt);
-                });
+            capabilityRoots().forEach(function (n) {
+                var opt = document.createElement('option');
+                opt.value = n.key;
+                opt.textContent = n.name_zh || n.key;
+                if (n.key === selectedKey) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        function fillCapParentSelect(sel, rootKey, selectedKey) {
+            if (!sel) return;
+            sel.innerHTML = '<option value="">— 工藝細類 —</option>';
+            sel.disabled = !rootKey;
+            if (!rootKey) return;
+            capabilityParentsForRoot(rootKey).forEach(function (n) {
+                var opt = document.createElement('option');
+                opt.value = n.key;
+                opt.textContent = n.name_zh || n.key;
+                if (n.key === selectedKey) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        function fillCapLeafSelect(sel, parentKey, selectedKey) {
+            if (!sel) return;
+            sel.innerHTML = '<option value="">— 工藝標籤 —</option>';
+            sel.disabled = !parentKey;
+            if (!parentKey) return;
+            capabilityLeavesForParent(parentKey).forEach(function (n) {
+                var opt = document.createElement('option');
+                opt.value = n.key;
+                opt.textContent = n.name_zh || n.key;
+                if (n.key === selectedKey) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        function wireCapabilityRowCascade(block, row) {
+            var rootSel = row.querySelector('.cap-root');
+            var parentSel = row.querySelector('.cap-parent');
+            var leafSel = row.querySelector('.cap-leaf');
+            if (!rootSel || !parentSel || !leafSel) return;
+            rootSel.addEventListener('change', function () {
+                fillCapParentSelect(parentSel, rootSel.value, '');
+                fillCapLeafSelect(leafSel, '', '');
+                syncCapabilityStateFromRows(block);
+            });
+            parentSel.addEventListener('change', function () {
+                fillCapLeafSelect(leafSel, parentSel.value, '');
+                syncCapabilityStateFromRows(block);
+            });
+            leafSel.addEventListener('change', function () { syncCapabilityStateFromRows(block); });
         }
 
         function syncCapabilityStateFromRows(block) {
             if (!block) return { keys: [], custom: [] };
             var keys = [];
-            block.querySelectorAll('.add-capability-row .add-capability-pick').forEach(function (sel) {
+            block.querySelectorAll('.add-capability-row .cap-leaf').forEach(function (sel) {
                 var v = String(sel.value || '').trim();
                 if (v && keys.indexOf(v) < 0) keys.push(v);
             });
@@ -2763,21 +2853,33 @@
             return readCapabilityState(block);
         }
 
-        function createCapabilityRow(block, selectedKey) {
+        function createCapabilityRow(block, selectedLeafKey) {
+            var path = inferCapabilityPath(selectedLeafKey || '');
             var row = document.createElement('div');
-            row.className = 'd-flex gap-2 align-items-center add-capability-row';
-            var sel = document.createElement('select');
-            sel.className = 'form-select form-select-sm add-capability-pick';
-            sel.style.maxWidth = '20rem';
-            fillCapabilityPickSelect(sel);
-            if (selectedKey) sel.value = selectedKey;
+            row.className = 'd-flex flex-wrap gap-2 align-items-center add-capability-row';
+            var rootSel = document.createElement('select');
+            rootSel.className = 'form-select form-select-sm cap-root';
+            rootSel.style.maxWidth = '11rem';
+            var parentSel = document.createElement('select');
+            parentSel.className = 'form-select form-select-sm cap-parent';
+            parentSel.style.maxWidth = '11rem';
+            parentSel.disabled = !path.root;
+            var leafSel = document.createElement('select');
+            leafSel.className = 'form-select form-select-sm cap-leaf';
+            leafSel.style.maxWidth = '11rem';
+            leafSel.disabled = !path.parent;
+            fillCapRootSelect(rootSel, path.root);
+            fillCapParentSelect(parentSel, path.root, path.parent);
+            fillCapLeafSelect(leafSel, path.parent, path.leaf);
             var btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'btn btn-sm btn-outline-danger add-capability-row-remove';
             btn.textContent = '移除';
-            row.appendChild(sel);
+            row.appendChild(rootSel);
+            row.appendChild(parentSel);
+            row.appendChild(leafSel);
             row.appendChild(btn);
-            sel.addEventListener('change', function () { syncCapabilityStateFromRows(block); });
+            wireCapabilityRowCascade(block, row);
             btn.addEventListener('click', function () {
                 row.remove();
                 var container = block.querySelector('.add-capability-rows');
@@ -2837,11 +2939,20 @@
 
         function initTaxonomySelects() {
             document.querySelectorAll('.add-production-type').forEach(function (sel) { fillProductionTypeSelect(sel); });
+            var editPt = document.getElementById('edit-production-type');
+            if (editPt && editPt.options.length <= 1) fillProductionTypeSelect(editPt);
             document.querySelectorAll('.taxonomy-capability-block').forEach(function (block) {
-                writeCapabilityState(block, { keys: [], custom: [] });
                 refreshCapabilityBlockUi(block);
             });
-            fillProductionTypeSelect(document.getElementById('edit-production-type'));
+        }
+
+        function bootstrapCapabilityUi() {
+            document.querySelectorAll('.taxonomy-capability-block').forEach(function (block) {
+                wireTaxonomyBlock(block);
+                if (!block.querySelector('.add-capability-row')) {
+                    refreshCapabilityBlockUi(block);
+                }
+            });
         }
 
         function wireTaxonomyBlock(block) {
@@ -2926,12 +3037,14 @@
                 var d2 = await r2.json().catch(function () { return {}; });
                 if (r1.ok) productionTypes = d1.items || [];
                 if (r2.ok) capabilityTaxonomyNodes = d2.items || [];
-                taxonomyApiReady = r1.ok && r2.ok;
+                taxonomyApiReady = r2.ok && capabilityTaxonomyNodes.length > 0;
             } catch (_) { /* ignore */ }
             initTaxonomySelects();
             document.querySelectorAll('.add-form').forEach(wireTaxonomySelectsOnForm);
             wireEditTaxonomySelects();
         }
+
+        bootstrapCapabilityUi();
 
         function getFormPending(form) {
             var key = form.getAttribute('data-kind') || 'prototype';
