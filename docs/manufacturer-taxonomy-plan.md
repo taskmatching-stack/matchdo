@@ -1,381 +1,235 @@
-# 廠商分類：生產模式 × 材質 × 工藝能力 — 規劃（第二版）
+# 廠商分類：四維度架構 — 規劃（第三版）
 
-**狀態**：**MT-1／MT-2 進行中**（SQL + 讀取 API）；MT-3 表單待做  
-**基線 commit**：`552a296`（2026-06-06，產品關聯鏈匯出 PDF）  
-**更新**：2026-06-09（雙載體定案；MT-1 SQL、MT-2 `/api/taxonomy*`）  
-**取代**：2026-06-09 已還原的 `df6507a`～`bbcde72` 工藝分類實作與舊規劃稿（勿再參考）
+**狀態**：**MT-1 v3 種子已整理**；MT-3 表單與後台管理**待重做**（舊 commit `8f600b8`～`ab3a939` 程式視為作廢，勿參考）  
+**更新**：2026-06-10  
+**種子 SQL**：`docs/add-manufacturer-taxonomy.sql`（與本檔對齊的唯一詞彙來源）
 
-**相關現況文件**：
+**相關**：
 
-- `docs/vendor-asset-prototype-moq-customization-notes.md` — 數位原型 MOQ／訂製程度（**已上線**）
-- `docs/add-vendor-assets-style-material.sql` — `style_key`／`material_key` 粗分（**已上線**）
-- `docs/custom-product-design-and-manufacturer-search-plan.md` — 設計者找廠商主軸
-- `docs/architecture-and-seo-principles.md`、`docs/account-one-login-capabilities.md`
+- `docs/custom-product-categories` — ① 商品分類（已有後台）
+- `docs/vendor-asset-prototype-moq-customization-notes.md` — MOQ／訂製程度（已上線，不動）
+- `docs/account-one-login-capabilities.md` — 選單常駐原則
 
 ---
 
-## 0. 這次規劃要守住的底線
+## 0. 底線
 
 | 原則 | 說明 |
 |------|------|
-| **先文件、後實作** | 本檔定案前不寫 `server.js`／不動部署設定 |
-| **一期一 PR** | 每期獨立 commit；**禁止**把 Dockerfile／`cloudbuild.yaml`／部署文件混進功能 PR |
-| **部署不變** | 上線仍用既有一行 Cloud Shell（見 `.cursor/rules/deployment.mdc`） |
-| **每期可驗證** | 每期結束必能回答：線上多了什麼、怎麼測、失敗怎麼回退 |
-| **加法優先** | 不破壞現有 MOQ／訂製程度／`material_key` 行為 |
+| **四維度平行** | 商品／工藝／生產模式／材料 — **不混在同一棵樹** |
+| **工藝三層** | 大類 → 細類 → 標籤；前兩層只負責**導覽**，不限制只能選一項 |
+| **工藝複選** | 同一筆可勾**多個**平台工藝標籤；可換細類繼續加選，已選清單常駐顯示 |
+| **廠商可新增** | 清單沒有時可**自填工藝**（其他／備填），與平台標籤並存；**不是**只能選一項 |
+| **生產模式獨立** | 工業量產／職人手作等 — **單選**；「工業製造」「職人工藝」為 AI 族，不當工藝大類 |
+| **手工在工藝標籤裡** | 如「手工皮件」「手工金工」— 在皮革、珠寶底下；**不是**生產模式 |
+| **詞彙維護** | 平台種子 + **管理後台**可增修；廠商自填先顯示，管理員可升格為正式標籤 |
+| **表單 UI** | 三層 `select` 連動 + 標籤按鈕**複選** +「新增其他工藝」；**禁止**舊版搜尋 picker |
+| **部署不變** | `.cursor/rules/deployment.mdc` 一行 Cloud Shell |
 
 ---
 
-## 1. 要解決什麼
+## 1. 四個維度
 
-幫助**製造商**在兩類對外內容上，說清楚「這件怎麼做、用什麼材、走哪些工藝」，讓**設計者**找廠商（看作品）與選素材（看原型）時都能**縮小範圍**。
-
-### 1.1 兩類載體（同一套分類詞彙）
-
-| 載體 | 資料表 | 頁面 | 給誰看 | 語意 |
-|------|--------|------|--------|------|
-| **數位原型**（含零件） | `vendor_assets`（`prototype`／`part`） | `manufacturer-materials.html` | 設計者選參考圖、生圖 | 「這款**可以怎麼訂**」— 版型＋製造條件 |
-| **廠商作品**（展示案例） | `manufacturer_portfolio` | `manufacturer-portfolio.html` | 設計者找廠商、媒體牆 | 「我們**做過這件**」— 成品案例＋製造條件 |
-
-**材料參考**（`vendor_assets.material`）本期只做標準材質 key **選填**，工藝樹以原型＋作品為主。
-
-```mermaid
-flowchart LR
-  subgraph vocab["平台同一套 taxonomy_nodes"]
-    PT[production_type]
-    MAT[material]
-    CAP[capability 工藝葉節點]
-  end
-  subgraph proto["數位原型 vendor_assets"]
-    P1[prototype / part]
-  end
-  subgraph work["廠商作品 manufacturer_portfolio"]
-    W1[展示案例]
-  end
-  vocab --> P1
-  vocab --> W1
-  P1 --> DESIGN[設計頁素材池]
-  W1 --> FIND[找廠商 / 媒體牆 / 作品瀏覽]
+```text
+① 商品分類     custom_product_categories     主分類 → 子分類（尋找主軸）
+② 工藝分類     taxonomy capability           大類 → 細類 → 標籤（**複選**）+ 廠商自填（其他）
+③ 生產模式     taxonomy production_type      單選（與工藝分開）
+④ 材料         taxonomy material             選填（獨立）
 ```
 
-### 1.2 三個維度（不是一棵樹）
+**知識圖譜**：
 
-| 問題 | 維度 | 落在哪裡 |
-|------|------|----------|
-| 這件怎麼接單／量級？ | 生產模式 `production_type` | **每筆**原型 **與** 每筆作品（單選） |
-| 用什麼材質錨點？ | 材質 `material` | 原型（材料種類為主）、作品（選填） |
-| 涉及哪些工藝？ | 工藝能力 `capability` | **每筆**原型 **與** 每筆作品（複選葉節點） |
+```text
+商品 → 需要哪些工藝 → 需要哪些材料 → 哪些工廠／作品 → 篩生產模式 + MOQ
+```
 
-與**產品分類**的關係：
+**兩類載體**（同一套 key）：
 
-| 欄位 | 載體 | 角色 |
-|------|------|------|
-| `category_key`／`subcategory_key` | 作品**已有**；原型走平台主分類 | **尋找主軸**（要做什麼產品） |
-| `production_type_key`、工藝、MOQ | 原型＋作品**各填各的** | **輔助縮小**（在候選裡篩量級／製程） |
-
-### 1.3 尋找主軸 vs 輔助條件
-
-| 層級 | 內容 | 角色 |
-|------|------|------|
-| **尋找主軸** | `custom_product_categories`、作品 `category_key`、設計語意 | 「要做什麼、誰有相關案例」 |
-| **輔助縮小** | 生產模式、MOQ、工藝標籤 | 作品列表／素材池上篩選，**不是**全站第一層導覽 |
-| **AI 媒合** | 三維度 + `ai_tags`／`ai_tags_by_dimension` | 建議排序；**不取代**結構化 taxonomy，也不自動覆寫 |
-
-**禁止誤解**：
-
-- 不以「15 大工藝」當與「服飾／家具」平行的第一層導覽
-- 工藝是在**編輯單筆原型或單筆作品**時複選；瀏覽時顯示**標籤**，不是獨立工藝目錄站
-- **禁止**只在原型加標籤、作品沒有 — 兩邊必須能填**同一套 key**
+| 載體 | 表 | 頁面 |
+|------|-----|------|
+| 數位原型／零件 | `vendor_assets` + `vendor_asset_taxonomy_links` | `manufacturer-materials.html` |
+| 廠商作品 | `manufacturer_portfolio` + `portfolio_taxonomy_links` | `manufacturer-portfolio.html` |
 
 ---
 
-## 2. 基線現況（`552a296` 已有）
+## 2. 維度一：商品分類（已有）
 
-### 2.1 `vendor_assets` 相關欄位（已存在）
-
-| 欄位 | 適用 | 說明 |
-|------|------|------|
-| `asset_kind` | 全種類 | `prototype`／`part`／`material` 等 |
-| `min_order_quantity` | 主要 `prototype` | 必填；設計頁精確相等篩選 |
-| `customization_levels` | 主要 `prototype` | 訂製程度五 slug，複選 |
-| `style_key` | 可選 | 造型粗分（silhouette, bags…） |
-| `material_key` | 可選 | 材質粗分（fabric, leather, metal…） |
-
-### 2.2 `manufacturer_portfolio` 相關欄位（已存在）
-
-| 欄位 | 說明 |
-|------|------|
-| `category_key`／`subcategory_key`／`category_type` | 訂製品／再製主分類（**尋找主軸**，已有） |
-| `min_order_quantity` | 此案例 MOQ（**選填**） |
-| `ai_tags` | AI 標籤（與結構化工藝**分離**） |
-
-### 2.3 頁面與 API（已存在）
-
-| 項目 | 位置 |
-|------|------|
-| 原型上傳／編輯 | `public/client/manufacturer-materials.html` |
-| 作品上傳／編輯 | `public/client/manufacturer-portfolio.html` |
-| 設計頁素材池 | `public/custom-product.html` + `public/js/custom-product.js` |
-| 公開原型列表 | `GET /api/vendor-assets` |
-| 公開／廠商作品 | `GET /api/me/manufacturer-portfolio` 等 |
-
-### 2.4 與本規劃的關係
-
-- **MOQ**：原型必填、作品選填 — **維持**，與生產模式並存
-- **訂製程度** `customization_levels`：僅原型；作品**不加**此欄
-- **`material_key`**（原型粗分）：短期保留；標準 `mat.*` 逐步對齊（§4.2）
-- **作品 `category_key`**：維持主分類；本規劃在其下**加**生產模式＋工藝，不取代 category
+- 後台：`public/admin/custom-categories.html`
+- API：`/api/custom-product-categories`、`/api/admin/custom-product-categories`
+- 有 **提示詞**（AI 設計用）— 工藝後台**不要**複製此欄位
 
 ---
 
-## 3. 維度一：生產模式（Production Type）
+## 3. 維度二：工藝分類（Capability）
 
-**語意**：這**一筆素材**的接單／製造屬性（不是整間廠的標籤）。
+### 3.1 三層語意（導覽用，不鎖單選）
 
-| key | 顯示名 | MOQ 提示（表單 hint，非硬性） |
-|-----|--------|-------------------------------|
-| `prod.bespoke` | 單件客製 | 1 |
-| `prod.artisan` | 職人工坊 | 1～20 |
-| `prod.small_batch` | 小批量產 | 20～500 |
-| `prod.mass` | 工業量產 | 500+ |
+| depth | 名稱 | 廠商操作 | 儲存 |
+|-------|------|----------|------|
+| 0 | **工藝大類** | 第一個 `<select>`，用來縮小下面清單 | 不存 |
+| 1 | **工藝細類** | 第二個 `<select>`（連動大類） | 不存 |
+| 2 | **工藝標籤** | 按鈕**複選**；可換大類／細類繼續勾，**已選清單不會被清掉** | `vendor_asset_taxonomy_links` 等多筆 |
 
-### 3.1 資料
+**重點**：三層連動 ≠ 只能填一項。一筆原型／作品可同時有「燙金 + CNC銑削 + 平車 + …」任意多個標籤。
 
-| 表 | 欄位 | 必填 |
-|----|------|------|
-| `vendor_assets` | `production_type_key` | 原型建議必填；`part` 選填 |
-| `manufacturer_portfolio` | `production_type_key` | **選填**（與作品 MOQ 同區填寫） |
+### 3.1.1 廠商自填工藝（其他）
 
-與 `min_order_quantity` **並存**：模式＝語意分類，MOQ＝實際件數。
+平台清單沒有時，廠商不必卡住：
 
-### 3.2 廠商 UI（規劃）
+| 方式 | UI | 儲存（規劃） |
+|------|-----|----------------|
+| **勾平台標籤** | 三層導覽下複選 | `capability_keys[]` → link 表 |
+| **自填其他** | 「新增其他工藝」輸入框，可**連續新增多筆** | `capability_custom_labels[]`（新欄位，text[] 或 JSON） |
+| **升格**（後台） | 管理員把常見自填詞併入 `taxonomy_nodes` | 日後可選做 |
 
-| 頁面 | 表單 | 控件 |
-|------|------|------|
-| `manufacturer-materials.html` | 原型／零件 新增＋編輯 | 單選，MOQ 下方 |
-| `manufacturer-portfolio.html` | 作品 新增＋編輯 | 單選，MOQ 旁（與 category 並列） |
+自填詞**立即**在該筆素材／作品上顯示 chip；是否進全站標準詞彙由管理員決定，不要求廠商等審核才能上架。
 
-### 3.3 設計者端（後期 MT-5）
+### 3.2 十五工藝大類（定案）
 
-- 素材池：依 `production_type_key` + MOQ 篩原型
-- 找廠商／作品列表：可依作品 `production_type_key` 篩選（與 `category_key` 疊加）
+完整清單以 `add-manufacturer-taxonomy.sql` 為準。大類與 AI 推薦標籤：
 
----
+| # | 大類顯示名 | key |
+|---|------------|-----|
+| 1 | 印刷工藝 | `cap.printing` |
+| 2 | 紡織與車縫 | `cap.textile` |
+| 3 | 皮革工藝 | `cap.leather` |
+| 4 | 木工工藝 | `cap.wood` |
+| 5 | 金屬加工 | `cap.metal` |
+| 6 | 塑膠加工 | `cap.plastics` |
+| 7 | 矽膠與橡膠 | `cap.silicone_rubber` |
+| 8 | 珠寶與金工 | `cap.jewelry` |
+| 9 | 模型與裝飾品 | `cap.modeling` |
+| 10 | 3D製造 | `cap.3d` |
+| 11 | 雷射加工 | `cap.laser` |
+| 12 | 玻璃與陶瓷 | `cap.glass_ceramic` |
+| 13 | 包裝工藝 | `cap.packaging` |
+| 14 | 鐘錶微型工藝 | `cap.horology` |
+| 15 | 交通與戶外改裝 | `cap.automotive_outdoor` |
 
-## 4. 維度二：材質（Material）
+約 **152** 個工藝標籤（depth=2）為**起點種子**；管理後台可增修，廠商亦可自填補缺。
 
-**語意**：L0 供應鏈／庫存錨點，讓設計者知道「這張圖對應什麼物料族」。
+### 3.3 廠商表單 UI（MT-3）
 
-### 4.1 與 `material_key` 的演進
+```text
+[生產模式 ▼]  單選
 
-| 階段 | 做法 |
-|------|------|
-| **MT-1～MT-3** | 新表 `taxonomy_nodes` 種子 `material` 維度；`material_key` **不刪** |
-| **MT-3 廠商表單** | `asset_kind=material` 可選「標準材質」autocomplete（選葉節點 key） |
-| **日後** | 後台或 migration 將常見 `material_key` 映射到 `mat.*` key |
+[工藝 ▼] [移除]     ← 第一列
+[工藝 ▼] [移除]     ← 按「+ 新增工藝」多一列，每列選一項
 
-### 4.2 種子範圍（MT-1 SQL 另檔）
+[+ 新增工藝]
 
-平面維護：`key` + `name_zh` + `aliases[]` + 可選 `parent_key`（如 `mat.leather` → `mat.leather.vegetable_tanned`）。
+其他工藝（自填）
+[________] [移除]
+[+ 新增其他工藝]
+```
 
-種子約 **30～40** 個常用節點即可上線；不全列於本檔，MT-1 以獨立 `docs/add-manufacturer-taxonomy.sql` 交付。
+每加一項就多一行表單；無大類連動、無標籤牆。
 
-廠商**不可自創**節點；缺詞送審後由平台新增。
+- 平台標籤：`GET /api/taxonomy?dimension=capability`
+- 送出：`capability_keys`（JSON 陣列，**多個**）+ `capability_custom_labels`（JSON 陣列，**多個**自填）
+- **禁止**：舊版 `vendor-asset-taxonomy-picker.js` 單一搜尋框
 
----
+### 3.4 後台管理（MT-2b，待做）
 
-## 5. 維度三：工藝能力樹（Capability）
-
-**語意**：這**一筆**內容（原型或作品）涉及哪些製程；瀏覽時顯示**標籤 chips**。
-
-- 儲存單位：**葉節點 key**（`depth` 最大那層）
-- 廠商 UI：**複選**，大類可摺疊；原型表單與作品表單**共用同一 picker 元件**
-- 不要求廠商勾滿整棵樹；**禁止**用 profile 級「此廠擅長工藝」取代逐筆標註
-
-### 5.1 十五大類（種子骨架）
-
-MT-1 種子以以下大類為根（`cap.*`），其下再掛中類／細項：
-
-| # | 大類 key | 名稱 |
-|---|----------|------|
-| 1 | `cap.printing` | 印刷工藝 |
-| 2 | `cap.textile` | 紡織工藝 |
-| 3 | `cap.leather` | 皮革工藝 |
-| 4 | `cap.wood` | 木工工藝 |
-| 5 | `cap.metal` | 金屬工藝 |
-| 6 | `cap.plastics` | 塑膠工藝 |
-| 7 | `cap.silicone_rubber` | 矽膠與橡膠 |
-| 8 | `cap.jewelry` | 珠寶工藝 |
-| 9 | `cap.modeling` | 模型工藝 |
-| 10 | `cap.3d` | 3D 製造 |
-| 11 | `cap.laser` | 雷射工藝 |
-| 12 | `cap.surface` | 表面處理 |
-| 13 | `cap.assembly` | 組裝工藝 |
-| 14 | `cap.electronics` | 電子工藝 |
-| 15 | `cap.other` | 其他（葉節點送審用） |
-
-細項清單（約 **100+ 葉節點**）在 **MT-1 SQL 檔**維護，不貼進本規劃以免雙源不一致。
-
-### 5.2 廠商 UI（規劃）
-
-| 頁面 | 掛載點 | 儲存 |
-|------|--------|------|
-| `manufacturer-materials.html` | 原型／零件 新增表單、編輯 modal | `vendor_asset_taxonomy_links` |
-| `manufacturer-portfolio.html` | 作品 新增表單、編輯 modal | `portfolio_taxonomy_links`（見 §6.2） |
-
-控件：搜尋 + 分組 checkbox（`vendor-asset-taxonomy-picker.js` 或更名為通用 picker，**動態掛載**，不硬編碼 HTML）。
-
-### 5.3 瀏覽端（規劃）
-
-| 場景 | 顯示 |
-|------|------|
-| 原型卡片／設計頁素材池 | 工藝 chips + 生產模式 |
-| 作品卡片／廠商頁／媒體牆 | 工藝 chips + 生產模式（**與 category 並列**） |
-| 全站工藝導覽頁 | **不做** |
+- 新頁：`public/admin/taxonomy-capabilities.html`（比照 `custom-categories.html`）
+- API：`/api/admin/taxonomy-nodes` CRUD（`dimension=capability`）
+- 欄位：key、顯示名、所屬大類／細類、排序、啟用 — **無提示詞**
+- 可檢視廠商常見自填詞，一鍵升格為正式 `taxonomy_nodes`（二期可簡化為手動新增）
 
 ---
 
-## 6. 資料模型（規劃）
+## 4. 維度三：生產模式（Production Type）
+
+**獨立於工藝樹。** 描述「這一筆」接單型態，不是整間廠標籤。
+
+| key | 顯示名 | AI 族 | 特徵（`moq_hint_json`） |
+|-----|--------|-------|---------------------------|
+| `prod.mass` | 工業量產 | 工業製造 | 大量生產、設備導向、穩定 MOQ |
+| `prod.small_batch` | 小量生產 | 工業製造 | 小量生產 |
+| `prod.artisan` | 職人手作 | 職人工藝 | 少量、技術導向、個人品牌 |
+| `prod.bespoke` | 單件客製 | 職人工藝 | MOQ 通常 1 |
+
+與 `min_order_quantity` **並存**：模式＝語意；MOQ＝實際件數。
+
+**儲存**：`vendor_assets.production_type_key`、`manufacturer_portfolio.production_type_key`（單選欄位，不進 link 表）。
+
+**媒合範例**：
+
+```text
+原木桌 + 木工標籤 + 職人手作 + MOQ=1
+餐廳桌 500 張 + 木工標籤 + 工業量產 + MOQ>100
+```
+
+---
+
+## 5. 維度四：材料（Material）
+
+- 種子在 SQL；大類 → 細項（depth 0/1）
+- 廠商表單**選填**；`material_key` 粗分欄位短期保留
+- 後台可擴充（同 §3.4）
+
+---
+
+## 6. 資料模型
 
 ### 6.1 `taxonomy_nodes`
 
 | 欄位 | 說明 |
 |------|------|
-| `key` | 主鍵，如 `prod.bespoke`、`cap.printing.dtg` |
+| `key` | 主鍵 |
 | `dimension` | `production_type` \| `material` \| `capability` |
-| `parent_key` | 可 NULL（根節點） |
-| `depth` | 0=根，1=中類，2=葉（能力樹最多三層） |
-| `name_zh` / `name_en` | 顯示名 |
-| `aliases` | 搜尋用同義詞 |
-| `moq_hint_json` | 僅 `production_type` 用 |
-| `sort_order` / `is_active` | 排序與下架 |
+| `parent_key` | 父節點 |
+| `depth` | 工藝：0 大類 / 1 細類 / 2 標籤 |
+| `name_zh` | 顯示名 |
+| `aliases` | 搜尋同義（非提示詞） |
+| `moq_hint_json` | 生產模式用（含 `family`、`traits`、`examples`） |
+| `is_active` | 下架舊詞彙用 |
 
-RLS：公開 **SELECT** `is_active = true`；寫入僅 service role／後台。
+### 6.2 連結表與自填欄位
 
-### 6.2 連結表（工藝／標準材質）
-
-**原型** — `vendor_asset_taxonomy_links`：
-
-```text
-asset_id       uuid  → vendor_assets.id
-taxonomy_key   text  → taxonomy_nodes.key（capability 或 material 葉節點）
-PRIMARY KEY (asset_id, taxonomy_key)
-```
-
-**作品** — `portfolio_taxonomy_links`（新表，結構對稱）：
-
-```text
-portfolio_id   uuid  → manufacturer_portfolio.id
-taxonomy_key   text  → taxonomy_nodes.key
-PRIMARY KEY (portfolio_id, taxonomy_key)
-```
-
-**生產模式**兩表各一欄 `production_type_key`（單選，不進 link 表）。
-
-寫入時校驗：`taxonomy_key` 的 `dimension` 必須與欄位語意一致（工藝→`capability`，材質→`material`）。
-
-### 6.3 與 AI 標籤
-
-- `ai_tags_by_dimension` **維持平行**，不自動覆寫結構化 taxonomy
-- 日後可做：上傳後 AI 建議工藝 key，廠商確認寫入 link 表（**MT-6 以後**，本期不做）
+- `vendor_asset_taxonomy_links` — 平台工藝標籤 key，**一筆素材多列**（複選）
+- `portfolio_taxonomy_links` — 作品同上
+- `vendor_assets.capability_custom_labels` — `text[]` 或 `jsonb`，廠商自填工藝（MT-3 前需 migration）
+- `manufacturer_portfolio.capability_custom_labels` — 對稱欄位
 
 ---
 
-## 7. API（規劃，MT-2 實作）
+## 7. API
 
-| 方法 | 路徑 | 說明 |
+| 方法 | 路徑 | 狀態 |
 |------|------|------|
-| GET | `/api/taxonomy?dimension=` | 回傳該維度節點樹或平鋪列表 |
-| GET | `/api/taxonomy/search?q=&dimension=capability` | 工藝 autocomplete |
-| GET | `/api/vendor-assets` | **擴充**回傳 `production_type_key`、`capability_keys[]`、`material_taxonomy_keys[]` |
-| POST/PATCH | `/api/me/vendor-assets` | **擴充**接受上述欄位 |
-| GET | `/api/me/manufacturer-portfolio`、公開作品 API | **擴充**回傳 `production_type_key`、`capability_keys[]` |
-| POST/PATCH | 作品建立／更新 API | **擴充**接受 `production_type_key`、`capability_keys[]` |
-
-錯誤契約：未知 key → 400；DB 未 migration → 500 附 `請執行 docs/add-manufacturer-taxonomy.sql`。
+| GET | `/api/taxonomy?dimension=` | MT-2 已有 |
+| GET | `/api/taxonomy/search` | 可保留給後台搜尋；**廠商表單不用** |
+| CRUD | `/api/admin/taxonomy-nodes` | **待做** |
+| POST/PUT | vendor-assets、portfolio | 已接受 `production_type_key`、`capability_keys` |
 
 ---
 
-## 8. 實作分期
+## 8. 實作分期（重排）
 
-每期：**Supabase SQL（若需要）→ 程式 → push → 既有部署一行 → 冒煙測試**。  
-每期完成才開下一期。
+| 期別 | 內容 | 狀態 |
+|------|------|------|
+| **MT-1 v3** | `add-manufacturer-taxonomy.sql` 對齊你確認的 15 大類 | ✅ 本檔 |
+| **MT-2** | 讀取 API | 已有，需驗證 v3 種子 |
+| **MT-2b** | 後台工藝 CRUD（無提示詞） | 待做 |
+| **MT-3a** | 原型表單：select 三級 + 生產模式 | 待重做（丟棄 picker） |
+| **MT-3b** | 作品表單：同上 | 待做 |
+| **MT-4** | 列表 chips | 待做 |
+| **MT-5** | 設計者篩選 | 待做 |
 
-| 期別 | 名稱 | 交付物 | 完成標準（線上可測） |
-|------|------|--------|---------------------|
-| **MT-0** | 規劃定案 | **本檔** | ✅ |
-| **MT-1** | DB 種子 | `docs/add-manufacturer-taxonomy.sql` | Supabase 執行成功；`taxonomy_nodes` 有資料 |
-| **MT-2** | 讀取 API | `lib/manufacturer-taxonomy.js` + `GET /api/taxonomy*` | `curl …/api/taxonomy?dimension=production_type` 回 JSON（未跑 SQL 則 503） |
-| **MT-3a** | 原型編輯 UI | picker + `manufacturer-materials.html` | 原型可填生產模式＋工藝；DB 有值 |
-| **MT-3b** | 作品編輯 UI | 同一 picker + `manufacturer-portfolio.html` | 作品可填生產模式＋工藝；DB 有值 |
-| **MT-4** | 瀏覽標籤 | 原型＋作品列表 chips | 兩邊後台／公開 API 都看得到標籤 |
-| **MT-5** | 設計者篩選 | `custom-product.js` + 作品列表 facet | 素材池與找廠商列表可篩 |
-| MT-6+ | AI 建議工藝、B 線材質對齊 | 另開 | — |
+### 作廢不沿用
 
-### 8.1 MT-3 範圍邊界
-
-**MT-3a 要做（原型）**：
-
-- `prototype`（＋`part`）新增／編輯：生產模式單選、工藝複選
-
-**MT-3b 要做（作品）**：
-
-- `manufacturer-portfolio.html` 新增／編輯：同上控件、同一套 key
-- SQL 含 `manufacturer_portfolio.production_type_key` + `portfolio_taxonomy_links`
-
-**不做**：
-
-- 改部署設定；設計頁大改導覽；硬編碼工藝 HTML
-- 廠商 profile 級「擅長工藝」聚合（Q5）
-- 僅做原型、作品留空 — **視為未完成 MT-3**
-
-### 8.2 每期部署驗證清單（固定）
-
-```bash
-# 部署（不變）
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
-```
-
-| 檢查項 | MT-2 | MT-3a | MT-3b |
-|--------|------|-------|-------|
-| `/api/taxonomy?dimension=production_type` | ✓ | ✓ | ✓ |
-| 原型表單有工藝區塊 | — | ✓ | ✓ |
-| 作品表單有工藝區塊 | — | — | ✓ |
-| 舊 MOQ／category 行為不壞 | ✓ | ✓ | ✓ |
-
-若 revision 不變或 API 404：**停止疊加功能**，先查部署／映像，不改部署文件。
+- commit `8f600b8`～`ab3a939` 的 `vendor-asset-taxonomy-picker.js` 與動態搜尋 UI
+- 規劃第二版 §5.1 的 `cap.surface`／`cap.assembly`／`cap.electronics`／`cap.other` 大類
 
 ---
 
-## 9. 開放問題（定案前請你勾選）
+## 9. 下一步
 
-| # | 問題 | 建議預設 |
-|---|------|----------|
-| Q1 | `part` 是否與 `prototype` 同套生產模式＋工藝？ | **是** |
-| Q2 | `material` 種類是否本期就接標準材質 key？ | **MT-3 只做選填**；必填會拖慢材料上傳 |
-| Q3 | 設計頁工藝篩選是否綁 MT-3 一起上？ | **否**，MT-5 獨立 |
-| Q4 | 十五大類細項是否沿用 2026-06-05 種子草稿？ | **是**，MT-1 從還原前 SQL 整理一份乾淨版 |
-| Q5 | 公開廠商頁是否顯示「此廠常見工藝」聚合？ | **本期不做**；只顯示**單筆作品**上的標籤 |
-| Q6 | 作品是否必填生產模式／工藝？ | **選填**（與 MOQ 一致）；原型生產模式建議必填 |
+1. 你在 Supabase **重跑** `docs/add-manufacturer-taxonomy.sql`（v3）
+2. 驗證：`GET /api/taxonomy?dimension=capability` 回 15 大類 + 細類 + 標籤
+3. 再開 MT-2b（後台）→ MT-3a／3b（表單，主分類模式）
 
 ---
 
-## 10. 不做清單
-
-- 不以工藝能力當全站第一層選單
-- 不為此功能修改 Cloud Run 部署流程或 `cloudbuild.yaml`
-- 不在一期 PR 同時改 SQL + 全站篩選 + 部署快取
-- 不刪除 `material_key`／`customization_levels` 既有欄位
-- 不為 `/client/*` 工作區做 sitemap（架構原則不變）
-
----
-
-## 11. 下一步
-
-1. **你確認本檔**（尤其 §9 開放問題）  
-2. 定案後才開 **MT-1**：只交 `docs/add-manufacturer-taxonomy.sql`，不動 `server.js`  
-3. MT-1 你在 Supabase 跑完 SQL，回報成功後才做 MT-2
-
----
-
-*文件結束 — 實作前請勿引用已還原 commit `df6507a`～`bbcde72` 的程式為「現況」。*
+*第三版定案 — 詞彙以 SQL 為唯一來源；頁面與後台尚未接上屬正常，下一步 MT-2b／MT-3。*

@@ -158,6 +158,17 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類 <span class="text-danger">*</span></label><select class="form-select add-subcategory" required><option value="">— 請選擇 —</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control add-min-order-qty" min="1" step="1" inputmode="numeric" required data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
+                                <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
+                                    <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
+                                    <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
+                                    <div class="mt-3">
+                                        <label class="form-label small text-muted mb-1">其他工藝（自填，選填）</label>
+                                        <div class="add-capability-custom-rows d-flex flex-column gap-2 mb-2"></div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add">+ 新增其他工藝</button>
+                                    </div>
+                                </div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div class="add-customization-levels border rounded p-2"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選（與材料參考分開）。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
@@ -264,6 +275,17 @@
                         <form class="add-form" data-kind="part" enctype="multipart/form-data">
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select add-production-type"><option value="">— 未指定 —</option></select></div>
+                                <div class="col-12 taxonomy-capability-block" data-cap-keys="[]" data-cap-custom="[]">
+                                    <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
+                                    <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
+                                    <div class="mt-3">
+                                        <label class="form-label small text-muted mb-1">其他工藝（自填，選填）</label>
+                                        <div class="add-capability-custom-rows d-flex flex-column gap-2 mb-2"></div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add">+ 新增其他工藝</button>
+                                    </div>
+                                </div>
                                 <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.partMatchHint">媒合僅用平台主分類；零件類型請用上方「配件／零件」專用自訂分類（如：拉鍊、扣具）。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPart">請先在上方「配件／零件」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-part border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPart" placeholder="例：5 號拉鍊、金屬 D 扣"></div>
@@ -450,6 +472,17 @@
                         <input type="hidden" id="edit-asset-kind">
                         <div class="mb-3"><label class="form-label">主分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-category" required></select></div>
                         <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-subcategory" required><option value="">— 請選擇 —</option></select></div>
+                        <div class="mb-3 d-none taxonomy-capability-block" id="edit-taxonomy-wrap" data-cap-keys="[]" data-cap-custom="[]">
+                            <div class="mb-2"><label class="form-label fw-semibold">生產模式 <span class="text-muted fw-normal small">（選填）</span></label><select class="form-select" id="edit-production-type"><option value="">— 未指定 —</option></select></div>
+                            <label class="form-label fw-semibold">可執行工藝 <span class="text-muted fw-normal small">（選填，可複選）</span></label>
+                            <div class="add-capability-rows d-flex flex-column gap-2 mb-2"></div>
+                            <button type="button" class="btn btn-sm btn-outline-primary add-capability-row-add">+ 新增工藝</button>
+                            <div class="mt-3">
+                                <label class="form-label small text-muted mb-1">其他工藝（自填，選填）</label>
+                                <div class="add-capability-custom-rows d-flex flex-column gap-2 mb-2"></div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary add-capability-custom-row-add">+ 新增其他工藝</button>
+                            </div>
+                        </div>
                         <div class="mb-3"><label class="form-label" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHint">請先在頁面上方「我的素材分類」輸入名稱並新增，再於此勾選。</p><div id="edit-catalog-groups" class="border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                         <div class="mb-3"><label class="form-label">標題</label><input type="text" class="form-control" id="edit-title"></div>
                         <div class="mb-3 d-none" id="edit-prototype-meta-wrap">
@@ -611,11 +644,10 @@
     <script src="/js/offset-list-pager.js"></script>
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/vendor-asset-taxonomy-picker.js?v=3"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'vendor-materials-audit-fix-20260605';
+        window.__MATCHDO_MATERIALS_BUILD = 'taxonomy-row-add-20260610';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -636,6 +668,9 @@
             document.querySelectorAll('.upload-panel').forEach(function (el) { el.classList.remove('d-none'); });
         }
         var categories = [];
+        var productionTypes = [];
+        var capabilityTaxonomyNodes = [];
+        var taxonomyApiReady = false;
         var materialsAll = [];
         var activeKind = 'prototype';
         var deleteTargetId = null;
@@ -2628,6 +2663,276 @@
             }
         }
 
+        function capabilityTaxonomyByKey(key) {
+            return capabilityTaxonomyNodes.find(function (n) { return n.key === key; });
+        }
+
+        function capabilityAllLeaves() {
+            return capabilityTaxonomyNodes.filter(function (n) { return n.depth === 2; });
+        }
+
+        function fillProductionTypeSelect(sel, selectedKey) {
+            if (!sel) return;
+            sel.innerHTML = '<option value="">— 未指定 —</option>';
+            productionTypes.forEach(function (pt) {
+                var opt = document.createElement('option');
+                opt.value = pt.key;
+                opt.textContent = pt.name_zh || pt.key;
+                if (pt.key === selectedKey) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        function findCapabilityBlock(from) {
+            if (!from) return null;
+            if (from.classList && from.classList.contains('taxonomy-capability-block')) return from;
+            if (from.id === 'edit-form') return document.getElementById('edit-taxonomy-wrap');
+            return from.querySelector ? from.querySelector('.taxonomy-capability-block') : null;
+        }
+
+        function readCapabilityState(block) {
+            if (!block) return { keys: [], custom: [] };
+            var keys = [];
+            var custom = [];
+            try { keys = JSON.parse(block.getAttribute('data-cap-keys') || '[]'); } catch (_) {}
+            try { custom = JSON.parse(block.getAttribute('data-cap-custom') || '[]'); } catch (_) {}
+            return {
+                keys: (keys || []).map(function (k) { return String(k || '').trim(); }).filter(Boolean),
+                custom: (custom || []).map(function (s) { return String(s || '').trim(); }).filter(Boolean)
+            };
+        }
+
+        function writeCapabilityState(block, state) {
+            if (!block) return;
+            var keys = [];
+            var custom = [];
+            (state.keys || []).forEach(function (k) {
+                k = String(k || '').trim();
+                if (k && keys.indexOf(k) < 0) keys.push(k);
+            });
+            (state.custom || []).forEach(function (s) {
+                s = String(s || '').trim();
+                if (s && custom.indexOf(s) < 0) custom.push(s);
+            });
+            block.setAttribute('data-cap-keys', JSON.stringify(keys));
+            block.setAttribute('data-cap-custom', JSON.stringify(custom));
+        }
+
+        function capabilityLabelForKey(key) {
+            var n = capabilityTaxonomyByKey(key);
+            return n ? (n.name_zh || n.key) : key;
+        }
+
+        function fillCapabilityPickSelect(sel) {
+            if (!sel) return;
+            sel.innerHTML = '<option value="">— 選擇工藝 —</option>';
+            if (!taxonomyApiReady || !capabilityTaxonomyNodes.length) {
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '（工藝清單載入中或尚未設定）';
+                opt.disabled = true;
+                sel.appendChild(opt);
+                return;
+            }
+            capabilityAllLeaves()
+                .slice()
+                .sort(function (a, b) {
+                    return String(a.name_zh || a.key).localeCompare(String(b.name_zh || b.key), 'zh-Hant');
+                })
+                .forEach(function (leaf) {
+                    var opt = document.createElement('option');
+                    opt.value = leaf.key;
+                    opt.textContent = leaf.name_zh || leaf.key;
+                    sel.appendChild(opt);
+                });
+        }
+
+        function syncCapabilityStateFromRows(block) {
+            if (!block) return { keys: [], custom: [] };
+            var keys = [];
+            block.querySelectorAll('.add-capability-row .add-capability-pick').forEach(function (sel) {
+                var v = String(sel.value || '').trim();
+                if (v && keys.indexOf(v) < 0) keys.push(v);
+            });
+            var custom = [];
+            block.querySelectorAll('.add-capability-custom-row .add-capability-custom-input').forEach(function (inp) {
+                var v = String(inp.value || '').trim();
+                if (v && custom.indexOf(v) < 0) custom.push(v);
+            });
+            writeCapabilityState(block, { keys: keys, custom: custom });
+            return readCapabilityState(block);
+        }
+
+        function createCapabilityRow(block, selectedKey) {
+            var row = document.createElement('div');
+            row.className = 'd-flex gap-2 align-items-center add-capability-row';
+            var sel = document.createElement('select');
+            sel.className = 'form-select form-select-sm add-capability-pick';
+            sel.style.maxWidth = '20rem';
+            fillCapabilityPickSelect(sel);
+            if (selectedKey) sel.value = selectedKey;
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-danger add-capability-row-remove';
+            btn.textContent = '移除';
+            row.appendChild(sel);
+            row.appendChild(btn);
+            sel.addEventListener('change', function () { syncCapabilityStateFromRows(block); });
+            btn.addEventListener('click', function () {
+                row.remove();
+                var container = block.querySelector('.add-capability-rows');
+                if (container && !container.querySelector('.add-capability-row')) {
+                    container.appendChild(createCapabilityRow(block, ''));
+                }
+                syncCapabilityStateFromRows(block);
+            });
+            return row;
+        }
+
+        function createCustomCapabilityRow(block, value) {
+            var row = document.createElement('div');
+            row.className = 'd-flex gap-2 align-items-center add-capability-custom-row';
+            var inp = document.createElement('input');
+            inp.type = 'text';
+            inp.className = 'form-control form-control-sm add-capability-custom-input';
+            inp.style.maxWidth = '20rem';
+            inp.placeholder = '其他工藝名稱';
+            if (value) inp.value = value;
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-danger add-capability-custom-row-remove';
+            btn.textContent = '移除';
+            row.appendChild(inp);
+            row.appendChild(btn);
+            inp.addEventListener('input', function () { syncCapabilityStateFromRows(block); });
+            btn.addEventListener('click', function () {
+                row.remove();
+                syncCapabilityStateFromRows(block);
+            });
+            return row;
+        }
+
+        function renderCapabilityRowsFromState(block) {
+            if (!block) return;
+            var state = readCapabilityState(block);
+            var capContainer = block.querySelector('.add-capability-rows');
+            var customContainer = block.querySelector('.add-capability-custom-rows');
+            if (!capContainer || !customContainer) return;
+            capContainer.innerHTML = '';
+            customContainer.innerHTML = '';
+            if (state.keys.length) {
+                state.keys.forEach(function (k) { capContainer.appendChild(createCapabilityRow(block, k)); });
+            } else {
+                capContainer.appendChild(createCapabilityRow(block, ''));
+            }
+            state.custom.forEach(function (label) {
+                customContainer.appendChild(createCustomCapabilityRow(block, label));
+            });
+        }
+
+        function refreshCapabilityBlockUi(block) {
+            if (!block) return;
+            renderCapabilityRowsFromState(block);
+        }
+
+        function initTaxonomySelects() {
+            document.querySelectorAll('.add-production-type').forEach(function (sel) { fillProductionTypeSelect(sel); });
+            document.querySelectorAll('.taxonomy-capability-block').forEach(function (block) {
+                writeCapabilityState(block, { keys: [], custom: [] });
+                refreshCapabilityBlockUi(block);
+            });
+            fillProductionTypeSelect(document.getElementById('edit-production-type'));
+        }
+
+        function wireTaxonomyBlock(block) {
+            if (!block || block.dataset.taxonomyWired === '1') return;
+            block.dataset.taxonomyWired = '1';
+            var addRowBtn = block.querySelector('.add-capability-row-add');
+            if (addRowBtn) {
+                addRowBtn.addEventListener('click', function () {
+                    var container = block.querySelector('.add-capability-rows');
+                    if (container) container.appendChild(createCapabilityRow(block, ''));
+                });
+            }
+            var addCustomBtn = block.querySelector('.add-capability-custom-row-add');
+            if (addCustomBtn) {
+                addCustomBtn.addEventListener('click', function () {
+                    var container = block.querySelector('.add-capability-custom-rows');
+                    if (container) container.appendChild(createCustomCapabilityRow(block, ''));
+                });
+            }
+        }
+
+        function wireTaxonomySelectsOnForm(form) {
+            if (!form) return;
+            var kind = form.getAttribute('data-kind') || '';
+            if (kind !== 'prototype' && kind !== 'part') return;
+            wireTaxonomyBlock(findCapabilityBlock(form));
+        }
+
+        function wireEditTaxonomySelects() {
+            wireTaxonomyBlock(document.getElementById('edit-taxonomy-wrap'));
+        }
+
+        function populateEditTaxonomyFields(asset) {
+            var wrap = document.getElementById('edit-taxonomy-wrap');
+            if (!wrap) return;
+            var kind = normalizeKind((asset && asset.asset_kind) || '');
+            wrap.classList.toggle('d-none', kind !== 'prototype' && kind !== 'part');
+            if (kind !== 'prototype' && kind !== 'part') return;
+            fillProductionTypeSelect(document.getElementById('edit-production-type'), asset && asset.production_type_key);
+            var capKeys = (asset && asset.capabilities || []).map(function (c) { return c.key || c; }).filter(Boolean);
+            var capCustom = Array.isArray(asset && asset.capability_custom_labels) ? asset.capability_custom_labels.slice() : [];
+            writeCapabilityState(wrap, { keys: capKeys, custom: capCustom });
+            refreshCapabilityBlockUi(wrap);
+        }
+
+        function appendTaxonomyToFormData(fd, formOrId) {
+            if (!fd) return;
+            var form = typeof formOrId === 'string' ? document.getElementById(formOrId) : formOrId;
+            if (!form) return;
+            var kind = form.getAttribute('data-kind') || (document.getElementById('edit-asset-kind') && document.getElementById('edit-asset-kind').value) || '';
+            if (normalizeKind(kind) !== 'prototype' && normalizeKind(kind) !== 'part') return;
+            var ptSel = form.querySelector('.add-production-type') || document.getElementById('edit-production-type');
+            if (ptSel) fd.append('production_type_key', ptSel.value || '');
+            var block = findCapabilityBlock(form);
+            var state = syncCapabilityStateFromRows(block);
+            fd.append('capability_keys', JSON.stringify(state.keys));
+            fd.append('capability_custom_labels', JSON.stringify(state.custom));
+        }
+
+        function renderCapabilityBadgesHtml(capabilities, productionTypeLabel, customLabels) {
+            var html = '';
+            if (productionTypeLabel) {
+                html += '<span class="badge bg-info-subtle text-info border me-1 mb-1">' + esc(productionTypeLabel) + '</span> ';
+            }
+            (capabilities || []).forEach(function (c) {
+                html += '<span class="badge bg-light text-primary border me-1 mb-1" title="工藝">' + esc(c.label || c.name_zh || c) + '</span> ';
+            });
+            (customLabels || []).forEach(function (label) {
+                html += '<span class="badge bg-light text-dark border me-1 mb-1" title="自填工藝">' + esc(label) + '</span> ';
+            });
+            return html;
+        }
+
+        async function loadTaxonomy() {
+            productionTypes = [];
+            capabilityTaxonomyNodes = [];
+            taxonomyApiReady = false;
+            try {
+                var r1 = await fetch('/api/taxonomy?dimension=production_type');
+                var d1 = await r1.json().catch(function () { return {}; });
+                var r2 = await fetch('/api/taxonomy?dimension=capability');
+                var d2 = await r2.json().catch(function () { return {}; });
+                if (r1.ok) productionTypes = d1.items || [];
+                if (r2.ok) capabilityTaxonomyNodes = d2.items || [];
+                taxonomyApiReady = r1.ok && r2.ok;
+            } catch (_) { /* ignore */ }
+            initTaxonomySelects();
+            document.querySelectorAll('.add-form').forEach(wireTaxonomySelectsOnForm);
+            wireEditTaxonomySelects();
+        }
+
         function getFormPending(form) {
             var key = form.getAttribute('data-kind') || 'prototype';
             if (!pendingByForm[key]) pendingByForm[key] = { tags: null, semantics: null };
@@ -3361,8 +3666,8 @@
                        '<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var taxonomyHtml = '';
-                if (window.VendorAssetTaxonomy && (m.capabilities && m.capabilities.length || m.production_type_label)) {
-                    taxonomyHtml = '<div class="mb-2">' + VendorAssetTaxonomy.renderCapabilityBadgesHtml(m.capabilities, m.production_type_label) + '</div>';
+                if ((m.capabilities && m.capabilities.length) || (m.capability_custom_labels && m.capability_custom_labels.length) || m.production_type_label) {
+                    taxonomyHtml = '<div class="mb-2">' + renderCapabilityBadgesHtml(m.capabilities, m.production_type_label, m.capability_custom_labels) + '</div>';
                 }
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
                 var protoMetaHtml = '';
@@ -3606,7 +3911,7 @@
             } else if (kind === 'material' || kind === 'part') {
                 fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
             }
-            if (window.VendorAssetTaxonomy) VendorAssetTaxonomy.appendTaxonomyToFormData(fd, form);
+            appendTaxonomyToFormData(fd, form);
             var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit');
             btns.forEach(function (b) { b.disabled = true; });
             try {
@@ -3656,6 +3961,7 @@
             wireOptimizeBackgroundForm(form);
 
             if (kind === 'prototype' && subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
+            wireTaxonomySelectsOnForm(form);
 
             var previewWrap = form.querySelector('.add-image-preview');
             if (imgInput) {
@@ -3961,9 +4267,7 @@
             if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
             if (linkedProtosWrap) linkedProtosWrap.classList.add('d-none');
             loadEditPrototypeLinks(id);
-            if (window.VendorAssetTaxonomy) {
-                VendorAssetTaxonomy.mountEditTaxonomyFields(m).catch(function () {});
-            }
+            populateEditTaxonomyFields(m);
             return true;
         }
 
@@ -4110,7 +4414,7 @@
                     fd.append('linked_prototype_ids', JSON.stringify(readEditPrototypeLinkSelections('edit-linked-prototypes-list')));
                 }
             }
-            if (window.VendorAssetTaxonomy) VendorAssetTaxonomy.appendTaxonomyToFormData(fd, document.getElementById('edit-form'));
+            appendTaxonomyToFormData(fd, document.getElementById('edit-form'));
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                 var data = await r.json().catch(function () { return {}; });
@@ -4494,7 +4798,6 @@
 
             token = await getToken();
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
-            if (window.VendorAssetTaxonomy) VendorAssetTaxonomy.setToken(token);
             try {
                 var mfrRes = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
                 if (mfrRes.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
@@ -4506,9 +4809,9 @@
                 await loadCategories();
                 await loadCatalogGroups();
                 await loadCapabilities();
+                await loadTaxonomy();
                 await applySeedVendorInfoBanner(mfrData.vendor_source);
                 await loadUploadPricing();
-                if (window.VendorAssetTaxonomy) await VendorAssetTaxonomy.initAllAddForms();
                 await loadMaterials();
                 var hashKind = kindFromLocationHash();
                 if (hashKind) activeKind = hashKind;
