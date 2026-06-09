@@ -1,21 +1,18 @@
 /**
- * 廠商素材：生產模式 + 工藝多選（MT-2）
- * 依賴：Bootstrap 5、Bearer token（window 或傳入）
+ * 廠商素材：生產模式 + 工藝多選（MT-3a）
+ * 動態掛載，不硬編碼 HTML 進 manufacturer-materials.html
  */
 (function (global) {
     'use strict';
 
     var productionTypesCache = null;
+    var API_HINT = '工藝詞彙尚未就緒：請確認已部署最新程式，並在 Supabase 執行 docs/add-manufacturer-taxonomy.sql';
 
     function esc(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/"/g, '&quot;');
-    }
-
-    function getToken() {
-        return global.__vendorTaxonomyToken || (global.localStorage && localStorage.getItem('token')) || '';
     }
 
     function setToken(t) {
@@ -26,9 +23,17 @@
         if (productionTypesCache) return productionTypesCache;
         var r = await fetch('/api/taxonomy?dimension=production_type');
         var d = await r.json().catch(function () { return {}; });
-        if (!r.ok) throw new Error(d.error || 'load production types failed');
+        if (!r.ok) throw new Error(d.error || API_HINT);
         productionTypesCache = d.items || [];
         return productionTypesCache;
+    }
+
+    function showApiHint(block, msg) {
+        if (!block) return;
+        var el = block.querySelector('.vendor-taxonomy-api-hint');
+        if (!el) return;
+        el.textContent = msg || API_HINT;
+        el.classList.remove('d-none');
     }
 
     function fillProductionTypeSelect(sel, selectedKey) {
@@ -95,7 +100,7 @@
 
         async function runSearch() {
             var q = searchInput ? String(searchInput.value || '').trim() : '';
-            if (!q || q.length < 1) {
+            if (!q) {
                 if (resultsEl) {
                     resultsEl.classList.add('d-none');
                     resultsEl.innerHTML = '';
@@ -105,7 +110,12 @@
             try {
                 var r = await fetch('/api/taxonomy/search?q=' + encodeURIComponent(q) + '&dimension=capability&limit=15');
                 var d = await r.json().catch(function () { return {}; });
-                if (!r.ok || !resultsEl) return;
+                if (!resultsEl) return;
+                if (!r.ok) {
+                    resultsEl.innerHTML = '<div class="list-group-item small text-danger">' + esc(d.error || API_HINT) + '</div>';
+                    resultsEl.classList.remove('d-none');
+                    return;
+                }
                 var items = d.items || [];
                 if (!items.length) {
                     resultsEl.innerHTML = '<div class="list-group-item small text-muted">無符合項目</div>';
@@ -147,6 +157,7 @@
 
     function buildTaxonomyFieldsHtml() {
         return '<div class="col-12 vendor-taxonomy-fields mt-1">' +
+            '<p class="vendor-taxonomy-api-hint text-danger small mb-2 d-none"></p>' +
             '<div class="row g-2">' +
             '<div class="col-md-5">' +
             '<label class="form-label fw-semibold small mb-1">生產模式 <span class="text-muted fw-normal">（選填）</span></label>' +
@@ -161,52 +172,92 @@
             '</div></div></div></div>';
     }
 
+    function insertTaxonomyBlock(form, block) {
+        var customCol = form.querySelector('.add-customization-levels');
+        if (customCol) {
+            var wrap = customCol.closest('.col-12');
+            if (wrap && wrap.parentNode) {
+                wrap.parentNode.insertBefore(block, wrap);
+                return;
+            }
+        }
+        var moq = form.querySelector('.add-min-order-qty');
+        if (moq) {
+            var moqWrap = moq.closest('.col-md-6, .col-12');
+            if (moqWrap && moqWrap.parentNode) {
+                if (moqWrap.nextElementSibling) {
+                    moqWrap.parentNode.insertBefore(block, moqWrap.nextElementSibling);
+                } else {
+                    moqWrap.parentNode.appendChild(block);
+                }
+                return;
+            }
+        }
+        var title = form.querySelector('.add-title');
+        if (title) {
+            var titleWrap = title.closest('.col-12');
+            if (titleWrap && titleWrap.parentNode) {
+                titleWrap.parentNode.insertBefore(block, titleWrap);
+                return;
+            }
+        }
+        var row = form.querySelector('.row');
+        if (row) row.appendChild(block);
+    }
+
+    function shouldMountAddForm(form) {
+        if (!form) return false;
+        var kind = form.getAttribute('data-kind') || '';
+        return kind === 'prototype' || kind === 'part';
+    }
+
     async function mountTaxonomyFieldsInForm(form, asset) {
-        if (!form || form.querySelector('.vendor-taxonomy-fields')) return;
-        var anchor = form.querySelector('.add-min-order-qty');
-        if (!anchor) anchor = form.querySelector('.add-title');
+        if (!form || !shouldMountAddForm(form) || form.querySelector('.vendor-taxonomy-fields')) return;
         var wrap = document.createElement('div');
         wrap.innerHTML = buildTaxonomyFieldsHtml();
         var block = wrap.firstElementChild;
-        if (anchor && anchor.closest('.col-md-6, .col-12')) {
-            var row = anchor.closest('.row');
-            if (row) row.appendChild(block);
-            else form.querySelector('.row').appendChild(block);
-        } else {
-            var rowEl = form.querySelector('.row');
-            if (rowEl) rowEl.insertBefore(block, rowEl.firstChild);
-        }
-        await loadProductionTypes();
-        fillProductionTypeSelect(block.querySelector('.vendor-production-type-select'), asset && asset.production_type_key);
+        insertTaxonomyBlock(form, block);
         initCapabilityPicker(block.querySelector('.vendor-capability-picker'));
+        try {
+            await loadProductionTypes();
+            fillProductionTypeSelect(block.querySelector('.vendor-production-type-select'), asset && asset.production_type_key);
+        } catch (e) {
+            showApiHint(block, e && e.message);
+        }
         if (asset && asset.capabilities && asset.capabilities.length) {
-            block.querySelector('.vendor-capability-picker').__setCapabilities(asset.capabilities);
+            var picker = block.querySelector('.vendor-capability-picker');
+            if (picker && picker.__setCapabilities) picker.__setCapabilities(asset.capabilities);
         }
     }
 
     async function mountEditTaxonomyFields(asset) {
         var form = document.getElementById('edit-form');
         if (!form) return;
+        var kind = (document.getElementById('edit-asset-kind') && document.getElementById('edit-asset-kind').value) || '';
+        if (kind !== 'prototype' && kind !== 'part') return;
         var existing = form.querySelector('.vendor-taxonomy-fields-edit');
         if (!existing) {
             var wrap = document.createElement('div');
             wrap.className = 'vendor-taxonomy-fields-edit';
-            wrap.innerHTML = buildTaxonomyFieldsHtml();
+            wrap.innerHTML = buildTaxonomyFieldsHtml().replace('vendor-taxonomy-fields', 'vendor-taxonomy-fields vendor-taxonomy-fields-inner');
             var protoMeta = document.getElementById('edit-prototype-meta-wrap');
             if (protoMeta && protoMeta.parentNode) {
-                protoMeta.parentNode.insertBefore(wrap, protoMeta);
+                protoMeta.parentNode.insertBefore(wrap, protoMeta.nextElementSibling);
             } else {
                 form.insertBefore(wrap, form.firstChild);
             }
             existing = wrap;
         }
-        await loadProductionTypes();
-        fillProductionTypeSelect(existing.querySelector('.vendor-production-type-select'), asset && asset.production_type_key);
         initCapabilityPicker(existing.querySelector('.vendor-capability-picker'));
-        if (asset && asset.capabilities && asset.capabilities.length) {
-            existing.querySelector('.vendor-capability-picker').__setCapabilities(asset.capabilities);
-        } else if (existing.querySelector('.vendor-capability-picker').__setCapabilities) {
-            existing.querySelector('.vendor-capability-picker').__setCapabilities([]);
+        try {
+            await loadProductionTypes();
+            fillProductionTypeSelect(existing.querySelector('.vendor-production-type-select'), asset && asset.production_type_key);
+        } catch (e) {
+            showApiHint(existing, e && e.message);
+        }
+        var picker = existing.querySelector('.vendor-capability-picker');
+        if (picker && picker.__setCapabilities) {
+            picker.__setCapabilities(asset && asset.capabilities && asset.capabilities.length ? asset.capabilities : []);
         }
     }
 
@@ -241,11 +292,11 @@
         mountEditTaxonomyFields: mountEditTaxonomyFields,
         appendTaxonomyToFormData: appendTaxonomyToFormData,
         renderCapabilityBadgesHtml: renderCapabilityBadgesHtml,
-        initAllAddForms: async function () {
-            await loadProductionTypes();
-            var forms = Array.prototype.slice.call(document.querySelectorAll('.add-form'));
-            await Promise.all(forms.map(function (form) {
-                return mountTaxonomyFieldsInForm(form).catch(function () {});
+        initAllAddForms: function () {
+            var forms = Array.prototype.slice.call(document.querySelectorAll('.add-form'))
+                .filter(shouldMountAddForm);
+            return Promise.all(forms.map(function (form) {
+                return mountTaxonomyFieldsInForm(form);
             }));
         }
     };
