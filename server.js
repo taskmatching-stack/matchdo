@@ -87,6 +87,7 @@ const {
     AI_EDIT_UPSCALE_PAGE
 } = require('./lib/stability-fast-upscale');
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
+const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const { registerSitemapRoutes } = require('./routes/sitemap');
 
 async function vendorAssetFileFromMulter(file) {
@@ -18027,6 +18028,50 @@ app.delete('/api/me/manufacturer/collections/:id/items/:portfolioId', async (req
     } catch (e) {
         console.error('DELETE /api/me/manufacturer/collections/:id/items/:portfolioId 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/taxonomy — 平台標準詞彙（生產模式／材料／工藝；MT-2）
+app.get('/api/taxonomy', async (req, res) => {
+    try {
+        const ready = await manufacturerTaxonomy.taxonomyTablesReadySupabase(supabase);
+        if (!ready) {
+            return res.status(503).json({ error: '請先執行 docs/add-manufacturer-taxonomy.sql', items: [] });
+        }
+        const dimension = (req.query.dimension || 'capability').trim();
+        if (!['production_type', 'material', 'capability'].includes(dimension)) {
+            return res.status(400).json({ error: 'dimension 須為 production_type、material 或 capability' });
+        }
+        const items = await manufacturerTaxonomy.listTaxonomyNodes(supabase, {
+            dimension,
+            parent_key: (req.query.parent_key || '').trim() || null,
+            leaf_only: parseTruthyBody(req.query.leaf_only)
+        });
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/taxonomy:', e);
+        res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// GET /api/taxonomy/search — 關鍵詞搜尋（工藝葉節點為主）
+app.get('/api/taxonomy/search', async (req, res) => {
+    try {
+        const ready = await manufacturerTaxonomy.taxonomyTablesReadySupabase(supabase);
+        if (!ready) {
+            return res.status(503).json({ error: '請先執行 docs/add-manufacturer-taxonomy.sql', items: [] });
+        }
+        const q = (req.query.q || '').trim();
+        if (!q) return res.json({ items: [] });
+        const dimension = (req.query.dimension || 'capability').trim();
+        const items = await manufacturerTaxonomy.searchTaxonomyNodes(supabase, q, {
+            dimension,
+            limit: req.query.limit
+        });
+        res.json({ items });
+    } catch (e) {
+        console.error('GET /api/taxonomy/search:', e);
+        res.status(500).json({ error: '查詢失敗' });
     }
 });
 

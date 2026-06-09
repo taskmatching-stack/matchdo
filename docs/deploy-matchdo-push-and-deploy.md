@@ -90,13 +90,72 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 
 | ❌ 錯誤 | 說明 |
 |--------|------|
-| `gcloud run services update-traffic ...` | 只切流量，**不是**重新建置上線 |
+| 平常用 `update-traffic` **代替**部署 | 只切流量、**不會**重新建置映像 |
 | 拆掉 `fetch` + `reset --hard` 直接 deploy | 可能部署本機未 push 的舊檔 |
 | 自行改 `gcloud run deploy` 參數 | 方式 A／B 須一致：`--source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image` |
 
 ---
 
-## 五、日後選用：GitHub push 自動部署 Cloud Run（**現階段不啟用**）
+## 五、部署後檢查與異常排除
+
+### 5.1 正常檢查
+
+- 瀏覽器開 https://matchdo.cc ，必要時 **Ctrl+F5**。
+- 確認 **revision 有變新**（不是永遠同一個編號）：
+
+```bash
+gcloud run services describe matchdo --region=asia-northeast1 \
+  --format='yaml(spec.traffic,status.latestReadyRevisionName)'
+```
+
+`spec.traffic` 應指向**本次部署產生的 revision**；`latestReadyRevisionName` 應與流量一致。
+
+### 5.2 異常：Done 了但 revision 不變、網站仍是舊程式
+
+**症狀**：`gcloud run deploy --source …` 顯示 Done，但 revision 仍是舊的（例如一直是 `00374-c7d`），或 `spec.traffic` 釘死在某個 `revisionName`。
+
+**診斷**：
+
+```bash
+gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spec.traffic)'
+```
+
+若出現：
+
+```yaml
+traffic:
+- percent: 100
+  revisionName: matchdo-00374-c7d   # 固定舊 revision
+```
+
+代表流量被**釘在舊 revision**；之後每次 deploy 可能只會生出 **Retired** 的新 revision，訪客永遠吃舊版。
+
+**排除**（在 Cloud Shell；`TAG` 可改成當次 commit 前 7 碼）：
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main
+
+gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image \
+  --tag=live-TAG
+
+gcloud run services update-traffic matchdo --region=asia-northeast1 --to-tags=live-TAG=100
+```
+
+驗證：
+
+```bash
+gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spec.traffic)'
+```
+
+`traffic` 應指向**新 revision**（含 tag 或新 `revisionName`），不應再只有舊的 `00374-c7d`。
+
+釘子拔掉後，**§三 那一行 `--source` deploy 應可恢復正常**（新版本會自動接流量）。
+
+> **說明**：`update-traffic` 在此僅用於**排除流量釘死**；平常上線仍用 §三 建置＋部署，不要只用 `update-traffic` 當部署。
+
+---
+
+## 六、日後選用：GitHub push 自動部署 Cloud Run（**現階段不啟用**）
 
 > **決策（2026-06-06）**：計畫日後改設 **Cloud Build 觸發**（push `main` 即建置並部署），但**現在不適合啟用**——擔心每次 push 會自動上線**非預期或尚未驗收的版本**。  
 > **目前正式流程維持 §一～§三**：先 push，再**手動**於 Cloud Shell 部署；**禁止**現在去 GCP 建立觸發條件，也**禁止** Agent 代為設定。
@@ -127,14 +186,6 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 
 ---
 
-## 六、部署後檢查
-
-- 瀏覽器開 https://matchdo.cc ，必要時 **Ctrl+F5** 強制重新整理。
-- 建置失敗：到 Cloud Build 記錄看 log；或本機執行  
-  `gcloud builds list --region=asia-northeast1 --limit=1`
-
----
-
 ## 七、常見釐清
 
 | 說法 | 實際意思 |
@@ -145,7 +196,17 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 
 ---
 
-## 八、相關文件
+## 八、建置失敗
+
+到 [Cloud Build 記錄](https://console.cloud.google.com/cloud-build/builds?project=matchdo) 看 log；或：
+
+```bash
+gcloud builds list --region=asia-northeast1 --limit=1
+```
+
+---
+
+## 九、相關文件
 
 - `docs/deploy-zeabur-github.md` — Zeabur／GCP 較完整說明、環境變數
 - `.cursor/rules/deployment.mdc` — Agent 用部署規則（與本檔一致）

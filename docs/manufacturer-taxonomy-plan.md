@@ -1,8 +1,8 @@
 # 廠商分類：生產模式 × 材質 × 工藝能力 — 規劃（第二版）
 
-**狀態**：規劃中，**尚未實作**  
+**狀態**：**MT-1／MT-2 進行中**（SQL + 讀取 API）；MT-3 表單待做  
 **基線 commit**：`552a296`（2026-06-06，產品關聯鏈匯出 PDF）  
-**更新**：2026-06-09（補齊：**數位原型**與**廠商作品**雙載體）  
+**更新**：2026-06-09（雙載體定案；MT-1 SQL、MT-2 `/api/taxonomy*`）  
 **取代**：2026-06-09 已還原的 `df6507a`～`bbcde72` 工藝分類實作與舊規劃稿（勿再參考）
 
 **相關現況文件**：
@@ -303,9 +303,9 @@ PRIMARY KEY (portfolio_id, taxonomy_key)
 
 | 期別 | 名稱 | 交付物 | 完成標準（線上可測） |
 |------|------|--------|---------------------|
-| **MT-0** | 規劃定案 | **本檔** | 你確認 §0～§9 無誤 |
+| **MT-0** | 規劃定案 | **本檔** | ✅ |
 | **MT-1** | DB 種子 | `docs/add-manufacturer-taxonomy.sql` | Supabase 執行成功；`taxonomy_nodes` 有資料 |
-| **MT-2** | 讀取 API | `lib/manufacturer-taxonomy.js` + `GET /api/taxonomy*` | `curl …/api/taxonomy?dimension=production_type` 回 JSON |
+| **MT-2** | 讀取 API | `lib/manufacturer-taxonomy.js` + `GET /api/taxonomy*` | `curl …/api/taxonomy?dimension=production_type` 回 JSON（未跑 SQL 則 503） |
 | **MT-3a** | 原型編輯 UI | picker + `manufacturer-materials.html` | 原型可填生產模式＋工藝；DB 有值 |
 | **MT-3b** | 作品編輯 UI | 同一 picker + `manufacturer-portfolio.html` | 作品可填生產模式＋工藝；DB 有值 |
 | **MT-4** | 瀏覽標籤 | 原型＋作品列表 chips | 兩邊後台／公開 API 都看得到標籤 |
