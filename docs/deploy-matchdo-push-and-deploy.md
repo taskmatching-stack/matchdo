@@ -75,13 +75,13 @@ gcloud config set project matchdo
 cd "d:\AI建站\ai-matching"
 git fetch origin main
 git reset --hard origin/main
-gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
 
 或整行（與方式 A 參數完全相同，僅目錄改本機路徑）：
 
 ```powershell
-gcloud config set account taskmatching@gmail.com; gcloud config set project matchdo; cd "d:\AI建站\ai-matching"; git fetch origin main; git reset --hard origin/main; gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+gcloud config set account taskmatching@gmail.com; gcloud config set project matchdo; cd "d:\AI建站\ai-matching"; git fetch origin main; git reset --hard origin/main; gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image; gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
 
 成功／失敗訊息與方式 A 相同。
