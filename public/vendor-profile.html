@@ -784,6 +784,14 @@
                 var cats = (item.catalog_groups || []).map(function (g) {
                     return '<span class="badge bg-light text-primary border border-primary border-opacity-25 me-1 mb-1" style="font-size:.65rem;">' + escHtml(g.name) + '</span>';
                 }).join('');
+                var capBadges = '';
+                if (item.production_type_label) {
+                    capBadges += '<span class="badge bg-info-subtle text-info border me-1 mb-1" style="font-size:.65rem;">' + escHtml(item.production_type_label) + '</span>';
+                }
+                (item.capabilities || []).forEach(function (cap) {
+                    var lbl = cap && (cap.label || cap.name_zh) ? (cap.label || cap.name_zh) : '';
+                    if (lbl) capBadges += '<span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.65rem;">' + escHtml(lbl) + '</span>';
+                });
                 col.innerHTML = '<div class="portfolio-card h-100">' +
                     (item.image_url
                         ? '<img src="' + escHtml(item.image_url) + '" class="vendor-asset-thumb" loading="lazy" alt="">'
@@ -791,6 +799,7 @@
                     '<div class="p-2">' +
                     '<span class="badge bg-light text-secondary border mb-1" style="font-size:.65rem;">' + escHtml(kindLabel) + '</span>' +
                     (item.title ? '<div class="fw-semibold small text-truncate" style="color:#2d4059">' + escHtml(item.title) + '</div>' : '') +
+                    (capBadges ? '<div class="mt-1">' + capBadges + '</div>' : '') +
                     (cats ? '<div class="mt-1">' + cats + '</div>' : '') +
                     '</div></div>';
                 grid.appendChild(col);

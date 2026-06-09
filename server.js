@@ -1593,13 +1593,13 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
     });
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_MINIMAL = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 
 const VENDOR_ASSET_OPTIONAL_COLS_42703 = [
     'source_catalog_item_id', 'cover_image_label', 'gallery_images', 'asset_kind', 'part_key',
-    'min_order_quantity', 'customization_levels', 'color_key'
+    'min_order_quantity', 'customization_levels', 'color_key', 'production_type_key'
 ];
 
 function stripMissingColumnsFromSelect(selectCols, errMessage) {
@@ -14060,7 +14060,7 @@ app.get('/api/vendor-assets', async (req, res) => {
             }
         }
 
-        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json, min_order_quantity, customization_levels';
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, image_semantics_json, min_order_quantity, customization_levels, production_type_key';
         async function runQuery(cols) {
             let q = supabase
                 .from('vendor_assets')
@@ -14081,7 +14081,7 @@ app.get('/api/vendor-assets', async (req, res) => {
         }
         let { data: rows, error } = await runQuery(selectCols);
         if (error && error.code === '42703') {
-            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'cover_image_label' && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key' && c !== 'min_order_quantity' && c !== 'customization_levels').join(', ');
+            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'cover_image_label' && c !== 'part_key' && c !== 'asset_kind' && c !== 'color_key' && c !== 'min_order_quantity' && c !== 'customization_levels' && c !== 'production_type_key').join(', ');
             ({ data: rows, error } = await runQuery(legacyCols));
         }
         if (error) {
@@ -14204,12 +14204,18 @@ app.get('/api/vendor-assets', async (req, res) => {
                 manufacturer_location: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.location) ? m.location : ''; })(),
                 manufacturer_user_id: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.user_id) ? m.user_id : null; })(),
                 manufacturer_contact: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.contact_json) ? m.contact_json : null; })(),
-                ai_tags: r.ai_tags || []
+                ai_tags: r.ai_tags || [],
+                production_type_key: r.production_type_key || null
             };
         });
         let itemsOut = items;
         if (items.length && (await vendorCatalogGroupsTableReady())) {
             itemsOut = await attachCatalogGroupIdsToAssets(items);
+        }
+        try {
+            itemsOut = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, itemsOut);
+        } catch (taxErr) {
+            console.warn('GET /api/vendor-assets enrich taxonomy:', taxErr && taxErr.message);
         }
         const forPrototypeAssetId = (req.query.for_prototype_asset_id || '').trim() || null;
         let linkedIdSet = null;
@@ -14317,7 +14323,12 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         list = await enrichVendorAssetsWithSupplierMeta(manufacturerId, list || []);
         if (list && list.length) list = await attachCatalogGroupIdsToAssets(list);
         const lang = resolveVendorAssetApiLang(req);
-        const mapped = (list || []).map(function (row) { return mapVendorAssetForApi(row, lang); });
+        let mapped = (list || []).map(function (row) { return mapVendorAssetForApi(row, lang); });
+        try {
+            mapped = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, mapped);
+        } catch (taxErr) {
+            console.warn('enrichVendorAssetItems:', taxErr && taxErr.message);
+        }
         /* 廠商後台依分頁在前端各 Tab 篩選；此處回傳完整列表，避免只取 12 筆導致原型／零件列表空白 */
         res.json({
             items: mapped,
@@ -14915,6 +14926,12 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (assetKind === 'material' && coverLabel) {
             insertPayload.cover_image_label = coverLabel;
         }
+        const productionTypeKeyCreate = manufacturerTaxonomy.parseProductionTypeKeyFromBody(body);
+        if (productionTypeKeyCreate !== undefined) {
+            const ptValid = await manufacturerTaxonomy.validateProductionTypeKey(supabase, productionTypeKeyCreate);
+            if (!ptValid.ok) return res.status(400).json({ error: ptValid.error });
+            insertPayload.production_type_key = productionTypeKeyCreate;
+        }
         let galleryMigrationRequired = false;
         let prototypeMetaMigrationRequired = false;
         let inserted = null;
@@ -14948,6 +14965,12 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
                 .single());
         }
+        if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('production_type_key')) {
+            delete insertPayload.production_type_key;
+            ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
+                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, created_at')
+                .single());
+        }
         if (insertError) {
             if (insertError.code === '42703' && String(insertError.message || '').includes('part_key')) {
                 delete insertPayload.part_key;
@@ -14975,6 +14998,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             return res.status(500).json({ error: '新增素材失敗' });
         }
         await setVendorAssetCatalogGroups(inserted.id, manufacturerId, parseCatalogGroupIdsFromBody(body));
+        const taxonomyWriteErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, inserted.id, body);
+        if (taxonomyWriteErr) return res.status(400).json({ error: taxonomyWriteErr });
         if (assetKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
             let linkEntries = parseLinkedLinksFromBody(body);
             if (linkEntries === undefined) {
@@ -15032,8 +15057,13 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 balanceAfter = consumed.balance_after;
             }
         }
+        const createMapped = mapVendorAssetForApi({
+            ...inserted,
+            production_type_key: insertPayload.production_type_key != null ? insertPayload.production_type_key : null
+        });
+        const createEnriched = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, [createMapped]);
         res.status(201).json({
-            ...mapVendorAssetForApi(inserted),
+            ...(createEnriched[0] || createMapped),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             product_optimized: optimizeCount > 0,
@@ -15805,6 +15835,12 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         if (assetKind === 'material' && catalogGroupIdsPut.length) {
             materialCatalogHintPut = await vendorCatalogGroupNamesByIds(manufacturerId, catalogGroupIdsPut);
         }
+        const productionTypeKeyPut = manufacturerTaxonomy.parseProductionTypeKeyFromBody(body);
+        if (productionTypeKeyPut !== undefined) {
+            const ptValid = await manufacturerTaxonomy.validateProductionTypeKey(supabase, productionTypeKeyPut);
+            if (!ptValid.ok) return res.status(400).json({ error: ptValid.error });
+            updates.production_type_key = productionTypeKeyPut;
+        }
         if (assetKind === 'prototype') {
             const moqIn = body.min_order_quantity !== undefined ? body.min_order_quantity : row.min_order_quantity;
             const moqParsed = parseVendorAssetPrototypeMoq(moqIn, { required: true });
@@ -15974,7 +16010,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             }
         }
 
-        const putSelectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, style_key, material_key, asset_kind, ai_tags, min_order_quantity, customization_levels, updated_at';
+        const putSelectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, style_key, material_key, asset_kind, ai_tags, min_order_quantity, customization_levels, production_type_key, updated_at';
         let { data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select(putSelectCols).single();
         if (error && error.code === '42703' && (
             String(error.message || '').includes('min_order_quantity') ||
@@ -15982,10 +16018,16 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
         )) {
             return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-prototype-moq-customization.sql' });
         }
+        if (error && error.code === '42703' && String(error.message || '').includes('production_type_key')) {
+            delete updates.production_type_key;
+            ({ data: updated, error } = await supabase.from('vendor_assets').update(updates).eq('id', id).eq('manufacturer_id', manufacturerId).select(putSelectCols.replace(', production_type_key', '')).single());
+        }
         if (error) {
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
+        const taxonomyPutErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, id, body);
+        if (taxonomyPutErr) return res.status(400).json({ error: taxonomyPutErr });
         if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
             await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
         }
@@ -16012,8 +16054,10 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, id, protoIds);
             if (linkErr) return res.status(400).json({ error: linkErr });
         }
+        const putMapped = mapVendorAssetForApi(updated);
+        const putEnriched = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, [putMapped]);
         res.json({
-            ...mapVendorAssetForApi(updated),
+            ...(putEnriched[0] || putMapped),
             points_deducted: pointsDeducted,
             balance_after: balanceAfter,
             product_optimized: file ? wantsOptimize : false

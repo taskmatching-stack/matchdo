@@ -611,6 +611,7 @@
     <script src="/js/offset-list-pager.js"></script>
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/site-header.js"></script>
+    <script src="/js/vendor-asset-taxonomy-picker.js?v=1"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
@@ -3359,6 +3360,10 @@
                     : (togglePubBtn + insightsBtn +
                        '<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
+                var taxonomyHtml = '';
+                if (window.VendorAssetTaxonomy && (m.capabilities && m.capabilities.length || m.production_type_label)) {
+                    taxonomyHtml = '<div class="mb-2">' + VendorAssetTaxonomy.renderCapabilityBadgesHtml(m.capabilities, m.production_type_label) + '</div>';
+                }
                 var tagsHtml = (m.ai_tags && m.ai_tags.length) ? '<div class="mb-2">' + renderTagBadges(m.ai_tags) + '</div>' : '';
                 var protoMetaHtml = '';
                 if (m.asset_kind !== 'material') {
@@ -3403,7 +3408,7 @@
                     (m.image_url ? '<div class="position-relative">' + countBadge + '<img src="' + esc(m.image_url) + '" class="material-img matchdo-enlarge-trigger" loading="lazy" alt="" title="' + esc(trPreviewEnlargeTitle('可多張切換')) + '"' + urlsAttr + itemsAttr + '></div>' : '') +
                     '<div class="card-body p-3">' + kindBadge + pubBadge + supplierRefLine +
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' + coverLabelHtml +
-                    '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + myCats + tagsHtml +
+                    '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + taxonomyHtml + myCats + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
             }).join('');
             grid.innerHTML = html;
@@ -3601,6 +3606,7 @@
             } else if (kind === 'material' || kind === 'part') {
                 fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
             }
+            if (window.VendorAssetTaxonomy) VendorAssetTaxonomy.appendTaxonomyToFormData(fd, form);
             var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit');
             btns.forEach(function (b) { b.disabled = true; });
             try {
@@ -3955,6 +3961,9 @@
             if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
             if (linkedProtosWrap) linkedProtosWrap.classList.add('d-none');
             loadEditPrototypeLinks(id);
+            if (window.VendorAssetTaxonomy) {
+                VendorAssetTaxonomy.mountEditTaxonomyFields(m).catch(function () {});
+            }
             return true;
         }
 
@@ -4101,6 +4110,7 @@
                     fd.append('linked_prototype_ids', JSON.stringify(readEditPrototypeLinkSelections('edit-linked-prototypes-list')));
                 }
             }
+            if (window.VendorAssetTaxonomy) VendorAssetTaxonomy.appendTaxonomyToFormData(fd, document.getElementById('edit-form'));
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                 var data = await r.json().catch(function () { return {}; });
@@ -4484,6 +4494,7 @@
 
             token = await getToken();
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
+            if (window.VendorAssetTaxonomy) VendorAssetTaxonomy.setToken(token);
             try {
                 var mfrRes = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
                 if (mfrRes.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
@@ -4497,6 +4508,7 @@
                 await loadCapabilities();
                 await applySeedVendorInfoBanner(mfrData.vendor_source);
                 await loadUploadPricing();
+                if (window.VendorAssetTaxonomy) await VendorAssetTaxonomy.initAllAddForms();
                 await loadMaterials();
                 var hashKind = kindFromLocationHash();
                 if (hashKind) activeKind = hashKind;

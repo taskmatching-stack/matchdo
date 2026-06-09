@@ -20,8 +20,10 @@ alwaysApply: true
 **Cloud Shell：**
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
+
+（末尾 `update-traffic --to-latest`：避免流量釘在舊 revision、deploy 顯示 Done 卻沒換程式。）
 
 **本機 PowerShell（Shell 額度滿時）：** 與 Cloud Shell **同一套 `gcloud run deploy` 參數**（含 `--clear-base-image`）。先 `gcloud config set account taskmatching@gmail.com`、`gcloud config set project matchdo`，再於專案目錄 `git fetch` + `reset --hard origin/main` + 部署（見 `docs/deploy-matchdo-push-and-deploy.md` 方式 B）。
 

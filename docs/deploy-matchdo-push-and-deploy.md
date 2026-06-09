@@ -55,8 +55,10 @@ git log -1 --oneline
 2. 若額度未滿、Shell 能開，**整行貼上執行**：
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
+
+> 同一行末尾加 `update-traffic --to-latest`，避免流量釘死舊 revision（2026-06-09 實測）。
 
 3. 等待約 **5～10 分鐘**（上傳、建置、部署）。
 4. 成功時會出現 `Done.`、`revision [...] has been deployed and is serving 100 percent of traffic` 與 `Service URL`。

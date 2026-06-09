@@ -2031,6 +2031,19 @@ $(document).ready(function () {
             var linkedBadge = (t('customProduct.vendorAssetLinkedBadge') || '廠商推薦').replace(/</g, '&lt;');
             meta += '<span class="badge vendor-asset-linked-badge mb-1">' + linkedBadge + '</span> ';
         }
+        if (item.production_type_label) {
+            meta += '<span class="badge bg-info-subtle text-info border mb-1">' + String(item.production_type_label).replace(/</g, '&lt;') + '</span> ';
+        }
+        if (item.capabilities && item.capabilities.length) {
+            item.capabilities.forEach(function (cap) {
+                var lbl = (cap && (cap.label || cap.name_zh)) ? (cap.label || cap.name_zh) : '';
+                if (lbl) meta += '<span class="badge bg-light text-primary border mb-1">' + String(lbl).replace(/</g, '&lt;') + '</span> ';
+            });
+        } else if (item.capability_labels && item.capability_labels.length) {
+            item.capability_labels.forEach(function (lbl) {
+                if (lbl) meta += '<span class="badge bg-light text-primary border mb-1">' + String(lbl).replace(/</g, '&lt;') + '</span> ';
+            });
+        }
         var multiBadge = imageUrls.length > 1
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' + imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         var linkedCardClass = item.is_linked_to_prototype ? ' vendor-asset-card--vendor-linked' : '';
