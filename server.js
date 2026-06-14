@@ -13243,7 +13243,7 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
 async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     const { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
-        .select('id, manufacturer_id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
         .eq('id', prototypeAssetId)
         .maybeSingle();
     if (protoErr) throw protoErr;
@@ -13284,7 +13284,9 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
         prototype: {
             ...protoNode,
             manufacturer_id: proto.manufacturer_id,
-            manufacturer_name: mfrName
+            manufacturer_name: mfrName,
+            category_key: proto.category_key || null,
+            subcategory_key: proto.subcategory_key || null
         },
         linked_assets: linkedAssets,
         material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,
@@ -13295,7 +13297,7 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
 async function buildVendorPrototypeLinkTreeExport(manufacturerId, prototypeAssetId) {
     const { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
-        .select('id, manufacturer_id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
         .eq('id', prototypeAssetId)
         .eq('manufacturer_id', manufacturerId)
         .maybeSingle();
@@ -13334,7 +13336,9 @@ async function buildVendorPrototypeLinkTreeExport(manufacturerId, prototypeAsset
         prototype: {
             ...protoNode,
             manufacturer_id: proto.manufacturer_id,
-            manufacturer_name: mfrName
+            manufacturer_name: mfrName,
+            category_key: proto.category_key || null,
+            subcategory_key: proto.subcategory_key || null
         },
         linked_assets: linkedAssets,
         material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,
@@ -13990,7 +13994,7 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
             if (!internalPreview) return res.status(404).json({ error: '此主產品未公開' });
             const { data: protoRow } = await supabase
                 .from('vendor_assets')
-                .select('id, manufacturer_id, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
                 .eq('id', id)
                 .maybeSingle();
             if (!protoRow) return res.status(404).json({ error: '找不到主產品' });
@@ -14025,7 +14029,9 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
                 prototype: {
                     ...previewProtoNode,
                     manufacturer_id: protoRow.manufacturer_id,
-                    manufacturer_name: mfrName
+                    manufacturer_name: mfrName,
+                    category_key: protoRow.category_key || null,
+                    subcategory_key: protoRow.subcategory_key || null
                 },
                 linked_assets: linkedAssets,
                 material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,

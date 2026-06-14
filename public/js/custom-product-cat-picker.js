@@ -182,6 +182,7 @@
     global.CustomProductCatPicker = {
         init: init,
         getValues: getValues,
-        getCategoriesData: function () { return categoriesData.slice(); }
+        getCategoriesData: function () { return categoriesData.slice(); },
+        setSelection: selectMain
     };
 })(typeof window !== 'undefined' ? window : this);

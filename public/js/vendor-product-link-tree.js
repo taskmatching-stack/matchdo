@@ -1275,12 +1275,20 @@
                 var u = new URL(decoded, window.location.origin);
                 u.searchParams.set('prototype_asset_id', p.id);
                 if (p.manufacturer_id) u.searchParams.set('manufacturer_id', p.manufacturer_id);
+                if (p.category_key) u.searchParams.set('category_key', p.category_key);
+                if (p.subcategory_key) u.searchParams.set('subcategory_key', p.subcategory_key);
                 return u.pathname + u.search + u.hash;
             } catch (e) { /* fall through */ }
         }
         var designUrl = '/custom-product.html?prototype_asset_id=' + encodeURIComponent(p.id);
         if (p.manufacturer_id) {
             designUrl += '&manufacturer_id=' + encodeURIComponent(p.manufacturer_id);
+        }
+        if (p.category_key) {
+            designUrl += '&category_key=' + encodeURIComponent(p.category_key);
+        }
+        if (p.subcategory_key) {
+            designUrl += '&subcategory_key=' + encodeURIComponent(p.subcategory_key);
         }
         return designUrl;
     }

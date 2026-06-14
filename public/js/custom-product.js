@@ -975,6 +975,9 @@ $(document).ready(function () {
                 var p = treeData.prototype;
                 var imgUrl = (p.image_url || '').trim();
                 if (!imgUrl) return;
+                var mainCat = (p.category_key || (urlParams.get('category_key') || '')).trim();
+                var subCat = (p.subcategory_key || (urlParams.get('subcategory_key') || '')).trim();
+                if (mainCat) syncCategorySelectionFromKeys(mainCat, subCat);
                 return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
                     clearRefSlot('prototype');
                     addRefImageToSlot('prototype', dataUrl, {
@@ -2340,10 +2343,24 @@ $(document).ready(function () {
         return url;
     }
 
+    function syncCategorySelectionFromKeys(mainKey, subKey) {
+        mainKey = (mainKey || '').trim();
+        subKey = (subKey || '').trim();
+        if (!mainKey) return;
+        if (typeof CustomProductCatPicker !== 'undefined' && typeof CustomProductCatPicker.setSelection === 'function') {
+            CustomProductCatPicker.setSelection(mainKey, subKey);
+        }
+        syncCategoriesDataFromPicker();
+        if (typeof updateVendorStylesCategorySummary === 'function') updateVendorStylesCategorySummary();
+        if (typeof window.updateCategoryMobileBtnLabels === 'function') window.updateCategoryMobileBtnLabels();
+    }
+
     function buildVendorStyleDesignUrl(item) {
         if (!item || !item.id) return '/custom-product.html?tab=product-design';
         var url = '/custom-product.html?tab=product-design&prototype_asset_id=' + encodeURIComponent(item.id);
         if (item.manufacturer_id) url += '&manufacturer_id=' + encodeURIComponent(item.manufacturer_id);
+        if (item.category_key) url += '&category_key=' + encodeURIComponent(item.category_key);
+        if (item.subcategory_key) url += '&subcategory_key=' + encodeURIComponent(item.subcategory_key);
         return url;
     }
 
