@@ -2502,7 +2502,8 @@ $(document).ready(function () {
             }
             var items = (res.data && res.data.items) ? res.data.items : [];
             return enrichVendorAssetItemsManufacturerNames(items).then(function (enriched) {
-            items = applyClientVendorAssetFilters(enriched);
+            /* 廠商版型 Tab 不用素材庫 modal 的 MOQ／客製化篩選，避免誤濾掉全部款式 */
+            items = enriched;
             items = items.filter(function (it) {
                 return (it.asset_kind || 'prototype').toLowerCase() === 'prototype';
             });
