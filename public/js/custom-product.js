@@ -2324,7 +2324,7 @@ $(document).ready(function () {
     function buildVendorStylesTabFetchUrl(mainKey, subKey) {
         if (!mainKey) return '';
         var url = '/api/vendor-assets?category_key=' + encodeURIComponent(mainKey) +
-            '&asset_kind=prototype&has_prototype_links=1';
+            '&asset_kind=prototype';
         if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
         var mfrId = ($('#bs-manufacturer-id').val() || '').trim();
         if (mfrId) {
@@ -2514,7 +2514,8 @@ $(document).ready(function () {
                     $empty.removeClass('d-none');
                     var $p = $empty.find('p');
                     if ($p.length) {
-                        $p.text(t('browseStyles.emptyNoLinks') || '此分類下尚無已設定「可搭配」的款式。廠商需於素材庫建立主產品與材料／配件的關聯後才會出現在此。');
+                        $p.text(t('browseStyles.empty') ||
+                            '此條件下尚無「已公開」的數位原型。請確認廠商素材庫已勾選公開，且主／子分類與上傳時一致。');
                     }
                 }
                 return;
