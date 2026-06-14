@@ -2340,14 +2340,23 @@ $(document).ready(function () {
         return url;
     }
 
+    function buildVendorStyleDesignUrl(item) {
+        if (!item || !item.id) return '/custom-product.html?tab=product-design';
+        var url = '/custom-product.html?tab=product-design&prototype_asset_id=' + encodeURIComponent(item.id);
+        if (item.manufacturer_id) url += '&manufacturer_id=' + encodeURIComponent(item.manufacturer_id);
+        return url;
+    }
+
     function buildVendorStyleBrowseCardHtml(item) {
         var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
         var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var mfrName = vendorItemManufacturerName(item).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var mfrLogo = vendorMfrLogoHtml(item.manufacturer_logo_url, 'vendor-asset-mfr-logo');
         var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
+        var designUrl = buildVendorStyleDesignUrl(item).replace(/"/g, '&quot;');
         var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
         var guideUrl = (item.match_guide_url || ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo)).replace(/"/g, '&quot;');
+        var selectLbl = (t('browseStyles.selectForDesign') || '選此款帶回設計').replace(/</g, '&lt;');
         var guideLbl = (t('browseStyles.viewMatchGuide') || '看可搭配').replace(/</g, '&lt;');
         var linkCount = item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0));
         var hasLinks = linkCount > 0;
@@ -2358,13 +2367,13 @@ $(document).ready(function () {
         var thumb = imgUrl
             ? '<img src="' + imgUrl + '" alt="" loading="lazy" style="height:140px;width:100%;object-fit:cover;">'
             : '<div class="d-flex align-items-center justify-content-center bg-light text-muted" style="height:140px;"><i class="bi bi-image fs-2"></i></div>';
-        var thumbInner = hasLinks
-            ? '<a href="' + guideUrl + '" class="text-decoration-none text-dark">' + thumb + '</a>'
-            : '<div class="text-muted">' + thumb + '</div>';
+        var thumbInner = '<a href="' + designUrl + '" class="text-decoration-none text-dark bs-card-thumb-link" data-prototype-id="' +
+            escAttr(item.id || '') + '">' + thumb + '</a>';
+        var selectBtn = '<a href="' + designUrl + '" class="btn btn-sm btn-primary w-100 bs-btn-select-design" data-prototype-id="' +
+            escAttr(item.id || '') + '">' + selectLbl + '</a>';
         var guideBtn = hasLinks
-            ? '<a href="' + guideUrl + '" class="btn btn-sm btn-primary w-100">' + guideLbl + '</a>'
-            : '<span class="btn btn-sm btn-outline-secondary w-100 disabled" tabindex="-1" aria-disabled="true">' +
-            (t('browseStyles.noLinksYet') || '尚未設定搭配').replace(/</g, '&lt;') + '</span>';
+            ? '<a href="' + guideUrl + '" class="btn btn-sm btn-outline-secondary w-100">' + guideLbl + '</a>'
+            : '';
         return '<article class="bs-card h-100 d-flex flex-column">' +
             thumbInner +
             '<div class="bs-card-body p-2 flex-grow-1">' +
@@ -2372,7 +2381,11 @@ $(document).ready(function () {
             '<div class="fw-semibold small text-truncate mb-1" title="' + title + '">' + title + '</div>' +
             '<div class="d-flex align-items-center gap-1">' + mfrLogo +
             '<a href="' + profileUrl + '" class="small text-primary text-decoration-none text-truncate" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a></div></div>' +
-            '<div class="p-2 pt-0">' + guideBtn + '</div></article>';
+            '<div class="p-2 pt-0 bs-card-actions d-grid gap-1">' + selectBtn + guideBtn + '</div></article>';
+    }
+
+    function escAttr(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
 
     var vendorStylesTabOffset = 0;
