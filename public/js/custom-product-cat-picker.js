@@ -179,10 +179,18 @@
             });
     }
 
+    function resyncFromHiddenInputs() {
+        if (!categoriesData.length || !mainHiddenEl) return;
+        var mainKey = (mainHiddenEl.value || '').trim();
+        var subKey = (subHiddenEl && subHiddenEl.value) ? String(subHiddenEl.value).trim() : '';
+        if (mainKey) selectMain(mainKey, subKey);
+    }
+
     global.CustomProductCatPicker = {
         init: init,
         getValues: getValues,
         getCategoriesData: function () { return categoriesData.slice(); },
-        setSelection: selectMain
+        setSelection: selectMain,
+        resyncFromHiddenInputs: resyncFromHiddenInputs
     };
 })(typeof window !== 'undefined' ? window : this);
