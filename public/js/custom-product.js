@@ -103,6 +103,7 @@ $(document).ready(function () {
     var vendorPickerOffset = 0;
     var vendorMfrSuggestTimer = null;
     var vendorMfrSuggestSeq = 0;
+    var vendorPickerLoadSeq = 0;
     var vendorPickerLastTotal = 0;
 
     function getRefSlotDef(key) {
@@ -2283,6 +2284,7 @@ $(document).ready(function () {
         if (!params) return;
         var url = buildVendorAssetsFetchUrl(params);
         if (!url) return;
+        var seq = ++vendorPickerLoadSeq;
         var $list = $('#vendorAssetsList');
         var $empty = $('#vendorAssetsEmpty');
         var $loading = $('#vendorAssetsLoading');
@@ -2302,6 +2304,7 @@ $(document).ready(function () {
         fetchPromise.then(function (r) {
             return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data || {} }; });
         }).then(function (res) {
+            if (seq !== vendorPickerLoadSeq) return;
             $loading.addClass('d-none');
             var data = res.data;
             if (!res.ok) {
@@ -2314,6 +2317,7 @@ $(document).ready(function () {
             }
             var items = (data && data.items) ? data.items : [];
             return enrichVendorAssetItemsManufacturerNames(items).then(function (enriched) {
+            if (seq !== vendorPickerLoadSeq) return;
             items = applyClientVendorAssetFilters(enriched);
             var total = (data && data.total != null) ? Number(data.total) : items.length;
             if (!Number.isFinite(total) || total < items.length) total = items.length;
@@ -2331,7 +2335,7 @@ $(document).ready(function () {
                 $empty.removeClass('d-none').text(t('customProduct.vendorAssetsEmptyFiltered') || '此條件下尚無符合的素材，請調整篩選或清除後重試。');
                 return;
             }
-            $list.removeClass('d-none');
+            $list.empty().removeClass('d-none');
             items.forEach(function (item) { $list.append(buildVendorAssetCardHtml(item)); });
             bindVendorAssetCardClicks($list, modalEl);
             applyPrototypeLockToVendorPickerCards($list);
@@ -2340,6 +2344,7 @@ $(document).ready(function () {
             updateVendorPickerUnsupportedScopeHint();
             });
         }).catch(function () {
+            if (seq !== vendorPickerLoadSeq) return;
             $loading.addClass('d-none');
             $empty.removeClass('d-none').text(t('customProduct.loadFailed') || '載入失敗');
         });
@@ -2758,8 +2763,7 @@ $(document).ready(function () {
             if (mfrName) $('#bs-manufacturer-name').val(decodeURIComponent(mfrName));
         }
         if (params.get('tab') === 'vendor-styles') {
-            setTimeout(loadVendorStylesTabList, 0);
-            setTimeout(loadVendorStylesTabList, 400);
+            setTimeout(loadVendorStylesTabList, 50);
         }
     })();
 
