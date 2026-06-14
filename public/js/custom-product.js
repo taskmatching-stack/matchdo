@@ -2515,7 +2515,7 @@ $(document).ready(function () {
         var designUrl = buildVendorStyleDesignUrl(item).replace(/"/g, '&quot;');
         var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
         var guideUrl = (item.match_guide_url || ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo)).replace(/"/g, '&quot;');
-        var selectLbl = (t('browseStyles.selectForDesign') || '選此款帶回設計').replace(/</g, '&lt;');
+        var selectLbl = (t('browseStyles.selectForDesign') || '用此款進行設計').replace(/</g, '&lt;');
         var guideLbl = (t('browseStyles.viewMatchGuide') || '看可搭配').replace(/</g, '&lt;');
         var linkCount = item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0));
         var hasLinks = linkCount > 0;
