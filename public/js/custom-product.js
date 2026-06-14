@@ -190,10 +190,106 @@ $(document).ready(function () {
 
     var prototypeLinkSummary = { material_count: 0, part_count: 0, loaded: false };
     var prototypeLinkSummaryLoading = false;
+    var prototypeCapabilityOptions = { capabilities: [], custom_labels: [] };
+    var prototypeCapabilityLoadSeq = 0;
+
+    function clearPrototypeCapabilityPicker() {
+        prototypeCapabilityOptions = { capabilities: [], custom_labels: [] };
+        var $box = $('#refCapabilityPicker');
+        var $opts = $('#refCapabilityOptions');
+        if ($box.length) $box.addClass('d-none');
+        if ($opts.length) $opts.empty();
+    }
+
+    function collectSelectedCapabilitiesForGenerate() {
+        var keys = [];
+        var customs = [];
+        $('#refCapabilityOptions input[data-cap-key]:checked').each(function () {
+            var k = ($(this).attr('data-cap-key') || '').trim();
+            if (k) keys.push(k);
+        });
+        $('#refCapabilityOptions input[data-cap-custom]:checked').each(function () {
+            var lbl = ($(this).attr('data-cap-custom') || '').trim();
+            if (lbl) customs.push(lbl);
+        });
+        return { keys: keys, custom_labels: customs };
+    }
+
+    function renderPrototypeCapabilityPicker(data) {
+        var $box = $('#refCapabilityPicker');
+        var $opts = $('#refCapabilityOptions');
+        if (!$box.length || !$opts.length) return;
+        var caps = (data && data.capabilities) ? data.capabilities : [];
+        var customs = (data && data.custom_labels) ? data.custom_labels : [];
+        if (!caps.length && !customs.length) {
+            $box.addClass('d-none');
+            $opts.empty();
+            return;
+        }
+        $opts.empty();
+        var customTag = tr('customProduct.refCapabilityCustomTag', '自填');
+        caps.forEach(function (c) {
+            if (!c || !c.key) return;
+            var lbl = (c.label || c.key).replace(/</g, '&lt;');
+            var id = 'ref-cap-' + String(c.key).replace(/[^a-zA-Z0-9_-]/g, '_');
+            $opts.append(
+                '<div class="form-check form-check-inline">' +
+                '<input class="form-check-input" type="checkbox" id="' + id + '" data-cap-key="' +
+                String(c.key).replace(/"/g, '&quot;') + '">' +
+                '<label class="form-check-label small" for="' + id + '">' + lbl + '</label></div>'
+            );
+        });
+        customs.forEach(function (c, idx) {
+            var lblRaw = (c && c.label) ? String(c.label) : '';
+            if (!lblRaw) return;
+            var lbl = lblRaw.replace(/</g, '&lt;');
+            var id = 'ref-cap-custom-' + idx;
+            $opts.append(
+                '<div class="form-check form-check-inline">' +
+                '<input class="form-check-input" type="checkbox" id="' + id + '" data-cap-custom="' +
+                lblRaw.replace(/"/g, '&quot;') + '">' +
+                '<label class="form-check-label small" for="' + id + '">' + lbl +
+                ' <span class="text-muted">(' + customTag.replace(/</g, '&lt;') + ')</span></label></div>'
+            );
+        });
+        $box.removeClass('d-none');
+    }
+
+    function refreshPrototypeCapabilityPicker(done) {
+        var id = getPrototypeLockVendorAssetId();
+        if (!id) {
+            clearPrototypeCapabilityPicker();
+            if (typeof done === 'function') done();
+            return;
+        }
+        var seq = ++prototypeCapabilityLoadSeq;
+        fetch('/api/vendor-assets/' + encodeURIComponent(id) + '/design-capabilities')
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d || {} }; }); })
+            .then(function (res) {
+                if (seq !== prototypeCapabilityLoadSeq) return;
+                if (!res.ok) {
+                    clearPrototypeCapabilityPicker();
+                    return;
+                }
+                prototypeCapabilityOptions = {
+                    capabilities: res.data.capabilities || [],
+                    custom_labels: res.data.custom_labels || []
+                };
+                renderPrototypeCapabilityPicker(prototypeCapabilityOptions);
+            })
+            .catch(function () {
+                if (seq !== prototypeCapabilityLoadSeq) return;
+                clearPrototypeCapabilityPicker();
+            })
+            .finally(function () {
+                if (seq === prototypeCapabilityLoadSeq && typeof done === 'function') done();
+            });
+    }
 
     function clearPrototypeLinkSummary() {
         prototypeLinkSummary = { material_count: 0, part_count: 0, loaded: false };
         prototypeLinkSummaryLoading = false;
+        clearPrototypeCapabilityPicker();
     }
 
     function isRefTabCoveredByVendorAssociation(tabKey) {
@@ -226,7 +322,7 @@ $(document).ready(function () {
             prototypeLinkSummary.loaded = true;
         }).finally(function () {
             prototypeLinkSummaryLoading = false;
-            if (typeof done === 'function') done();
+            refreshPrototypeCapabilityPicker(done);
         });
     }
 
@@ -2804,6 +2900,9 @@ $(document).ready(function () {
             if (referenceImages.length > 0) {
                 payload.referenceImages = referenceImages;
                 if (orderedRefs.referenceSources.length) payload.referenceSources = orderedRefs.referenceSources;
+                var capSel = collectSelectedCapabilitiesForGenerate();
+                if (capSel.keys.length) payload.selected_capability_keys = capSel.keys;
+                if (capSel.custom_labels.length) payload.selected_capability_custom_labels = capSel.custom_labels;
             }
             if (seedNum != null) payload.seed = seedNum;
             try {

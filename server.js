@@ -879,6 +879,31 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
     return header + lines.join('\n') + '\n' + footer;
 }
 
+/** 使用者勾選之工藝（僅技法短句；顏色依使用者描述） */
+function buildSelectedCapabilityPromptAppendix(hintLines, lang) {
+    const lines = (hintLines || []).map((s) => String(s || '').trim()).filter(Boolean);
+    if (!lines.length) return '';
+    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
+    const header = isEn
+        ? '\n\n[User-selected surface techniques — technique only; colors/patterns follow user description above]\n'
+        : '\n\n【使用者勾選的表面工藝｜僅技法，顏色與圖樣依上文使用者描述】\n';
+    const footer = isEn
+        ? 'Keep reference prototype geometry unchanged; apply only the selected technique effects.'
+        : '維持參考原型造型與孔位；僅呈現勾選工藝的技法效果。';
+    return header + lines.map((line) => '• ' + line).join('\n') + '\n' + footer;
+}
+
+function resolvePrimaryPrototypeAssetIdFromReferenceSources(referenceSourcesRaw) {
+    const list = Array.isArray(referenceSourcesRaw) ? referenceSourcesRaw : [];
+    for (let i = 0; i < list.length; i++) {
+        const s = list[i];
+        if (!s || !s.vendor_asset_id) continue;
+        const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
+        if (kind === 'prototype') return String(s.vendor_asset_id).trim();
+    }
+    return null;
+}
+
 /** 從 reference_sources 解析數位原型訂製程度（以 DB 為準補齊） */
 async function resolvePrototypeAssetsForPrompt(referenceSourcesRaw) {
     const list = Array.isArray(referenceSourcesRaw) ? referenceSourcesRaw : [];
@@ -7355,6 +7380,8 @@ async function composeGeneratePromptWithReferences(opts) {
     const uiLang = opts.uiLang || null;
     const referenceImages = opts.referenceImages;
     const referenceSources = opts.referenceSources;
+    const selectedCapabilityKeys = opts.selectedCapabilityKeys;
+    const selectedCapabilityCustomLabels = opts.selectedCapabilityCustomLabels;
 
     let fullPrompt = useRemake
         ? await buildPromptFromRemakeCategoryKeys(categoryKeys, userPrompt)
@@ -7376,6 +7403,19 @@ async function composeGeneratePromptWithReferences(opts) {
     const materialRefs = await resolveMaterialRefsForPrompt(ordered.sources);
     const materialAppendix = buildMaterialTexturePromptAppendix(materialRefs, uiLang);
     if (materialAppendix) fullPrompt = (fullPrompt || '').trim() + materialAppendix;
+
+    const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
+    const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
+    const capCustom = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityCustomLabels);
+    if (protoIdForCaps && (capKeys.length || capCustom.length)) {
+        const capValid = await manufacturerTaxonomy.validateSelectedCapabilitiesForPrototype(
+            supabase, protoIdForCaps, capKeys, capCustom
+        );
+        if (capValid.ok && capValid.hint_lines && capValid.hint_lines.length) {
+            const capAppendix = buildSelectedCapabilityPromptAppendix(capValid.hint_lines, uiLang);
+            if (capAppendix) fullPrompt = (fullPrompt || '').trim() + capAppendix;
+        }
+    }
 
     return {
         fullPrompt: fullPrompt.trim(),
@@ -7690,7 +7730,7 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
 // categorySource: 'remake' 時使用 remake_categories 的 prompt，否則使用訂製分類
 app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (req, res) => {
     try {
-        const { prompt, categoryKeys, aspectRatio = '1:1', resolution = '2K', referenceImages, referenceSources, seed, categorySource, output_format } = req.body;
+        const { prompt, categoryKeys, aspectRatio = '1:1', resolution = '2K', referenceImages, referenceSources, seed, categorySource, output_format, selected_capability_keys, selected_capability_custom_labels } = req.body;
         const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';
         if (!prompt) {
             return res.status(400).json({ success: false, error: '請提供產品描述' });
@@ -7702,6 +7742,20 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         const hasRefs = referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0;
         if (useRemake && !hasRefs) {
             return res.status(400).json({ success: false, error: '設計風向須上傳至少一張參考圖' });
+        }
+        const capKeysReq = manufacturerTaxonomy.parseJsonStringArray(selected_capability_keys);
+        const capCustomReq = manufacturerTaxonomy.parseJsonStringArray(selected_capability_custom_labels);
+        if (hasRefs && (capKeysReq.length || capCustomReq.length)) {
+            const protoIdForCapValidate = resolvePrimaryPrototypeAssetIdFromReferenceSources(referenceSources || []);
+            if (!protoIdForCapValidate) {
+                return res.status(400).json({ success: false, error: '請先加入廠商數位原型參考圖，再勾選表面工藝' });
+            }
+            const capValidReq = await manufacturerTaxonomy.validateSelectedCapabilitiesForPrototype(
+                supabase, protoIdForCapValidate, capKeysReq, capCustomReq
+            );
+            if (!capValidReq.ok) {
+                return res.status(400).json({ success: false, error: capValidReq.error || '工藝選項無效' });
+            }
         }
 
         // ── 步驟 1：取得使用者資訊，在生圖前先確認點數夠（避免 BFL 費用白花）──
@@ -7742,7 +7796,9 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             useRemake,
             uiLang,
             referenceImages: hasRefs ? referenceImages : [],
-            referenceSources: hasRefs ? (referenceSources || []) : []
+            referenceSources: hasRefs ? (referenceSources || []) : [],
+            selectedCapabilityKeys: selected_capability_keys,
+            selectedCapabilityCustomLabels: selected_capability_custom_labels
         });
         let fullPrompt = composed.fullPrompt;
         let fluxReferenceImages = composed.fluxReferenceImages;
@@ -14043,6 +14099,32 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
     } catch (e) {
         console.error('GET /api/vendor-assets/:id/link-tree:', e);
         res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// GET /api/vendor-assets/:id/design-capabilities — 設計頁：此款式廠商已設工藝（供使用者勾選）
+app.get('/api/vendor-assets/:id/design-capabilities', async (req, res) => {
+    try {
+        const id = (req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '缺少 id' });
+        const internalPreview = await getRequestInternalPreviewFlag(req);
+        const { data: row, error } = await supabase
+            .from('vendor_assets')
+            .select('id, asset_kind, is_public, manufacturer_id')
+            .eq('id', id)
+            .maybeSingle();
+        if (error) throw error;
+        if (!row || normalizeVendorAssetKind(row.asset_kind) !== 'prototype') {
+            return res.status(404).json({ error: '找不到數位原型' });
+        }
+        if (!row.is_public && !internalPreview) {
+            return res.status(404).json({ error: '此款式未公開' });
+        }
+        const payload = await manufacturerTaxonomy.getVendorAssetDesignCapabilities(supabase, id);
+        return res.json(payload);
+    } catch (e) {
+        console.error('GET /api/vendor-assets/:id/design-capabilities:', e);
+        return res.status(500).json({ error: '查詢失敗' });
     }
 });
 
