@@ -1250,6 +1250,11 @@ function autoVendorAssetTitleFromSemantics(semanticsJson, assetKind, locale, hin
     });
 }
 
+function vendorAssetOriginForApi(row) {
+    if (row && row.from_supplier_catalog) return 'supplier_import';
+    return 'self_upload';
+}
+
 function mapVendorAssetForApi(row, lang) {
     if (!row) return row;
     const kind = normalizeVendorAssetKind(row.asset_kind);
@@ -1262,6 +1267,7 @@ function mapVendorAssetForApi(row, lang) {
     return {
         ...row,
         asset_kind: kind,
+        asset_origin: vendorAssetOriginForApi(row),
         gallery_images: gallery,
         image_urls: imageUrls,
         image_items: imageItems,
@@ -8361,7 +8367,7 @@ async function consumeUserCredits(userId, points, source, description, metadata 
         updated_at: now
     }, { onConflict: 'user_id' });
     if (upErr) return { ok: false, error: upErr.message || '扣點失敗' };
-    await supabase.from('credit_transactions').insert({
+    const { data: txRow, error: txErr } = await supabase.from('credit_transactions').insert({
         user_id: userId,
         type: 'consumed',
         amount: -points,
@@ -8369,8 +8375,98 @@ async function consumeUserCredits(userId, points, source, description, metadata 
         source: source || 'consumed',
         description: description || '',
         metadata: metadata || {}
-    });
-    return { ok: true, balance_after: balanceAfter };
+    }).select('id').single();
+    if (txErr) return { ok: false, error: txErr.message || '扣點記錄失敗' };
+    return { ok: true, balance_after: balanceAfter, transaction_id: txRow?.id || null };
+}
+
+/** 退還點數（上傳失敗補償等） */
+async function grantUserCredits(userId, points, source, description, metadata = {}) {
+    if (!userId || points <= 0) return { ok: true, balance_after: null, skipped: true };
+    const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', userId).maybeSingle();
+    const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
+    const balanceAfter = balance + points;
+    const now = new Date().toISOString();
+    const { error: upErr } = await supabase.from('user_credits').upsert({
+        user_id: userId,
+        balance: balanceAfter,
+        total_spent: credRow ? (credRow.total_spent || 0) : 0,
+        updated_at: now
+    }, { onConflict: 'user_id' });
+    if (upErr) return { ok: false, error: upErr.message || '退點失敗' };
+    const { data: txRow, error: txErr } = await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        type: 'granted',
+        amount: points,
+        balance_after: balanceAfter,
+        source: source || 'granted',
+        description: description || '',
+        metadata: metadata || {}
+    }).select('id').single();
+    if (txErr) return { ok: false, error: txErr.message || '退點記錄失敗' };
+    return { ok: true, balance_after: balanceAfter, transaction_id: txRow?.id || null };
+}
+
+function parsePreviewCreditTxIdsFromBody(body) {
+    const raw = body && body.preview_credit_tx_ids;
+    if (raw == null || raw === '') return [];
+    let arr;
+    try {
+        arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (_) {
+        arr = String(raw).split(/[,，\s]+/).map((s) => s.trim()).filter(Boolean);
+    }
+    if (!Array.isArray(arr)) return [];
+    return [...new Set(arr.map((id) => String(id).trim()).filter(Boolean))];
+}
+
+/** 上傳發布失敗時，退還「上傳前預覽重繪／放大」已扣點（每筆 tx 僅退一次） */
+async function refundConsumedPreviewCredits(userId, txIds) {
+    const unique = [...new Set((txIds || []).map((id) => String(id).trim()).filter(Boolean))];
+    if (!userId || !unique.length) return { refunded: 0, balance_after: null };
+    let totalRefunded = 0;
+    let balanceAfter = null;
+    for (const txId of unique) {
+        const { data: tx } = await supabase
+            .from('credit_transactions')
+            .select('id, user_id, type, amount, description, metadata')
+            .eq('id', txId)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (!tx || tx.type !== 'consumed' || tx.amount >= 0) continue;
+        const meta = (tx.metadata && typeof tx.metadata === 'object') ? tx.metadata : {};
+        if (meta.refunded || meta.preview !== true) continue;
+        const pts = Math.abs(tx.amount);
+        const granted = await grantUserCredits(
+            userId,
+            pts,
+            'vendor_asset_preview_refund',
+            `上傳失敗退還：${tx.description || '預覽扣點'}`,
+            { refunded_tx_id: txId, preview: true }
+        );
+        if (!granted.ok) continue;
+        totalRefunded += pts;
+        balanceAfter = granted.balance_after;
+        await supabase
+            .from('credit_transactions')
+            .update({ metadata: { ...meta, refunded: true, refunded_at: new Date().toISOString() } })
+            .eq('id', txId);
+    }
+    return { refunded: totalRefunded, balance_after: balanceAfter };
+}
+
+async function respondVendorAssetUploadFailure(res, status, userId, body, jsonBody) {
+    const out = { ...(jsonBody || {}) };
+    if (status >= 500 && userId) {
+        const refund = await refundConsumedPreviewCredits(userId, parsePreviewCreditTxIdsFromBody(body));
+        if (refund.refunded > 0) {
+            out.preview_points_refunded = refund.refunded;
+            out.balance_after = refund.balance_after;
+            const base = out.error || '上傳失敗';
+            out.error = base + `（已退還預覽重繪／放大 ${refund.refunded} 點；重繪圖仍保留在待傳清單，修正後可再發布）`;
+        }
+    }
+    return res.status(status).json(out);
 }
 // 讀取 points_ai_upscale（供扣點用）
 async function getPointsAIUpscale() {
@@ -14270,7 +14366,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         } catch (syncErr) {
             console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
         }
-        const { data: mfr } = await supabase.from('manufacturers').select('id').eq('user_id', user.id).maybeSingle();
+        const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('user_id', user.id).maybeSingle();
         if (!mfr) {
             return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
         }
@@ -14334,7 +14430,13 @@ app.get('/api/me/vendor-assets', async (req, res) => {
             items: mapped,
             total: mapped.length,
             limit: mapped.length,
-            offset: 0
+            offset: 0,
+            viewer: {
+                user_id: user.id,
+                email: user.email || null,
+                manufacturer_id: manufacturerId,
+                manufacturer_name: mfr.name || null
+            }
         });
     } catch (e) {
         console.error('GET /api/me/vendor-assets 異常:', e);
@@ -14417,6 +14519,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
             'custom-products', `vendor-assets-preview/${manufacturerId}`, { ...optimized, originalname: previewName }
         );
         let balanceAfter = null;
+        let creditTransactionId = null;
         if (!isAdmin && pointsRequired > 0) {
             const consumed = await consumeUserCredits(
                 ownerId,
@@ -14429,12 +14532,14 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
             }
             balanceAfter = consumed.balance_after;
+            creditTransactionId = consumed.transaction_id || null;
         }
         res.json({
             preview_url: publicUrl,
             preview_base64: optimized.buffer.toString('base64'),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
-            balance_after: balanceAfter
+            balance_after: balanceAfter,
+            credit_transaction_id: creditTransactionId
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/preview-image-redraw:', e);
@@ -14503,6 +14608,7 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
             { buffer: upscaled.buffer, mimetype: upscaled.mimetype, originalname: previewName }
         );
         let balanceAfter = null;
+        let creditTransactionId = null;
         if (!isAdmin && pointsRequired > 0) {
             const consumed = await consumeUserCredits(
                 ownerId,
@@ -14515,6 +14621,7 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
                 return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
             }
             balanceAfter = consumed.balance_after;
+            creditTransactionId = consumed.transaction_id || null;
         }
         res.json({
             preview_url: publicUrl,
@@ -14522,7 +14629,8 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
             output_width: upscaled.width,
             output_height: upscaled.height,
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
-            balance_after: balanceAfter
+            balance_after: balanceAfter,
+            credit_transaction_id: creditTransactionId
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/preview-image-upscale:', e);
@@ -14968,7 +15076,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('production_type_key')) {
             delete insertPayload.production_type_key;
             ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, created_at')
+                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at')
                 .single());
         }
         if (insertError) {
@@ -14987,15 +15095,15 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 const retry = await supabase.from('vendor_assets').insert(insertPayload)
                     .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, ai_tags, image_semantics_json, tags_source, created_at').single();
                 if (retry.error) {
-                    return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-kind.sql 新增 asset_kind 欄位' });
+                    return respondVendorAssetUploadFailure(res, 500, ownerId, body, { error: '請先執行 docs/add-vendor-asset-kind.sql 新增 asset_kind 欄位' });
                 }
                 return res.status(201).json({ ...retry.data, asset_kind: normalizeVendorAssetKind(body.asset_kind) });
             }
             if (insertError.code === '42703') {
-                return res.status(500).json({ error: '請先至管理後台「資料庫維護」執行「視覺語意庫」migration，或於 Supabase SQL Editor 執行 docs/add-digital-prototype-ai-tags.sql' });
+                return respondVendorAssetUploadFailure(res, 500, ownerId, body, { error: '請先至管理後台「資料庫維護」執行「視覺語意庫」migration，或於 Supabase SQL Editor 執行 docs/add-digital-prototype-ai-tags.sql' });
             }
             console.error('POST /api/me/vendor-assets 失敗:', insertError);
-            return res.status(500).json({ error: '新增素材失敗' });
+            return respondVendorAssetUploadFailure(res, 500, ownerId, body, { error: '新增素材失敗' });
         }
         await setVendorAssetCatalogGroups(inserted.id, manufacturerId, parseCatalogGroupIdsFromBody(body));
         const taxonomyWriteErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, inserted.id, body);
@@ -15073,7 +15181,16 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets 異常:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        let ownerIdForRefund = null;
+        try {
+            const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+            const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+            if (token) {
+                const { data: { user } } = await supabase.auth.getUser(token);
+                ownerIdForRefund = user?.id || null;
+            }
+        } catch (_) { /* ignore */ }
+        return respondVendorAssetUploadFailure(res, 500, ownerIdForRefund, req.body || {}, { error: '系統錯誤' });
     }
 });
 

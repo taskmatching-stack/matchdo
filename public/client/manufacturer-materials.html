@@ -85,6 +85,11 @@
         </div>
 
         <div id="main-content" class="d-none">
+            <div id="viewer-context-bar" class="alert alert-secondary border-0 py-2 small mb-3 d-none" role="status"></div>
+            <div class="alert alert-warning border mb-3 py-2 small" role="note">
+                <i class="bi bi-shield-check me-1"></i>
+                <span data-i18n="baseModels.vendorZonePolicy">廠商工作區清單<strong>僅</strong>含：① 本廠自行上傳　② 從<strong>產業供應商目錄</strong>匯入（標示「引用自供應商」）。<strong>不會</strong>也<strong>不允許</strong>引用或顯示其他製造商／廠商的產品。</span>
+            </div>
             <div class="alert alert-light border mb-3 py-2 small">
                 <i class="bi bi-info-circle text-primary me-1"></i>
                 此頁素材會顯示在公開廠商頁「<strong>素材庫</strong>」；展示案例（系列／對照圖）請至
@@ -216,10 +221,10 @@
                                     <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-prototype-links-block">
-                                    <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
-                                    <p class="text-muted small mb-2">上傳前可預先勾選並設定多選規則（亦可上傳後在「編輯」調整）。</p>
+                                    <label class="form-label fw-semibold"><span data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</span> <span class="text-muted fw-normal small">（選填）</span></label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksUploadHint">上傳前可預先勾選（亦可上傳後在「編輯」調整）；不勾選也能直接發布。</p>
                                     <div class="add-prototype-links-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
-                                    <p class="add-prototype-links-empty text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無其他材料或配件可選。</p>
+                                    <p class="add-prototype-links-empty text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                                 </div>
                                 <div class="col-12 d-flex flex-wrap align-items-center gap-2">
                                     <button type="button" class="btn btn-primary btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">上傳並發布</span></button>
@@ -332,10 +337,10 @@
                                     <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-linked-prototypes-block">
-                                    <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
-                                    <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesUploadHint">上傳前可預先勾選適用的主產品（亦可上傳後在「編輯」調整）。</p>
+                                    <label class="form-label fw-semibold"><span data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</span> <span class="text-muted fw-normal small">（選填）</span></label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesUploadHint">上傳前可預先勾選適用的主產品（亦可上傳後在「編輯」調整）；不勾選也能直接發布。</p>
                                     <div class="add-linked-prototypes-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
-                                    <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無其他主產品可選。</p>
+                                    <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無主產品可選（選填，略過不影響發布）。</p>
                                 </div>
                                 <div class="col-12 d-flex flex-wrap align-items-center gap-2">
                                     <button type="button" class="btn btn-warning btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">上傳並發布</span></button>
@@ -422,10 +427,10 @@
                                     <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-linked-prototypes-block">
-                                    <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
-                                    <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesUploadHint">上傳前可預先勾選適用的主產品（亦可上傳後在「編輯」調整）。</p>
+                                    <label class="form-label fw-semibold"><span data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</span> <span class="text-muted fw-normal small">（選填）</span></label>
+                                    <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesUploadHint">上傳前可預先勾選適用的主產品（亦可上傳後在「編輯」調整）；不勾選也能直接發布。</p>
                                     <div class="add-linked-prototypes-list border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
-                                    <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無其他主產品可選。</p>
+                                    <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無主產品可選（選填，略過不影響發布）。</p>
                                 </div>
                                 <div class="col-12"><button type="submit" class="btn btn-primary btn-add-submit"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublish">上傳並發布</span></button><span class="ms-2 small text-danger add-form-msg"></span></div>
                             </div>
@@ -453,6 +458,7 @@
             </div>
                 </div>
             </div>
+            <p class="text-muted small mb-2" data-i18n="baseModels.listFilterHint">篩選僅作用於上方清單（皆為您的本廠素材）。「平台媒合分類」為全站訂製類別名稱（如手機殼），用來分類與篩選，不是別家廠商的產品。</p>
             <p id="materials-list-range" class="text-muted small mb-2 d-none"></p>
             <div id="materials-grid" class="row g-3"></div>
             <div id="materials-list-pager" class="d-flex flex-wrap align-items-center justify-content-center gap-2 mt-2 d-none">
@@ -493,10 +499,10 @@
                             <div><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div id="edit-customization-levels" class="border rounded p-2"></div></div>
                         </div>
                         <div class="mb-3 d-none" id="edit-prototype-links-wrap">
-                            <label class="form-label fw-semibold" data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</label>
-                            <p class="text-muted small mb-2">勾選關聯後可設定「可與其他並選」或「擇一組」代碼；訂製者在「看可搭配」頁會依規則互斥選取。</p>
+                            <label class="form-label fw-semibold"><span data-i18n="baseModels.prototypeLinksTitle">關聯材料／配件</span> <span class="text-muted fw-normal small">（選填）</span></label>
+                            <p class="text-muted small mb-2" data-i18n="baseModels.prototypeLinksHint">可複選同廠材料或配件；設計端選圖時會優先標示。不設定也能上架。</p>
                             <div id="edit-prototype-links-list" class="border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
-                            <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無其他材料或配件可選。</p>
+                            <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                         </div>
                         <div class="mb-3 d-none" id="edit-linked-prototypes-wrap">
                             <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
@@ -1536,7 +1542,9 @@
                     return;
                 }
                 item.redrawPreviewUrl = previewDataUrlFromResponse(data);
+                item.redrawPreviewStorageUrl = data.preview_url || '';
                 item.redrawChargedPts = data.points_deducted || 0;
+                item.previewCreditTxId = data.credit_transaction_id || null;
                 item.optimize = true;
                 item.uploadRedraw = true;
                 item.uploadOriginal = false;
@@ -1585,7 +1593,9 @@
                     return;
                 }
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
+                item.upscalePreviewStorageUrl = data.preview_url || '';
                 item.upscaleChargedPts = data.points_deducted || 0;
+                item.previewCreditTxId = data.credit_transaction_id || null;
                 item.uploadUpscale = true;
                 item.uploadOriginal = false;
                 item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-' + idx + '.jpg');
@@ -1693,6 +1703,35 @@
                     });
                 }
             });
+        }
+
+        function collectPreviewCreditTxIds(form) {
+            return getPendingImages(form).reduce(function (ids, p) {
+                if (p.previewCreditTxId) ids.push(p.previewCreditTxId);
+                return ids;
+            }, []);
+        }
+
+        function uploadFailureMessage(form, data, status) {
+            var failMsg = (data && data.error) || '上傳失敗';
+            if (data && data.preview_points_refunded > 0) {
+                if (data.balance_after != null) {
+                    failMsg += ' · 餘額 ' + data.balance_after;
+                }
+                getPendingImages(form).forEach(function (p) {
+                    p.redrawChargedPts = 0;
+                    p.upscaleChargedPts = 0;
+                    p.previewCreditTxId = null;
+                });
+                return failMsg;
+            }
+            var charged = getPendingImages(form).reduce(function (s, p) {
+                return s + (p.redrawChargedPts || 0) + (p.upscaleChargedPts || 0);
+            }, 0);
+            if (charged > 0 || status >= 500) {
+                failMsg += '。重繪／放大圖仍保留在上方待傳清單（綠框），請勿關閉此頁後再按發布；本次未扣發布上傳費。';
+            }
+            return failMsg;
         }
 
         function updateAddFormPointsEstimate(form) {
@@ -1832,7 +1871,9 @@
                 }
                 if (!r.ok) { showToast(data.error || '重繪失敗', 'danger'); return; }
                 item.redrawPreviewUrl = previewDataUrlFromResponse(data);
+                item.redrawPreviewStorageUrl = data.preview_url || '';
                 item.redrawChargedPts = data.points_deducted || 0;
+                item.previewCreditTxId = data.credit_transaction_id || null;
                 item.optimize = true;
                 item.uploadRedraw = true;
                 item.uploadOriginal = false;
@@ -1875,7 +1916,9 @@
                 }
                 if (!r.ok) { showToast(upscaleApiErrorMessage(data), 'danger'); return; }
                 item.upscalePreviewUrl = previewDataUrlFromResponse(data);
+                item.upscalePreviewStorageUrl = data.preview_url || '';
                 item.upscaleChargedPts = data.points_deducted || 0;
+                item.previewCreditTxId = data.credit_transaction_id || null;
                 item.uploadUpscale = true;
                 item.uploadOriginal = false;
                 item.upscaleFile = await fileFromPreviewResponse(data, 'upscale-' + idx + '.jpg');
@@ -3676,6 +3719,16 @@
             });
         }
 
+        function renderViewerContextBar(viewer) {
+            var bar = document.getElementById('viewer-context-bar');
+            if (!bar || !viewer) { if (bar) bar.classList.add('d-none'); return; }
+            var email = viewer.email || viewer.user_id || '—';
+            var mfrName = viewer.manufacturer_name || '—';
+            var tpl = tr('baseModels.viewerContext', '目前登入：{email}　·　本廠：{manufacturer}');
+            bar.textContent = tpl.replace('{email}', email).replace('{manufacturer}', mfrName);
+            bar.classList.remove('d-none');
+        }
+
         async function loadMaterials() {
             var grid = document.getElementById('materials-grid');
             grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div></div>';
@@ -3692,6 +3745,7 @@
                     m.asset_kind = normalizeKind(m.asset_kind);
                     return m;
                 });
+                renderViewerContextBar(d.viewer);
                 renderGrid();
                 renderAllAddFormLinkSections();
             } catch (e) {
@@ -3762,7 +3816,7 @@
                         ? '<span class="badge bg-light text-warning border mb-2">' + esc(tr('baseModels.tabPart', '零件')) + '</span> '
                         : '<span class="badge bg-light text-primary border mb-2">' + esc(tr('baseModels.tabPrototype', '原型')) + '</span> ');
                 var supplierRefLine = (m.from_supplier_catalog && m.supplier_name)
-                    ? '<div class="small text-success mb-1"><i class="bi bi-boxes me-1"></i>' + esc(tr('baseModels.refFromSupplier', '引用自')) + ' <span class="fw-semibold">' + esc(m.supplier_name) + '</span></div>'
+                    ? '<div class="small text-success mb-1"><i class="bi bi-boxes me-1"></i>' + esc(tr('baseModels.refFromIndustrySupplier', '引用自產業供應商')) + ' <span class="fw-semibold">' + esc(m.supplier_name) + '</span></div>'
                     : '';
                 var pubBadge = (m.is_public === false)
                     ? '<span class="badge bg-secondary mb-2 me-1">已下架</span>'
@@ -4025,6 +4079,10 @@
                 fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
             }
             appendTaxonomyToFormData(fd, form);
+            var previewCreditTxIds = collectPreviewCreditTxIds(form);
+            if (previewCreditTxIds.length) {
+                fd.append('preview_credit_tx_ids', JSON.stringify(previewCreditTxIds));
+            }
             var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit');
             btns.forEach(function (b) { b.disabled = true; });
             try {
@@ -4035,14 +4093,13 @@
                         ' (' + tr('baseModels.needPoints', '需要') + ' ' + (data.required || '') + ')';
                     return;
                 }
-                if (!r.ok) { msgEl.textContent = data.error || 'failed'; return; }
+                if (!r.ok) { msgEl.textContent = uploadFailureMessage(form, data, r.status); return; }
                 var okMsg = tr('baseModels.uploadSuccess', '上傳成功');
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
                 showToast(okMsg);
-                if (kind === 'prototype' && data.id && window.confirm(tr('productTree.gotoAfterUpload', '是否前往「產品關聯圖」設定材料／配件關聯？'))) {
-                    window.location.href = '/client/vendor-product-link-tree.html?prototype_asset_id=' + encodeURIComponent(data.id);
-                    return;
+                if (kind === 'prototype' && data.id) {
+                    showToast(tr('productTree.uploadLinkHint', '已發布。若要設定材料／配件關聯，可稍後點頁面上方「產品關聯圖」（選填，不影響上架）。'), 'info');
                 }
                 var newAssetId = data.id;
                 form.reset();
