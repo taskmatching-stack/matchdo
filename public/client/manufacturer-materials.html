@@ -543,7 +543,7 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」／「<strong>AI 放大</strong>」：新圖會出現在同一格下方（與待傳清單相同）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。<strong>不另收上傳費</strong>。</p>
+                                <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。</p>
                             </div>
                             <label class="form-label fw-semibold mb-1"><span data-i18n="baseModels.addGalleryImages">上傳更多圖片</span></label>
                             <input type="file" class="d-none" id="edit-add-gallery-input-one" accept="image/*">
@@ -557,7 +557,7 @@
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-edit-upload-pending-only"><i class="bi bi-cloud-upload me-1"></i>上傳所選</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-edit-clear-pending">清除待傳</button>
                             </div>
-                            <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」或「AI 放大」；按「<strong>上傳所選</strong>」或下方「<strong>儲存</strong>」都會把待傳圖寫入圖庫。<strong>點圖片＝預覽放大</strong>。已上傳的圖請用上方各圖按鈕（不另收上傳費）。</p>
+                            <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」或「AI 放大」；按「<strong>上傳所選</strong>」或下方「<strong>儲存</strong>」都會把待傳圖寫入圖庫。<strong>已上傳的圖</strong>按「AI 重繪」後請勾選要上傳的圖，再按「<strong>儲存</strong>」。<strong>點圖片＝預覽放大</strong>。</p>
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
@@ -656,7 +656,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'taxonomy-cascade-rows-20260611';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-preview-checkbox-20260618';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -696,6 +696,12 @@
         var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
         var editGalleryHighlightUrls = new Set();
+        /** 已上傳圖：AI 重繪預覽後勾選要上傳原圖／新圖（與新增待傳清單相同） */
+        var editGallerySlotPreview = {};
+
+        function clearEditGallerySlotPreviews() {
+            editGallerySlotPreview = {};
+        }
 
         function releaseEditGalleryBusyState() {
             editGalleryUploading = false;
@@ -1510,6 +1516,214 @@
                 '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del mt-1" data-url="' + esc(d.url) + '">移除新圖</button></div>';
         }
 
+        async function fileFromImageUrl(url, filename) {
+            var r = await fetch(url, { mode: 'cors' });
+            if (!r.ok) throw new Error('無法讀取圖片');
+            var blob = await r.blob();
+            var type = (blob.type && blob.type.indexOf('image/') === 0) ? blob.type : 'image/jpeg';
+            return new File([blob], filename || 'source.jpg', { type: type });
+        }
+
+        function validateEditGallerySlotSelection(slot) {
+            var keepOrig = slot.uploadOriginal !== false;
+            var keepNew = slot.uploadRedraw !== false && !!slot.redrawFile;
+            if (!keepOrig && !keepNew) return '請至少勾選「上傳原圖」或「上傳此張」';
+            return '';
+        }
+
+        async function previewGallerySlotRedraw(sourceUrl) {
+            if (!sourceUrl || editGalleryUploading) return;
+            var id = document.getElementById('edit-id').value;
+            var m = materialsAll.find(function (x) { return x.id === id; });
+            var pts = calcRedrawPointsForUrl(m, sourceUrl);
+            if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；請勾選要上傳的圖後按「儲存」）')) return;
+            var slot = editGallerySlotPreview[sourceUrl] || {};
+            slot.imageBusy = true;
+            editGallerySlotPreview[sourceUrl] = slot;
+            if (m) renderEditGallery(m);
+            try {
+                var tok = token || (await getToken());
+                if (!tok) { showToast('請先登入', 'danger'); return; }
+                var items = assetImageItems(m);
+                var srcItem = items.find(function (it) { return it.url === sourceUrl; });
+                var isCover = srcItem && (srcItem.is_cover || items[0].url === sourceUrl);
+                var file = await fileFromImageUrl(sourceUrl, 'gallery-source.jpg');
+                var fd = new FormData();
+                fd.append('image', file);
+                fd.append('asset_kind', m ? m.asset_kind : 'prototype');
+                fd.append('is_cover', isCover ? '1' : '0');
+                fd.append('optimize_background', getEditGalleryOptimizeBackground());
+                if (m && m.title) fd.append('title', m.title);
+                if (srcItem && srcItem.label) fd.append('image_label', displayGalleryImageLabel(srcItem));
+                var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok },
+                    body: fd
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    return;
+                }
+                if (!r.ok) {
+                    showToast(data.error || '重繪失敗', 'danger');
+                    return;
+                }
+                slot.redrawPreviewUrl = previewDataUrlFromResponse(data);
+                slot.redrawPreviewStorageUrl = data.preview_url || '';
+                slot.redrawChargedPts = data.points_deducted || 0;
+                slot.previewCreditTxId = data.credit_transaction_id || null;
+                slot.uploadRedraw = true;
+                slot.uploadOriginal = false;
+                slot.redrawFile = await fileFromPreviewResponse(data, 'redraw-gallery.jpg');
+                var okMsg = '已產生重繪新圖，預設只上傳新圖（不保留原圖）';
+                if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
+                showToast(okMsg);
+            } catch (err) {
+                showToast(err.message || '重繪失敗', 'danger');
+            } finally {
+                slot.imageBusy = false;
+                editGallerySlotPreview[sourceUrl] = slot;
+                var refreshed = materialsAll.find(function (x) { return x.id === id; });
+                if (refreshed) renderEditGallery(refreshed);
+            }
+        }
+
+        function clearEditGallerySlotRedrawPreview(sourceUrl) {
+            delete editGallerySlotPreview[sourceUrl];
+            var id = document.getElementById('edit-id').value;
+            var m = materialsAll.find(function (x) { return x.id === id; });
+            if (m) renderEditGallery(m);
+        }
+
+        async function deleteGalleryImageSilent(url) {
+            var id = document.getElementById('edit-id').value;
+            if (!id || !url) return null;
+            editGalleryHighlightUrls.delete(url);
+            var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
+                method: 'DELETE',
+                headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (!r.ok) throw new Error(data.error || '移除圖片失敗');
+            var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+            if (idx >= 0) materialsAll[idx] = data;
+            return data;
+        }
+
+        async function postGalleryImageFiles(files, labels, derivedKinds) {
+            var id = document.getElementById('edit-id').value;
+            var tok = token || (await getToken());
+            if (!tok) throw new Error('請先登入');
+            var fd = new FormData();
+            for (var i = 0; i < files.length; i++) fd.append('images', files[i]);
+            if (labels && labels.length) fd.append('image_labels', JSON.stringify(labels));
+            if (derivedKinds && derivedKinds.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
+                fd.append('image_ai_derived', JSON.stringify(derivedKinds));
+            }
+            var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + tok },
+                body: fd
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (r.status === 402) throw new Error((data.error || '點數不足') + ' (' + (data.required || '') + ')');
+            if (!r.ok) throw new Error(data.error || data.message || '上傳失敗');
+            var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+            if (idx >= 0) materialsAll[idx] = data;
+            return data;
+        }
+
+        async function applyEditGallerySlotPreview(sourceUrl, slot) {
+            var err = validateEditGallerySlotSelection(slot);
+            if (err) return { ok: false, error: err };
+            var id = document.getElementById('edit-id').value;
+            var m = materialsAll.find(function (x) { return x.id === id; });
+            var keepOrig = slot.uploadOriginal !== false;
+            var keepNew = slot.uploadRedraw !== false && !!slot.redrawFile;
+            if (keepOrig && !keepNew) {
+                delete editGallerySlotPreview[sourceUrl];
+                return { ok: true };
+            }
+            var srcItem = assetImageItems(m).find(function (it) { return it.url === sourceUrl; });
+            var label = srcItem ? (displayGalleryImageLabel(srcItem) || 'AI重繪') : 'AI重繪';
+            var urlsBefore = assetImageUrls(m);
+            var data = await postGalleryImageFiles([slot.redrawFile], [label], ['redraw']);
+            var newUrl = assetImageUrls(data).find(function (u) { return urlsBefore.indexOf(u) < 0; });
+            if (!newUrl) return { ok: false, error: '上傳重繪新圖失敗' };
+            if (!keepOrig) {
+                var derivedUrls = assetImageItems(data).filter(function (it) {
+                    return it.source_url === sourceUrl && it.url !== newUrl;
+                }).map(function (it) { return it.url; });
+                for (var di = 0; di < derivedUrls.length; di++) {
+                    data = await deleteGalleryImageSilent(derivedUrls[di]) || data;
+                }
+                if (String(data.image_url || '').trim() === sourceUrl) {
+                    var tok = token || (await getToken());
+                    var cr = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/cover', {
+                        method: 'PATCH',
+                        headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: newUrl })
+                    });
+                    var coverData = await cr.json().catch(function () { return {}; });
+                    if (cr.ok) {
+                        data = coverData;
+                        var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+                        if (idx >= 0) materialsAll[idx] = data;
+                    }
+                }
+                data = await deleteGalleryImageSilent(sourceUrl) || data;
+            }
+            delete editGallerySlotPreview[sourceUrl];
+            return { ok: true, data: data };
+        }
+
+        async function flushEditGallerySlotPreviewsBeforeSave() {
+            var urls = Object.keys(editGallerySlotPreview).filter(function (u) {
+                var s = editGallerySlotPreview[u];
+                return s && pendingHasDerivedPreview(s);
+            });
+            if (!urls.length) return true;
+            for (var i = 0; i < urls.length; i++) {
+                var slotErr = validateEditGallerySlotSelection(editGallerySlotPreview[urls[i]]);
+                if (slotErr) {
+                    setEditGalleryStatus(slotErr, 'danger');
+                    showToast(slotErr, 'warning');
+                    return false;
+                }
+            }
+            if (!window.confirm('將依勾選寫入 ' + urls.length + ' 組 AI 重繪結果。繼續？')) return false;
+            editGalleryUploading = true;
+            gridDisableEditGalleryActions(true);
+            setEditGalleryStatus('寫入勾選的圖片…', 'info');
+            try {
+                var lastData = null;
+                for (var j = 0; j < urls.length; j++) {
+                    var applied = await applyEditGallerySlotPreview(urls[j], editGallerySlotPreview[urls[j]]);
+                    if (!applied.ok) {
+                        setEditGalleryStatus(applied.error || '寫入失敗', 'danger');
+                        showToast(applied.error || '寫入失敗', 'danger');
+                        return false;
+                    }
+                    if (applied.data) lastData = applied.data;
+                }
+                await loadMaterials();
+                var id = document.getElementById('edit-id').value;
+                var refreshed = materialsAll.find(function (x) { return x.id === id; }) || lastData;
+                if (refreshed) renderEditGallery(refreshed);
+                setEditGalleryStatus('已依勾選寫入圖庫', 'success');
+                showToast('已依勾選寫入圖庫');
+                return true;
+            } catch (err) {
+                setEditGalleryStatus(err.message || '寫入失敗', 'danger');
+                showToast(err.message || '寫入失敗', 'danger');
+                return false;
+            } finally {
+                releaseEditGalleryBusyState();
+            }
+        }
+
         async function previewPendingRedraw(form, item, idx) {
             if (item.imageBusy) return;
             var pts = calcPendingPreviewRedrawPoints(form, idx);
@@ -2092,27 +2306,40 @@
                 var it = group.primary;
                 var url = it.url;
                 var derived = group.derived || [];
+                var slot = editGallerySlotPreview[url];
+                var hasSlotPreview = slot && pendingHasDerivedPreview(slot);
                 var isNew = editGalleryHighlightUrls.has(url) || derived.some(function (d) { return editGalleryHighlightUrls.has(d.url); });
                 var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
-                var newBadge = (isNew && !derived.length) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
+                var newBadge = (isNew && !derived.length && !hasSlotPreview) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
                 var hasDerived = derived.length > 0;
                 var displayLabel = displayGalleryImageLabel(it);
                 var labelField = (it.is_cover || idx === 0)
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(displayLabel) + '">';
-                var derivedHtml = derived.map(function (d) { return galleryDerivedThumbHtml(d, lightboxItemsJson); }).join('');
+                var slotPrefix = 'egslot-' + idx;
+                var slotPreviewHtml = hasSlotPreview
+                    ? (pendingOriginalUploadCheckHtml(slot, slotPrefix) + pendingDerivedThumbsHtml(slot, slotPrefix))
+                    : '';
+                var derivedHtml = (!hasSlotPreview && derived.length)
+                    ? derived.map(function (d) { return galleryDerivedThumbHtml(d, lightboxItemsJson); }).join('')
+                    : '';
+                var imgHtml = (slot && slot.imageBusy)
+                    ? '<div class="text-muted small text-center py-4">處理中…</div>'
+                    : ('<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
+                        ' data-image-items="' + lightboxItemsJson + '">');
                 var actions = '<div class="pending-actions">' +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
+                    (hasSlotPreview ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-preview" data-url="' + esc(url) + '">清除重繪預覽</button>' : '') +
                     (!(it.is_cover || idx === 0)
                         ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">' + esc(tr('baseModels.removeImage', '移除')) + '</button>'
                         : '') +
                     '</div>';
-                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || hasDerived) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + ((isNew || hasDerived || hasSlotPreview) ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
                     coverBadge + newBadge +
-                    '<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
-                    ' data-image-items="' + lightboxItemsJson + '">' +
+                    imgHtml +
+                    slotPreviewHtml +
                     derivedHtml +
                     labelField +
                     actions +
@@ -2140,8 +2367,24 @@
             grid.querySelectorAll('.btn-gallery-redraw-one').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
                     e.stopPropagation();
-                    redrawGalleryImage(btn.getAttribute('data-url'));
+                    previewGallerySlotRedraw(btn.getAttribute('data-url'));
                 });
+            });
+            grid.querySelectorAll('.btn-gallery-clear-preview').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    clearEditGallerySlotRedrawPreview(btn.getAttribute('data-url'));
+                });
+            });
+            groups.forEach(function (group, idx) {
+                var url = group.primary.url;
+                var slot = editGallerySlotPreview[url];
+                if (!slot || !pendingHasDerivedPreview(slot)) return;
+                var card = null;
+                grid.querySelectorAll('[data-gallery-url]').forEach(function (el) {
+                    if (el.getAttribute('data-gallery-url') === url) card = el;
+                });
+                if (card) wirePendingUploadCheckboxes(card, slot, 'egslot-' + idx);
             });
             grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
@@ -4407,6 +4650,7 @@
             if (isProtoLike) {
                 renderEditGallery(m);
             }
+            clearEditGallerySlotPreviews();
             clearEditGalleryPending();
             editGalleryUploading = false;
             gridDisableEditGalleryActions(false);
@@ -4527,9 +4771,13 @@
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
             if (saveBtn) saveBtn.disabled = true;
             try {
-            if ((editKind === 'prototype' || editKind === 'part') && getEditGalleryPendingImages().length) {
+            if ((editKind === 'prototype' || editKind === 'part')) {
+                var slotOk = await flushEditGallerySlotPreviewsBeforeSave();
+                if (!slotOk) return;
+                if (getEditGalleryPendingImages().length) {
                 var pendingOk = await flushEditGalleryPendingBeforeSave();
                 if (!pendingOk) return;
+                }
             }
             if (editKind === 'prototype') {
                 var editSubErr = validatePrototypeSubcategory(
