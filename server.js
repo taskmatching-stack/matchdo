@@ -1916,7 +1916,7 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
-/** 材料 FLUX 優化：使用者填材質類型（例：皮革）→「維持材質的質感和顏色，並優化此皮革材質紋理」 */
+/** 材料 FLUX 優化：使用者填材質類型（例：皮革）→「保持顏色並優化此皮革材質光影」 */
 function normalizeMaterialSurfaceType(raw) {
     return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
 }
@@ -1924,7 +1924,7 @@ function normalizeMaterialSurfaceType(raw) {
 function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     const t = normalizeMaterialSurfaceType(surfaceType);
     if (!t) throw new Error('請填材質類型（例：皮革、丹寧）');
-    return `維持材質的質感和顏色，並優化此${t}材質紋理`;
+    return `保持顏色並優化此${t}材質光影`;
 }
 
 function resolveMaterialSurfaceType(body, row) {

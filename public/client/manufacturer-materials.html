@@ -409,7 +409,7 @@
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32">
-                                    <p class="form-text text-muted small mb-0">例：皮革 →「維持材質的質感和顏色，並優化此皮革材質紋理」</p>
+                                    <p class="form-text text-muted small mb-0">送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                                 </div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12 ref-image-block">
@@ -560,7 +560,7 @@
                             <div id="edit-material-surface-wrap" class="mb-2 d-none">
                                 <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
-                                <p class="form-text text-muted small mb-0">例：皮革 →「維持材質的質感和顏色，並優化此皮革材質紋理」</p>
+                                <p class="form-text text-muted small mb-0">送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                             </div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
@@ -691,7 +691,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-flux-cn-prompt-20260618';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-flux-prompt-preview-20260618';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1565,6 +1565,28 @@
             if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
         }
 
+        function buildMaterialFluxPromptPreview(surfaceType) {
+            var t = String(surfaceType || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
+            if (!t) return '（填材質類型後顯示）';
+            return '保持顏色並優化此' + t + '材質光影';
+        }
+
+        function syncMaterialFluxPromptPreviewEl(el, surfaceType) {
+            if (!el) return;
+            el.textContent = buildMaterialFluxPromptPreview(surfaceType);
+        }
+
+        function syncAllMaterialFluxPromptPreviews() {
+            document.querySelectorAll('.material-flux-prompt-preview').forEach(function (el) {
+                var form = el.closest('form');
+                syncMaterialFluxPromptPreviewEl(el, form ? getMaterialSurfaceTypeFromAddForm(form) : '');
+            });
+            syncMaterialFluxPromptPreviewEl(
+                document.getElementById('edit-material-flux-prompt-preview'),
+                getMaterialSurfaceTypeFromEdit()
+            );
+        }
+
         function getMaterialSurfaceTypeFromAddForm(form) {
             if (!form || form.getAttribute('data-kind') !== 'material') return '';
             var inp = form.querySelector('.add-material-surface-type');
@@ -1870,6 +1892,7 @@
                 item.redrawFile = await fileFromPreviewResponse(data, 'redraw-' + idx + '.jpg');
                 var okMsg = '已產生重繪新圖，預設只上傳新圖（不保留原圖）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
+                if (data.ai_prompt) okMsg += ' · 提示詞：' + data.ai_prompt;
                 showToast(okMsg);
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
@@ -4828,6 +4851,7 @@
                 var sem = m.image_semantics_json;
                 surfInp.value = (sem && sem.material_surface_type) ? String(sem.material_surface_type) : '';
             }
+            syncAllMaterialFluxPromptPreviews();
             if (isGalleryLike) {
                 renderEditGallery(m);
             }
@@ -5389,6 +5413,19 @@
         ['filter-vendor-catalog', 'filter-category'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.addEventListener('change', function () { resetMaterialsListOffset(activeKind); renderGrid(); });
+        });
+
+        document.addEventListener('input', function (e) {
+            var t = e.target;
+            if (!t) return;
+            if (t.classList && t.classList.contains('add-material-surface-type')) {
+                var form = t.closest('form');
+                var prev = form && form.querySelector('.material-flux-prompt-preview');
+                syncMaterialFluxPromptPreviewEl(prev, t.value);
+            }
+            if (t.id === 'edit-material-surface-type') {
+                syncMaterialFluxPromptPreviewEl(document.getElementById('edit-material-flux-prompt-preview'), t.value);
+            }
         });
 
         async function init() {
