@@ -93,6 +93,8 @@
 | `supplier_catalog_items` | **同一套** P1／扣點；欄位 `docs/add-supplier-catalog-ai-fields.sql`；`source_type = catalog_item` |
 | 製造商 **匯入** B 線 | 複製 `ai_tags`／語意至 `vendor_assets`；`tags_source: import`；**匯入當下不另跑 Gemini**（產品已定） |
 
+**FLUX／Gemini 提示詞**：嚴禁查表式硬編碼（檔名 regex、`material_key`→固定表面句等）。唯一規格見 **`docs/flux-and-gemini-prompt-policy.md`**。
+
 ### 2.3 帳號與選單（`account-one-login-capabilities.md`）
 
 - **禁止**用 `capabilities.nav.*`、`show_supplier_zone`、未綁定身分 **隱藏** ①②③ 連結。
@@ -140,6 +142,7 @@
 | 新公開 URL、sitemap | `SEO-PROGRESS.md`、`architecture-optimization-backlog` §4.2 |
 | B 線 API／頁面 | `matchdo-todo.md` 近期完成、`三角色架構與AB線說明.md` |
 | 選單／capabilities | `account-one-login-capabilities.md` |
+| FLUX／Gemini 提示詞、材料 optimize、設計頁生圖 | **`docs/flux-and-gemini-prompt-policy.md`** |
 | 拆 `server.js` | backlog §九、§十一.5；**未完成勿勾 Step 5** |
 
 ---

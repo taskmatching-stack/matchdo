@@ -1,8 +1,8 @@
 # 材料參考（色卡／圖樣）獨立規劃
 
-> 建立：2026-05-26  
-> **與數位原型分線**：原型 = 立體商品 + MOQ + 訂製程度 + 產品重繪；材料 = **平面圖樣／色卡** + 紋理尺度 + 設計端材質附錄。  
-> **不共用**：產品棚拍底色、訂製程度限制句、prototype_tagging 當唯一讀圖標準（材料可另訂 prompt）。
+> 建立：2026-05-26｜**政策**：2026-06-05 對齊 `docs/flux-and-gemini-prompt-policy.md`（**嚴禁查表式硬編碼提示詞**）  
+> **與數位原型分線**：原型 = 立體商品 + MOQ + 訂製程度 + 產品重繪；材料 = **平面圖樣／色卡** + Gemini 讀圖 + 設計端材質附錄。  
+> **不共用**：產品棚拍底色、訂製程度限制句、prototype_tagging 當材料讀圖標準（材料用 `material_tagging_prompt`）。
 
 ---
 
@@ -24,7 +24,7 @@
 | 主體是立體商品 | 整張圖 **就是** 材質 |
 | 需要選白／灰底隔離商品 | 滿版時 **沒有「以外」**；底色會誤導成商品照 |
 | 輪廓、比例、陰影 | 織紋週期、色相、光澤方向 |
-| 訂製程度 / MOQ 附錄 | `material_key` + 紋理尺度附錄 |
+| 訂製程度 / MOQ 附錄 | 使用者勾選能力 + DB | `material_key` 查表送 FLUX |
 
 **已決策（2026-05-26 起）：** 材料 AI 優化 **移除底色 UI**；prompt **不寫** `seamless white studio background`。
 
@@ -38,15 +38,15 @@
 - **微距滿板**（線程巨大）→ 生圖易把紋路 **放大** 到不像手機殼／包袋。
 - **遠距／低解析滿板** → 易 **糊成一片** 或過細重複。
 
-因此：**滿板 ≠ 自動正確尺度**；要靠 **人為標註 + 生圖附錄 + 使用者描述** 三層補齊。
+因此：**滿板 ≠ 自動正確尺度**；靠 **使用者描述**、日後可選 DB 欄位（如 `texture_scale_hint` 由人填寫）。**禁止**程式從檔名 regex 或 `material_key` 查表發明 FLUX 表面句（見政策檔 §3）。
 
 ### 3.2 三層尺度策略（建議實作順序）
 
 | 層級 | 內容 | 狀態 |
 |------|------|------|
-| L1 必填 | `material_key`（布料／木／金屬…）+ 標題（如「12oz 丹寧」「胡桃木飾面板」） | 已有 |
-| L2 上傳可選 | **`texture_scale_hint`**（見下）寫入 DB，優化／生圖附錄帶入 | **規劃** |
-| L3 設計端 | 使用者 prompt 寫「細紋／適合小型皮件」；材料附錄重申勿放大微距紋 | 附錄部分已有 |
+| L1 | 標題 + **Gemini** `image_semantics_json`（上傳時必跑） | ✅ |
+| L2 上傳可選 | **`texture_scale_hint`**（廠商自選枚舉，寫入 DB） | **規劃** |
+| L3 設計端 | 使用者 prompt；材料附錄僅轉寫 Gemini JSON | ✅ |
 
 #### `texture_scale_hint` 建議枚舉（Phase 2）
 
@@ -71,20 +71,21 @@
 ┌─────────────────────────────────────────────────────────────┐
 │ A. 上傳管線（廠商素材庫）                                      │
 ├─────────────────────────────────────────────────────────────┤
-│ 原圖 ──► [可選] materialOptimize (FLUX) ──► Storage URL      │
-│          · 強化圖樣，保留滿版構圖與紋理週期                     │
-│          · 無底色選項                                         │
-│          · material_key → materialOptimizeTextureDirective     │
-│ ──► [必選] Gemini 標籤（日後可改 material_tagging_prompt）     │
+│ 原圖 ──► Gemini 讀圖 → image_semantics_json                  │
+│      ──► [可選] materialOptimize (FLUX)                      │
+│          · 短通用 img2img 底稿 + buildMaterialFluxFidelityLine │
+│          · 無底色；1024×1024                                  │
+│      ──► Storage URL                                         │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │ B. 設計生圖管線（訂製者）                                      │
 ├─────────────────────────────────────────────────────────────┤
+│ 分類 prompt（DB）+ 使用者描述                                 │
 │ 原型 ref → buildPrototypeCustomizationPromptAppendix         │
 │ 材料 ref → buildMaterialTexturePromptAppendix                │
-│          · 檔名／標題軟提示 + material_key 尺度句             │
-│          · 與 A 的 optimize prompt 分開維護                    │
+│          · 通用角色句 + DB image_semantics_json 轉寫           │
+│          · 禁止檔名／material_key 查表（見政策檔）             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -92,16 +93,18 @@
 
 ---
 
-## 五、程式對照（現行 vs 本規劃）
+## 五、程式對照（現行 2026-06-05）
 
-| 項目 | 檔案 | 現行 | 本規劃 |
-|------|------|------|--------|
-| 材料優化 prompt | `server.js` `buildVendorAssetMaterialOptimizePrompt` | 曾含棚拍底 | **滿版圖樣、保留紋理週期、無強制底** |
-| 材料優化 FLUX | `optimizeVendorAssetImageWithFlux` | 傳入 backgroundColor | 材料 **忽略** background |
-| 廠商 UI | `manufacturer-materials.html` | 材料有底色區 | **移除** 材料底色區 |
-| 生圖附錄 | `buildMaterialTexturePromptAppendix` | 已有 | 維持；Phase 2 加 `texture_scale_hint` |
-| 讀圖標籤 | `prototype_tagging_prompt` | 材料共用 | Phase 2：`material_tagging_prompt` |
-| 文件 | 本檔 | — | 主規格；`vendor-asset-prototype-moq-customization-notes.md` §材料 僅摘要 |
+| 項目 | 檔案 | 現行 |
+|------|------|------|
+| 政策（必讀） | `docs/flux-and-gemini-prompt-policy.md` | 嚴禁查表式硬編碼 |
+| 材料優化 prompt | `buildVendorAssetMaterialOptimizePrompt` | 通用底稿 + Gemini JSON |
+| 材料 FLUX | `optimizeVendorAssetImageWithFlux` | 忽略 background；1024² |
+| 讀圖 | `material_tagging_prompt` | Gemini → `image_semantics_json` |
+| 生圖附錄 | `buildMaterialTexturePromptAppendix` | DB 語意轉寫 |
+| 廠商 UI | `manufacturer-materials.html` | 材料無底色區 |
+
+**已刪除、勿復活**：`inferMaterialKeyFromHints`、`inferOptionalMaterialContextHints`、`materialTextureScaleRuleForKey`、`materialOptimizeTextureDirective`。
 
 ---
 

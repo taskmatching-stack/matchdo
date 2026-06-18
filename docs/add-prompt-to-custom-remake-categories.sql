@@ -1,4 +1,5 @@
 -- 為訂製品／再製分類與子分類表新增「提示詞」欄位（供 AI 設計輔助）
+-- 四視圖型錄子分類 prompt 規範與 phone_case 測試範例：docs/custom-product-subcategory-prompt-guide.md
 -- 執行：Supabase SQL Editor。若某表尚未建立會略過，不會報錯。
 
 DO $$

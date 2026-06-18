@@ -1,0 +1,28 @@
+---
+description: FLUX／Gemini 提示詞 — 嚴禁查表式硬編碼（檔名 regex、material_key 表面句）
+alwaysApply: true
+---
+
+# FLUX／Gemini 提示詞（必守）
+
+改 **材料 optimize**、**設計頁生圖**（`composeGeneratePromptWithReferences`）、`buildMaterial*`、`visual-semantics.js` 前，**先讀** `docs/flux-and-gemini-prompt-policy.md`。
+
+## 嚴禁（查表式硬編碼 = 垃圾）
+
+- ❌ 檔名／標題 **regex** → 推斷皮革／布料／木材再送 FLUX
+- ❌ `material_key` **枚舉 map** → 固定英文表面／尺度句
+- ❌ 程式 **紋理族分類** 刪改 Gemini 的 `patterns`
+- ❌ 無 `image_semantics_json` 仍靜默跑材料 FLUX
+- ❌ 擅自改 FLUX **1024×1024** 或未文件化輸出尺寸
+
+## 唯一正確（材料表面）
+
+**原圖 → Gemini（`material_tagging_prompt`）→ `image_semantics_json` → `buildMaterialFluxFidelityLine` → FLUX**
+
+標題／檔名／分類只准作 **Gemini 補充**（以影像為準）。矛盾改 **Gemini prompt 自洽規則**，不加後端第二套表。
+
+## 允許
+
+- DB 分類 `prompt`、使用者描述、工藝 `visual_hint`（DB）
+- 篩選用 `material_key`／`color_key`（**不進** FLUX prompt）
+- 短通用 img2img 底稿、參考圖 **角色** 句（非具體皮種）

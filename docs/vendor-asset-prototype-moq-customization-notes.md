@@ -152,50 +152,46 @@ ORDER BY min_order_quantity;
 
 兩段附錄皆 **append 至同一 `fullPrompt`**，再經 `translatePromptToEnglishForFlux` 整段英譯（`"..."` 內印刷文字不譯）。
 
-### 材料附錄內容（摘要）
+### 材料附錄內容（摘要，2026-06-05）
+
+> **政策**：`docs/flux-and-gemini-prompt-policy.md` — **嚴禁**檔名 regex、`material_key` 查表送 FLUX。
 
 1. **全段規則**（有任一材料參考即加）  
-   - 材質圖不決定產品造型。  
-   - 勿將樣板依長寬比平鋪貼上；整合到產品表面且紋路尺度合理。  
-   - 原型管幾何，材質管本體／布料／金屬／木材表面。
+   - 材料圖：表面色彩與紋理；原型圖：產品造型。
 
 2. **每一張材料參考**  
-   - 標示「參考圖第 N 張」+ 標題 + `material_key` 顯示名（布料／金屬等）。  
-   - 依 `material_key` 一條尺度建議（`materialTextureScaleRuleForKey`）。
+   - 標示 image 編號 + 標題 + 廠商材料分類名（若有）。  
+   - 若有 DB **`image_semantics_json`** → `buildMaterialFluxFidelityLine` 轉寫 append。
 
-3. **可選軟提示**（`inferOptionalMaterialContextHints`）  
-   - 來源：`image_url` **檔名**（去副檔名）、`title`；若 DB 已有 `material_key` 則**不再**用檔名猜材質類型（避免衝突）。  
-   - 例：檔名含 `macro`／`swatch`／`胡桃` → 附加「可選線索…非唯一依據」。  
-   - 附錄結尾明寫：檔名／標題線索 **非強制**。
+3. **禁止**  
+   - `inferOptionalMaterialContextHints`、`materialTextureScaleRuleForKey` 等查表式句（已刪）。
 
 ### 前端配合
 
-- 設計頁從素材庫選材料時，`reference_sources` 帶 `material_key`（`custom-product.js` 卡片 `data-material-key`）。  
-- 缺欄時後端 `resolveMaterialRefsForPrompt` 以 `vendor_asset_id` 查 DB 補齊。
+- `reference_sources` 帶 `vendor_asset_id`；後端 `resolveMaterialRefsForPrompt` 查 DB 補 `image_semantics_json`、標題、分類。
 
-### 材料「AI 優化」（與原型分線，見獨立規格）
+### 材料「AI 優化」（與原型分線）
 
-**主文件：`docs/vendor-asset-material-swatch-plan.md`**（色卡／滿版圖樣、紋理尺度、不共用產品底色）。
+**主文件**：`docs/vendor-asset-material-swatch-plan.md`、**政策**：`docs/flux-and-gemini-prompt-policy.md`
 
-- UI：**材質圖 AI 優化**；**無底色選項**（產品重繪才有）。
-- 後端：`buildVendorAssetMaterialOptimizePrompt(title, material_key)` + `materialOptimizeTextureDirective`。
-- 滿板圖 **不能自動推物理尺度** → 標題／`material_key`／設計端附錄；Phase 2 規劃 `texture_scale_hint`。
+- UI：**材質圖 AI 優化**；**無底色**（產品重繪才有）。
+- 後端：`resolveMaterialSemanticsForFlux` → `buildVendorAssetMaterialOptimizePrompt`（Gemini JSON + 短通用底稿）。
+- 輸出 **1024×1024**；無 Gemini 結果不送 FLUX。
 - 扣點：`points_optimize_material`（預設 10 點）。
 
 ### 已知限制（產品須知）
 
-- 輸出固定 **1024×1024**；材質樣板長寬比不會原樣出現在成品上，但 **紋路粗細無物理尺度保證**，仍建議使用者在描述中寫「細紋／適合手機殼」等。  
-- FLUX 以 `input_image` 為第一張參考；多張混用時順序會影響偏重，宜 **原型在前、材質在後**（目前未自動重排，僅靠使用者選圖順序）。  
-- **未**自動 pad 非正方形參考圖（上傳僅最長邊 ≤1024 等比縮小）。
+- 輸出固定 **1024×1024**。  
+- 多張參考時後端 `reorderFluxReferenceInputs` 重排：原型 → 配件 → 材料 → 圖樣。
 
 ### 程式位置
 
 | 函式 | 用途 |
 |------|------|
-| `extractImageUrlBasename` | 從 URL 取檔名線索 |
-| `inferOptionalMaterialContextHints` | 檔名／標題軟提示 |
-| `resolveMaterialRefsForPrompt` | 對齊 `reference_sources` 與 DB |
-| `buildMaterialTexturePromptAppendix` | 組裝附錄字串 |
+| `resolveMaterialRefsForPrompt` | 對齊 `reference_sources` 與 DB（含 `image_semantics_json`） |
+| `buildMaterialFluxFidelityLine` | Gemini JSON → FLUX 轉寫句 |
+| `buildMaterialTexturePromptAppendix` | 設計頁材料附錄 |
+| `composeGeneratePromptWithReferences` | 設計頁完整 prompt 組裝 |
 
 ### 日後可選（未排程）
 
