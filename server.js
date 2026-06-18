@@ -798,102 +798,6 @@ function vendorAssetCustomizationLevelLabels(levels, lang) {
     });
 }
 
-/** 未勾選或互斥未選：製造限制句（併入 FLUX 同一個 prompt，非獨立 negative_prompt） */
-function vendorCustomizationLevelConstraintRule(levelKey, lang) {
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const map = {
-        color_material: isEn
-            ? 'Do not change the product body color, fabric/material hue, texture, or surface finish from the reference.'
-            : '勿變更產品主體顏色、布料／材質色相、質感或表面處理（維持參考原型）。',
-        mono_graphic: isEn
-            ? 'Do not add engraving, embroidery, print, or other applied surface graphics on the product.'
-            : '勿在產品表面添加雕刻、刺繡、印花等圖文。',
-        color_graphic: isEn
-            ? 'Do not use full-color printing, multi-color stickers/decals, or multi-color surface graphics.'
-            : '不要使用任何彩色印刷、多色貼紙或彩色圖形。',
-        size_part: isEn
-            ? 'Keep all physical dimensions, zippers, hardware, trims, and stitch positions exactly as in the reference—no scaling or part changes.'
-            : '嚴格保持產品的所有物理尺寸、拉鍊、扣環、金屬零件與縫線位置完全不變。',
-        form_structure: isEn
-            ? 'Do not modify the product overall geometry, outer silhouette, or physical structure.'
-            : '不允許修改產品的整體幾何形狀、輪廓外觀或物理結構。'
-    };
-    return map[levelKey] || '';
-}
-
-/** 未勾選（及圖文互斥未選）之製造限制句，供 append 至同一 fullPrompt */
-function buildCustomizationPromptLinesForLevels(levelKeys, lang, opts) {
-    const o = opts && typeof opts === 'object' ? opts : {};
-    const levelSet = new Set(sanitizeCustomizationLevelsForStorage(levelKeys));
-    const constraints = [];
-    const hasMono = levelSet.has('mono_graphic');
-    const hasColor = levelSet.has('color_graphic');
-
-    VENDOR_CUSTOMIZATION_SCOPE_KEYS.forEach(function (k) {
-        if (levelSet.has(k)) return;
-        if (o.skipColorMaterial && k === 'color_material') return;
-        if (o.skipGraphicConstraints && (k === 'mono_graphic' || k === 'color_graphic')) return;
-        const line = vendorCustomizationLevelConstraintRule(k, lang);
-        if (line) constraints.push('• ' + line);
-    });
-
-    if (!hasMono && !hasColor) {
-        ['mono_graphic', 'color_graphic'].forEach(function (k) {
-            if (o.skipGraphicConstraints) return;
-            const line = vendorCustomizationLevelConstraintRule(k, lang);
-            if (line) constraints.push('• ' + line);
-        });
-    } else if (hasMono && !hasColor) {
-        if (!o.skipGraphicConstraints) {
-            const line = vendorCustomizationLevelConstraintRule('color_graphic', lang);
-            if (line) constraints.push('• ' + line);
-        }
-    }
-
-    return constraints;
-}
-
-/** 依參考原型組裝製造限制（僅 DB 訂製程度衍生的限制句，不加 wrapper 覆蓋分類 prompt） */
-function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang, opts) {
-    const o = opts && typeof opts === 'object' ? opts : {};
-    const assets = Array.isArray(prototypeAssets) ? prototypeAssets : [];
-    if (!assets.length) return '';
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const levelOpts = {
-        skipColorMaterial: o.hasMaterialRefs === true,
-        skipGraphicConstraints: o.skipGraphicConstraints === true
-    };
-    const lines = [];
-    assets.forEach(function (asset, idx) {
-        const title = (asset.title || '').trim();
-        const levelKeys = sanitizeCustomizationLevelsForStorage(asset.customization_levels);
-        if (!levelKeys.length) return;
-        const label = title || (isEn ? ('Prototype ' + (idx + 1)) : ('參考原型 ' + (idx + 1)));
-        const levelNames = levelKeys.map(function (k) { return vendorCustomizationLevelLabel(k, lang); }).join(isEn ? ', ' : '、');
-        lines.push(isEn ? ('Reference: ' + label + ' (supports: ' + levelNames + ')') : ('參考原型「' + label + '」支援：' + levelNames));
-        buildCustomizationPromptLinesForLevels(levelKeys, lang, levelOpts).forEach(function (line) { lines.push(line); });
-        if (asset.min_order_quantity != null && Number(asset.min_order_quantity) >= 1) {
-            const moqLine = isEn
-                ? ('Minimum order quantity for this prototype: ' + asset.min_order_quantity + ' units (for manufacturing context; do not depict MOQ in the image).')
-                : ('此原型最小訂購量：' + asset.min_order_quantity + ' 件（製造背景資訊，勿在圖中標示 MOQ）。');
-            lines.push('• ' + moqLine);
-        }
-    });
-    if (!lines.length) return '';
-    if (assets.length > 1) {
-        const crossGraphicTier = intersectGraphicCustomizationTier(assets);
-        const hasColorCapable = assets.some(function (a) {
-            return graphicCustomizationTier(a.customization_levels) >= 2;
-        });
-        if (crossGraphicTier === 1 && hasColorCapable) {
-            lines.push(isEn
-                ? '• Multiple prototypes: do not use multi-color surface graphics (strictest reference is monochrome-only).'
-                : '• 多原型並用：不得使用全彩表面圖文（以最嚴之單色原型為準）。');
-        }
-    }
-    return '\n\n' + lines.join('\n');
-}
-
 /** 使用者勾選之工藝：僅 DB visual_hint 原文，不加 wrapper */
 function buildSelectedCapabilityPromptAppendix(hintLines, lang) {
     const lines = (hintLines || []).map((s) => String(s || '').trim()).filter(Boolean);
@@ -910,61 +814,6 @@ function resolvePrimaryPrototypeAssetIdFromReferenceSources(referenceSourcesRaw)
         if (kind === 'prototype') return String(s.vendor_asset_id).trim();
     }
     return null;
-}
-
-/** 從 reference_sources 解析數位原型訂製程度（以 DB 為準補齊） */
-async function resolvePrototypeAssetsForPrompt(referenceSourcesRaw) {
-    const list = Array.isArray(referenceSourcesRaw) ? referenceSourcesRaw : [];
-    const byAssetId = new Map();
-    list.forEach(function (s) {
-        if (!s || !s.vendor_asset_id) return;
-        const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
-        if (kind !== 'prototype') return;
-        const id = String(s.vendor_asset_id).trim();
-        if (!id) return;
-        if (!byAssetId.has(id)) {
-            byAssetId.set(id, {
-                id: id,
-                title: (s.title || '').trim() || null,
-                customization_levels: [],
-                min_order_quantity: null
-            });
-        }
-        const entry = byAssetId.get(id);
-        if (s.title && String(s.title).trim()) entry.title = String(s.title).trim();
-        const fromClient = normalizeCustomizationLevels(s.customization_levels);
-        if (fromClient.length) entry.customization_levels = fromClient;
-        if (s.min_order_quantity != null && Number.isFinite(Number(s.min_order_quantity)) && Number(s.min_order_quantity) >= 1) {
-            entry.min_order_quantity = Number(s.min_order_quantity);
-        }
-    });
-    const ids = [...byAssetId.keys()];
-    if (!ids.length) return [];
-    const needDb = ids.filter(function (id) {
-        const e = byAssetId.get(id);
-        return !e.customization_levels || !e.customization_levels.length;
-    });
-    if (needDb.length) {
-        const { data: rows, error } = await supabase
-            .from('vendor_assets')
-            .select('id, title, asset_kind, customization_levels, min_order_quantity')
-            .in('id', needDb);
-        if (!error && rows) {
-            rows.forEach(function (row) {
-                if (!row || !row.id || normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return;
-                const e = byAssetId.get(row.id);
-                if (!e) return;
-                if (!e.title && row.title) e.title = row.title;
-                e.customization_levels = sanitizeCustomizationLevelsForStorage(row.customization_levels);
-                if (e.min_order_quantity == null && row.min_order_quantity != null && Number(row.min_order_quantity) >= 1) {
-                    e.min_order_quantity = Number(row.min_order_quantity);
-                }
-            });
-        }
-    }
-    return ids.map(function (id) { return byAssetId.get(id); }).filter(function (e) {
-        return e && e.customization_levels && e.customization_levels.length;
-    });
 }
 
 /** 從圖片 URL 取出檔名（不含副檔名），供可選語意線索；不作為唯一判斷依據 */
@@ -7587,8 +7436,8 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
 }
 
 /**
- * 有參考圖時組合 FLUX prompt：DB 分類 → 參考圖事實 → 製造限制 → 工藝 visual_hint → **使用者描述（最後）**。
- * 不在 server.js 硬寫 header/footer 指令句覆蓋分類 prompt。
+ * FLUX 生圖 prompt：DB 分類 → 參考圖事實 → 勾選工藝 visual_hint → 使用者描述（最後）。
+ * 禁止在 server.js append「勿／Do not」類句子（與後台 prompt 矛盾）；邊界靠後台 prompt + API 驗證。
  */
 async function composeGeneratePromptWithReferences(opts) {
     const categoryKeys = opts.categoryKeys;
@@ -7612,19 +7461,9 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-    const hasMaterialRefs = ordered.sources.some(function (s) {
-        return normalizeVendorAssetKind(s && s.asset_kind) === 'material';
-    });
     const materialRefs = await resolveMaterialRefsForPrompt(ordered.sources);
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, materialRefs, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
-
-    const prototypeAssets = await resolvePrototypeAssetsForPrompt(ordered.sources);
-    const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang, {
-        hasMaterialRefs: hasMaterialRefs,
-        skipGraphicConstraints: !!userPrompt
-    });
-    if (protoAppendix) fullPrompt = (fullPrompt || '').trim() + protoAppendix;
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
