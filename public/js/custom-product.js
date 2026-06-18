@@ -277,7 +277,7 @@ $(document).ready(function () {
             $opts.append(
                 '<div class="form-check form-check-inline">' +
                 '<input class="form-check-input" type="checkbox" id="' + id + '" data-cap-key="' +
-                String(c.key).replace(/"/g, '&quot;') + '">' +
+                String(c.key).replace(/"/g, '&quot;') + '" checked>' +
                 '<label class="form-check-label small" for="' + id + '">' + lbl + '</label></div>'
             );
         });
@@ -289,7 +289,7 @@ $(document).ready(function () {
             $opts.append(
                 '<div class="form-check form-check-inline">' +
                 '<input class="form-check-input" type="checkbox" id="' + id + '" data-cap-custom="' +
-                lblRaw.replace(/"/g, '&quot;') + '">' +
+                lblRaw.replace(/"/g, '&quot;') + '" checked>' +
                 '<label class="form-check-label small" for="' + id + '">' + lbl +
                 ' <span class="text-muted">(' + customTag.replace(/</g, '&lt;') + ')</span></label></div>'
             );
