@@ -832,18 +832,22 @@ function buildCustomizationPromptLinesForLevels(levelKeys, lang, opts) {
     VENDOR_CUSTOMIZATION_SCOPE_KEYS.forEach(function (k) {
         if (levelSet.has(k)) return;
         if (o.skipColorMaterial && k === 'color_material') return;
+        if (o.skipGraphicConstraints && (k === 'mono_graphic' || k === 'color_graphic')) return;
         const line = vendorCustomizationLevelConstraintRule(k, lang);
         if (line) constraints.push('• ' + line);
     });
 
     if (!hasMono && !hasColor) {
         ['mono_graphic', 'color_graphic'].forEach(function (k) {
+            if (o.skipGraphicConstraints) return;
             const line = vendorCustomizationLevelConstraintRule(k, lang);
             if (line) constraints.push('• ' + line);
         });
     } else if (hasMono && !hasColor) {
-        const line = vendorCustomizationLevelConstraintRule('color_graphic', lang);
-        if (line) constraints.push('• ' + line);
+        if (!o.skipGraphicConstraints) {
+            const line = vendorCustomizationLevelConstraintRule('color_graphic', lang);
+            if (line) constraints.push('• ' + line);
+        }
     }
 
     return constraints;
@@ -855,7 +859,10 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang, opts) 
     const assets = Array.isArray(prototypeAssets) ? prototypeAssets : [];
     if (!assets.length) return '';
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const levelOpts = { skipColorMaterial: o.hasMaterialRefs === true };
+    const levelOpts = {
+        skipColorMaterial: o.hasMaterialRefs === true,
+        skipGraphicConstraints: o.skipGraphicConstraints === true
+    };
     const lines = [];
     assets.forEach(function (asset, idx) {
         const title = (asset.title || '').trim();
@@ -7551,6 +7558,14 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
     return pollBflResult(createData, BFL_API_KEY);
 }
 
+/** 使用者印字：UI 已提示用引號；未加引號時整段包成 FLUX 可印刷文字（僅 userPrompt 段） */
+function fluxFormatUserPromptForPrint(userPrompt) {
+    const t = String(userPrompt || '').trim();
+    if (!t) return '';
+    if (/["\u201c\u201d「」]/.test(t)) return t;
+    return '"' + t + '"';
+}
+
 // 依分類 key 陣列取得後端基礎提示詞並與使用者描述組合（後端處理，不暴露給前端）
 async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
     if (!categoryKeys || !Array.isArray(categoryKeys) || categoryKeys.length === 0)
@@ -7572,7 +7587,7 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
 }
 
 /**
- * 有參考圖時組合 FLUX prompt：DB 分類 + 使用者描述 + 參考圖事實列 + 製造限制 + DB 工藝 visual_hint。
+ * 有參考圖時組合 FLUX prompt：DB 分類 → 參考圖事實 → 製造限制 → 工藝 visual_hint → **使用者描述（最後）**。
  * 不在 server.js 硬寫 header/footer 指令句覆蓋分類 prompt。
  */
 async function composeGeneratePromptWithReferences(opts) {
@@ -7584,13 +7599,15 @@ async function composeGeneratePromptWithReferences(opts) {
     const referenceSources = opts.referenceSources;
     const selectedCapabilityKeys = opts.selectedCapabilityKeys;
     const selectedCapabilityCustomLabels = opts.selectedCapabilityCustomLabels;
+    const userLine = userPrompt ? fluxFormatUserPromptForPrint(userPrompt) : '';
 
     let fullPrompt = useRemake
-        ? await buildPromptFromRemakeCategoryKeys(categoryKeys, userPrompt)
-        : await buildPromptFromCategoryKeys(categoryKeys, userPrompt);
+        ? await buildPromptFromRemakeCategoryKeys(categoryKeys, '')
+        : await buildPromptFromCategoryKeys(categoryKeys, '');
 
     const hasRefs = referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0;
     if (!hasRefs) {
+        if (userLine) fullPrompt = (fullPrompt || '').trim() + (fullPrompt ? '\n\n' : '') + userLine;
         return { fullPrompt: fullPrompt.trim(), fluxReferenceImages: [], fluxReferenceSources: [] };
     }
 
@@ -7603,7 +7620,10 @@ async function composeGeneratePromptWithReferences(opts) {
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
 
     const prototypeAssets = await resolvePrototypeAssetsForPrompt(ordered.sources);
-    const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang, { hasMaterialRefs: hasMaterialRefs });
+    const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang, {
+        hasMaterialRefs: hasMaterialRefs,
+        skipGraphicConstraints: !!userPrompt
+    });
     if (protoAppendix) fullPrompt = (fullPrompt || '').trim() + protoAppendix;
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
@@ -7618,6 +7638,8 @@ async function composeGeneratePromptWithReferences(opts) {
             if (capAppendix) fullPrompt = (fullPrompt || '').trim() + capAppendix;
         }
     }
+
+    if (userLine) fullPrompt = (fullPrompt || '').trim() + '\n\n' + userLine;
 
     return {
         fullPrompt: fullPrompt.trim(),
