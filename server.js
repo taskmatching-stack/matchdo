@@ -1980,18 +1980,16 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
 }
 
 /**
- * 材料參考 img2img：通用提示詞。顏色／紋路／材質皆以參考圖為準，不從標題或檔名推斷。
+ * 材料參考 img2img：僅優化廠商原圖的細節與光影、滿版呈現；禁止發明新材質或改色改紋。
  */
 function buildVendorAssetMaterialOptimizePrompt(_title, _catalogHint, _filenameHint) {
     return [
-        'Image-to-image edit using the provided reference as the sole authority.',
-        'Preserve exactly what the reference shows: material type, color, hue, saturation, brightness, pattern, grain or weave scale, sheen, and composition.',
-        'Do not recolor, retexture, stylize, or substitute a different material category.',
-        'Do not infer leather, fabric, wood, metal, or any surface type from filenames or titles—only from pixels in the reference.',
-        'Allowed changes: subtle clarity, even diffuse lighting, noise reduction, and sharpness—without altering the surface character.',
-        'Keep the same framing, orientation, and texture repeat scale; do not enlarge into oversized repeating blocks.',
-        'No finished products, props, hands, rulers, packaging, text, watermark, or logo.',
-        'Full-frame material swatch or texture reference only. Photorealistic, sharp focus.'
+        'Strict image-to-image enhancement of the vendor material photo already in the reference.',
+        'The reference is the only truth: keep the same material, colors, pattern, grain scale, and layout.',
+        'Do not invent, substitute, or imagine any surface the vendor did not photograph.',
+        'Allowed only: clearer fine detail, sharper focus, soft even diffuse lighting, light noise cleanup.',
+        'Present full-frame edge-to-edge—texture fills the canvas like a flat material swatch, no margins or backdrop scene.',
+        'No products, props, hands, text, watermark, or logo.'
     ].join(' ');
 }
 
