@@ -137,6 +137,15 @@
     width: 100%;
     overflow: visible;
 }
+/* 廠商「產品關聯圖」中央區：與「看可搭配」相同分區版面（主產品／配件／材料） */
+.vplt-page--vendor .vplt-canvas {
+    align-items: stretch;
+    width: 100%;
+}
+.vplt-page--vendor .vplt-guide-sections,
+.vplt-page--vendor .vplt-guide-section {
+    overflow: visible;
+}
 .vplt-page--guide .vplt-guide-sections,
 .vplt-page--guide .vplt-guide-section {
     overflow: visible;
@@ -273,7 +282,8 @@
     min-width: 0;
     overflow: hidden;
 }
-.vplt-page--guide .vplt-guide-rail-scroll {
+.vplt-page--guide .vplt-guide-rail-scroll,
+.vplt-page--vendor .vplt-guide-rail-scroll {
     width: 100%;
     max-width: 100%;
     margin: 0 0 -18px;
@@ -288,7 +298,10 @@
 }
 .vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar,
 .vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar-thumb,
-.vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar-track {
+.vplt-page--guide .vplt-guide-rail-scroll::-webkit-scrollbar-track,
+.vplt-page--vendor .vplt-guide-rail-scroll::-webkit-scrollbar,
+.vplt-page--vendor .vplt-guide-rail-scroll::-webkit-scrollbar-thumb,
+.vplt-page--vendor .vplt-guide-rail-scroll::-webkit-scrollbar-track {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
@@ -428,7 +441,8 @@
     pointer-events: none;
     user-select: none;
 }
-.vplt-page--guide .vplt-guide-tile-media .vplt-guide-tile-zoom-btn {
+.vplt-page--guide .vplt-guide-tile-media .vplt-guide-tile-zoom-btn,
+.vplt-page--vendor .vplt-guide-tile-media .vplt-guide-tile-zoom-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -446,7 +460,8 @@
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
     opacity: 0.92;
 }
-.vplt-page--guide .vplt-guide-tile-media .vplt-guide-tile-zoom-btn:hover {
+.vplt-page--guide .vplt-guide-tile-media .vplt-guide-tile-zoom-btn:hover,
+.vplt-page--vendor .vplt-guide-tile-media .vplt-guide-tile-zoom-btn:hover {
     background: #f0fdfa;
     color: #0f766e;
     opacity: 1;

@@ -731,6 +731,46 @@
         return kindSpan + ' <span class="vplt-guide-section-name">' + title + '</span>';
     }
 
+    function vendorSectionRemoveBtnHtml(aid) {
+        return ' <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1 align-baseline vplt-vendor-unlink"' +
+            ' data-remove="' + esc(aid) + '" title="' + esc(tr('productTree.removeLink', '移除關聯')) + '">&times;</button>';
+    }
+
+    function wireVendorCanvasDrop(canvas) {
+        if (!canvas) return;
+        var wrap = canvas.closest('.vplt-canvas-wrap') || canvas;
+        if (wrap.__vpltDropWired) return;
+        wrap.__vpltDropWired = true;
+        wrap.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            canvas.classList.add('vplt-drop-target');
+        });
+        wrap.addEventListener('dragleave', function (e) {
+            if (e.target === wrap || !wrap.contains(e.relatedTarget)) {
+                canvas.classList.remove('vplt-drop-target');
+            }
+        });
+        wrap.addEventListener('drop', function (e) {
+            e.preventDefault();
+            canvas.classList.remove('vplt-drop-target');
+            var aid = e.dataTransfer.getData('text/vnd.asset-id');
+            if (aid) addLink(aid);
+        });
+    }
+
+    function wireVendorLinkRemoveButtons(canvas) {
+        if (!canvas) return;
+        canvas.querySelectorAll('[data-remove]').forEach(function (btn) {
+            if (btn.__vpltRemoveWired) return;
+            btn.__vpltRemoveWired = true;
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+                removeLink(btn.getAttribute('data-remove'));
+            });
+        });
+    }
+
     function renderGuideCanvas(proto, linkedIds) {
         var sections = '';
         var protoTiles = guideTilesForAsset(proto, proto.id, 'prototype', false).join('');
@@ -749,7 +789,8 @@
             var a = assetById(aid);
             if (!a) return;
             var picked = state.guideSelectedIds.indexOf(aid) >= 0;
-            sections += guideSectionHtml('part', guideSectionHeadingHtml('part', a),
+            var heading = guideSectionHeadingHtml('part', a) + (IS_VENDOR ? vendorSectionRemoveBtnHtml(aid) : '');
+            sections += guideSectionHtml('part', heading,
                 guideTilesForAsset(a, aid, 'part', picked).join(''), aid);
         });
 
@@ -757,13 +798,17 @@
             var a = assetById(aid);
             if (!a) return;
             var picked = state.guideSelectedIds.indexOf(aid) >= 0;
-            sections += guideSectionHtml('material', guideSectionHeadingHtml('material', a),
+            var heading = guideSectionHeadingHtml('material', a) + (IS_VENDOR ? vendorSectionRemoveBtnHtml(aid) : '');
+            sections += guideSectionHtml('material', heading,
                 guideTilesForAsset(a, aid, 'material', picked).join(''));
         });
 
-        if (!linkedIds.length) {
+        if (!linkedIds.length && !IS_VENDOR) {
             sections += '<p class="vplt-guide-rail-note text-muted small mb-0 mt-2">' +
                 esc(tr('productTree.noLinksYet', '尚未關聯材料或配件')) + '</p>';
+        } else if (!linkedIds.length && IS_VENDOR) {
+            sections += '<p class="vplt-guide-rail-note text-muted small mb-0 mt-2">' +
+                esc(tr('productTree.vendorLinkHint', '從右側「未關聯素材」拖曳或點 + 加入配件／材料')) + '</p>';
         }
 
         return '<div class="vplt-guide-sections">' + sections + '</div>';
@@ -1027,80 +1072,17 @@
             return;
         }
         var linkedIds = linkedIdsForPrototype(pid);
-        if (!IS_VENDOR) {
-            canvas.innerHTML = renderGuideCanvas(proto, linkedIds);
-            wireGuideRail(canvas);
-            wireVariantZoomButtons(canvas, function (btn) {
-                var tile = btn.closest('.vplt-guide-tile');
-                return tile ? tile.getAttribute('data-guide-asset') : '';
-            });
-            return;
-        }
-        var childrenHtml = '';
-        if (!linkedIds.length) {
-            childrenHtml = '<div class="vplt-empty-children">' + esc(tr('productTree.noLinksYet', '尚未關聯材料或配件')) + '</div>';
-        } else {
-            childrenHtml = '<div class="vplt-children">';
-            linkedIds.forEach(function (aid) {
-                var a = assetById(aid);
-                if (!a) return;
-                var k = a.asset_kind;
-                var removeBtn = '<button type="button" class="btn btn-sm btn-link text-danger vplt-child-remove" data-remove="' + esc(aid) + '" title="移除">&times;</button>';
-                childrenHtml += linkedAssetCardHtml(a, aid, removeBtn, '', '');
-            });
-            childrenHtml += '</div>';
-        }
-        canvas.innerHTML = rootCardHtml(proto) + childrenHtml;
-
-        canvas.querySelectorAll('[data-remove]').forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                removeLink(btn.getAttribute('data-remove'));
-            });
+        canvas.innerHTML = renderGuideCanvas(proto, linkedIds);
+        wireGuideRailNav(canvas);
+        wireVariantZoomButtons(canvas, function (btn) {
+            var tile = btn.closest('.vplt-guide-tile');
+            return tile ? tile.getAttribute('data-guide-asset') : '';
         });
-
-        canvas.querySelectorAll('.vplt-variant-option').forEach(function (opt) {
-            var card = opt.closest('[data-guide-asset]');
-            var panel = opt.closest('[data-expand-panel]');
-            var assetId = card
-                ? card.getAttribute('data-guide-asset')
-                : (panel ? panel.getAttribute('data-expand-panel') : '');
-            if (!assetId) return;
-            wireVariantOptionClick(opt, assetId);
-        });
-        wireVariantZoomButtons(canvas, function (btn, opt, cell) {
-            var card = (cell || btn).closest('[data-guide-asset]');
-            return card ? card.getAttribute('data-guide-asset') : '';
-        });
-        syncAllVariantCardsExpanded();
-
-        canvas.querySelectorAll('.vplt-variant-side-toggle').forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var card = btn.closest('[data-guide-asset]');
-                if (!card) return;
-                toggleGuideVariantExpanded(card.getAttribute('data-guide-asset'));
-            });
-        });
-
         if (IS_VENDOR) {
-            var dropRoot = document.getElementById('vplt-root-drop');
-            if (dropRoot) {
-                dropRoot.addEventListener('dragover', function (e) {
-                    e.preventDefault();
-                    canvas.classList.add('vplt-drop-target');
-                });
-                dropRoot.addEventListener('dragleave', function () {
-                    canvas.classList.remove('vplt-drop-target');
-                });
-                dropRoot.addEventListener('drop', function (e) {
-                    e.preventDefault();
-                    canvas.classList.remove('vplt-drop-target');
-                    var aid = e.dataTransfer.getData('text/vnd.asset-id');
-                    if (aid) addLink(aid);
-                });
-            }
+            wireVendorLinkRemoveButtons(canvas);
+            wireVendorCanvasDrop(canvas);
+        } else {
+            wireGuideRail(canvas);
         }
     }
 
