@@ -1962,7 +1962,7 @@ function extractGeminiResponseImageBuffer(result) {
     return null;
 }
 
-/** 材料 img2img：gemini-2.5-flash-image + 參考圖 inlineData；只回圖（官方 responseModalities: IMAGE） */
+/** 材料 img2img：gemini-2.5-flash-image + 參考圖 inlineData；只回圖（官方 responseModalities: ['Image']，勿用 SDK 列舉 'IMAGE'） */
 async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, promptText) {
     if (!process.env.GEMINI_API_KEY) return null;
     if (!imageBuffer || !imageBuffer.length) throw new Error('無效的參考圖');
@@ -1979,7 +1979,7 @@ async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, prom
                 { text: prompt }
             ]
         }],
-        config: { responseModalities: ['IMAGE'] }
+        config: { responseModalities: ['Image'] }
     }));
     const extracted = extractGeminiResponseImageBuffer(result);
     if (!extracted || !extracted.buffer || !extracted.buffer.length) {

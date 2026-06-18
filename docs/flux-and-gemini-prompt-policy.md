@@ -26,7 +26,7 @@
         ↓
   buildVendorAssetMaterialGeminiOptimizePrompt() — 「維持材質的質感和顏色，並優化此圖」
         ↓
-  gemini-2.5-flash-image + inlineData 參考圖（responseModalities: IMAGE，只回圖）
+  gemini-2.5-flash-image + inlineData 參考圖（responseModalities: ['Image']，只回圖；勿用 SDK 列舉 'IMAGE'）
 ```
 
 | 步驟 | 檔案／函式 |
