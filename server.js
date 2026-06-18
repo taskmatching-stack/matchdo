@@ -1810,6 +1810,8 @@ async function computeVendorAssetCreatePoints(assetKind, optimizeIndices, totalF
 
 /** 同一請求內連續多張 BFL 重繪時的間隔，降低限流／逾時 */
 const VENDOR_FLUX_BATCH_GAP_MS = 2500;
+/** 材料 FLUX img2img 固定 seed（使用者 BFL 實測） */
+const VENDOR_MATERIAL_FLUX_SEED = 3647440197;
 
 function sleepMs(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1822,14 +1824,15 @@ function fluxSeedFromImageBuffer(buffer) {
     return n === 0 ? 1 : n;
 }
 
-function createVendorFluxOptimizeScheduler(ownerId) {
+function createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType) {
     let jobIndex = 0;
+    const surfaceType = normalizeMaterialSurfaceType(materialSurfaceType);
     return {
-        async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint, materialFluxEditPrompt) {
+        async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint) {
             if (jobIndex > 0) await sleepMs(VENDOR_FLUX_BATCH_GAP_MS);
             const out = await maybeOptimizeVendorAssetMulterFile(
                 file, title, assetKind, materialHint, optimizeBackground, filenameHint,
-                materialFluxEditPrompt, ownerId
+                undefined, surfaceType, ownerId
             );
             jobIndex += 1;
             return out;
@@ -1839,7 +1842,7 @@ function createVendorFluxOptimizeScheduler(ownerId) {
 
 async function maybeOptimizeVendorAssetMulterFile(
     file, title, assetKind, materialHint, optimizeBackground, filenameHintOverride,
-    materialFluxEditPrompt, ownerId
+    materialFluxEditPrompt, materialSurfaceType, ownerId
 ) {
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
     const seed = fluxSeedFromImageBuffer(file.buffer);
@@ -1851,6 +1854,7 @@ async function maybeOptimizeVendorAssetMulterFile(
         seed,
         filenameHint,
         materialFluxEditPrompt,
+        materialSurfaceType,
         ownerId
     );
     return {
@@ -1912,9 +1916,31 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
-/** 材料 Gemini 優化固定提示詞（使用者實測） */
-function buildVendorAssetMaterialGeminiOptimizePrompt() {
-    return '維持材質的質感和顏色，並優化此圖';
+/** 材料 FLUX 優化：使用者填材質類型（例：皮革）→「保持顏色並優化此皮革材質光影」 */
+function normalizeMaterialSurfaceType(raw) {
+    return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
+}
+
+function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
+    const t = normalizeMaterialSurfaceType(surfaceType);
+    if (!t) throw new Error('請填材質類型（例：皮革、丹寧）');
+    return `保持顏色並優化此${t}材質光影`;
+}
+
+function resolveMaterialSurfaceType(body, row) {
+    const fromBody = normalizeMaterialSurfaceType(body && body.material_surface_type);
+    if (fromBody) return fromBody;
+    const sem = row && row.image_semantics_json;
+    if (sem && typeof sem === 'object') return normalizeMaterialSurfaceType(sem.material_surface_type);
+    return '';
+}
+
+function mergeMaterialSurfaceIntoSemantics(semanticsJson, surfaceType) {
+    const v = normalizeMaterialSurfaceType(surfaceType);
+    const base = (semanticsJson && typeof semanticsJson === 'object') ? { ...semanticsJson } : {};
+    if (v) base.material_surface_type = v;
+    else delete base.material_surface_type;
+    return Object.keys(base).length ? base : null;
 }
 
 function bufferFromGeminiInlineData(data) {
@@ -7476,18 +7502,24 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材：數位原型＝FLUX 重繪；材料＝gemini-2.5-flash-image img2img（原解析度，僅>1024 縮小） */
+/** 廠商素材：材料＝FLUX img2img；數位原型／零件＝FLUX 重繪 */
 async function optimizeVendorAssetImageWithFlux(
     fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint,
-    materialFluxEditPrompt, ownerId
+    materialFluxEditPrompt, materialSurfaceType, ownerId
 ) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
     if (isMaterial) {
         const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
-        const promptText = buildVendorAssetMaterialGeminiOptimizePrompt();
-        const buf = await optimizeVendorAssetMaterialWithGemini(prepared.buffer, prepared.mimetype, promptText);
-        if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（GEMINI_API_KEY）');
+        const prompt = buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType);
+        const fluxOpts = {
+            endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
+            width: prepared.width,
+            height: prepared.height
+        };
+        const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
+        const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
+        if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
         return buf;
     }
     const prompt = buildVendorAssetProductOptimizePrompt(title, backgroundColor);
@@ -14869,6 +14901,10 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 materialCatalogHint = await vendorCatalogGroupNamesByIds(manufacturerId, groupIds);
             }
         }
+        const materialSurfaceType = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
+        if (assetKind === 'material' && !materialSurfaceType) {
+            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
+        }
         const pointsRequired = await computePendingPreviewRedrawPoints(assetKind, isCover);
         let ownerId = seedUser.id;
         let isAdmin = false;
@@ -14883,7 +14919,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         let optimized;
         const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
         let aiPromptUsed = assetKind === 'material'
-            ? buildVendorAssetMaterialGeminiOptimizePrompt()
+            ? buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType)
             : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground);
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
@@ -14894,6 +14930,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 assetKind === 'material' ? 'white' : optimizeBackground,
                 filenameHint,
                 undefined,
+                materialSurfaceType,
                 ownerId
             );
         } catch (optErr) {
@@ -15347,7 +15384,15 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
             : parseImageLabelsBody(body, 1);
 
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId);
+        const materialSurfaceCreate = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
+        if (assetKind === 'material' && optimizeIndices.length && !materialSurfaceCreate) {
+            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
+        }
+        if (assetKind === 'material') {
+            semanticsJson = mergeMaterialSurfaceIntoSemantics(semanticsJson, materialSurfaceCreate);
+        }
+
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate);
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
@@ -15655,6 +15700,10 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
         const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
         const filenameHint = (srcLabel || labelFromImageUrl(sourceUrl) || '').trim();
+        const materialSurfaceType = assetKind === 'material' ? resolveMaterialSurfaceType(body, row) : '';
+        if (assetKind === 'material' && !materialSurfaceType) {
+            return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
+        }
         try {
             file = await maybeOptimizeVendorAssetMulterFile(
                 file,
@@ -15664,6 +15713,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
                 assetKind === 'material' ? 'white' : optimizeBackground,
                 filenameHint,
                 undefined,
+                materialSurfaceType,
                 ownerId
             );
         } catch (optErr) {
@@ -16402,6 +16452,22 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                 return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
             }
         }
+        if (assetKind === 'material' && body.material_surface_type !== undefined) {
+            let baseSem = null;
+            if (body.image_semantics_json) {
+                try {
+                    baseSem = typeof body.image_semantics_json === 'string'
+                        ? JSON.parse(body.image_semantics_json)
+                        : body.image_semantics_json;
+                } catch (_) {}
+            }
+            if (!baseSem) {
+                const { data: semRow } = await supabase.from('vendor_assets')
+                    .select('image_semantics_json').eq('id', id).maybeSingle();
+                baseSem = semRow?.image_semantics_json;
+            }
+            updates.image_semantics_json = mergeMaterialSurfaceIntoSemantics(baseSem, body.material_surface_type);
+        }
 
         let file = req.file ? await vendorAssetFileFromMulter(req.file) : null;
         const wantsOptimize = parseTruthyBody(body.optimize_product_image);
@@ -16500,6 +16566,10 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             if (wantsOptimize) {
                 try {
                     const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+                    const materialSurfacePut = assetKind === 'material' ? resolveMaterialSurfaceType(body, row) : '';
+                    if (assetKind === 'material' && !materialSurfacePut) {
+                        return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
+                    }
                     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
                         file.buffer, file.mimetype, titleForPrompt, assetKind,
                         assetKind === 'material' ? materialCatalogHintPut : ((updates.material_key != null ? updates.material_key : row.material_key) || ''),
@@ -16507,6 +16577,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                         fluxSeedFromImageBuffer(file.buffer),
                         labelFromOriginalFilename(file.originalname),
                         undefined,
+                        materialSurfacePut,
                         ownerId
                     );
                     uploadFile = {
@@ -17228,11 +17299,13 @@ async function processSupplierCatalogImagePipeline({
     if (wantsOptimize) {
         try {
             const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+            const materialSurfaceCat = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
             const optimizedBuf = await optimizeVendorAssetImageWithFlux(
                 file.buffer, file.mimetype, tit, assetKind, null, optimizeBackground,
                 fluxSeedFromImageBuffer(file.buffer),
                 labelFromOriginalFilename(file.originalname),
                 undefined,
+                materialSurfaceCat,
                 ownerId
             );
             uploadFile = {

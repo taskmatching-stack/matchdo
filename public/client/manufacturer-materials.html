@@ -406,6 +406,11 @@
                                 <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.materialMatchHint">媒合僅用平台主分類；材質類型請用上方「材料參考」專用自訂分類（如：色卡庫、皮革樣本）。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料參考」專用的我的素材分類新增名稱，再於此勾選（與數位原型分開）。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32">
+                                    <p class="form-text text-muted small mb-0">供 AI 重繪提示詞使用（例：皮革 →「保持顏色並優化此皮革材質光影」）。</p>
+                                </div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
@@ -555,6 +560,7 @@
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
                             <div id="edit-gallery-redraw-settings" class="border rounded p-2 mb-3 d-none">
+                                <div id="edit-gallery-optimize-bg-wrap">
                                 <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
                                 <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
                                     <select class="form-select form-select-sm" id="edit-gallery-optimize-bg" style="max-width:11rem">
@@ -565,6 +571,12 @@
                                         <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
+                                </div>
+                                </div>
+                                <div id="edit-material-surface-wrap" class="mb-2 d-none">
+                                    <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
+                                    <p class="form-text text-muted small mb-0">例：皮革 →「保持顏色並優化此皮革材質光影」</p>
                                 </div>
                                 <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。</p>
                             </div>
@@ -679,7 +691,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-gemini-no-upscale-20260618';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-flux-surface-seed-20260618';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1553,6 +1565,35 @@
             if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
         }
 
+        function getMaterialSurfaceTypeFromAddForm(form) {
+            if (!form || form.getAttribute('data-kind') !== 'material') return '';
+            var inp = form.querySelector('.add-material-surface-type');
+            return inp ? String(inp.value || '').trim() : '';
+        }
+
+        function getMaterialSurfaceTypeFromEdit() {
+            var inp = document.getElementById('edit-material-surface-type');
+            return inp ? String(inp.value || '').trim() : '';
+        }
+
+        function validateMaterialSurfaceTypeForRedraw(surfaceType) {
+            if (String(surfaceType || '').trim()) return '';
+            return '請填材質類型（例：皮革、丹寧）再執行 AI 重繪';
+        }
+
+        function appendMaterialSurfaceTypeToFormData(fd, surfaceType) {
+            if (!fd) return;
+            var v = String(surfaceType || '').trim();
+            if (v) fd.append('material_surface_type', v);
+        }
+
+        function syncEditGalleryMaterialUi(isMaterial) {
+            var bgWrap = document.getElementById('edit-gallery-optimize-bg-wrap');
+            var surfWrap = document.getElementById('edit-material-surface-wrap');
+            if (bgWrap) bgWrap.classList.toggle('d-none', !!isMaterial);
+            if (surfWrap) surfWrap.classList.toggle('d-none', !isMaterial);
+        }
+
         function showAiPromptAfterPreview(data) {
             if (!data || !data.ai_prompt) return;
             setEditGalleryStatus('本次 AI 提示詞：' + data.ai_prompt, 'info');
@@ -1578,6 +1619,9 @@
             if (!sourceUrl || editGalleryUploading) return;
             var id = document.getElementById('edit-id').value;
             var m = materialsAll.find(function (x) { return x.id === id; });
+            var surfaceErr = normalizeKind(m && m.asset_kind) === 'material'
+                ? validateMaterialSurfaceTypeForRedraw(getMaterialSurfaceTypeFromEdit()) : '';
+            if (surfaceErr) { showToast(surfaceErr, 'warning'); return; }
             var pts = calcRedrawPointsForUrl(m, sourceUrl);
             if (!window.confirm('AI 重繪？（-' + pts + ' 點；勾選要上傳的圖後按「儲存」）')) return;
             var slot = editGallerySlotPreview[sourceUrl] || {};
@@ -1599,6 +1643,9 @@
                 if (m && m.title) fd.append('title', m.title);
                 if (srcItem && srcItem.label) fd.append('image_label', displayGalleryImageLabel(srcItem));
                 appendMaterialCatalogHintToRedrawFormData(fd, m);
+                if (m && normalizeKind(m.asset_kind) === 'material') {
+                    appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromEdit());
+                }
                 var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -1776,6 +1823,11 @@
 
         async function previewPendingRedraw(form, item, idx) {
             if (item.imageBusy) return;
+            var kindEarly = form.getAttribute('data-kind') || 'prototype';
+            if (kindEarly === 'material') {
+                var surfaceErr0 = validateMaterialSurfaceTypeForRedraw(getMaterialSurfaceTypeFromAddForm(form));
+                if (surfaceErr0) { showToast(surfaceErr0, 'warning'); return; }
+            }
             var pts = calcPendingPreviewRedrawPoints(form, idx);
             if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；發布時一併上傳新圖）')) return;
             item.imageBusy = true;
@@ -1793,6 +1845,7 @@
                 if (titleIn && titleIn.value) fd.append('title', titleIn.value.trim());
                 if (item.label) fd.append('image_label', item.label);
                 appendMaterialCatalogHintToRedrawFormDataFromForm(fd, form);
+                if (kind === 'material') appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromAddForm(form));
                 var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -2127,6 +2180,11 @@
 
         async function previewEditPendingRedraw(item, idx) {
             if (item.imageBusy) return;
+            var m = materialsAll.find(function (x) { return x.id === document.getElementById('edit-id').value; });
+            if (m && normalizeKind(m.asset_kind) === 'material') {
+                var surfaceErr = validateMaterialSurfaceTypeForRedraw(getMaterialSurfaceTypeFromEdit());
+                if (surfaceErr) { showToast(surfaceErr, 'warning'); return; }
+            }
             var pts = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
             if (!window.confirm('AI 重繪並追加新圖？（-' + pts + ' 點，原圖保留；上傳時一併送出新圖）')) return;
             item.imageBusy = true;
@@ -2142,6 +2200,9 @@
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
                 if (m && m.title) fd.append('title', m.title);
                 appendMaterialCatalogHintToRedrawFormData(fd, m);
+                if (m && normalizeKind(m.asset_kind) === 'material') {
+                    appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromEdit());
+                }
                 var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -2578,6 +2639,13 @@
                 return false;
             }
             var m = materialsAll.find(function (x) { return x.id === id; });
+            if (m && normalizeKind(m.asset_kind) === 'material') {
+                var surfaceErrG = validateMaterialSurfaceTypeForRedraw(getMaterialSurfaceTypeFromEdit());
+                if (surfaceErrG) {
+                    showToast(surfaceErrG, 'warning');
+                    return false;
+                }
+            }
             var pts = calcRedrawPointsForUrl(m, sourceUrl);
             if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪並新增一張新圖？（-' + pts + ' 點，原圖保留）')) return false;
             editGalleryUploading = true;
@@ -2593,14 +2661,18 @@
                 var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
                 var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
                 var urlsBeforeRedraw = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]) : [];
-                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/redraw', {
-                    method: 'POST',
-                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
+                var redrawBody = {
                         source_url: sourceUrl,
                         replace: false,
                         optimize_background: getEditGalleryOptimizeBackground()
-                    })
+                    };
+                if (m && normalizeKind(m.asset_kind) === 'material') {
+                    redrawBody.material_surface_type = getMaterialSurfaceTypeFromEdit();
+                }
+                var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/redraw', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(redrawBody)
                 });
                 var rawBody = await r.text();
                 var data = {};
@@ -4409,6 +4481,13 @@
             } else if (kind === 'material' || kind === 'part') {
                 fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
             }
+            if (kind === 'material') {
+                appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromAddForm(form));
+                if (optIdx.length && !getMaterialSurfaceTypeFromAddForm(form)) {
+                    msgEl.textContent = validateMaterialSurfaceTypeForRedraw('');
+                    return;
+                }
+            }
             appendTaxonomyToFormData(fd, form);
             var previewCreditTxIds = collectPreviewCreditTxIds(form);
             if (previewCreditTxIds.length) {
@@ -4743,6 +4822,12 @@
                     : tr('baseModels.productImagesGalleryLabel', '產品圖片（多角度／多色款）');
             }
             syncEditGalleryUpscaleHint(isMaterial);
+            syncEditGalleryMaterialUi(isMaterial);
+            var surfInp = document.getElementById('edit-material-surface-type');
+            if (surfInp) {
+                var sem = m.image_semantics_json;
+                surfInp.value = (sem && sem.material_surface_type) ? String(sem.material_surface_type) : '';
+            }
             if (isGalleryLike) {
                 renderEditGallery(m);
             }
@@ -4926,6 +5011,9 @@
                 } else if (editKind === 'material' || editKind === 'part') {
                     fd.append('linked_prototype_ids', JSON.stringify(readEditPrototypeLinkSelections('edit-linked-prototypes-list')));
                 }
+            }
+            if (editKind === 'material') {
+                appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromEdit());
             }
             appendTaxonomyToFormData(fd, document.getElementById('edit-form'));
             try {
