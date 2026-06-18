@@ -89,6 +89,7 @@ const {
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const { registerSitemapRoutes } = require('./routes/sitemap');
+const sharp = require('sharp');
 
 async function vendorAssetFileFromMulter(file) {
     if (!file) return null;
@@ -1989,12 +1990,12 @@ function buildVendorAssetMaterialOptimizePrompt(semanticsJson) {
         throw new Error('材質讀圖結果為空，無法產生 AI 優化提示詞');
     }
     const base = [
-        'Strict image-to-image enhancement of the vendor material photo in the reference image.',
-        'The reference image is the only truth for geometry, colors, pattern scale, and grain direction.',
-        'Do not invent, substitute, or imagine any surface the vendor did not photograph.',
+        'Strict photograph enhancement of the vendor material swatch in input_image—NOT texture synthesis or re-generation.',
+        'Output must look like the same physical swatch re-photographed: identical grain family, bump scale, pattern period, color, and layout.',
+        'The reference image pixels are the only truth; do not invent, substitute, smooth over, or exaggerate any surface structure.',
+        'Never change pebbled leather into smooth, fine grain into coarse, or add/remove pores, pebbles, weave, or veins.',
         'Allowed only: clearer fine detail, sharper focus, soft even diffuse lighting, light noise cleanup.',
-        'Present full-frame edge-to-edge—texture fills the canvas like a flat material swatch, no margins or backdrop scene.',
-        'No products, props, hands, text, watermark, or logo.'
+        'Full-frame edge-to-edge flat swatch; no margins, backdrop, products, props, hands, text, watermark, or logo.'
     ].join(' ');
     return `${base} ${fidelity}`;
 }
@@ -7358,8 +7359,32 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) 
     return pollBflResult(createData, BFL_API_KEY);
 }
 
+/** 材料 FLUX：盡量沿用原圖長寬比，減少 1024² 拉伸導致紋理被「重畫」 */
+async function fluxOutputSizeFromImageBuffer(buffer) {
+    const fallback = { width: 1024, height: 1024 };
+    if (!buffer || !buffer.length) return fallback;
+    try {
+        const meta = await sharp(buffer).metadata();
+        let w = Number(meta.width) || 1024;
+        let h = Number(meta.height) || 1024;
+        const minDim = 512;
+        const maxDim = 2048;
+        const clamp = (n) => Math.min(maxDim, Math.max(minDim, Math.round(n)));
+        if (w >= h) {
+            if (w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+            if (w < minDim) { h = Math.round(h * minDim / w); w = minDim; }
+        } else {
+            if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+            if (h < minDim) { w = Math.round(w * minDim / h); h = minDim; }
+        }
+        return { width: clamp(w), height: clamp(h) };
+    } catch (_) {
+        return fallback;
+    }
+}
+
 /** FLUX 2.0 PRO 參考圖編輯；BFL 僅 body.prompt（無 negative_prompt） */
-async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat) {
+async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat, outputSize) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !referenceImages || referenceImages.length === 0) return null;
     prompt = await translatePromptToEnglishForFlux(prompt);
@@ -7372,7 +7397,12 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
         }
         return img;
     });
-    const body = { prompt, output_format: fmt, width: 1024, height: 1024 };
+    const body = {
+        prompt,
+        output_format: fmt,
+        width: outputSize && outputSize.width ? outputSize.width : 1024,
+        height: outputSize && outputSize.height ? outputSize.height : 1024
+    };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
     body.input_image = images[0];
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
@@ -7402,7 +7432,8 @@ async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, ass
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
     const fluxSeed = seed != null ? seed : fluxSeedFromImageBuffer(fileBuffer);
-    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], fluxSeed, 'jpeg');
+    const outputSize = isMaterial ? await fluxOutputSizeFromImageBuffer(fileBuffer) : null;
+    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], fluxSeed, 'jpeg', outputSize);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return buf;
 }
