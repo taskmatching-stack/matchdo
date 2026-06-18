@@ -1979,85 +1979,20 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
-/** 材料 AI 優化：依 material_key 強調該材質應呈現的質感（送 FLUX img2img） */
-function materialOptimizeTextureDirective(materialKey) {
-    const mk = normalizeVendorMaterialKey(materialKey);
-    const map = {
-        fabric: [
-            'Fabric / textile swatch: weave, knit, or thread structure must read clearly;',
-            'show natural fiber texture, yarn direction, and true color;',
-            'soft even lighting; flat lay or gentle fold only—no garment shape implied.'
-        ].join(' '),
-        leather: [
-            'Leather swatch: natural grain, pores, and subtle sheen;',
-            'match the exact hue and saturation from the reference image—do not shift toward tan, brown, or a different grey;',
-            'supple surface with realistic crease scale;',
-            'macro-friendly detail without plastic-looking smoothness.'
-        ].join(' '),
-        metal: [
-            'Metal surface: brush direction, reflections, and micro-scratches at believable scale;',
-            'realistic metallic sheen without blown highlights;',
-            'show true alloy tone (brass, steel, aluminum, etc.) from the reference.'
-        ].join(' '),
-        wood: [
-            'Wood swatch: grain lines and ring patterns at product-appropriate macro scale;',
-            'warm organic tone and matte or satin finish;',
-            'directional grain must stay consistent across the swatch.'
-        ].join(' '),
-        plastic: [
-            'Plastic / polymer swatch: smooth or lightly textured surface;',
-            'even color, subtle mold texture or matte/satin finish as in reference;',
-            'no fake wood or metal look unless the reference shows it.'
-        ].join(' '),
-        ceramic: [
-            'Ceramic / glaze swatch: glaze depth, subtle surface variation, and body color;',
-            'clean matte or gloss ceramic finish; no metallic sparkle unless glazed that way.'
-        ].join(' '),
-        other: [
-            'Material swatch: authentic surface texture and true color clearly readable;',
-            'believable macro scale for designers selecting materials.'
-        ].join(' ')
-    };
-    return map[mk] || map.other;
-}
-
 /**
- * 材料參考「材質圖 AI 優化」— 色卡／滿版圖樣導向，與產品重繪分線（不用棚拍底色）。
- * 規劃：docs/vendor-asset-material-swatch-plan.md
+ * 材料參考 img2img：通用提示詞。顏色／紋路／材質皆以參考圖為準，不從標題或檔名推斷。
  */
-/** @param {string} catalogHint — 廠商材料自訂分類名稱（逗號串） */
-/** @param {string} filenameHint — 圖片檔名或使用者標籤（軟線索） */
-function buildVendorAssetMaterialOptimizePrompt(title, catalogHint, filenameHint) {
-    const titleT = (title || '').trim();
-    const catalogT = (catalogHint || '').trim();
-    const fileT = (filenameHint || '').trim();
-    const inferredKey = inferMaterialKeyFromHints(fileT, titleT, catalogT);
-    const textureLine = materialOptimizeTextureDirective(inferredKey);
-    const parts = [
-        'Using the provided reference image as the only source, enhance it as a full-frame material swatch / texture reference for product design—not a product photo on studio backdrop.',
-        'Primary goal: make surface material quality clearly readable—authentic weave, grain direction, pores, sheen, glaze depth, and true color. Preserve the apparent texture scale from the reference; do not enlarge into oversized repeating blocks.',
-        'Keep the same color family, pattern orientation, and overall framing; only improve clarity, even diffuse lighting, and color accuracy.',
-        textureLine,
-        'No finished products, 3D spheres, props, hands, rulers, packaging, text, watermark, or logo.',
-        'If non-material edges exist in the source, trim or fade them minimally—do not replace the swatch with a product photo.',
-        'Flat lay or gentle material fold only. Photorealistic material detail, sharp focus.'
-    ];
-    let insertAt = 2;
-    if (catalogT) {
-        parts.splice(insertAt, 0, `Vendor material catalog grouping (texture family): ${catalogT}.`);
-        insertAt += 1;
-    }
-    if (titleT) {
-        parts.splice(insertAt, 0, `Material title (match surface character from reference; do not invent new patterns): ${titleT}.`);
-        insertAt += 1;
-    }
-    if (fileT && fileT !== titleT) {
-        parts.splice(insertAt, 0, `Filename / image label hint (soft context from uploader, not authoritative): ${fileT}.`);
-    }
-    inferOptionalMaterialContextHints(fileT, titleT, inferredKey, 'en').forEach(function (h) {
-        parts.push(h);
-    });
-    return parts.join(' ');
+function buildVendorAssetMaterialOptimizePrompt(_title, _catalogHint, _filenameHint) {
+    return [
+        'Image-to-image edit using the provided reference as the sole authority.',
+        'Preserve exactly what the reference shows: material type, color, hue, saturation, brightness, pattern, grain or weave scale, sheen, and composition.',
+        'Do not recolor, retexture, stylize, or substitute a different material category.',
+        'Do not infer leather, fabric, wood, metal, or any surface type from filenames or titles—only from pixels in the reference.',
+        'Allowed changes: subtle clarity, even diffuse lighting, noise reduction, and sharpness—without altering the surface character.',
+        'Keep the same framing, orientation, and texture repeat scale; do not enlarge into oversized repeating blocks.',
+        'No finished products, props, hands, rulers, packaging, text, watermark, or logo.',
+        'Full-frame material swatch or texture reference only. Photorealistic, sharp focus.'
+    ].join(' ');
 }
 
 async function recordVisualSemanticsEvent(row) {
