@@ -2369,6 +2369,89 @@ async function ensureAiCategoriesTableAndSeed() {
     }
 }
 
+/** 啟動時補 manufacturers.logo_url（需 SUPABASE_DB_URL） */
+async function ensureManufacturerLogoColumn() {
+    if (!DB_URL) return false;
+    const pool = new Pool({ connectionString: DB_URL });
+    const client = await pool.connect();
+    try {
+        const r = await client.query(
+            `SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'manufacturers' AND column_name = 'logo_url'
+            ) AS ok`
+        );
+        if (r.rows[0]?.ok) return true;
+        await adminMigrations.runMigrationById('manufacturer-logo', client);
+        console.log('ensureManufacturerLogoColumn: 已新增 manufacturers.logo_url');
+        return true;
+    } catch (e) {
+        console.warn('ensureManufacturerLogoColumn:', e.message);
+        return false;
+    } finally {
+        client.release();
+        await pool.end();
+    }
+}
+
+function manufacturerLogoFromRow(mfr) {
+    if (!mfr) return null;
+    const direct = (mfr.logo_url && String(mfr.logo_url).trim()) || '';
+    if (direct) return direct;
+    const cj = mfr.contact_json;
+    if (cj && typeof cj === 'object' && cj.logo_url) {
+        const fromContact = String(cj.logo_url).trim();
+        return fromContact || null;
+    }
+    return null;
+}
+
+function isMissingLogoUrlColumnError(err) {
+    if (!err) return false;
+    const msg = String(err.message || '').toLowerCase();
+    return msg.includes('logo_url') || isMissingManufacturerColumnError(err, 'logo_url');
+}
+
+async function setManufacturerLogoUrl(manufacturerId, logoUrl, existingContactJson) {
+    const trimmed = logoUrl ? String(logoUrl).trim() : null;
+    let result = await supabase
+        .from('manufacturers')
+        .update({ logo_url: trimmed })
+        .eq('id', manufacturerId)
+        .select('id, logo_url, contact_json')
+        .single();
+    if (!result.error && result.data) {
+        return { id: result.data.id, logo_url: manufacturerLogoFromRow(result.data) || trimmed };
+    }
+    if (isMissingLogoUrlColumnError(result.error)) {
+        const ensured = await ensureManufacturerLogoColumn();
+        if (ensured) {
+            result = await supabase
+                .from('manufacturers')
+                .update({ logo_url: trimmed })
+                .eq('id', manufacturerId)
+                .select('id, logo_url, contact_json')
+                .single();
+            if (!result.error && result.data) {
+                return { id: result.data.id, logo_url: manufacturerLogoFromRow(result.data) || trimmed };
+            }
+        }
+        const existing = existingContactJson && typeof existingContactJson === 'object' ? existingContactJson : {};
+        const contact_json = Object.assign({}, existing);
+        if (trimmed) contact_json.logo_url = trimmed;
+        else delete contact_json.logo_url;
+        const fallback = await supabase
+            .from('manufacturers')
+            .update({ contact_json })
+            .eq('id', manufacturerId)
+            .select('id, contact_json')
+            .single();
+        if (fallback.error) throw fallback.error;
+        return { id: fallback.data.id, logo_url: trimmed };
+    }
+    throw result.error || new Error('儲存失敗');
+}
+
 /**
  * 依客戶數量解析承包商的單價區間（支援階梯定價 price_tiers）
  * @param {object} listing - 含 price_min, price_max, price_tiers
@@ -11873,6 +11956,7 @@ app.get('/api/me/manufacturer', async (req, res) => {
         }
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
+        mfr.logo_url = manufacturerLogoFromRow(mfr);
         res.json(mfr);
     } catch (e) {
         console.error('GET /api/me/manufacturer 異常:', e);
@@ -11938,7 +12022,16 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
         if (body.description !== undefined) updates.description = body.description.trim() || null;
         if (body.location !== undefined) updates.location = body.location.trim() || null;
         if (body.categories !== undefined) updates.categories = body.categories;
-        if (body.logo_url !== undefined) updates.logo_url = (body.logo_url && String(body.logo_url).trim()) ? String(body.logo_url).trim() : null;
+        const hasLogoUpdate = body.logo_url !== undefined;
+        if (hasLogoUpdate) {
+            const logoVal = (body.logo_url && String(body.logo_url).trim()) ? String(body.logo_url).trim() : null;
+            try {
+                await setManufacturerLogoUrl(mfr.id, logoVal, mfr.contact_json);
+            } catch (logoErr) {
+                console.error('PATCH /api/me/manufacturer logo:', logoErr);
+                return res.status(500).json({ error: '更新 LOGO 失敗' });
+            }
+        }
         // 合併 contact_json（只更新帶進來的欄位）
         const SOCIAL_KEYS = ['email','phone','line_id','url','facebook','instagram','threads','twitter','whatsapp','youtube','linkedin'];
         const existing = mfr.contact_json || {};
@@ -11951,7 +12044,20 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
         if (Object.keys(contactPatch).length > 0) {
             updates.contact_json = Object.assign({}, existing, contactPatch);
         }
-        if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
+        if (Object.keys(updates).length === 0 && !hasLogoUpdate) return res.status(400).json({ error: '無可更新的欄位' });
+        if (Object.keys(updates).length === 0) {
+            const { data: onlyLogo, error: onlyLogoErr } = await supabase
+                .from('manufacturers')
+                .select('id, name, description, location, contact_json, logo_url')
+                .eq('id', mfr.id)
+                .single();
+            if (onlyLogoErr) {
+                console.error('PATCH /api/me/manufacturer:', onlyLogoErr);
+                return res.status(500).json({ error: '更新失敗' });
+            }
+            onlyLogo.logo_url = manufacturerLogoFromRow(onlyLogo);
+            return res.json(onlyLogo);
+        }
         const { data: updated, error } = await supabase
             .from('manufacturers')
             .update(updates)
@@ -11977,7 +12083,7 @@ app.post('/api/me/manufacturer/logo', upload.single('logo'), async (req, res) =>
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
-        const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source').eq('user_id', user.id).maybeSingle();
+        const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source, contact_json').eq('user_id', user.id).maybeSingle();
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料' });
         if (await rejectSeedVendorSelfServiceWrite(user.id, mfr, res)) return;
         const file = await vendorAssetFileFromMulter(req.file);
@@ -11997,27 +12103,12 @@ app.post('/api/me/manufacturer/logo', upload.single('logo'), async (req, res) =>
             console.error('POST /api/me/manufacturer/logo storage:', uploadErr);
             return res.status(500).json({ error: '圖片上傳失敗，請稍後再試' });
         }
-        const { data: updated, error } = await supabase
-            .from('manufacturers')
-            .update({ logo_url: publicUrl })
-            .eq('id', mfr.id)
-            .select('id, logo_url')
-            .single();
-        if (error) {
-            const errMsg = String((error && error.message) || '');
-            if (isMissingManufacturerColumnError(error, 'logo_url') || errMsg.toLowerCase().includes('logo_url')) {
-                return res.status(500).json({ error: '資料庫缺少 logo_url 欄位，請於 Supabase 執行 docs/add-manufacturer-logo.sql' });
-            }
-            console.error('POST /api/me/manufacturer/logo update:', error);
-            return res.status(500).json({ error: '儲存失敗：' + (errMsg || '請稍後再試') });
-        }
-        if (!updated) {
-            return res.status(500).json({ error: '儲存失敗：找不到廠商資料' });
-        }
-        res.json({ logo_url: updated.logo_url, id: updated.id });
+        const saved = await setManufacturerLogoUrl(mfr.id, publicUrl, mfr.contact_json);
+        res.json({ logo_url: saved.logo_url, id: saved.id });
     } catch (e) {
         console.error('POST /api/me/manufacturer/logo:', e);
-        res.status(500).json({ error: '系統錯誤：' + (e.message || '請稍後再試') });
+        const msg = (e && (e.message || e.error_description || e.hint)) || String(e || '');
+        res.status(500).json({ error: '儲存失敗：' + (msg || '請稍後再試') });
     }
 });
 
@@ -12323,7 +12414,7 @@ app.get('/api/manufacturers', async (req, res) => {
             verified: mfr.verified,
             categories: mfr.categories || [],
             user_id: mfr.user_id || null,
-            logo_url: mfr.logo_url || null,
+            logo_url: manufacturerLogoFromRow(mfr),
             portfolio: portfolioByMfr[mfr.id] || []
         })).sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
@@ -12403,7 +12494,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             verified: mfr.verified,
             categories: mfr.categories || [],
             user_id: mfr.user_id || null,
-            logo_url: mfr.logo_url || null,
+            logo_url: manufacturerLogoFromRow(mfr),
             portfolio
         });
     } catch (e) {
@@ -22106,4 +22197,5 @@ app.post('/api/match/run-split', async (req, res) => {
 // 背景執行分類／DB 初始化（listen 已於檔案前段執行）
 bootstrapCategories().finally(() => {
     ensureAiCategoriesTableAndSeed().catch(err => console.warn('ensureAiCategoriesTableAndSeed:', err && err.message));
+    ensureManufacturerLogoColumn().catch(err => console.warn('ensureManufacturerLogoColumn:', err && err.message));
 });
