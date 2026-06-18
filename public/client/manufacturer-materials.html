@@ -425,19 +425,6 @@
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
-                                    <div class="add-optimize-bg-wrap d-none mb-2">
-                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
-                                        <div class="d-flex flex-wrap gap-2 align-items-center">
-                                            <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
-                                                <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
-                                                <option value="light_gray" data-i18n="baseModels.optimizeBgLightGray">淺灰</option>
-                                                <option value="gray" data-i18n="baseModels.optimizeBgGray">灰</option>
-                                                <option value="black" data-i18n="baseModels.optimizeBgBlack">黑</option>
-                                                <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
-                                            </select>
-                                            <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
-                                        </div>
-                                    </div>
                                     <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 優化，不另收上傳費）</span></p>
                                     <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 優化並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
@@ -448,7 +435,7 @@
                                     <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無主產品可選（選填，略過不影響發布）。</p>
                                 </div>
                                 <div class="col-12 d-flex flex-wrap align-items-center gap-2">
-                                    <button type="button" class="btn btn-primary btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">上傳並發布</span></button>
+                                    <button type="button" class="btn btn-success btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">上傳並發布</span></button>
                                     <span class="small text-danger add-form-msg"></span>
                                 </div>
                             </div>
@@ -546,7 +533,7 @@
                             <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
                         </div>
                         <div class="mb-3 d-none" id="edit-images-prototype-wrap">
-                            <label class="form-label" id="edit-gallery-section-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
+                            <label class="form-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
                             <div id="edit-gallery-redraw-settings" class="border rounded p-2 mb-3 d-none">
@@ -579,8 +566,7 @@
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p id="edit-gallery-hint-material" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.materialMultiImageHint">可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；多張請用於<strong>同一材質</strong>的不同角度或細節，換材質請另建一筆。</p>
-                            <p class="form-text text-muted small mb-2" id="edit-gallery-redraw-bg-hint">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
-                            <p class="form-text text-muted small mb-2 d-none" id="edit-gallery-material-optimize-hint" data-i18n="baseModels.optimizeMaterialEditHint">可編輯每張圖名稱。<strong>AI 優化</strong>：強化材質質感（織紋、木紋、金屬光澤），不換成商品白底照；會<strong>取代</strong>該張原圖（封面亦會更新）。</p>
+                            <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
                             <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面順序，或於下方「更換封面」上傳新圖。</p>
                             <p id="edit-gallery-build-hint" class="form-text text-muted mb-0" style="font-size:0.7rem;opacity:0.65"></p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
@@ -1521,35 +1507,6 @@
             });
         }
 
-        function galleryRedrawActionLabel(kind) {
-            return normalizeKind(kind) === 'material'
-                ? tr('baseModels.optimizeMaterialShort', 'AI 優化')
-                : tr('baseModels.aiRedraw', 'AI 重繪');
-        }
-
-        function updateEditGallerySectionUi(assetKind) {
-            var kind = normalizeKind(assetKind);
-            var isMat = kind === 'material';
-            var labelEl = document.getElementById('edit-gallery-section-label');
-            if (labelEl) {
-                var labelKey = isMat ? 'baseModels.materialImagesGalleryLabel' : 'baseModels.productImagesGalleryLabel';
-                var labelFb = isMat ? '材料參考圖（多角度）' : '產品圖片（多角度／多色款）';
-                labelEl.setAttribute('data-i18n', labelKey);
-                labelEl.textContent = tr(labelKey, labelFb);
-            }
-            var productHint = document.getElementById('edit-gallery-redraw-bg-hint');
-            var materialHint = document.getElementById('edit-gallery-material-optimize-hint');
-            if (productHint) productHint.classList.toggle('d-none', isMat);
-            if (materialHint) materialHint.classList.toggle('d-none', !isMat);
-            var previewHint = document.getElementById('edit-gallery-ai-vs-preview-hint');
-            if (previewHint) {
-                var redrawWord = galleryRedrawActionLabel(kind);
-                previewHint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>' + esc(redrawWord) + '</strong>」／「<strong>AI 放大</strong>」：' +
-                    redrawWord + '會<strong>取代</strong>該張原圖（封面亦會更新）；AI 放大仍會追加新圖。' +
-                    redrawWord + '約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。<strong>不另收上傳費</strong>。';
-            }
-        }
-
         function galleryDerivedThumbHtml(d, imageItemsJson) {
             var kind = vendorImageDerivedKind(d);
             var title = kind === 'upscale' ? 'AI 放大新圖（≤1MP）' : '重繪新圖';
@@ -1561,15 +1518,14 @@
 
         async function previewPendingRedraw(form, item, idx) {
             if (item.imageBusy) return;
-            var kind = form.getAttribute('data-kind') || 'prototype';
-            var actionLabel = galleryRedrawActionLabel(kind);
             var pts = calcPendingPreviewRedrawPoints(form, idx);
-            if (!window.confirm(actionLabel + '並追加新圖？（-' + pts + ' 點，原圖保留；發布時請勾選要上傳的圖）')) return;
+            if (!window.confirm((kind === 'material' ? '材質圖 AI 優化' : 'AI 重繪') + '並追加新圖？（-' + pts + ' 點，原圖保留；發布時一併上傳新圖）')) return;
             item.imageBusy = true;
             renderPendingImages(form);
             try {
                 var tok = token || (await getToken());
                 if (!tok) { showToast('請先登入', 'danger'); return; }
+                var kind = form.getAttribute('data-kind') || 'prototype';
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', kind);
@@ -2177,7 +2133,9 @@
             }))).replace(/"/g, '&quot;');
             var editKindNorm = normalizeKind(document.getElementById('edit-asset-kind').value);
             var isMaterialGallery = editKindNorm === 'material';
-            var galleryRedrawLabel = galleryRedrawActionLabel(editKindNorm);
+            var galleryRedrawLabel = isMaterialGallery
+                ? tr('baseModels.optimizeMaterialShort', 'AI 優化')
+                : tr('baseModels.aiRedraw', 'AI 重繪');
             grid.innerHTML = groups.map(function (group, idx) {
                 var it = group.primary;
                 var url = it.url;
@@ -2327,13 +2285,11 @@
                 return false;
             }
             var m = materialsAll.find(function (x) { return x.id === id; });
-            var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
-            var actionLabel = galleryRedrawActionLabel(editKind);
             var pts = calcRedrawPointsForUrl(m, sourceUrl);
-            if (!opts.skipConfirm && !window.confirm('以此圖 ' + actionLabel + '並取代原圖？（-' + pts + ' 點）')) return false;
+            if (!opts.skipConfirm && !window.confirm('以此圖 AI 重繪並新增一張新圖？（-' + pts + ' 點，原圖保留）')) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
-            var statusPrefix = opts.batchTotal ? (actionLabel + '中（' + opts.batchIndex + '/' + opts.batchTotal + '）…') : (actionLabel + '中…');
+            var statusPrefix = opts.batchTotal ? ('AI 重繪中（' + opts.batchIndex + '/' + opts.batchTotal + '）…') : 'AI 重繪中…';
             setEditGalleryStatus(statusPrefix, 'info');
             try {
                 var tok = token || (await getToken());
@@ -2348,7 +2304,7 @@
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
                     body: JSON.stringify((function () {
-                        var payload = { source_url: sourceUrl, replace: true };
+                        var payload = { source_url: sourceUrl, replace: false };
                         var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
                         if (editKind !== 'material') {
                             payload.optimize_background = getEditGalleryOptimizeBackground();
@@ -2376,7 +2332,7 @@
                 var lastNew = markNewGalleryUrls(urlsBeforeRedraw, data);
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
-                var okMsg = '已' + actionLabel + '並取代原圖（共 ' + urlCount + ' 張）';
+                var okMsg = '已新增重繪新圖（原圖保留，共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
@@ -4500,7 +4456,6 @@
             if (editGalHintProto) editGalHintProto.classList.toggle('d-none', !isProto);
             if (editGalHintPart) editGalHintPart.classList.toggle('d-none', !isPart);
             if (editGalHintMaterial) editGalHintMaterial.classList.toggle('d-none', !isMaterial);
-            updateEditGallerySectionUi(m.asset_kind);
             if (isMultiImage) {
                 renderEditGallery(m);
             }
