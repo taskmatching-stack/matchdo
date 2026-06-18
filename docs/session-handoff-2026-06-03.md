@@ -3,6 +3,8 @@
 > **新對話請先讀本檔**，再依任務讀下方專題進度。複製貼上：  
 > 「請讀 `docs/session-handoff-2026-06-03.md` 接續。」
 
+**2026-06-05 新增：** 材料 FLUX 保真 ＋ 後台 FLUX 模型手填 → **`docs/PROGRESS-material-flux-ai-settings.md`**（§二 有未解決主問題）。
+
 ---
 
 ## 1. 現在線上／git 在哪？
@@ -28,6 +30,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && git log
 
 | 任務 | 必讀 | 內容 |
 |------|------|------|
+| **材料 AI 優化保真、FLUX 後台模型** | **`docs/PROGRESS-material-flux-ai-settings.md`** | 固定保真 prompt、四槽手填 `flux-2-pro`、**§二 輸出仍像換材質（未解）** |
 | 廠商素材上傳／編輯／**AI 重繪** | **`docs/PROGRESS-vendor-asset-gallery-edit.md`** | 多角度圖、雙按鈕、編輯 redraw API、§七驗收、§八待辦 |
 | 廠商版型 Tab、看可搭配、產品關聯樹 | **`docs/PROGRESS-vendor-styles-and-product-tree.md`** | guide 橫條 UI、關聯 API、驗收與 Phase C 待辦 |
 | 全站總表（很長） | `docs/matchdo-todo.md` | 「近期完成」區塊已指向上面兩檔 |

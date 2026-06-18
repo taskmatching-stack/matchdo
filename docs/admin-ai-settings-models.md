@@ -14,7 +14,7 @@
 | **語意提示詞 API** | `GET`／`PATCH` [`/api/admin/semantics-prompts`](../server.js) |
 | **儲存位置** | Supabase `payment_config` 表，鍵名見下表 |
 
-本頁涵蓋 **Gemini** 三槽與 **FLUX 生圖**四槽（`payment_config`），見 §2、§2.1。
+本頁涵蓋 **Gemini** 四槽與 **FLUX 生圖**三槽（材料已改 Gemini；`bfl_flux_model_vendor_material` legacy 未使用），見 §2、§2.1。
 
 ---
 
@@ -26,22 +26,23 @@
 |----------|----------------------|----------|------|
 | 訂製設計頁生圖 | `bfl_flux_model_generate` | `flux-2-pro` | `POST /api/generate-product-image` |
 | 廠商產品 AI 重繪 | `bfl_flux_model_vendor_product` | `flux-2-pro` | 數位原型／零件白底重繪 |
-| 廠商材料 AI 優化 | `bfl_flux_model_vendor_material` | `flux-2-max` | 材質色卡 img2img（建議 max 保真） |
+| 廠商材料 AI 優化 | `bfl_flux_model_vendor_material` | `flux-2-pro` | **legacy，現未使用**（材料改 `gemini_model_material_optimize`） |
 | 實境模擬／圖樣提取 | `bfl_flux_model_scene_pattern` | `flux-2-pro` | 實境合成、圖樣提取 |
 
-可選 model id 與 Playground 相同：`flux-2-max`、`flux-2-pro`、`flux-2-flex`、`flux-2-klein-9b`、`flux-2-klein-4b`。
+可選 model id 與 Playground 相同（`flux-2-pro`、`flux-2-max` 等），亦支援**後台手填**新型號（`flux-2-*` → `POST /v1/{id}`），無需改程式或下拉枚舉。
 
-### 2.2 三類 Gemini 模型（分開設定、互不覆寫）
+### 2.2 Gemini 模型（分開設定、互不覆寫）
 
-後台「AI 模型設定」卡片內有三個文字欄位，對應三組 `payment_config` 鍵與伺服器函式：
+後台「Gemini 模型設定」卡片內有四個文字欄位：
 
 | 後台欄位 | `payment_config.key` | 程式讀取 | 用途摘要 |
 |----------|----------------------|----------|----------|
 | Gemini 翻譯模型 | `gemini_model` | `getTranslationModelName()` | 生圖前將中文 prompt 翻成英文等輕量文字任務 |
 | Gemini 讀圖／分析模型 | `gemini_model_read` | `getReadModelName()` | 客製產品分析、參考圖描述、首頁工項 AI 識別等**一般讀圖／結構化分析** |
-| Gemini 標籤用讀圖模型 | `gemini_model_tagging` | `getTaggingModelName()` | 訂製**生成圖**與**廠商數位原型**自動標籤、`ai_tags_by_dimension`（`lib/visual-semantics.js`） |
+| Gemini 標籤用讀圖模型 | `gemini_model_tagging` | `getTaggingModelName()` | 訂製**生成圖**與**廠商數位原型**自動標籤 |
+| **Gemini 材料 AI 優化** | `gemini_model_material_optimize` | `getMaterialOptimizeModelName()` | 廠商**材料色卡** img2img 保真清理（預設 `gemini-2.5-flash-image`） |
 
-**環境變數覆寫（可選）**：未寫入 DB 時依序使用 `GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`；再退回程式內建預設（見 `server.js`、`lib/visual-semantics.js`）。
+**環境變數覆寫（可選）**：`GEMINI_MODEL`、`GEMINI_MODEL_READ`、`GEMINI_MODEL_TAGGING`、`GEMINI_MODEL_MATERIAL_OPTIMIZE`。
 
 **程式內建預設（尚未在後台儲存前）**：
 
@@ -50,6 +51,7 @@
 | `gemini_model` | `gemini-2.5-flash-lite` |
 | `gemini_model_read` | `gemini-3-flash-preview` |
 | `gemini_model_tagging` | `gemini-3.1-flash-lite` |
+| `gemini_model_material_optimize` | `gemini-2.5-flash-image` |
 
 ---
 

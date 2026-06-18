@@ -1,6 +1,8 @@
 # 進度紀錄：廠商素材多角度圖（新增／編輯）
 
-> **新對話：** 先讀 **`docs/session-handoff-2026-06-03.md`**（單一入口），再讀本檔。若還要改 guide／廠商版型 Tab，另讀 `docs/PROGRESS-vendor-styles-and-product-tree.md`。
+> **新對話：** 先讀 **`docs/session-handoff-2026-06-03.md`**（單一入口），再讀本檔。  
+> **材料單圖 AI 優化／FLUX 保真／後台模型：** 讀 **`docs/PROGRESS-material-flux-ai-settings.md`**（含 §二 未解決問題）。  
+> 若還要改 guide／廠商版型 Tab，另讀 `docs/PROGRESS-vendor-styles-and-product-tree.md`。
 
 **最後更新：** 2026-06-05  
 **狀態：** ✅ 逐張 AI 重繪**追加新圖**（原圖保留）+ 預覽重繪不重複收上傳費；部署後確認 `__MATCHDO_MATERIALS_BUILD=redraw-append-new-image-20260605`  
@@ -193,6 +195,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 | `docs/add-vendor-asset-gallery-images.sql` | DB migration |
 | `docs/vendor-asset-prototype-moq-customization-notes.md` | MOQ／訂製程度 + **§多角度圖** |
 | `docs/session-handoff-2026-06-03.md` | **新對話單一入口**（部署、P0、語意、檔案表） |
+| **`docs/PROGRESS-material-flux-ai-settings.md`** | **材料 FLUX 保真、後台 FLUX 手填模型、未解問題** |
 | `docs/PROGRESS-vendor-styles-and-product-tree.md` | 同後台之關聯樹／guide（與本檔並讀） |
 | `docs/matchdo-todo.md` | 全站總表「近期完成」 |
 | `docs/user-manual.md` §8.3 | 廠商操作說明 |

@@ -74,6 +74,8 @@ const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const GEMINI_MODEL_TRANSLATION_DEFAULT = 'gemini-2.5-flash-lite';
 // 讀圖／分析／估算等：可後台設定，見 getReadModelName（若 404 可改為 gemini-2.0-flash）
 const GEMINI_MODEL_READ_DEFAULT = 'gemini-3-flash-preview';
+/** 廠商材料 AI 優化（img2img 保真清理） */
+const GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT = 'gemini-2.5-flash-image';
 const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
@@ -159,6 +161,15 @@ async function getReadModelName() {
 
 async function getTaggingModelName() {
     return visualSemantics.getTaggingModelName(supabase);
+}
+
+async function getMaterialOptimizeModelName() {
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', 'gemini_model_material_optimize').maybeSingle();
+        const fromDb = row?.value?.trim?.();
+        if (fromDb) return fromDb;
+    } catch (_) {}
+    return process.env.GEMINI_MODEL_MATERIAL_OPTIMIZE || GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT;
 }
 
 function getVisualSemanticsDeps() {
@@ -1811,13 +1822,14 @@ function fluxSeedFromImageBuffer(buffer) {
     return n === 0 ? 1 : n;
 }
 
-function createVendorFluxOptimizeScheduler() {
+function createVendorFluxOptimizeScheduler(ownerId) {
     let jobIndex = 0;
     return {
-        async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint) {
+        async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint, materialFluxEditPrompt) {
             if (jobIndex > 0) await sleepMs(VENDOR_FLUX_BATCH_GAP_MS);
             const out = await maybeOptimizeVendorAssetMulterFile(
-                file, title, assetKind, materialHint, optimizeBackground, filenameHint
+                file, title, assetKind, materialHint, optimizeBackground, filenameHint,
+                materialFluxEditPrompt, ownerId
             );
             jobIndex += 1;
             return out;
@@ -1825,7 +1837,10 @@ function createVendorFluxOptimizeScheduler() {
     };
 }
 
-async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materialHint, optimizeBackground, filenameHintOverride) {
+async function maybeOptimizeVendorAssetMulterFile(
+    file, title, assetKind, materialHint, optimizeBackground, filenameHintOverride,
+    materialFluxEditPrompt, ownerId
+) {
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
     const seed = fluxSeedFromImageBuffer(file.buffer);
     const filenameHint = String(filenameHintOverride || labelFromOriginalFilename(file.originalname) || '').trim();
@@ -1834,7 +1849,9 @@ async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materi
         assetKind === 'material' ? materialHint : null,
         optimizeBg,
         seed,
-        filenameHint
+        filenameHint,
+        materialFluxEditPrompt,
+        ownerId
     );
     return {
         buffer: optimizedBuf,
@@ -1895,20 +1912,107 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
+/** 材料 Gemini 優化固定提示詞（使用者實測） */
+function buildVendorAssetMaterialGeminiOptimizePrompt() {
+    return '維持材質的質感和顏色，並優化此圖';
+}
+
+function extractGeminiResponseImageBuffer(result) {
+    const tryParts = (parts) => {
+        if (!Array.isArray(parts)) return null;
+        for (const part of parts) {
+            const inline = part && (part.inlineData || part.inline_data);
+            if (inline && inline.data) {
+                const mime = inline.mimeType || inline.mime_type || 'image/png';
+                return { buffer: Buffer.from(inline.data, 'base64'), mime };
+            }
+        }
+        return null;
+    };
+    const candidates = result && (result.candidates || result.response?.candidates);
+    if (Array.isArray(candidates)) {
+        for (const cand of candidates) {
+            const hit = tryParts(cand?.content?.parts);
+            if (hit) return hit;
+        }
+    }
+    const direct = tryParts(result?.content?.parts);
+    if (direct) return direct;
+    if (result && result.data) {
+        return { buffer: Buffer.isBuffer(result.data) ? result.data : Buffer.from(result.data), mime: 'image/png' };
+    }
+    return null;
+}
+
+/** 材料 img2img：gemini-2.5-flash-image + 參考圖 inlineData */
+async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, promptText) {
+    if (!process.env.GEMINI_API_KEY) return null;
+    if (!imageBuffer || !imageBuffer.length) throw new Error('無效的參考圖');
+    const prompt = String(promptText || '').trim();
+    if (!prompt) throw new Error('材質優化提示詞為空');
+    const model = await getMaterialOptimizeModelName();
+    const mime = (mimeType || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';
+    const result = await runInGeminiQueue(() => genAI.models.generateContent({
+        model,
+        contents: [{
+            role: 'user',
+            parts: [
+                { inlineData: { mimeType: mime, data: imageBuffer.toString('base64') } },
+                { text: prompt }
+            ]
+        }],
+        config: { responseModalities: ['TEXT', 'IMAGE'] }
+    }));
+    const extracted = extractGeminiResponseImageBuffer(result);
+    if (!extracted || !extracted.buffer || !extracted.buffer.length) {
+        throw new Error('Gemini 未回傳優化圖，請稍後重試');
+    }
+    const sharp = require('sharp');
+    return sharp(extracted.buffer, { failOn: 'none' })
+        .rotate()
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
+}
+
 /**
- * 材料 FLUX：固定保真編輯句（對齊原型／零件，不寫材質名稱以免 FLUX 重畫紋理）。
- * Gemini material_tagging_prompt 僅產 JSON 標籤，不進此 prompt。
+ * 材料 FLUX 編輯句（legacy，現行材料 optimize 已改 gemini-2.5-flash-image；保留供 Admin／日後切換）。
  * @see https://docs.bfl.ml/guides/prompting_editing_single_reference.md
  */
-function buildVendorAssetMaterialOptimizePrompt() {
+function buildVendorAssetMaterialOptimizePrompt(materialFluxEditPrompt) {
+    const editDesc = (materialFluxEditPrompt || '').trim();
+    if (!editDesc) {
+        throw new Error('材質編輯提示詞為空，無法執行 AI 優化');
+    }
     return [
-        'Using input_image as the only source, perform a minimal flat material swatch cleanup.',
-        'The reference pixels are the sole authority: preserve exactly the same material type, grain or weave pattern, grain scale, colors, hue, saturation, and full-frame composition.',
-        'Only improve sharpness, even diffuse lighting, and reduce digital noise.',
-        'Do not invent, recolor, retexture, stylize, or substitute a different surface.',
-        'Full-frame edge-to-edge texture; no products, props, text, or watermark.',
-        'Photorealistic, sharp focus.'
+        'Single-reference edit of input_image.',
+        editDesc,
+        'Keep everything not mentioned above exactly unchanged.',
+        'Do not generate a new texture or substitute a different material swatch.'
     ].join(' ');
+}
+
+/** 材料 FLUX 前：Gemini 讀準備後原圖產英文編輯句（material_flux_edit_prompt，非 JSON 標籤）。 */
+async function resolveMaterialFluxEditPrompt(file, context, ownerId) {
+    if (!process.env.GEMINI_API_KEY) {
+        throw new Error('未設定 GEMINI_API_KEY，無法分析材質圖');
+    }
+    const deps = getVisualSemanticsDeps();
+    const imagePart = visualSemantics.bufferToImagePart(file.buffer || file, file.mimetype);
+    const result = await visualSemantics.analyzeMaterialFluxEditPrompt(deps, imagePart, context || {});
+    await recordVisualSemanticsEvent({
+        source_type: 'vendor_asset',
+        source_id: null,
+        image_url: (context && context.image_url) || null,
+        text_input: result.prompt,
+        semantics_kind: 'material_flux_edit',
+        ai_tags: null,
+        semantics_json: null,
+        model: result.model,
+        prompt_version: result.prompt_version,
+        owner_id: ownerId || null,
+        category_key: (context && context.category_key) || null
+    });
+    return result.prompt;
 }
 
 async function recordVisualSemanticsEvent(row) {
@@ -4551,7 +4655,7 @@ app.get('/api/admin/ai-config', async (req, res) => {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
         const configKeys = [
-            'gemini_model', 'gemini_model_read', 'gemini_model_tagging',
+            'gemini_model', 'gemini_model_read', 'gemini_model_tagging', 'gemini_model_material_optimize',
             ...Object.keys(BFL_FLUX_MODEL_CONFIG)
         ];
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', configKeys);
@@ -4561,13 +4665,14 @@ app.get('/api/admin/ai-config', async (req, res) => {
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
             gemini_model_tagging: byKey.gemini_model_tagging || process.env.GEMINI_MODEL_TAGGING || visualSemantics.GEMINI_MODEL_TAGGING_DEFAULT,
+            gemini_model_material_optimize: byKey.gemini_model_material_optimize || process.env.GEMINI_MODEL_MATERIAL_OPTIMIZE || GEMINI_MODEL_MATERIAL_OPTIMIZE_DEFAULT,
             ...bfl.models,
-            bfl_flux_model_options: Object.keys(BFL_PLAYGROUND_MODELS),
             bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
                 gemini_model: !!byKey.gemini_model,
                 gemini_model_read: !!byKey.gemini_model_read,
                 gemini_model_tagging: !!byKey.gemini_model_tagging,
+                gemini_model_material_optimize: !!byKey.gemini_model_material_optimize,
                 ...bfl.saved_in_db
             }
         });
@@ -4594,12 +4699,20 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.gemini_model_tagging !== undefined) {
             upserts.push({ key: 'gemini_model_tagging', value: String(body.gemini_model_tagging).trim(), updated_at: now });
         }
-        Object.keys(BFL_FLUX_MODEL_CONFIG).forEach((key) => {
-            if (body[key] !== undefined) {
-                const modelId = normalizeBflFluxModelId(body[key], BFL_FLUX_MODEL_CONFIG[key]);
-                upserts.push({ key, value: modelId, updated_at: now });
+        if (body.gemini_model_material_optimize !== undefined) {
+            upserts.push({ key: 'gemini_model_material_optimize', value: String(body.gemini_model_material_optimize).trim(), updated_at: now });
+        }
+        for (const key of Object.keys(BFL_FLUX_MODEL_CONFIG)) {
+            if (body[key] === undefined) continue;
+            const raw = String(body[key]).trim();
+            if (!isPlausibleBflFluxModelId(raw)) {
+                return res.status(400).json({
+                    error: 'FLUX 模型 ID 格式無效：' + key,
+                    hint: '請填 BFL API model id，例如 flux-2-pro、flux-2-max、flux-2-pro-preview'
+                });
             }
-        });
+            upserts.push({ key, value: raw, updated_at: now });
+        }
         if (upserts.length === 0) {
             return res.status(400).json({ error: '無可儲存的欄位' });
         }
@@ -4623,6 +4736,7 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             gemini_model: byKey.gemini_model ?? null,
             gemini_model_read: byKey.gemini_model_read ?? null,
             gemini_model_tagging: byKey.gemini_model_tagging ?? null,
+            gemini_model_material_optimize: byKey.gemini_model_material_optimize ?? null,
             ...bfl.models
         });
     } catch (e) {
@@ -7210,25 +7324,32 @@ const BFL_PLAYGROUND_MODELS = {
     'flux-2-klein-4b': '/v1/flux-2-klein-4b'
 };
 
-/** payment_config 鍵 → 程式預設 model id */
+/** payment_config 鍵 → 程式預設 model id（皆 pro；max 僅在後台手動改材料槽時使用） */
 const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_generate: 'flux-2-pro',
     bfl_flux_model_vendor_product: 'flux-2-pro',
-    bfl_flux_model_vendor_material: 'flux-2-max',
+    bfl_flux_model_vendor_material: 'flux-2-pro',
     bfl_flux_model_scene_pattern: 'flux-2-pro'
 };
 
+/** 允許後台手填 BFL model id（含未來新型號），格式 flux-2-* */
+function isPlausibleBflFluxModelId(id) {
+    return /^flux-2-[a-z0-9][a-z0-9-]*$/i.test(String(id || '').trim());
+}
+
 function normalizeBflFluxModelId(raw, fallbackId) {
     const id = String(raw || '').trim();
-    if (BFL_PLAYGROUND_MODELS[id]) return id;
+    if (isPlausibleBflFluxModelId(id)) return id;
     const fb = String(fallbackId || 'flux-2-pro').trim();
-    if (BFL_PLAYGROUND_MODELS[fb]) return fb;
+    if (isPlausibleBflFluxModelId(fb)) return fb;
     return 'flux-2-pro';
 }
 
 function getBflPlaygroundEndpoint(model) {
-    const path = BFL_PLAYGROUND_MODELS[model] || BFL_PLAYGROUND_MODELS['flux-2-pro'];
-    return BFL_BASE + path;
+    const id = normalizeBflFluxModelId(model, 'flux-2-pro');
+    const path = BFL_PLAYGROUND_MODELS[id];
+    if (path) return BFL_BASE + path;
+    return BFL_BASE + '/v1/' + id;
 }
 
 async function getBflFluxEndpointForConfigKey(configKey) {
@@ -7337,32 +7458,28 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材：數位原型＝商品圖重繪；材料＝固定保真句 + flux-2-max（同比例、最短邊≥256） */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint) {
+/** 廠商素材：數位原型＝FLUX 重繪；材料＝gemini-2.5-flash-image img2img（原解析度，僅>1024 縮小） */
+async function optimizeVendorAssetImageWithFlux(
+    fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint,
+    materialFluxEditPrompt, ownerId
+) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
-    const prompt = isMaterial
-        ? buildVendorAssetMaterialOptimizePrompt()
-        : buildVendorAssetProductOptimizePrompt(title, backgroundColor);
-    let fluxBuffer = fileBuffer;
-    let fluxMime = mimeType || 'image/jpeg';
-    let fluxOpts = null;
     if (isMaterial) {
         const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
-        fluxBuffer = prepared.buffer;
-        fluxMime = prepared.mimetype;
-        fluxOpts = {
-            endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
-            width: prepared.width,
-            height: prepared.height
-        };
-    } else {
-        fluxOpts = {
-            endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_product')
-        };
+        const promptText = buildVendorAssetMaterialGeminiOptimizePrompt();
+        const buf = await optimizeVendorAssetMaterialWithGemini(prepared.buffer, prepared.mimetype, promptText);
+        if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（GEMINI_API_KEY）');
+        return buf;
     }
+    const prompt = buildVendorAssetProductOptimizePrompt(title, backgroundColor);
+    const fluxBuffer = fileBuffer;
+    const fluxMime = mimeType || 'image/jpeg';
+    const fluxOpts = {
+        endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_product')
+    };
     const dataUrl = `data:${fluxMime};base64,${fluxBuffer.toString('base64')}`;
-    const fluxSeed = seed != null ? seed : fluxSeedFromImageBuffer(fileBuffer);
+    const fluxSeed = seed != null ? seed : fluxSeedFromImageBuffer(fluxBuffer);
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], fluxSeed, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return buf;
@@ -14747,8 +14864,8 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         }
         let optimized;
         const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
-        const aiPromptUsed = assetKind === 'material'
-            ? buildVendorAssetMaterialOptimizePrompt()
+        let aiPromptUsed = assetKind === 'material'
+            ? buildVendorAssetMaterialGeminiOptimizePrompt()
             : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground);
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
@@ -14757,7 +14874,9 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 assetKind,
                 assetKind === 'material' ? materialCatalogHint : null,
                 assetKind === 'material' ? 'white' : optimizeBackground,
-                filenameHint
+                filenameHint,
+                undefined,
+                ownerId
             );
         } catch (optErr) {
             console.error('preview-image-redraw optimize:', optErr);
@@ -14813,6 +14932,9 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
         if (assetKind !== 'prototype' && assetKind !== 'part' && assetKind !== 'material') {
             return res.status(400).json({ error: '不支援的素材類型' });
+        }
+        if (assetKind === 'material') {
+            return res.status(400).json({ error: '材料參考不提供 AI 放大，請直接上傳原圖或使用 AI 重繪' });
         }
         const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(req.file.buffer);
         if (!upscaleNeed.needed) {
@@ -15207,7 +15329,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
             : parseImageLabelsBody(body, 1);
 
-        const fluxScheduler = createVendorFluxOptimizeScheduler();
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId);
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
@@ -15522,7 +15644,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
                 assetKind,
                 assetKind === 'material' ? materialCatalogHint : null,
                 assetKind === 'material' ? 'white' : optimizeBackground,
-                filenameHint
+                filenameHint,
+                undefined,
+                ownerId
             );
         } catch (optErr) {
             console.error('gallery-images/redraw optimize:', optErr);
@@ -15630,6 +15754,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         const assetKind = normalizeVendorAssetKind(row.asset_kind);
         if (!vendorAssetSupportsGalleryImages(assetKind)) {
             return res.status(400).json({ error: '此素材類型不支援多角度圖放大' });
+        }
+        if (assetKind === 'material') {
+            return res.status(400).json({ error: '材料參考不提供 AI 放大，請直接上傳原圖或使用 AI 重繪' });
         }
         const allUrls = getVendorAssetAllImageUrls(row);
         if (allUrls.indexOf(sourceUrl) < 0) {
@@ -15784,7 +15911,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         }
         const sliceCount = Math.min(files.length, room);
         const galleryToUpload = [];
-        const fluxScheduler = createVendorFluxOptimizeScheduler();
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId);
         for (let gi = 0; gi < sliceCount; gi++) {
             let gf = await vendorAssetFileFromMulter(files[gi]);
             if (!gf) continue;
@@ -16360,7 +16487,9 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                         assetKind === 'material' ? materialCatalogHintPut : ((updates.material_key != null ? updates.material_key : row.material_key) || ''),
                         optimizeBackground,
                         fluxSeedFromImageBuffer(file.buffer),
-                        labelFromOriginalFilename(file.originalname)
+                        labelFromOriginalFilename(file.originalname),
+                        undefined,
+                        ownerId
                     );
                     uploadFile = {
                         buffer: optimizedBuf,
@@ -17084,7 +17213,9 @@ async function processSupplierCatalogImagePipeline({
             const optimizedBuf = await optimizeVendorAssetImageWithFlux(
                 file.buffer, file.mimetype, tit, assetKind, null, optimizeBackground,
                 fluxSeedFromImageBuffer(file.buffer),
-                labelFromOriginalFilename(file.originalname)
+                labelFromOriginalFilename(file.originalname),
+                undefined,
+                ownerId
             );
             uploadFile = {
                 buffer: optimizedBuf,

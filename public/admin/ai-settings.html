@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">AI 設定</h4>
-        <p class="text-muted small mb-3">Gemini 三類模型與 <strong>FLUX 生圖</strong>分開設定。標籤讀圖建議 <code>gemini-3.1-flash-lite</code>；材料 AI 優化建議 <code>flux-2-max</code>。</p>
+        <p class="text-muted small mb-3">Gemini 與 FLUX 皆為<strong>手填 model id</strong>。材料 AI 優化用 <code>gemini-2.5-flash-image</code>（Gemini 區）；產品重繪／設計頁生圖仍用 FLUX（預設 <code>flux-2-pro</code>）。</p>
         <div id="aiSettingsMsg" class="alert mb-3 py-2" style="display:none;"></div>
 
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -42,6 +42,11 @@
               <input type="text" id="aiConfigGeminiModelTagging" class="form-control form-control-sm" placeholder="gemini-3.1-flash-lite" />
               <p class="form-text small text-muted mb-0"><strong>設計頁 AI 生成圖</strong>與<strong>廠商數位原型上傳</strong>共用此模型讀圖產標籤（<code>gemini_model_tagging</code>）。建議 gemini-3.1-flash-lite。</p>
             </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">Gemini 材料 AI 優化</label>
+              <input type="text" id="aiConfigGeminiModelMaterialOptimize" class="form-control form-control-sm" placeholder="gemini-2.5-flash-image" />
+              <p class="form-text small text-muted mb-0">廠商<strong>材料色卡 AI 優化</strong> img2img（<code>gemini_model_material_optimize</code>）。預設 gemini-2.5-flash-image。</p>
+            </div>
             <button type="button" class="btn btn-sm btn-primary" id="btnSaveAiConfig">儲存 Gemini 模型</button>
             <span id="aiConfigDbHint" class="small text-muted ms-2"></span>
           </div>
@@ -49,30 +54,28 @@
         <div class="card mb-3 border-success">
           <div class="card-body">
             <h6 class="card-title">FLUX 生圖模型（Black Forest Labs）</h6>
-            <p class="form-text small text-muted mb-3">對應 <code>payment_config</code>；與 Playground 相同五種模型。材料單圖編輯建議 <strong>max</strong>（較保真）；設計頁量產可用 <strong>pro</strong>。</p>
-            <div class="row g-3">
-              <div class="col-md-6">
-                <label class="form-label small mb-1">訂製設計頁生圖</label>
-                <select id="bflFluxModelGenerate" class="form-select form-select-sm"></select>
-                <p class="form-text small text-muted mb-0"><code>bfl_flux_model_generate</code> — 文生圖／多參考生圖</p>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small mb-1">廠商產品 AI 重繪</label>
-                <select id="bflFluxModelVendorProduct" class="form-select form-select-sm"></select>
-                <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_product</code> — 數位原型／零件白底重繪</p>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small mb-1">廠商材料 AI 優化</label>
-                <select id="bflFluxModelVendorMaterial" class="form-select form-select-sm"></select>
-                <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_material</code> — 材質色卡清晰度（預設 max）</p>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small mb-1">實境模擬／圖樣提取</label>
-                <select id="bflFluxModelScenePattern" class="form-select form-select-sm"></select>
-                <p class="form-text small text-muted mb-0"><code>bfl_flux_model_scene_pattern</code> — 實境合成、圖樣提取 img2img</p>
-              </div>
+            <p class="form-text small text-muted mb-3">手填 BFL model id（例 <code>flux-2-pro</code>、<code>flux-2-max</code>、日後 <code>flux-2-pro-preview</code>）。寫入 <code>payment_config</code>；未儲存前用程式預設 <code>flux-2-pro</code>。</p>
+            <div class="mb-3">
+              <label class="form-label small mb-1">訂製設計頁生圖</label>
+              <input type="text" id="bflFluxModelGenerate" class="form-control form-control-sm" placeholder="flux-2-pro" />
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_generate</code> — 文生圖／多參考生圖</p>
             </div>
-            <button type="button" class="btn btn-sm btn-success mt-3" id="btnSaveBflFluxConfig">儲存 FLUX 模型</button>
+            <div class="mb-3">
+              <label class="form-label small mb-1">廠商產品 AI 重繪</label>
+              <input type="text" id="bflFluxModelVendorProduct" class="form-control form-control-sm" placeholder="flux-2-pro" />
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_product</code> — 數位原型／零件白底重繪</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">廠商材料 AI 優化（legacy）</label>
+              <input type="text" id="bflFluxModelVendorMaterial" class="form-control form-control-sm" placeholder="flux-2-pro" disabled title="材料已改 Gemini，此欄保留 DB 鍵、現未使用" />
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_material</code> — 現未使用；材料請改上方 Gemini「材料 AI 優化」欄位。</p>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small mb-1">實境模擬／圖樣提取</label>
+              <input type="text" id="bflFluxModelScenePattern" class="form-control form-control-sm" placeholder="flux-2-pro" />
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_scene_pattern</code> — 實境合成、圖樣提取</p>
+            </div>
+            <button type="button" class="btn btn-sm btn-success" id="btnSaveBflFluxConfig">儲存 FLUX 模型</button>
             <span id="bflFluxConfigDbHint" class="small text-muted ms-2"></span>
           </div>
         </div>
@@ -155,27 +158,15 @@
     el.className = 'alert mb-3 py-2 ' + (isError ? 'alert-danger' : 'alert-success');
     el.textContent = msg;
   }
-  var bflFluxDefaults = {};
-
-  function fillBflFluxSelect(sel, options, value) {
-    if (!sel) return;
-    sel.innerHTML = '';
-    (options || []).forEach(function (id) {
-      var opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = id;
-      sel.appendChild(opt);
-    });
-    if (value) sel.value = value;
-  }
-
   function applyBflFluxConfigToForm(data) {
-    var opts = data.bfl_flux_model_options || ['flux-2-max', 'flux-2-pro', 'flux-2-flex', 'flux-2-klein-9b', 'flux-2-klein-4b'];
-    bflFluxDefaults = data.bfl_flux_model_defaults || {};
-    fillBflFluxSelect(document.getElementById('bflFluxModelGenerate'), opts, data.bfl_flux_model_generate);
-    fillBflFluxSelect(document.getElementById('bflFluxModelVendorProduct'), opts, data.bfl_flux_model_vendor_product);
-    fillBflFluxSelect(document.getElementById('bflFluxModelVendorMaterial'), opts, data.bfl_flux_model_vendor_material);
-    fillBflFluxSelect(document.getElementById('bflFluxModelScenePattern'), opts, data.bfl_flux_model_scene_pattern);
+    var gen = document.getElementById('bflFluxModelGenerate');
+    var prod = document.getElementById('bflFluxModelVendorProduct');
+    var mat = document.getElementById('bflFluxModelVendorMaterial');
+    var scene = document.getElementById('bflFluxModelScenePattern');
+    if (data.bfl_flux_model_generate != null && gen) gen.value = data.bfl_flux_model_generate;
+    if (data.bfl_flux_model_vendor_product != null && prod) prod.value = data.bfl_flux_model_vendor_product;
+    if (data.bfl_flux_model_vendor_material != null && mat) mat.value = data.bfl_flux_model_vendor_material;
+    if (data.bfl_flux_model_scene_pattern != null && scene) scene.value = data.bfl_flux_model_scene_pattern;
     var hint = document.getElementById('bflFluxConfigDbHint');
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
@@ -184,7 +175,7 @@
       if (s.bfl_flux_model_vendor_product) parts.push('產品重繪');
       if (s.bfl_flux_model_vendor_material) parts.push('材料');
       if (s.bfl_flux_model_scene_pattern) parts.push('實境/圖樣');
-      hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（程式預設，儲存後寫入 DB）';
+      hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（程式預設 flux-2-pro，儲存後寫入 DB）';
     }
   }
 
@@ -192,17 +183,20 @@
     var inp = document.getElementById('aiConfigGeminiModel');
     var inpRead = document.getElementById('aiConfigGeminiModelRead');
     var inpTag = document.getElementById('aiConfigGeminiModelTagging');
+    var inpMat = document.getElementById('aiConfigGeminiModelMaterialOptimize');
     var hint = document.getElementById('aiConfigDbHint');
     if (!inp || !inpRead || !inpTag) return;
     if (data.gemini_model != null) inp.value = data.gemini_model;
     if (data.gemini_model_read != null) inpRead.value = data.gemini_model_read;
     if (data.gemini_model_tagging != null) inpTag.value = data.gemini_model_tagging;
+    if (data.gemini_model_material_optimize != null && inpMat) inpMat.value = data.gemini_model_material_optimize;
     if (hint && data.saved_in_db) {
       var s = data.saved_in_db;
       var parts = [];
       if (s.gemini_model) parts.push('翻譯');
       if (s.gemini_model_read) parts.push('讀圖分析');
       if (s.gemini_model_tagging) parts.push('標籤讀圖');
+      if (s.gemini_model_material_optimize) parts.push('材料優化');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（部分為預設值，尚未寫入 DB）';
     }
     applyBflFluxConfigToForm(data);
@@ -314,10 +308,9 @@
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
     var payload = {
-      bfl_flux_model_generate: (document.getElementById('bflFluxModelGenerate') || {}).value || 'flux-2-pro',
-      bfl_flux_model_vendor_product: (document.getElementById('bflFluxModelVendorProduct') || {}).value || 'flux-2-pro',
-      bfl_flux_model_vendor_material: (document.getElementById('bflFluxModelVendorMaterial') || {}).value || 'flux-2-max',
-      bfl_flux_model_scene_pattern: (document.getElementById('bflFluxModelScenePattern') || {}).value || 'flux-2-pro'
+      bfl_flux_model_generate: (document.getElementById('bflFluxModelGenerate') || {}).value.trim() || 'flux-2-pro',
+      bfl_flux_model_vendor_product: (document.getElementById('bflFluxModelVendorProduct') || {}).value.trim() || 'flux-2-pro',
+      bfl_flux_model_scene_pattern: (document.getElementById('bflFluxModelScenePattern') || {}).value.trim() || 'flux-2-pro'
     };
     var btn = document.getElementById('btnSaveBflFluxConfig');
     btn.disabled = true;
@@ -329,7 +322,7 @@
         return;
       }
       loadAiConfig();
-      showMsg('FLUX 模型已儲存：材料「' + payload.bfl_flux_model_vendor_material + '」，設計頁「' + payload.bfl_flux_model_generate + '」');
+      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {
@@ -356,13 +349,15 @@
     var inp = document.getElementById('aiConfigGeminiModel');
     var inpRead = document.getElementById('aiConfigGeminiModelRead');
     var inpTag = document.getElementById('aiConfigGeminiModelTagging');
+    var inpMat = document.getElementById('aiConfigGeminiModelMaterialOptimize');
     if (!inp || !inpRead || !inpTag) return;
     var headers = await getAuthHeaders();
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
     var payload = {
       gemini_model: inp.value.trim() || 'gemini-2.5-flash-lite',
       gemini_model_read: inpRead.value.trim() || 'gemini-3-flash-preview',
-      gemini_model_tagging: inpTag.value.trim() || 'gemini-3.1-flash-lite'
+      gemini_model_tagging: inpTag.value.trim() || 'gemini-3.1-flash-lite',
+      gemini_model_material_optimize: (inpMat && inpMat.value.trim()) || 'gemini-2.5-flash-image'
     };
     var btn = document.getElementById('btnSaveAiConfig');
     btn.disabled = true;
