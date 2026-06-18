@@ -450,6 +450,7 @@ function normalizeVendorAssetKind(raw) {
     const k = String(raw || '').trim().toLowerCase();
     if (k === 'material') return 'material';
     if (k === 'part') return 'part';
+    if (k === 'other' || k === 'pattern') return 'other';
     return 'prototype';
 }
 
@@ -821,7 +822,8 @@ function vendorCustomizationLevelConstraintRule(levelKey, lang) {
 }
 
 /** 未勾選（及圖文互斥未選）之製造限制句，供 append 至同一 fullPrompt */
-function buildCustomizationPromptLinesForLevels(levelKeys, lang) {
+function buildCustomizationPromptLinesForLevels(levelKeys, lang, opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
     const levelSet = new Set(sanitizeCustomizationLevelsForStorage(levelKeys));
     const constraints = [];
     const hasMono = levelSet.has('mono_graphic');
@@ -829,6 +831,7 @@ function buildCustomizationPromptLinesForLevels(levelKeys, lang) {
 
     VENDOR_CUSTOMIZATION_SCOPE_KEYS.forEach(function (k) {
         if (levelSet.has(k)) return;
+        if (o.skipColorMaterial && k === 'color_material') return;
         const line = vendorCustomizationLevelConstraintRule(k, lang);
         if (line) constraints.push('• ' + line);
     });
@@ -846,16 +849,13 @@ function buildCustomizationPromptLinesForLevels(levelKeys, lang) {
     return constraints;
 }
 
-/** 依參考原型組裝製造限制段落，append 至 fullPrompt（BFL 僅單一 prompt 欄位，無 negative_prompt） */
-function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
+/** 依參考原型組裝製造限制（僅 DB 訂製程度衍生的限制句，不加 wrapper 覆蓋分類 prompt） */
+function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang, opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
     const assets = Array.isArray(prototypeAssets) ? prototypeAssets : [];
     if (!assets.length) return '';
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const header = isEn
-        ? '\n\n[Manufacturing constraints — same single prompt as above; FLUX has no separate negative prompt field]\n'
-        + 'Follow the user product description first. Include these constraint sentences in this same prompt. They describe what this prototype cannot manufacture (unchecked capabilities):\n'
-        : '\n\n【製造限制 — 與上文同一組提示詞；FLUX 無獨立負向提示詞欄位】\n'
-        + '請優先依前文使用者產品描述創作。以下限制句皆寫在同一組 prompt 內，說明此原型未支援的訂製程度：\n';
+    const levelOpts = { skipColorMaterial: o.hasMaterialRefs === true };
     const lines = [];
     assets.forEach(function (asset, idx) {
         const title = (asset.title || '').trim();
@@ -864,7 +864,7 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
         const label = title || (isEn ? ('Prototype ' + (idx + 1)) : ('參考原型 ' + (idx + 1)));
         const levelNames = levelKeys.map(function (k) { return vendorCustomizationLevelLabel(k, lang); }).join(isEn ? ', ' : '、');
         lines.push(isEn ? ('Reference: ' + label + ' (supports: ' + levelNames + ')') : ('參考原型「' + label + '」支援：' + levelNames));
-        buildCustomizationPromptLinesForLevels(levelKeys, lang).forEach(function (line) { lines.push(line); });
+        buildCustomizationPromptLinesForLevels(levelKeys, lang, levelOpts).forEach(function (line) { lines.push(line); });
         if (asset.min_order_quantity != null && Number(asset.min_order_quantity) >= 1) {
             const moqLine = isEn
                 ? ('Minimum order quantity for this prototype: ' + asset.min_order_quantity + ' units (for manufacturing context; do not depict MOQ in the image).')
@@ -884,24 +884,14 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
                 : '• 多原型並用：不得使用全彩表面圖文（以最嚴之單色原型為準）。');
         }
     }
-    const footer = isEn
-        ? 'Obey all restrictions above while fulfilling the user design. When prototypes conflict, use the strictest limit.'
-        : '在實現使用者設計的前提下遵守以上限制；多原型衝突時採最嚴限制。';
-    return header + lines.join('\n') + '\n' + footer;
+    return '\n\n' + lines.join('\n');
 }
 
-/** 使用者勾選之工藝（僅技法短句；顏色依使用者描述） */
+/** 使用者勾選之工藝：僅 DB visual_hint 原文，不加 wrapper */
 function buildSelectedCapabilityPromptAppendix(hintLines, lang) {
     const lines = (hintLines || []).map((s) => String(s || '').trim()).filter(Boolean);
     if (!lines.length) return '';
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const header = isEn
-        ? '\n\n[Selected surface techniques — logos and graphics use ONLY these finishes]\n'
-        : '\n\n【使用者勾選的表面工藝 — 圖案與 Logo 的表面處理僅以下列為準】\n';
-    const footer = isEn
-        ? 'Keep prototype geometry and openings; apply only the techniques listed above to logos and graphics.'
-        : '維持參考原型造型與孔位；圖案與 Logo 的表面處理僅依上列勾選工藝。';
-    return header + lines.map((line) => '• ' + line).join('\n') + '\n' + footer;
+    return '\n\n' + lines.map((line) => '• ' + line).join('\n');
 }
 
 function resolvePrimaryPrototypeAssetIdFromReferenceSources(referenceSourcesRaw) {
@@ -1046,92 +1036,51 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
     return refs;
 }
 
-/** 材料參考附錄：通用角色說明 + Gemini 讀圖 JSON（無檔名／材質 key 硬編碼） */
-function buildMaterialTexturePromptAppendix(materialRefs, lang) {
-    const refs = Array.isArray(materialRefs) ? materialRefs : [];
-    if (!refs.length) return '';
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const header = isEn
-        ? '\n\n[Material references in this prompt]\n'
-        + 'Material images: surface color and texture only. Prototype images: product shape.\n'
-        : '\n\n【材料參考】\n'
-        + '材料圖：僅表面色彩與紋理。原型圖：產品造型。\n';
-    const lines = [];
-    refs.forEach(function (ref, idx) {
-        const n = ref.refIndex != null ? ref.refIndex : (idx + 1);
-        const title = (ref.title || '').trim();
-        const label = title || (isEn ? ('Material ' + (idx + 1)) : ('材料 ' + (idx + 1)));
-        const catNames = (ref.catalog_group_names || []).filter(Boolean).join(isEn ? ', ' : '、');
-        const head = isEn
-            ? ('Image ' + n + ': "' + label + '"' + (catNames ? (' [' + catNames + ']') : ''))
-            : ('image ' + n + '：「' + label + '」' + (catNames ? ('（' + catNames + '）') : ''));
-        lines.push('• ' + head);
-        const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json, { omitSurfaceTechniques: true });
-        if (semLine) lines.push('  ' + semLine);
-    });
-    const footer = isEn
-        ? 'Product body exterior color and grain match the material reference(s). Prototype defines shape and structure.'
-        : '產品本體外表面色彩與皮紋與材料色卡一致；原型決定造型與結構。';
-    return header + lines.join('\n') + '\n' + footer;
+function fluxRefKindLabel(kind, isEn) {
+    if (isEn) {
+        if (kind === 'other') return 'pattern';
+        return kind;
+    }
+    if (kind === 'prototype') return '原型';
+    if (kind === 'part') return '配件';
+    if (kind === 'material') return '材料';
+    if (kind === 'other') return '圖樣';
+    return kind;
 }
 
 /**
- * BFL FLUX.2 多圖編輯：以 prompt 內 image 1 / image 2 … 對應 input_image、input_image_2 …
+ * FLUX 多圖：僅 image 編號 + 類型 + 標題 + 使用者備註 + 材料 Gemini JSON。
+ * 有上傳才列入（產品／配件／材料／圖樣）；不加 header/footer 指令句。
  * @see https://docs.bfl.ai/flux_2/flux2_image_editing
  */
-function buildFluxReferenceImageRoleMapAppendix(orderedSources, lang) {
+function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
     const list = Array.isArray(orderedSources) ? orderedSources.filter(Boolean) : [];
     if (!list.length) return '';
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const hasMaterial = list.some(function (s) { return normalizeVendorAssetKind(s && s.asset_kind) === 'material'; });
+    const semByIndex = new Map();
+    (Array.isArray(materialRefs) ? materialRefs : []).forEach(function (ref) {
+        const n = ref && ref.refIndex != null ? ref.refIndex : null;
+        if (n == null) return;
+        const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json, { omitSurfaceTechniques: true });
+        if (semLine) semByIndex.set(n, semLine);
+    });
     const lines = [];
     list.forEach(function (s, idx) {
         const n = idx + 1;
         const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
+        const kindLabel = fluxRefKindLabel(kind, isEn);
         const title = (s.title || '').trim();
         const titlePart = title
-            ? (isEn ? (' ("' + title + '")') : ('（「' + title + '」）'))
+            ? (isEn ? (' · "' + title + '"') : (' · 「' + title + '」'))
             : '';
         const userNote = (s.user_note || '').trim();
-        const noteSuffix = userNote
-            ? (isEn ? (' Per-image note: ' + userNote + '.') : ('；此圖補充：' + userNote + '。'))
+        const notePart = userNote
+            ? (isEn ? (' · note: ' + userNote) : (' · 備註：' + userNote))
             : '';
-        if (kind === 'prototype') {
-            const bodyFromMaterial = hasMaterial
-                ? (isEn ? '; body color and grain from material reference(s)' : '；本體色彩與皮紋見材料參考圖')
-                : '';
-            lines.push(isEn
-                ? ('image ' + n + titlePart + ': product prototype — shape, silhouette, proportions, structure, and openings only'
-                    + bodyFromMaterial
-                    + (n === 1 ? ' (this is input_image, primary geometry anchor).' : '.') + noteSuffix)
-                : ('image ' + n + titlePart + '：主體原型 — 造型、輪廓、比例、結構與開孔'
-                    + bodyFromMaterial
-                    + (n === 1 ? '（即 input_image，主要造型錨點）。' : '。') + noteSuffix));
-        } else if (kind === 'material') {
-            lines.push(isEn
-                ? ('image ' + n + titlePart + ': main body material swatch — body exterior color and grain source.' + noteSuffix)
-                : ('image ' + n + titlePart + '：主體材料色卡 — 本體外表面色彩與皮紋來源。' + noteSuffix));
-        } else if (kind === 'part') {
-            lines.push(isEn
-                ? ('image ' + n + titlePart + ': parts / hardware — zippers, buckles, straps, trims; match exactly; do not recolor parts via text.' + noteSuffix)
-                : ('image ' + n + titlePart + '：配件／零件 — 五金、拉鍊、扣具、掛繩；外觀以此圖為準，勿用文字改配件顏色。' + noteSuffix));
-        } else {
-            lines.push(isEn
-                ? ('image ' + n + titlePart + ': pattern / style — prints, graphics, or overall look only; not product geometry.' + noteSuffix)
-                : ('image ' + n + titlePart + '：圖樣／風格 — 僅作印花、圖案或整體風格，不決定造型。' + noteSuffix));
-        }
+        lines.push('image ' + n + ' · ' + kindLabel + titlePart + notePart);
+        if (semByIndex.has(n)) lines.push('  ' + semByIndex.get(n));
     });
-    const header = isEn
-        ? '\n\n[Reference images — FLUX multi-reference editing]\n'
-        + 'Product category instructions above define what to generate. Each uploaded reference is assigned as follows (image 1 = input_image):\n'
-        : '\n\n【參考圖用途 — FLUX 多圖編輯】\n'
-        + '上文分類已限定產品類型。每張上傳參考圖對應如下（image 1 = input_image）：\n';
-    let footer = isEn
-        ? ('Only ' + list.length + ' reference image(s) are sent; image numbers above match input_image order exactly (no gaps). '
-        + 'Combine as listed: prototype(s) for geometry, material(s) for body surface, parts and pattern per line. Per-category user notes in the description above apply when present.')
-        : ('實際送出 ' + list.length + ' 張圖，image 編號與上列一致、連號無跳號（未上傳的類別不佔號）。'
-        + '依上列綜合：原型定造型、材料定本體表面、配件與圖樣依各句；描述中各類補充句若有則優先。');
-    return header + lines.join('\n') + '\n' + footer + '\n';
+    return '\n\n' + lines.join('\n');
 }
 
 /** 參考圖順序：原型 → 配件 → 材料 → 圖樣；image 1（input_image）盡量為原型 */
@@ -1146,7 +1095,8 @@ function reorderFluxReferenceInputs(referenceImages, referenceSources) {
         if (kind === 'prototype') return 0;
         if (kind === 'part') return 1;
         if (kind === 'material') return 2;
-        return 3;
+        if (kind === 'other') return 3;
+        return 4;
     };
     pairs.sort(function (a, b) { return rank(a.src) - rank(b.src); });
     return {
@@ -7622,7 +7572,8 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
 }
 
 /**
- * 有參考圖時組合完整 FLUX prompt：分類基礎（必帶）+ 使用者描述 + image 1…N 用途 + 原型／材質附錄。
+ * 有參考圖時組合 FLUX prompt：DB 分類 + 使用者描述 + 參考圖事實列 + 製造限制 + DB 工藝 visual_hint。
+ * 不在 server.js 硬寫 header/footer 指令句覆蓋分類 prompt。
  */
 async function composeGeneratePromptWithReferences(opts) {
     const categoryKeys = opts.categoryKeys;
@@ -7644,16 +7595,16 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-    const roleMap = buildFluxReferenceImageRoleMapAppendix(ordered.sources, uiLang);
-    if (roleMap) fullPrompt = (fullPrompt || '').trim() + roleMap;
+    const hasMaterialRefs = ordered.sources.some(function (s) {
+        return normalizeVendorAssetKind(s && s.asset_kind) === 'material';
+    });
+    const materialRefs = await resolveMaterialRefsForPrompt(ordered.sources);
+    const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, materialRefs, uiLang);
+    if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
 
     const prototypeAssets = await resolvePrototypeAssetsForPrompt(ordered.sources);
-    const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang);
+    const protoAppendix = buildPrototypeCustomizationPromptAppendix(prototypeAssets, uiLang, { hasMaterialRefs: hasMaterialRefs });
     if (protoAppendix) fullPrompt = (fullPrompt || '').trim() + protoAppendix;
-
-    const materialRefs = await resolveMaterialRefsForPrompt(ordered.sources);
-    const materialAppendix = buildMaterialTexturePromptAppendix(materialRefs, uiLang);
-    if (materialAppendix) fullPrompt = (fullPrompt || '').trim() + materialAppendix;
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
