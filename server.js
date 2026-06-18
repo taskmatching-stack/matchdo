@@ -4545,21 +4545,30 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
     }
 });
 
-// GET /api/admin/ai-config — AI 模型設定（僅管理員）：翻譯 + 讀圖/分析
+// GET /api/admin/ai-config — AI 模型設定（僅管理員）：Gemini + FLUX 生圖
 app.get('/api/admin/ai-config', async (req, res) => {
     try {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
-        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['gemini_model', 'gemini_model_read', 'gemini_model_tagging']);
+        const configKeys = [
+            'gemini_model', 'gemini_model_read', 'gemini_model_tagging',
+            ...Object.keys(BFL_FLUX_MODEL_CONFIG)
+        ];
+        const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', configKeys);
         const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
+        const bfl = resolveBflFluxModelsFromRows(rows);
         res.json({
             gemini_model: byKey.gemini_model || process.env.GEMINI_MODEL || GEMINI_MODEL_TRANSLATION_DEFAULT,
             gemini_model_read: byKey.gemini_model_read || process.env.GEMINI_MODEL_READ || GEMINI_MODEL_READ_DEFAULT,
             gemini_model_tagging: byKey.gemini_model_tagging || process.env.GEMINI_MODEL_TAGGING || visualSemantics.GEMINI_MODEL_TAGGING_DEFAULT,
+            ...bfl.models,
+            bfl_flux_model_options: Object.keys(BFL_PLAYGROUND_MODELS),
+            bfl_flux_model_defaults: BFL_FLUX_MODEL_CONFIG,
             saved_in_db: {
                 gemini_model: !!byKey.gemini_model,
                 gemini_model_read: !!byKey.gemini_model_read,
-                gemini_model_tagging: !!byKey.gemini_model_tagging
+                gemini_model_tagging: !!byKey.gemini_model_tagging,
+                ...bfl.saved_in_db
             }
         });
     } catch (e) {
@@ -4585,6 +4594,12 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
         if (body.gemini_model_tagging !== undefined) {
             upserts.push({ key: 'gemini_model_tagging', value: String(body.gemini_model_tagging).trim(), updated_at: now });
         }
+        Object.keys(BFL_FLUX_MODEL_CONFIG).forEach((key) => {
+            if (body[key] !== undefined) {
+                const modelId = normalizeBflFluxModelId(body[key], BFL_FLUX_MODEL_CONFIG[key]);
+                upserts.push({ key, value: modelId, updated_at: now });
+            }
+        });
         if (upserts.length === 0) {
             return res.status(400).json({ error: '無可儲存的欄位' });
         }
@@ -4602,11 +4617,13 @@ app.patch('/api/admin/ai-config', express.json(), async (req, res) => {
             return res.status(500).json({ error: readErr.message || '儲存後讀取失敗' });
         }
         const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
+        const bfl = resolveBflFluxModelsFromRows(rows);
         res.json({
             success: true,
             gemini_model: byKey.gemini_model ?? null,
             gemini_model_read: byKey.gemini_model_read ?? null,
-            gemini_model_tagging: byKey.gemini_model_tagging ?? null
+            gemini_model_tagging: byKey.gemini_model_tagging ?? null,
+            ...bfl.models
         });
     } catch (e) {
         console.error('PATCH /api/admin/ai-config:', e);
@@ -7183,7 +7200,6 @@ app.post('/api/categories/seed-defaults', async (req, res) => {
 
 const BFL_BASE = 'https://api.bfl.ai';
 const BFL_FLUX_PRO = BFL_BASE + '/v1/flux-2-pro';
-const BFL_FLUX_MAX = BFL_BASE + '/v1/flux-2-max';
 
 /** Admin Playground 可用模型 → BFL path */
 const BFL_PLAYGROUND_MODELS = {
@@ -7193,9 +7209,48 @@ const BFL_PLAYGROUND_MODELS = {
     'flux-2-klein-9b': '/v1/flux-2-klein-9b',
     'flux-2-klein-4b': '/v1/flux-2-klein-4b'
 };
+
+/** payment_config 鍵 → 程式預設 model id */
+const BFL_FLUX_MODEL_CONFIG = {
+    bfl_flux_model_generate: 'flux-2-pro',
+    bfl_flux_model_vendor_product: 'flux-2-pro',
+    bfl_flux_model_vendor_material: 'flux-2-max',
+    bfl_flux_model_scene_pattern: 'flux-2-pro'
+};
+
+function normalizeBflFluxModelId(raw, fallbackId) {
+    const id = String(raw || '').trim();
+    if (BFL_PLAYGROUND_MODELS[id]) return id;
+    const fb = String(fallbackId || 'flux-2-pro').trim();
+    if (BFL_PLAYGROUND_MODELS[fb]) return fb;
+    return 'flux-2-pro';
+}
+
 function getBflPlaygroundEndpoint(model) {
     const path = BFL_PLAYGROUND_MODELS[model] || BFL_PLAYGROUND_MODELS['flux-2-pro'];
     return BFL_BASE + path;
+}
+
+async function getBflFluxEndpointForConfigKey(configKey) {
+    const fallback = BFL_FLUX_MODEL_CONFIG[configKey] || 'flux-2-pro';
+    try {
+        const { data: row } = await supabase.from('payment_config').select('value').eq('key', configKey).maybeSingle();
+        const modelId = normalizeBflFluxModelId(row && row.value, fallback);
+        return getBflPlaygroundEndpoint(modelId);
+    } catch (_) {
+        return getBflPlaygroundEndpoint(fallback);
+    }
+}
+
+function resolveBflFluxModelsFromRows(rows) {
+    const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
+    const out = {};
+    const saved = {};
+    Object.keys(BFL_FLUX_MODEL_CONFIG).forEach((key) => {
+        out[key] = normalizeBflFluxModelId(byKey[key], BFL_FLUX_MODEL_CONFIG[key]);
+        saved[key] = !!byKey[key];
+    });
+    return { models: out, saved_in_db: saved };
 }
 
 /** 共用的 BFL 輪詢取圖：createData 含 polling_url，輪詢到 Ready 後下載 sample 回傳 Buffer */
@@ -7220,7 +7275,7 @@ async function pollBflResult(createData, BFL_API_KEY) {
 }
 
 /** FLUX 2.0 PRO 純文字生圖；BFL 僅 body.prompt（無 negative_prompt），prompt 可含製造限制句 */
-async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) {
+async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, endpointUrl) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY) return null;
     prompt = await translatePromptToEnglishForFlux(prompt);
@@ -7233,7 +7288,8 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) 
         safety_tolerance: 2
     };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
-    const createRes = await fetch(BFL_FLUX_PRO, {
+    const endpoint = endpointUrl || BFL_FLUX_PRO;
+    const createRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'x-key': BFL_API_KEY },
         body: JSON.stringify(body)
@@ -7296,9 +7352,13 @@ async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, ass
         fluxBuffer = prepared.buffer;
         fluxMime = prepared.mimetype;
         fluxOpts = {
-            endpointUrl: BFL_FLUX_MAX,
+            endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
             width: prepared.width,
             height: prepared.height
+        };
+    } else {
+        fluxOpts = {
+            endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_product')
         };
     }
     const dataUrl = `data:${fluxMime};base64,${fluxBuffer.toString('base64')}`;
@@ -7522,7 +7582,8 @@ async function generateSceneSimulateImage(environmentImageBase64, productImageBa
         input_image_2: productImageBase64
     };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
-    const createRes = await fetch(BFL_FLUX_PRO, {
+    const endpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_scene_pattern');
+    const createRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'x-key': BFL_API_KEY },
         body: JSON.stringify(body)
@@ -7557,7 +7618,8 @@ async function generatePatternExtractImage(imageBase64, userPrompt, seamless, se
         input_image: imageBase64
     };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
-    const createRes = await fetch(BFL_FLUX_PRO, {
+    const endpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_scene_pattern');
+    const createRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'x-key': BFL_API_KEY },
         body: JSON.stringify(body)
@@ -7823,11 +7885,12 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         // ── 步驟 2：呼叫 BFL 生圖 ──
         if (process.env.BFL_API_KEY) {
             try {
+                const fluxGenerateEndpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_generate');
                 if (hasRefs) {
-                    const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat);
+                    const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat, { endpointUrl: fluxGenerateEndpoint });
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 } else {
-                    const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat);
+                    const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint);
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 }
             } catch (e) {

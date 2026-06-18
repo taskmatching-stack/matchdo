@@ -14,11 +14,24 @@
 | **語意提示詞 API** | `GET`／`PATCH` [`/api/admin/semantics-prompts`](../server.js) |
 | **儲存位置** | Supabase `payment_config` 表，鍵名見下表 |
 
-本頁**不**涵蓋產品主圖生圖模型（訂製流程為 **FLUX**；若程式內有 Gemini 圖像模型則為獨立常數，不在此三欄設定）。
+本頁涵蓋 **Gemini** 三槽與 **FLUX 生圖**四槽（`payment_config`），見 §2、§2.1。
 
 ---
 
-## 2. 三類 Gemini 模型（分開設定、互不覆寫）
+## 2. Gemini 與 FLUX 模型
+
+### 2.1 FLUX 生圖模型（`bfl_flux_model_*`）
+
+| 後台欄位 | `payment_config.key` | 程式預設 | 用途 |
+|----------|----------------------|----------|------|
+| 訂製設計頁生圖 | `bfl_flux_model_generate` | `flux-2-pro` | `POST /api/generate-product-image` |
+| 廠商產品 AI 重繪 | `bfl_flux_model_vendor_product` | `flux-2-pro` | 數位原型／零件白底重繪 |
+| 廠商材料 AI 優化 | `bfl_flux_model_vendor_material` | `flux-2-max` | 材質色卡 img2img（建議 max 保真） |
+| 實境模擬／圖樣提取 | `bfl_flux_model_scene_pattern` | `flux-2-pro` | 實境合成、圖樣提取 |
+
+可選 model id 與 Playground 相同：`flux-2-max`、`flux-2-pro`、`flux-2-flex`、`flux-2-klein-9b`、`flux-2-klein-4b`。
+
+### 2.2 三類 Gemini 模型（分開設定、互不覆寫）
 
 後台「AI 模型設定」卡片內有三個文字欄位，對應三組 `payment_config` 鍵與伺服器函式：
 
