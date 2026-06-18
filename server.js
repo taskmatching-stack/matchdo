@@ -11969,6 +11969,48 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
     }
 });
 
+// POST /api/me/manufacturer/logo — 上傳廠商 LOGO（存 Supabase Storage，寫入 logo_url）
+app.post('/api/me/manufacturer/logo', upload.single('logo'), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization || req.headers['x-auth-token'];
+        const token = authHeader && (authHeader.replace(/^\s*Bearer\s+/i, '') || authHeader);
+        if (!token) return res.status(401).json({ error: '請先登入' });
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
+        const { data: mfr } = await supabase.from('manufacturers').select('id, vendor_source').eq('user_id', user.id).maybeSingle();
+        if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料' });
+        if (await rejectSeedVendorSelfServiceWrite(user.id, mfr, res)) return;
+        const file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return res.status(400).json({ error: '請上傳圖片（JPG／PNG／WebP／GIF，5MB 以內）' });
+        if (file.buffer && file.buffer.length > 5 * 1024 * 1024) {
+            return res.status(400).json({ error: '圖片請小於 5MB' });
+        }
+        const logoName = `logo-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+        const { publicUrl } = await uploadToSupabaseStorage(
+            'custom-products',
+            `manufacturer/${mfr.id}/logo`,
+            { buffer: file.buffer, mimetype: file.mimetype, originalname: logoName }
+        );
+        const { data: updated, error } = await supabase
+            .from('manufacturers')
+            .update({ logo_url: publicUrl })
+            .eq('id', mfr.id)
+            .select('id, logo_url')
+            .single();
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(500).json({ error: '資料庫缺少 logo_url 欄位，請執行 docs/add-manufacturer-logo.sql' });
+            }
+            console.error('POST /api/me/manufacturer/logo update:', error);
+            return res.status(500).json({ error: '儲存失敗' });
+        }
+        res.json({ logo_url: updated.logo_url, id: updated.id });
+    } catch (e) {
+        console.error('POST /api/me/manufacturer/logo:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/service-areas — 前台讀取服務地區（公開）
 // 回傳新三層結構：
 //   countries[]  → 台灣 & 海外國家（頂層）

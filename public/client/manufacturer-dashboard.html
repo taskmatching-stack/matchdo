@@ -209,9 +209,11 @@
                                         <i class="bi bi-building text-muted fs-4"></i>
                                     </div>
                                     <div class="flex-grow-1 min-w-0">
-                                        <label class="form-label small mb-1">LOGO 圖片網址</label>
-                                        <input type="url" class="form-control form-control-sm" id="logo-url" placeholder="https://...">
-                                        <button class="btn btn-sm btn-primary mt-2" id="btnSaveLogo">儲存 LOGO</button>
+                                        <label class="form-label small mb-1">上傳 LOGO 圖片</label>
+                                        <input type="file" class="form-control form-control-sm" id="logo-file" accept="image/jpeg,image/png,image/webp,image/gif">
+                                        <p class="form-text small text-muted mb-2">建議正方形、至少 200×200；JPG／PNG／WebP，單檔 5MB 以內。</p>
+                                        <button type="button" class="btn btn-sm btn-primary" id="btnSaveLogo">上傳並儲存 LOGO</button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-1 d-none" id="btnClearLogo">移除 LOGO</button>
                                         <span id="logoSaveMsg" class="small ms-2"></span>
                                     </div>
                                 </div>
@@ -337,21 +339,7 @@
                 });
 
                 // 廠商 LOGO
-                var logoUrlInput = document.getElementById('logo-url');
-                var logoPreview = document.getElementById('logo-preview');
-                if (logoUrlInput) logoUrlInput.value = mfr.logo_url || '';
-                if (logoPreview) {
-                    if (mfr.logo_url && /^https?:\/\//i.test(mfr.logo_url)) {
-                        logoPreview.innerHTML = '';
-                        var img = document.createElement('img');
-                        img.src = mfr.logo_url;
-                        img.alt = '';
-                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-                        logoPreview.appendChild(img);
-                    } else {
-                        logoPreview.innerHTML = '<i class="bi bi-building text-muted" style="font-size:2rem;"></i>';
-                    }
-                }
+                renderLogoPreview(mfr.logo_url || '');
 
                 await loadStats(mfr);
                 await loadRecentPortfolio();
@@ -435,42 +423,110 @@
                 });
             }
 
-            // 廠商 LOGO 儲存
+            function renderLogoPreview(url) {
+                var logoPreview = document.getElementById('logo-preview');
+                var btnClear = document.getElementById('btnClearLogo');
+                if (!logoPreview) return;
+                var u = (url || '').trim();
+                if (u) {
+                    logoPreview.innerHTML = '';
+                    var img = document.createElement('img');
+                    img.src = u;
+                    img.alt = '';
+                    img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+                    logoPreview.appendChild(img);
+                    if (btnClear) btnClear.classList.remove('d-none');
+                } else {
+                    logoPreview.innerHTML = '<i class="bi bi-building text-muted" style="font-size:2rem;"></i>';
+                    if (btnClear) btnClear.classList.add('d-none');
+                }
+            }
+
+            var logoFileInput = document.getElementById('logo-file');
+            if (logoFileInput) {
+                logoFileInput.addEventListener('change', function () {
+                    var f = logoFileInput.files && logoFileInput.files[0];
+                    if (!f) return;
+                    var reader = new FileReader();
+                    reader.onload = function () { renderLogoPreview(reader.result); };
+                    reader.readAsDataURL(f);
+                });
+            }
+
+            // 廠商 LOGO 上傳
             var btnSaveLogo = document.getElementById('btnSaveLogo');
             var logoSaveMsg = document.getElementById('logoSaveMsg');
             if (btnSaveLogo && logoSaveMsg) {
                 btnSaveLogo.addEventListener('click', async function () {
-                    logoSaveMsg.textContent = '儲存中…';
+                    logoSaveMsg.textContent = '上傳中…';
                     logoSaveMsg.className = 'small text-muted';
                     var t = await getToken();
                     if (!t) { logoSaveMsg.textContent = '請先登入'; logoSaveMsg.className = 'small text-danger'; return; }
-                    var url = (document.getElementById('logo-url').value || '').trim();
+                    var fileInput = document.getElementById('logo-file');
+                    var file = fileInput && fileInput.files && fileInput.files[0];
+                    if (!file) {
+                        logoSaveMsg.textContent = '請選擇圖片檔案';
+                        logoSaveMsg.className = 'small text-danger';
+                        return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        logoSaveMsg.textContent = '檔案請小於 5MB';
+                        logoSaveMsg.className = 'small text-danger';
+                        return;
+                    }
+                    btnSaveLogo.disabled = true;
                     try {
-                        var r = await fetch('/api/me/manufacturer', {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-                            body: JSON.stringify({ logo_url: url || null })
+                        var fd = new FormData();
+                        fd.append('logo', file);
+                        var r = await fetch('/api/me/manufacturer/logo', {
+                            method: 'POST',
+                            headers: { Authorization: 'Bearer ' + t },
+                            body: fd
                         });
-                        if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
-                        logoSaveMsg.textContent = '✅ 已儲存';
+                        var data = await r.json().catch(function () { return {}; });
+                        if (!r.ok) throw new Error(data.error || '上傳失敗');
+                        renderLogoPreview(data.logo_url || '');
+                        if (fileInput) fileInput.value = '';
+                        logoSaveMsg.textContent = '✅ 已上傳';
                         logoSaveMsg.className = 'small text-success';
-                        var logoPreview = document.getElementById('logo-preview');
-                        if (logoPreview) {
-                            logoPreview.innerHTML = '';
-                            if (url && /^https?:\/\//i.test(url)) {
-                                var img = document.createElement('img');
-                                img.src = url;
-                                img.alt = '';
-                                img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-                                logoPreview.appendChild(img);
-                            } else {
-                                logoPreview.innerHTML = '<i class="bi bi-building text-muted" style="font-size:2rem;"></i>';
-                            }
-                        }
                         setTimeout(function () { logoSaveMsg.textContent = ''; }, 3000);
                     } catch (e) {
                         logoSaveMsg.textContent = '❌ ' + e.message;
                         logoSaveMsg.className = 'small text-danger';
+                    } finally {
+                        btnSaveLogo.disabled = false;
+                    }
+                });
+            }
+
+            var btnClearLogo = document.getElementById('btnClearLogo');
+            if (btnClearLogo && logoSaveMsg) {
+                btnClearLogo.addEventListener('click', async function () {
+                    if (!confirm('確定移除 LOGO？')) return;
+                    logoSaveMsg.textContent = '處理中…';
+                    logoSaveMsg.className = 'small text-muted';
+                    var t = await getToken();
+                    if (!t) { logoSaveMsg.textContent = '請先登入'; logoSaveMsg.className = 'small text-danger'; return; }
+                    btnClearLogo.disabled = true;
+                    try {
+                        var r = await fetch('/api/me/manufacturer', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                            body: JSON.stringify({ logo_url: null })
+                        });
+                        var data = await r.json().catch(function () { return {}; });
+                        if (!r.ok) throw new Error(data.error || '移除失敗');
+                        renderLogoPreview('');
+                        var fileInput = document.getElementById('logo-file');
+                        if (fileInput) fileInput.value = '';
+                        logoSaveMsg.textContent = '✅ 已移除';
+                        logoSaveMsg.className = 'small text-success';
+                        setTimeout(function () { logoSaveMsg.textContent = ''; }, 3000);
+                    } catch (e) {
+                        logoSaveMsg.textContent = '❌ ' + e.message;
+                        logoSaveMsg.className = 'small text-danger';
+                    } finally {
+                        btnClearLogo.disabled = false;
                     }
                 });
             }

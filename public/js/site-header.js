@@ -61,6 +61,44 @@ function markSiteHeaderReady(headerContainer) {
     if (headerContainer) headerContainer.setAttribute('data-header-ready', '1');
 }
 
+/** 等 Bootstrap bundle 載入後初始化點擊下拉（頭像、我的功能） */
+function ensureBootstrapReady() {
+    if (typeof window.bootstrap !== 'undefined' && window.bootstrap.Dropdown) {
+        return Promise.resolve(window.bootstrap);
+    }
+    return new Promise(function (resolve) {
+        var tries = 0;
+        (function poll() {
+            if (typeof window.bootstrap !== 'undefined' && window.bootstrap.Dropdown) {
+                resolve(window.bootstrap);
+                return;
+            }
+            if (tries++ > 100) {
+                resolve(null);
+                return;
+            }
+            setTimeout(poll, 50);
+        })();
+    });
+}
+
+function initSiteHeaderDropdowns(root) {
+    if (!root) return;
+    ensureBootstrapReady().then(function (bs) {
+        if (!bs || !bs.Dropdown) return;
+        root.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (el) {
+            try {
+                if (typeof bs.Dropdown.getOrCreateInstance === 'function') {
+                    bs.Dropdown.getOrCreateInstance(el);
+                } else {
+                    var inst = bs.Dropdown.getInstance(el);
+                    if (!inst) new bs.Dropdown(el);
+                }
+            } catch (e) { /* ignore */ }
+        });
+    });
+}
+
 function getNavLang() {
     if (window.i18n && window.i18n.getLang) return window.i18n.getLang();
     if (window.__I18N__ && window.__I18N__.lang) return window.__I18N__.lang;
@@ -503,6 +541,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
         window.i18n.applyPage(headerContainer);
     }
 
+    initSiteHeaderDropdowns(headerContainer);
     initMobileNavDrawer(headerContainer);
 
     if (user && typeof AuthService !== 'undefined' && AuthService.getSession) {

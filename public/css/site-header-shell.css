@@ -15,6 +15,14 @@
   }
 }
 
+/* Bootstrap 點擊下拉（頭像、我的功能）：避免被 navbar 裁切 */
+#site-header .navbar-collapse {
+  overflow: visible;
+}
+#site-header .dropdown-menu {
+  z-index: 1100;
+}
+
 /* 品牌標語：單行小字，放在第二排左側空白或 Logo 旁，不增加導覽列高度 */
 #site-header .site-brand-taglines {
   display: inline-flex;
