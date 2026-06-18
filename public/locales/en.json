@@ -52,7 +52,7 @@
   "baseModels.uploadGuideMaterial": "Material references are for the main product (garment fabric, leather swatches, full repeat patterns). Do not upload accessory color variants as materials—use Parts, one entry per color/finish.",
   "baseModels.partImageHint": "Use multiple images only for the same color and finish (angles/details). For a new color, create a new product; name images by angle (e.g. side, top)—do not mix black and gold in one entry.",
   "baseModels.materialImageHint": "One material entry = one main-product material (e.g. 14oz denim blue). Title should name the material, not “part name + color”.",
-  "baseModels.materialMultiImageHint": "Select multiple images or add one by one (first = cover, up to 12). Use multiple images for the same material from different angles; create a new entry for a different material.",
+  "baseModels.materialMultiImageHint": "Select multiple images or add one by one (first = cover, up to 12). Click image to preview; use AI enhance or AI upscale below before publish. Multiple images = same material, different angles; new entry for a different material.",
   "baseModels.productImagesGalleryLabel": "Product images (angles / color variants)",
   "baseModels.coverImage": "Cover",
   "baseModels.addGalleryImages": "Add product image",

@@ -14875,8 +14875,8 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         if (!req.file || !req.file.buffer) return res.status(400).json({ error: '請上傳圖片' });
         const body = req.body || {};
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
-        if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '僅數位原型或配件／零件可使用 AI 放大' });
+        if (assetKind !== 'prototype' && assetKind !== 'part' && assetKind !== 'material') {
+            return res.status(400).json({ error: '不支援的素材類型' });
         }
         const upscaleNeed = await evaluateVendorUpscaleNeedFromBuffer(req.file.buffer);
         if (!upscaleNeed.needed) {

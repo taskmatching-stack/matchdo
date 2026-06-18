@@ -52,7 +52,7 @@
   "baseModels.uploadGuideMaterial": "材料參考給主產品用（整件衣服的布料、皮革色卡、織紋滿版圖）。不要把配件的顏色變體當材料上傳；配件請到「配件／零件」分頁，每種顏色／材質各建一筆。",
   "baseModels.partImageHint": "多張圖請用於同一顏色、同一材質的不同角度或細節；換顏色請另建一筆產品，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。",
   "baseModels.materialImageHint": "一筆材料＝一種主產品用材質（例：14oz 丹寧藍）。標題請寫材質名稱，勿寫配件名＋顏色。",
-  "baseModels.materialMultiImageHint": "可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；多張請用於同一材質的不同角度或細節，換材質請另建一筆。",
+  "baseModels.materialMultiImageHint": "可一次選多張，或按「新增圖片」逐張加入（第一張為封面，最多 12 張）；點圖片＝預覽放大；圖下方可按「AI 優化」或「AI 放大」後再發布。多張請用於同一材質的不同角度或細節，換材質請另建一筆。",
   "baseModels.productImagesGalleryLabel": "產品圖片（多角度／多色款）",
   "baseModels.coverImage": "封面",
   "baseModels.addGalleryImages": "新增產品圖",
