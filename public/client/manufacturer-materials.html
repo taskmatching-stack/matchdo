@@ -424,13 +424,9 @@
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
-                                        <label class="form-check-label" for="add-optimize-material"><span data-i18n="baseModels.optimizeMaterial">材質圖 AI 優化（含 AI 標籤）</span> — <span class="add-points-optimize fw-semibold text-primary">10</span> <span data-i18n="baseModels.pointsUnit">點</span></label>
-                                    </div>
-                                    <p class="form-text text-muted small mb-2 add-optimize-material-hint" data-i18n="baseModels.optimizeMaterialHint">強化滿版色卡／圖樣（織紋、木紋、金屬質感），不換成商品白底照。微距圖請在標題註明，以免生圖時紋路過粗。</p>
-                                    <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong class="add-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
+                                <div class="col-12 add-per-image-optimize-wrap">
+                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 優化，不另收上傳費）</span></p>
+                                    <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 優化並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-linked-prototypes-block">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</span> <span class="text-muted fw-normal small">（選填）</span></label>
@@ -1776,7 +1772,6 @@
         function updateAddFormPointsEstimate(form) {
             if (!form) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
-            if (kind === 'material') return;
             var list = getPendingImages(form);
             var upload = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
             var charged = list.reduce(function (s, p) {
@@ -1785,11 +1780,13 @@
             var valEl = form.querySelector('.add-points-estimate-val');
             var hintEl = form.querySelector('.add-points-estimate-hint');
             var redrawLine = form.querySelector('.add-points-redraw-estimate-line');
+            var isMat = kind === 'material';
+            var actionWord = isMat ? '優化' : '重繪';
             if (valEl) valEl.textContent = String(upload);
             if (hintEl) {
                 hintEl.textContent = charged > 0
-                    ? '（發布上傳 ' + upload + ' 點；已預覽重繪 -' + charged + ' 點，發布時採用預覽不再重扣）'
-                    : '（發布上傳 ' + upload + ' 點；重繪／AI 放大後請勾選要上傳的圖，可只傳原圖或只傳新圖）';
+                    ? '（發布上傳 ' + upload + ' 點；已預覽' + actionWord + ' -' + charged + ' 點，發布時採用預覽不再重扣）'
+                    : '（發布上傳 ' + upload + ' 點；' + actionWord + '／AI 放大後請勾選要上傳的圖，可只傳原圖或只傳新圖）';
             }
             if (redrawLine) redrawLine.classList.add('d-none');
             syncAddFormOptimizeBgWrap(form);
@@ -4075,7 +4072,7 @@
             var uploadFiles = [];
             var uploadLabels = [];
             var uploadDerived = [];
-            if (kind === 'prototype' || kind === 'part') {
+            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
                 var pendingSelErr = validatePendingUploadList(pending);
                 if (pendingSelErr) {
                     msgEl.textContent = pendingSelErr;
@@ -4092,11 +4089,6 @@
                     if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
                         optIdx.push(startIdx);
                     }
-                });
-            } else if (kind === 'material') {
-                pending.forEach(function (p) {
-                    uploadFiles.push(p.file);
-                    uploadLabels.push(p.label || labelFromFilename(p.file && p.file.name));
                 });
             }
             msgEl.textContent = '';
@@ -4116,20 +4108,13 @@
                 fd.append('image', uploadFiles[0]);
                 for (var pi = 1; pi < uploadFiles.length; pi++) fd.append('gallery', uploadFiles[pi]);
                 fd.append('image_labels', JSON.stringify(uploadLabels));
-                if (kind === 'prototype' || kind === 'part') {
-                    if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
-                        fd.append('image_ai_derived', JSON.stringify(uploadDerived));
-                    }
-                    if (optIdx.length) {
-                        fd.append('optimize_image_indices', JSON.stringify(optIdx));
+                if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
+                    fd.append('image_ai_derived', JSON.stringify(uploadDerived));
+                }
+                if (optIdx.length) {
+                    fd.append('optimize_image_indices', JSON.stringify(optIdx));
+                    if (kind !== 'material') {
                         fd.append('optimize_background', getOptimizeBackgroundValue(form));
-                    }
-                } else if (kind === 'material') {
-                    var optimizeChkMat = form.querySelector('.add-optimize-product');
-                    if (optimizeChkMat && optimizeChkMat.checked) {
-                        var matOptIdx = [];
-                        for (var mxi = 0; mxi < uploadFiles.length; mxi++) matOptIdx.push(mxi);
-                        fd.append('optimize_image_indices', JSON.stringify(matOptIdx));
                     }
                 }
             }
