@@ -391,11 +391,10 @@
                     var url = (tile.getAttribute('data-variant-url') || '').trim();
                     var on = !url || url === activeUrl;
                     var isPicked = kindKey !== 'prototype' && picked && on;
-                    var showActive = multi && on && (kindKey === 'prototype' || picked);
+                    var showActive = on && (kindKey === 'prototype' || (multi && picked));
                     tile.classList.toggle('vplt-guide-tile--active-view', showActive);
                     tile.classList.toggle('vplt-guide-tile--picked', isPicked);
                     tile.setAttribute('aria-pressed', isPicked ? 'true' : 'false');
-                    syncGuideTileCheckbox(tile, kindKey, picked, on, multi);
                     var media = tile.querySelector('.vplt-guide-tile-media');
                     if (!media) return;
                     media.querySelectorAll('.vplt-guide-tile-badge').forEach(function (b) { b.remove(); });
@@ -597,48 +596,19 @@
             '<i class="bi bi-zoom-in" aria-hidden="true"></i></button>';
     }
 
-    function guideTileMediaHtml(a, it, optionLabel, badgeHtml, checkHtml) {
+    function guideTileMediaHtml(a, it, optionLabel, badgeHtml) {
         var url = (it && it.url) ? it.url : '';
         if (!url) {
             return '<div class="vplt-guide-tile-media vplt-guide-tile-media--empty" aria-hidden="true"></div>';
         }
         return '<div class="vplt-guide-tile-media">' +
-            (checkHtml || '') +
             (badgeHtml || '') +
             '<img src="' + esc(url) + '" alt="' + esc(optionLabel || '') + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
             guideTileZoomBtnHtml(a, url, optionLabel) +
             '</div>';
     }
 
-    function guideTileCheckboxChecked(kindKey, picked, isActive, multi) {
-        if (kindKey === 'prototype') {
-            if (multi) return isActive;
-            return true;
-        }
-        return picked && isActive;
-    }
-
-    function guideTileCheckboxHtml(kindKey, picked, isActive, multi) {
-        if (IS_VENDOR) return '';
-        var checked = guideTileCheckboxChecked(kindKey, picked, isActive, multi);
-        var icon = checked ? 'bi-check-square-fill' : 'bi-square';
-        return '<span class="vplt-guide-tile-check' + (checked ? ' is-checked' : '') + '" aria-hidden="true">' +
-            '<i class="bi ' + icon + '"></i></span>';
-    }
-
-    function syncGuideTileCheckbox(tile, kindKey, picked, isActive, multi) {
-        var checkEl = tile && tile.querySelector('.vplt-guide-tile-check');
-        if (!checkEl) return;
-        var checked = guideTileCheckboxChecked(kindKey, picked, isActive, multi);
-        checkEl.classList.toggle('is-checked', checked);
-        var ic = checkEl.querySelector('.bi');
-        if (ic) {
-            ic.classList.toggle('bi-check-square-fill', checked);
-            ic.classList.toggle('bi-square', !checked);
-        }
-    }
-
-    /** 主產品／配件／材料同一套：多圖 = 多格，標籤與框線一致 */
+    /** 主產品／配件／材料同一套：多圖 = 多格，選取以 teal 外框 + 角標（預覽中／已選）表示 */
     function guideTileHtml(a, aid, kindKey, picked, variantIt, variantIndex, variantTotal) {
         var kindCls = kindKey === 'prototype' ? 'prototype' : (kindKey === 'material' ? 'material' : 'part');
         var items = variantImageItems(a);
@@ -654,7 +624,7 @@
         var isActive = !multi || imgUrl === activeUrl;
         var isPicked = kindKey !== 'prototype' && picked && isActive;
         var pickCls = isPicked ? ' vplt-guide-tile--picked' : '';
-        var showActive = multi && isActive && (kindKey === 'prototype' || picked);
+        var showActive = isActive && (kindKey === 'prototype' || (multi && picked));
         var activeCls = showActive ? ' vplt-guide-tile--active-view' : '';
         var interCls = (multi || kindKey !== 'prototype') ? ' vplt-guide-tile--interactive' : '';
         var variantAttrs = multi && it && it.url
@@ -662,10 +632,9 @@
             : '';
         var badgeHtml = guideTileBadgeHtml(kindKey, picked, isActive, multi);
         var pressedAttr = isPicked ? ' aria-pressed="true"' : ' aria-pressed="false"';
-        var checkHtml = guideTileCheckboxHtml(kindKey, picked, isActive, multi);
         return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + interCls + pickCls + activeCls + '"' +
             ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + pressedAttr + ' tabindex="0">' +
-            guideTileMediaHtml(a, it, optionLabel, badgeHtml, checkHtml) +
+            guideTileMediaHtml(a, it, optionLabel, badgeHtml) +
             '<span class="vplt-guide-tile-name">' + displayName + '</span>' +
             subKind +
             '</div>';

@@ -392,29 +392,6 @@
     background: transparent;
     transition: box-shadow 0.15s ease;
 }
-.vplt-guide-tile-check {
-    position: absolute;
-    top: 0.28rem;
-    left: 0.28rem;
-    z-index: 8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.92);
-    color: #86868b;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-    pointer-events: none;
-}
-.vplt-guide-tile-check.is-checked {
-    color: #0d9488;
-}
-.vplt-guide-tile-check .bi {
-    font-size: 1.1rem;
-    line-height: 1;
-}
 .vplt-guide-tile--active-view .vplt-guide-tile-media {
     box-shadow: 0 0 0 3px #0d9488;
     border-radius: 12px;
