@@ -155,7 +155,7 @@
                         global.sessionStorage.removeItem('redesignSubcategoryKey');
                     }
                 } catch (e) { /* ignore */ }
-                if (!preMain && typeof URLSearchParams !== 'undefined') {
+                if (!preMain && !config.skipUrlCategoryPrefill && typeof URLSearchParams !== 'undefined') {
                     var rp = new URLSearchParams(global.location.search);
                     preMain = (rp.get('category_key') || '').trim();
                     preSub = (rp.get('subcategory_key') || '').trim();
