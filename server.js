@@ -890,6 +890,16 @@ function buildPrototypeCustomizationPromptAppendix(prototypeAssets, lang) {
     return header + lines.join('\n') + '\n' + footer;
 }
 
+/** 勾選工藝 hint 是否為平面印刷類（非浮雕／壓印工藝） */
+function capabilityHintsImplyFlatPrint(hintLines) {
+    const lines = (hintLines || []).map((s) => String(s || '').trim()).filter(Boolean);
+    if (!lines.length) return false;
+    const embossLike = /浮雕|壓印|打凸|emboss|deboss|leather stamp|刻紋|雷雕/i;
+    if (lines.some((line) => embossLike.test(line))) return false;
+    const flatLike = /uv|印刷|print|直噴|移印|網版|轉印|inkjet|dtg|latex|digital|噴印|燙|foil|亮膜|spot/i;
+    return lines.some((line) => flatLike.test(String(line).toLowerCase()) || flatLike.test(line));
+}
+
 /** 使用者勾選之工藝（僅技法短句；顏色依使用者描述） */
 function buildSelectedCapabilityPromptAppendix(hintLines, lang) {
     const lines = (hintLines || []).map((s) => String(s || '').trim()).filter(Boolean);
@@ -898,9 +908,14 @@ function buildSelectedCapabilityPromptAppendix(hintLines, lang) {
     const header = isEn
         ? '\n\n[User-selected surface techniques — technique only; colors/patterns follow user description above]\n'
         : '\n\n【使用者勾選的表面工藝｜僅技法，顏色與圖樣依上文使用者描述】\n';
-    const footer = isEn
+    let footer = isEn
         ? 'Keep reference prototype geometry unchanged; apply only the selected technique effects.'
         : '維持參考原型造型與孔位；僅呈現勾選工藝的技法效果。';
+    if (capabilityHintsImplyFlatPrint(lines)) {
+        footer += isEn
+            ? ' Logo and graphics must be flat printed ink on the surface — never emboss, deboss, leather stamping, or 3D relief unless emboss is explicitly selected above.'
+            : ' Logo／圖案須為平面印刷墨層貼於表面，禁止做成浮雕、壓印、皮革打凸或立體刻痕（除非上文明確勾選浮雕工藝）。';
+    }
     return header + lines.map((line) => '• ' + line).join('\n') + '\n' + footer;
 }
 
@@ -1069,7 +1084,10 @@ function buildMaterialTexturePromptAppendix(materialRefs, lang) {
         const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json);
         if (semLine) lines.push('  ' + semLine);
     });
-    return header + lines.join('\n');
+    const footer = isEn
+        ? 'Apply material reference(s) to the entire main product body exterior: replace prototype body color and grain with the material swatch; prototype keeps shape and structure only.'
+        : '材料圖上的色彩與皮紋必須完整套用至產品本體外表面，取代原型本體原有材質外观；原型僅保留造型、比例與結構。';
+    return header + lines.join('\n') + '\n' + footer;
 }
 
 /**
@@ -1100,8 +1118,8 @@ function buildFluxReferenceImageRoleMapAppendix(orderedSources, lang) {
                     + (n === 1 ? '（即 input_image，主要造型錨點）。' : '。') + noteSuffix));
         } else if (kind === 'material') {
             lines.push(isEn
-                ? ('image ' + n + titlePart + ': main body material — fabric, leather, surface texture and color on the product body only.' + noteSuffix)
-                : ('image ' + n + titlePart + '：主體材料 — 僅作本體布料／皮革的表面質感與色彩。' + noteSuffix));
+                ? ('image ' + n + titlePart + ': main body material swatch — must replace the product body exterior color and grain (not a separate product photo).' + noteSuffix)
+                : ('image ' + n + titlePart + '：主體材料色卡 — 必須取代產品本體外表面色彩與皮紋（非另一件成品照）。' + noteSuffix));
         } else if (kind === 'part') {
             lines.push(isEn
                 ? ('image ' + n + titlePart + ': parts / hardware — zippers, buckles, straps, trims; match exactly; do not recolor parts via text.' + noteSuffix)
@@ -1117,11 +1135,18 @@ function buildFluxReferenceImageRoleMapAppendix(orderedSources, lang) {
         + 'Product category instructions above define what to generate. Each uploaded reference is assigned as follows (image 1 = input_image):\n'
         : '\n\n【參考圖用途 — FLUX 多圖編輯】\n'
         + '上文分類已限定產品類型。每張上傳參考圖對應如下（image 1 = input_image）：\n';
-    const footer = isEn
+    const hasProto = list.some(function (s) { return normalizeVendorAssetKind(s && s.asset_kind) === 'prototype'; });
+    const hasMaterial = list.some(function (s) { return normalizeVendorAssetKind(s && s.asset_kind) === 'material'; });
+    let footer = isEn
         ? ('Only ' + list.length + ' reference image(s) are sent; image numbers above match input_image order exactly (no gaps). '
         + 'Combine as listed: prototype(s) for geometry, material(s) for body surface, parts and pattern per line. Per-category user notes in the description above apply when present.')
         : ('實際送出 ' + list.length + ' 張圖，image 編號與上列一致、連號無跳號（未上傳的類別不佔號）。'
         + '依上列綜合：原型定造型、材料定本體表面、配件與圖樣依各句；描述中各類補充句若有則優先。');
+    if (hasProto && hasMaterial) {
+        footer += isEn
+            ? ' When prototype and material are both present: use prototype for shape/openings only; material swatch overrides all main-body leather/fabric appearance.'
+            : ' 同時有原型與材料時：原型只定造型與開孔；材料色卡覆蓋本體全部皮革／布料外观。';
+    }
     return header + lines.join('\n') + '\n' + footer + '\n';
 }
 

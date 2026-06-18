@@ -14,7 +14,7 @@ WHERE key IN ('cap.printing.special.foil_gold', 'cap.printing.special.foil_silve
 UPDATE public.taxonomy_nodes SET visual_hint = '圖案區局部亮膜，其餘區域維持霧面質感'
 WHERE key = 'cap.printing.special.spot_uv';
 
-UPDATE public.taxonomy_nodes SET visual_hint = '平面 UV 固化印刷；圖案與配色依使用者描述'
+UPDATE public.taxonomy_nodes SET visual_hint = '平面 UV 固化印刷；圖案與配色依使用者描述；須為平面墨層，不得做成浮雕、壓印或打凸'
 WHERE key = 'cap.printing.digital.uv';
 
 UPDATE public.taxonomy_nodes SET visual_hint = '轉印圖案於表面；圖樣依使用者描述'
