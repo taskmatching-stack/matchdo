@@ -665,7 +665,7 @@ function reorderVendorAssetCoverFromUrl(row, targetUrl) {
 
 function vendorAssetSupportsGalleryImages(assetKind) {
     const k = normalizeVendorAssetKind(assetKind);
-    return k === 'prototype' || k === 'part';
+    return k === 'prototype' || k === 'part' || k === 'material';
 }
 
 const VENDOR_CUSTOMIZATION_LEVEL_KEYS = new Set(['mono_graphic', 'color_graphic', 'color_material', 'size_part', 'form_structure']);
@@ -1283,7 +1283,7 @@ function vendorAssetOriginForApi(row) {
 function mapVendorAssetForApi(row, lang) {
     if (!row) return row;
     const kind = normalizeVendorAssetKind(row.asset_kind);
-    const multiImageKind = kind === 'prototype' || kind === 'part';
+    const multiImageKind = vendorAssetSupportsGalleryImages(kind);
     const gallery = multiImageKind ? parseGalleryImages(row.gallery_images) : [];
     const imageUrls = multiImageKind
         ? getVendorAssetAllImageUrls({ ...row, gallery_images: gallery })
@@ -2369,7 +2369,6 @@ async function ensureAiCategoriesTableAndSeed() {
     }
 }
 
-/** 啟動時補 manufacturers.logo_url（需 SUPABASE_DB_URL） */
 async function ensureManufacturerLogoColumn() {
     if (!DB_URL) return false;
     const pool = new Pool({ connectionString: DB_URL });
@@ -2387,6 +2386,31 @@ async function ensureManufacturerLogoColumn() {
         return true;
     } catch (e) {
         console.warn('ensureManufacturerLogoColumn:', e.message);
+        return false;
+    } finally {
+        client.release();
+        await pool.end();
+    }
+}
+
+/** 啟動時補 vendor_catalog_groups.asset_kind（材料／零件自訂分類，需 SUPABASE_DB_URL） */
+async function ensureVendorCatalogGroupsAssetKindColumn() {
+    if (!DB_URL) return false;
+    const pool = new Pool({ connectionString: DB_URL });
+    const client = await pool.connect();
+    try {
+        const r = await client.query(
+            `SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'vendor_catalog_groups' AND column_name = 'asset_kind'
+            ) AS ok`
+        );
+        if (r.rows[0]?.ok) return true;
+        await adminMigrations.runMigrationById('vendor-catalog-groups-asset-kind', client);
+        console.log('ensureVendorCatalogGroupsAssetKindColumn: 已新增 vendor_catalog_groups.asset_kind');
+        return true;
+    } catch (e) {
+        console.warn('ensureVendorCatalogGroupsAssetKindColumn:', e.message);
         return false;
     } finally {
         client.release();
@@ -15079,6 +15103,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             subcategoryKey = ((body.subcategory_key || '').trim() || null);
         }
         const isPrototypeLike = assetKind === 'prototype' || assetKind === 'part';
+        const supportsGallery = vendorAssetSupportsGalleryImages(assetKind);
         let title = (body.title || '').trim() || null;
         let description = (body.description || '').trim() || null;
         const uiLocaleCreate = resolveUiLocaleFromRequest(req);
@@ -15102,7 +15127,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const fileFromFields = (req.files && req.files.image && req.files.image[0]) ? req.files.image[0] : req.file;
         let file = await vendorAssetFileFromMulter(fileFromFields);
         if (!file) return res.status(400).json({ error: '請上傳素材圖片' });
-        const galleryUploadFiles = (isPrototypeLike && req.files && req.files.gallery) ? req.files.gallery : [];
+        const galleryUploadFiles = (supportsGallery && req.files && req.files.gallery) ? req.files.gallery : [];
         const totalUploadFiles = 1 + galleryUploadFiles.length;
         const optimizeIndices = parseOptimizeImageIndices(body, totalUploadFiles);
         const pointsRequired = await computeVendorAssetCreatePoints(assetKind, optimizeIndices, totalUploadFiles);
@@ -15194,20 +15219,20 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         }
 
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, uploadFile);
-        const imageLabels = isPrototypeLike
+        const imageLabels = supportsGallery
             ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
             : parseImageLabelsBody(body, 1);
         const coverLabel = (imageLabels[0] && String(imageLabels[0]).trim())
             || labelFromOriginalFilename(uploadFile.originalname)
             || labelFromImageUrl(publicUrl);
         let galleryImages = [];
-        if (isPrototypeLike && galleryUploadFiles.length) {
+        if (supportsGallery && galleryUploadFiles.length) {
             const maxExtra = Math.min(galleryUploadFiles.length, PROTOTYPE_GALLERY_MAX_EXTRA);
             const galleryToUpload = [];
             for (let gi = 0; gi < maxExtra; gi++) {
                 let gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
                 if (!gf) continue;
-                if (optimizeIndices.includes(gi + 1)) {
+                if (assetKind !== 'material' && optimizeIndices.includes(gi + 1)) {
                     try {
                         gf = await fluxScheduler.optimize(
                             gf, title, assetKind, materialHintForOptimize, optimizeBackground
@@ -15234,7 +15259,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             title: title,
             description: description,
             image_url: publicUrl,
-            cover_image_label: isPrototypeLike ? coverLabel : null,
+            cover_image_label: supportsGallery ? coverLabel : null,
             gallery_images: galleryImages,
             usage_type: (body.usage_type || 'reference_only').trim() || 'reference_only',
             is_public: true,
@@ -15261,9 +15286,6 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         } else         if (assetKind === 'part') {
             insertPayload.min_order_quantity = null;
             insertPayload.customization_levels = [];
-        }
-        if (assetKind === 'material' && coverLabel) {
-            insertPayload.cover_image_label = coverLabel;
         }
         const productionTypeKeyCreate = manufacturerTaxonomy.parseProductionTypeKeyFromBody(body);
         if (productionTypeKeyCreate !== undefined) {
@@ -22198,4 +22220,5 @@ app.post('/api/match/run-split', async (req, res) => {
 bootstrapCategories().finally(() => {
     ensureAiCategoriesTableAndSeed().catch(err => console.warn('ensureAiCategoriesTableAndSeed:', err && err.message));
     ensureManufacturerLogoColumn().catch(err => console.warn('ensureManufacturerLogoColumn:', err && err.message));
+    ensureVendorCatalogGroupsAssetKindColumn().catch(err => console.warn('ensureVendorCatalogGroupsAssetKindColumn:', err && err.message));
 });
