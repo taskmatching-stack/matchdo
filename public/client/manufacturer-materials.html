@@ -679,7 +679,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-flat-no-derived-ui-20260618';
+        window.__MATCHDO_MATERIALS_BUILD = 'gallery-preview-original-on-top-20260618';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1522,18 +1522,26 @@
             return (items || []).filter(function (it) { return it && it.url; });
         }
 
-        function editGalleryDisplayUrl(sourceUrl, slot) {
-            if (!slot || !pendingHasAiPreview(slot)) return sourceUrl;
-            if (slot.uploadOriginal === false) {
-                if (slot.uploadRedraw !== false && slot.redrawPreviewUrl) return slot.redrawPreviewUrl;
-                if (slot.uploadUpscale !== false && slot.upscalePreviewUrl) return slot.upscalePreviewUrl;
-            }
-            return sourceUrl;
-        }
-
         function editGalleryPreviewBlock(slot, prefix) {
             if (!pendingHasAiPreview(slot)) return '';
             return pendingOriginalUploadCheckHtml(slot, prefix) + pendingDerivedThumbsHtml(slot, prefix);
+        }
+
+        function appendMaterialCatalogHintToRedrawFormData(fd, m) {
+            if (!fd || !m || normalizeKind(m.asset_kind) !== 'material') return;
+            var ids = m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; });
+            if (ids && ids.length) fd.append('catalog_group_ids', JSON.stringify(ids));
+        }
+
+        function appendMaterialCatalogHintToRedrawFormDataFromForm(fd, form) {
+            if (!fd || !form || form.getAttribute('data-kind') !== 'material') return;
+            var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-material'));
+            if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
+        }
+
+        function showAiPromptAfterPreview(data) {
+            if (!data || !data.ai_prompt) return;
+            setEditGalleryStatus('本次 AI 提示詞：' + data.ai_prompt, 'info');
         }
 
         async function fileFromImageUrl(url, filename) {
@@ -1576,6 +1584,7 @@
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
                 if (m && m.title) fd.append('title', m.title);
                 if (srcItem && srcItem.label) fd.append('image_label', displayGalleryImageLabel(srcItem));
+                appendMaterialCatalogHintToRedrawFormData(fd, m);
                 var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -1597,9 +1606,10 @@
                 slot.uploadRedraw = true;
                 slot.uploadOriginal = false;
                 slot.redrawFile = await fileFromPreviewResponse(data, 'redraw-gallery.jpg');
-                var okMsg = '已產生重繪新圖，預設只上傳新圖（不保留原圖）';
+                var okMsg = '已產生 AI 新圖，預設只上傳新圖（不保留原圖）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' 點';
                 showToast(okMsg);
+                showAiPromptAfterPreview(data);
             } catch (err) {
                 showToast(err.message || '重繪失敗', 'danger');
             } finally {
@@ -1767,6 +1777,8 @@
                 fd.append('optimize_background', getOptimizeBackgroundValue(form));
                 var titleIn = form.querySelector('.add-title');
                 if (titleIn && titleIn.value) fd.append('title', titleIn.value.trim());
+                if (item.label) fd.append('image_label', item.label);
+                appendMaterialCatalogHintToRedrawFormDataFromForm(fd, form);
                 var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -2101,6 +2113,7 @@
                 fd.append('is_cover', '0');
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
                 if (m && m.title) fd.append('title', m.title);
+                appendMaterialCatalogHintToRedrawFormData(fd, m);
                 var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -2337,7 +2350,6 @@
                 var url = it.url;
                 var slot = getEditGallerySlot(url);
                 var hasPreview = slot && pendingHasAiPreview(slot);
-                var displayUrl = editGalleryDisplayUrl(url, slot);
                 var isCover = !!(it.is_cover || idx === 0);
                 var isNew = editGalleryHighlightUrls.has(url);
                 var coverBadge = isCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
@@ -2349,7 +2361,7 @@
                 var slotPrefix = 'egslot-' + idx;
                 var imgHtml = (slot && slot.imageBusy)
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
-                    : ('<img src="' + esc(displayUrl) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
+                    : ('<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
                         ' data-image-items="' + lightboxItemsJson + '">');
                 var previewBlock = hasPreview ? editGalleryPreviewBlock(slot, slotPrefix) : '';
                 var actions = '<div class="pending-actions">' +

@@ -1990,7 +1990,8 @@ function materialOptimizeTextureDirective(materialKey) {
         ].join(' '),
         leather: [
             'Leather swatch: natural grain, pores, and subtle sheen;',
-            'accurate tan or dye color; supple surface with realistic crease scale;',
+            'match the exact hue and saturation from the reference image—do not shift toward tan, brown, or a different grey;',
+            'supple surface with realistic crease scale;',
             'macro-friendly detail without plastic-looking smoothness.'
         ].join(' '),
         metal: [
@@ -14814,8 +14815,11 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
             }
         }
         let optimized;
+        const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
+        const aiPromptUsed = assetKind === 'material'
+            ? buildVendorAssetMaterialOptimizePrompt(titleForPrompt, materialCatalogHint, filenameHint)
+            : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground);
         try {
-            const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
             optimized = await maybeOptimizeVendorAssetMulterFile(
                 file,
                 titleForPrompt,
@@ -14854,7 +14858,8 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
             preview_base64: optimized.buffer.toString('base64'),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
-            credit_transaction_id: creditTransactionId
+            credit_transaction_id: creditTransactionId,
+            ai_prompt: aiPromptUsed
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/preview-image-redraw:', e);
