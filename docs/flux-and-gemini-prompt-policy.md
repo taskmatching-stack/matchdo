@@ -93,6 +93,7 @@
 ### 4.1 允許：與材質無關的固定英文
 
 - FLUX **通用** img2img 底稿（例如：enhance input_image、only clarity/lighting/noise）。
+- **材料 optimize 底稿**：須明訂 `input_image` 像素為唯一權威、禁止替換紋理族／色相等（`buildVendorAssetMaterialOptimizePrompt`）；此為保真規則，**不是** material_key 查表。
 - 參考圖 **角色** 說明（原型＝造型、材料＝表面、配件＝五金）— 不列舉具體皮種／布種。
 - 產品重繪的棚拍／去背規則（原型專用）。
 

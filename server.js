@@ -1897,19 +1897,25 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
 }
 
 /**
- * 材料 FLUX 提示詞 = 通用 img2img 底稿 + Gemini 讀圖 JSON 轉寫（見 buildMaterialFluxFidelityLine）。
+ * 材料 FLUX 提示詞 = 強保真 img2img 底稿 + Gemini JSON（描述 input_image 既有特徵，非發明新紋理）。
+ * 底稿句為通用保真規則，非 material_key 查表；見 docs/flux-and-gemini-prompt-policy.md §4.1。
  */
 function buildVendorAssetMaterialOptimizePrompt(semanticsJson) {
     const fidelity = visualSemantics.buildMaterialFluxFidelityLine(semanticsJson);
     if (!fidelity) {
         throw new Error('材質讀圖結果為空，無法產生 AI 優化提示詞');
     }
-    const base = [
-        'Image-to-image enhancement of input_image.',
-        'Keep the same surface as the reference.',
-        'Only improve clarity, focus, lighting, and noise.'
-    ].join(' ');
-    return `${base} ${fidelity}`;
+    const parts = [
+        'Using input_image as the only source, perform a minimal flat material swatch cleanup.',
+        'The reference pixels are the sole authority: preserve exactly the same material type, colors, hue, saturation, brightness, pattern, grain or weave scale, sheen, and full-frame composition.',
+        'Do not invent, substitute, recolor, retexture, stylize, or imagine a different surface than what input_image shows.',
+        'Do not change the texture repeat scale or pattern family.',
+        'Allowed changes only: subtle clarity, sharper focus, soft even diffuse lighting, and light noise reduction—without altering surface character.',
+        'Full-frame edge-to-edge texture like a flat swatch; no products, props, hands, rulers, packaging, text, watermark, or logo.',
+        'Photorealistic, sharp focus, accurate colors from the reference.',
+        `Characteristics already visible in input_image (preserve exactly; do not contradict the reference): ${fidelity}`
+    ];
+    return parts.join(' ');
 }
 
 /**
