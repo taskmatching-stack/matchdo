@@ -656,7 +656,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-slot-checkbox-align-20260618';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-flat-cards-20260618';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1470,40 +1470,10 @@
             });
         }
 
+        /** 編輯圖庫：每張圖（含衍伸圖）各自一卡，皆可 AI 重繪／放大 */
         function groupGalleryDisplayItems(items) {
-            var urlSet = {};
-            (items || []).forEach(function (it) { if (it && it.url) urlSet[it.url] = true; });
-            var childrenBySource = {};
-            var roots = [];
-            var orphanDerived = [];
-            (items || []).forEach(function (it) {
-                if (!it || !it.url) return;
-                var src = String(it.source_url || '').trim();
-                var kind = vendorImageDerivedKind(it);
-                if (kind && src && urlSet[src]) {
-                    if (!childrenBySource[src]) childrenBySource[src] = [];
-                    childrenBySource[src].push(it);
-                } else if (kind) {
-                    orphanDerived.push(it);
-                } else {
-                    roots.push(it);
-                }
-            });
-            orphanDerived.forEach(function (orph) {
-                var want = stripLegacyDerivedLabelSuffix(orph.label || '');
-                var candidates = roots.filter(function (r) {
-                    return !vendorImageDerivedKind(r) && displayGalleryImageLabel(r) === want;
-                });
-                if (candidates.length === 1) {
-                    var purl = candidates[0].url;
-                    if (!childrenBySource[purl]) childrenBySource[purl] = [];
-                    childrenBySource[purl].push(orph);
-                } else {
-                    roots.push(orph);
-                }
-            });
-            return roots.map(function (primary) {
-                return { primary: primary, derived: childrenBySource[primary.url] || [] };
+            return (items || []).filter(function (it) { return it && it.url; }).map(function (it) {
+                return { primary: it, derived: [] };
             });
         }
 
@@ -1601,20 +1571,8 @@
             }
         }
 
-        function ensureEditGallerySlotForGroup(sourceUrl, derived) {
-            var slot = editGallerySlotPreview[sourceUrl];
-            if (slot && pendingHasDerivedPreview(slot) && !slot.fromServer) return slot;
-            if (derived && derived.length) {
-                editGallerySlotPreview[sourceUrl] = {
-                    redrawPreviewUrl: derived[0].url,
-                    serverDerivedUrls: derived.map(function (d) { return d.url; }),
-                    uploadRedraw: true,
-                    uploadOriginal: false,
-                    fromServer: true
-                };
-                return editGallerySlotPreview[sourceUrl];
-            }
-            return slot || null;
+        function getEditGallerySlot(sourceUrl) {
+            return editGallerySlotPreview[sourceUrl] || null;
         }
 
         async function clearEditGallerySlotRedrawPreview(sourceUrl) {
@@ -2384,14 +2342,17 @@
             grid.innerHTML = groups.map(function (group, idx) {
                 var it = group.primary;
                 var url = it.url;
-                var derived = group.derived || [];
-                var slot = ensureEditGallerySlotForGroup(url, derived);
+                var slot = getEditGallerySlot(url);
                 var hasPreview = slot && pendingHasDerivedPreview(slot);
-                var isNew = editGalleryHighlightUrls.has(url) || derived.some(function (d) { return editGalleryHighlightUrls.has(d.url); });
-                var coverBadge = (it.is_cover || idx === 0) ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
+                var isNew = editGalleryHighlightUrls.has(url);
+                var isDerived = !!vendorImageDerivedKind(it);
+                var derivedBadge = isDerived
+                    ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">' + esc(vendorImageDerivedKind(it) === 'upscale' ? '放大新圖' : '重繪新圖') + '</span>'
+                    : '';
+                var coverBadge = it.is_cover ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var newBadge = (isNew && !hasPreview) ? '<span class="badge bg-success mb-1 ms-1" style="font-size:0.65rem">新上傳</span>' : '';
                 var displayLabel = displayGalleryImageLabel(it);
-                var labelField = (it.is_cover || idx === 0)
+                var labelField = it.is_cover
                     ? '<input type="text" class="form-control form-control-sm mt-1" id="edit-cover-label" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(displayLabel) + '">';
                 var slotPrefix = 'egslot-' + idx;
@@ -2407,13 +2368,13 @@
                     '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
                     pendingUpscaleAiEditHelpHtml(false) +
                     (hasPreview ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-preview" data-url="' + esc(url) + '">清除重繪新圖</button>' : '') +
-                    (!(it.is_cover || idx === 0)
+                    (!(it.is_cover)
                         ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>' +
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
                         : '') +
                     '</div>';
-                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + ((it.is_cover || idx === 0) ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
-                    coverBadge + newBadge +
+                return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + (it.is_cover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '" data-gallery-url="' + esc(url) + '">' +
+                    coverBadge + derivedBadge + newBadge +
                     imgHtml +
                     previewBlock +
                     labelField +
