@@ -19,38 +19,35 @@
 
 ### 2.1 材料 — 兩條 Gemini 管線（不可混用）
 
-**A. 材料 AI 優化（廠商素材庫重繪）— 對齊 BFL 單圖編輯**
-
-依 [BFL Single-Reference Editing](https://docs.bfl.ml/guides/prompting_editing_single_reference.md)：prompt 須**明確寫要改什麼、什麼必須不變**；`input_image` + prompt 送 `POST /v1/flux-2-pro`。
+**A. 材料 AI 優化（廠商素材庫重繪）— 對齊原型頁 + BFL max**
 
 ```
-原圖（input_image）
-  + 標題／檔名／分類（僅 Gemini 補充）
+原圖 → prepareVendorMaterialFluxImage（最短邊≥256、最長邊≤1024、等比）
         ↓
-  Gemini — material_flux_edit_prompt → 僅英文編輯句（2～4 句，非 JSON、非生圖）
+  buildVendorAssetMaterialOptimizePrompt() — 固定英文保真句（不寫皮種／紋理名，不經 Gemini）
         ↓
-  buildVendorAssetMaterialOptimizePrompt() — BFL 單圖編輯外殼 + 上列英文句
-        ↓
-  FLUX.2 [pro] input_image 編輯
+  FLUX.2 [max] input_image 編輯（輸出寬高＝準備後原圖，非強制 1024²）
 ```
 
 | 步驟 | 檔案／函式 |
 |------|------------|
-| Gemini 產編輯句 | `analyzeMaterialFluxEditPrompt`（`material_flux_edit_prompt`） |
-| 取編輯句 | `resolveMaterialFluxEditPrompt` |
-| 組 FLUX prompt | `buildVendorAssetMaterialOptimizePrompt` |
-| 原型／零件對照 | `buildVendorAssetProductOptimizePrompt`（固定英文，不經 Gemini） |
+| 解析度準備 | `lib/resize-upload-image.js` → `prepareVendorMaterialFluxImage` |
+| 組 FLUX prompt | `buildVendorAssetMaterialOptimizePrompt`（固定，同原型思路） |
+| FLUX 呼叫 | `optimizeVendorAssetImageWithFlux` → `BFL_FLUX_MAX` |
+| 原型／零件對照 | `buildVendorAssetProductOptimizePrompt` |
 
-**B. 材料標籤／設計頁附錄（搜尋、篩選、生圖參考說明）**
+**禁止**在材料 FLUX prompt 內寫入 Gemini 產生的材質名稱或 JSON 標籤（會觸發 FLUX 重畫紋理）。`material_flux_edit_prompt` 保留供日後 Admin，**現行 optimize 不使用**。
+
+**B. 材料標籤／設計頁附錄**
 
 ```
 原圖 → Gemini material_tagging_prompt → image_semantics_json
 設計頁：buildMaterialTexturePromptAppendix（讀 DB JSON）
 ```
 
-**`material_tagging_prompt` 的 JSON 不送材料 FLUX optimize**（避免 FLUX 把標籤當「生成規格」）。
+**`material_tagging_prompt` 的 JSON 不送材料 FLUX optimize**。
 
-**沒有 Gemini 編輯句就不送材料 FLUX**（503）。
+材料 FLUX 無需 Gemini 即可執行（固定保真句）；上傳時另跑 `material_tagging_prompt` 寫入 DB。
 
 ### 2.2 訂製設計頁生圖 `POST /api/generate-product-image`
 
