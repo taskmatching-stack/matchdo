@@ -1066,7 +1066,7 @@ function buildMaterialTexturePromptAppendix(materialRefs, lang) {
             ? ('Image ' + n + ': "' + label + '"' + (catNames ? (' [' + catNames + ']') : ''))
             : ('image ' + n + '：「' + label + '」' + (catNames ? ('（' + catNames + '）') : ''));
         lines.push('• ' + head);
-        const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json);
+        const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json, { omitSurfaceTechniques: true });
         if (semLine) lines.push('  ' + semLine);
     });
     const footer = isEn

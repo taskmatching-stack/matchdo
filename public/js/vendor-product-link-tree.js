@@ -395,6 +395,7 @@
                     tile.classList.toggle('vplt-guide-tile--active-view', showActive);
                     tile.classList.toggle('vplt-guide-tile--picked', isPicked);
                     tile.setAttribute('aria-pressed', isPicked ? 'true' : 'false');
+                    syncGuideTileCheckbox(tile, kindKey, picked, on, multi);
                     var media = tile.querySelector('.vplt-guide-tile-media');
                     if (!media) return;
                     media.querySelectorAll('.vplt-guide-tile-badge').forEach(function (b) { b.remove(); });
@@ -596,16 +597,45 @@
             '<i class="bi bi-zoom-in" aria-hidden="true"></i></button>';
     }
 
-    function guideTileMediaHtml(a, it, optionLabel, badgeHtml) {
+    function guideTileMediaHtml(a, it, optionLabel, badgeHtml, checkHtml) {
         var url = (it && it.url) ? it.url : '';
         if (!url) {
             return '<div class="vplt-guide-tile-media vplt-guide-tile-media--empty" aria-hidden="true"></div>';
         }
         return '<div class="vplt-guide-tile-media">' +
+            (checkHtml || '') +
             (badgeHtml || '') +
             '<img src="' + esc(url) + '" alt="' + esc(optionLabel || '') + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
             guideTileZoomBtnHtml(a, url, optionLabel) +
             '</div>';
+    }
+
+    function guideTileCheckboxChecked(kindKey, picked, isActive, multi) {
+        if (kindKey === 'prototype') {
+            if (multi) return isActive;
+            return true;
+        }
+        return picked && isActive;
+    }
+
+    function guideTileCheckboxHtml(kindKey, picked, isActive, multi) {
+        if (IS_VENDOR) return '';
+        var checked = guideTileCheckboxChecked(kindKey, picked, isActive, multi);
+        var icon = checked ? 'bi-check-square-fill' : 'bi-square';
+        return '<span class="vplt-guide-tile-check' + (checked ? ' is-checked' : '') + '" aria-hidden="true">' +
+            '<i class="bi ' + icon + '"></i></span>';
+    }
+
+    function syncGuideTileCheckbox(tile, kindKey, picked, isActive, multi) {
+        var checkEl = tile && tile.querySelector('.vplt-guide-tile-check');
+        if (!checkEl) return;
+        var checked = guideTileCheckboxChecked(kindKey, picked, isActive, multi);
+        checkEl.classList.toggle('is-checked', checked);
+        var ic = checkEl.querySelector('.bi');
+        if (ic) {
+            ic.classList.toggle('bi-check-square-fill', checked);
+            ic.classList.toggle('bi-square', !checked);
+        }
     }
 
     /** 主產品／配件／材料同一套：多圖 = 多格，標籤與框線一致 */
@@ -632,9 +662,10 @@
             : '';
         var badgeHtml = guideTileBadgeHtml(kindKey, picked, isActive, multi);
         var pressedAttr = isPicked ? ' aria-pressed="true"' : ' aria-pressed="false"';
+        var checkHtml = guideTileCheckboxHtml(kindKey, picked, isActive, multi);
         return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + interCls + pickCls + activeCls + '"' +
             ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + pressedAttr + ' tabindex="0">' +
-            guideTileMediaHtml(a, it, optionLabel, badgeHtml) +
+            guideTileMediaHtml(a, it, optionLabel, badgeHtml, checkHtml) +
             '<span class="vplt-guide-tile-name">' + displayName + '</span>' +
             subKind +
             '</div>';
