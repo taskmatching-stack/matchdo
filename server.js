@@ -11985,12 +11985,18 @@ app.post('/api/me/manufacturer/logo', upload.single('logo'), async (req, res) =>
         if (file.buffer && file.buffer.length > 5 * 1024 * 1024) {
             return res.status(400).json({ error: '圖片請小於 5MB' });
         }
-        const logoName = `logo-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
-        const { publicUrl } = await uploadToSupabaseStorage(
-            'custom-products',
-            `manufacturer/${mfr.id}/logo`,
-            { buffer: file.buffer, mimetype: file.mimetype, originalname: logoName }
-        );
+        const logoName = `logo-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+        let publicUrl;
+        try {
+            ({ publicUrl } = await uploadToSupabaseStorage(
+                'custom-products',
+                `manufacturer/${mfr.id}`,
+                { buffer: file.buffer, mimetype: file.mimetype, originalname: logoName }
+            ));
+        } catch (uploadErr) {
+            console.error('POST /api/me/manufacturer/logo storage:', uploadErr);
+            return res.status(500).json({ error: '圖片上傳失敗，請稍後再試' });
+        }
         const { data: updated, error } = await supabase
             .from('manufacturers')
             .update({ logo_url: publicUrl })
@@ -11998,16 +12004,20 @@ app.post('/api/me/manufacturer/logo', upload.single('logo'), async (req, res) =>
             .select('id, logo_url')
             .single();
         if (error) {
-            if (error.code === '42703') {
-                return res.status(500).json({ error: '資料庫缺少 logo_url 欄位，請執行 docs/add-manufacturer-logo.sql' });
+            const errMsg = String((error && error.message) || '');
+            if (isMissingManufacturerColumnError(error, 'logo_url') || errMsg.toLowerCase().includes('logo_url')) {
+                return res.status(500).json({ error: '資料庫缺少 logo_url 欄位，請於 Supabase 執行 docs/add-manufacturer-logo.sql' });
             }
             console.error('POST /api/me/manufacturer/logo update:', error);
-            return res.status(500).json({ error: '儲存失敗' });
+            return res.status(500).json({ error: '儲存失敗：' + (errMsg || '請稍後再試') });
+        }
+        if (!updated) {
+            return res.status(500).json({ error: '儲存失敗：找不到廠商資料' });
         }
         res.json({ logo_url: updated.logo_url, id: updated.id });
     } catch (e) {
         console.error('POST /api/me/manufacturer/logo:', e);
-        res.status(500).json({ error: '系統錯誤' });
+        res.status(500).json({ error: '系統錯誤：' + (e.message || '請稍後再試') });
     }
 });
 
