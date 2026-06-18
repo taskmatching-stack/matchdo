@@ -390,11 +390,10 @@
                 tiles.forEach(function (tile) {
                     var url = (tile.getAttribute('data-variant-url') || '').trim();
                     var on = !url || url === activeUrl;
-                    var isPicked = kindKey !== 'prototype' && picked && on;
-                    var showActive = on && (kindKey === 'prototype' || (multi && picked));
-                    tile.classList.toggle('vplt-guide-tile--active-view', showActive);
-                    tile.classList.toggle('vplt-guide-tile--picked', isPicked);
-                    tile.setAttribute('aria-pressed', isPicked ? 'true' : 'false');
+                    var vis = guideTileSelectionVisuals(kindKey, picked, on, multi);
+                    tile.classList.toggle('vplt-guide-tile--active-view', vis.showFrame);
+                    tile.classList.toggle('vplt-guide-tile--picked', vis.isPicked);
+                    tile.setAttribute('aria-pressed', vis.isPicked ? 'true' : 'false');
                     var media = tile.querySelector('.vplt-guide-tile-media');
                     if (!media) return;
                     media.querySelectorAll('.vplt-guide-tile-badge').forEach(function (b) { b.remove(); });
@@ -573,9 +572,21 @@
         return (tr('productTree.colorOptionN', '色款 {n}') || '色款 {n}').replace('{n}', n);
     }
 
-    function guideTileBadgeHtml(kindKey, picked, isActive, multi) {
-        if (!multi || !isActive) return '';
+    function guideTileSelectionVisuals(kindKey, picked, isActive, multi) {
+        var isPicked = kindKey !== 'prototype' && picked && isActive;
+        var showFrame = false;
         if (kindKey === 'prototype') {
+            showFrame = !!isActive;
+        } else if (picked) {
+            showFrame = !!isActive || !multi;
+        }
+        return { isPicked: isPicked, showFrame: showFrame };
+    }
+
+    function guideTileBadgeHtml(kindKey, picked, isActive, multi) {
+        if (!isActive) return '';
+        if (kindKey === 'prototype') {
+            if (!multi) return '';
             return '<span class="vplt-guide-tile-badge vplt-guide-tile-badge--preview">' +
                 esc(tr('productTree.guidePreviewBadge', '預覽中')) + '</span>';
         }
@@ -622,16 +633,15 @@
         var displayName = esc(optionLabel);
         var subKind = multi ? '' : ('<span class="vplt-guide-tile-kind">' + esc(guideKindLabelForKey(kindKey)) + '</span>');
         var isActive = !multi || imgUrl === activeUrl;
-        var isPicked = kindKey !== 'prototype' && picked && isActive;
-        var pickCls = isPicked ? ' vplt-guide-tile--picked' : '';
-        var showActive = isActive && (kindKey === 'prototype' || (multi && picked));
-        var activeCls = showActive ? ' vplt-guide-tile--active-view' : '';
+        var vis = guideTileSelectionVisuals(kindKey, picked, isActive, multi);
+        var pickCls = vis.isPicked ? ' vplt-guide-tile--picked' : '';
+        var activeCls = vis.showFrame ? ' vplt-guide-tile--active-view' : '';
         var interCls = (multi || kindKey !== 'prototype') ? ' vplt-guide-tile--interactive' : '';
         var variantAttrs = multi && it && it.url
             ? ' data-variant-url="' + esc(it.url) + '" data-variant-label="' + esc(optionLabel) + '"'
             : '';
         var badgeHtml = guideTileBadgeHtml(kindKey, picked, isActive, multi);
-        var pressedAttr = isPicked ? ' aria-pressed="true"' : ' aria-pressed="false"';
+        var pressedAttr = vis.isPicked ? ' aria-pressed="true"' : ' aria-pressed="false"';
         return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + interCls + pickCls + activeCls + '"' +
             ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + pressedAttr + ' tabindex="0">' +
             guideTileMediaHtml(a, it, optionLabel, badgeHtml) +
