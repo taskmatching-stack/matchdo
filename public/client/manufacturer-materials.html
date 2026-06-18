@@ -4007,9 +4007,9 @@
             var subSel = form.querySelector('.add-subcategory');
             var imgInput = form.querySelector('.add-image');
             var msgEl = form.querySelector('.add-form-msg');
-            if (form.dataset.supplierImported === '1') {
+            if (form.dataset.supplierVendorAssetId) {
                 msgEl.textContent = tr('baseModels.supplierAlreadyInList', '此品已從供應商匯入，請見下方清單');
-                if (form.dataset.supplierVendorAssetId) highlightImportedAsset(form.dataset.supplierVendorAssetId);
+                highlightImportedAsset(form.dataset.supplierVendorAssetId);
                 return;
             }
             if (!catSel.value) { msgEl.textContent = '—'; return; }
@@ -4730,8 +4730,8 @@
             delete form.dataset.supplierVendorAssetId;
             var status = form.querySelector('.supplier-ref-status');
             if (status) { status.classList.add('d-none'); status.innerHTML = ''; }
-            var imgInput = form.querySelector('.add-image');
-            if (imgInput) imgInput.setAttribute('required', '');
+            var preview = form.querySelector('.add-image-preview');
+            if (preview) { preview.classList.add('d-none'); preview.innerHTML = ''; }
             if (form.querySelector('.add-pending-images')) clearPendingImages(form);
         }
 
@@ -4744,16 +4744,39 @@
             };
         }
 
-        function applySupplierRefToForm(opts) {
+        async function addSupplierUrlToPending(form, imageUrl, labelHint) {
+            if (!form || !imageUrl) return false;
+            try {
+                var resp = await fetch(imageUrl);
+                if (!resp.ok) throw new Error('fetch failed');
+                var blob = await resp.blob();
+                var ext = '.jpg';
+                if (blob.type && blob.type.indexOf('png') >= 0) ext = '.png';
+                else if (blob.type && blob.type.indexOf('webp') >= 0) ext = '.webp';
+                var safeName = String(labelHint || 'supplier-ref').replace(/[^\w\u4e00-\u9fff-]+/g, '-').slice(0, 40) + ext;
+                var file = new File([blob], safeName, { type: blob.type || 'image/jpeg' });
+                appendFilesToPending(form, [file]);
+                return true;
+            } catch (e) {
+                var preview = form.querySelector('.add-image-preview');
+                if (preview) {
+                    preview.classList.remove('d-none');
+                    preview.innerHTML = '<img src="' + esc(imageUrl) + '" class="matchdo-enlarge-trigger" style="max-height:200px;max-width:100%;object-fit:contain;cursor:zoom-in" alt="">';
+                }
+                showToast(tr('baseModels.supplierRefPreviewOnly', '無法加入上傳清單，僅顯示預覽圖'), 'warning');
+                return false;
+            }
+        }
+
+        async function applySupplierRefToForm(opts) {
             var form = getActiveAddForm();
             if (!form || !opts) return;
-            var preview = form.querySelector('.add-image-preview');
             var status = form.querySelector('.supplier-ref-status');
-            var imgInput = form.querySelector('.add-image');
-            if (opts.imageUrl && preview) {
-                preview.classList.remove('d-none');
-                preview.innerHTML = '<img src="' + esc(opts.imageUrl) + '" class="matchdo-enlarge-trigger" style="max-height:200px;max-width:100%;object-fit:contain;cursor:zoom-in" alt="">';
-            }
+            var preview = form.querySelector('.add-image-preview');
+            clearPendingImages(form);
+            delete form.dataset.supplierImported;
+            delete form.dataset.supplierVendorAssetId;
+            if (preview) { preview.classList.add('d-none'); preview.innerHTML = ''; }
             if (opts.importTitle && opts.title) {
                 var titleEl = form.querySelector('.add-title');
                 if (titleEl) titleEl.value = opts.title;
@@ -4762,15 +4785,12 @@
                 var descEl = form.querySelector('.add-description');
                 if (descEl) descEl.value = opts.description;
             }
-            if (imgInput) {
-                imgInput.removeAttribute('required');
-                imgInput.value = '';
+            if (opts.imageUrl) {
+                await addSupplierUrlToPending(form, opts.imageUrl, opts.title || 'supplier-ref');
             }
-            form.dataset.supplierImported = '1';
-            if (opts.vendorAssetId) form.dataset.supplierVendorAssetId = opts.vendorAssetId;
             if (status) {
                 status.classList.remove('d-none');
-                var msg = tr('baseModels.supplierRefInPreview', '參考圖已選：引用自 {supplier}，已加入下方清單');
+                var msg = tr('baseModels.supplierRefInPreview', '參考圖已選：引用自 {supplier}，已加入上傳清單');
                 status.innerHTML = '<i class="bi bi-check-circle me-1"></i>' + esc(msg.replace('{supplier}', opts.supplierName || tr('baseModels.supplierGeneric', '供應商')));
             }
         }
@@ -4860,7 +4880,7 @@
                     var specLine = [spec.material_type, spec.color, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).join(' · ');
                     var importLabel = tr('baseModels.importToMyLibrary', '匯入並設為參考圖');
                     var btn = item.already_imported
-                        ? '<button type="button" class="btn btn-sm btn-outline-success btn-show-imported-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(tr('baseModels.showInRefImage', '顯示於參考圖')) + '</button>'
+                        ? '<button type="button" class="btn btn-sm btn-outline-success btn-show-imported-supplier" data-id="' + esc(item.id) + '" data-vendor-asset-id="' + esc(item.vendor_asset_id || '') + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(tr('baseModels.showInRefImage', '顯示於參考圖')) + '</button>'
                         : '<button type="button" class="btn btn-sm btn-success btn-import-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(importLabel) + '</button>';
                     return '<div class="col-md-6"><div class="card h-100">' +
                         (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top matchdo-enlarge-trigger" style="height:140px;object-fit:cover;cursor:zoom-in" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">' : '') +
@@ -4874,6 +4894,13 @@
                 });
                 list.querySelectorAll('.btn-show-imported-supplier').forEach(function (b) {
                     b.addEventListener('click', function () {
+                        var vaId = (b.getAttribute('data-vendor-asset-id') || '').trim();
+                        if (supplierImportModal) supplierImportModal.hide();
+                        if (vaId) {
+                            highlightImportedAsset(vaId);
+                            showToast(tr('baseModels.supplierRefLocatedInList', '已定位至下方清單'), 'success');
+                            return;
+                        }
                         var textOpts = getSupplierImportTextOpts();
                         applySupplierRefToForm({
                             imageUrl: b.getAttribute('data-cover'),
@@ -4883,7 +4910,6 @@
                             importTitle: textOpts.importTitle,
                             importDescription: textOpts.importDescription
                         });
-                        if (supplierImportModal) supplierImportModal.hide();
                         showToast(tr('baseModels.supplierRefShown', '已顯示於上方參考圖區'), 'success');
                     });
                 });
@@ -4907,15 +4933,7 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 409 && data.vendor_asset_id) {
-                    applySupplierRefToForm({
-                        imageUrl: btnEl ? btnEl.getAttribute('data-cover') : '',
-                        title: btnEl ? btnEl.getAttribute('data-title') : '',
-                        description: btnEl ? btnEl.getAttribute('data-desc') : '',
-                        supplierName: btnEl ? btnEl.getAttribute('data-supplier') : '',
-                        vendorAssetId: data.vendor_asset_id,
-                        importTitle: textOpts.importTitle,
-                        importDescription: textOpts.importDescription
-                    });
+                    clearSupplierRefFromForm(getActiveAddForm());
                     if (supplierImportModal) supplierImportModal.hide();
                     await loadMaterials();
                     switchKind(activeKind);
@@ -4928,15 +4946,7 @@
                     return;
                 }
                 var va = data.vendor_asset || {};
-                applySupplierRefToForm({
-                    imageUrl: va.image_url || (btnEl ? btnEl.getAttribute('data-cover') : ''),
-                    title: textOpts.importTitle ? (va.title || (btnEl ? btnEl.getAttribute('data-title') : '')) : '',
-                    description: textOpts.importDescription ? (va.description || (btnEl ? btnEl.getAttribute('data-desc') : '')) : '',
-                    supplierName: va.supplier_name || (btnEl ? btnEl.getAttribute('data-supplier') : ''),
-                    vendorAssetId: va.id,
-                    importTitle: textOpts.importTitle,
-                    importDescription: textOpts.importDescription
-                });
+                clearSupplierRefFromForm(getActiveAddForm());
                 showToast(tr('baseModels.importSupplierSuccess', '已匯入並設為參考圖，已加入下方清單'), 'success');
                 if (supplierImportModal) supplierImportModal.hide();
                 await loadMaterials();

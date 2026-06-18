@@ -593,7 +593,7 @@ function vendorImageDerivedKind(item) {
 function buildVendorAssetImageItems(row) {
     if (!row) return [];
     const kind = normalizeVendorAssetKind(row.asset_kind);
-    if (kind !== 'prototype' && kind !== 'part') {
+    if (!vendorAssetSupportsGalleryImages(kind)) {
         const u = String(row.image_url || '').trim();
         if (!u) return [];
         const lab = String(row.cover_image_label || '').trim() || labelFromImageUrl(u);
@@ -16621,7 +16621,7 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
         const catalogPromise = catQ;
         const importsPromise = supabase
             .from('manufacturer_supplier_imports')
-            .select('catalog_item_id')
+            .select('catalog_item_id, vendor_asset_id')
             .eq('manufacturer_id', manufacturerId)
             .eq('item_kind', itemKind);
         const supplierMetaPromise = supplierId
@@ -16635,10 +16635,14 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
             return res.status(500).json({ error: '查詢失敗' });
         }
         const { data: imported } = impRes;
-        const importedSet = new Set((imported || []).map((r) => r.catalog_item_id));
+        const importedByCatalog = {};
+        (imported || []).forEach((r) => {
+            importedByCatalog[r.catalog_item_id] = r.vendor_asset_id || null;
+        });
         const items = (catalogRows || []).map((row) => {
             const sup = row.industry_suppliers;
             const supplier = Array.isArray(sup) ? sup[0] : sup;
+            const vendorAssetId = importedByCatalog[row.id] || null;
             return {
                 id: row.id,
                 item_kind: row.item_kind,
@@ -16650,7 +16654,8 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
                 supplier_id: row.industry_supplier_id,
                 supplier_name: supplier ? supplier.name : null,
                 supplier_contact: supplier ? supplier.contact_json : null,
-                already_imported: importedSet.has(row.id)
+                already_imported: !!vendorAssetId,
+                vendor_asset_id: vendorAssetId
             };
         });
         const supplierHeader = supMetaRes.data
