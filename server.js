@@ -973,6 +973,19 @@ function extractImageUrlBasename(url) {
     }
 }
 
+/** 依檔名／標題／自訂分類推斷 material_key（供材質圖 AI 優化） */
+function inferMaterialKeyFromHints(basename, title, catalogHint) {
+    const combined = [basename, title, catalogHint].filter(Boolean).join(' ').toLowerCase();
+    if (!combined.trim()) return null;
+    if (/wood|oak|walnut|teak|birch|木纹|木紋|胡桃|橡木|木材|實木/.test(combined)) return 'wood';
+    if (/metal|brass|steel|aluminum|aluminium|copper|chrome|金屬|銅|不鏽|鋁|黃銅|钛|鈦/.test(combined)) return 'metal';
+    if (/leather|suede|nubuck|皮革|牛皮|羊皮|皮料/.test(combined)) return 'leather';
+    if (/fabric|linen|cotton|denim|silk|wool|tweed|布|丹寧|棉|麻|織|纱|紗|绒|絨/.test(combined)) return 'fabric';
+    if (/plastic|polymer|abs|pvc|塑料|塑胶|塑膠|樹脂|树脂/.test(combined)) return 'plastic';
+    if (/ceramic|porcelain|tile|glaze|陶瓷|瓷|釉/.test(combined)) return 'ceramic';
+    return null;
+}
+
 /** 依檔名／標題／material_key 推斷可選材質線索（軟提示，非強制） */
 function inferOptionalMaterialContextHints(basename, title, materialKey, lang) {
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
@@ -1885,10 +1898,10 @@ function fluxSeedFromImageBuffer(buffer) {
 function createVendorFluxOptimizeScheduler() {
     let jobIndex = 0;
     return {
-        async optimize(file, title, assetKind, materialHint, optimizeBackground) {
+        async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint) {
             if (jobIndex > 0) await sleepMs(VENDOR_FLUX_BATCH_GAP_MS);
             const out = await maybeOptimizeVendorAssetMulterFile(
-                file, title, assetKind, materialHint, optimizeBackground
+                file, title, assetKind, materialHint, optimizeBackground, filenameHint
             );
             jobIndex += 1;
             return out;
@@ -1896,14 +1909,16 @@ function createVendorFluxOptimizeScheduler() {
     };
 }
 
-async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materialHint, optimizeBackground) {
+async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materialHint, optimizeBackground, filenameHintOverride) {
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
     const seed = fluxSeedFromImageBuffer(file.buffer);
+    const filenameHint = String(filenameHintOverride || labelFromOriginalFilename(file.originalname) || '').trim();
     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
         file.buffer, file.mimetype, title, assetKind,
         assetKind === 'material' ? materialHint : null,
         optimizeBg,
-        seed
+        seed,
+        filenameHint
     );
     return {
         buffer: optimizedBuf,
@@ -2009,20 +2024,39 @@ function materialOptimizeTextureDirective(materialKey) {
  * 材料參考「材質圖 AI 優化」— 色卡／滿版圖樣導向，與產品重繪分線（不用棚拍底色）。
  * 規劃：docs/vendor-asset-material-swatch-plan.md
  */
-/** @param {string} catalogHint — 廠商材料自訂分類名稱（逗號串），取代 material_key */
-function buildVendorAssetMaterialOptimizePrompt(title, catalogHint) {
-    const label = (title || '').trim() || (catalogHint || '').trim() || 'material sample';
-    const typeLabel = (catalogHint || '').trim() || 'material';
-    const textureLine = materialOptimizeTextureDirective(null);
-    return [
-        `Enhance this image as a full-frame material swatch / color-card texture (like a Pantone or fabric swatch scan): "${label}" (${typeLabel}).`,
-        'The entire frame should read as continuous material surface—preserve the apparent weave, grain, or pore scale from the reference; do not enlarge texture into oversized repeating blocks.',
-        'Keep the same color family, pattern orientation, and overall crop; only improve clarity, even lighting, and true color.',
+/** @param {string} catalogHint — 廠商材料自訂分類名稱（逗號串） */
+/** @param {string} filenameHint — 圖片檔名或使用者標籤（軟線索） */
+function buildVendorAssetMaterialOptimizePrompt(title, catalogHint, filenameHint) {
+    const titleT = (title || '').trim();
+    const catalogT = (catalogHint || '').trim();
+    const fileT = (filenameHint || '').trim();
+    const inferredKey = inferMaterialKeyFromHints(fileT, titleT, catalogT);
+    const textureLine = materialOptimizeTextureDirective(inferredKey);
+    const parts = [
+        'Using the provided reference image as the only source, enhance it as a full-frame material swatch / texture reference for product design—not a product photo on studio backdrop.',
+        'Primary goal: make surface material quality clearly readable—authentic weave, grain direction, pores, sheen, glaze depth, and true color. Preserve the apparent texture scale from the reference; do not enlarge into oversized repeating blocks.',
+        'Keep the same color family, pattern orientation, and overall framing; only improve clarity, even diffuse lighting, and color accuracy.',
         textureLine,
-        'No finished products, no 3D spheres, no props, no hands, no rulers, no text, no watermark, no logo.',
-        'If non-material edges exist in the source, trim or fade them minimally—do not replace the swatch with a product photo on white seamless backdrop.',
-        'Flat lay or gentle fold only; photorealistic material detail, 8k resolution'
-    ].join(' ');
+        'No finished products, 3D spheres, props, hands, rulers, packaging, text, watermark, or logo.',
+        'If non-material edges exist in the source, trim or fade them minimally—do not replace the swatch with a product photo.',
+        'Flat lay or gentle material fold only. Photorealistic material detail, sharp focus.'
+    ];
+    let insertAt = 2;
+    if (catalogT) {
+        parts.splice(insertAt, 0, `Vendor material catalog grouping (texture family): ${catalogT}.`);
+        insertAt += 1;
+    }
+    if (titleT) {
+        parts.splice(insertAt, 0, `Material title (match surface character from reference; do not invent new patterns): ${titleT}.`);
+        insertAt += 1;
+    }
+    if (fileT && fileT !== titleT) {
+        parts.splice(insertAt, 0, `Filename / image label hint (soft context from uploader, not authoritative): ${fileT}.`);
+    }
+    inferOptionalMaterialContextHints(fileT, titleT, inferredKey, 'en').forEach(function (h) {
+        parts.push(h);
+    });
+    return parts.join(' ');
 }
 
 async function recordVisualSemanticsEvent(row) {
@@ -7391,11 +7425,11 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
 }
 
 /** 廠商素材：數位原型＝商品圖重繪（可選底色）；材料＝滿版圖樣優化（不用底色，見 material-swatch-plan） */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed) {
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
     const prompt = isMaterial
-        ? buildVendorAssetMaterialOptimizePrompt(title, materialCatalogHint)
+        ? buildVendorAssetMaterialOptimizePrompt(title, materialCatalogHint, filenameHint)
         : buildVendorAssetProductOptimizePrompt(title, backgroundColor);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
@@ -12977,6 +13011,18 @@ async function vendorCatalogGroupNamesByIds(manufacturerId, groupIds) {
         .join('、');
 }
 
+/** 材料素材已勾選的自訂分類名稱（供 AI 優化提示詞） */
+async function materialCatalogHintForVendorAsset(manufacturerId, assetId) {
+    if (!manufacturerId || !assetId) return '';
+    const enriched = await attachCatalogGroupIdsToAssets([{ id: assetId }]);
+    const row = enriched && enriched[0];
+    if (!row || !row.catalog_groups || !row.catalog_groups.length) return '';
+    return row.catalog_groups
+        .map((g) => String(g.name || '').trim())
+        .filter(Boolean)
+        .join('、');
+}
+
 async function vendorCatalogGroupsTableReady() {
     const { error } = await supabase.from('vendor_catalog_groups').select('id').limit(1);
     return !error || error.code !== '42P01';
@@ -14742,12 +14788,20 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         if (!file) return res.status(400).json({ error: '請上傳圖片' });
         const body = req.body || {};
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
-        if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '僅數位原型或配件／零件可預覽 AI 重繪' });
+        if (assetKind !== 'prototype' && assetKind !== 'part' && assetKind !== 'material') {
+            return res.status(400).json({ error: '不支援的素材類型' });
         }
         const isCover = parseTruthyBody(body.is_cover);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
         const titleForPrompt = (body.title || '').trim() || null;
+        const imageLabelHint = (body.image_label || body.filename_hint || '').trim();
+        let materialCatalogHint = '';
+        if (assetKind === 'material') {
+            const groupIds = parseCatalogGroupIdsFromBody(body);
+            if (groupIds.length) {
+                materialCatalogHint = await vendorCatalogGroupNamesByIds(manufacturerId, groupIds);
+            }
+        }
         const pointsRequired = await computePendingPreviewRedrawPoints(assetKind, isCover);
         let ownerId = seedUser.id;
         let isAdmin = false;
@@ -14761,8 +14815,14 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         }
         let optimized;
         try {
+            const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
             optimized = await maybeOptimizeVendorAssetMulterFile(
-                file, titleForPrompt, assetKind, null, optimizeBackground
+                file,
+                titleForPrompt,
+                assetKind,
+                assetKind === 'material' ? materialCatalogHint : null,
+                assetKind === 'material' ? 'white' : optimizeBackground,
+                filenameHint
             );
         } catch (optErr) {
             console.error('preview-image-redraw optimize:', optErr);
@@ -14780,7 +14840,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 ownerId,
                 pointsRequired,
                 'vendor_asset_optimize',
-                `上傳前單張 AI 重繪預覽（${pointsRequired} 點）`,
+                `上傳前單張 ${assetKind === 'material' ? '材質圖 AI 優化' : 'AI 重繪'}預覽（${pointsRequired} 點）`,
                 { manufacturer_id: manufacturerId, preview: true, is_cover: isCover }
             );
             if (!consumed.ok) {
@@ -15204,12 +15264,18 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             });
         }
 
+        const imageLabels = supportsGallery
+            ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
+            : parseImageLabelsBody(body, 1);
+
         const fluxScheduler = createVendorFluxOptimizeScheduler();
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
+                const coverFilenameHint = (imageLabels[0] && String(imageLabels[0]).trim())
+                    || labelFromOriginalFilename(file.originalname);
                 uploadFile = await fluxScheduler.optimize(
-                    file, title, assetKind, materialHintForOptimize, optimizeBackground
+                    file, title, assetKind, materialHintForOptimize, optimizeBackground, coverFilenameHint
                 );
             } catch (optErr) {
                 console.error('vendor-assets image optimize:', optErr);
@@ -15219,9 +15285,6 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         }
 
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, uploadFile);
-        const imageLabels = supportsGallery
-            ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
-            : parseImageLabelsBody(body, 1);
         const coverLabel = (imageLabels[0] && String(imageLabels[0]).trim())
             || labelFromOriginalFilename(uploadFile.originalname)
             || labelFromImageUrl(publicUrl);
@@ -15232,10 +15295,12 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             for (let gi = 0; gi < maxExtra; gi++) {
                 let gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
                 if (!gf) continue;
-                if (assetKind !== 'material' && optimizeIndices.includes(gi + 1)) {
+                if (optimizeIndices.includes(gi + 1)) {
                     try {
+                        const galleryFilenameHint = (imageLabels[gi + 1] && String(imageLabels[gi + 1]).trim())
+                            || labelFromOriginalFilename(gf.originalname);
                         gf = await fluxScheduler.optimize(
-                            gf, title, assetKind, materialHintForOptimize, optimizeBackground
+                            gf, title, assetKind, materialHintForOptimize, optimizeBackground, galleryFilenameHint
                         );
                     } catch (optErr) {
                         console.error('vendor-assets gallery optimize:', optErr);
@@ -15467,8 +15532,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
         const assetKind = normalizeVendorAssetKind(row.asset_kind);
-        if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '僅數位原型或配件／零件可重繪多角度圖' });
+        if (!vendorAssetSupportsGalleryImages(assetKind)) {
+            return res.status(400).json({ error: '此素材類型不支援多角度圖重繪' });
         }
         const allUrls = getVendorAssetAllImageUrls(row);
         if (allUrls.indexOf(sourceUrl) < 0) {
@@ -15504,18 +15569,27 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         });
         if (!file) return res.status(400).json({ error: '無法讀取圖片，請改用 JPG／PNG／WebP' });
         const titleForPrompt = (row.title || '').trim() || null;
+        const materialCatalogHint = assetKind === 'material'
+            ? await materialCatalogHintForVendorAsset(manufacturerId, id)
+            : '';
+        const sourceItems = buildVendorAssetImageItems(row);
+        const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
+        const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
+        const filenameHint = (srcLabel || labelFromImageUrl(sourceUrl) || '').trim();
         try {
             file = await maybeOptimizeVendorAssetMulterFile(
-                file, titleForPrompt, assetKind, null, optimizeBackground
+                file,
+                titleForPrompt,
+                assetKind,
+                assetKind === 'material' ? materialCatalogHint : null,
+                assetKind === 'material' ? 'white' : optimizeBackground,
+                filenameHint
             );
         } catch (optErr) {
             console.error('gallery-images/redraw optimize:', optErr);
             const mapped = vendorAssetOptimizeErrorResponse(optErr, assetKind);
             return res.status(mapped.status).json(mapped.body);
         }
-        const sourceItems = buildVendorAssetImageItems(row);
-        const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
-        const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
         const coverUrl = String(row.image_url || '').trim();
         const isCover = coverUrl === sourceUrl;
         let updatePayload;
@@ -15615,8 +15689,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
         const assetKind = normalizeVendorAssetKind(row.asset_kind);
-        if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '僅數位原型或配件／零件可使用 AI 放大' });
+        if (!vendorAssetSupportsGalleryImages(assetKind)) {
+            return res.status(400).json({ error: '此素材類型不支援多角度圖放大' });
         }
         const allUrls = getVendorAssetAllImageUrls(row);
         if (allUrls.indexOf(sourceUrl) < 0) {
@@ -15736,8 +15810,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
         const assetKind = normalizeVendorAssetKind(row.asset_kind);
-        if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '僅數位原型或配件／零件可新增多角度圖' });
+        if (!vendorAssetSupportsGalleryImages(assetKind)) {
+            return res.status(400).json({ error: '此素材類型不支援新增多角度圖' });
         }
         const files = (req.files && req.files.length) ? req.files : [];
         if (!files.length) return res.status(400).json({ error: '請上傳至少一張圖片' });
@@ -15745,6 +15819,10 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         const optimizeIndices = parseOptimizeImageIndices(body, files.length);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
         const titleForPrompt = (row.title || '').trim() || null;
+        const materialCatalogHint = assetKind === 'material'
+            ? await materialCatalogHintForVendorAsset(manufacturerId, id)
+            : '';
+        const imageLabels = parseImageLabelsBody(body, files.length);
         let pointsRequired = 0;
         if (optimizeIndices.length) {
             pointsRequired = await computeVendorAssetOptimizeTotalPoints(optimizeIndices.length, assetKind);
@@ -15773,8 +15851,15 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
             if (!gf) continue;
             if (optimizeIndices.includes(gi)) {
                 try {
+                    const galleryFilenameHint = (imageLabels[gi] && String(imageLabels[gi]).trim())
+                        || labelFromOriginalFilename(gf.originalname);
                     gf = await fluxScheduler.optimize(
-                        gf, titleForPrompt, assetKind, null, optimizeBackground
+                        gf,
+                        titleForPrompt,
+                        assetKind,
+                        assetKind === 'material' ? materialCatalogHint : null,
+                        assetKind === 'material' ? 'white' : optimizeBackground,
+                        galleryFilenameHint
                     );
                 } catch (optErr) {
                     console.error('gallery-images optimize:', optErr);
