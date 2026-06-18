@@ -1814,10 +1814,10 @@ function fluxSeedFromImageBuffer(buffer) {
 function createVendorFluxOptimizeScheduler() {
     let jobIndex = 0;
     return {
-        async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint, materialSemantics) {
+        async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint, materialFluxEditPrompt) {
             if (jobIndex > 0) await sleepMs(VENDOR_FLUX_BATCH_GAP_MS);
             const out = await maybeOptimizeVendorAssetMulterFile(
-                file, title, assetKind, materialHint, optimizeBackground, filenameHint, materialSemantics
+                file, title, assetKind, materialHint, optimizeBackground, filenameHint, materialFluxEditPrompt
             );
             jobIndex += 1;
             return out;
@@ -1825,7 +1825,7 @@ function createVendorFluxOptimizeScheduler() {
     };
 }
 
-async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materialHint, optimizeBackground, filenameHintOverride, materialSemantics) {
+async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materialHint, optimizeBackground, filenameHintOverride, materialFluxEditPrompt) {
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
     const seed = fluxSeedFromImageBuffer(file.buffer);
     const filenameHint = String(filenameHintOverride || labelFromOriginalFilename(file.originalname) || '').trim();
@@ -1835,7 +1835,7 @@ async function maybeOptimizeVendorAssetMulterFile(file, title, assetKind, materi
         optimizeBg,
         seed,
         filenameHint,
-        materialSemantics
+        materialFluxEditPrompt
     );
     return {
         buffer: optimizedBuf,
@@ -1897,50 +1897,46 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
 }
 
 /**
- * 材料 FLUX 提示詞 = 強保真 img2img 底稿 + Gemini JSON（描述 input_image 既有特徵，非發明新紋理）。
- * 底稿句為通用保真規則，非 material_key 查表；見 docs/flux-and-gemini-prompt-policy.md §4.1。
+ * 材料 FLUX：BFL 單圖編輯格式 + Gemini 產出的英文編輯句（描述保留什麼，不是生圖規格）。
+ * @see https://docs.bfl.ml/guides/prompting_editing_single_reference.md
  */
-function buildVendorAssetMaterialOptimizePrompt(semanticsJson) {
-    const fidelity = visualSemantics.buildMaterialFluxFidelityLine(semanticsJson);
-    if (!fidelity) {
-        throw new Error('材質讀圖結果為空，無法產生 AI 優化提示詞');
+function buildVendorAssetMaterialOptimizePrompt(materialFluxEditPrompt) {
+    const editDesc = (materialFluxEditPrompt || '').trim();
+    if (!editDesc) {
+        throw new Error('材質編輯提示詞為空，無法進行 AI 優化');
     }
-    const parts = [
-        'Using input_image as the only source, perform a minimal flat material swatch cleanup.',
-        'The reference pixels are the sole authority: preserve exactly the same material type, colors, hue, saturation, brightness, pattern, grain or weave scale, sheen, and full-frame composition.',
-        'Do not invent, substitute, recolor, retexture, stylize, or imagine a different surface than what input_image shows.',
-        'Do not change the texture repeat scale or pattern family.',
-        'Allowed changes only: subtle clarity, sharper focus, soft even diffuse lighting, and light noise reduction—without altering surface character.',
-        'Full-frame edge-to-edge texture like a flat swatch; no products, props, hands, rulers, packaging, text, watermark, or logo.',
-        'Photorealistic, sharp focus, accurate colors from the reference.',
-        `Characteristics already visible in input_image (preserve exactly; do not contradict the reference): ${fidelity}`
-    ];
-    return parts.join(' ');
+    return [
+        'Single-reference edit of input_image.',
+        editDesc,
+        'Keep everything not mentioned above exactly unchanged.',
+        'Do not generate a new texture or substitute a different material swatch.'
+    ].join(' ');
 }
 
 /**
- * 材料 FLUX 前：Gemini 讀「原圖 + 標題／檔名／分類」產出語意。
- * reuseSemantics 僅當本請求已對同一 buffer 跑過讀圖時傳入，避免重複呼叫。
+ * 材料 FLUX 前：Gemini 讀原圖產出英文編輯提示詞（非 JSON 標籤、非生圖）。
  */
-async function resolveMaterialSemanticsForFlux(file, context, ownerId, reuseSemantics) {
-    if (reuseSemantics && typeof reuseSemantics === 'object') {
-        const fin = finalizeVendorAssetSemantics(reuseSemantics, null, 'material');
-        if (fin.semantics && visualSemantics.buildMaterialFluxFidelityLine(fin.semantics)) {
-            return fin.semantics;
-        }
-    }
+async function resolveMaterialFluxEditPrompt(file, context, ownerId) {
     if (!process.env.GEMINI_API_KEY) {
         throw new Error('未設定 GEMINI_API_KEY，無法讀取材質圖');
     }
-    const sem = await runVendorAssetImageSemantics(file, {
-        asset_kind: 'material',
-        ...(context || {})
-    }, ownerId);
-    const fin = finalizeVendorAssetSemantics(sem.semantics, sem.tags, 'material');
-    if (!visualSemantics.buildMaterialFluxFidelityLine(fin.semantics)) {
-        throw new Error('材質讀圖無法辨識表面特徵，請換較清晰的材料特寫圖後重試');
-    }
-    return fin.semantics;
+    const deps = getVisualSemanticsDeps();
+    const imagePart = visualSemantics.bufferToImagePart(file.buffer || file, file.mimetype);
+    const result = await visualSemantics.analyzeMaterialFluxEditPrompt(deps, imagePart, context || {});
+    await recordVisualSemanticsEvent({
+        source_type: 'vendor_asset',
+        source_id: null,
+        image_url: (context && context.image_url) || null,
+        text_input: result.prompt,
+        semantics_kind: 'material_flux_edit',
+        ai_tags: null,
+        semantics_json: null,
+        model: result.model,
+        prompt_version: result.prompt_version,
+        owner_id: ownerId || null,
+        category_key: (context && context.category_key) || null
+    });
+    return result.prompt;
 }
 
 async function recordVisualSemanticsEvent(row) {
@@ -7308,15 +7304,15 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 廠商素材：數位原型＝商品圖重繪；材料＝Gemini 讀原圖特徵 → FLUX img2img */
-async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint, materialSemantics) {
+/** 廠商素材：數位原型＝商品圖重繪；材料＝Gemini 英文編輯句 → FLUX input_image 編輯 */
+async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint, materialFluxEditPrompt) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
-    if (isMaterial && !materialSemantics) {
-        throw new Error('材料圖須先經 Gemini 讀圖才能進行 AI 優化');
+    if (isMaterial && !(materialFluxEditPrompt || '').trim()) {
+        throw new Error('材料圖須先經 Gemini 產出編輯提示詞才能進行 AI 優化');
     }
     const prompt = isMaterial
-        ? buildVendorAssetMaterialOptimizePrompt(materialSemantics)
+        ? buildVendorAssetMaterialOptimizePrompt(materialFluxEditPrompt)
         : buildVendorAssetProductOptimizePrompt(title, backgroundColor);
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
@@ -14702,21 +14698,21 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         }
         let optimized;
         const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
-        let materialSemantics = null;
+        let materialFluxEditPrompt = null;
         if (assetKind === 'material') {
             try {
-                materialSemantics = await resolveMaterialSemanticsForFlux(file, {
+                materialFluxEditPrompt = await resolveMaterialFluxEditPrompt(file, {
                     title: titleForPrompt,
                     material_catalog_hint: materialCatalogHint || undefined,
                     image_label: filenameHint || undefined
-                }, ownerId, null);
+                }, ownerId);
             } catch (semErr) {
-                console.error('preview-image-redraw semantics:', semErr);
-                return res.status(503).json({ error: semErr.message || '材質讀圖失敗，無法進行 AI 優化' });
+                console.error('preview-image-redraw flux edit prompt:', semErr);
+                return res.status(503).json({ error: semErr.message || '材質編輯提示詞產生失敗，無法進行 AI 優化' });
             }
         }
         const aiPromptUsed = assetKind === 'material'
-            ? buildVendorAssetMaterialOptimizePrompt(materialSemantics)
+            ? buildVendorAssetMaterialOptimizePrompt(materialFluxEditPrompt)
             : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground);
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
@@ -14726,7 +14722,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 assetKind === 'material' ? materialCatalogHint : null,
                 assetKind === 'material' ? 'white' : optimizeBackground,
                 filenameHint,
-                materialSemantics
+                materialFluxEditPrompt
             );
         } catch (optErr) {
             console.error('preview-image-redraw optimize:', optErr);
@@ -15182,19 +15178,19 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             try {
                 const coverFilenameHint = (imageLabels[0] && String(imageLabels[0]).trim())
                     || labelFromOriginalFilename(file.originalname);
-                let coverMaterialSemantics = null;
+                let coverMaterialFluxEditPrompt = null;
                 if (assetKind === 'material') {
-                    coverMaterialSemantics = await resolveMaterialSemanticsForFlux(file, {
+                    coverMaterialFluxEditPrompt = await resolveMaterialFluxEditPrompt(file, {
                         category_key: categoryKey,
                         title,
                         description,
                         material_catalog_hint: materialHintForOptimize || undefined,
                         image_label: coverFilenameHint || undefined
-                    }, ownerId, semanticsFromThisFile ? semanticsJson : null);
+                    }, ownerId);
                 }
                 uploadFile = await fluxScheduler.optimize(
                     file, title, assetKind, materialHintForOptimize, optimizeBackground, coverFilenameHint,
-                    coverMaterialSemantics
+                    coverMaterialFluxEditPrompt
                 );
             } catch (optErr) {
                 console.error('vendor-assets image optimize:', optErr);
@@ -15218,19 +15214,19 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                     try {
                         const galleryFilenameHint = (imageLabels[gi + 1] && String(imageLabels[gi + 1]).trim())
                             || labelFromOriginalFilename(gf.originalname);
-                        let gfSemantics = null;
+                        let gfFluxEditPrompt = null;
                         if (assetKind === 'material') {
-                            gfSemantics = await resolveMaterialSemanticsForFlux(gf, {
+                            gfFluxEditPrompt = await resolveMaterialFluxEditPrompt(gf, {
                                 category_key: categoryKey,
                                 title,
                                 description,
                                 material_catalog_hint: materialHintForOptimize || undefined,
                                 image_label: galleryFilenameHint || undefined
-                            }, ownerId, null);
+                            }, ownerId);
                         }
                         gf = await fluxScheduler.optimize(
                             gf, title, assetKind, materialHintForOptimize, optimizeBackground, galleryFilenameHint,
-                            gfSemantics
+                            gfFluxEditPrompt
                         );
                     } catch (optErr) {
                         console.error('vendor-assets gallery optimize:', optErr);
@@ -15506,14 +15502,14 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
         const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
         const filenameHint = (srcLabel || labelFromImageUrl(sourceUrl) || '').trim();
-        let materialSemantics = null;
+        let materialFluxEditPrompt = null;
         if (assetKind === 'material') {
-            materialSemantics = await resolveMaterialSemanticsForFlux(file, {
+            materialFluxEditPrompt = await resolveMaterialFluxEditPrompt(file, {
                 title: titleForPrompt,
                 material_catalog_hint: materialCatalogHint || undefined,
                 image_url: sourceUrl,
                 image_label: filenameHint || undefined
-            }, ownerId, null);
+            }, ownerId);
         }
         try {
             file = await maybeOptimizeVendorAssetMulterFile(
@@ -15523,7 +15519,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
                 assetKind === 'material' ? materialCatalogHint : null,
                 assetKind === 'material' ? 'white' : optimizeBackground,
                 filenameHint,
-                materialSemantics
+                materialFluxEditPrompt
             );
         } catch (optErr) {
             console.error('gallery-images/redraw optimize:', optErr);
@@ -15793,13 +15789,13 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
                 try {
                     const galleryFilenameHint = (imageLabels[gi] && String(imageLabels[gi]).trim())
                         || labelFromOriginalFilename(gf.originalname);
-                    let gfSemantics = null;
+                    let gfFluxEditPrompt = null;
                     if (assetKind === 'material') {
-                        gfSemantics = await resolveMaterialSemanticsForFlux(gf, {
+                        gfFluxEditPrompt = await resolveMaterialFluxEditPrompt(gf, {
                             title: titleForPrompt,
                             material_catalog_hint: materialCatalogHint || undefined,
                             image_label: galleryFilenameHint || undefined
-                        }, ownerId, null);
+                        }, ownerId);
                     }
                     gf = await fluxScheduler.optimize(
                         gf,
@@ -15808,7 +15804,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
                         assetKind === 'material' ? materialCatalogHint : null,
                         assetKind === 'material' ? 'white' : optimizeBackground,
                         galleryFilenameHint,
-                        gfSemantics
+                        gfFluxEditPrompt
                     );
                 } catch (optErr) {
                     console.error('gallery-images optimize:', optErr);
@@ -16365,16 +16361,16 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             if (wantsOptimize) {
                 try {
                     const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
-                    let materialSemanticsPut = null;
+                    let materialFluxEditPromptPut = null;
                     if (assetKind === 'material') {
                         const putFilenameHint = labelFromOriginalFilename(file.originalname);
-                        materialSemanticsPut = await resolveMaterialSemanticsForFlux(file, {
+                        materialFluxEditPromptPut = await resolveMaterialFluxEditPrompt(file, {
                             category_key: categoryKeyForTags,
                             title: titleForPrompt,
                             description: updates.description !== undefined ? updates.description : row.description,
                             material_catalog_hint: materialCatalogHintPut || undefined,
                             image_label: putFilenameHint || undefined
-                        }, ownerId, semanticsFromThisFile ? semanticsJson : null);
+                        }, ownerId);
                     }
                     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
                         file.buffer, file.mimetype, titleForPrompt, assetKind,
@@ -16382,7 +16378,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                         optimizeBackground,
                         fluxSeedFromImageBuffer(file.buffer),
                         labelFromOriginalFilename(file.originalname),
-                        materialSemanticsPut
+                        materialFluxEditPromptPut
                     );
                     uploadFile = {
                         buffer: optimizedBuf,
@@ -17103,21 +17099,21 @@ async function processSupplierCatalogImagePipeline({
     if (wantsOptimize) {
         try {
             const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
-            let materialSemanticsCatalog = null;
+            let materialFluxEditPromptCatalog = null;
             if (assetKind === 'material') {
                 const catalogFilenameHint = labelFromOriginalFilename(file.originalname);
-                materialSemanticsCatalog = await resolveMaterialSemanticsForFlux(file, {
+                materialFluxEditPromptCatalog = await resolveMaterialFluxEditPrompt(file, {
                     category_key: categoryKey,
                     title: tit,
                     description: desc,
                     image_label: catalogFilenameHint || undefined
-                }, ownerId, semanticsFromThisFile ? semanticsJson : null);
+                }, ownerId);
             }
             const optimizedBuf = await optimizeVendorAssetImageWithFlux(
                 file.buffer, file.mimetype, tit, assetKind, null, optimizeBackground,
                 fluxSeedFromImageBuffer(file.buffer),
                 labelFromOriginalFilename(file.originalname),
-                materialSemanticsCatalog
+                materialFluxEditPromptCatalog
             );
             uploadFile = {
                 buffer: optimizedBuf,

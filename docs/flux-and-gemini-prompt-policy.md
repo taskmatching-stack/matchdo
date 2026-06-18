@@ -17,29 +17,40 @@
 
 ## 2. 正確管線（唯一允許的動態內容來源）
 
-### 2.1 材料表面特徵（廠商素材庫 AI 優化、設計頁材料參考）
+### 2.1 材料 — 兩條 Gemini 管線（不可混用）
+
+**A. 材料 AI 優化（廠商素材庫重繪）— 對齊 BFL 單圖編輯**
+
+依 [BFL Single-Reference Editing](https://docs.bfl.ml/guides/prompting_editing_single_reference.md)：prompt 須**明確寫要改什麼、什麼必須不變**；`input_image` + prompt 送 `POST /v1/flux-2-pro`。
 
 ```
 原圖（input_image）
-  + 標題／檔名／廠商分類（僅作 Gemini 補充，註明「以影像為準」）
+  + 標題／檔名／分類（僅 Gemini 補充）
         ↓
-  Gemini — material_tagging_prompt（DEFAULT 或 payment_config 覆寫）
+  Gemini — material_flux_edit_prompt → 僅英文編輯句（2～4 句，非 JSON、非生圖）
         ↓
-  image_semantics_json（materials, patterns, colors, craftsmanship…）
+  buildVendorAssetMaterialOptimizePrompt() — BFL 單圖編輯外殼 + 上列英文句
         ↓
-  buildMaterialFluxFidelityLine() — 原樣轉寫 JSON，不推斷、不查表
-        ↓
-  FLUX img2img — 短通用底稿 + 上列轉寫句
+  FLUX.2 [pro] input_image 編輯
 ```
 
 | 步驟 | 檔案／函式 |
 |------|------------|
-| Gemini 讀圖 | `lib/visual-semantics.js` → `analyzeImageSemantics` |
-| 材料 FLUX 前取語意 | `server.js` → `resolveMaterialSemanticsForFlux` |
-| 組 FLUX 句 | `buildVendorAssetMaterialOptimizePrompt` + `buildMaterialFluxFidelityLine` |
-| 設計頁材料附錄 | `buildMaterialTexturePromptAppendix`（讀 DB `image_semantics_json`） |
+| Gemini 產編輯句 | `analyzeMaterialFluxEditPrompt`（`material_flux_edit_prompt`） |
+| 取編輯句 | `resolveMaterialFluxEditPrompt` |
+| 組 FLUX prompt | `buildVendorAssetMaterialOptimizePrompt` |
+| 原型／零件對照 | `buildVendorAssetProductOptimizePrompt`（固定英文，不經 Gemini） |
 
-**沒有 Gemini 結果就不送材料 FLUX**（503），禁止靜默退回空提示詞。
+**B. 材料標籤／設計頁附錄（搜尋、篩選、生圖參考說明）**
+
+```
+原圖 → Gemini material_tagging_prompt → image_semantics_json
+設計頁：buildMaterialTexturePromptAppendix（讀 DB JSON）
+```
+
+**`material_tagging_prompt` 的 JSON 不送材料 FLUX optimize**（避免 FLUX 把標籤當「生成規格」）。
+
+**沒有 Gemini 編輯句就不送材料 FLUX**（503）。
 
 ### 2.2 訂製設計頁生圖 `POST /api/generate-product-image`
 
@@ -84,7 +95,7 @@
 | 從標題推斷送 FLUX 的紋理 | 標題只准進 **Gemini 補充** | `materialOptimizeTextureDirective` |
 | 擅自改 FLUX 輸出比例 | 未經產品／後台設定 | `fluxOutputSizeFromImageBuffer` 跟原圖 aspect |
 
-**矛盾或錯誤形容** → 改 **`material_tagging_prompt`**（Gemini 自洽規則），**不是**在後端加第二套規則表。
+**矛盾或錯誤形容** → 改 **`material_tagging_prompt`**（Gemini 自洽規則＋**忠實記錄、禁止發揮**），**不是**在後端加第二套規則表。
 
 ---
 
@@ -151,7 +162,8 @@
 | 政策本檔 | `docs/flux-and-gemini-prompt-policy.md` |
 | Gemini 材料讀圖 | `lib/visual-semantics.js` — `material_tagging_prompt`、`analyzeImageSemantics` |
 | JSON → FLUX 句 | `buildMaterialFluxFidelityLine` |
-| 材料 optimize | `buildVendorAssetMaterialOptimizePrompt`、`resolveMaterialSemanticsForFlux` |
+| 材料 optimize | `buildVendorAssetMaterialOptimizePrompt`、`resolveMaterialFluxEditPrompt` |
+| 材料標籤 JSON | `material_tagging_prompt`、`analyzeImageSemantics` |
 | 設計頁組 prompt | `composeGeneratePromptWithReferences`、`buildMaterialTexturePromptAppendix` |
 | 分類 prompt 指南 | `docs/custom-product-subcategory-prompt-guide.md` |
 | 材料色卡產品規格 | `docs/vendor-asset-material-swatch-plan.md`（已對齊本政策） |

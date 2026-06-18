@@ -175,7 +175,7 @@ ORDER BY min_order_quantity;
 **主文件**：`docs/vendor-asset-material-swatch-plan.md`、**政策**：`docs/flux-and-gemini-prompt-policy.md`
 
 - UI：**材質圖 AI 優化**；**無底色**（產品重繪才有）。
-- 後端：`resolveMaterialSemanticsForFlux` → `buildVendorAssetMaterialOptimizePrompt`（Gemini JSON + 短通用底稿）。
+- 後端：`resolveMaterialFluxEditPrompt` → `buildVendorAssetMaterialOptimizePrompt`（Gemini **英文編輯句** + BFL 單圖編輯外殼；**非** JSON 標籤送 FLUX）。
 - 輸出 **1024×1024**；無 Gemini 結果不送 FLUX。
 - 扣點：`points_optimize_material`（預設 10 點）。
 
