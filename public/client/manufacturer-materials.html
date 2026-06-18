@@ -409,7 +409,7 @@
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32">
-                                    <p class="form-text text-muted small mb-0">供 AI 重繪提示詞使用（例：皮革 →「保持顏色並優化此皮革材質光影」）。</p>
+                                    <p class="form-text text-muted small mb-0">例：皮革 →「維持材質的質感和顏色，並優化此皮革材質紋理」</p>
                                 </div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12 ref-image-block">
@@ -560,7 +560,7 @@
                             <div id="edit-material-surface-wrap" class="mb-2 d-none">
                                 <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
-                                <p class="form-text text-muted small mb-0">例：皮革 →「保持顏色並優化此皮革材質光影」</p>
+                                <p class="form-text text-muted small mb-0">例：皮革 →「維持材質的質感和顏色，並優化此皮革材質紋理」</p>
                             </div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
@@ -691,7 +691,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-gallery-label-1024-20260618';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-flux-cn-prompt-20260618';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });

@@ -1916,7 +1916,7 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
     return { status: 503, body: { error: (optErr && optErr.message) || `${failLabel}，請稍後重試` } };
 }
 
-/** 材料 FLUX 優化：使用者填材質類型（例：皮革）→「保持顏色並優化此皮革材質光影」 */
+/** 材料 FLUX 優化：使用者填材質類型（例：皮革）→「維持材質的質感和顏色，並優化此皮革材質紋理」 */
 function normalizeMaterialSurfaceType(raw) {
     return String(raw || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
 }
@@ -1924,7 +1924,7 @@ function normalizeMaterialSurfaceType(raw) {
 function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     const t = normalizeMaterialSurfaceType(surfaceType);
     if (!t) throw new Error('請填材質類型（例：皮革、丹寧）');
-    return `保持顏色並優化此${t}材質光影`;
+    return `維持材質的質感和顏色，並優化此${t}材質紋理`;
 }
 
 function resolveMaterialSurfaceType(body, row) {
@@ -7471,12 +7471,16 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, 
 async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat, fluxOpts) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !referenceImages || referenceImages.length === 0) return null;
-    prompt = await translatePromptToEnglishForFlux(prompt);
     const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
     const opts = fluxOpts && typeof fluxOpts === 'object' ? fluxOpts : {};
     const endpoint = opts.endpointUrl || BFL_FLUX_PRO;
     const outW = Math.min(2048, Math.max(256, Number(opts.width) || 1024));
     const outH = Math.min(2048, Math.max(256, Number(opts.height) || 1024));
+    if (!opts.skipPromptTranslation) {
+        prompt = await translatePromptToEnglishForFlux(prompt);
+    } else {
+        prompt = String(prompt || '').trim();
+    }
     const maxImages = 8;
     const images = referenceImages.slice(0, maxImages).map((img) => {
         if (typeof img === 'string' && img.startsWith('data:')) {
@@ -7515,7 +7519,8 @@ async function optimizeVendorAssetImageWithFlux(
         const fluxOpts = {
             endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
             width: 1024,
-            height: 1024
+            height: 1024,
+            skipPromptTranslation: true
         };
         const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
         const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
