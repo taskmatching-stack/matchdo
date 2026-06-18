@@ -557,6 +557,11 @@
                         </div>
                         <div class="mb-3 d-none" id="edit-images-prototype-wrap">
                             <label class="form-label" id="edit-gallery-images-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
+                            <div id="edit-material-surface-wrap" class="mb-2 d-none">
+                                <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
+                                <p class="form-text text-muted small mb-0">例：皮革 →「保持顏色並優化此皮革材質光影」</p>
+                            </div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
                             <div id="edit-gallery-redraw-settings" class="border rounded p-2 mb-3 d-none">
@@ -572,11 +577,6 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
-                                </div>
-                                <div id="edit-material-surface-wrap" class="mb-2 d-none">
-                                    <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
-                                    <p class="form-text text-muted small mb-0">例：皮革 →「保持顏色並優化此皮革材質光影」</p>
                                 </div>
                                 <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。</p>
                             </div>
@@ -691,7 +691,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-flux-surface-seed-20260618';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-gallery-label-1024-20260618';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4818,7 +4818,7 @@
             var galLabel = document.getElementById('edit-gallery-images-label');
             if (galLabel) {
                 galLabel.textContent = isMaterial
-                    ? tr('baseModels.materialGalleryLabel', '參考圖（多角度／細節）')
+                    ? tr('baseModels.materialGalleryLabel', '材料圖片（多角度／細節）')
                     : tr('baseModels.productImagesGalleryLabel', '產品圖片（多角度／多色款）');
             }
             syncEditGalleryUpscaleHint(isMaterial);

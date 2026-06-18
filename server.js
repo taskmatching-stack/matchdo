@@ -7514,8 +7514,8 @@ async function optimizeVendorAssetImageWithFlux(
         const prompt = buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType);
         const fluxOpts = {
             endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
-            width: prepared.width,
-            height: prepared.height
+            width: 1024,
+            height: 1024
         };
         const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
         const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
