@@ -89,7 +89,6 @@ const {
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const { registerSitemapRoutes } = require('./routes/sitemap');
-const sharp = require('sharp');
 
 async function vendorAssetFileFromMulter(file) {
     if (!file) return null;
@@ -974,77 +973,6 @@ function extractImageUrlBasename(url) {
     }
 }
 
-/** 依檔名／標題／自訂分類推斷 material_key（供材質圖 AI 優化） */
-function inferMaterialKeyFromHints(basename, title, catalogHint) {
-    const combined = [basename, title, catalogHint].filter(Boolean).join(' ').toLowerCase();
-    if (!combined.trim()) return null;
-    if (/wood|oak|walnut|teak|birch|木纹|木紋|胡桃|橡木|木材|實木/.test(combined)) return 'wood';
-    if (/metal|brass|steel|aluminum|aluminium|copper|chrome|金屬|銅|不鏽|鋁|黃銅|钛|鈦/.test(combined)) return 'metal';
-    if (/leather|suede|nubuck|皮革|牛皮|羊皮|皮料/.test(combined)) return 'leather';
-    if (/fabric|linen|cotton|denim|silk|wool|tweed|布|丹寧|棉|麻|織|纱|紗|绒|絨/.test(combined)) return 'fabric';
-    if (/plastic|polymer|abs|pvc|塑料|塑胶|塑膠|樹脂|树脂/.test(combined)) return 'plastic';
-    if (/ceramic|porcelain|tile|glaze|陶瓷|瓷|釉/.test(combined)) return 'ceramic';
-    return null;
-}
-
-/** 依檔名／標題／material_key 推斷可選材質線索（軟提示，非強制） */
-function inferOptionalMaterialContextHints(basename, title, materialKey, lang) {
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const combined = [basename, title, materialKey].filter(Boolean).join(' ').toLowerCase();
-    if (!combined.trim()) return [];
-    const hints = [];
-    const push = function (line) { if (line && hints.indexOf(line) < 0) hints.push(line); };
-
-    if (/macro|close[\s-]?up|closeup|微距|特寫|細部/.test(combined)) {
-        push(isEn
-            ? 'Optional hint (filename/title, not authoritative): swatch may be macro close-up—use finer grain on the product, avoid oversized repeating texture.'
-            : '可選線索（檔名／標題，非唯一依據）：樣板可能為微距特寫，成品紋路宜較細、勿放大成粗大重複紋。');
-    }
-    if (/swatch|sample|tile|樣板|色卡|布樣/.test(combined)) {
-        push(isEn
-            ? 'Optional hint: flat material swatch—borrow color and surface character only; do not paste the swatch rectangle into the scene.'
-            : '可選線索：平面材質樣板—僅參考色彩與表面質感，勿將樣板矩形貼入畫面。');
-    }
-    const mk = normalizeVendorMaterialKey(materialKey);
-    if (mk) return hints;
-    if (/wood|oak|walnut|teak|birch|木纹|木紋|胡桃|橡木|木材|實木/.test(combined)) {
-        push(isEn
-            ? 'Optional hint (filename/title): possible wood—grain scale should suit the product size.'
-            : '可選線索（檔名／標題）：可能為木材—紋路粗細宜符合成品尺寸。');
-    }
-    if (/metal|brass|steel|aluminum|copper|chrome|金屬|銅|不鏽|鋁|黃銅/.test(combined)) {
-        push(isEn
-            ? 'Optional hint (filename/title): possible metal—keep brush/patina scale realistic for object size.'
-            : '可選線索（檔名／標題）：可能為金屬—拉絲／氧化紋理尺度宜符合物件。');
-    }
-    if (/leather|suede|nubuck|皮革|牛皮|羊皮/.test(combined)) {
-        push(isEn
-            ? 'Optional hint (filename/title): possible leather—pore/crease scale should match the product.'
-            : '可選線索（檔名／標題）：可能為皮革—毛孔／皺褶尺度宜符合產品。');
-    }
-    if (/fabric|linen|cotton|denim|silk|wool|tweed|布|丹寧|棉|麻|織/.test(combined)) {
-        push(isEn
-            ? 'Optional hint (filename/title): possible fabric—weave repeat should suit garment or bag scale.'
-            : '可選線索（檔名／標題）：可能為布料—織紋重複尺度宜符合服飾或包袋。');
-    }
-    return hints;
-}
-
-function materialTextureScaleRuleForKey(materialKey, lang) {
-    const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
-    const mk = normalizeVendorMaterialKey(materialKey);
-    const map = {
-        wood: isEn ? 'Apply wood tone and grain direction with product-appropriate grain density.' : '套用木色與紋理方向，紋路密度須符合成品大小。',
-        metal: isEn ? 'Apply metal color, reflectivity, and micro-texture at object-appropriate scale.' : '套用金屬色、反光與微紋理，尺度須符合物件。',
-        leather: isEn ? 'Apply leather color and natural pore/crease texture at object-appropriate scale.' : '套用皮革色與自然毛孔／皺褶，尺度須符合物件。',
-        fabric: isEn ? 'Apply fabric color and weave/knit at garment- or product-appropriate repeat scale.' : '套用布料色與織紋／針織，重複尺度須符合服飾或產品。',
-        plastic: isEn ? 'Apply plastic hue and subtle surface texture suitable for the part size.' : '套用塑料色與適當細部表面紋理。',
-        ceramic: isEn ? 'Apply ceramic color and glaze character at realistic object scale.' : '套用陶瓷色與釉面質感，尺度須符合物件。',
-        other: isEn ? 'Apply surface color and texture character with realistic scale for the depicted product.' : '套用表面色彩與質感特徵，尺度須符合畫中產品。'
-    };
-    return map[mk] || map.other;
-}
-
 /** 依 reference_sources 順序對齊參考圖，解析材料參考（含 refIndex = 第幾張 input_image） */
 async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
     const list = Array.isArray(referenceSourcesRaw) ? referenceSourcesRaw : [];
@@ -1066,7 +994,8 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
                 ? s.catalog_group_names.map((n) => String(n).trim()).filter(Boolean)
                 : [],
             image_url: imageUrl,
-            filename_hint: basename || null
+            filename_hint: basename || null,
+            image_semantics_json: s.image_semantics_json || null
         };
         refs.push(entry);
         if (id && !byAssetId.has(id)) byAssetId.set(id, entry);
@@ -1079,7 +1008,7 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
     if (needDb.length) {
         const { data: rows, error } = await supabase
             .from('vendor_assets')
-            .select('id, title, asset_kind, image_url')
+            .select('id, title, asset_kind, image_url, image_semantics_json')
             .in('id', needDb);
         if (!error && rows) {
             const enriched = await attachCatalogGroupIdsToAssets(rows);
@@ -1094,6 +1023,9 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
                 if (!e.filename_hint && row.image_url) {
                     e.filename_hint = extractImageUrlBasename(row.image_url) || e.filename_hint;
                 }
+                if (!e.image_semantics_json && row.image_semantics_json) {
+                    e.image_semantics_json = row.image_semantics_json;
+                }
             });
         }
     }
@@ -1103,47 +1035,30 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
     return refs;
 }
 
-/** 材料參考附錄：紋理尺度與用途（併入同一 fullPrompt） */
+/** 材料參考附錄：通用角色說明 + Gemini 讀圖 JSON（無檔名／材質 key 硬編碼） */
 function buildMaterialTexturePromptAppendix(materialRefs, lang) {
     const refs = Array.isArray(materialRefs) ? materialRefs : [];
     if (!refs.length) return '';
     const isEn = lang && String(lang).toLowerCase().indexOf('zh') !== 0;
     const header = isEn
-        ? '\n\n[Material texture references — same single prompt as above]\n'
-        + 'Some reference images are material swatches (not product prototypes). Follow the user description first. Rules:\n'
-        + '• Material images are for surface color, texture, weave, grain, and finish only—not for product shape or silhouette.\n'
-        + '• Do not paste or tile the swatch as a flat overlay preserving the swatch aspect ratio; integrate texture onto the product with realistic scale.\n'
-        + '• Prototype references (if any) define geometry; material references define body/fabric/metal/wood surface only.\n'
-        : '\n\n【材質紋理參考 — 與上文同一組提示詞】\n'
-        + '部分參考圖為材質樣板（非數位原型）。請優先依前文使用者描述創作。規則：\n'
-        + '• 材質圖僅供表面色彩、紋理、織法、木紋／金屬質感與塗層參考，不得決定產品造型或輪廓。\n'
-        + '• 勿將樣板整張依其長寬比平鋪貼上；應以符合成品大小的合理紋路尺度整合到產品表面。\n'
-        + '• 若有原型參考，造型以原型為準；材質圖僅影響本體／布料／金屬／木材等表面。\n';
+        ? '\n\n[Material references in this prompt]\n'
+        + 'Material images: surface color and texture only. Prototype images: product shape.\n'
+        : '\n\n【材料參考】\n'
+        + '材料圖：僅表面色彩與紋理。原型圖：產品造型。\n';
     const lines = [];
     refs.forEach(function (ref, idx) {
         const n = ref.refIndex != null ? ref.refIndex : (idx + 1);
         const title = (ref.title || '').trim();
-        const label = title || (isEn ? ('Material swatch ' + (idx + 1)) : ('材質樣板 ' + (idx + 1)));
+        const label = title || (isEn ? ('Material ' + (idx + 1)) : ('材料 ' + (idx + 1)));
         const catNames = (ref.catalog_group_names || []).filter(Boolean).join(isEn ? ', ' : '、');
-        const matLabel = catNames || null;
         const head = isEn
-            ? ('For image ' + n + ' ("' + label + '")' + (matLabel ? (' [' + matLabel + ']') : '') + ' — apply material texture rules below.')
-            : ('針對 image ' + n + '（「' + label + '」' + (matLabel ? ('，' + matLabel) : '') + '）— 套用下列材質紋理規則：');
+            ? ('Image ' + n + ': "' + label + '"' + (catNames ? (' [' + catNames + ']') : ''))
+            : ('image ' + n + '：「' + label + '」' + (catNames ? ('（' + catNames + '）') : ''));
         lines.push('• ' + head);
-        const rule = materialTextureScaleRuleForKey(null, lang);
-        if (rule) lines.push('  ◦ ' + rule);
-        const optionalHints = inferOptionalMaterialContextHints(
-            ref.filename_hint || '',
-            ref.title || '',
-            catNames,
-            lang
-        );
-        optionalHints.forEach(function (h) { lines.push('  ◦ ' + h); });
+        const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json);
+        if (semLine) lines.push('  ' + semLine);
     });
-    const footer = isEn
-        ? 'Filename/title hints above are optional context only—not mandatory rules. Fulfill the user design with believable material scale on the final product.'
-        : '以上檔名／標題線索僅供參考，非強制規則。請在成品上呈現合理、可信的材質紋路尺度。';
-    return header + lines.join('\n') + '\n' + footer;
+    return header + lines.join('\n');
 }
 
 /**
@@ -1990,11 +1905,9 @@ function buildVendorAssetMaterialOptimizePrompt(semanticsJson) {
         throw new Error('材質讀圖結果為空，無法產生 AI 優化提示詞');
     }
     const base = [
-        'Image-to-image enhancement of the material reference photo in input_image.',
-        'input_image pixels are the only source of truth for material, color, texture scale, and layout.',
-        'Do not synthesize, substitute, or imagine surfaces not present in the reference.',
-        'Permitted edits only: clarity, focus, even diffuse lighting, light denoising.',
-        'Full-frame material swatch edge-to-edge; no backdrop scene, products, props, text, or watermark.'
+        'Image-to-image enhancement of input_image.',
+        'Keep the same surface as the reference.',
+        'Only improve clarity, focus, lighting, and noise.'
     ].join(' ');
     return `${base} ${fidelity}`;
 }
@@ -7358,32 +7271,8 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat) 
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 材料 FLUX：盡量沿用原圖長寬比，減少 1024² 拉伸導致紋理被「重畫」 */
-async function fluxOutputSizeFromImageBuffer(buffer) {
-    const fallback = { width: 1024, height: 1024 };
-    if (!buffer || !buffer.length) return fallback;
-    try {
-        const meta = await sharp(buffer).metadata();
-        let w = Number(meta.width) || 1024;
-        let h = Number(meta.height) || 1024;
-        const minDim = 512;
-        const maxDim = 2048;
-        const clamp = (n) => Math.min(maxDim, Math.max(minDim, Math.round(n)));
-        if (w >= h) {
-            if (w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
-            if (w < minDim) { h = Math.round(h * minDim / w); w = minDim; }
-        } else {
-            if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
-            if (h < minDim) { w = Math.round(w * minDim / h); h = minDim; }
-        }
-        return { width: clamp(w), height: clamp(h) };
-    } catch (_) {
-        return fallback;
-    }
-}
-
 /** FLUX 2.0 PRO 參考圖編輯；BFL 僅 body.prompt（無 negative_prompt） */
-async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat, outputSize) {
+async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFormat) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY || !referenceImages || referenceImages.length === 0) return null;
     prompt = await translatePromptToEnglishForFlux(prompt);
@@ -7396,12 +7285,7 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
         }
         return img;
     });
-    const body = {
-        prompt,
-        output_format: fmt,
-        width: outputSize && outputSize.width ? outputSize.width : 1024,
-        height: outputSize && outputSize.height ? outputSize.height : 1024
-    };
+    const body = { prompt, output_format: fmt, width: 1024, height: 1024 };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
     body.input_image = images[0];
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
@@ -7431,8 +7315,7 @@ async function optimizeVendorAssetImageWithFlux(fileBuffer, mimeType, title, ass
     const mime = mimeType || 'image/jpeg';
     const dataUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
     const fluxSeed = seed != null ? seed : fluxSeedFromImageBuffer(fileBuffer);
-    const outputSize = isMaterial ? await fluxOutputSizeFromImageBuffer(fileBuffer) : null;
-    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], fluxSeed, 'jpeg', outputSize);
+    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], fluxSeed, 'jpeg');
     if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
     return buf;
 }
