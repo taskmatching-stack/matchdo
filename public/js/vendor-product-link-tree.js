@@ -614,7 +614,7 @@
         }
         return '<div class="vplt-guide-tile-media">' +
             (badgeHtml || '') +
-            '<img src="' + esc(url) + '" alt="' + esc(optionLabel || '') + '" class="vplt-guide-tile-img" loading="lazy" decoding="async">' +
+            '<img src="' + esc(url) + '" alt="' + esc(optionLabel || '') + '" class="vplt-guide-tile-img" loading="eager" decoding="async">' +
             guideTileZoomBtnHtml(a, url, optionLabel) +
             '</div>';
     }
@@ -905,7 +905,7 @@
                     if (sameVariant) {
                         if (prototypeById(aid)) {
                             clearGuideVariantPreview(aid);
-                            renderCanvas();
+                            refreshVariantCardVisuals(aid);
                             renderGuidePanel();
                             return;
                         }
@@ -1200,8 +1200,16 @@
         delete state.guideVariantByAssetId[assetId];
     }
 
+    function refreshGuideSelectionVisuals(prevSelectedIds) {
+        var touch = {};
+        (prevSelectedIds || []).forEach(function (id) { if (id) touch[id] = true; });
+        state.guideSelectedIds.forEach(function (id) { if (id) touch[id] = true; });
+        Object.keys(touch).forEach(function (id) { refreshVariantCardVisuals(id); });
+    }
+
     function toggleGuideSelection(assetId) {
         if (!assetId) return;
+        var prevSelected = state.guideSelectedIds.slice();
         var idx = state.guideSelectedIds.indexOf(assetId);
         if (idx >= 0) {
             state.guideSelectedIds.splice(idx, 1);
@@ -1214,6 +1222,11 @@
                 var def = defaultGuideVariant(a);
                 if (def) state.guideVariantByAssetId[assetId] = def;
             }
+        }
+        if (!IS_VENDOR) {
+            refreshGuideSelectionVisuals(prevSelected.concat([assetId]));
+            renderGuidePanel();
+            return;
         }
         renderCanvas();
         renderGuidePanel();

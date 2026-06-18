@@ -280,17 +280,18 @@
 .vplt-guide-rail-viewport {
     width: 100%;
     min-width: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: visible;
 }
 .vplt-page--guide .vplt-guide-rail-scroll,
 .vplt-page--vendor .vplt-guide-rail-scroll {
     width: 100%;
     max-width: 100%;
     margin: 0 0 -18px;
-    padding: 0.15rem 0 18px;
+    padding: 0.35rem 0 18px;
     box-sizing: content-box;
     overflow-x: scroll;
-    overflow-y: hidden;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
@@ -393,8 +394,9 @@
     transition: box-shadow 0.15s ease;
 }
 .vplt-guide-tile--active-view .vplt-guide-tile-media {
-    box-shadow: 0 0 0 3px #0d9488;
+    border: 3px solid #0d9488;
     border-radius: 12px;
+    box-shadow: none;
 }
 .vplt-guide-tile-badge {
     position: absolute;
@@ -499,8 +501,9 @@
     color: #d97706;
 }
 .vplt-guide-tile--picked .vplt-guide-tile-media {
-    box-shadow: 0 0 0 3px #0d9488, 0 4px 14px rgba(13, 148, 136, 0.22);
+    border: 3px solid #0d9488;
     border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.22);
 }
 .vplt-guide-tile--picked .vplt-guide-tile-name {
     font-weight: 700;
