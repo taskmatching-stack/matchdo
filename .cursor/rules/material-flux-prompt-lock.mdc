@@ -1,0 +1,25 @@
+# 材料 FLUX 提示詞／SEED — 已確定，禁止擅自改
+
+## 必守
+
+使用者已在 BFL 實測並**明確確定**下列參數。**禁止** Agent 為「更好」「更穩」等理由擅自替換、改寫、翻譯替換，或「順便」改回舊版／Gemini 版／英文固定句。
+
+| 項目 | 鎖定值 |
+|------|--------|
+| 提示詞模板 | `保持顏色並優化此{材質}材質光影`（`{材質}` = UI「AI 重繪材質類型」） |
+| SEED | `3647440197`（`VENDOR_MATERIAL_FLUX_SEED`） |
+| 送 BFL | **中文原句**，`skipPromptTranslation: true`（勿改回 Gemini 翻譯） |
+| 輸出尺寸 | 1024×1024（材料 FLUX） |
+
+函式：`buildVendorAssetMaterialFluxOptimizePrompt`、`optimizeVendorAssetImageWithFlux` 材料分支。
+
+## 允許改動的前提
+
+- 使用者**當次對話明確**要求改提示詞、SEED、尺寸或管線
+- 改動須在回覆中**列出改前／改後**，並更新 UI 提示詞預覽文案
+
+## 禁止
+
+- ❌ 改回「維持材質…紋理」「光影→紋理」等未經使用者要求的句型
+- ❌ 改 SEED 為 `fluxSeedFromImageBuffer` 或其他值（材料路徑）
+- ❌ 改完不告知、不在 UI 顯示實際提示詞
