@@ -1982,7 +1982,7 @@ function vendorAssetOptimizeErrorResponse(optErr, assetKind) {
 }
 
 /**
- * 材料參考 img2img：通用增強約束 ＋ Gemini 依原圖讀出的材質特徵（必須有後者才送 FLUX）。
+ * 材料 FLUX 提示詞 = 通用 img2img 底稿 + Gemini 讀圖 JSON 轉寫（見 buildMaterialFluxFidelityLine）。
  */
 function buildVendorAssetMaterialOptimizePrompt(semanticsJson) {
     const fidelity = visualSemantics.buildMaterialFluxFidelityLine(semanticsJson);
@@ -1990,12 +1990,11 @@ function buildVendorAssetMaterialOptimizePrompt(semanticsJson) {
         throw new Error('材質讀圖結果為空，無法產生 AI 優化提示詞');
     }
     const base = [
-        'Strict photograph enhancement of the vendor material swatch in input_image—NOT texture synthesis or re-generation.',
-        'Output must look like the same physical swatch re-photographed: identical grain family, bump scale, pattern period, color, and layout.',
-        'The reference image pixels are the only truth; do not invent, substitute, smooth over, or exaggerate any surface structure.',
-        'Never change pebbled leather into smooth, fine grain into coarse, or add/remove pores, pebbles, weave, or veins.',
-        'Allowed only: clearer fine detail, sharper focus, soft even diffuse lighting, light noise cleanup.',
-        'Full-frame edge-to-edge flat swatch; no margins, backdrop, products, props, hands, text, watermark, or logo.'
+        'Image-to-image enhancement of the material reference photo in input_image.',
+        'input_image pixels are the only source of truth for material, color, texture scale, and layout.',
+        'Do not synthesize, substitute, or imagine surfaces not present in the reference.',
+        'Permitted edits only: clarity, focus, even diffuse lighting, light denoising.',
+        'Full-frame material swatch edge-to-edge; no backdrop scene, products, props, text, or watermark.'
     ].join(' ');
     return `${base} ${fidelity}`;
 }
