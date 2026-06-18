@@ -1917,15 +1917,30 @@ function buildVendorAssetMaterialGeminiOptimizePrompt() {
     return '維持材質的質感和顏色，並優化此圖';
 }
 
+function bufferFromGeminiInlineData(data) {
+    if (!data) return null;
+    if (Buffer.isBuffer(data)) return data.length ? data : null;
+    if (data instanceof Uint8Array) return data.length ? Buffer.from(data) : null;
+    const s = String(data);
+    if (!s) return null;
+    try {
+        const buf = Buffer.from(s, 'base64');
+        return buf.length ? buf : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 function extractGeminiResponseImageBuffer(result) {
     const tryParts = (parts) => {
         if (!Array.isArray(parts)) return null;
         for (const part of parts) {
             const inline = part && (part.inlineData || part.inline_data);
-            if (inline && inline.data) {
-                const mime = inline.mimeType || inline.mime_type || 'image/png';
-                return { buffer: Buffer.from(inline.data, 'base64'), mime };
-            }
+            if (!inline || !inline.data) continue;
+            const mime = inline.mimeType || inline.mime_type || 'image/png';
+            if (mime && !String(mime).startsWith('image/')) continue;
+            const buffer = bufferFromGeminiInlineData(inline.data);
+            if (buffer && buffer.length) return { buffer, mime };
         }
         return null;
     };
@@ -1939,12 +1954,15 @@ function extractGeminiResponseImageBuffer(result) {
     const direct = tryParts(result?.content?.parts);
     if (direct) return direct;
     if (result && result.data) {
-        return { buffer: Buffer.isBuffer(result.data) ? result.data : Buffer.from(result.data), mime: 'image/png' };
+        const raw = result.data;
+        if (Buffer.isBuffer(raw) && raw.length) return { buffer: raw, mime: 'image/png' };
+        const buffer = bufferFromGeminiInlineData(raw);
+        if (buffer && buffer.length) return { buffer, mime: 'image/png' };
     }
     return null;
 }
 
-/** 材料 img2img：gemini-2.5-flash-image + 參考圖 inlineData */
+/** 材料 img2img：gemini-2.5-flash-image + 參考圖 inlineData；只回圖（官方 responseModalities: IMAGE） */
 async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, promptText) {
     if (!process.env.GEMINI_API_KEY) return null;
     if (!imageBuffer || !imageBuffer.length) throw new Error('無效的參考圖');
@@ -1961,7 +1979,7 @@ async function optimizeVendorAssetMaterialWithGemini(imageBuffer, mimeType, prom
                 { text: prompt }
             ]
         }],
-        config: { responseModalities: ['TEXT', 'IMAGE'] }
+        config: { responseModalities: ['IMAGE'] }
     }));
     const extracted = extractGeminiResponseImageBuffer(result);
     if (!extracted || !extracted.buffer || !extracted.buffer.length) {
