@@ -60,11 +60,16 @@
     color: #64748b;
 }
 .bs-card .vendor-asset-mfr-logo {
-    width: 22px;
+    display: block;
+    width: auto;
+    max-width: 48px;
+    min-width: 22px;
     height: 22px;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: left center;
     border-radius: 4px;
     flex-shrink: 0;
+    background: #f8fafc;
 }
 .bs-card .vendor-asset-mfr-logo--ph {
     width: 22px;

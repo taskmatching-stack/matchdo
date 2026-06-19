@@ -67,7 +67,7 @@
     <!-- Template Stylesheet -->
     <link href="/css/style.css" rel="stylesheet">
     <link href="/css/custom-product-cat-picker.css" rel="stylesheet">
-    <link href="/css/browse-styles.css?v=2" rel="stylesheet">
+    <link href="/css/browse-styles.css?v=3" rel="stylesheet">
     <link href="/css/theme-custom.css" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
     <!-- JSON-LD Structured Data -->
@@ -1150,10 +1150,10 @@
         #vendorAssetsPickerModal .vendor-asset-mfr-link { cursor: pointer; }
         #vendorAssetsPickerModal .vendor-asset-mfr-search-btn { line-height: 1; color: #64748b; }
         #vendorAssetsPickerModal .vendor-asset-mfr-search-btn:hover { color: var(--bs-primary, #0d9488); }
-        #vendorAssetsPickerModal .vendor-asset-mfr-logo { width: 22px; height: 22px; object-fit: cover; border-radius: 4px; }
-        #vendorAssetsPickerModal .vendor-asset-mfr-logo--ph { font-size: .75rem; }
+        #vendorAssetsPickerModal .vendor-asset-mfr-logo { display: block; width: auto; max-width: 48px; min-width: 22px; height: 22px; object-fit: contain; object-position: left center; border-radius: 4px; flex-shrink: 0; background: #f8fafc; }
+        #vendorAssetsPickerModal .vendor-asset-mfr-logo--ph { width: 22px; height: 22px; font-size: .75rem; }
         #vendorAssetsPickerModal .vendor-mfr-suggest-item { cursor: pointer; display: flex; align-items: center; gap: .5rem; padding: .4rem .65rem; }
-        #vendorAssetsPickerModal .vendor-mfr-suggest-logo { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        #vendorAssetsPickerModal .vendor-mfr-suggest-logo { display: block; width: auto; max-width: 56px; min-width: 28px; height: 28px; object-fit: contain; object-position: left center; border-radius: 4px; flex-shrink: 0; background: #f8fafc; }
         #vendorAssetsPickerModal .vendor-mfr-suggest-logo--ph { font-size: .85rem; }
         #vendorAssetsPickerModal .vendor-picker-category-banner { border-color: #e2e8f0 !important; }
         #vendorAssetsPickerModal .vendor-picker-more-filters summary { cursor: pointer; }
@@ -1187,7 +1187,7 @@
         #custom-product .btn-merge-desc { margin-top: 0.35rem; font-size: 0.8125rem; }
         #custom-product .btn-generate { width: 100%; padding: 0.875rem; font-size: 1rem; font-weight: 600; border-radius: 10px; border: none; margin-top: 1.25rem; }
         #custom-product .design-ai-disclaimer { line-height: 1.45; color: #64748b; }
-        #panel-vendor-styles .vendor-asset-mfr-logo { width: 22px; height: 22px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        #panel-vendor-styles .vendor-asset-mfr-logo { display: block; width: auto; max-width: 48px; min-width: 22px; height: 22px; object-fit: contain; object-position: left center; border-radius: 4px; flex-shrink: 0; background: #f8fafc; }
         #panel-vendor-styles .vendor-asset-mfr-logo--ph { width: 22px; height: 22px; font-size: .75rem; }
         #custom-product .page-sub { font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem; }
         #custom-product #generatedImagePreview { width: 100%; max-width: 100%; }
