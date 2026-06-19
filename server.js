@@ -930,9 +930,30 @@ function fluxRefKindLabel(kind, isEn) {
     return kind;
 }
 
+/** 各參考槽 FLUX 角色句（非材質查表；對齊 ref-tabs-vs-customization-levels.md） */
+function fluxReferenceKindRoleLine(kind, isEn) {
+    const k = normalizeVendorAssetKind(kind);
+    if (isEn) {
+        if (k === 'prototype') return 'Shape, silhouette, proportions, and structure reference.';
+        if (k === 'material') return 'Body surface color, material, and texture reference.';
+        if (k === 'part') return 'Hardware, trim, and attached component appearance reference.';
+        if (k === 'other') {
+            return 'Surface graphic reference: apply this exact artwork onto the product body as described by the user (print, emboss, deboss, embroidery, etc.).';
+        }
+        return '';
+    }
+    if (k === 'prototype') return '造型、輪廓、比例與結構參考。';
+    if (k === 'material') return '本體表面色彩、材質與質感參考。';
+    if (k === 'part') return '五金、飾件與配件外觀參考。';
+    if (k === 'other') {
+        return '表面圖案參考：依使用者描述將此圖圖案套用到產品本體（燙印、壓凹、壓凸、印花等），圖案內容須與此圖一致。';
+    }
+    return '';
+}
+
 /**
- * FLUX 多圖：僅 image 編號 + 類型 + 標題 + 使用者備註 + 材料 Gemini JSON。
- * 有上傳才列入（產品／配件／材料／圖樣）；不加 header/footer 指令句。
+ * FLUX 多圖：image 編號 + 類型 + 用途角色 + 標題 + 備註 + 材料 Gemini JSON。
+ * 有上傳才列入（產品／配件／材料／圖樣）。
  * @see https://docs.bfl.ai/flux_2/flux2_image_editing
  */
 function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
@@ -946,7 +967,10 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json, { omitSurfaceTechniques: true });
         if (semLine) semByIndex.set(n, semLine);
     });
-    const lines = [];
+    const header = isEn
+        ? '【Reference images — FLUX multi-image editing】'
+        : '【參考圖用途 — FLUX 多圖編輯】';
+    const lines = [header];
     list.forEach(function (s, idx) {
         const n = idx + 1;
         const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
@@ -960,9 +984,16 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
             ? (isEn ? (' · note: ' + userNote) : (' · 備註：' + userNote))
             : '';
         lines.push('image ' + n + ' · ' + kindLabel + titlePart + notePart);
+        const roleLine = fluxReferenceKindRoleLine(kind, isEn);
+        if (roleLine) lines.push('  ' + roleLine);
         if (semByIndex.has(n)) lines.push('  ' + semByIndex.get(n));
     });
     return '\n\n' + lines.join('\n');
+}
+
+/** @deprecated 別名；與 buildFluxReferenceFactsAppendix 相同 */
+function buildFluxReferenceImageRoleMapAppendix(orderedSources, materialRefs, lang) {
+    return buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang);
 }
 
 /** 參考圖順序：原型 → 配件 → 材料 → 圖樣；image 1（input_image）盡量為原型 */
