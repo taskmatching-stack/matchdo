@@ -1121,66 +1121,95 @@ $(document).ready(function () {
         $('#generatedImagePreviewWrap').addClass('has-result');
     }
 
-    function applyGuideLinkedAssetsFromSession(treeData) {
-        var raw = null;
+    function peekGuideSessionPending() {
         try {
-            raw = sessionStorage.getItem('matchdo.guideLinkedAssetRefs') ||
-                sessionStorage.getItem('matchdo.guideLinkedAssetIds');
-        } catch (e) {}
-        if (!raw) return Promise.resolve();
-        try {
-            sessionStorage.removeItem('matchdo.guideLinkedAssetIds');
-            sessionStorage.removeItem('matchdo.guideLinkedAssetRefs');
-        } catch (e) {}
-        var parsed;
-        try { parsed = JSON.parse(raw); } catch (e) { return Promise.resolve(); }
-        if (!Array.isArray(parsed) || !parsed.length || !treeData) return Promise.resolve();
-        var refs = parsed.map(function (entry) {
+            return !!(sessionStorage.getItem('matchdo.guidePrototypeRefs') ||
+                sessionStorage.getItem('matchdo.guideLinkedAssetRefs') ||
+                sessionStorage.getItem('matchdo.guideLinkedAssetIds'));
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function normalizeGuideLinkedRefs(parsed) {
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(function (entry) {
             if (entry && typeof entry === 'object' && entry.id) return entry;
             return { id: String(entry || '') };
         }).filter(function (r) { return r.id; });
+    }
+
+    function consumeGuideSessionFromStorage() {
+        var session = { protoRefs: [], linkedRefs: [] };
+        try {
+            var protoRaw = sessionStorage.getItem('matchdo.guidePrototypeRefs');
+            if (protoRaw) {
+                session.protoRefs = JSON.parse(protoRaw);
+                sessionStorage.removeItem('matchdo.guidePrototypeRefs');
+            }
+            sessionStorage.removeItem('matchdo.guidePrototypeRef');
+            var linkedRaw = sessionStorage.getItem('matchdo.guideLinkedAssetRefs') ||
+                sessionStorage.getItem('matchdo.guideLinkedAssetIds');
+            if (linkedRaw) {
+                session.linkedRefs = normalizeGuideLinkedRefs(JSON.parse(linkedRaw));
+                sessionStorage.removeItem('matchdo.guideLinkedAssetRefs');
+                sessionStorage.removeItem('matchdo.guideLinkedAssetIds');
+            }
+        } catch (e) {}
+        if (!Array.isArray(session.protoRefs)) session.protoRefs = [];
+        session.protoRefs = session.protoRefs.filter(function (r) { return r && r.image_url; });
+        return session;
+    }
+
+    function guideLinkedRefSlotKey(ref, assetNode) {
+        var kind = (assetNode && assetNode.asset_kind) || (ref && ref.asset_kind) || '';
+        if (kind === 'material') return 'material';
+        if (kind === 'part') return 'part';
+        return null;
+    }
+
+    function applyGuideLinkedRefsToSlots(refs, treeData) {
+        if (!refs || !refs.length || !treeData) return Promise.resolve();
         var linked = treeData.linked_assets || [];
         var byId = {};
         linked.forEach(function (a) { if (a && a.id) byId[a.id] = a; });
         var proto = treeData.prototype || {};
+        var slotsToClear = {};
+        refs.forEach(function (ref) {
+            var slotKey = guideLinkedRefSlotKey(ref, byId[ref.id]);
+            if (slotKey) slotsToClear[slotKey] = true;
+        });
+        Object.keys(slotsToClear).forEach(function (slotKey) { clearRefSlot(slotKey); });
         var chain = Promise.resolve();
         refs.forEach(function (ref) {
             var a = byId[ref.id];
-            if (!a) return;
-            var slotKey = a.asset_kind === 'material' ? 'material' : (a.asset_kind === 'part' ? 'part' : null);
+            var slotKey = guideLinkedRefSlotKey(ref, a);
             if (!slotKey) return;
-            var imgUrl = (ref.image_url || a.image_url || '').trim();
+            var imgUrl = (ref.image_url || (a && a.image_url) || '').trim();
             if (!imgUrl || !canAddMoreRefImages(slotKey, 1)) return;
-            var refTitle = (a.title || '').trim();
+            var refTitle = ((a && a.title) || ref.title || ref.id || '').trim();
             var variantLabel = (ref.label || '').trim();
             if (variantLabel) refTitle = refTitle ? (refTitle + ' · ' + variantLabel) : variantLabel;
-            chain = chain.then(function () {
-                return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
-                    addRefImageToSlot(slotKey, dataUrl, {
-                        vendor_asset_id: a.id,
-                        manufacturer_id: proto.manufacturer_id,
-                        manufacturer_name: proto.manufacturer_name,
-                        title: refTitle || a.title,
-                        image_url: imgUrl,
-                        asset_kind: a.asset_kind,
-                        gallery_label: variantLabel || undefined
+            var assetKind = (a && a.asset_kind) || ref.asset_kind || slotKey;
+            var assetId = (a && a.id) || ref.id;
+            chain = chain.then(function (slotKey, imgUrl, refTitle, assetKind, assetId, variantLabel) {
+                return function () {
+                    return fetchUrlAsDataUrl(imgUrl).catch(function () { return null; }).then(function (dataUrl) {
+                        if (!dataUrl) return;
+                        addRefImageToSlot(slotKey, dataUrl, {
+                            vendor_asset_id: assetId,
+                            manufacturer_id: proto.manufacturer_id,
+                            manufacturer_name: proto.manufacturer_name,
+                            title: refTitle,
+                            image_url: imgUrl,
+                            asset_kind: assetKind,
+                            gallery_label: variantLabel || undefined
+                        });
                     });
-                });
-            });
+                };
+            }(slotKey, imgUrl, refTitle, assetKind, assetId, variantLabel));
         });
         return chain;
-    }
-
-    function consumeGuidePrototypeRefsFromSession() {
-        var refs = null;
-        try {
-            var raw = sessionStorage.getItem('matchdo.guidePrototypeRefs');
-            if (raw) refs = JSON.parse(raw);
-            sessionStorage.removeItem('matchdo.guidePrototypeRefs');
-            sessionStorage.removeItem('matchdo.guidePrototypeRef');
-        } catch (e) {}
-        if (!Array.isArray(refs)) return [];
-        return refs.filter(function (r) { return r && r.image_url; });
     }
 
     function applyGuidePrototypeRefsToSlot(protoRefs, p) {
@@ -1191,7 +1220,8 @@ $(document).ready(function () {
             var imgUrl = (ref.image_url || '').trim();
             if (!imgUrl || !canAddMoreRefImages('prototype', 1)) return;
             chain = chain.then(function () {
-                return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
+                return fetchUrlAsDataUrl(imgUrl).catch(function () { return null; }).then(function (dataUrl) {
+                    if (!dataUrl) return;
                     var variantLabel = (ref.label || '').trim();
                     var refTitle = (p.title || '').trim();
                     if (variantLabel) refTitle = refTitle ? (refTitle + ' · ' + variantLabel) : variantLabel;
@@ -1215,10 +1245,32 @@ $(document).ready(function () {
         });
     }
 
+    function applyGuideSessionBundle(treeData, session) {
+        session = session || consumeGuideSessionFromStorage();
+        var p = treeData && treeData.prototype;
+        if (!p) return Promise.resolve();
+        var chain = Promise.resolve();
+        if (session.protoRefs.length) {
+            chain = chain.then(function () { return applyGuidePrototypeRefsToSlot(session.protoRefs, p); });
+        }
+        if (session.linkedRefs.length) {
+            chain = chain.then(function () { return applyGuideLinkedRefsToSlots(session.linkedRefs, treeData); });
+        }
+        return chain;
+    }
+
+    function finishGuideImportToDesignPage() {
+        renderIntentSlots();
+        refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
+        scheduleStripDesignDeepLinkFromUrl();
+    }
+
     function applyPrototypeAssetIdFromUrl() {
         if (!urlParams) return;
         var pid = (urlParams.get('prototype_asset_id') || '').trim();
-        if (!pid || getPrototypeLockVendorAssetId() === pid) return;
+        var hasGuideSession = peekGuideSessionPending();
+        if (!pid && !hasGuideSession) return;
+        if (pid && getPrototypeLockVendorAssetId() === pid && !hasGuideSession) return;
 
         function applyCategoryFromUrlParamsOnly() {
             var mainCat = (urlParams.get('category_key') || '').trim();
@@ -1227,9 +1279,51 @@ $(document).ready(function () {
             return syncCategorySelectionFromKeys(mainCat, subCat);
         }
 
-        function finishDesignDeepLink() {
-            scheduleStripDesignDeepLinkFromUrl();
+        function applyTreePayload(treeData) {
+            var p = treeData.prototype;
+            var imgUrl = (p.image_url || '').trim();
+            var mainCat = (p.category_key || '').trim();
+            var subCat = (p.subcategory_key || '').trim();
+            var session = consumeGuideSessionFromStorage();
+            return ensureCatPickerReady().then(function () {
+                return syncCategoryFromPrototypeAsset(p.id, mainCat, subCat).then(function () {
+                    if (session.protoRefs.length || session.linkedRefs.length) {
+                        return applyGuideSessionBundle(treeData, session).then(finishGuideImportToDesignPage);
+                    }
+                    if (!imgUrl) return finishGuideImportToDesignPage();
+                    return fetchUrlAsDataUrl(imgUrl).catch(function () { return null; }).then(function (dataUrl) {
+                        if (!dataUrl) return finishGuideImportToDesignPage();
+                        clearRefSlot('prototype');
+                        addRefImageToSlot('prototype', dataUrl, {
+                            vendor_asset_id: p.id,
+                            manufacturer_id: p.manufacturer_id,
+                            manufacturer_name: p.manufacturer_name,
+                            title: p.title,
+                            image_url: imgUrl,
+                            asset_kind: 'prototype'
+                        });
+                        if (p.manufacturer_id && !refVendorMfrId) {
+                            refVendorMfrId = p.manufacturer_id;
+                            if (p.manufacturer_name) refVendorName = p.manufacturer_name;
+                        }
+                        return finishGuideImportToDesignPage();
+                    });
+                });
+            });
         }
+
+        if (pid && getPrototypeLockVendorAssetId() === pid && hasGuideSession) {
+            fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree')
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                .then(function (res) {
+                    if (!res.ok || !res.data || !res.data.prototype) return;
+                    return applyTreePayload(res.data);
+                })
+                .catch(function () {});
+            return;
+        }
+
+        if (!pid) return;
 
         fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree')
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
@@ -1237,55 +1331,12 @@ $(document).ready(function () {
                 if (!res.ok || !res.data || !res.data.prototype) {
                     return ensureCatPickerReady()
                         .then(applyCategoryFromUrlParamsOnly)
-                        .then(finishDesignDeepLink);
+                        .then(scheduleStripDesignDeepLinkFromUrl);
                 }
-                var treeData = res.data;
-                var p = treeData.prototype;
-                var imgUrl = (p.image_url || '').trim();
-                var mainCat = (p.category_key || '').trim();
-                var subCat = (p.subcategory_key || '').trim();
-                if (!imgUrl) {
-                    return ensureCatPickerReady().then(function () {
-                        if (mainCat) return syncCategorySelectionFromKeys(mainCat, subCat);
-                    }).then(finishDesignDeepLink);
-                }
-                return ensureCatPickerReady().then(function () {
-                    return syncCategoryFromPrototypeAsset(p.id, mainCat, subCat).then(function () {
-                        var protoRefs = consumeGuidePrototypeRefsFromSession();
-                        if (protoRefs.length) {
-                            return applyGuidePrototypeRefsToSlot(protoRefs, p).then(function () {
-                                return applyGuideLinkedAssetsFromSession(treeData);
-                            }).then(function () {
-                                renderIntentSlots();
-                                refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
-                                finishDesignDeepLink();
-                            });
-                        }
-                        return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
-                            clearRefSlot('prototype');
-                            addRefImageToSlot('prototype', dataUrl, {
-                                vendor_asset_id: p.id,
-                                manufacturer_id: p.manufacturer_id,
-                                manufacturer_name: p.manufacturer_name,
-                                title: p.title,
-                                image_url: imgUrl,
-                                asset_kind: 'prototype'
-                            });
-                            if (p.manufacturer_id && !refVendorMfrId) {
-                                refVendorMfrId = p.manufacturer_id;
-                                if (p.manufacturer_name) refVendorName = p.manufacturer_name;
-                            }
-                            return applyGuideLinkedAssetsFromSession(treeData);
-                        }).then(function () {
-                            renderIntentSlots();
-                            refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
-                            finishDesignDeepLink();
-                        });
-                    });
-                });
+                return applyTreePayload(res.data);
             })
             .catch(function () {
-                ensureCatPickerReady().then(finishDesignDeepLink);
+                ensureCatPickerReady().then(scheduleStripDesignDeepLinkFromUrl);
             });
     }
 
@@ -1307,6 +1358,13 @@ $(document).ready(function () {
         } else {
             applyPrototypeAssetIdFromUrl();
             scheduleStripDesignDeepLinkFromUrl();
+            if (!window.__matchdoGuideSessionPageshowWired) {
+                window.__matchdoGuideSessionPageshowWired = true;
+                window.addEventListener('pageshow', function (ev) {
+                    if (!ev.persisted || !peekGuideSessionPending()) return;
+                    applyPrototypeAssetIdFromUrl();
+                });
+            }
         }
     }
 

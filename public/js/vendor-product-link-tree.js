@@ -1350,15 +1350,11 @@
     }
 
     function persistGuideSelectionForDesign() {
-        try {
-            sessionStorage.removeItem('matchdo.guideLinkedAssetIds');
-            sessionStorage.removeItem('matchdo.guideLinkedAssetRefs');
-            sessionStorage.removeItem('matchdo.guidePrototypeRef');
-            sessionStorage.removeItem('matchdo.guidePrototypeRefs');
-        } catch (e) {}
+        if (state.__guidePersistDoneForNav) return;
+        state.__guidePersistDoneForNav = true;
         var p = prototypeById(state.selectedPrototypeId);
-        if (p && state.guideSelectedPrototypeVariants.length) {
-            try {
+        try {
+            if (p && state.guideSelectedPrototypeVariants.length) {
                 sessionStorage.setItem('matchdo.guidePrototypeRefs', JSON.stringify(
                     state.guideSelectedPrototypeVariants.map(function (v) {
                         return {
@@ -1370,21 +1366,33 @@
                         };
                     })
                 ));
-            } catch (e) {}
-        }
-        if (!state.guideSelectedIds.length) return;
-        var refs = state.guideSelectedIds.map(function (aid) {
-            var a = assetById(aid);
-            var v = getGuideVariant(aid);
-            return {
-                id: aid,
-                image_url: (v && v.url) || (a && a.image_url) || '',
-                label: (v && v.label) || '',
-                asset_kind: a ? a.asset_kind : ''
-            };
-        });
-        try {
-            sessionStorage.setItem('matchdo.guideLinkedAssetRefs', JSON.stringify(refs));
+            } else {
+                sessionStorage.removeItem('matchdo.guidePrototypeRefs');
+            }
+            sessionStorage.removeItem('matchdo.guidePrototypeRef');
+            if (state.guideSelectedIds.length) {
+                var refs = state.guideSelectedIds.map(function (aid) {
+                    var a = assetById(aid);
+                    var v = getGuideVariant(aid);
+                    return {
+                        id: aid,
+                        image_url: (v && v.url) || (a && a.image_url) || '',
+                        label: (v && v.label) || '',
+                        title: (a && a.title) || '',
+                        asset_kind: a ? a.asset_kind : ''
+                    };
+                }).filter(function (r) {
+                    return r.id && (r.asset_kind === 'material' || r.asset_kind === 'part') && r.image_url;
+                });
+                if (refs.length) {
+                    sessionStorage.setItem('matchdo.guideLinkedAssetRefs', JSON.stringify(refs));
+                } else {
+                    sessionStorage.removeItem('matchdo.guideLinkedAssetRefs');
+                }
+            } else {
+                sessionStorage.removeItem('matchdo.guideLinkedAssetRefs');
+            }
+            sessionStorage.removeItem('matchdo.guideLinkedAssetIds');
         } catch (e) {}
     }
 
@@ -1445,7 +1453,10 @@
         }
         if (!startBtn.__vpltStartWired) {
             startBtn.__vpltStartWired = true;
-            startBtn.addEventListener('click', persistGuideSelectionForDesign);
+            startBtn.addEventListener('mousedown', function (e) {
+                if (e.button === 0) persistGuideSelectionForDesign();
+            }, true);
+            startBtn.addEventListener('click', persistGuideSelectionForDesign, true);
         }
     }
 
@@ -1522,6 +1533,7 @@
         state.guideSelectedIds = [];
         state.guideSelectedPrototypeVariants = [];
         state.guideVariantByAssetId = {};
+        state.__guidePersistDoneForNav = false;
         state.guideExpandedAssetIds = Object.create(null);
         state.guidePartSectionExpanded = Object.create(null);
         updateGuideChrome(data);
