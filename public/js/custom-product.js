@@ -1171,6 +1171,50 @@ $(document).ready(function () {
         return chain;
     }
 
+    function consumeGuidePrototypeRefsFromSession() {
+        var refs = null;
+        try {
+            var raw = sessionStorage.getItem('matchdo.guidePrototypeRefs');
+            if (raw) refs = JSON.parse(raw);
+            sessionStorage.removeItem('matchdo.guidePrototypeRefs');
+            sessionStorage.removeItem('matchdo.guidePrototypeRef');
+        } catch (e) {}
+        if (!Array.isArray(refs)) return [];
+        return refs.filter(function (r) { return r && r.image_url; });
+    }
+
+    function applyGuidePrototypeRefsToSlot(protoRefs, p) {
+        if (!protoRefs || !protoRefs.length || !p) return Promise.resolve();
+        clearRefSlot('prototype');
+        var chain = Promise.resolve();
+        protoRefs.forEach(function (ref) {
+            var imgUrl = (ref.image_url || '').trim();
+            if (!imgUrl || !canAddMoreRefImages('prototype', 1)) return;
+            chain = chain.then(function () {
+                return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
+                    var variantLabel = (ref.label || '').trim();
+                    var refTitle = (p.title || '').trim();
+                    if (variantLabel) refTitle = refTitle ? (refTitle + ' · ' + variantLabel) : variantLabel;
+                    addRefImageToSlot('prototype', dataUrl, {
+                        vendor_asset_id: p.id,
+                        manufacturer_id: p.manufacturer_id || ref.manufacturer_id,
+                        manufacturer_name: p.manufacturer_name,
+                        title: refTitle || p.title,
+                        image_url: imgUrl,
+                        asset_kind: 'prototype',
+                        gallery_label: variantLabel || undefined
+                    });
+                });
+            });
+        });
+        return chain.then(function () {
+            if (p.manufacturer_id && !refVendorMfrId) {
+                refVendorMfrId = p.manufacturer_id;
+                if (p.manufacturer_name) refVendorName = p.manufacturer_name;
+            }
+        });
+    }
+
     function applyPrototypeAssetIdFromUrl() {
         if (!urlParams) return;
         var pid = (urlParams.get('prototype_asset_id') || '').trim();
@@ -1207,6 +1251,16 @@ $(document).ready(function () {
                 }
                 return ensureCatPickerReady().then(function () {
                     return syncCategoryFromPrototypeAsset(p.id, mainCat, subCat).then(function () {
+                        var protoRefs = consumeGuidePrototypeRefsFromSession();
+                        if (protoRefs.length) {
+                            return applyGuidePrototypeRefsToSlot(protoRefs, p).then(function () {
+                                return applyGuideLinkedAssetsFromSession(treeData);
+                            }).then(function () {
+                                renderIntentSlots();
+                                refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
+                                finishDesignDeepLink();
+                            });
+                        }
                         return fetchUrlAsDataUrl(imgUrl).then(function (dataUrl) {
                             clearRefSlot('prototype');
                             addRefImageToSlot('prototype', dataUrl, {

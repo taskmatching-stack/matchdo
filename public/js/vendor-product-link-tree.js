@@ -16,6 +16,7 @@
         token: null,
         guideManufacturerName: '',
         guideSelectedIds: [],
+        guideSelectedPrototypeVariants: [],
         guideVariantByAssetId: {},
         guideExpandedAssetIds: Object.create(null),
         guidePartSectionExpanded: Object.create(null),
@@ -97,6 +98,36 @@
         return a ? defaultGuideVariant(a) : null;
     }
 
+    function isPrototypeVariantSelected(url) {
+        if (!url) return false;
+        return state.guideSelectedPrototypeVariants.some(function (v) { return v.url === url; });
+    }
+
+    function togglePrototypeVariantSelection(assetId, url, label) {
+        if (!url || !assetId) return;
+        var list = state.guideSelectedPrototypeVariants;
+        var idx = -1;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].url === url) { idx = i; break; }
+        }
+        if (idx >= 0) {
+            list.splice(idx, 1);
+        } else {
+            if (list.length >= 3) {
+                showAlert(tr('productTree.guidePrototypeMax', '主產品角度最多選 3 張（與設計頁原型槽上限相同）'), 'warning');
+                return;
+            }
+            list.push({ url: url, label: label || '' });
+        }
+        if (list.length) {
+            state.guideVariantByAssetId[assetId] = list[list.length - 1];
+        } else {
+            clearGuideVariantPreview(assetId);
+        }
+        refreshVariantCardVisuals(assetId);
+        renderGuidePanel();
+    }
+
     function assetDisplayImageUrl(a, assetId) {
         if (!IS_VENDOR && assetId) {
             var v = getGuideVariant(assetId);
@@ -112,12 +143,12 @@
 
     function applyGuideVariantChoice(assetId, url, label) {
         if (!url) return;
-        state.guideVariantByAssetId[assetId] = { url: url, label: label || '' };
-        refreshVariantCardVisuals(assetId);
         if (prototypeById(assetId)) {
-            renderGuidePanel();
+            togglePrototypeVariantSelection(assetId, url, label);
             return;
         }
+        state.guideVariantByAssetId[assetId] = { url: url, label: label || '' };
+        refreshVariantCardVisuals(assetId);
         if (state.guideSelectedIds.indexOf(assetId) < 0) {
             state.guideSelectedIds.push(assetId);
             enforceGuideSelectionRules(assetId);
@@ -389,7 +420,9 @@
                 var multi = a && variantImageItems(a).length > 1;
                 tiles.forEach(function (tile) {
                     var url = (tile.getAttribute('data-variant-url') || '').trim();
-                    var on = !url || url === activeUrl;
+                    var on = (kindKey === 'prototype' && multi)
+                        ? isPrototypeVariantSelected(url)
+                        : (!url || url === activeUrl);
                     var vis = guideTileSelectionVisuals(kindKey, picked, on, multi);
                     tile.classList.toggle('vplt-guide-tile--active-view', vis.showFrame);
                     tile.classList.toggle('vplt-guide-tile--picked', vis.isPicked);
@@ -573,6 +606,9 @@
     }
 
     function guideTileSelectionVisuals(kindKey, picked, isActive, multi) {
+        if (kindKey === 'prototype' && multi) {
+            return { isPicked: !!isActive, showFrame: !!isActive };
+        }
         var isPicked = kindKey !== 'prototype' && picked && isActive;
         var showFrame = false;
         if (kindKey === 'prototype') {
@@ -585,10 +621,9 @@
 
     function guideTileBadgeHtml(kindKey, picked, isActive, multi) {
         if (!isActive) return '';
-        if (kindKey === 'prototype') {
-            if (!multi) return '';
-            return '<span class="vplt-guide-tile-badge vplt-guide-tile-badge--preview">' +
-                esc(tr('productTree.guidePreviewBadge', '預覽中')) + '</span>';
+        if (kindKey === 'prototype' && multi) {
+            return '<span class="vplt-guide-tile-badge vplt-guide-tile-badge--picked">' +
+                esc(tr('productTree.guidePickedBadge', '已選')) + '</span>';
         }
         if (picked) {
             return '<span class="vplt-guide-tile-badge vplt-guide-tile-badge--picked">' +
@@ -632,11 +667,13 @@
         var optionLabel = guideTileOptionLabel(a, it, idx, total);
         var displayName = esc(optionLabel);
         var subKind = multi ? '' : ('<span class="vplt-guide-tile-kind">' + esc(guideKindLabelForKey(kindKey)) + '</span>');
-        var isActive = !multi || imgUrl === activeUrl;
+        var isActive = (kindKey === 'prototype' && multi)
+            ? isPrototypeVariantSelected(imgUrl)
+            : (!multi || imgUrl === activeUrl);
         var vis = guideTileSelectionVisuals(kindKey, picked, isActive, multi);
         var pickCls = vis.isPicked ? ' vplt-guide-tile--picked' : '';
         var activeCls = vis.showFrame ? ' vplt-guide-tile--active-view' : '';
-        var interCls = (multi || kindKey !== 'prototype') ? ' vplt-guide-tile--interactive' : '';
+        var interCls = (kindKey !== 'prototype' || multi) ? ' vplt-guide-tile--interactive' : '';
         var variantAttrs = multi && it && it.url
             ? ' data-variant-url="' + esc(it.url) + '" data-variant-label="' + esc(optionLabel) + '"'
             : '';
@@ -899,20 +936,16 @@
                 var url = (tile.getAttribute('data-variant-url') || '').trim();
                 var label = (tile.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
                 if (url) {
+                    if (prototypeById(aid)) {
+                        togglePrototypeVariantSelection(aid, url, label);
+                        return;
+                    }
                     var picked = state.guideSelectedIds.indexOf(aid) >= 0;
                     var cur = getGuideVariant(aid);
                     var sameVariant = cur && cur.url === url;
-                    if (sameVariant) {
-                        if (prototypeById(aid)) {
-                            clearGuideVariantPreview(aid);
-                            refreshVariantCardVisuals(aid);
-                            renderGuidePanel();
-                            return;
-                        }
-                        if (picked) {
-                            toggleGuideSelection(aid);
-                            return;
-                        }
+                    if (sameVariant && picked) {
+                        toggleGuideSelection(aid);
+                        return;
                     }
                     applyGuideVariantChoice(aid, url, label);
                     return;
@@ -1245,10 +1278,28 @@
         }
         if (!selRoot) return;
         selRoot.innerHTML = '';
-        if (!state.guideSelectedIds.length) {
+        var p = prototypeById(state.selectedPrototypeId);
+        var protoVariants = state.guideSelectedPrototypeVariants;
+        if (!state.guideSelectedIds.length && !protoVariants.length) {
             selRoot.innerHTML = '<p class="text-muted small mb-0">' + esc(tr('productTree.guideNoneSelected', '尚未點選')) + '</p>';
             return;
         }
+        protoVariants.forEach(function (v) {
+            if (!p || !v || !v.url) return;
+            var row = document.createElement('div');
+            row.className = 'vplt-guide-sel-item';
+            var titleLine = esc(p.title || p.id);
+            if (v.label) titleLine += ' <span class="text-primary">· ' + esc(v.label) + '</span>';
+            row.innerHTML = '<img src="' + esc(v.url) + '" alt="" class="vplt-guide-sel-thumb" loading="lazy" decoding="async">' +
+                '<span class="flex-grow-1 text-truncate">' + titleLine +
+                ' <span class="text-muted">(' + esc(tr('productTree.rootLabel', '主產品')) + ')</span></span>' +
+                '<button type="button" class="btn btn-sm btn-link text-danger py-0">&times;</button>';
+            row.querySelector('button').addEventListener('click', function (e) {
+                e.stopPropagation();
+                togglePrototypeVariantSelection(p.id, v.url, v.label);
+            });
+            selRoot.appendChild(row);
+        });
         state.guideSelectedIds.forEach(function (aid) {
             var a = assetById(aid);
             if (!a) return;
@@ -1302,19 +1353,24 @@
         try {
             sessionStorage.removeItem('matchdo.guideLinkedAssetIds');
             sessionStorage.removeItem('matchdo.guideLinkedAssetRefs');
+            sessionStorage.removeItem('matchdo.guidePrototypeRef');
+            sessionStorage.removeItem('matchdo.guidePrototypeRefs');
         } catch (e) {}
         var p = prototypeById(state.selectedPrototypeId);
-        if (p) {
-            var pv = getGuideVariant(p.id);
-            if (pv && pv.url) {
-                try {
-                    sessionStorage.setItem('matchdo.guidePrototypeRef', JSON.stringify({
-                        id: p.id,
-                        image_url: pv.url,
-                        label: pv.label || ''
-                    }));
-                } catch (e) {}
-            }
+        if (p && state.guideSelectedPrototypeVariants.length) {
+            try {
+                sessionStorage.setItem('matchdo.guidePrototypeRefs', JSON.stringify(
+                    state.guideSelectedPrototypeVariants.map(function (v) {
+                        return {
+                            id: p.id,
+                            image_url: v.url,
+                            label: v.label || '',
+                            title: p.title || '',
+                            manufacturer_id: p.manufacturer_id || ''
+                        };
+                    })
+                ));
+            } catch (e) {}
         }
         if (!state.guideSelectedIds.length) return;
         var refs = state.guideSelectedIds.map(function (aid) {
@@ -1464,13 +1520,10 @@
         state.orphans = [];
         state.checks = [];
         state.guideSelectedIds = [];
+        state.guideSelectedPrototypeVariants = [];
         state.guideVariantByAssetId = {};
         state.guideExpandedAssetIds = Object.create(null);
         state.guidePartSectionExpanded = Object.create(null);
-        if (variantImageItems(p).length > 1) {
-            var protoDef = defaultGuideVariant(p);
-            if (protoDef) state.guideVariantByAssetId[p.id] = protoDef;
-        }
         updateGuideChrome(data);
         selectPrototype(p.id);
         renderGuidePanel();
