@@ -1,6 +1,7 @@
-# 廠商版型 Tab × 產品關聯樹 — 工作進度交接（2026-06-03，guide UI 更新 2026-06-04）
+# 廠商版型 Tab × 產品關聯樹 — 工作進度交接（2026-06-03，guide UI 2026-06-04，帶入生圖 2026-06-18）
 
-> 給新對話視窗用：延續「客製產品設計頁內廠商版型訂製 + 產品關聯樹」功能，**不要另開平行 API／分類來源**。
+> 給新對話視窗用：延續「客製產品設計頁內廠商版型訂製 + 產品關聯樹」功能，**不要另開平行 API／分類來源**。  
+> **FLUX 生圖／四槽／材料色款／圖樣套用** 見 **`docs/PROGRESS-custom-product-generate-flux.md`**（2026-06-18 驗收通過）。
 
 ---
 
@@ -12,7 +13,7 @@
 4. **廠商名稱**：與控制台相同欄位 `manufacturers.name`；列表經 `buildManufacturerMapForVendorAssetList`；前端可再以 `GET /api/manufacturers/:id` 補名。篩選建議用 `GET /api/manufacturers?category_key&subcategory_key&q=…`。
 5. **看可搭配**（`product-tree.html`）：`GET /api/vendor-assets/:id/link-tree` — **只顯示**該主產品已關聯的材料／配件（非分類下全部素材）。
 6. **產品設計 → 素材庫**（材料／配件）：仍顯示同分類全部素材，已關聯者排前並標「廠商推薦」；可選 `prototype_linked_only=1` + `for_prototype_asset_id` 僅回傳關聯項。
-7. **選款式後**：`product-tree.html?prototype_asset_id=…&return_to=…` → 帶回產品設計 Tab（`prototype_asset_id`、`matchdo.guideLinkedAssetRefs` 含色款 URL；舊 key `guideLinkedAssetIds` 仍相容）。
+7. **選款式後**：`product-tree.html?prototype_asset_id=…&return_to=…` → 帶回產品設計 Tab（`matchdo.guidePrototypeRefs` 多角度、`matchdo.guideLinkedAssetRefs` 材／配含色款 URL；舊 key `guideLinkedAssetIds` 仍相容）。
 8. **數位原型子分類**：上傳／篩選仍必填（與產品設計一致）。
 
 ---
@@ -38,10 +39,11 @@
 | `38bdf0a` | guide：已選狀態可見；版心 `container`（非全頁 fluid） |
 | `94d2c81` | guide：圖格 🔍 放大（燈箱），不影響選取 |
 | （廠商後台同批） | `pick_group`／`allow_multi_pick`、設計洞察 API、素材庫關聯編輯強化 |
+| `534ca65`～`9339a5e` | guide 多選角度、設計頁匯入、FLUX 材料色款／圖樣角色句（詳 **`PROGRESS-custom-product-generate-flux.md`**） |
 
-**目前前端版本（看可搭配）：** `vendor-product-link-tree.css/js?v=44`（`product-tree.html`）
+**目前前端版本（看可搭配）：** `vendor-product-link-tree.css/js?v=60`（`product-tree.html`）
 
-**目前前端版本（客製 Tab）：** `custom-product.js?v=60`（手機：廠商版型 Tab 分類 Bottom Sheet、`browse-styles.css?v=2`）
+**目前前端版本（客製 Tab）：** `custom-product.js?v=77`（含 guide 匯入、四槽生圖、AI 免責文案、廠商 logo；廠商版型 Tab 分類 Bottom Sheet、`browse-styles.css?v=2`）
 
 ---
 
@@ -64,10 +66,10 @@ product-tree.html（guide，2026-06-04 現況）
   → 主產品／每個配件／每個材料：各一區塊標題（分類 · 商品名）+ 橫向圖列
   → 多圖（色款／角度）：每圖一格；標籤「色款 N」「角度 N」（不用檔名當 caption）
   → 選取：點圖格選色／加入已選；配件／材料顯示「已選」綠框
-  → 主產品：點角度僅「預覽中」，不進 guideLinkedAssetRefs
+  → 主產品：可多選角度 → matchdo.guidePrototypeRefs（2026-06）；預覽中與已選分開
   → 橫向捲動：隱藏捲軸條 + 左右 ‹ › 箭頭（浮在列上，不推擠左緣）
   → 右上角 🔍：燈箱瀏覽該品所有圖（stopPropagation，不觸發選取）
-  → sessionStorage：matchdo.guideLinkedAssetRefs、guideVariantByAssetId
+  → sessionStorage：matchdo.guidePrototypeRefs、guideLinkedAssetRefs、guideVariantByAssetId
 
 /browse-styles.html → redirect ?tab=vendor-styles
 
@@ -106,6 +108,7 @@ product-tree.html（guide，2026-06-04 現況）
 | `docs/add-vendor-asset-prototype-links.sql` | 關聯表 |
 | `docs/add-vendor-asset-prototype-link-pick-group.sql` | `allow_multi_pick`、`pick_group`（**部署前必跑**） |
 | `docs/vendor-asset-prototype-links.md` | 關聯語意與 API 說明 |
+| `docs/PROGRESS-custom-product-generate-flux.md` | 設計頁 FLUX 生圖、四槽、guide 匯入、2026-06-18 驗收狀態 |
 | `public/css/vendor-product-link-tree.css` | guide 橫條樣式、箭頭、已選態 |
 | `public/client/vendor-prototype-insights.html` | 廠商：訂製洞察 |
 
@@ -141,7 +144,7 @@ product-tree.html（guide，2026-06-04 現況）
 | 標題 | `主產品 · 角粒殼3.0`、`配件 · …`、`材料 · …` |
 | 多圖 | 全部並排；不隱藏 `+N`；不併成單格小圓點 |
 | 選取規則 | `enforceGuideSelectionRules`：`pick_group` 同組互斥 |
-| 帶回設計 | `buildStartDesignUrl` + `matchdo.guideLinkedAssetRefs`（含 `variant_url`） |
+| 帶回設計 | `buildStartDesignUrl` + `guidePrototypeRefs`（角度）+ `guideLinkedAssetRefs`（材／配含 `variant_url`）→ 設計頁 `applyGuideSessionBundle` |
 
 **勿再犯（guide UI）：**
 
@@ -157,7 +160,7 @@ product-tree.html（guide，2026-06-04 現況）
 在 **Google Cloud Shell**（本機無 gcloud）：
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
 
 ---
@@ -170,7 +173,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 - [x] 「看可搭配」僅顯示該款已關聯材／配（API 不變；UI 2026-06-04 驗收）
 - [x] guide：主產品／配件／材料分區橫條、色款全顯示、標題「分類 · 名稱」
 - [x] guide：已選／預覽中狀態可辨、🔍 放大不誤觸選取
-- [ ] 回產品設計帶 `prototype_asset_id` 與 guide 選取之 refs（需端對端點一次「用此款開始設計」）
+- [x] 回產品設計帶原型角度 + guide 選取之材／配 refs（2026-06-18 驗收；生圖品質見 `PROGRESS-custom-product-generate-flux.md`）
 - [ ] `/browse-styles.html` redirect 到 `?tab=vendor-styles`
 - [ ] Supabase 已執行 `add-vendor-asset-prototype-link-pick-group.sql`（線上 pick_group 才會生效）
 

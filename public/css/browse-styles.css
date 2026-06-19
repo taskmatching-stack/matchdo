@@ -59,6 +59,18 @@
     font-size: 0.75rem;
     color: #64748b;
 }
+.bs-card .vendor-asset-mfr-logo {
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.bs-card .vendor-asset-mfr-logo--ph {
+    width: 22px;
+    height: 22px;
+    font-size: .75rem;
+}
 .bs-card-vendor a {
     color: #0d9488;
     text-decoration: none;

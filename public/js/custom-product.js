@@ -2628,6 +2628,24 @@ $(document).ready(function () {
         return (t('customProduct.vendorFallback') || '廠商');
     }
 
+    function attachManufacturerLogosToItems(items, manufacturers) {
+        var list = (items || []).slice();
+        if (!list.length) return list;
+        var logoById = {};
+        (manufacturers || []).forEach(function (m) {
+            var id = (m && m.id) ? String(m.id).trim() : '';
+            var logo = (m && m.logo_url) ? String(m.logo_url).trim() : '';
+            if (id && logo) logoById[id] = logo;
+        });
+        if (!Object.keys(logoById).length) return list;
+        return list.map(function (it) {
+            if ((it.manufacturer_logo_url || '').trim()) return it;
+            var id = (it.manufacturer_id || '').trim();
+            if (id && logoById[id]) return Object.assign({}, it, { manufacturer_logo_url: logoById[id] });
+            return it;
+        });
+    }
+
     /** 列表 API 若仍回占位「廠商」，改以 GET /api/manufacturers/:id 補真實名稱（與控制台同源） */
     function enrichVendorAssetItemsManufacturerNames(items) {
         var list = (items || []).slice();
@@ -2912,6 +2930,7 @@ $(document).ready(function () {
                 return;
             }
             var items = (res.data && res.data.items) ? res.data.items : [];
+            items = attachManufacturerLogosToItems(items, (res.data && res.data.manufacturers) ? res.data.manufacturers : []);
             var needsMfrEnrich = items.some(function (it) {
                 return isGenericVendorDisplayName(vendorItemManufacturerName(it));
             });

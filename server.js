@@ -14204,7 +14204,7 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
             return {
                 id,
                 name: manufacturerNameForVendorAssetItem(mfrMap, id),
-                logo_url: (mfr && mfr.logo_url) ? mfr.logo_url : null,
+                logo_url: manufacturerLogoFromRow(mfr),
                 profile_url: '/vendor-profile.html?id=' + encodeURIComponent(id)
             };
         }).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
@@ -14221,6 +14221,7 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
                 style_key: r.style_key || null,
                 manufacturer_id: r.manufacturer_id,
                 manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id),
+                manufacturer_logo_url: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return manufacturerLogoFromRow(m); })(),
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
                 material_count: counts.material_count,
                 part_count: counts.part_count,
@@ -14588,7 +14589,7 @@ app.get('/api/vendor-assets', async (req, res) => {
                     ? '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id)
                     : null,
                 manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id),
-                manufacturer_logo_url: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.logo_url) ? m.logo_url : null; })(),
+                manufacturer_logo_url: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return manufacturerLogoFromRow(m); })(),
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
                 manufacturer_location: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.location) ? m.location : ''; })(),
                 manufacturer_user_id: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return (m && m.user_id) ? m.user_id : null; })(),

@@ -530,6 +530,7 @@
   "custom.product": "Custom Products",
   "customProduct.pageTitle": "Product Design",
   "customProduct.designFlowSteps": "Steps: Describe / pick images → Generate → Find vendor / order",
+  "customProduct.aiSimulationDisclaimer": "AI designs are simulations; the actual product is subject to the manufacturer's specifications.",
   "customProduct.designNextStepHint": "Next: View in My digital assets, or find a vendor in Gallery",
   "customProduct.pageSub": "Enter description, category and reference images, generate in one click",
   "customProduct.promptLabel": "Describe the product you want to generate",

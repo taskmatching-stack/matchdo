@@ -1186,7 +1186,9 @@
         #custom-product .ref-prompt-addon-row input { font-size: 0.8125rem; }
         #custom-product .btn-merge-desc { margin-top: 0.35rem; font-size: 0.8125rem; }
         #custom-product .btn-generate { width: 100%; padding: 0.875rem; font-size: 1rem; font-weight: 600; border-radius: 10px; border: none; margin-top: 1.25rem; }
-        #custom-product .page-title { font-size: 1.375rem; font-weight: 700; color: #111; margin-bottom: 0.25rem; }
+        #custom-product .design-ai-disclaimer { line-height: 1.45; color: #64748b; }
+        #panel-vendor-styles .vendor-asset-mfr-logo { width: 22px; height: 22px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        #panel-vendor-styles .vendor-asset-mfr-logo--ph { width: 22px; height: 22px; font-size: .75rem; }
         #custom-product .page-sub { font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem; }
         #custom-product #generatedImagePreview { width: 100%; max-width: 100%; }
         #custom-product #generatedImagePreview .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
@@ -1257,6 +1259,9 @@
                 <div class="tab-content" id="designTabContent">
                     <div class="tab-pane fade show active" id="panel-product-design" role="tabpanel" aria-labelledby="tab-product-design">
                 <p class="design-flow-steps text-muted small mb-2" id="designFlowSteps" data-i18n="customProduct.designFlowSteps">步驟：描述／選圖 → 生成 → 選廠商／下單</p>
+                <p class="design-ai-disclaimer text-muted small mb-2" role="note">
+                    <i class="bi bi-info-circle me-1" aria-hidden="true"></i><span data-i18n="customProduct.aiSimulationDisclaimer">AI 設計為模擬示意圖，實際產品呈現以廠商為準。</span>
+                </p>
                 <form id="customProductForm">
                     <div class="create-panel">
                         <div class="create-panel-left">
@@ -1325,6 +1330,9 @@
                             <div id="generatedImagePreview"></div>
                             <div id="pastGeneratedGallery" class="past-gallery"></div>
                             <p class="placeholder-hint mb-0" id="generatedImagePlaceholder">生成後的草圖會顯示在這裡</p>
+                            <p class="design-ai-disclaimer text-muted small mt-2 mb-0" role="note">
+                                <i class="bi bi-info-circle me-1" aria-hidden="true"></i><span data-i18n="customProduct.aiSimulationDisclaimer">AI 設計為模擬示意圖，實際產品呈現以廠商為準。</span>
+                            </p>
                         </div>
                     </div>
                 </form>
@@ -1552,7 +1560,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=4" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=76" defer></script>
+    <script src="js/custom-product.js?v=77" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
