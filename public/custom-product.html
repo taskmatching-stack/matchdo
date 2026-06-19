@@ -152,9 +152,9 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body small">
-                    <p class="mb-2" data-i18n="customProduct.promptHelpQuote">若要指定印在產品上的文字（中文、英文、品牌字樣等），請用半形雙引號 <strong>" "</strong> 包起來，生圖時會盡量原樣保留引號內文字。</p>
-                    <p class="mb-2 text-muted" data-i18n="customProduct.promptHelpQuoteExample">範例：胸前燙印 "恭喜發財" 四個字，黑底金字</p>
-                    <p class="mb-2" data-i18n="customProduct.promptHelpRest">其餘描述（風格、材質、顏色、位置等）請照常書寫；送出生圖前系統會將整段提示翻譯成英文，但引號內文字不翻譯。</p>
+                    <p class="mb-2" data-i18n="customProduct.promptHelpQuote">若要在產品上出現指定文字，請在描述句中用半形雙引號 <strong>" "</strong> 包住要印的那幾個字，並寫清楚位置與樣式。引號內文字生圖時會盡量原樣保留。</p>
+                    <p class="mb-2 text-muted" data-i18n="customProduct.promptHelpQuoteExample">範例：正面燙印 "恭喜發財" 四個字，黑底金字</p>
+                    <p class="mb-2" data-i18n="customProduct.promptHelpRest">風格、材質、顏色、位置等寫在引號外的描述句即可。送出生圖前系統會將整段提示翻譯成英文，但引號內印刷文字不翻譯。</p>
                     <p class="mb-0" data-i18n="customProduct.promptHelpRef">亦可從下方參考圖「從此圖產生描述」複製句子到本框，再依需要加上引號標示要印的文字。</p>
                 </div>
                 <div class="modal-footer py-2">
@@ -1267,7 +1267,7 @@
                                     <button type="button" class="btn btn-outline-info btn-sm rounded-circle prompt-ref-tips-btn flex-shrink-0" data-bs-toggle="modal" data-bs-target="#productPromptRefTipsModal" aria-label="提示詞與參考圖技巧" title="提示詞與參考圖技巧" data-i18n-title="customProduct.promptRefTipsBtnTitle" data-i18n-aria-label="customProduct.promptRefTipsBtnTitle"><i class="bi bi-lightbulb" aria-hidden="true"></i></button>
                                 </div>
                                 <textarea class="prompt-hero" id="productPrompt" name="productPrompt" rows="3" data-i18n-placeholder="customProduct.promptPlaceholder" placeholder="例：軍綠後背包，正面燙印 &quot;OPEN&quot;"></textarea>
-                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">印字請用 &quot; &quot; 包住（? 說明）。有參考圖時材質／配件靠圖，不必寫長篇。</p>
+                                <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">要印的字請在描述句中用 &quot; &quot; 標示（? 說明）。有參考圖時材質／配件靠圖，不必寫長篇。</p>
                             </div>
 
                             <!-- 桌機版：雙面板 -->
@@ -1552,7 +1552,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=4" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=75" defer></script>
+    <script src="js/custom-product.js?v=76" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

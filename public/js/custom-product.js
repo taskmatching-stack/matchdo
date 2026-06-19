@@ -718,6 +718,10 @@ $(document).ready(function () {
                     url: item.url,
                     src: Object.assign({}, item.source || {}, {
                         asset_kind: def.assetKind,
+                        image_url: ((item.source && item.source.image_url) || item.url || '').trim() || undefined,
+                        vendor_asset_id: item.source && item.source.vendor_asset_id ? item.source.vendor_asset_id : undefined,
+                        title: item.source && item.source.title ? item.source.title : undefined,
+                        gallery_label: item.source && item.source.gallery_label ? item.source.gallery_label : undefined,
                         user_note: note || undefined
                     })
                 });

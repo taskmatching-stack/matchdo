@@ -831,10 +831,29 @@ function extractImageUrlBasename(url) {
 }
 
 /** 依 reference_sources 順序對齊參考圖，解析材料參考（含 refIndex = 第幾張 input_image） */
+async function analyzeMaterialImageUrlSemantics(imageUrl, row, entry) {
+    if (!imageUrl || !process.env.GEMINI_API_KEY) return null;
+    try {
+        const deps = getVisualSemanticsDeps();
+        const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
+        const label = (entry && entry.filename_hint) || labelFromImageUrl(imageUrl);
+        const result = await visualSemantics.analyzeImageSemantics(deps, imagePart, {
+            asset_kind: 'material',
+            category_key: row && row.category_key ? row.category_key : null,
+            title: (entry && entry.title) || (row && row.title) || null,
+            image_label: label || null,
+            filename_hint: label || null
+        });
+        return result && result.semantics ? result.semantics : null;
+    } catch (e) {
+        console.warn('analyzeMaterialImageUrlSemantics:', e.message);
+        return null;
+    }
+}
+
 async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
     const list = Array.isArray(referenceSourcesRaw) ? referenceSourcesRaw : [];
     const refs = [];
-    const byAssetId = new Map();
     list.forEach(function (s, idx) {
         if (!s) return;
         const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
@@ -843,7 +862,7 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
         const id = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
         const imageUrl = (s.image_url || '').trim() || null;
         const basename = extractImageUrlBasename(imageUrl);
-        const entry = {
+        refs.push({
             refIndex: refIndex,
             vendor_asset_id: id || null,
             title: (s.title || '').trim() || null,
@@ -853,42 +872,49 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
             image_url: imageUrl,
             filename_hint: basename || null,
             image_semantics_json: s.image_semantics_json || null
-        };
-        refs.push(entry);
-        if (id && !byAssetId.has(id)) byAssetId.set(id, entry);
+        });
     });
     if (!refs.length) return [];
-    const needDb = [...byAssetId.keys()].filter(function (id) {
-        const e = byAssetId.get(id);
-        return e && (!e.title || !e.catalog_group_names.length);
-    });
-    if (needDb.length) {
+    const assetIds = [...new Set(refs.map(function (r) { return r.vendor_asset_id; }).filter(Boolean))];
+    const rowsById = {};
+    if (assetIds.length) {
         const { data: rows, error } = await supabase
             .from('vendor_assets')
-            .select('id, title, asset_kind, image_url, image_semantics_json')
-            .in('id', needDb);
+            .select('id, title, asset_kind, image_url, image_semantics_json, category_key')
+            .in('id', assetIds);
         if (!error && rows) {
             const enriched = await attachCatalogGroupIdsToAssets(rows);
             enriched.forEach(function (row) {
-                if (!row || !row.id || normalizeVendorAssetKind(row.asset_kind) !== 'material') return;
-                const e = byAssetId.get(row.id);
-                if (!e) return;
-                if (!e.title && row.title) e.title = String(row.title).trim();
-                if (!e.catalog_group_names.length && row.catalog_groups && row.catalog_groups.length) {
-                    e.catalog_group_names = row.catalog_groups.map((g) => String(g.name || '').trim()).filter(Boolean);
-                }
-                if (!e.filename_hint && row.image_url) {
-                    e.filename_hint = extractImageUrlBasename(row.image_url) || e.filename_hint;
-                }
-                if (!e.image_semantics_json && row.image_semantics_json) {
-                    e.image_semantics_json = row.image_semantics_json;
-                }
+                if (row && row.id) rowsById[row.id] = row;
             });
         }
     }
-    refs.forEach(function (e) {
-        if (!e.filename_hint && e.image_url) e.filename_hint = extractImageUrlBasename(e.image_url);
-    });
+    for (const entry of refs) {
+        if (!entry.filename_hint && entry.image_url) {
+            entry.filename_hint = extractImageUrlBasename(entry.image_url);
+        }
+        const row = entry.vendor_asset_id ? rowsById[entry.vendor_asset_id] : null;
+        if (row) {
+            if (!entry.title && row.title) entry.title = String(row.title).trim();
+            if (!entry.catalog_group_names.length && row.catalog_groups && row.catalog_groups.length) {
+                entry.catalog_group_names = row.catalog_groups.map((g) => String(g.name || '').trim()).filter(Boolean);
+            }
+        }
+        if (entry.image_semantics_json) continue;
+        const refUrl = (entry.image_url || '').trim();
+        const coverUrl = row && row.image_url ? String(row.image_url).trim() : '';
+        if (row && refUrl && coverUrl && refUrl === coverUrl && row.image_semantics_json) {
+            entry.image_semantics_json = row.image_semantics_json;
+            continue;
+        }
+        if (refUrl) {
+            const sem = await analyzeMaterialImageUrlSemantics(refUrl, row, entry);
+            if (sem) entry.image_semantics_json = sem;
+            else if (row && row.image_semantics_json) entry.image_semantics_json = row.image_semantics_json;
+        } else if (row && row.image_semantics_json) {
+            entry.image_semantics_json = row.image_semantics_json;
+        }
+    }
     return refs;
 }
 
@@ -943,7 +969,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
 function reorderFluxReferenceInputs(referenceImages, referenceSources) {
     const imgs = Array.isArray(referenceImages) ? referenceImages : [];
     const srcs = Array.isArray(referenceSources) ? referenceSources : [];
-    const pairs = imgs.map(function (img, i) {
+    let pairs = imgs.map(function (img, i) {
         return { img: img, src: srcs[i] || null };
     });
     const rank = function (src) {
@@ -955,6 +981,19 @@ function reorderFluxReferenceInputs(referenceImages, referenceSources) {
         return 4;
     };
     pairs.sort(function (a, b) { return rank(a.src) - rank(b.src); });
+    var hasMaterial = pairs.some(function (p) {
+        return normalizeVendorAssetKind(p.src && p.src.asset_kind) === 'material';
+    });
+    if (hasMaterial) {
+        var protoKept = 0;
+        pairs = pairs.filter(function (p) {
+            var kind = normalizeVendorAssetKind(p.src && p.src.asset_kind);
+            if (kind !== 'prototype') return true;
+            if (protoKept >= 1) return false;
+            protoKept += 1;
+            return true;
+        });
+    }
     return {
         images: pairs.map(function (p) { return p.img; }),
         sources: pairs.map(function (p) { return p.src; })
@@ -7407,12 +7446,9 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
     return pollBflResult(createData, BFL_API_KEY);
 }
 
-/** 使用者印字：UI 已提示用引號；未加引號時整段包成 FLUX 可印刷文字（僅 userPrompt 段） */
+/** 使用者描述原樣併入 prompt（FLUX 原廠：引號只包「要印的字」，寫在描述句內；不自動整段包引號） */
 function fluxFormatUserPromptForPrint(userPrompt) {
-    const t = String(userPrompt || '').trim();
-    if (!t) return '';
-    if (/["\u201c\u201d「」]/.test(t)) return t;
-    return '"' + t + '"';
+    return String(userPrompt || '').trim();
 }
 
 // 依分類 key 陣列取得後端基礎提示詞並與使用者描述組合（後端處理，不暴露給前端）
