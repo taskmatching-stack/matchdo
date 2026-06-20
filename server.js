@@ -979,7 +979,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     if (isEn) {
         if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure (image ' + n + ').' + panelNote;
         if (k === 'material') {
-            return 'On the prototype product (image ' + p + '), replace main-body regions that share the same base color and material class with the opaque solid color and texture from material reference (image ' + n + '), including visible side edges and thickness; not a printed overlay, surface decal, or frosted/translucent shell unless the material reference image clearly shows transparency.' + panelNote;
+            return 'Recolor the main product body using material reference (image ' + n + '): keep the same body opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + panelNote;
         }
         if (k === 'part') {
             return 'Hardware/trim from image ' + n + ' mounted on the same main product (shape from image ' + p + ').' + panelNote;
@@ -994,7 +994,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     }
     if (k === 'prototype') return '主產品造型、輪廓、比例與結構（image ' + n + '）。' + panelNote;
     if (k === 'material') {
-        return '對照原型 image ' + p + '，將主產品本體上同色、同材質類的區域（含可見側邊與厚度）替換為材料參考 image ' + n + ' 的不透明實色與質感；非印刷圖層；除非材料參考圖本身可見透明，否則勿做成磨砂半透明。' + panelNote;
+        return '材料換色：僅取自 image ' + n + ' 的色彩與質感；本體不透明／厚度／側邊／材質類以原型 image ' + p + ' 可見者為準，勿自行改成透明或磨砂。' + panelNote;
     }
     if (k === 'part') return 'image ' + n + ' 的五金／飾件搭配在同一主產品（造型依 image ' + p + '）上。' + panelNote;
     if (k === 'other') {
@@ -1032,6 +1032,8 @@ function buildFluxReferenceApplySummary(sources, lang) {
             }
         } else if (k === 'part') {
             bits.push('hardware from image ' + n + ' on the same product (shape from image ' + protoN + ') in all panels');
+        } else if (k === 'material') {
+            bits.push('body color/texture from image ' + n + ' with opacity and material class from prototype image ' + protoN + ' in all panels');
         }
     });
     if (!bits.length) return '';
@@ -1091,7 +1093,14 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         return normalizeVendorAssetKind(s.asset_kind) === 'material' ? String(i + 1) : null;
     }).filter(Boolean).join(', ');
     if (matNums) {
-        lines.push('Material tab: image ' + matNums + ' — replace matching main-body material regions on the prototype (including side edges) with this reference in every panel (see Gemini material line below).');
+        const protoNumsForMat = list.map(function (s, i) {
+            return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
+        }).filter(Boolean).join(', ');
+        if (hasProto && protoNumsForMat) {
+            lines.push('Material tab: image ' + matNums + ' — color/texture only; body opacity, thickness, and material class follow prototype image(s) ' + protoNumsForMat + ' (user already provided main product photos).');
+        } else {
+            lines.push('Material tab: image ' + matNums + ' — replace matching main-body material regions on the prototype (including side edges) with this reference in every panel (see Gemini material line below).');
+        }
     }
     if (hasPrintPattern) {
         const patNums = list.map(function (s, i) {
