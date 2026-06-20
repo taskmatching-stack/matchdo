@@ -2267,6 +2267,19 @@ function finalizeVendorAssetSemantics(semanticsJson, tags, assetKind) {
 }
 
 async function runVendorAssetImageSemantics(file, context, ownerId) {
+    const assetKind = normalizeVendorAssetKind(context.asset_kind);
+    const patternIntent = normalizePatternIntent(context.pattern_intent);
+    // 原圖印刷類型圖樣：跳過 Gemini 語意分析，避免解讀干擾精確複製
+    const skipSemantics = (assetKind === 'other' && patternIntent !== 'style');
+    if (skipSemantics) {
+        return {
+            tags: [],
+            semantics: null,
+            description: null,
+            model: null,
+            prompt_version: null
+        };
+    }
     const deps = getVisualSemanticsDeps();
     const imagePart = visualSemantics.bufferToImagePart(file.buffer || file, file.mimetype);
     const result = await visualSemantics.analyzeImageSemantics(deps, imagePart, context);
