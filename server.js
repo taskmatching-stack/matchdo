@@ -979,7 +979,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     if (isEn) {
         if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure (image ' + n + ').' + panelNote;
         if (k === 'material') {
-            return 'On the prototype product (image ' + p + '), replace main-body surfaces that share the same base color and material class with the color and texture from material reference (image ' + n + ').' + panelNote;
+            return 'On the prototype product (image ' + p + '), replace main-body regions that share the same base color and material class with the solid color and texture from material reference (image ' + n + '), including visible side edges and thickness; not a printed overlay or surface decal.' + panelNote;
         }
         if (k === 'part') {
             return 'Hardware/trim from image ' + n + ' mounted on the same main product (shape from image ' + p + ').' + panelNote;
@@ -994,7 +994,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     }
     if (k === 'prototype') return '主產品造型、輪廓、比例與結構（image ' + n + '）。' + panelNote;
     if (k === 'material') {
-        return '對照原型 image ' + p + '，將主產品本體上同色、同材質類的表面，替換為材料參考 image ' + n + ' 的色彩與質感。' + panelNote;
+        return '對照原型 image ' + p + '，將主產品本體上同色、同材質類的區域（含可見側邊與厚度）替換為材料參考 image ' + n + ' 的實色與質感；非印刷圖層。' + panelNote;
     }
     if (k === 'part') return 'image ' + n + ' 的五金／飾件搭配在同一主產品（造型依 image ' + p + '）上。' + panelNote;
     if (k === 'other') {
@@ -1091,7 +1091,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         return normalizeVendorAssetKind(s.asset_kind) === 'material' ? String(i + 1) : null;
     }).filter(Boolean).join(', ');
     if (matNums) {
-        lines.push('Material tab: image ' + matNums + ' — replace matching main-body surfaces on the prototype with this material color/texture in every panel (see Gemini material line below).');
+        lines.push('Material tab: image ' + matNums + ' — replace matching main-body material regions on the prototype (including side edges) with this reference in every panel (see Gemini material line below).');
     }
     if (hasPrintPattern) {
         const patNums = list.map(function (s, i) {

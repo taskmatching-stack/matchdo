@@ -790,6 +790,7 @@ $(document).ready(function () {
                         vendor_asset_id: item.source && item.source.vendor_asset_id ? item.source.vendor_asset_id : undefined,
                         title: item.source && item.source.title ? item.source.title : undefined,
                         gallery_label: item.source && item.source.gallery_label ? item.source.gallery_label : undefined,
+                        image_label: item.source && item.source.image_label ? item.source.image_label : undefined,
                         user_note: note || undefined
                     });
                 if (def.patternIntent) {
@@ -2004,9 +2005,9 @@ $(document).ready(function () {
             if (!s) return;
             var mid = s.manufacturer_id || ('name:' + (s.manufacturer_name || ''));
             if (!byMfr[mid]) byMfr[mid] = { info: s, assets: [] };
-            var dup = byMfr[mid].assets.some(function (a) {
-                return (a.vendor_asset_id && s.vendor_asset_id && a.vendor_asset_id === s.vendor_asset_id)
-                    || (a.image_url && s.image_url && a.image_url === s.image_url);
+            var imgKey = (s.image_url || '').trim();
+            var dup = imgKey && byMfr[mid].assets.some(function (a) {
+                return (a.image_url || '').trim() === imgKey;
             });
             if (!dup) byMfr[mid].assets.push(s);
         });
@@ -2038,11 +2039,12 @@ $(document).ready(function () {
                 } else {
                     kind = vendorPickerTr('customProduct.assetKindPrototype', '數位原型');
                 }
-                var tip = (title ? title + ' · ' : '') + mfrName + ' · ' + kind;
+                var angleLbl = (s.gallery_label || s.image_label || '').trim();
+                var tip = (angleLbl ? angleLbl + ' · ' : (title ? title + ' · ' : '')) + mfrName + ' · ' + kind;
+                var capText = angleLbl || title || kind;
                 html += '<a href="' + profileUrl + '" target="_blank" rel="noopener" class="text-decoration-none text-center past-ref-asset-link" title="' + tip.replace(/"/g, '&quot;') + '">';
-                html += '<img src="' + imgUrl + '" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.35);">';
-                if (title) html += '<span class="d-block small text-white mt-0 text-truncate" style="max-width:72px;">' + title + '</span>';
-                else html += '<span class="d-block small text-white-50 mt-0" style="font-size:.65rem;">' + kind + '</span>';
+                html += '<img src="' + imgUrl + '" alt="" style="width:52px;height:52px;object-fit:contain;background:#1e293b;border-radius:6px;border:1px solid rgba(255,255,255,.35);">';
+                html += '<span class="d-block small text-white mt-0 text-truncate" style="max-width:72px;font-size:.65rem;">' + capText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
                 html += '</a>';
             });
             html += '</div></div>';
@@ -2054,7 +2056,13 @@ $(document).ready(function () {
         var $sec = $('#pastItemModalRefSources');
         var $inner = $('#pastItemModalRefSourcesInner');
         if (!$sec.length || !$inner.length) return;
-        var html = buildPastItemModalRefSourcesHtml(refSourcesList);
+        var list = Array.isArray(refSourcesList) ? refSourcesList : [];
+        var $title = $sec.find('.detail-label').first();
+        if ($title.length) {
+            var base = t('customProduct.refSourcesTitle') || '引用參考圖';
+            $title.text(list.length ? (base + '（' + list.length + '）') : base);
+        }
+        var html = buildPastItemModalRefSourcesHtml(list);
         if (html) {
             $inner.html(html);
             $sec.removeClass('d-none');
@@ -2152,7 +2160,7 @@ $(document).ready(function () {
     function refIntentThumbCaption(item, index) {
         if (!item) return tr('customProduct.refThumbDefault', '圖') + ' ' + ((index || 0) + 1);
         var src = item.source || {};
-        var label = (src.image_label || '').trim();
+        var label = (src.gallery_label || src.image_label || '').trim();
         if (label) return label;
         var title = (src.title || '').trim();
         if (title) return title;
@@ -2221,7 +2229,8 @@ $(document).ready(function () {
                     var importMeta = Object.assign({}, baseMeta, {
                         asset_kind: def ? def.assetKind : baseMeta.asset_kind,
                         image_url: it.url,
-                        image_label: (it.label || '').trim()
+                        image_label: (it.label || '').trim(),
+                        gallery_label: (it.label || '').trim() || undefined
                     });
                     if (def && def.patternIntent) importMeta.pattern_intent = def.patternIntent;
                     if (addRefImageToSlot(targetKey, dataUrl, importMeta)) added++;
