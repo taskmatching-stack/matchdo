@@ -667,13 +667,20 @@ $(document).ready(function () {
         $ta.trigger('input');
     }
 
+    function refSlotPayloadRank(slotKey) {
+        if (slotKey === 'prototype') return 0;
+        if (slotKey === 'material') return 1;
+        if (slotKey === 'part') return 2;
+        return 3;
+    }
+
     function collectOrderedRefItemsWithIndex() {
         syncRefSlotsFromDom();
         var items = [];
         REF_INTENT_SLOTS.forEach(function (def) {
             var g = refSlots[def.key];
             if (!g || !g.items.length) return;
-            var rank = def.key === 'prototype' ? 0 : (def.key === 'part' ? 1 : (def.key === 'material' ? 2 : 3));
+            var rank = refSlotPayloadRank(def.key);
             g.items.forEach(function (item) {
                 if (!item || !item.url) return;
                 items.push({ rank: rank, item: item, slotKey: def.key });
@@ -709,7 +716,7 @@ $(document).ready(function () {
         REF_INTENT_SLOTS.forEach(function (def) {
             var g = refSlots[def.key];
             if (!g || !g.items.length) return;
-            var rank = def.key === 'prototype' ? 0 : (def.key === 'part' ? 1 : (def.key === 'material' ? 2 : 3));
+            var rank = refSlotPayloadRank(def.key);
             g.items.forEach(function (item) {
                 if (!item || !item.url) return;
                 var note = (item.note || '').trim();

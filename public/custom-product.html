@@ -581,9 +581,10 @@
         /* 歷史圖放大 modal：與首頁媒體牆 lightbox 一致（圓角、陰影、疊加詳情、footer 按鈕）；避免開啟時版面被撐開或忽大忽小 */
         html { scrollbar-gutter: stable; }
         body.modal-open { overflow: hidden; padding-right: 0 !important; margin-right: 0 !important; }
-        #pastItemModal { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
+        /* 僅在開啟時全屏定位，避免關閉 modal 仍以高 z-index 擋住頂部導覽 */
+        #pastItemModal.modal.show { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
         #pastItemModal .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
-        #sceneSimAssetPickerModal { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
+        #sceneSimAssetPickerModal.modal.show { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
         #sceneSimAssetPickerModal .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
         #pastItemModal .past-item-modal-dialog { width: 100%; max-width: min(720px, 94vw); max-height: 90vh; margin: 1rem auto; box-sizing: border-box; }
         #pastItemModal .modal-content { width: 100%; max-width: 100%; max-height: 90vh; border-radius: 12px; border: none; box-shadow: 0 12px 40px rgba(0,0,0,.2); overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
@@ -1560,7 +1561,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=4" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=77" defer></script>
+    <script src="js/custom-product.js?v=78" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

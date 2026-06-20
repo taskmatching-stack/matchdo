@@ -23,6 +23,21 @@
   z-index: 1100;
 }
 
+/* 桌機：頭像／帳號下拉須在置中 Logo（z-index:5）之上；第二排空白區不攔截點擊 */
+@media (min-width: 992px) {
+  #site-header #authSection {
+    position: relative;
+    z-index: 12;
+  }
+  #site-header .nav-second-row-wrap {
+    pointer-events: none;
+  }
+  #site-header .nav-second-row-wrap a,
+  #site-header .nav-second-row-wrap button {
+    pointer-events: auto;
+  }
+}
+
 /* 品牌標語：單行小字，放在第二排左側空白或 Logo 旁，不增加導覽列高度 */
 #site-header .site-brand-taglines {
   display: inline-flex;

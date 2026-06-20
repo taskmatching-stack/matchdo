@@ -934,17 +934,17 @@ function fluxRefKindLabel(kind, isEn) {
 function fluxReferenceKindRoleLine(kind, isEn) {
     const k = normalizeVendorAssetKind(kind);
     if (isEn) {
-        if (k === 'prototype') return 'Shape, silhouette, proportions, and structure reference.';
+        if (k === 'prototype') return 'Primary shape, silhouette, proportions, and structure anchor (image 1 when present).';
         if (k === 'material') return 'Body surface color, material, and texture reference.';
-        if (k === 'part') return 'Hardware, trim, and attached component appearance reference.';
+        if (k === 'part') return 'Attachable hardware/trim appearance only; main body structure follows prototype (image 1).';
         if (k === 'other') {
             return 'Surface graphic reference: apply this exact artwork onto the product body as described by the user (print, emboss, deboss, embroidery, etc.).';
         }
         return '';
     }
-    if (k === 'prototype') return '造型、輪廓、比例與結構參考。';
+    if (k === 'prototype') return '主體造型、輪廓、比例與結構基準（有原型時為 image 1）。';
     if (k === 'material') return '本體表面色彩、材質與質感參考。';
-    if (k === 'part') return '五金、飾件與配件外觀參考。';
+    if (k === 'part') return '掛附五金／飾件外觀；主體造型與結構以 image 1（原型）為準。';
     if (k === 'other') {
         return '表面圖案參考：依使用者描述將此圖圖案套用到產品本體（燙印、壓凹、壓凸、印花等），圖案內容須與此圖一致。';
     }
@@ -971,6 +971,13 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         ? '【Reference images — FLUX multi-image editing】'
         : '【參考圖用途 — FLUX 多圖編輯】';
     const lines = [header];
+    const hasProto = list.some(function (s) { return normalizeVendorAssetKind(s.asset_kind) === 'prototype'; });
+    const hasPart = list.some(function (s) { return normalizeVendorAssetKind(s.asset_kind) === 'part'; });
+    if (hasProto && hasPart) {
+        lines.push(isEn
+            ? 'Composite: main product body shape, proportions, and structure follow the prototype (image 1). Material references define body surface only. Part references supply attachable hardware/trim appearance only.'
+            : '合成規則：主產品本體造型、比例與結構以原型（image 1）為準；材料參考僅決定本體表面；配件參考僅供掛附五金／飾件外觀。');
+    }
     list.forEach(function (s, idx) {
         const n = idx + 1;
         const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
@@ -996,7 +1003,7 @@ function buildFluxReferenceImageRoleMapAppendix(orderedSources, materialRefs, la
     return buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang);
 }
 
-/** 參考圖順序：原型 → 配件 → 材料 → 圖樣；image 1（input_image）盡量為原型 */
+/** 參考圖順序：原型 → 材料 → 配件 → 圖樣；image 1（input_image）盡量為原型；材料排在配件前，避免 image 2 配件圖改寫主體結構 */
 function reorderFluxReferenceInputs(referenceImages, referenceSources) {
     const imgs = Array.isArray(referenceImages) ? referenceImages : [];
     const srcs = Array.isArray(referenceSources) ? referenceSources : [];
@@ -1006,8 +1013,8 @@ function reorderFluxReferenceInputs(referenceImages, referenceSources) {
     const rank = function (src) {
         const kind = normalizeVendorAssetKind(src && src.asset_kind);
         if (kind === 'prototype') return 0;
-        if (kind === 'part') return 1;
-        if (kind === 'material') return 2;
+        if (kind === 'material') return 1;
+        if (kind === 'part') return 2;
         if (kind === 'other') return 3;
         return 4;
     };

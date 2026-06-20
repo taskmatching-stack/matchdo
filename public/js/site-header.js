@@ -67,13 +67,24 @@ function ensureBootstrapReady() {
         return Promise.resolve(window.bootstrap);
     }
     return new Promise(function (resolve) {
+        var settled = false;
+        function finish() {
+            if (settled) return;
+            if (typeof window.bootstrap !== 'undefined' && window.bootstrap.Dropdown) {
+                settled = true;
+                resolve(window.bootstrap);
+            }
+        }
+        var bsTag = document.getElementById('bs-bundle-js');
+        if (bsTag) {
+            bsTag.addEventListener('load', finish);
+        }
         var tries = 0;
         (function poll() {
-            if (typeof window.bootstrap !== 'undefined' && window.bootstrap.Dropdown) {
-                resolve(window.bootstrap);
-                return;
-            }
-            if (tries++ > 100) {
+            finish();
+            if (settled) return;
+            if (tries++ > 240) {
+                settled = true;
                 resolve(null);
                 return;
             }
@@ -231,6 +242,12 @@ if (document.getElementById('site-header')) {
 } else {
     document.addEventListener('DOMContentLoaded', bootSiteHeader);
 }
+
+/** 頁尾 defer 載入 Bootstrap 的長頁（如 custom-product）：load 後再綁一次下拉 */
+window.addEventListener('load', function () {
+    var root = document.getElementById('site-header');
+    if (root) initSiteHeaderDropdowns(root);
+});
 
 /** locale 或首次渲染較慢時，稍後再以 session 重畫（避免誤顯示「登入」） */
 function scheduleHeaderAuthRetries(initialSession) {

@@ -128,6 +128,28 @@
         renderGuidePanel();
     }
 
+    /** 看可搭配：主產品多圖時預選前 3 張角度（與設計頁原型槽上限相同） */
+    function seedDefaultPrototypeVariantSelection(prototypeId) {
+        if (IS_VENDOR || !prototypeId) return;
+        var p = prototypeById(prototypeId);
+        if (!p) return;
+        var items = variantImageItems(p);
+        if (!items.length) return;
+        var take = Math.min(3, items.length);
+        state.guideSelectedPrototypeVariants = [];
+        for (var i = 0; i < take; i++) {
+            var it = items[i];
+            state.guideSelectedPrototypeVariants.push({
+                url: it.url,
+                label: guideTileOptionLabel(p, it, i, items.length)
+            });
+        }
+        var last = state.guideSelectedPrototypeVariants[state.guideSelectedPrototypeVariants.length - 1];
+        if (last) {
+            state.guideVariantByAssetId[prototypeId] = { url: last.url, label: last.label || '' };
+        }
+    }
+
     function assetDisplayImageUrl(a, assetId) {
         if (!IS_VENDOR && assetId) {
             var v = getGuideVariant(assetId);
@@ -1538,6 +1560,8 @@
         state.guidePartSectionExpanded = Object.create(null);
         updateGuideChrome(data);
         selectPrototype(p.id);
+        seedDefaultPrototypeVariantSelection(p.id);
+        refreshVariantCardVisuals(p.id);
         renderGuidePanel();
     }
 
