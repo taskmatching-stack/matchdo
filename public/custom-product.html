@@ -1012,13 +1012,14 @@
             background: transparent;
         }
         #custom-product .ref-intent-thumb-add:hover { border-color: #445D7E; background: #f0f4f8; }
-        #custom-product .ref-intent-file {
-            position: absolute;
-            width: 0;
-            height: 0;
+        .ref-intent-file-picker-root {
+            position: fixed;
+            left: -10000px;
+            top: 0;
+            width: 1px;
+            height: 1px;
             opacity: 0;
             overflow: hidden;
-            pointer-events: none;
         }
         #custom-product .ref-intent-empty { color: #94a3b8; font-size: 1.1rem; pointer-events: none; }
         #custom-product .ref-intent-addon-details { margin-top: 0.45rem; border-top: 1px dashed #cbd5e1; padding-top: 0.35rem; }
@@ -1579,7 +1580,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=4" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=91" defer></script>
+    <script src="js/custom-product.js?v=92" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

@@ -838,6 +838,35 @@ $(document).ready(function () {
         updateVendorPickerMultiVendorHint();
     }
 
+    var refSlotFilePickerEl = null;
+    var refSlotFilePickerTarget = null;
+
+    function ensureRefSlotFilePicker() {
+        if (refSlotFilePickerEl) return refSlotFilePickerEl;
+        var el = document.createElement('input');
+        el.type = 'file';
+        el.accept = 'image/*';
+        el.className = 'ref-intent-file-picker-root';
+        el.setAttribute('aria-hidden', 'true');
+        el.tabIndex = -1;
+        el.addEventListener('change', function () {
+            var slotKey = refSlotFilePickerTarget;
+            refSlotFilePickerTarget = null;
+            var f = el.files && el.files[0];
+            el.value = '';
+            if (slotKey && f) readFileIntoRefSlot(slotKey, f);
+        });
+        document.body.appendChild(el);
+        refSlotFilePickerEl = el;
+        return el;
+    }
+
+    function openRefSlotFilePicker(slotKey) {
+        if (!slotKey || !getRefSlotDef(slotKey)) return;
+        refSlotFilePickerTarget = slotKey;
+        ensureRefSlotFilePicker().click();
+    }
+
     function readFileIntoRefSlot(slotKey, file) {
         if (!file || !getRefSlotDef(slotKey)) return;
         if (!canAddMoreRefImages(slotKey, 1)) {
@@ -967,12 +996,6 @@ $(document).ready(function () {
             $thumbs.append($cell);
         });
         if (canAdd) {
-            var $fileIn = $('<input type="file" accept="image/*" class="ref-intent-file">');
-            $fileIn.on('change', function (e) {
-                var f = e.target.files && e.target.files[0];
-                if (f) readFileIntoRefSlot(slotKey, f);
-                e.target.value = '';
-            });
             var addLabel = tr('customProduct.refSlotUpload', '上傳');
             var $add = $('<button type="button" class="ref-intent-thumb ref-intent-thumb-add"></button>')
                 .attr('aria-label', addLabel)
@@ -981,9 +1004,9 @@ $(document).ready(function () {
             $add.on('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                $fileIn[0].click();
+                openRefSlotFilePicker(slotKey);
             });
-            $thumbs.append($fileIn).append($add);
+            $thumbs.append($add);
         }
         $panel.append($thumbs);
         var $actions = $('<div class="ref-intent-actions"></div>');
