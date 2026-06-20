@@ -679,18 +679,6 @@ $(document).ready(function () {
         return c;
     }
 
-    function buildRefSlotCountSummary() {
-        syncRefSlotsFromDom();
-        var bits = [];
-        REF_INTENT_SLOTS.forEach(function (def) {
-            var n = countSlotRefImages(def.key);
-            if (!n) return;
-            bits.push(tr(def.tabKey, def.tabFb) + ' ' + n);
-        });
-        var tpl = tr('customProduct.refUiSelectionSummary', '設計頁已選：{slots}，共 {total} 張（未選分類不佔 image 編號）');
-        return tpl.replace('{slots}', bits.join('、')).replace('{total}', String(countTotalRefImages()));
-    }
-
     function slotLabelForRow(row) {
         var def = getRefSlotDef(row.slotKey);
         return def ? tr(def.tabKey, def.tabFb) : row.slotKey;
@@ -700,7 +688,6 @@ $(document).ready(function () {
         var rows = collectOrderedRefItemsWithIndex();
         if (!rows.length) return '';
         var parts = [
-            buildRefSlotCountSummary(),
             tr('customProduct.refCatalogCompositeHint', '2×2 四格皆同一合成成品，僅 Split-view 視角不同；參考圖只提供特徵，不可各格各秀一張參考圖')
         ];
         rows.forEach(function (row, idx) {
@@ -749,21 +736,6 @@ $(document).ready(function () {
         if (slotKey === 'pattern_print') return 3;
         if (slotKey === 'pattern_style') return 4;
         return 5;
-    }
-
-    function buildRefFluxOrderLegendText() {
-        var rows = collectOrderedRefItemsWithIndex();
-        if (!rows.length) return '';
-        var parts = rows.map(function (row, idx) {
-            var lbl = slotLabelForRow(row);
-            var extra = (row.slotKey === 'pattern_print' && row.item && row.item.pattern_remove_bg)
-                ? ('·' + tr('customProduct.refPatternRemoveBgShort', '去背'))
-                : '';
-            return 'image ' + (idx + 1) + '=' + lbl + extra;
-        });
-        var head = buildRefSlotCountSummary();
-        var tpl = tr('customProduct.refFluxOrderLegend', 'image 對照：{order}');
-        return head + ' · ' + tpl.replace('{order}', parts.join(' → '));
     }
 
     function collectOrderedRefItemsWithIndex() {
@@ -1088,12 +1060,6 @@ $(document).ready(function () {
         $navRow.append($('<span class="ref-intent-total-pill" id="refIntentTabTotal"></span>')
             .text(total ? (total + ' / ' + MAX_REF_IMAGES_TOTAL) : ('0 / ' + MAX_REF_IMAGES_TOTAL)));
         $wrap.append($navRow);
-        if (total > 0) {
-            var legend = buildRefFluxOrderLegendText();
-            if (legend) {
-                $wrap.append($('<div class="ref-flux-order-legend small text-muted mb-1"></div>').text(legend));
-            }
-        }
         $wrap.append(renderRefIntentPanel(activeDef));
         $root.append($wrap);
 
