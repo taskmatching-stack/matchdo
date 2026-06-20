@@ -964,7 +964,7 @@ function buildFluxCatalogCompositeRefLead() {
     return [
         'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid.',
         'Every panel shows the same single finished product — prototype shape, attached parts, body material/texture, and surface print/graphic merged together — only the studio camera angle per panel changes per Split-view.',
-        'Reference input images supply product features only; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
+        'Reference input images supply product features merged into that same product; each panel follows Split-view camera angles from the category prompt.'
     ].join(' ');
 }
 
@@ -979,7 +979,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     if (isEn) {
         if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure (image ' + n + ').' + panelNote;
         if (k === 'material') {
-            return 'Recolor the main product body using material reference (image ' + n + '): keep the same body opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + panelNote;
+            return 'Main product body color and surface texture from image ' + n + '; prototype image ' + p + ' for shape and material class.' + panelNote;
         }
         if (k === 'part') {
             return 'Hardware/trim from image ' + n + ' mounted on the same main product (shape from image ' + p + ').' + panelNote;
@@ -994,7 +994,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     }
     if (k === 'prototype') return '主產品造型、輪廓、比例與結構（image ' + n + '）。' + panelNote;
     if (k === 'material') {
-        return '材料換色：僅取自 image ' + n + ' 的色彩與質感；本體不透明／厚度／側邊／材質類以原型 image ' + p + ' 可見者為準，勿自行改成透明或磨砂。' + panelNote;
+        return '本體色彩與表面質感取自 image ' + n + '；造型與材質類取自原型 image ' + p + '。' + panelNote;
     }
     if (k === 'part') return 'image ' + n + ' 的五金／飾件搭配在同一主產品（造型依 image ' + p + '）上。' + panelNote;
     if (k === 'other') {
@@ -1063,57 +1063,6 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         : '【參考圖用途 — 2×2 型錄合成】';
     const lines = [header, buildFluxCatalogCompositeRefLead()];
     const protoN = resolveFluxProtoImageIndex(list);
-    const protoCount = list.filter(function (s) {
-        return normalizeVendorAssetKind(s.asset_kind) === 'prototype';
-    }).length;
-    const hasProto = protoCount > 0;
-    const hasPart = list.some(function (s) { return normalizeVendorAssetKind(s.asset_kind) === 'part'; });
-    const hasPrintPattern = list.some(function (s) {
-        return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style';
-    });
-    const hasStylePattern = list.some(function (s) {
-        return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style';
-    });
-    if (hasProto) {
-        if (protoCount === 1) {
-            lines.push('Prototype tab: image ' + protoN + ' supplies shape; merged into the same product in every 2x2 panel.');
-        } else {
-            lines.push('Prototype tab: images ' + list.map(function (s, i) {
-                return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
-            }).filter(Boolean).join(', ') + ' are multiple views of one product; combine for one shape in every panel.');
-        }
-    }
-    if (hasPart) {
-        const partNums = list.map(function (s, i) {
-            return normalizeVendorAssetKind(s.asset_kind) === 'part' ? String(i + 1) : null;
-        }).filter(Boolean).join(', ');
-        lines.push('Parts tab: image ' + partNums + ' — hardware on the same product in every panel.');
-    }
-    const matNums = list.map(function (s, i) {
-        return normalizeVendorAssetKind(s.asset_kind) === 'material' ? String(i + 1) : null;
-    }).filter(Boolean).join(', ');
-    if (matNums) {
-        const protoNumsForMat = list.map(function (s, i) {
-            return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
-        }).filter(Boolean).join(', ');
-        if (hasProto && protoNumsForMat) {
-            lines.push('Material tab: image ' + matNums + ' — color/texture only; body opacity, thickness, and material class follow prototype image(s) ' + protoNumsForMat + ' (user already provided main product photos).');
-        } else {
-            lines.push('Material tab: image ' + matNums + ' — replace matching main-body material regions on the prototype (including side edges) with this reference in every panel (see Gemini material line below).');
-        }
-    }
-    if (hasPrintPattern) {
-        const patNums = list.map(function (s, i) {
-            return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style' ? String(i + 1) : null;
-        }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel.');
-    }
-    if (hasStylePattern) {
-        const styNums = list.map(function (s, i) {
-            return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style' ? String(i + 1) : null;
-        }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (style reference): image ' + styNums + ' — inspired surface design on the same product in every panel; follow user prompt if provided, otherwise AI may design freely.');
-    }
     list.forEach(function (s, idx) {
         const n = idx + 1;
         const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
@@ -1136,8 +1085,6 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         }
         if (semByIndex.has(n)) lines.push('  ' + semByIndex.get(n));
     });
-    const applySummary = buildFluxReferenceApplySummary(list, lang);
-    if (applySummary) lines.push(applySummary.trim());
     return '\n\n' + lines.join('\n');
 }
 
