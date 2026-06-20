@@ -1025,7 +1025,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
             if (normalizePatternIntent(patternIntent) === 'style') {
                 return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
-            return 'Exact surface graphic from image ' + n + ' printed on the same main product body in every panel; reproduce the artwork precisely as shown in image ' + n + ' without modification, reinterpretation, or color changes.' + panelNote;
+            return 'Exact surface graphic from image ' + n + ' printed on the same main product body in every panel; reproduce the complete artwork precisely as shown in image ' + n + ' including all colors, background colors, and graphic elements, without modification, reinterpretation, or color changes.' + panelNote;
         }
         return '';
     }
@@ -1046,7 +1046,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (normalizePatternIntent(patternIntent) === 'style') {
             return '主產品表面風格參考 image ' + n + '（四格同一成品）。' + panelNote;
         }
-        return 'image ' + n + ' 的表面圖稿必須與參考圖完全一致地印刷在四格型錄同一主產品本體表面，不得修改、重新詮釋或改變色彩。' + panelNote;
+        return 'image ' + n + ' 的表面圖稿必須與參考圖完全一致地印刷在四格型錄同一主產品本體表面，包括所有色彩、底色與圖形元素，不得修改、重新詮釋或改變色彩。' + panelNote;
     }
     return '';
 }
@@ -1098,7 +1098,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
     if (hasPrintPattern) {
-        result += '\nIMPORTANT: The surface graphic/artwork from the pattern reference must be reproduced exactly as shown in the reference image and applied as the final visible layer on the product surface. Do not modify, reinterpret, or blend the pattern with material colors.';
+        result += '\nIMPORTANT: The surface graphic/artwork from the pattern reference must be reproduced exactly as shown in the reference image and applied as the final visible layer on the product surface. This includes ALL visual elements: foreground graphics, text, logos, AND any background colors or solid fills. Do not modify, reinterpret, omit background colors, or blend the pattern with material colors.';
     }
     return result;
 }
@@ -1161,7 +1161,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const patNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel. If the pattern reference contains any text, logos, or graphics, reproduce them exactly as they appear in the reference; the instruction to avoid text in catalog composition refers only to product labels/annotations, not to graphics within the pattern itself.');
+        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel. Reproduce the complete visual content including all foreground graphics, text, logos, AND any background colors or solid fills shown in the reference image. The instruction to avoid text in catalog composition refers only to product labels/annotations, not to graphics within the pattern itself.');
     }
     if (hasStylePattern) {
         const styNums = list.map(function (s, i) {
