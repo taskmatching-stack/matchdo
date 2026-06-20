@@ -830,13 +830,29 @@ function extractImageUrlBasename(url) {
     }
 }
 
+/** 材料參考生圖：優先用設計頁 gallery_label／DB 色卡標籤，不用 Storage 檔名 */
+function resolveMaterialImageLabelForSemantics(entry, row) {
+    const fromRef = entry && ((entry.image_label || entry.gallery_label || '').trim());
+    if (fromRef) return fromRef;
+    const refUrl = entry && (entry.image_url || '').trim();
+    if (!refUrl || !row) return '';
+    const items = buildVendorAssetImageItems(row);
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].url === refUrl) {
+            const lab = String(items[i].label || '').trim();
+            if (lab) return lab;
+        }
+    }
+    return '';
+}
+
 /** 依 reference_sources 順序對齊參考圖，解析材料參考（含 refIndex = 第幾張 input_image） */
 async function analyzeMaterialImageUrlSemantics(imageUrl, row, entry) {
     if (!imageUrl || !process.env.GEMINI_API_KEY) return null;
     try {
         const deps = getVisualSemanticsDeps();
         const imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
-        const label = (entry && entry.filename_hint) || labelFromImageUrl(imageUrl);
+        const label = resolveMaterialImageLabelForSemantics(entry, row);
         const result = await visualSemantics.analyzeImageSemantics(deps, imagePart, {
             asset_kind: 'material',
             category_key: row && row.category_key ? row.category_key : null,
@@ -871,6 +887,8 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
                 : [],
             image_url: imageUrl,
             filename_hint: basename || null,
+            image_label: (s.image_label || s.gallery_label || '').trim() || null,
+            gallery_label: (s.gallery_label || s.image_label || '').trim() || null,
             image_semantics_json: s.image_semantics_json || null
         });
     });
@@ -900,7 +918,15 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
                 entry.catalog_group_names = row.catalog_groups.map((g) => String(g.name || '').trim()).filter(Boolean);
             }
         }
-        if (entry.image_semantics_json) continue;
+        if (entry.image_semantics_json) {
+            const presetUrl = (entry.image_url || '').trim();
+            const presetCover = row && row.image_url ? String(row.image_url).trim() : '';
+            if (presetUrl && presetCover && presetUrl !== presetCover) {
+                entry.image_semantics_json = null;
+            } else {
+                continue;
+            }
+        }
         const refUrl = (entry.image_url || '').trim();
         const coverUrl = row && row.image_url ? String(row.image_url).trim() : '';
         if (row && refUrl && coverUrl && refUrl === coverUrl && row.image_semantics_json) {
@@ -910,9 +936,6 @@ async function resolveMaterialRefsForPrompt(referenceSourcesRaw) {
         if (refUrl) {
             const sem = await analyzeMaterialImageUrlSemantics(refUrl, row, entry);
             if (sem) entry.image_semantics_json = sem;
-            else if (row && row.image_semantics_json) entry.image_semantics_json = row.image_semantics_json;
-        } else if (row && row.image_semantics_json) {
-            entry.image_semantics_json = row.image_semantics_json;
         }
     }
     return refs;
@@ -1041,23 +1064,15 @@ function buildFluxReferenceApplySummary(sources, lang) {
 }
 
 /**
- * FLUX 多圖：image 編號 + 類型 + 用途角色 + 標題 + 備註 + 材料 Gemini JSON。
- * 有上傳才列入（產品／配件／材料／圖樣）。
+ * FLUX 多圖：image 編號 + 類型 + 角色句 + 使用者備註（不含 AI 標籤／image_semantics_json）。
  * @see https://docs.bfl.ai/flux_2/flux2_image_editing
  */
-function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
+function buildFluxReferenceFactsAppendix(orderedSources, lang) {
     const list = Array.isArray(orderedSources) ? orderedSources.filter(Boolean) : [];
     if (!list.length) return '';
     // FLUX API 一律英文角色句（送 BFL 前會整段翻譯；固定英文較穩）
     const isEn = true;
     void lang;
-    const semByIndex = new Map();
-    (Array.isArray(materialRefs) ? materialRefs : []).forEach(function (ref) {
-        const n = ref && ref.refIndex != null ? ref.refIndex : null;
-        if (n == null) return;
-        const semLine = visualSemantics.buildMaterialFluxFidelityLine(ref.image_semantics_json, { omitSurfaceTechniques: true });
-        if (semLine) semByIndex.set(n, semLine);
-    });
     const header = isEn
         ? '【Reference images — feature extract for 2x2 catalog composite】'
         : '【參考圖用途 — 2×2 型錄合成】';
@@ -1083,14 +1098,14 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         if (isPrintPattern && s.pattern_remove_bg) {
             lines.push('  Remove solid background from image ' + n + ' before compositing the surface artwork onto the product.');
         }
-        if (semByIndex.has(n)) lines.push('  ' + semByIndex.get(n));
     });
     return '\n\n' + lines.join('\n');
 }
 
 /** @deprecated 別名；與 buildFluxReferenceFactsAppendix 相同 */
 function buildFluxReferenceImageRoleMapAppendix(orderedSources, materialRefs, lang) {
-    return buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang);
+    void materialRefs;
+    return buildFluxReferenceFactsAppendix(orderedSources, lang);
 }
 
 /** FLUX 參考圖排序：原型→配件→材料→原圖印刷→風格參考 */
@@ -7624,8 +7639,7 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-    const materialRefs = await resolveMaterialRefsForPrompt(ordered.sources);
-    const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, materialRefs, uiLang);
+    const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
