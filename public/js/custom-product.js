@@ -664,7 +664,7 @@ $(document).ready(function () {
         refSlots[key].items.push({
             url: url,
             note: '',
-            pattern_remove_bg: key === 'pattern_print' ? true : undefined,
+            pattern_remove_bg: key === 'pattern_print' ? false : undefined,
             source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {})
         });
         return true;

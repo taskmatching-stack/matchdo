@@ -983,13 +983,6 @@ function referenceSourcesHasExactPrintPattern(sources) {
     });
 }
 
-/** BFL 多圖欄位名：image 1 → input_image，image n → input_image_n */
-function fluxInputImageFieldName(imageNum) {
-    const n = Number(imageNum);
-    if (!Number.isFinite(n) || n < 1) return 'input_image';
-    return n === 1 ? 'input_image' : ('input_image_' + n);
-}
-
 /** 依設計頁實際選圖：各 Tab 有幾張、對應 image 編號（空 Tab 不佔號） */
 function buildFluxReferenceUiSlotSummary(sources) {
     const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
@@ -1025,7 +1018,7 @@ function buildFluxCatalogCompositeRefLead() {
 }
 
 /** 各參考槽 FLUX 角色句（特徵來源；套用在四格同一成品上） */
-function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternIntent) {
+function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternIntent, styleArtworkRequested) {
     const k = normalizeVendorAssetKind(kind);
     const n = imageNum != null ? imageNum : 1;
     const p = protoImageNum != null ? protoImageNum : 1;
@@ -1042,10 +1035,12 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         }
         if (k === 'other') {
             if (normalizePatternIntent(patternIntent) === 'style') {
-                return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
+                if (styleArtworkRequested) {
+                    return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
+                }
+                return 'Style reference (image ' + n + ') for optional subtle mood only; keep the main product printable surface plain without added logos, icons, or busy graphics.' + panelNote;
             }
-            const inp = fluxInputImageFieldName(n);
-            return 'Exact surface graphic from ' + inp + ' (pattern reference image ' + n + ') printed on the same main product body in every panel; artwork must match ' + inp + ' at full opacity with the same layout, colors and proportions as the reference; preserve every color and graphic element without retypesetting or simplifying.' + panelNote;
+            return 'Exact surface graphic from image ' + n + ' printed on the same main product body in every panel; artwork must match image ' + n + '.' + panelNote;
         }
         return '';
     }
@@ -1058,7 +1053,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (normalizePatternIntent(patternIntent) === 'style') {
             return '主產品表面風格參考 image ' + n + '（四格同一成品）。' + panelNote;
         }
-        return 'image ' + n + ' 的圖案原樣印刷在四格型錄同一主產品本體表面，全不透明度、版式與 ' + fluxInputImageFieldName(n) + ' 一致。' + panelNote;
+        return 'image ' + n + ' 的圖案原樣印刷在四格型錄同一主產品本體表面。' + panelNote;
     }
     return '';
 }
@@ -1072,10 +1067,11 @@ function resolveFluxProtoImageIndex(sources) {
 }
 
 /** 生圖任務摘要：特徵合成至四格同一成品 */
-function buildFluxReferenceApplySummary(sources, lang) {
+function buildFluxReferenceApplySummary(sources, lang, opts) {
     const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
     if (!list.length) return '';
     void lang;
+    const styleArtworkRequested = opts && opts.styleArtworkRequested === true;
     const protoN = resolveFluxProtoImageIndex(list);
     const bits = [];
     list.forEach(function (s, idx) {
@@ -1083,9 +1079,11 @@ function buildFluxReferenceApplySummary(sources, lang) {
         const k = normalizeVendorAssetKind(s.asset_kind);
         if (k === 'other') {
             if (normalizePatternIntent(s.pattern_intent) === 'style') {
-                bits.push('style from image ' + n + ' on the same product in all panels');
+                if (styleArtworkRequested) {
+                    bits.push('style from image ' + n + ' on the same product in all panels');
+                }
             } else {
-                bits.push('exact surface graphic from ' + fluxInputImageFieldName(n) + ' at full opacity on the same product in all panels');
+                bits.push('exact surface graphic from image ' + n + ' on the same product in all panels');
             }
         } else if (k === 'part') {
             bits.push('hardware from image ' + n + ' on the same product (shape from image ' + protoN + ') in all panels');
@@ -1097,13 +1095,24 @@ function buildFluxReferenceApplySummary(sources, lang) {
     return '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
 }
 
+function userRequestedSurfaceArtwork(userPrompt, placementHints) {
+    if (Array.isArray(placementHints) && placementHints.length) return true;
+    const raw = String(userPrompt || '').trim();
+    if (!raw) return false;
+    return /印刷|圖樣|圖文|logo|graphic|pattern|print|圖案|印花|贴图|貼圖|圖稿|artwork|surface design/i.test(raw);
+}
+
 /**
  * FLUX 多圖：image 編號 + 類型 + 用途角色 + 標題 + 備註（不含 AI 標籤／image_semantics_json）。
  * @see https://docs.bfl.ai/flux_2/flux2_image_editing
  */
-function buildFluxReferenceFactsAppendix(orderedSources, lang) {
+function buildFluxReferenceFactsAppendix(orderedSources, lang, fluxRefOpts) {
     const list = Array.isArray(orderedSources) ? orderedSources.filter(Boolean) : [];
     if (!list.length) return '';
+    const refOpts = fluxRefOpts && typeof fluxRefOpts === 'object' ? fluxRefOpts : {};
+    const userPrompt = refOpts.userPrompt || '';
+    const placementHints = refOpts.placementHints || [];
+    const styleArtworkRequested = userRequestedSurfaceArtwork(userPrompt, placementHints);
     // FLUX API 一律英文角色句（送 BFL 前會整段翻譯；固定英文較穩）
     const isEn = true;
     void lang;
@@ -1155,13 +1164,19 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const patNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the pattern reference onto the product body in every panel at full opacity.');
+        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel.');
+    } else if (!hasStylePattern || !styleArtworkRequested) {
+        lines.push('No exact-print reference images; keep the main product printable surface plain unless the user description specifies surface artwork.');
     }
     if (hasStylePattern) {
         const styNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (style reference): image ' + styNums + ' — inspired surface design on the same product in every panel; follow user prompt if provided, otherwise AI may design freely.');
+        if (styleArtworkRequested) {
+            lines.push('Pattern tab (style reference): image ' + styNums + ' — inspired surface design on the same product in every panel; follow the user description for surface artwork.');
+        } else {
+            lines.push('Pattern tab (style reference): image ' + styNums + ' — optional subtle mood inspiration only; keep the main product printable surface plain without logos, icons, or busy graphics.');
+        }
     }
     list.forEach(function (s, idx) {
         const n = idx + 1;
@@ -1178,17 +1193,13 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
             ? (isEn ? (' · note: ' + userNote) : (' · 備註：' + userNote))
             : '';
         lines.push('image ' + n + ' · ' + kindLabel + titlePart + notePart);
-        const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent);
+        const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent, styleArtworkRequested);
         if (roleLine) lines.push('  ' + roleLine);
-        if (isPrintPattern && s.pattern_bg_preprocessed) {
-            lines.push('  Pattern reference preprocessed with background removed; composite the transparent artwork from ' + fluxInputImageFieldName(n) + ' onto the product printable face at full fidelity.');
-        } else if (isPrintPattern && s.pattern_remove_bg) {
-            lines.push('  Remove solid background from ' + fluxInputImageFieldName(n) + ' before compositing the surface artwork onto the product.');
-        } else if (isPrintPattern) {
-            lines.push('  Composite only the surface artwork from ' + fluxInputImageFieldName(n) + ' onto the product printable face; keep the reference photo backdrop off the product surface.');
+        if (isPrintPattern && s.pattern_remove_bg) {
+            lines.push('  Remove solid background from image ' + n + ' before compositing the surface artwork onto the product.');
         }
     });
-    const applySummary = buildFluxReferenceApplySummary(list, lang);
+    const applySummary = buildFluxReferenceApplySummary(list, lang, { styleArtworkRequested: styleArtworkRequested });
     if (applySummary) lines.push(applySummary.trim());
     return '\n\n' + lines.join('\n');
 }
@@ -7498,11 +7509,6 @@ async function getBflFluxEndpointForConfigKey(configKey) {
     return getBflPlaygroundEndpoint(modelId);
 }
 
-/** flux-2-max 較易超出 2×2；測 max 時加一條輸出鎖定（不影響 pro 預設） */
-function buildFluxMaxCatalogGuardAppendix() {
-    return '\n\nOutput lock: render only one 2x2 catalog composite with exactly four Split-view panels; do not add extra product shots, grids, mood boards, or multiple items beyond those four panels.';
-}
-
 function resolveBflFluxModelsFromRows(rows) {
     const byKey = (rows || []).reduce((o, r) => { o[r.key] = r.value?.trim?.(); return o; }, {});
     const out = {};
@@ -7740,14 +7746,16 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-    const prepared = await prepareFluxPatternPrintReferenceImages(ordered.images, ordered.sources);
-    const refFacts = buildFluxReferenceFactsAppendix(prepared.sources, uiLang);
+    const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang, {
+        userPrompt: userLine,
+        placementHints: parsedUser.placementHints
+    });
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
-    if (parsedUser.placementHints.length && referenceSourcesHasExactPrintPattern(prepared.sources)) {
+    if (parsedUser.placementHints.length && referenceSourcesHasExactPrintPattern(ordered.sources)) {
         fullPrompt = (fullPrompt || '').trim() + '\n\nSurface print notes: ' + parsedUser.placementHints.join('; ') + '.';
     }
 
-    const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(prepared.sources);
+    const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
     const capCustom = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityCustomLabels);
     if (protoIdForCaps && (capKeys.length || capCustom.length)) {
@@ -7764,8 +7772,8 @@ async function composeGeneratePromptWithReferences(opts) {
 
     return {
         fullPrompt: fullPrompt.trim(),
-        fluxReferenceImages: prepared.images,
-        fluxReferenceSources: prepared.sources
+        fluxReferenceImages: ordered.images,
+        fluxReferenceSources: ordered.sources
     };
 }
 
@@ -7837,58 +7845,6 @@ async function resolveImageToBase64(img) {
         }
     }
     return null;
-}
-
-/** Stability 去背（生圖管線內用，不另扣點；失敗回 null） */
-async function stabilityRemoveBackgroundFromBuffer(imageBuffer, mimeType) {
-    const STABILITY_API_KEY = getStabilityApiKey();
-    if (!STABILITY_API_KEY || !imageBuffer || !imageBuffer.length) return null;
-    try {
-        const form = new FormData();
-        form.append('image', new Blob([imageBuffer], { type: mimeType || 'image/png' }), 'pattern.png');
-        form.append('output_format', 'png');
-        const stabilityRes = await fetch('https://api.stability.ai/v2beta/stable-image/edit/remove-background', {
-            method: 'POST',
-            headers: {
-                Authorization: 'Bearer ' + STABILITY_API_KEY,
-                Accept: 'application/json'
-            },
-            body: form
-        });
-        if (!stabilityRes.ok) {
-            console.warn('stabilityRemoveBackgroundFromBuffer:', stabilityRes.status, (await stabilityRes.text()).slice(0, 200));
-            return null;
-        }
-        const json = await stabilityRes.json();
-        const artifact = json.artifacts && json.artifacts[0];
-        const imageBase64 = artifact && artifact.base64 ? artifact.base64 : (json.image || '');
-        if (!imageBase64) return null;
-        return Buffer.from(imageBase64, 'base64');
-    } catch (e) {
-        console.warn('stabilityRemoveBackgroundFromBuffer:', e.message);
-        return null;
-    }
-}
-
-/** 原圖印刷勾選去背時：送 FLUX 前以 Stability 實際去背（prompt  alone 不足） */
-async function prepareFluxPatternPrintReferenceImages(images, sources) {
-    const imgs = Array.isArray(images) ? images.slice() : [];
-    const srcs = Array.isArray(sources) ? sources.map(function (s) { return s ? Object.assign({}, s) : null; }) : [];
-    if (!imgs.length || !getStabilityApiKey()) return { images: imgs, sources: srcs };
-    for (let i = 0; i < imgs.length; i++) {
-        const s = srcs[i];
-        if (!s) continue;
-        const isPrint = normalizeVendorAssetKind(s.asset_kind) === 'other'
-            && normalizePatternIntent(s.pattern_intent) !== 'style';
-        if (!isPrint || !s.pattern_remove_bg) continue;
-        const b64 = await resolveImageToBase64(imgs[i]);
-        if (!b64) continue;
-        const removed = await stabilityRemoveBackgroundFromBuffer(Buffer.from(b64, 'base64'), 'image/png');
-        if (!removed) continue;
-        imgs[i] = 'data:image/png;base64,' + removed.toString('base64');
-        srcs[i].pattern_bg_preprocessed = true;
-    }
-    return { images: imgs, sources: srcs };
 }
 
 /** 實境模擬：環境圖 + 產品圖 + 提示詞，送 BFL Flux 2 Pro 圖生圖，回傳 PNG buffer */
@@ -8215,14 +8171,11 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         if (process.env.BFL_API_KEY) {
             try {
                 const fluxGenerateEndpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_generate');
-                const fluxModelId = await getBflFluxModelIdForConfigKey('bfl_flux_model_generate');
-                let promptForFlux = fullPrompt;
-                if (fluxModelId === 'flux-2-max') promptForFlux = (fullPrompt || '').trim() + buildFluxMaxCatalogGuardAppendix();
                 if (hasRefs) {
-                    const buffer = await generateImageWithFlux2Pro(promptForFlux, fluxReferenceImages, seedNum, outputFormat, { endpointUrl: fluxGenerateEndpoint });
+                    const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat, { endpointUrl: fluxGenerateEndpoint });
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 } else {
-                    const buffer = await generateImageWithFlux2ProTextToImage(promptForFlux, seedNum, outputFormat, fluxGenerateEndpoint);
+                    const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint);
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 }
             } catch (e) {
