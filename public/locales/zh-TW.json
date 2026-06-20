@@ -768,7 +768,7 @@
   "customProduct.refSlotPatternStyleAddonPh": "風格補充（選填）",
   "customProduct.refPatternRemoveBg": "去背",
   "customProduct.refPatternRemoveBgShort": "去背",
-  "customProduct.refPatternRemoveBgHint": "去背後套印",
+  "customProduct.refPatternRemoveBgHint": "移除背景，只保留前景主體（不勾選則保留完整底色）",
   "customProduct.refPatternPrintNotePh": "此圖補充，例：印於正面中央",
   "customProduct.refPatternStyleNotePh": "此圖補充，例：偏復古手繪",
   "customProduct.refPatternStyleHint": "參考風格設計主產品表面；提示詞可指定方向，或不填讓 AI 設計",

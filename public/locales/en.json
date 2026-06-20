@@ -727,7 +727,7 @@
   "customProduct.refSlotPatternStyleAddonPh": "Style note (optional)",
   "customProduct.refPatternRemoveBg": "Remove BG",
   "customProduct.refPatternRemoveBgShort": "no BG",
-  "customProduct.refPatternRemoveBgHint": "print with background removed",
+  "customProduct.refPatternRemoveBgHint": "Remove background, keep only foreground subject (unchecked = preserve complete background)",
   "customProduct.refPatternPrintNotePh": "Note, e.g. center front",
   "customProduct.refPatternStyleNotePh": "Note, e.g. vintage hand-drawn",
   "customProduct.refPatternStyleHint": "Style reference for the product surface; prompt optional for direction",

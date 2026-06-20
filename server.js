@@ -1186,8 +1186,12 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         lines.push('image ' + n + ' · ' + kindLabel + titlePart + notePart);
         const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent);
         if (roleLine) lines.push('  ' + roleLine);
-        if (isPrintPattern && s.pattern_remove_bg) {
-            lines.push('  Remove solid background from image ' + n + ' before compositing the surface artwork onto the product.');
+        if (isPrintPattern) {
+            if (s.pattern_remove_bg) {
+                lines.push('  Remove the background from image ' + n + ' and composite only the foreground subject/graphics onto the product surface, keeping the foreground artwork exactly as shown.');
+            } else {
+                lines.push('  Apply image ' + n + ' as a complete rectangular surface graphic including all background colors; do not remove or alter any part of the reference image.');
+            }
         }
     });
     const applySummary = buildFluxReferenceApplySummary(list, lang);
