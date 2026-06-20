@@ -973,9 +973,17 @@ $(document).ready(function () {
                 if (f) readFileIntoRefSlot(slotKey, f);
                 e.target.value = '';
             });
-            var $add = $('<label class="ref-intent-thumb ref-intent-thumb-add"></label>');
-            $add.append($fileIn).append($('<span class="ref-intent-empty"><i class="fas fa-plus"></i></span>'));
-            $thumbs.append($add);
+            var addLabel = tr('customProduct.refSlotUpload', '上傳');
+            var $add = $('<button type="button" class="ref-intent-thumb ref-intent-thumb-add"></button>')
+                .attr('aria-label', addLabel)
+                .attr('title', addLabel);
+            $add.append($('<span class="ref-intent-empty"><i class="fas fa-plus" aria-hidden="true"></i></span>'));
+            $add.on('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $fileIn[0].click();
+            });
+            $thumbs.append($fileIn).append($add);
         }
         $panel.append($thumbs);
         var $actions = $('<div class="ref-intent-actions"></div>');

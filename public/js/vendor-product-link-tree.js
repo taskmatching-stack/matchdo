@@ -170,11 +170,11 @@
             return;
         }
         state.guideVariantByAssetId[assetId] = { url: url, label: label || '' };
-        refreshVariantCardVisuals(assetId);
         if (state.guideSelectedIds.indexOf(assetId) < 0) {
             state.guideSelectedIds.push(assetId);
             enforceGuideSelectionRules(assetId);
         }
+        refreshVariantCardVisuals(assetId);
         renderGuidePanel();
     }
 
