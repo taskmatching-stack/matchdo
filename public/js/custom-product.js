@@ -120,9 +120,6 @@ $(document).ready(function () {
         if (debugFlux.referenceMap && debugFlux.referenceMap.length) {
             body += '<p class="mb-1 text-muted small">參考圖對照</p><pre class="small mb-0" style="max-height:160px;overflow:auto;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(JSON.stringify(debugFlux.referenceMap, null, 2)) + '</pre>';
         }
-        if (debugFlux.patternDescriptionsOff) {
-            body += '<p class="small text-warning mb-0 mt-1">圖樣附錄文字已關閉（測試旗標）</p>';
-        }
         return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">管理員：送 FLUX 提示詞</summary><div class="mt-2">' + body + '</div></details>';
     }
 
@@ -194,11 +191,11 @@ $(document).ready(function () {
             skipUrlCategoryPrefill: !!pendingProto
         }).then(function (vals) {
             syncCategoriesDataFromPicker();
+            applyDefaultGenerationSeed();
             if (typeof updateVendorStylesCategorySummary === 'function') updateVendorStylesCategorySummary();
             if (typeof loadVendorStylesTabList === 'function' && isVendorStylesTabActive()) {
                 loadVendorStylesTabList();
             }
-            applyDefaultGenerationSeed();
             if (!pendingProto) scheduleStripDesignDeepLinkFromUrl();
             return vals;
         });
