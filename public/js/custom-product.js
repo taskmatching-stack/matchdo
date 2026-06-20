@@ -842,19 +842,7 @@ $(document).ready(function () {
     }
 
     function getActiveRefSourcesList() {
-        var list = [];
-        REF_INTENT_SLOTS.forEach(function (def) {
-            var g = refSlots[def.key];
-            if (!g || !g.items.length) return;
-            g.items.forEach(function (item) {
-                if (!item || !item.url) return;
-                list.push(Object.assign({}, item.source || {}, {
-                    asset_kind: def.assetKind,
-                    image_url: (item.source && item.source.image_url) || item.url
-                }));
-            });
-        });
-        return list;
+        return collectReferencePayload().referenceSources;
     }
 
     function updateMultiVendorRefWarning() {
@@ -886,7 +874,9 @@ $(document).ready(function () {
         var reader = new FileReader();
         reader.onload = function () {
             var def = getRefSlotDef(slotKey);
-            if (addRefImageToSlot(slotKey, reader.result, { asset_kind: def.assetKind })) {
+            var uploadSrc = { asset_kind: def.assetKind };
+            if (def.patternIntent) uploadSrc.pattern_intent = def.patternIntent;
+            if (addRefImageToSlot(slotKey, reader.result, uploadSrc)) {
                 refIntentActiveTab = slotKey;
                 renderIntentSlots();
             }
@@ -1228,7 +1218,7 @@ $(document).ready(function () {
         if (slotKey && getRefSlotDef(slotKey)) refIntentActiveTab = slotKey;
         resetVendorAssetFilters();
         var def = slotKey ? getRefSlotDef(slotKey) : null;
-        if (def && def.assetKind !== 'other') $('#vendorAssetsAssetKind').val(def.assetKind);
+        if (def && def.assetKind) $('#vendorAssetsAssetKind').val(def.assetKind);
         setVendorPickerMfrScopedMode(false);
         updateVendorPickerPrototypeFiltersVisibility();
         syncVendorPickerSubcategoryForAssetKind();
@@ -2070,11 +2060,18 @@ $(document).ready(function () {
                 var imgUrl = (s.image_url || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                 if (!imgUrl) return;
                 var title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                var kind = s.asset_kind === 'material'
-                    ? vendorPickerTr('customProduct.assetKindMaterial', '材料')
-                    : (s.asset_kind === 'part'
-                        ? vendorPickerTr('customProduct.assetKindPart', '配件／零件')
-                        : vendorPickerTr('customProduct.assetKindPrototype', '數位原型'));
+                var kind;
+                if (s.asset_kind === 'material') {
+                    kind = vendorPickerTr('customProduct.assetKindMaterial', '材料');
+                } else if (s.asset_kind === 'part') {
+                    kind = vendorPickerTr('customProduct.assetKindPart', '配件／零件');
+                } else if (s.asset_kind === 'other') {
+                    kind = normalizePatternIntent(s.pattern_intent) === 'style'
+                        ? vendorPickerTr('customProduct.refSlotPatternStyleTab', '風格參考')
+                        : vendorPickerTr('customProduct.refSlotPatternPrintTab', '原圖印刷');
+                } else {
+                    kind = vendorPickerTr('customProduct.assetKindPrototype', '數位原型');
+                }
                 var tip = (title ? title + ' · ' : '') + mfrName + ' · ' + kind;
                 html += '<a href="' + profileUrl + '" target="_blank" rel="noopener" class="text-decoration-none text-center past-ref-asset-link" title="' + tip.replace(/"/g, '&quot;') + '">';
                 html += '<img src="' + imgUrl + '" alt="" style="width:52px;height:52px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,.35);">';
@@ -2255,11 +2252,13 @@ $(document).ready(function () {
                 var added = 0;
                 dataUrls.forEach(function (dataUrl, idx) {
                     var it = imageItems[idx];
-                    if (addRefImageToSlot(targetKey, dataUrl, Object.assign({}, baseMeta, {
+                    var importMeta = Object.assign({}, baseMeta, {
                         asset_kind: def ? def.assetKind : baseMeta.asset_kind,
                         image_url: it.url,
                         image_label: (it.label || '').trim()
-                    }))) added++;
+                    });
+                    if (def && def.patternIntent) importMeta.pattern_intent = def.patternIntent;
+                    if (addRefImageToSlot(targetKey, dataUrl, importMeta)) added++;
                 });
                 if (!added) {
                     alert(tr('customProduct.refSlotsFull', '參考圖已滿（每類最多 ' + MAX_REF_IMAGES_PER_SLOT + ' 張，共 ' + MAX_REF_IMAGES_TOTAL + ' 張）'));
@@ -3655,8 +3654,9 @@ $(document).ready(function () {
             }
             var mainKey = $('#imageCategoryMainSelect').val() || '';
             var subKey = $('#imageCategorySubSelect').val() || '';
-            var refSourcesList = getActiveRefSourcesList();
-            var firstRefImageUrl = refSourcesList.length && refSourcesList[0].image_url ? refSourcesList[0].image_url : null;
+            var orderedRefs = collectReferencePayload();
+            var refSourcesList = orderedRefs.referenceSources;
+            var firstRefImageUrl = orderedRefs.referenceImages.length ? orderedRefs.referenceImages[0] : null;
             var payload = {
                 title: title,
                 description: description,

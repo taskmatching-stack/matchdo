@@ -1178,9 +1178,12 @@ function reorderFluxReferenceInputs(referenceImages, referenceSources) {
     const imgs = Array.isArray(referenceImages) ? referenceImages : [];
     const srcs = Array.isArray(referenceSources) ? referenceSources : [];
     let pairs = imgs.map(function (img, i) {
-        return { img: img, src: srcs[i] || null };
+        return { img: img, src: srcs[i] || null, ord: i };
     });
-    pairs.sort(function (a, b) { return fluxReferenceSourceRank(a.src) - fluxReferenceSourceRank(b.src); });
+    pairs.sort(function (a, b) {
+        var dr = fluxReferenceSourceRank(a.src) - fluxReferenceSourceRank(b.src);
+        return dr !== 0 ? dr : a.ord - b.ord;
+    });
     return {
         images: pairs.map(function (p) { return p.img; }),
         sources: pairs.map(function (p) { return p.src; })
@@ -8176,12 +8179,17 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                     const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
                     const showOnHomepage = !(await hasActivePaidSubscription(currentUser.id));
+                    const autoLineage = hasRefs && fluxReferenceSources.length
+                        ? await customProductLineage.computeCustomProductLineage(
+                            supabase, currentUser.id, fluxReferenceSources
+                        )
+                        : null;
                     const autoInsertPayload = {
                         owner_id: currentUser.id,
                         title, description,
                         category: mainCategoryKey,
                         subcategory_key: subCategoryKey,
-                        reference_image_url: null,
+                        reference_image_url: (fluxReferenceImages && fluxReferenceImages.length) ? fluxReferenceImages[0] : null,
                         ai_generated_image_url: imageUrl,
                         analysis_json: null,
                         status: 'draft',
@@ -8189,6 +8197,13 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         generation_seed: seedNum,
                         show_on_homepage: showOnHomepage
                     };
+                    if (autoLineage) {
+                        autoInsertPayload.generator_manufacturer_id = autoLineage.generator_manufacturer_id;
+                        autoInsertPayload.has_self_vendor_reference = autoLineage.has_self_vendor_reference;
+                        autoInsertPayload.is_vendor_self_serve = autoLineage.is_vendor_self_serve;
+                        autoInsertPayload.data_lineage_json = autoLineage.data_lineage_json;
+                        if (autoLineage.reference_sources) autoInsertPayload.reference_sources = autoLineage.reference_sources;
+                    }
                     const autoUiLocale = (req.body.ui_locale || req.body.lang || '').trim() || null;
                     mergeDesignerRegionIntoPayload(autoInsertPayload, req, autoUiLocale);
                     let insertRes = await supabase.from('custom_products').insert(autoInsertPayload).select('id').single();
