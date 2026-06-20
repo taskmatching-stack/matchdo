@@ -55,7 +55,8 @@
 | 產品類型基礎句 | DB `custom_product_categories` / `subcategories`.`prompt` | 程式內寫死品類英文長文 |
 | 設計風向 | DB `remake_categories` / `subcategories`.`prompt` | 同上 |
 | 使用者描述 | 前端 `composeUserPromptForGenerate()` | — |
-| 參考圖角色 | `buildFluxReferenceImageRoleMapAppendix`（依 `asset_kind` **角色**，非材質種類） | 依檔名猜 leather/wood |
+| 參考圖角色 | `buildFluxReferenceFactsAppendix`（依 `asset_kind` + `pattern_intent` **角色**，非材質種類） | 依檔名猜 leather/wood；**Logo 專用 lockup 長文** |
+| 原圖印刷／風格 | **`docs/custom-product-reference-pattern-prompt-policy.md`**（通用 surface graphic） | 窄化為 Logo／wordmark 專用 block |
 | 原型製造限制 | DB `customization_levels`、`min_order_quantity` + 使用者已勾選能力 | 猜測未勾選項 |
 | 表面工藝 | DB `manufacturer_taxonomy` → `visual_hint` | 固定工藝英文表 |
 | **材料表面** | **`image_semantics_json`（Gemini）** | **檔名／material_key 查表** |
@@ -101,7 +102,7 @@
 
 - FLUX **通用** img2img 底稿（例如：enhance input_image、only clarity/lighting/noise）。
 - **材料 optimize 底稿**：須明訂 `input_image` 像素為唯一權威、禁止替換紋理族／色相等（`buildVendorAssetMaterialOptimizePrompt`）；此為保真規則，**不是** material_key 查表。
-- 參考圖 **角色** 說明（原型＝造型、材料＝表面、配件＝五金）— 不列舉具體皮種／布種。
+- 參考圖 **角色** 說明（原型＝造型、材料＝表面、配件＝五金、**原圖印刷＝surface graphic 原樣套印**、**風格參考＝inspired only**）— 不列舉具體皮種／布種；**不得**寫成 Logo-only。
 - 產品重繪的棚拍／去背規則（原型專用）。
 
 ### 4.2 允許：DB／使用者資料驅動（非程式猜測）
@@ -143,6 +144,7 @@
 ## 7. Code review 勾選（改 `server.js` / `visual-semantics.js` / 生圖相關時）
 
 - [ ] 新增提示詞內容是否來自 **DB 或 Gemini JSON**？
+- [ ] 原圖印刷是否用 **通用 surface graphic** 句，而非 Logo lockup 專用文？（見 `docs/custom-product-reference-pattern-prompt-policy.md`）
 - [ ] 是否出現 **regex 從檔名／title 推材質** 再送 FLUX？
 - [ ] 是否出現 **`material_key` / 枚舉 map → 英文表面句**？
 - [ ] 材料 FLUX 是否在 **無 `image_semantics_json`** 時仍靜默執行？
@@ -160,7 +162,8 @@
 | JSON → FLUX 句 | `buildMaterialFluxFidelityLine` |
 | 材料 optimize | `buildVendorAssetMaterialOptimizePrompt`、`resolveMaterialFluxEditPrompt` |
 | 材料標籤 JSON | `material_tagging_prompt`、`analyzeImageSemantics` |
-| 設計頁組 prompt | `composeGeneratePromptWithReferences`、`buildMaterialTexturePromptAppendix` |
+| 設計頁組 prompt | `composeGeneratePromptWithReferences`、`buildFluxReferenceFactsAppendix` |
+| **原圖印刷／風格 Tab 政策** | **`docs/custom-product-reference-pattern-prompt-policy.md`** |
 | 分類 prompt 指南 | `docs/custom-product-subcategory-prompt-guide.md` |
 | 材料色卡產品規格 | `docs/vendor-asset-material-swatch-plan.md`（已對齊本政策） |
 
@@ -170,4 +173,5 @@
 
 | 日期 | 說明 |
 |------|------|
+| 2026-06-18 | 連結 `custom-product-reference-pattern-prompt-policy.md`；原圖印刷通用性 |
 | 2026-06-05 | 初版：禁止查表式硬編碼；記錄正確 Gemini→FLUX 管線；標記已刪函式 |

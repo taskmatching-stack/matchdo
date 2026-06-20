@@ -26,3 +26,9 @@ alwaysApply: true
 - DB 分類 `prompt`、使用者描述、工藝 `visual_hint`（DB）
 - 篩選用 `material_key`／`color_key`（**不進** FLUX prompt）
 - 短通用 img2img 底稿、參考圖 **角色** 句（非具體皮種）
+- **原圖印刷**：通用 **surface graphic / artwork** 句（見 `docs/custom-product-reference-pattern-prompt-policy.md`）
+
+## 嚴禁（原圖印刷額外）
+
+- ❌ 把原圖印刷窄化成 **Logo lockup / wordmark** 專用 prompt block
+- ❌ 前端自動灌 **image 1=…→** 中文對照進使用者 prompt
