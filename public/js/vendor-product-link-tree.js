@@ -720,13 +720,17 @@
     }
 
     function isGuidePartSectionExpanded(assetId) {
-        return !!state.guidePartSectionExpanded[assetId];
+        if (!assetId) return true;
+        if (Object.prototype.hasOwnProperty.call(state.guidePartSectionExpanded, assetId)) {
+            return state.guidePartSectionExpanded[assetId] === true;
+        }
+        return true;
     }
 
     function setGuidePartSectionExpanded(assetId, expanded) {
         if (!assetId) return;
-        if (expanded) state.guidePartSectionExpanded[assetId] = true;
-        else delete state.guidePartSectionExpanded[assetId];
+        if (expanded) delete state.guidePartSectionExpanded[assetId];
+        else state.guidePartSectionExpanded[assetId] = false;
     }
 
     function syncGuidePartSectionDom(section) {
@@ -766,10 +770,28 @@
     function guideSectionHtml(sectionKind, heading, tilesHtml, sectionAssetId) {
         if (!tilesHtml) return '';
         var rail = guideSectionRailHtml(tilesHtml);
-        /* 看可搭配：主產品／材料／配件一律常駐展開（與材料一致，不用收合標題） */
-        return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + '">' +
-            '<h3 class="vplt-guide-section-title">' + heading + '</h3>' +
-            rail + '</section>';
+        var isPartCollapsible = sectionKind === 'part' && sectionAssetId && !IS_VENDOR;
+        if (!isPartCollapsible) {
+            return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + '">' +
+                '<h3 class="vplt-guide-section-title">' + heading + '</h3>' +
+                rail + '</section>';
+        }
+        var expanded = isGuidePartSectionExpanded(sectionAssetId);
+        var stateCls = expanded ? ' vplt-guide-section--expanded' : ' vplt-guide-section--collapsed';
+        var expandLbl = esc(tr('productTree.sectionExpand', '展開配件選項'));
+        var collapseLbl = esc(tr('productTree.sectionCollapse', '收合配件選項'));
+        var toggleAria = expanded ? collapseLbl : expandLbl;
+        var chevronCls = expanded ? 'bi-chevron-up' : 'bi-chevron-down';
+        return '<section class="vplt-guide-section vplt-guide-section--part vplt-guide-section--collapsible' + stateCls + '"' +
+            ' data-guide-section-asset="' + esc(sectionAssetId) + '">' +
+            '<button type="button" class="vplt-guide-section-toggle"' +
+            ' data-guide-section-toggle="' + esc(sectionAssetId) + '"' +
+            ' aria-expanded="' + (expanded ? 'true' : 'false') + '" aria-label="' + toggleAria + '">' +
+            '<h3 class="vplt-guide-section-title">' + heading +
+            ' <i class="bi ' + chevronCls + ' vplt-guide-section-chevron" aria-hidden="true"></i></h3>' +
+            '</button>' +
+            '<div class="vplt-guide-section-body"' + (expanded ? '' : ' hidden') + '>' + rail + '</div>' +
+            '</section>';
     }
 
     /** 區塊標題：分類在前、商品名在後（主產品 · 角粒殼3.0） */

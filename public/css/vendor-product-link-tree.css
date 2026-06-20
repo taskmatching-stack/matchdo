@@ -234,7 +234,7 @@
 .vplt-guide-section-title {
     color: #1d1d1f;
 }
-/* 配件區：標題可收合，預設收合；展開狀態不因選圖而重繪關閉 */
+/* 配件區：標題可收合，預設展開；展開狀態不因選圖而重繪關閉 */
 .vplt-guide-section--collapsible .vplt-guide-section-toggle {
     display: block;
     width: 100%;
