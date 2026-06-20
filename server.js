@@ -979,7 +979,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     if (isEn) {
         if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure (image ' + n + ').' + panelNote;
         if (k === 'material') {
-            return 'On the prototype product (image ' + p + '), replace main-body regions that share the same base color and material class with the solid color and texture from material reference (image ' + n + '), including visible side edges and thickness; not a printed overlay or surface decal.' + panelNote;
+            return 'On the prototype product (image ' + p + '), replace main-body regions that share the same base color and material class with the opaque solid color and texture from material reference (image ' + n + '), including visible side edges and thickness; not a printed overlay, surface decal, or frosted/translucent shell unless the material reference image clearly shows transparency.' + panelNote;
         }
         if (k === 'part') {
             return 'Hardware/trim from image ' + n + ' mounted on the same main product (shape from image ' + p + ').' + panelNote;
@@ -994,7 +994,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     }
     if (k === 'prototype') return '主產品造型、輪廓、比例與結構（image ' + n + '）。' + panelNote;
     if (k === 'material') {
-        return '對照原型 image ' + p + '，將主產品本體上同色、同材質類的區域（含可見側邊與厚度）替換為材料參考 image ' + n + ' 的實色與質感；非印刷圖層。' + panelNote;
+        return '對照原型 image ' + p + '，將主產品本體上同色、同材質類的區域（含可見側邊與厚度）替換為材料參考 image ' + n + ' 的不透明實色與質感；非印刷圖層；除非材料參考圖本身可見透明，否則勿做成磨砂半透明。' + panelNote;
     }
     if (k === 'part') return 'image ' + n + ' 的五金／飾件搭配在同一主產品（造型依 image ' + p + '）上。' + panelNote;
     if (k === 'other') {
@@ -1109,9 +1109,10 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         const n = idx + 1;
         const kind = normalizeVendorAssetKind(s.asset_kind || 'prototype');
         const isPrintPattern = kind === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style';
+        const isMaterial = kind === 'material';
         const kindLabel = fluxRefKindLabel(kind, isEn);
         const title = (s.title || '').trim();
-        const titlePart = (title && !isPrintPattern)
+        const titlePart = (title && !isPrintPattern && !isMaterial)
             ? (isEn ? (' · "' + title + '"') : (' · 「' + title + '」'))
             : '';
         const userNote = (s.user_note || '').trim();
