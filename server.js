@@ -978,19 +978,33 @@ function buildFluxPrintPatternExactBlock(sources) {
         if (normalizePatternIntent(s.pattern_intent) === 'style') return;
         const n = idx + 1;
         let line =
-            'Place the exact logo/graphic artwork from pattern image ' + n +
-            ' onto the main product body (prototype shape from image ' + protoN +
-            ') in all four 2x2 catalog panels — multi-reference logo branding compositing. ' +
-            'Reproduce the full graphic from image ' + n + ': logo mark, icon shapes, colors, proportions, and layout must match the reference artwork. ' +
-            'Do not retypeset, spell out, abbreviate, or regenerate as new plain typography or different letters.';
+            'MANDATORY surface print: transfer the complete logo lockup from input_image_' + n + ' (pattern reference image ' + n + ') onto the printable face of the main product body (shape from input_image_' + protoN + ') in all four 2x2 catalog panels. ' +
+            'Use input_image_' + n + ' as a visual artwork source — copy the full graphic as a full-opacity printed decal or silkscreen on the product; not a faint watermark, not ghosted semi-transparent text, not scene typography. ' +
+            'Include every part of the brand artwork visible in input_image_' + n + ': primary wordmark, secondary/subtitle lines, icon marks, colors, spacing, and proportions exactly as in the reference photo. ' +
+            'Do not retypeset, abbreviate, omit secondary text, invent new letters, or regenerate typography from memory.';
         if (s.pattern_remove_bg) {
-            line += ' Remove the solid background from pattern image ' + n + ' before compositing; keep only the logo/graphic artwork with transparent background.';
+            line += ' Remove the solid background from input_image_' + n + ' before compositing; keep only the logo/graphic artwork.';
+        } else {
+            line += ' If input_image_' + n + ' has a solid backdrop behind the artwork, do not paste that backdrop onto the product — composite only the logo artwork itself at full strength.';
         }
         bits.push(line);
     });
     if (!bits.length) return '';
-    return '【Pattern print — exact artwork from reference, not retyped text】 ' + bits.join(' ') +
-        ' Product-surface print from the pattern reference is required artwork, not forbidden scene text.';
+    return '【Pattern print — exact artwork from reference, not retyped text】 ' + bits.join(' ');
+}
+
+/** 原圖印刷：置於 prompt 最末，避免被使用者描述蓋過 */
+function buildFluxPrintPatternFinalTail(sources) {
+    const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
+    const nums = [];
+    list.forEach(function (s, idx) {
+        if (normalizeVendorAssetKind(s.asset_kind) !== 'other') return;
+        if (normalizePatternIntent(s.pattern_intent) === 'style') return;
+        nums.push(idx + 1);
+    });
+    if (!nums.length) return '';
+    return '\n\nFINAL — exact print from input_image_' + nums.join(', input_image_') +
+        ': full-strength complete logo lockup on the product surface in every 2x2 panel (all wordmarks/lines from the reference artwork, full opacity).';
 }
 
 /** 各參考槽 FLUX 角色句（特徵來源；套用在四格同一成品上） */
@@ -1011,7 +1025,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
             if (normalizePatternIntent(patternIntent) === 'style') {
                 return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
-            return 'Logo/graphic print source (image ' + n + '): composite the exact artwork from this reference onto the main product body in every panel (logo branding); match the graphic design in image ' + n + ', not retyped letters or new typography.' + panelNote;
+            return 'Logo/graphic print source (image ' + n + ' / input_image_' + n + '): composite the exact full-opacity artwork from this reference onto the main product printable surface in every panel; copy the complete lockup from input_image_' + n + ', not retyped or partial letters.' + panelNote;
         }
         return '';
     }
@@ -1136,16 +1150,14 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
             ? (isEn ? (' · "' + title + '"') : (' · 「' + title + '」'))
             : '';
         const userNote = (s.user_note || '').trim();
-        const notePart = userNote
-            ? (isEn ? (' · note: ' + userNote) : (' · 備註：' + userNote))
-            : '';
+        const notePart = !userNote ? '' : (isPrintPattern
+            ? (isEn ? (' · placement note: ' + userNote) : (' · 位置備註：' + userNote))
+            : (isEn ? (' · note: ' + userNote) : (' · 備註：' + userNote)));
         lines.push('image ' + n + ' · ' + kindLabel + titlePart + notePart);
         const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent);
         if (roleLine) lines.push('  ' + roleLine);
         if (semByIndex.has(n)) lines.push('  ' + semByIndex.get(n));
     });
-    const printBlock = buildFluxPrintPatternExactBlock(list);
-    if (printBlock) lines.push(printBlock);
     const applySummary = buildFluxReferenceApplySummary(list, lang);
     if (applySummary) lines.push(applySummary.trim());
     return '\n\n' + lines.join('\n');
@@ -7706,6 +7718,11 @@ async function composeGeneratePromptWithReferences(opts) {
 
     if (userLine) fullPrompt = (fullPrompt || '').trim() + '\n\n' + userLine;
 
+    const printBlock = buildFluxPrintPatternExactBlock(ordered.sources);
+    if (printBlock) fullPrompt = (fullPrompt || '').trim() + '\n\n' + printBlock;
+    const printTail = buildFluxPrintPatternFinalTail(ordered.sources);
+    if (printTail) fullPrompt = (fullPrompt || '').trim() + printTail;
+
     return {
         fullPrompt: fullPrompt.trim(),
         fluxReferenceImages: ordered.images,
@@ -8022,8 +8039,10 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
 app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (req, res) => {
     try {
         const { prompt, categoryKeys, aspectRatio = '1:1', resolution = '2K', referenceImages, referenceSources, seed, categorySource, output_format, selected_capability_keys, selected_capability_custom_labels } = req.body;
+        const userPromptRaw = (prompt != null ? String(prompt) : '').trim();
         const outputFormat = (output_format === 'png' || output_format === 'jpeg') ? output_format : 'jpeg';
-        if (!prompt) {
+        const hasRefsEarly = referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0;
+        if (!userPromptRaw && !hasRefsEarly) {
             return res.status(400).json({ success: false, error: '請提供產品描述' });
         }
         if (!categoryKeys || !Array.isArray(categoryKeys) || categoryKeys.length === 0) {
@@ -8083,7 +8102,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         const uiLang = (req.body.ui_locale || req.body.lang || '').trim() || null;
         const composed = await composeGeneratePromptWithReferences({
             categoryKeys,
-            userPrompt: prompt,
+            userPrompt: userPromptRaw,
             useRemake,
             uiLang,
             referenceImages: hasRefs ? referenceImages : [],

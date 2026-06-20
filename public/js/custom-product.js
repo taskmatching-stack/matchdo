@@ -769,9 +769,7 @@ $(document).ready(function () {
             perImageLines.push('image ' + (idx + 1) + '：' + note);
         });
         var blocks = [main].concat(addonLines).concat(perImageLines).filter(Boolean);
-        if (blocks.length) return blocks.join('\n');
-        if (getRefKindCounts().total > 0) return buildSuggestedPrompt();
-        return '';
+        return blocks.length ? blocks.join('\n') : '';
     }
 
     function collectReferencePayload() {
@@ -3260,10 +3258,9 @@ $(document).ready(function () {
         isGenerateInProgress = true;
         if (typeof window.gtag === 'function') { window.gtag('event', 'design_generate_click', {}); }
         const prompt = composeUserPromptForGenerate();
-        if (!prompt) {
-            alert(getRefKindCounts().total > 0
-                ? t('customProduct.needPromptOrSuggestRefs')
-                : t('customProduct.needPrompt'));
+        const refTotal = getRefKindCounts().total;
+        if (!prompt && refTotal === 0) {
+            alert(t('customProduct.needPrompt'));
             isGenerateInProgress = false;
             return;
         }
