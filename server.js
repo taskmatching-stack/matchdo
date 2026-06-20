@@ -1025,7 +1025,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
             if (normalizePatternIntent(patternIntent) === 'style') {
                 return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
-            return 'Exact surface graphic from image ' + n + ' printed on the same main product body in every panel; reproduce the complete artwork precisely as shown in image ' + n + ' including all colors, background colors, and graphic elements, without modification, reinterpretation, or color changes.' + panelNote;
+            return 'Exact surface graphic from image ' + n + ' applied as an opaque rectangular overlay on the main product body in every panel; reproduce the complete artwork precisely as shown in image ' + n + ' including all colors, background colors, and graphic elements as a solid sticker that covers and replaces any material color beneath it, without modification, reinterpretation, or color changes.' + panelNote;
         }
         return '';
     }
@@ -1046,7 +1046,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (normalizePatternIntent(patternIntent) === 'style') {
             return '主產品表面風格參考 image ' + n + '（四格同一成品）。' + panelNote;
         }
-        return 'image ' + n + ' 的表面圖稿必須與參考圖完全一致地印刷在四格型錄同一主產品本體表面，包括所有色彩、底色與圖形元素，不得修改、重新詮釋或改變色彩。' + panelNote;
+        return 'image ' + n + ' 的表面圖稿作為不透明矩形覆蓋層貼在四格型錄同一主產品本體表面，必須與參考圖完全一致，包括所有色彩、底色與圖形元素，如同實心貼紙覆蓋並取代下方材料色，不得修改、重新詮釋或改變色彩。' + panelNote;
     }
     return '';
 }
@@ -1088,17 +1088,20 @@ function buildFluxReferenceApplySummary(sources, lang) {
                 bits.push('hardware from image ' + n + ' on the same product in all panels');
             }
         } else if (k === 'material') {
+            const materialNote = hasPrintPattern 
+                ? ' to visible body regions not covered by the pattern'
+                : ' in all panels';
             if (protoN != null) {
-                bits.push('body color/texture from image ' + n + ' with opacity and material class from prototype image ' + protoN + ' in all panels');
+                bits.push('body color/texture from image ' + n + ' with opacity and material class from prototype image ' + protoN + materialNote);
             } else {
-                bits.push('body color/texture from image ' + n + ' in all panels');
+                bits.push('body color/texture from image ' + n + materialNote);
             }
         }
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
     if (hasPrintPattern) {
-        result += '\nIMPORTANT: The surface graphic/artwork from the pattern reference must be reproduced exactly as shown in the reference image and applied as the final visible layer on the product surface. This includes ALL visual elements: foreground graphics, text, logos, AND any background colors or solid fills. Do not modify, reinterpret, omit background colors, or blend the pattern with material colors.';
+        result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
     return result;
 }
@@ -1161,7 +1164,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const patNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel. Reproduce the complete visual content including all foreground graphics, text, logos, AND any background colors or solid fills shown in the reference image. The instruction to avoid text in catalog composition refers only to product labels/annotations, not to graphics within the pattern itself.');
+        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference as an opaque rectangular overlay onto the product in every panel. Treat the pattern as a solid sticker: reproduce the complete visual content including all foreground graphics, text, logos, AND any background colors or solid fills exactly as shown in the reference image. The pattern overlay completely covers and replaces material colors in its area. The instruction to avoid text in catalog composition refers only to product labels/annotations, not to graphics within the pattern itself.');
     }
     if (hasStylePattern) {
         const styNums = list.map(function (s, i) {
@@ -1190,7 +1193,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
             if (s.pattern_remove_bg) {
                 lines.push('  Remove the background from image ' + n + ' and composite only the foreground subject/graphics onto the product surface, keeping the foreground artwork exactly as shown.');
             } else {
-                lines.push('  Apply image ' + n + ' as a complete rectangular surface graphic including all background colors; do not remove or alter any part of the reference image.');
+                lines.push('  Apply image ' + n + ' as a complete opaque rectangular overlay including all background colors; treat it as a solid sticker that covers the material - do not remove or alter any part of the reference image, do not make the background transparent, do not replace the pattern background color with material color.');
             }
         }
     });
