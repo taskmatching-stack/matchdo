@@ -176,7 +176,7 @@
                     <ul class="mb-2 ps-3">
                         <li class="mb-1" data-i18n="customProduct.promptRefTipsMaterialRef"><strong>材料參考</strong>：主產品布料／色卡質感。選圖後可寫「採用參考布料的顏色與質感」，勿把扣具、拉鍊顏色寫進材料描述。</li>
                         <li class="mb-1" data-i18n="customProduct.promptRefTipsPartRef"><strong>配件／零件</strong>：每種顏色、表面材質廠商會分開上傳；請選與設計相符的那一筆，不要指望用一句提示詞換扣具顏色。</li>
-                        <li class="mb-1" data-i18n="customProduct.promptRefTipsPatternPrint"><strong>原圖印刷</strong>：圖稿內容由參考圖決定；印在哪裡請在提示詞描述（例：「圖樣印於正面中央偏下」）。材質、配件仍靠對應參考圖。</li>
+                        <li class="mb-1" data-i18n="customProduct.promptRefTipsPatternPrint"><strong>原圖印刷</strong>：圖稿內容由參考圖決定；印在哪裡請在提示詞描述（例：「圖樣印於正面中央偏下」）。每張可選原圖（整圖原樣）、去背（只留前景）、提取重點（保留主要圖形與色彩、自然融入）。材質、配件仍靠對應參考圖。</li>
                         <li class="mb-0" data-i18n="customProduct.promptRefTipsMix">可混用參考圖：① 數位原型（造型）② 材料（主產品質感／色）③ 配件／零件（扣具、拉鍊等各一色一圖）④ 原圖印刷或風格參考。</li>
                     </ul>
                     <p class="text-muted mb-0" data-i18n="customProduct.promptRefTipsVendorNote">從「廠商素材庫」篩選時，材料與配件僅依主分類；請依素材類型分別挑選，避免混用。</p>
@@ -969,22 +969,15 @@
             overflow: hidden;
             word-break: break-word;
         }
-        #custom-product .ref-pattern-remove-bg {
-            font-size: 0.625rem;
+        #custom-product .ref-pattern-apply-mode {
             margin-top: 0.1rem;
-            padding-left: 0.1rem;
-            line-height: 1.2;
-            display: flex;
-            align-items: center;
-            gap: 0.2rem;
+            width: 100%;
         }
-        #custom-product .ref-pattern-remove-bg .form-check-input {
-            width: 0.75rem;
-            height: 0.75rem;
-            margin-top: 0;
-        }
-        #custom-product .ref-pattern-remove-bg .form-check-label {
+        #custom-product .ref-pattern-apply-mode .form-select-sm {
             font-size: 0.625rem;
+            padding: 0.1rem 1.25rem 0.1rem 0.25rem;
+            line-height: 1.2;
+            min-height: 1.35rem;
         }
         #custom-product .ref-intent-thumb {
             position: relative;
