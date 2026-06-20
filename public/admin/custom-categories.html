@@ -139,6 +139,11 @@
                   <label class="form-label">提示詞（AI 設計用，可含 <code>{subcategory}</code>）</label>
                   <textarea id="editCatPrompt" class="form-control" rows="4" placeholder="供 AI 分析／估價用"></textarea>
                 </div>
+                <div class="mb-3" id="editCatDefaultSeedWrap">
+                  <label class="form-label">生圖 Seed 預設（選填）</label>
+                  <input type="number" id="editCatDefaultSeed" class="form-control" style="max-width:12rem;" min="-2147483648" max="2147483647" step="1" placeholder="留空＝隨機" />
+                  <div class="form-text">僅子分類；設計頁選此子分類時帶入 Seed 欄位，使用者仍可改或清空。</div>
+                </div>
                 <div class="mb-3">
                   <label class="form-label">排序</label>
                   <input type="number" id="editCatSortOrder" class="form-control" style="width:100px;" min="0" />
@@ -309,6 +314,7 @@
             <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="顯示名稱" data-field="sub-name" />
             <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="英文名" data-field="sub-name-en" title="選填" />
             <textarea class="form-control form-control-sm" style="width:180px;" rows="1" placeholder="提示詞（選填）" data-field="sub-prompt"></textarea>
+            <input type="number" class="form-control form-control-sm" style="width:90px;" placeholder="Seed預設" data-field="sub-default-seed" min="-2147483648" max="2147483647" step="1" title="生圖 Seed 預設，留空＝隨機" />
             <input type="number" class="form-control form-control-sm" style="width:60px;" value="0" min="0" placeholder="排序" data-field="sub-sort" />
             <button type="button" class="btn btn-sm btn-success sub-add-btn">新增</button>
             <button type="button" class="btn btn-sm btn-outline-secondary sub-cancel-btn">取消</button>
@@ -401,6 +407,7 @@
         const k = form.querySelector('[data-field="sub-key"]'); if (k) k.value = '';
         const n = form.querySelector('[data-field="sub-name"]'); if (n) n.value = '';
         const p = form.querySelector('[data-field="sub-prompt"]'); if (p) p.value = '';
+        const ds = form.querySelector('[data-field="sub-default-seed"]'); if (ds) ds.value = '';
         const s = form.querySelector('[data-field="sub-sort"]'); if (s) s.value = '0';
       }
       return;
@@ -417,19 +424,21 @@
       const name = (form.querySelector('[data-field="sub-name"]')?.value || '').trim();
       const nameEn = (form.querySelector('[data-field="sub-name-en"]')?.value || '').trim();
       const prompt = (form.querySelector('[data-field="sub-prompt"]')?.value || '').trim();
+      const defaultSeedRaw = (form.querySelector('[data-field="sub-default-seed"]')?.value || '').trim();
       const sortOrder = parseInt(form.querySelector('[data-field="sub-sort"]')?.value, 10) || 0;
       if (!key) { showStatus('請填寫子分類 key', 'warning'); return; }
-      addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, form);
+      addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, defaultSeedRaw, form);
     }
   }
 
-  async function addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, formEl) {
+  async function addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, defaultSeedRaw, formEl) {
     const headers = await getAuthHeaders();
     if (!headers.Authorization) return;
     showStatus('新增子分類中...', 'secondary');
     try {
       const body = { category_key: categoryKey, key, name: name || key, prompt: prompt || '', sort_order: sortOrder };
       if (nameEn !== undefined && nameEn !== '') body.name_en = nameEn;
+      if (defaultSeedRaw !== '') body.default_generation_seed = Number(defaultSeedRaw);
       const res = await fetch(SUB_API, { method: 'POST', headers, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '新增失敗' + (data.received_key ? '（收到的 category_key: ' + data.received_key + '）' : ''));
@@ -439,6 +448,7 @@
         const n = formEl.querySelector('[data-field="sub-name"]'); if (n) n.value = '';
         const ne = formEl.querySelector('[data-field="sub-name-en"]'); if (ne) ne.value = '';
         const p = formEl.querySelector('[data-field="sub-prompt"]'); if (p) p.value = '';
+        const ds = formEl.querySelector('[data-field="sub-default-seed"]'); if (ds) ds.value = '';
         const s = formEl.querySelector('[data-field="sub-sort"]'); if (s) s.value = '0';
       }
       loadList();
@@ -466,6 +476,10 @@
     document.getElementById('editCatNameFr').value = s.name_fr || '';
     document.getElementById('editCatPrompt').value = s.prompt || '';
     document.getElementById('editCatSortOrder').value = String(s.sort_order ?? 0);
+    const seedWrap = document.getElementById('editCatDefaultSeedWrap');
+    const seedInput = document.getElementById('editCatDefaultSeed');
+    if (seedWrap) seedWrap.classList.remove('d-none');
+    if (seedInput) seedInput.value = (s.default_generation_seed != null && s.default_generation_seed !== '') ? String(s.default_generation_seed) : '';
     new bootstrap.Modal(document.getElementById('editCatModal')).show();
   }
 
@@ -691,6 +705,10 @@
     document.getElementById('editCatNameFr').value = c.name_fr || '';
     document.getElementById('editCatPrompt').value = c.prompt || '';
     document.getElementById('editCatSortOrder').value = String(c.sort_order ?? 0);
+    const seedWrap = document.getElementById('editCatDefaultSeedWrap');
+    const seedInput = document.getElementById('editCatDefaultSeed');
+    if (seedWrap) seedWrap.classList.add('d-none');
+    if (seedInput) seedInput.value = '';
     new bootstrap.Modal(document.getElementById('editCatModal')).show();
   }
 
@@ -766,6 +784,8 @@
     } else {
       const categoryKey = (document.getElementById('editCatCategoryKey').value || '').trim();
       if (!categoryKey) { showStatus('無法取得主分類 key', 'danger'); return; }
+      const defaultSeedRaw = (document.getElementById('editCatDefaultSeed')?.value || '').trim();
+      payload.default_generation_seed = defaultSeedRaw === '' ? null : Number(defaultSeedRaw);
       await updateSubcategory(categoryKey, oldKey, payload);
     }
   }
