@@ -968,45 +968,6 @@ function buildFluxCatalogCompositeRefLead() {
     ].join(' ');
 }
 
-/** 原圖印刷：Logo／圖稿從參考圖轉印，禁止當成重新打字（BFL Logo & Branding 多圖合成） */
-function buildFluxPrintPatternExactBlock(sources) {
-    const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
-    const protoN = resolveFluxProtoImageIndex(list);
-    const bits = [];
-    list.forEach(function (s, idx) {
-        if (normalizeVendorAssetKind(s.asset_kind) !== 'other') return;
-        if (normalizePatternIntent(s.pattern_intent) === 'style') return;
-        const n = idx + 1;
-        let line =
-            'MANDATORY surface print: transfer the complete logo lockup from input_image_' + n + ' (pattern reference image ' + n + ') onto the printable face of the main product body (shape from input_image_' + protoN + ') in all four 2x2 catalog panels. ' +
-            'Use input_image_' + n + ' as a visual artwork source — copy the full graphic as a full-opacity printed decal or silkscreen on the product; not a faint watermark, not ghosted semi-transparent text, not scene typography. ' +
-            'Include every part of the brand artwork visible in input_image_' + n + ': primary wordmark, secondary/subtitle lines, icon marks, colors, spacing, and proportions exactly as in the reference photo. ' +
-            'Do not retypeset, abbreviate, omit secondary text, invent new letters, or regenerate typography from memory.';
-        if (s.pattern_remove_bg) {
-            line += ' Remove the solid background from input_image_' + n + ' before compositing; keep only the logo/graphic artwork.';
-        } else {
-            line += ' If input_image_' + n + ' has a solid backdrop behind the artwork, do not paste that backdrop onto the product — composite only the logo artwork itself at full strength.';
-        }
-        bits.push(line);
-    });
-    if (!bits.length) return '';
-    return '【Pattern print — exact artwork from reference, not retyped text】 ' + bits.join(' ');
-}
-
-/** 原圖印刷：置於 prompt 最末，避免被使用者描述蓋過 */
-function buildFluxPrintPatternFinalTail(sources) {
-    const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
-    const nums = [];
-    list.forEach(function (s, idx) {
-        if (normalizeVendorAssetKind(s.asset_kind) !== 'other') return;
-        if (normalizePatternIntent(s.pattern_intent) === 'style') return;
-        nums.push(idx + 1);
-    });
-    if (!nums.length) return '';
-    return '\n\nFINAL — exact print from input_image_' + nums.join(', input_image_') +
-        ': full-strength complete logo lockup on the product surface in every 2x2 panel (all wordmarks/lines from the reference artwork, full opacity).';
-}
-
 /** 各參考槽 FLUX 角色句（特徵來源；套用在四格同一成品上） */
 function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternIntent) {
     const k = normalizeVendorAssetKind(kind);
@@ -1025,7 +986,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
             if (normalizePatternIntent(patternIntent) === 'style') {
                 return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
-            return 'Logo/graphic print source (image ' + n + ' / input_image_' + n + '): composite the exact full-opacity artwork from this reference onto the main product printable surface in every panel; copy the complete lockup from input_image_' + n + ', not retyped or partial letters.' + panelNote;
+            return 'Exact surface graphic from image ' + n + ' printed on the same main product body in every panel; artwork must match image ' + n + '.' + panelNote;
         }
         return '';
     }
@@ -1063,7 +1024,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
             if (normalizePatternIntent(s.pattern_intent) === 'style') {
                 bits.push('style from image ' + n + ' on the same product in all panels');
             } else {
-                bits.push('exact logo/graphic artwork from image ' + n + ' composited on the same product in all panels (not retyped text)');
+                bits.push('exact surface graphic from image ' + n + ' on the same product in all panels');
             }
         } else if (k === 'part') {
             bits.push('hardware from image ' + n + ' on the same product (shape from image ' + protoN + ') in all panels');
@@ -1132,7 +1093,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         const patNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (exact print): image ' + patNums + ' — composite exact logo/graphic artwork from reference onto the product in every panel; do not retypeset as plain text.');
+        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel.');
     }
     if (hasStylePattern) {
         const styNums = list.map(function (s, i) {
@@ -1146,16 +1107,19 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         const isPrintPattern = kind === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style';
         const kindLabel = fluxRefKindLabel(kind, isEn);
         const title = (s.title || '').trim();
-        const titlePart = (title && !isPrintPattern)
+        const titlePart = title
             ? (isEn ? (' · "' + title + '"') : (' · 「' + title + '」'))
             : '';
         const userNote = (s.user_note || '').trim();
-        const notePart = !userNote ? '' : (isPrintPattern
-            ? (isEn ? (' · placement note: ' + userNote) : (' · 位置備註：' + userNote))
-            : (isEn ? (' · note: ' + userNote) : (' · 備註：' + userNote)));
+        const notePart = userNote
+            ? (isEn ? (' · note: ' + userNote) : (' · 備註：' + userNote))
+            : '';
         lines.push('image ' + n + ' · ' + kindLabel + titlePart + notePart);
         const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent);
         if (roleLine) lines.push('  ' + roleLine);
+        if (isPrintPattern && s.pattern_remove_bg) {
+            lines.push('  Remove solid background from image ' + n + ' before compositing the surface artwork onto the product.');
+        }
         if (semByIndex.has(n)) lines.push('  ' + semByIndex.get(n));
     });
     const applySummary = buildFluxReferenceApplySummary(list, lang);
@@ -7717,11 +7681,6 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     if (userLine) fullPrompt = (fullPrompt || '').trim() + '\n\n' + userLine;
-
-    const printBlock = buildFluxPrintPatternExactBlock(ordered.sources);
-    if (printBlock) fullPrompt = (fullPrompt || '').trim() + '\n\n' + printBlock;
-    const printTail = buildFluxPrintPatternFinalTail(ordered.sources);
-    if (printTail) fullPrompt = (fullPrompt || '').trim() + printTail;
 
     return {
         fullPrompt: fullPrompt.trim(),
