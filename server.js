@@ -978,7 +978,9 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         : ' 特徵套用在四格型錄的同一成品上。';
     if (isEn) {
         if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure (image ' + n + ').' + panelNote;
-        if (k === 'material') return 'Main product body surface color, material, and texture (image ' + n + ').' + panelNote;
+        if (k === 'material') {
+            return 'On the prototype product (image ' + p + '), replace main-body surfaces that share the same base color and material class with the color and texture from material reference (image ' + n + ').' + panelNote;
+        }
         if (k === 'part') {
             return 'Hardware/trim from image ' + n + ' mounted on the same main product (shape from image ' + p + ').' + panelNote;
         }
@@ -991,7 +993,9 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         return '';
     }
     if (k === 'prototype') return '主產品造型、輪廓、比例與結構（image ' + n + '）。' + panelNote;
-    if (k === 'material') return '主產品本體表面色彩、材質與質感（image ' + n + '）。' + panelNote;
+    if (k === 'material') {
+        return '對照原型 image ' + p + '，將主產品本體上同色、同材質類的表面，替換為材料參考 image ' + n + ' 的色彩與質感。' + panelNote;
+    }
     if (k === 'part') return 'image ' + n + ' 的五金／飾件搭配在同一主產品（造型依 image ' + p + '）上。' + panelNote;
     if (k === 'other') {
         if (normalizePatternIntent(patternIntent) === 'style') {
@@ -1055,7 +1059,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
     const header = isEn
         ? '【Reference images — feature extract for 2x2 catalog composite】'
         : '【參考圖用途 — 2×2 型錄合成】';
-    const lines = [header, buildFluxCatalogCompositeRefLead(), buildFluxReferenceUiSlotSummary(list)];
+    const lines = [header, buildFluxCatalogCompositeRefLead()];
     const protoN = resolveFluxProtoImageIndex(list);
     const protoCount = list.filter(function (s) {
         return normalizeVendorAssetKind(s.asset_kind) === 'prototype';
@@ -1087,7 +1091,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         return normalizeVendorAssetKind(s.asset_kind) === 'material' ? String(i + 1) : null;
     }).filter(Boolean).join(', ');
     if (matNums) {
-        lines.push('Material tab: image ' + matNums + ' — body surface color/texture on the same product in every panel.');
+        lines.push('Material tab: image ' + matNums + ' — replace matching main-body surfaces on the prototype with this material color/texture in every panel (see Gemini material line below).');
     }
     if (hasPrintPattern) {
         const patNums = list.map(function (s, i) {
@@ -1107,7 +1111,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, materialRefs, lang) {
         const isPrintPattern = kind === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style';
         const kindLabel = fluxRefKindLabel(kind, isEn);
         const title = (s.title || '').trim();
-        const titlePart = title
+        const titlePart = (title && !isPrintPattern)
             ? (isEn ? (' · "' + title + '"') : (' · 「' + title + '」'))
             : '';
         const userNote = (s.user_note || '').trim();
@@ -2273,7 +2277,7 @@ async function translatePromptToEnglishForFlux(text) {
     if (!looksLikeNonEnglish(t)) return t.trim();
     return geminiTranslateWithInstruction(
         'Translate the following to English for an image generation API. Preserve all line breaks, bullet points, brackets, and section structure. '
-        + 'Any text inside straight ASCII double quotes "..." must appear unchanged in the output—do not translate, transliterate, or paraphrase quoted text (e.g. Chinese characters to print on the product). '
+        + 'Any text inside straight ASCII double quotes "..." must appear unchanged in the output—do not translate or paraphrase quoted text. '
         + 'Output only the translation, no explanation:',
         t
     );

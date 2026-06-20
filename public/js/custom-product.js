@@ -763,10 +763,12 @@ $(document).ready(function () {
             return tr(def.titleKey, def.titleFb) + '：' + a;
         }).filter(Boolean);
         var perImageLines = [];
-        collectOrderedRefItemsWithIndex().forEach(function (row, idx) {
+        collectOrderedRefItemsWithIndex().forEach(function (row) {
             var note = (row.item.note || '').trim();
             if (!note) return;
-            perImageLines.push('image ' + (idx + 1) + '：' + note);
+            var def = getRefSlotDef(row.slotKey);
+            var slotLabel = def ? tr(def.titleKey, def.titleFb) : row.slotKey;
+            perImageLines.push(slotLabel + '：' + note);
         });
         var blocks = [main].concat(addonLines).concat(perImageLines).filter(Boolean);
         return blocks.length ? blocks.join('\n') : '';

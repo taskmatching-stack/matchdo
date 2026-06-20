@@ -113,7 +113,8 @@ Style reference (image {n}) … inspired look only, no literal copy.
 |------|------|
 | `logo lockup` / `wordmark` / `brand artwork` 整段專用 block | 窄化為 Logo；插畫／印花失效 |
 | `Do not retypeset…` 長段重複多次 | 模型反而當「文字生成」任務 |
-| 前端自動塞「image 1=原型→…」中文進 `prompt` | 翻譯後干擾 FLUX；應由後端附錄處理 |
+| 原圖印刷附錄帶 **asset 標題** | 標題可能含字樣，模型當文字任務 |
+| 前端／附錄自動塞 `image 1=原型→…` | 使用者未寫就不加；image 編號僅 BFL 內部對位 |
 | 檔名／`material_key` 查表推圖案內容 | 違反 `flux-and-gemini-prompt-policy.md` |
 | 2×2 四格各秀一張參考圖 | 違反 `custom-product-subcategory-prompt-guide.md` |
 
@@ -129,7 +130,7 @@ Style reference (image {n}) … inspired look only, no literal copy.
 
 | 項目 | 規則 |
 |------|------|
-| 生圖 prompt | `composeUserPromptForGenerate()`：主提示詞 + 各槽 addon + 各圖 note；**無則送空字串** |
+| 生圖 prompt | 主提示詞 + 各槽 addon + 各圖 note（**槽名**開頭，不寫 image 編號） |
 | 有參考無描述 | **允許**生圖（後端靠分類 prompt + 參考附錄） |
 | 自動建議 | **不要**把 image 編號對照、2×2 說明自動灌進 textarea |
 | 原圖印刷 UI | 文案用「圖稿／印花」，不用「僅 Logo」 |
