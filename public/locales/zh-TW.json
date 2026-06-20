@@ -689,7 +689,7 @@
   "productTree.startDesignHint": "會回到產品設計頁，沿用參考圖分類與圖生圖邏輯；若在搭配頁已點選材料／配件，一併帶入對應參考槽。",
   "productTree.guidePanelTitle": "搭配摘要",
   "productTree.guideSelected": "已選參考",
-  "productTree.guideSelectedHint": "材料僅能選一筆（主體材質）；配件能否複選依廠商設定；配件標題可展開／收合（預設展開）；點圖選取，已選色款再點一次可取消；右側 × 也可移除；🔍 放大不影響已選。",
+  "productTree.guideSelectedHint": "材料僅能選一筆（主體材質）；配件能否複選依廠商設定；點圖選取，已選色款再點一次可取消；右側 × 也可移除；🔍 放大不影響已選。",
   "productTree.guideSummary": "材料 {m} 項 · 配件 {p} 項",
   "productTree.guideNoneSelected": "尚未點選",
   "productTree.sectionExpand": "展開配件選項",
