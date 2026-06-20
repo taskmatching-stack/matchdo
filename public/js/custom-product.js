@@ -173,15 +173,26 @@ $(document).ready(function () {
         ensureCatPickerReady();
     })();
 
-    // 參考圖：4 類用途，每類 0～3 張，全站最多 8 張；送 FLUX 後依實際順序標 image 1…N
+    // 參考圖：原型／材料／配件／原圖印刷／風格參考；每類 0～3 張，全站最多 8 張
     var MAX_REF_IMAGES_TOTAL = 8;
     var MAX_REF_IMAGES_PER_SLOT = 3;
     var REF_INTENT_SLOTS = [
         { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', tabKey: 'customProduct.refSlotPrototypeTab', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', tabFb: '原型', hintFb: '幾何結構與尺寸', addonPhFb: '造型補充（選填）' },
         { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', tabKey: 'customProduct.refSlotMaterialTab', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', tabFb: '材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
         { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', tabKey: 'customProduct.refSlotPartTab', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', titleFb: '配件／零件', tabFb: '配件', hintFb: '五金、拉鍊、掛繩', addonPhFb: '配件勿寫顏色' },
-        { key: 'pattern', assetKind: 'other', titleKey: 'customProduct.refSlotPatternTitle', tabKey: 'customProduct.refSlotPatternTab', hintKey: 'customProduct.refSlotPatternHint', addonPhKey: 'customProduct.refSlotPatternAddonPh', titleFb: '圖樣／風格', tabFb: '圖樣', hintFb: '每張請選「原圖印刷」或「風格參考」', addonPhFb: '圖樣補充（選填）' }
+        { key: 'pattern_print', assetKind: 'other', patternIntent: 'print', titleKey: 'customProduct.refSlotPatternPrintTitle', tabKey: 'customProduct.refSlotPatternPrintTab', hintKey: 'customProduct.refSlotPatternPrintHint', addonPhKey: 'customProduct.refSlotPatternPrintAddonPh', titleFb: '原圖印刷', tabFb: '原圖印刷', hintFb: 'Logo／印花原樣轉印；可勾選去背', addonPhFb: '印刷補充（選填）' },
+        { key: 'pattern_style', assetKind: 'other', patternIntent: 'style', titleKey: 'customProduct.refSlotPatternStyleTitle', tabKey: 'customProduct.refSlotPatternStyleTab', hintKey: 'customProduct.refSlotPatternStyleHint', addonPhKey: 'customProduct.refSlotPatternStyleAddonPh', titleFb: '風格參考', tabFb: '風格參考', hintFb: '參考風格設計表面；提示詞可指定方向，或不填讓 AI 設計', addonPhFb: '風格補充（選填）' }
     ];
+
+    function isPatternSlotKey(key) {
+        return key === 'pattern_print' || key === 'pattern_style';
+    }
+
+    function patternIntentFromSlotKey(key) {
+        if (key === 'pattern_style') return 'style';
+        if (key === 'pattern_print') return 'print';
+        return null;
+    }
 
     function refIntentTabLabel(def) {
         var short = tr(def.tabKey, def.tabFb || '');
@@ -201,11 +212,13 @@ $(document).ready(function () {
         prototype: emptyRefSlotGroup(),
         material: emptyRefSlotGroup(),
         part: emptyRefSlotGroup(),
-        pattern: emptyRefSlotGroup()
+        pattern_print: emptyRefSlotGroup(),
+        pattern_style: emptyRefSlotGroup()
     };
     var refIntentActiveTab = 'prototype';
 
     function ensureRefIntentActiveTab() {
+        if (refIntentActiveTab === 'pattern') refIntentActiveTab = 'pattern_print';
         if (!getRefSlotDef(refIntentActiveTab)) refIntentActiveTab = 'prototype';
     }
 
@@ -231,11 +244,13 @@ $(document).ready(function () {
         return null;
     }
 
-    function intentKeyFromAssetKind(kind) {
+    function intentKeyFromAssetKind(kind, patternIntentHint) {
         var k = (kind != null ? String(kind) : '').trim().toLowerCase();
         if (k === 'material') return 'material';
         if (k === 'part') return 'part';
-        if (k === 'other') return 'pattern';
+        if (k === 'other') {
+            return normalizePatternIntent(patternIntentHint) === 'style' ? 'pattern_style' : 'pattern_print';
+        }
         return 'prototype';
     }
 
@@ -244,19 +259,12 @@ $(document).ready(function () {
         return s === 'style' ? 'style' : 'print';
     }
 
-    function patternIntentShortLabel(intent) {
-        if (normalizePatternIntent(intent) === 'style') {
-            return tr('customProduct.refPatternIntentStyleShort', '風格');
-        }
-        return tr('customProduct.refPatternIntentPrintShort', '印刷');
-    }
-
-    function syncRefSlotPatternIntentFromDom() {
-        $('#refIntentSlots .ref-pattern-intent').each(function () {
+    function syncRefSlotPatternRemoveBgFromDom() {
+        $('#refIntentSlots .ref-pattern-remove-bg-input').each(function () {
             var key = $(this).attr('data-ref-slot');
             var idx = parseInt($(this).attr('data-ref-index'), 10);
-            if (!key || key !== 'pattern' || !refSlots.pattern || !refSlots.pattern.items || isNaN(idx) || idx < 0 || idx >= refSlots.pattern.items.length) return;
-            refSlots.pattern.items[idx].pattern_intent = normalizePatternIntent($(this).val());
+            if (key !== 'pattern_print' || !refSlots.pattern_print || !refSlots.pattern_print.items || isNaN(idx) || idx < 0 || idx >= refSlots.pattern_print.items.length) return;
+            refSlots.pattern_print.items[idx].pattern_remove_bg = $(this).prop('checked') === true;
         });
     }
 
@@ -279,7 +287,7 @@ $(document).ready(function () {
     function syncRefSlotsFromDom() {
         syncRefSlotAddonsFromDom();
         syncRefSlotItemNotesFromDom();
-        syncRefSlotPatternIntentFromDom();
+        syncRefSlotPatternRemoveBgFromDom();
     }
 
     function countTotalRefImages() {
@@ -473,7 +481,7 @@ $(document).ready(function () {
         if (tabKey === 'prototype') return true;
         if (tabKey === 'material') return !!set.color_material;
         if (tabKey === 'part') return !!set.size_part;
-        if (tabKey === 'pattern') return !!(set.mono_graphic || set.color_graphic);
+        if (tabKey === 'pattern_print' || tabKey === 'pattern_style') return !!(set.mono_graphic || set.color_graphic);
         return false;
     }
 
@@ -494,7 +502,7 @@ $(document).ready(function () {
     function getRefSlotScopeLevelKeys(slotKey) {
         if (slotKey === 'material') return ['color_material'];
         if (slotKey === 'part') return ['size_part'];
-        if (slotKey === 'pattern') return ['mono_graphic', 'color_graphic'];
+        if (slotKey === 'pattern_print' || slotKey === 'pattern_style') return ['mono_graphic', 'color_graphic'];
         return [];
     }
 
@@ -646,7 +654,7 @@ $(document).ready(function () {
         refSlots[key].items.push({
             url: url,
             note: '',
-            pattern_intent: key === 'pattern' ? 'print' : undefined,
+            pattern_remove_bg: key === 'pattern_print' ? false : undefined,
             source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {})
         });
         return true;
@@ -665,7 +673,7 @@ $(document).ready(function () {
             var n = countSlotRefImages(def.key);
             if (!n) return;
             c.total += n;
-            if (def.key === 'pattern') c.other += n;
+            if (isPatternSlotKey(def.key)) c.other += n;
             else c[def.key] += n;
         });
         return c;
@@ -673,14 +681,19 @@ $(document).ready(function () {
 
     function buildRefSlotCountSummary() {
         syncRefSlotsFromDom();
-        var c = getRefKindCounts();
         var bits = [];
-        if (c.prototype) bits.push(tr('customProduct.refSlotPrototypeTab', '原型') + ' ' + c.prototype);
-        if (c.part) bits.push(tr('customProduct.refSlotPartTab', '配件') + ' ' + c.part);
-        if (c.material) bits.push(tr('customProduct.refSlotMaterialTab', '材料') + ' ' + c.material);
-        if (c.other) bits.push(tr('customProduct.refSlotPatternTab', '圖樣') + ' ' + c.other);
+        REF_INTENT_SLOTS.forEach(function (def) {
+            var n = countSlotRefImages(def.key);
+            if (!n) return;
+            bits.push(tr(def.tabKey, def.tabFb) + ' ' + n);
+        });
         var tpl = tr('customProduct.refUiSelectionSummary', '設計頁已選：{slots}，共 {total} 張（未選分類不佔 image 編號）');
-        return tpl.replace('{slots}', bits.join('、')).replace('{total}', String(c.total));
+        return tpl.replace('{slots}', bits.join('、')).replace('{total}', String(countTotalRefImages()));
+    }
+
+    function slotLabelForRow(row) {
+        var def = getRefSlotDef(row.slotKey);
+        return def ? tr(def.tabKey, def.tabFb) : row.slotKey;
     }
 
     function buildSuggestedPrompt() {
@@ -692,19 +705,16 @@ $(document).ready(function () {
         ];
         rows.forEach(function (row, idx) {
             var n = idx + 1;
-            var slotLbl = tr(
-                row.slotKey === 'prototype' ? 'customProduct.refSlotPrototypeTab' :
-                row.slotKey === 'material' ? 'customProduct.refSlotMaterialTab' :
-                row.slotKey === 'part' ? 'customProduct.refSlotPartTab' : 'customProduct.refSlotPatternTab',
-                row.slotKey
-            );
+            var slotLbl = slotLabelForRow(row);
             var note = (row.item.note || '').trim();
-            if (row.slotKey === 'pattern') {
-                var pi = normalizePatternIntent(row.item && row.item.pattern_intent);
-                var intentLbl = pi === 'style'
-                    ? tr('customProduct.refPatternIntentStyle', '風格參考')
-                    : tr('customProduct.refPatternIntentPrint', '原圖印刷');
-                parts.push('image ' + n + '（' + slotLbl + '·' + intentLbl + '）' + (note ? '：' + note : ''));
+            if (row.slotKey === 'pattern_print') {
+                var printHint = tr('customProduct.refPatternPrintExactHint', '將 image {n} 的 Logo／圖稿原樣轉印至主產品表面，勿改字體重新打字').replace('{n}', String(n));
+                var rmBg = row.item && row.item.pattern_remove_bg;
+                var rmHint = rmBg ? tr('customProduct.refPatternRemoveBgHint', '去背後套印') : '';
+                parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : '：' + printHint + (rmHint ? '；' + rmHint : '')));
+            } else if (row.slotKey === 'pattern_style') {
+                var styleHint = tr('customProduct.refPatternStyleHint', '參考風格設計主產品表面；提示詞可指定方向，或不填讓 AI 設計');
+                parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : '：' + styleHint));
             } else {
                 parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : ''));
             }
@@ -731,28 +741,23 @@ $(document).ready(function () {
         $ta.trigger('input');
     }
 
-    /** 與 server reorderFluxReferenceInputs / ref-tabs 文件一致：原型→配件→材料→圖樣 */
+    /** 與 server reorderFluxReferenceInputs 一致：原型→配件→材料→原圖印刷→風格參考 */
     function refSlotPayloadRank(slotKey) {
         if (slotKey === 'prototype') return 0;
         if (slotKey === 'part') return 1;
         if (slotKey === 'material') return 2;
-        if (slotKey === 'pattern') return 3;
-        return 4;
+        if (slotKey === 'pattern_print') return 3;
+        if (slotKey === 'pattern_style') return 4;
+        return 5;
     }
 
     function buildRefFluxOrderLegendText() {
         var rows = collectOrderedRefItemsWithIndex();
         if (!rows.length) return '';
-        var slotLbl = {
-            prototype: tr('customProduct.refSlotPrototypeTab', '原型'),
-            material: tr('customProduct.refSlotMaterialTab', '材料'),
-            part: tr('customProduct.refSlotPartTab', '配件'),
-            pattern: tr('customProduct.refSlotPatternTab', '圖樣')
-        };
         var parts = rows.map(function (row, idx) {
-            var lbl = slotLbl[row.slotKey] || row.slotKey;
-            var extra = (row.slotKey === 'pattern')
-                ? ('·' + patternIntentShortLabel(row.item && row.item.pattern_intent))
+            var lbl = slotLabelForRow(row);
+            var extra = (row.slotKey === 'pattern_print' && row.item && row.item.pattern_remove_bg)
+                ? ('·' + tr('customProduct.refPatternRemoveBgShort', '去背'))
                 : '';
             return 'image ' + (idx + 1) + '=' + lbl + extra;
         });
@@ -815,8 +820,11 @@ $(document).ready(function () {
                         gallery_label: item.source && item.source.gallery_label ? item.source.gallery_label : undefined,
                         user_note: note || undefined
                     });
-                if (def.key === 'pattern') {
-                    srcPayload.pattern_intent = normalizePatternIntent(item.pattern_intent);
+                if (def.patternIntent) {
+                    srcPayload.pattern_intent = def.patternIntent;
+                }
+                if (def.key === 'pattern_print') {
+                    srcPayload.pattern_remove_bg = !!(item && item.pattern_remove_bg);
                 }
                 items.push({
                     rank: rank,
@@ -958,31 +966,34 @@ $(document).ready(function () {
                 openRefImagePreviewModal(slotKey, ii);
             });
             $cell.append($thumb);
-            var capSuffix = (slotKey === 'pattern') ? (' · ' + patternIntentShortLabel(item.pattern_intent)) : '';
+            var capSuffix = (slotKey === 'pattern_print' && item.pattern_remove_bg)
+                ? (' · ' + tr('customProduct.refPatternRemoveBgShort', '去背'))
+                : '';
             $cell.append($('<div class="ref-intent-thumb-caption"></div>').text(capText + capSuffix).attr('title', capText + capSuffix));
-            if (slotKey === 'pattern') {
-                var $intent = $('<select class="form-select form-select-sm ref-pattern-intent"></select>')
+            if (slotKey === 'pattern_print') {
+                var $rmBg = $('<label class="ref-pattern-remove-bg form-check form-check-sm mb-0"></label>');
+                var $cb = $('<input type="checkbox" class="form-check-input ref-pattern-remove-bg-input">')
                     .attr('data-ref-slot', slotKey)
                     .attr('data-ref-index', String(ii))
-                    .attr('aria-label', tr('customProduct.refPatternIntentLabel', '圖樣用途'));
-                var curIntent = normalizePatternIntent(item.pattern_intent);
-                $intent.append($('<option value="print"></option>')
-                    .attr('data-i18n', 'customProduct.refPatternIntentPrint')
-                    .text(tr('customProduct.refPatternIntentPrint', '原圖印刷'))
-                    .prop('selected', curIntent === 'print'));
-                $intent.append($('<option value="style"></option>')
-                    .attr('data-i18n', 'customProduct.refPatternIntentStyle')
-                    .text(tr('customProduct.refPatternIntentStyle', '風格參考'))
-                    .prop('selected', curIntent === 'style'));
-                $intent.on('click mousedown change', function (e) { e.stopPropagation(); });
-                $intent.on('change', function () {
-                    var val = normalizePatternIntent($(this).val());
-                    if (refSlots.pattern && refSlots.pattern.items[ii]) refSlots.pattern.items[ii].pattern_intent = val;
+                    .prop('checked', !!item.pattern_remove_bg);
+                $cb.on('click mousedown change', function (e) { e.stopPropagation(); });
+                $cb.on('change', function () {
+                    if (refSlots.pattern_print && refSlots.pattern_print.items[ii]) {
+                        refSlots.pattern_print.items[ii].pattern_remove_bg = $(this).prop('checked') === true;
+                    }
                     renderIntentSlots();
                 });
-                $cell.append($intent);
+                $rmBg.append($cb);
+                $rmBg.append($('<span class="form-check-label"></span>')
+                    .attr('data-i18n', 'customProduct.refPatternRemoveBg')
+                    .text(tr('customProduct.refPatternRemoveBg', '去背')));
+                $cell.append($rmBg);
             }
-            var notePh = tr('customProduct.refThumbNotePh', '此圖補充，例：裝在左側');
+            var notePh = slotKey === 'pattern_print'
+                ? tr('customProduct.refPatternPrintNotePh', '此圖補充，例：印於正面中央')
+                : (slotKey === 'pattern_style'
+                    ? tr('customProduct.refPatternStyleNotePh', '此圖補充，例：偏復古手繪')
+                    : tr('customProduct.refThumbNotePh', '此圖補充，例：裝在左側'));
             var $note = $('<input type="text" class="form-control form-control-sm ref-thumb-note">')
                 .attr('data-ref-slot', slotKey)
                 .attr('data-ref-index', String(ii))

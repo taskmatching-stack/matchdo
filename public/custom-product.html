@@ -973,13 +973,22 @@
             overflow: hidden;
             word-break: break-word;
         }
-        #custom-product .ref-pattern-intent {
+        #custom-product .ref-pattern-remove-bg {
             font-size: 0.625rem;
-            padding: 0.1rem 0.15rem;
-            margin-top: 0.12rem;
+            margin-top: 0.1rem;
+            padding-left: 0.1rem;
             line-height: 1.2;
-            min-height: 0;
-            height: auto;
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+        #custom-product .ref-pattern-remove-bg .form-check-input {
+            width: 0.75rem;
+            height: 0.75rem;
+            margin-top: 0;
+        }
+        #custom-product .ref-pattern-remove-bg .form-check-label {
+            font-size: 0.625rem;
         }
         #custom-product .ref-intent-thumb {
             position: relative;
@@ -1574,7 +1583,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=4" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=83" defer></script>
+    <script src="js/custom-product.js?v=84" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
