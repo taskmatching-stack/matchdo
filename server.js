@@ -802,6 +802,7 @@ function vendorAssetCustomizationLevelLabels(levels, lang) {
 function buildSelectedCapabilityPromptAppendix(hintLines, lang) {
     const lines = (hintLines || []).map((s) => String(s || '').trim()).filter(Boolean);
     if (!lines.length) return '';
+    void lang;
     return '\n\n' + lines.map((line) => '• ' + line).join('\n');
 }
 
@@ -7731,7 +7732,7 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
 
 /**
  * FLUX 生圖 prompt：DB 分類 → 參考圖事實 →（有原圖印刷時）工藝 visual_hint → 使用者描述（最後）。
- * 各參考 Tab：未上傳則附錄不提；有上傳才寫該 Tab 句。工藝 visual_hint 僅在有原圖印刷時附加。
+ * 各參考 Tab：未上傳則附錄不提。有原圖印刷時：Pattern 附錄（image 編號）+ DB visual_hint 原文；改圖樣／配色靠 visual_hint 與使用者描述。
  */
 async function composeGeneratePromptWithReferences(opts) {
     const categoryKeys = opts.categoryKeys;
