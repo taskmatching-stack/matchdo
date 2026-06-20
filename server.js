@@ -1100,10 +1100,11 @@ function buildFluxReferenceApplySummary(sources, lang, opts) {
     return '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
 }
 
-/** 圖樣槽：只標 image 編號（+ 可選去背標記）；不解釋圖樣內容；工藝另附 */
+/** 原圖印刷／風格參考：只標 image 編號；有原圖印刷時另附 pattern merge */
 function buildFluxPatternImageLines(orderedSources) {
     const list = Array.isArray(orderedSources) ? orderedSources.filter(Boolean) : [];
     const lines = [];
+    const printMergeBits = [];
     list.forEach(function (s, idx) {
         const n = idx + 1;
         if (normalizeVendorAssetKind(s.asset_kind) !== 'other') return;
@@ -1111,10 +1112,14 @@ function buildFluxPatternImageLines(orderedSources) {
             lines.push('Style reference: image ' + n + '.');
         } else {
             lines.push('Pattern: image ' + n + (s.pattern_remove_bg ? ' (background removed).' : '.'));
+            printMergeBits.push('pattern image ' + n);
         }
         const userNote = (s.user_note || '').trim();
         if (userNote) lines.push('Pattern image ' + n + ': ' + userNote);
     });
+    if (printMergeBits.length) {
+        lines.push('Merge into one product for every 2x2 panel: ' + printMergeBits.join('; ') + '.');
+    }
     if (!lines.length) return '';
     return '\n\n' + lines.join('\n');
 }
