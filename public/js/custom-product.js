@@ -141,6 +141,15 @@ $(document).ready(function () {
     }
 
     // 圖內容分類：與 browse-styles 共用 CustomProductCatPicker（/api/custom-product-categories）
+    var DEFAULT_GENERATION_SEED = 9322222;
+
+    function applyDefaultGenerationSeed() {
+        var $seed = $('#generationSeed');
+        if (!$seed.length) return;
+        var val = ($seed.val() || '').trim();
+        if (val === '') $seed.val(String(DEFAULT_GENERATION_SEED));
+    }
+
     let categoriesData = [];
     function syncCategoriesDataFromPicker() {
         if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.getCategoriesData) {
@@ -163,6 +172,7 @@ $(document).ready(function () {
             if (typeof loadVendorStylesTabList === 'function' && isVendorStylesTabActive()) {
                 loadVendorStylesTabList();
             }
+            applyDefaultGenerationSeed();
             if (!pendingProto) scheduleStripDesignDeepLinkFromUrl();
             return vals;
         });
@@ -3193,6 +3203,7 @@ $(document).ready(function () {
 
     document.addEventListener('matchdo:categoryChanged', function () {
         syncCategoriesDataFromPicker();
+        applyDefaultGenerationSeed();
         vendorStylesTabOffset = 0;
         updateVendorStylesCategorySummary();
         if (isVendorStylesTabActive()) {
