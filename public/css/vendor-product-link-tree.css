@@ -234,7 +234,17 @@
 .vplt-guide-section-title {
     color: #1d1d1f;
 }
-/* 配件區：標題可收合，預設展開；展開狀態不因選圖而重繪關閉 */
+/* 配件／材料區：標題可收合，預設展開 */
+.vplt-page--guide .vplt-guide-tiles-wrap {
+    width: 100%;
+}
+.vplt-page--guide .vplt-guide-rail--wrap {
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    gap: 1.15rem 1.35rem;
+}
 .vplt-guide-section--collapsible .vplt-guide-section-toggle {
     display: block;
     width: 100%;
@@ -290,8 +300,8 @@
     margin: 0 0 -18px;
     padding: 0.35rem 0 18px;
     box-sizing: content-box;
-    overflow-x: scroll;
-    overflow-y: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;

@@ -754,6 +754,10 @@
     }
 
     function guideSectionRailHtml(tilesHtml) {
+        if (!IS_VENDOR) {
+            return '<div class="vplt-guide-tiles-wrap">' +
+                '<div class="vplt-guide-rail vplt-guide-rail--wrap" role="list">' + tilesHtml + '</div></div>';
+        }
         var prevLbl = esc(tr('productTree.railScrollPrev', '向左捲動'));
         var nextLbl = esc(tr('productTree.railScrollNext', '向右捲動'));
         return '<div class="vplt-guide-rail-nav">' +
@@ -770,19 +774,19 @@
     function guideSectionHtml(sectionKind, heading, tilesHtml, sectionAssetId) {
         if (!tilesHtml) return '';
         var rail = guideSectionRailHtml(tilesHtml);
-        var isPartCollapsible = sectionKind === 'part' && sectionAssetId && !IS_VENDOR;
-        if (!isPartCollapsible) {
+        var isCollapsible = sectionAssetId && !IS_VENDOR && sectionKind !== 'prototype';
+        if (!isCollapsible) {
             return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + '">' +
                 '<h3 class="vplt-guide-section-title">' + heading + '</h3>' +
                 rail + '</section>';
         }
         var expanded = isGuidePartSectionExpanded(sectionAssetId);
         var stateCls = expanded ? ' vplt-guide-section--expanded' : ' vplt-guide-section--collapsed';
-        var expandLbl = esc(tr('productTree.sectionExpand', '展開配件選項'));
-        var collapseLbl = esc(tr('productTree.sectionCollapse', '收合配件選項'));
+        var expandLbl = esc(tr('productTree.sectionExpand', '展開選項'));
+        var collapseLbl = esc(tr('productTree.sectionCollapse', '收合選項'));
         var toggleAria = expanded ? collapseLbl : expandLbl;
         var chevronCls = expanded ? 'bi-chevron-up' : 'bi-chevron-down';
-        return '<section class="vplt-guide-section vplt-guide-section--part vplt-guide-section--collapsible' + stateCls + '"' +
+        return '<section class="vplt-guide-section vplt-guide-section--' + esc(sectionKind) + ' vplt-guide-section--collapsible' + stateCls + '"' +
             ' data-guide-section-asset="' + esc(sectionAssetId) + '">' +
             '<button type="button" class="vplt-guide-section-toggle"' +
             ' data-guide-section-toggle="' + esc(sectionAssetId) + '"' +
@@ -873,7 +877,7 @@
             var picked = state.guideSelectedIds.indexOf(aid) >= 0;
             var heading = guideSectionHeadingHtml('material', a) + (IS_VENDOR ? vendorSectionRemoveBtnHtml(aid) : '');
             sections += guideSectionHtml('material', heading,
-                guideTilesForAsset(a, aid, 'material', picked).join(''));
+                guideTilesForAsset(a, aid, 'material', picked).join(''), aid);
         });
 
         if (!linkedIds.length && !IS_VENDOR) {
