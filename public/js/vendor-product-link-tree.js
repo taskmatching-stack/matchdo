@@ -1240,10 +1240,15 @@
     function enforceGuideSelectionRules(selectedId) {
         var meta = getGuideLinkMeta(selectedId);
         var group = normalizePickGroup(meta.pick_group);
+        var selectedAsset = assetById(selectedId);
+        var selectedKind = selectedAsset ? selectedAsset.asset_kind : null;
         state.guideSelectedIds = state.guideSelectedIds.filter(function (aid) {
             if (aid === selectedId) return true;
+            var a = assetById(aid);
             var m = getGuideLinkMeta(aid);
             var g2 = normalizePickGroup(m.pick_group);
+            /* 看可搭配：主體材料僅能選一筆；配件複選仍依廠商 allow_multi_pick / pick_group */
+            if (!IS_VENDOR && selectedKind === 'material' && a && a.asset_kind === 'material') return false;
             if (group && g2 === group) return false;
             if (!meta.allow_multi_pick && m.allow_multi_pick === false) return false;
             return true;
@@ -1558,6 +1563,9 @@
         state.__guidePersistDoneForNav = false;
         state.guideExpandedAssetIds = Object.create(null);
         state.guidePartSectionExpanded = Object.create(null);
+        (data.linked_assets || []).forEach(function (a) {
+            if (a && a.id && a.asset_kind === 'part') state.guidePartSectionExpanded[a.id] = true;
+        });
         updateGuideChrome(data);
         selectPrototype(p.id);
         seedDefaultPrototypeVariantSelection(p.id);

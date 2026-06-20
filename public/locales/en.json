@@ -650,7 +650,7 @@
   "productTree.startDesignHint": "Returns to product design with the same reference slots and image-to-image flow. Materials or parts you picked here are added to the matching reference tabs.",
   "productTree.guidePanelTitle": "Match summary",
   "productTree.guideSelected": "Selected references",
-  "productTree.guideSelectedHint": "Multi-select follows vendor rules; expand accessory headings; click to select, click the same tile again to deselect; use × in the sidebar; zoom does not change selection.",
+  "productTree.guideSelectedHint": "Pick one material only (main body surface). Accessory multi-select follows vendor rules; accessory headings can collapse (expanded by default). Click to select; click again to deselect; use × in the sidebar; zoom does not change selection.",
   "productTree.guideSummary": "Materials {m} · Parts {p}",
   "productTree.guideNoneSelected": "None selected yet",
   "productTree.sectionExpand": "Expand accessory options",
