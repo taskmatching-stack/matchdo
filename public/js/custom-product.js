@@ -727,8 +727,14 @@ $(document).ready(function () {
             var n = idx + 1;
             var slotLbl = slotLabelForRow(row);
             var note = (row.item.note || '').trim();
-            if (row.slotKey === 'pattern_print' || row.slotKey === 'pattern_style') {
-                parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : ''));
+            if (row.slotKey === 'pattern_print') {
+                var printHint = tr('customProduct.refPatternPrintExactHint', '將 image {n} 的圖稿原樣轉印至主產品表面').replace('{n}', String(n));
+                var rmBg = row.item && row.item.pattern_remove_bg;
+                var rmHint = rmBg ? tr('customProduct.refPatternRemoveBgHint', '去背後套印') : '';
+                parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : '：' + printHint + (rmHint ? '；' + rmHint : '')));
+            } else if (row.slotKey === 'pattern_style') {
+                var styleHint = tr('customProduct.refPatternStyleHint', '參考風格設計主產品表面；提示詞可指定方向，或不填讓 AI 設計');
+                parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : '：' + styleHint));
             } else {
                 parts.push('image ' + n + '（' + slotLbl + '）' + (note ? '：' + note : ''));
             }
