@@ -7552,10 +7552,14 @@ async function pollBflResult(createData, BFL_API_KEY) {
 }
 
 /** FLUX 2.0 PRO 純文字生圖；BFL 僅 body.prompt（無 negative_prompt），prompt 可含製造限制句 */
-async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, endpointUrl) {
+async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, endpointUrl, captureOut) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY) return null;
     prompt = await translatePromptToEnglishForFlux(prompt);
+    if (captureOut && typeof captureOut === 'object') {
+        captureOut.prompt = prompt;
+        captureOut.referenceCount = 0;
+    }
     const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
     const body = {
         prompt,
@@ -7592,6 +7596,10 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
         prompt = await translatePromptToEnglishForFlux(prompt);
     } else {
         prompt = String(prompt || '').trim();
+    }
+    if (opts.captureOut && typeof opts.captureOut === 'object') {
+        opts.captureOut.prompt = prompt;
+        opts.captureOut.referenceCount = Math.min(8, (referenceImages || []).length);
     }
     const maxImages = 8;
     const images = referenceImages.slice(0, maxImages).map((img) => {
@@ -7707,6 +7715,30 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
 /** 使用者描述原樣併入 prompt（FLUX 原廠：引號只包「要印的字」，寫在描述句內；不自動整段包引號） */
 function fluxFormatUserPromptForPrint(userPrompt) {
     return String(userPrompt || '').trim();
+}
+
+function buildFluxStaffDebugPayload(fullPrompt, captureOut, referenceSources) {
+    const composed = (fullPrompt || '').trim();
+    const sent = captureOut && typeof captureOut.prompt === 'string' ? captureOut.prompt : null;
+    if (!composed && !sent) return null;
+    const sources = Array.isArray(referenceSources) ? referenceSources : [];
+    return {
+        promptSentToBfl: sent,
+        promptComposed: composed,
+        referenceCount: (captureOut && captureOut.referenceCount != null)
+            ? captureOut.referenceCount
+            : sources.length,
+        referenceMap: sources.map(function (s, i) {
+            return {
+                imageNum: i + 1,
+                bflField: i === 0 ? 'input_image' : ('input_image_' + (i + 1)),
+                asset_kind: normalizeVendorAssetKind(s && s.asset_kind),
+                pattern_intent: (s && s.pattern_intent) ? String(s.pattern_intent) : null,
+                title: (s && s.title) ? String(s.title).trim() : null
+            };
+        }),
+        patternDescriptionsOff: FLUX_PATTERN_PROMPT_DESCRIPTIONS_OFF === true
+    };
 }
 
 // 依分類 key 陣列取得後端基礎提示詞並與使用者描述組合（後端處理，不暴露給前端）
@@ -8128,6 +8160,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         // ── 步驟 1：取得使用者資訊，在生圖前先確認點數夠（避免 BFL 費用白花）──
         let currentUser = null;
         let isAdmin = false;
+        let isStaffViewer = false;
         let pointsToDeduct = 0;
         let currentBalance = 0;
         const authHeader = req.headers.authorization;
@@ -8137,7 +8170,9 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             if (!authError && user) {
                 currentUser = user;
                 const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-                isAdmin = profile?.role === 'admin';
+                const role = profile && profile.role ? String(profile.role).trim() : '';
+                isAdmin = role === 'admin';
+                isStaffViewer = role === 'admin' || role === 'tester';
                 if (!isAdmin) {
                     const basePoints = hasRefs ? await getPointsImageToImage() : await getPointsTextToImage();
                     pointsToDeduct = await applyAnnualDiscount(user.id, basePoints);
@@ -8176,16 +8211,20 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
 
         let imageData = null;
         let usedFlux = false;
+        const fluxCaptureOut = isStaffViewer ? {} : null;
 
         // ── 步驟 2：呼叫 BFL 生圖 ──
         if (process.env.BFL_API_KEY) {
             try {
                 const fluxGenerateEndpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_generate');
                 if (hasRefs) {
-                    const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat, { endpointUrl: fluxGenerateEndpoint });
+                    const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat, {
+                        endpointUrl: fluxGenerateEndpoint,
+                        captureOut: fluxCaptureOut
+                    });
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 } else {
-                    const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint);
+                    const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint, fluxCaptureOut);
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 }
             } catch (e) {
@@ -8193,12 +8232,17 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             }
         }
 
+        const staffDebugFlux = isStaffViewer
+            ? buildFluxStaffDebugPayload(fullPrompt, fluxCaptureOut, fluxReferenceSources)
+            : null;
+
         if (!imageData) {
             return res.status(500).json({
                 success: false,
                 error: process.env.BFL_API_KEY
                     ? 'FLUX 生圖失敗，請稍後再試或調整描述' + (hasRefs ? '與參考圖' : '')
-                    : '未設定 BFL_API_KEY，無法生圖'
+                    : '未設定 BFL_API_KEY，無法生圖',
+                ...(staffDebugFlux ? { debugFlux: staffDebugFlux } : {})
             });
         }
 
@@ -8225,7 +8269,8 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
             aspectRatio: '1:1',
             usedFlux,
             seedUsed: seedNum,
-            mode: hasRefs ? 'image-to-image' : 'text-to-image'
+            mode: hasRefs ? 'image-to-image' : 'text-to-image',
+            ...(staffDebugFlux ? { debugFlux: staffDebugFlux } : {})
         });
 
         // ── 扣點與寫入 custom_products 在回傳之後執行，失敗只 log 不影響前端 ──

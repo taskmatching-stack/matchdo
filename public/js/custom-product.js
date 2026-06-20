@@ -100,6 +100,32 @@ $(document).ready(function () {
         } catch (e) {}
     }
 
+    function escapeHtmlText(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    /** 管理員／測試員：API 回傳 debugFlux 時顯示實際送 BFL 的 prompt */
+    function buildFluxStaffDebugPreviewHtml(debugFlux) {
+        if (!debugFlux || typeof debugFlux !== 'object') return '';
+        var sent = (debugFlux.promptSentToBfl || '').trim();
+        var composed = (debugFlux.promptComposed || '').trim();
+        if (!sent && !composed) return '';
+        var body = '';
+        if (sent) {
+            body += '<p class="mb-1 text-muted small">送 BFL（英譯後）</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:320px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(sent) + '</pre>';
+        }
+        if (composed && composed !== sent) {
+            body += '<p class="mb-1 text-muted small">組裝原文（英譯前）</p><pre class="flux-debug-prompt-pre small mb-2" style="max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(composed) + '</pre>';
+        }
+        if (debugFlux.referenceMap && debugFlux.referenceMap.length) {
+            body += '<p class="mb-1 text-muted small">參考圖對照</p><pre class="small mb-0" style="max-height:160px;overflow:auto;background:#f8f9fa;padding:.5rem;border-radius:4px;border:1px solid #dee2e6;">' + escapeHtmlText(JSON.stringify(debugFlux.referenceMap, null, 2)) + '</pre>';
+        }
+        if (debugFlux.patternDescriptionsOff) {
+            body += '<p class="small text-warning mb-0 mt-1">圖樣附錄文字已關閉（測試旗標）</p>';
+        }
+        return '<details class="mt-2 flux-staff-debug"><summary class="small text-primary" style="cursor:pointer;">管理員：送 FLUX 提示詞</summary><div class="mt-2">' + body + '</div></details>';
+    }
+
     function showBootstrapTab(tabEl) {
         if (!tabEl || typeof bootstrap === 'undefined' || !bootstrap.Tab) return;
         try {
@@ -3415,6 +3441,7 @@ $(document).ready(function () {
                     '<a href="/client/my-custom-products.html" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-box-seam me-1"></i>我的數位資產</a> ' +
                     '<a href="/custom/gallery.html" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-search me-1"></i>圖庫找廠商</a> ' +
                     '<button type="button" class="btn btn-sm btn-outline-primary" onclick="$(\'#generateImageBtn\').click()"><i class="fas fa-redo me-1"></i>重新生成</button>';
+                previewHtml += buildFluxStaffDebugPreviewHtml(result.debugFlux);
                 $('#generatedImagePreview').html(previewHtml);
                 showGeneratedResult();
                 try { refreshPastGeneratedGallery(); } catch (e) { console.warn(e); }
@@ -3431,7 +3458,7 @@ $(document).ready(function () {
                 showGeneratedResult();
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
-                $('#generatedImagePreview').html(`
+                var failHtml = `
                     <div class="alert alert-danger">
                         <h6><i class="fas fa-exclamation-triangle me-2"></i>生成失敗</h6>
                         <p class="mb-2">${result.error || '未知錯誤'}</p>
@@ -3440,7 +3467,9 @@ $(document).ready(function () {
                             <i class="fas fa-redo me-1"></i>重試
                         </button>
                     </div>
-                `);
+                `;
+                failHtml += buildFluxStaffDebugPreviewHtml(result.debugFlux);
+                $('#generatedImagePreview').html(failHtml);
                 showGeneratedResult();
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
