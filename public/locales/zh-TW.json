@@ -774,7 +774,7 @@
   "customProduct.refPatternStyleHint": "參考風格設計主產品表面；提示詞可指定方向，或不填讓 AI 設計",
   "customProduct.refPatternIntentPrint": "原圖印刷",
   "customProduct.refPatternIntentStyle": "風格參考",
-  "customProduct.refPatternPrintExactHint": "將 image {n} 的圖稿原樣轉印至主產品表面",
+  "customProduct.refPatternPrintExactHint": "將 image {n} 的圖樣原樣套印至主產品表面",
   "customProduct.refPatternIntentPrintShort": "印刷",
   "customProduct.refPatternIntentStyleShort": "風格",
   "customProduct.refSlotPickVendor": "素材庫",

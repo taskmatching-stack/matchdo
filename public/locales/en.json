@@ -733,7 +733,7 @@
   "customProduct.refPatternStyleHint": "Style reference for the product surface; prompt optional for direction",
   "customProduct.refPatternIntentPrint": "Exact print",
   "customProduct.refPatternIntentStyle": "Style reference",
-  "customProduct.refPatternPrintExactHint": "Print the exact artwork from image {n} onto the product surface",
+  "customProduct.refPatternPrintExactHint": "Apply the exact pattern from image {n} onto the product surface",
   "customProduct.refPatternIntentPrintShort": "Print",
   "customProduct.refPatternIntentStyleShort": "Style",
   "customProduct.refSlotPickVendor": "Library",
