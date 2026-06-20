@@ -1016,8 +1016,10 @@ function buildFluxReferenceUiSlotSummary(sources) {
 /** 2×2 型錄：四格同一合成成品（對齊 custom-product-subcategory-prompt-guide.md） */
 function buildFluxCatalogCompositeRefLead() {
     return [
-        'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid.',
+        'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid only.',
+        'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
         'Every panel shows the same single finished product — prototype shape, attached parts, body material/texture, and surface print/graphic merged together — only the studio camera angle per panel changes per Split-view.',
+        'One identical product instance in all four panels; do not render multiple different variants, duplicates, or colorways in the same output.',
         'Reference input images supply product features only; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
     ].join(' ');
 }
@@ -1043,7 +1045,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
                 return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
             const inp = fluxInputImageFieldName(n);
-            return 'Exact surface graphic from ' + inp + ' (pattern reference image ' + n + ') printed on the same main product body in every panel; artwork must match ' + inp + ' at full opacity with the same layout, colors and proportions as the reference.' + panelNote;
+            return 'Exact surface graphic from ' + inp + ' (pattern reference image ' + n + ') printed on the same main product body in every panel; artwork must match ' + inp + ' at full opacity with the same layout, colors and proportions as the reference; preserve every color and graphic element without retypesetting or simplifying.' + panelNote;
         }
         return '';
     }
@@ -1178,7 +1180,9 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         lines.push('image ' + n + ' · ' + kindLabel + titlePart + notePart);
         const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent);
         if (roleLine) lines.push('  ' + roleLine);
-        if (isPrintPattern && s.pattern_remove_bg) {
+        if (isPrintPattern && s.pattern_bg_preprocessed) {
+            lines.push('  Pattern reference preprocessed with background removed; composite the transparent artwork from ' + fluxInputImageFieldName(n) + ' onto the product printable face at full fidelity.');
+        } else if (isPrintPattern && s.pattern_remove_bg) {
             lines.push('  Remove solid background from ' + fluxInputImageFieldName(n) + ' before compositing the surface artwork onto the product.');
         } else if (isPrintPattern) {
             lines.push('  Composite only the surface artwork from ' + fluxInputImageFieldName(n) + ' onto the product printable face; keep the reference photo backdrop off the product surface.');
@@ -7479,15 +7483,24 @@ function getBflPlaygroundEndpoint(model) {
     return BFL_BASE + '/v1/' + id;
 }
 
-async function getBflFluxEndpointForConfigKey(configKey) {
+async function getBflFluxModelIdForConfigKey(configKey) {
     const fallback = BFL_FLUX_MODEL_CONFIG[configKey] || 'flux-2-pro';
     try {
         const { data: row } = await supabase.from('payment_config').select('value').eq('key', configKey).maybeSingle();
-        const modelId = normalizeBflFluxModelId(row && row.value, fallback);
-        return getBflPlaygroundEndpoint(modelId);
+        return normalizeBflFluxModelId(row && row.value, fallback);
     } catch (_) {
-        return getBflPlaygroundEndpoint(fallback);
+        return normalizeBflFluxModelId(null, fallback);
     }
+}
+
+async function getBflFluxEndpointForConfigKey(configKey) {
+    const modelId = await getBflFluxModelIdForConfigKey(configKey);
+    return getBflPlaygroundEndpoint(modelId);
+}
+
+/** flux-2-max 較易超出 2×2；測 max 時加一條輸出鎖定（不影響 pro 預設） */
+function buildFluxMaxCatalogGuardAppendix() {
+    return '\n\nOutput lock: render only one 2x2 catalog composite with exactly four Split-view panels; do not add extra product shots, grids, mood boards, or multiple items beyond those four panels.';
 }
 
 function resolveBflFluxModelsFromRows(rows) {
@@ -7727,13 +7740,14 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-    const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
+    const prepared = await prepareFluxPatternPrintReferenceImages(ordered.images, ordered.sources);
+    const refFacts = buildFluxReferenceFactsAppendix(prepared.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
-    if (parsedUser.placementHints.length && referenceSourcesHasExactPrintPattern(ordered.sources)) {
+    if (parsedUser.placementHints.length && referenceSourcesHasExactPrintPattern(prepared.sources)) {
         fullPrompt = (fullPrompt || '').trim() + '\n\nSurface print notes: ' + parsedUser.placementHints.join('; ') + '.';
     }
 
-    const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
+    const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(prepared.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
     const capCustom = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityCustomLabels);
     if (protoIdForCaps && (capKeys.length || capCustom.length)) {
@@ -7750,8 +7764,8 @@ async function composeGeneratePromptWithReferences(opts) {
 
     return {
         fullPrompt: fullPrompt.trim(),
-        fluxReferenceImages: ordered.images,
-        fluxReferenceSources: ordered.sources
+        fluxReferenceImages: prepared.images,
+        fluxReferenceSources: prepared.sources
     };
 }
 
@@ -7823,6 +7837,58 @@ async function resolveImageToBase64(img) {
         }
     }
     return null;
+}
+
+/** Stability 去背（生圖管線內用，不另扣點；失敗回 null） */
+async function stabilityRemoveBackgroundFromBuffer(imageBuffer, mimeType) {
+    const STABILITY_API_KEY = getStabilityApiKey();
+    if (!STABILITY_API_KEY || !imageBuffer || !imageBuffer.length) return null;
+    try {
+        const form = new FormData();
+        form.append('image', new Blob([imageBuffer], { type: mimeType || 'image/png' }), 'pattern.png');
+        form.append('output_format', 'png');
+        const stabilityRes = await fetch('https://api.stability.ai/v2beta/stable-image/edit/remove-background', {
+            method: 'POST',
+            headers: {
+                Authorization: 'Bearer ' + STABILITY_API_KEY,
+                Accept: 'application/json'
+            },
+            body: form
+        });
+        if (!stabilityRes.ok) {
+            console.warn('stabilityRemoveBackgroundFromBuffer:', stabilityRes.status, (await stabilityRes.text()).slice(0, 200));
+            return null;
+        }
+        const json = await stabilityRes.json();
+        const artifact = json.artifacts && json.artifacts[0];
+        const imageBase64 = artifact && artifact.base64 ? artifact.base64 : (json.image || '');
+        if (!imageBase64) return null;
+        return Buffer.from(imageBase64, 'base64');
+    } catch (e) {
+        console.warn('stabilityRemoveBackgroundFromBuffer:', e.message);
+        return null;
+    }
+}
+
+/** 原圖印刷勾選去背時：送 FLUX 前以 Stability 實際去背（prompt  alone 不足） */
+async function prepareFluxPatternPrintReferenceImages(images, sources) {
+    const imgs = Array.isArray(images) ? images.slice() : [];
+    const srcs = Array.isArray(sources) ? sources.map(function (s) { return s ? Object.assign({}, s) : null; }) : [];
+    if (!imgs.length || !getStabilityApiKey()) return { images: imgs, sources: srcs };
+    for (let i = 0; i < imgs.length; i++) {
+        const s = srcs[i];
+        if (!s) continue;
+        const isPrint = normalizeVendorAssetKind(s.asset_kind) === 'other'
+            && normalizePatternIntent(s.pattern_intent) !== 'style';
+        if (!isPrint || !s.pattern_remove_bg) continue;
+        const b64 = await resolveImageToBase64(imgs[i]);
+        if (!b64) continue;
+        const removed = await stabilityRemoveBackgroundFromBuffer(Buffer.from(b64, 'base64'), 'image/png');
+        if (!removed) continue;
+        imgs[i] = 'data:image/png;base64,' + removed.toString('base64');
+        srcs[i].pattern_bg_preprocessed = true;
+    }
+    return { images: imgs, sources: srcs };
 }
 
 /** 實境模擬：環境圖 + 產品圖 + 提示詞，送 BFL Flux 2 Pro 圖生圖，回傳 PNG buffer */
@@ -8149,11 +8215,14 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         if (process.env.BFL_API_KEY) {
             try {
                 const fluxGenerateEndpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_generate');
+                const fluxModelId = await getBflFluxModelIdForConfigKey('bfl_flux_model_generate');
+                let promptForFlux = fullPrompt;
+                if (fluxModelId === 'flux-2-max') promptForFlux = (fullPrompt || '').trim() + buildFluxMaxCatalogGuardAppendix();
                 if (hasRefs) {
-                    const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat, { endpointUrl: fluxGenerateEndpoint });
+                    const buffer = await generateImageWithFlux2Pro(promptForFlux, fluxReferenceImages, seedNum, outputFormat, { endpointUrl: fluxGenerateEndpoint });
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 } else {
-                    const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint);
+                    const buffer = await generateImageWithFlux2ProTextToImage(promptForFlux, seedNum, outputFormat, fluxGenerateEndpoint);
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 }
             } catch (e) {
