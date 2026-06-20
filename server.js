@@ -959,6 +959,37 @@ function normalizePatternIntent(intent) {
     return s === 'style' ? 'style' : 'print';
 }
 
+/** 從使用者描述拆出「原圖印刷」槽 addon，供貼在參考附錄後（其餘描述仍放最後） */
+function parsePatternPrintNotesFromUserPrompt(userPrompt) {
+    const raw = String(userPrompt || '').trim();
+    if (!raw) return { placementHints: [], remainder: '' };
+    const placementHints = [];
+    const remainderLines = [];
+    raw.split(/\n/).forEach(function (line) {
+        const t = line.trim();
+        if (!t) return;
+        const m = t.match(/^(?:原圖印刷|原图印刷|Pattern print|Exact print)\s*[：:]\s*(.+)$/i);
+        if (m && m[1]) placementHints.push(m[1].trim());
+        else remainderLines.push(t);
+    });
+    return { placementHints, remainder: remainderLines.join('\n').trim() };
+}
+
+function referenceSourcesHasExactPrintPattern(sources) {
+    const list = Array.isArray(sources) ? sources : [];
+    return list.some(function (s) {
+        return normalizeVendorAssetKind(s && s.asset_kind) === 'other'
+            && normalizePatternIntent(s && s.pattern_intent) !== 'style';
+    });
+}
+
+/** BFL 多圖欄位名：image 1 → input_image，image n → input_image_n */
+function fluxInputImageFieldName(imageNum) {
+    const n = Number(imageNum);
+    if (!Number.isFinite(n) || n < 1) return 'input_image';
+    return n === 1 ? 'input_image' : ('input_image_' + n);
+}
+
 /** 依設計頁實際選圖：各 Tab 有幾張、對應 image 編號（空 Tab 不佔號） */
 function buildFluxReferenceUiSlotSummary(sources) {
     const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
@@ -1011,7 +1042,8 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
             if (normalizePatternIntent(patternIntent) === 'style') {
                 return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
-            return 'Exact surface graphic from image ' + n + ' printed on the same main product body in every panel; artwork must match image ' + n + '.' + panelNote;
+            const inp = fluxInputImageFieldName(n);
+            return 'Exact surface graphic from ' + inp + ' (pattern reference image ' + n + ') printed on the same main product body in every panel; artwork must match ' + inp + ' at full opacity with the same layout, colors and proportions as the reference.' + panelNote;
         }
         return '';
     }
@@ -1024,7 +1056,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (normalizePatternIntent(patternIntent) === 'style') {
             return '主產品表面風格參考 image ' + n + '（四格同一成品）。' + panelNote;
         }
-        return 'image ' + n + ' 的圖案原樣印刷在四格型錄同一主產品本體表面。' + panelNote;
+        return 'image ' + n + ' 的圖案原樣印刷在四格型錄同一主產品本體表面，全不透明度、版式與 ' + fluxInputImageFieldName(n) + ' 一致。' + panelNote;
     }
     return '';
 }
@@ -1051,7 +1083,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
             if (normalizePatternIntent(s.pattern_intent) === 'style') {
                 bits.push('style from image ' + n + ' on the same product in all panels');
             } else {
-                bits.push('exact surface graphic from image ' + n + ' on the same product in all panels');
+                bits.push('exact surface graphic from ' + fluxInputImageFieldName(n) + ' at full opacity on the same product in all panels');
             }
         } else if (k === 'part') {
             bits.push('hardware from image ' + n + ' on the same product (shape from image ' + protoN + ') in all panels');
@@ -1121,7 +1153,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const patNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel.');
+        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the pattern reference onto the product body in every panel at full opacity.');
     }
     if (hasStylePattern) {
         const styNums = list.map(function (s, i) {
@@ -1147,7 +1179,9 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent);
         if (roleLine) lines.push('  ' + roleLine);
         if (isPrintPattern && s.pattern_remove_bg) {
-            lines.push('  Remove solid background from image ' + n + ' before compositing the surface artwork onto the product.');
+            lines.push('  Remove solid background from ' + fluxInputImageFieldName(n) + ' before compositing the surface artwork onto the product.');
+        } else if (isPrintPattern) {
+            lines.push('  Composite only the surface artwork from ' + fluxInputImageFieldName(n) + ' onto the product printable face; keep the reference photo backdrop off the product surface.');
         }
     });
     const applySummary = buildFluxReferenceApplySummary(list, lang);
@@ -7679,7 +7713,8 @@ async function composeGeneratePromptWithReferences(opts) {
     const referenceSources = opts.referenceSources;
     const selectedCapabilityKeys = opts.selectedCapabilityKeys;
     const selectedCapabilityCustomLabels = opts.selectedCapabilityCustomLabels;
-    const userLine = userPrompt ? fluxFormatUserPromptForPrint(userPrompt) : '';
+    const parsedUser = parsePatternPrintNotesFromUserPrompt(userPrompt);
+    const userLine = parsedUser.remainder ? fluxFormatUserPromptForPrint(parsedUser.remainder) : '';
 
     let fullPrompt = useRemake
         ? await buildPromptFromRemakeCategoryKeys(categoryKeys, '')
@@ -7694,6 +7729,9 @@ async function composeGeneratePromptWithReferences(opts) {
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
+    if (parsedUser.placementHints.length && referenceSourcesHasExactPrintPattern(ordered.sources)) {
+        fullPrompt = (fullPrompt || '').trim() + '\n\nSurface print notes: ' + parsedUser.placementHints.join('; ') + '.';
+    }
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
