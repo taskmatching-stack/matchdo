@@ -163,7 +163,6 @@ $(document).ready(function () {
             if (typeof loadVendorStylesTabList === 'function' && isVendorStylesTabActive()) {
                 loadVendorStylesTabList();
             }
-            applySubcategoryDefaultSeed(vals && vals.mainKey, vals && vals.subKey);
             if (!pendingProto) scheduleStripDesignDeepLinkFromUrl();
             return vals;
         });
@@ -1733,28 +1732,6 @@ $(document).ready(function () {
         return (translated && translated !== tk) ? translated : (fallback || key);
     }
 
-    function applySubcategoryDefaultSeed(mainKey, subKey) {
-        var $seed = $('#generationSeed');
-        if (!$seed.length) return;
-        syncCategoriesDataFromPicker();
-        mainKey = (mainKey || $('#imageCategoryMainSelect').val() || '').trim();
-        subKey = (subKey != null ? String(subKey) : ($('#imageCategorySubSelect').val() || '')).trim();
-        if (!mainKey || !subKey) {
-            $seed.val('');
-            return;
-        }
-        var cat = categoriesData.find(function (c) { return String(c.key) === String(mainKey); });
-        var sub = cat && cat.subcategories
-            ? cat.subcategories.find(function (s) { return String(s.key) === String(subKey); })
-            : null;
-        var def = sub && sub.default_generation_seed;
-        if (def != null && def !== '' && Number.isInteger(Number(def))) {
-            $seed.val(String(def));
-        } else {
-            $seed.val('');
-        }
-    }
-
     function getSelectedDesignCategorySummary() {
         syncCategoriesDataFromPicker();
         var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
@@ -1834,7 +1811,6 @@ $(document).ready(function () {
                 $('#imageCategorySubSelect').val(subKey);
             }
         }
-        applySubcategoryDefaultSeed(mainKey, subKey);
         return true;
     }
 
@@ -3215,10 +3191,8 @@ $(document).ready(function () {
         showBootstrapTab(tabEl);
     });
 
-    document.addEventListener('matchdo:categoryChanged', function (ev) {
+    document.addEventListener('matchdo:categoryChanged', function () {
         syncCategoriesDataFromPicker();
-        var detail = (ev && ev.detail) ? ev.detail : {};
-        applySubcategoryDefaultSeed(detail.mainKey, detail.subKey);
         vendorStylesTabOffset = 0;
         updateVendorStylesCategorySummary();
         if (isVendorStylesTabActive()) {

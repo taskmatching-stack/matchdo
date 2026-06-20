@@ -959,28 +959,6 @@ function normalizePatternIntent(intent) {
     return s === 'style' ? 'style' : 'print';
 }
 
-/** 子分類／後台：可選 FLUX seed；-2147483648～2147483647，非法或空 → null */
-function parseOptionalGenerationSeed(val) {
-    if (val == null || val === '') return null;
-    const n = Number(val);
-    if (!Number.isInteger(n) || n < -2147483648 || n > 2147483647) return null;
-    return n;
-}
-
-function mapSubcategoryRowForApi(s) {
-    if (!s) return null;
-    const seedRaw = s.default_generation_seed;
-    const seedParsed = parseOptionalGenerationSeed(seedRaw);
-    return {
-        id: s.id,
-        key: s.key,
-        name: s.name,
-        prompt: s.prompt || '',
-        sort_order: s.sort_order,
-        default_generation_seed: seedParsed
-    };
-}
-
 /** 依設計頁實際選圖：各 Tab 有幾張、對應 image 編號（空 Tab 不佔號） */
 function buildFluxReferenceUiSlotSummary(sources) {
     const list = Array.isArray(sources) ? sources.filter(Boolean) : [];
@@ -1002,37 +980,6 @@ function buildFluxReferenceUiSlotSummary(sources) {
         bits.push(tab.en + ': ' + nums.length + ' image(s) → image ' + nums.join(', '));
     });
     return 'From design UI (' + list.length + ' reference image(s); empty tabs skipped): ' + bits.join('; ') + '.';
-}
-
-/** 從使用者描述拆出「原圖印刷」槽 addon，供貼在參考附錄後（其餘描述仍放最後） */
-function parsePatternPrintNotesFromUserPrompt(userPrompt) {
-    const raw = String(userPrompt || '').trim();
-    if (!raw) return { placementHints: [], remainder: '' };
-    const placementHints = [];
-    const remainderLines = [];
-    raw.split(/\n/).forEach(function (line) {
-        const t = line.trim();
-        if (!t) return;
-        const m = t.match(/^(?:原圖印刷|原图印刷|Pattern print|Exact print)\s*[：:]\s*(.+)$/i);
-        if (m && m[1]) placementHints.push(m[1].trim());
-        else remainderLines.push(t);
-    });
-    return { placementHints, remainder: remainderLines.join('\n').trim() };
-}
-
-function referenceSourcesHasExactPrintPattern(sources) {
-    const list = Array.isArray(sources) ? sources : [];
-    return list.some(function (s) {
-        return normalizeVendorAssetKind(s && s.asset_kind) === 'other'
-            && normalizePatternIntent(s && s.pattern_intent) !== 'style';
-    });
-}
-
-/** BFL 多圖欄位名：image 1 → input_image，image n → input_image_n */
-function fluxInputImageFieldName(imageNum) {
-    const n = Number(imageNum);
-    if (!Number.isFinite(n) || n < 1) return 'input_image';
-    return n === 1 ? 'input_image' : ('input_image_' + n);
 }
 
 /** 2×2 型錄：四格同一合成成品（對齊 custom-product-subcategory-prompt-guide.md） */
@@ -1064,8 +1011,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
             if (normalizePatternIntent(patternIntent) === 'style') {
                 return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
-            const inp = fluxInputImageFieldName(n);
-            return 'Exact surface graphic from ' + inp + ' (pattern reference image ' + n + ') printed on the same main product body in every panel; artwork must match ' + inp + ' at full opacity with the same layout, colors and proportions as the reference.' + panelNote;
+            return 'Exact surface graphic from image ' + n + ' printed on the same main product body in every panel; artwork must match image ' + n + '.' + panelNote;
         }
         return '';
     }
@@ -1078,7 +1024,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (normalizePatternIntent(patternIntent) === 'style') {
             return '主產品表面風格參考 image ' + n + '（四格同一成品）。' + panelNote;
         }
-        return 'image ' + n + ' 的圖案原樣印刷在四格型錄同一主產品本體表面，全不透明度、版式與 ' + fluxInputImageFieldName(n) + ' 一致。' + panelNote;
+        return 'image ' + n + ' 的圖案原樣印刷在四格型錄同一主產品本體表面。' + panelNote;
     }
     return '';
 }
@@ -1105,7 +1051,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
             if (normalizePatternIntent(s.pattern_intent) === 'style') {
                 bits.push('style from image ' + n + ' on the same product in all panels');
             } else {
-                bits.push('exact surface graphic from ' + fluxInputImageFieldName(n) + ' at full opacity on the same product in all panels');
+                bits.push('exact surface graphic from image ' + n + ' on the same product in all panels');
             }
         } else if (k === 'part') {
             bits.push('hardware from image ' + n + ' on the same product (shape from image ' + protoN + ') in all panels');
@@ -1175,7 +1121,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const patNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) !== 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the pattern reference onto the product body in every panel at full opacity.');
+        lines.push('Pattern tab (exact print): image ' + patNums + ' — apply the exact surface graphic/artwork from the reference onto the product in every panel.');
     }
     if (hasStylePattern) {
         const styNums = list.map(function (s, i) {
@@ -1201,9 +1147,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const roleLine = fluxReferenceKindRoleLine(kind, isEn, n, protoN, s.pattern_intent);
         if (roleLine) lines.push('  ' + roleLine);
         if (isPrintPattern && s.pattern_remove_bg) {
-            lines.push('  Remove solid background from ' + fluxInputImageFieldName(n) + ' before compositing the surface artwork onto the product.');
-        } else if (isPrintPattern) {
-            lines.push('  Composite only the surface artwork from ' + fluxInputImageFieldName(n) + ' onto the product printable face; keep the reference photo backdrop off the product surface.');
+            lines.push('  Remove solid background from image ' + n + ' before compositing the surface artwork onto the product.');
         }
     });
     const applySummary = buildFluxReferenceApplySummary(list, lang);
@@ -7735,8 +7679,7 @@ async function composeGeneratePromptWithReferences(opts) {
     const referenceSources = opts.referenceSources;
     const selectedCapabilityKeys = opts.selectedCapabilityKeys;
     const selectedCapabilityCustomLabels = opts.selectedCapabilityCustomLabels;
-    const parsedUser = parsePatternPrintNotesFromUserPrompt(userPrompt);
-    const userLine = parsedUser.remainder ? fluxFormatUserPromptForPrint(parsedUser.remainder) : '';
+    const userLine = userPrompt ? fluxFormatUserPromptForPrint(userPrompt) : '';
 
     let fullPrompt = useRemake
         ? await buildPromptFromRemakeCategoryKeys(categoryKeys, '')
@@ -7751,9 +7694,6 @@ async function composeGeneratePromptWithReferences(opts) {
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
-    if (parsedUser.placementHints.length && referenceSourcesHasExactPrintPattern(ordered.sources)) {
-        fullPrompt = (fullPrompt || '').trim() + '\n\nSurface print notes: ' + parsedUser.placementHints.join('; ') + '.';
-    }
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
@@ -18903,23 +18843,15 @@ app.get('/api/custom-product-categories', async (req, res) => {
         const keys = list.map(c => c.key);
         let subMap = {};
         if (keys.length > 0) {
-            let subsQuery = await supabase
+            const { data: subs } = await supabase
                 .from('custom_product_subcategories')
-                .select('id, category_key, key, name, prompt, sort_order, default_generation_seed')
+                .select('id, category_key, key, name, prompt, sort_order')
                 .in('category_key', keys)
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
-            if (subsQuery.error && (subsQuery.error.code === '42703' || (subsQuery.error.message && /default_generation_seed/.test(subsQuery.error.message)))) {
-                subsQuery = await supabase
-                    .from('custom_product_subcategories')
-                    .select('id, category_key, key, name, prompt, sort_order')
-                    .in('category_key', keys)
-                    .eq('is_active', true)
-                    .order('sort_order', { ascending: true });
-            }
-            (subsQuery.data || []).forEach(s => {
+            (subs || []).forEach(s => {
                 if (!subMap[s.category_key]) subMap[s.category_key] = [];
-                subMap[s.category_key].push(mapSubcategoryRowForApi(s));
+                subMap[s.category_key].push({ id: s.id, key: s.key, name: s.name, prompt: s.prompt || '', sort_order: s.sort_order });
             });
         }
         if (localeCol && keys.length > 0) {
@@ -19016,26 +18948,14 @@ app.get('/api/admin/custom-product-categories', async (req, res) => {
         const keys = list.map(c => c.key);
         let subMap = {};
         if (keys.length > 0) {
-            let subsQuery = await supabase
+            const { data: subs } = await supabase
                 .from('custom_product_subcategories')
-                .select('id, category_key, key, name, prompt, sort_order, is_active, default_generation_seed')
+                .select('id, category_key, key, name, prompt, sort_order, is_active')
                 .in('category_key', keys)
                 .order('sort_order', { ascending: true });
-            if (subsQuery.error && (subsQuery.error.code === '42703' || (subsQuery.error.message && /default_generation_seed/.test(subsQuery.error.message)))) {
-                subsQuery = await supabase
-                    .from('custom_product_subcategories')
-                    .select('id, category_key, key, name, prompt, sort_order, is_active')
-                    .in('category_key', keys)
-                    .order('sort_order', { ascending: true });
-            }
-            (subsQuery.data || []).forEach(s => {
+            (subs || []).forEach(s => {
                 if (!subMap[s.category_key]) subMap[s.category_key] = [];
-                const row = mapSubcategoryRowForApi(s);
-                subMap[s.category_key].push({
-                    ...row,
-                    name_en: '', name_ja: '', name_es: '', name_de: '', name_fr: '',
-                    is_active: s.is_active
-                });
+                subMap[s.category_key].push({ id: s.id, key: s.key, name: s.name, name_en: '', name_ja: '', name_es: '', name_de: '', name_fr: '', prompt: s.prompt || '', sort_order: s.sort_order, is_active: s.is_active });
             });
         }
         const { data: catsEn, error: e1 } = await supabase.from('custom_product_categories').select('key, name_en').in('key', keys);
@@ -19318,7 +19238,7 @@ app.post('/api/admin/custom-product-subcategories', express.json(), async (req, 
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
-        const { category_key, key, name, name_en, prompt, sort_order, default_generation_seed } = req.body || {};
+        const { category_key, key, name, name_en, prompt, sort_order } = req.body || {};
         if (!category_key || !String(category_key).trim()) return res.status(400).json({ error: '請填寫 category_key' });
         if (!key || !String(key).trim()) return res.status(400).json({ error: '請填寫 key' });
         const cKey = String(category_key).trim();
@@ -19334,18 +19254,9 @@ app.post('/api/admin/custom-product-subcategories', express.json(), async (req, 
             is_active: true
         };
         if (name_en !== undefined) payload.name_en = name_en != null ? String(name_en).trim() : null;
-        if (default_generation_seed !== undefined) {
-            if (default_generation_seed === null || default_generation_seed === '') {
-                payload.default_generation_seed = null;
-            } else {
-                const seedN = parseOptionalGenerationSeed(default_generation_seed);
-                if (seedN == null) return res.status(400).json({ error: 'default_generation_seed 須為 -2147483648～2147483647 的整數，或留空' });
-                payload.default_generation_seed = seedN;
-            }
-        }
         for (const col of ['name_ja', 'name_es', 'name_de', 'name_fr']) if (req.body[col] !== undefined) payload[col] = req.body[col] != null ? String(req.body[col]).trim() : null;
         let error = (await supabase.from('custom_product_subcategories').insert(payload)).error;
-        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja|default_generation_seed/.test(error.message)))) {
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
             const basePayload = { category_key: cKey, key: k, name: (name && String(name).trim()) || k, prompt: prompt != null ? String(prompt) : '', sort_order: sort_order != null ? Number(sort_order) : 0, is_active: true };
             error = (await supabase.from('custom_product_subcategories').insert(basePayload)).error;
         }
@@ -19376,7 +19287,7 @@ app.put('/api/admin/custom-product-subcategories/:category_key/:key', express.js
         const { data: allSub } = await supabase.from('custom_product_subcategories').select('id, category_key, key');
         const subRow = (allSub || []).find(s => s.category_key === category_key && s.key === key);
         if (!subRow) return res.status(400).json({ error: '找不到此子分類' });
-        const { key: newKeyRaw, name, name_en, prompt, sort_order, is_active, default_generation_seed } = req.body || {};
+        const { key: newKeyRaw, name, name_en, prompt, sort_order, is_active } = req.body || {};
         const updates = {};
         const newKey = (newKeyRaw != null && String(newKeyRaw).trim()) ? String(newKeyRaw).trim().toLowerCase().replace(/\s+/g, '_') : null;
         if (newKey && newKey !== key) updates.key = newKey;
@@ -19389,21 +19300,12 @@ app.put('/api/admin/custom-product-subcategories/:category_key/:key', express.js
             updates.sort_order = Number.isFinite(n) ? n : 0;
         }
         if (is_active !== undefined) updates.is_active = !!is_active;
-        if (default_generation_seed !== undefined) {
-            if (default_generation_seed === null || default_generation_seed === '') {
-                updates.default_generation_seed = null;
-            } else {
-                const seedN = parseOptionalGenerationSeed(default_generation_seed);
-                if (seedN == null) return res.status(400).json({ error: 'default_generation_seed 須為 -2147483648～2147483647 的整數，或留空' });
-                updates.default_generation_seed = seedN;
-            }
-        }
         updates.updated_at = new Date().toISOString();
         const updatePayload = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
         let { error } = await supabase.from('custom_product_subcategories').update(updatePayload).eq('id', subRow.id);
         const isColumnMissing = error && (
             error.code === '42703' || error.code === 'PGRST204' ||
-            (error.message && /column.*does not exist|Could not find.*column|schema cache|name_en|name_ja|name_de|name_es|name_fr|default_generation_seed/.test(error.message))
+            (error.message && /column.*does not exist|Could not find.*column|schema cache|name_en|name_ja|name_de|name_es|name_fr/.test(error.message))
         );
         if (error && isColumnMissing) {
             const baseUpdates = { updated_at: updates.updated_at };
