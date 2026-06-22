@@ -127,6 +127,10 @@
             width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px;
             background: #f0f4f8; display: block;
         }
+        .vendor-asset-card { cursor: pointer; display: flex; flex-direction: column; height: 100%; }
+        .vendor-asset-card .vendor-asset-thumb-link { color: inherit; }
+        .vendor-asset-card .vendor-asset-thumb-link:hover { opacity: 0.92; }
+        .vendor-asset-card .btn { font-size: 0.78rem; }
     </style>
 </head>
 <body class="bg-light">
@@ -329,6 +333,8 @@
         }
 
         var _vendorUserId = null;
+        var _vendorProfileMfrId = null;
+        var _vendorProfileMfrName = '';
         // 全域暴露，供 onclick 呼叫
         window.contactVendor = function() {
             if (!_vendorUserId) return;
@@ -347,6 +353,8 @@
         };
 
         function renderProfile(v) {
+            _vendorProfileMfrId = v.id || null;
+            _vendorProfileMfrName = v.name || '';
             document.getElementById('pageLoading').classList.add('d-none');
             document.getElementById('profileBody').classList.remove('d-none');
             document.getElementById('profileHero').style.display = '';
@@ -778,6 +786,42 @@
             });
         }
 
+        function vendorAssetImageItems(item) {
+            if (!item) return [];
+            if (item.image_items && item.image_items.length) {
+                return item.image_items.filter(function (it) { return it && it.url; });
+            }
+            var urls = (item.image_urls && item.image_urls.length) ? item.image_urls.filter(Boolean)
+                : (item.image_url ? [item.image_url] : []);
+            return urls.map(function (u, idx) {
+                return { url: u, label: '', sort_order: idx, is_cover: idx === 0 };
+            });
+        }
+
+        function buildVendorAssetDesignUrl(item) {
+            if (!item || !item.id) return '/custom-product.html?tab=product-design';
+            var mfrId = item.manufacturer_id || _vendorProfileMfrId || '';
+            var kind = item.asset_kind || 'prototype';
+            var url = '/custom-product.html?tab=product-design';
+            if (mfrId) url += '&manufacturer_id=' + encodeURIComponent(mfrId);
+            if (_vendorProfileMfrName) url += '&vendor_name=' + encodeURIComponent(_vendorProfileMfrName);
+            if (kind === 'prototype') {
+                url += '&prototype_asset_id=' + encodeURIComponent(item.id);
+            } else {
+                url += '&vendor_asset_id=' + encodeURIComponent(item.id);
+            }
+            if (item.category_key) url += '&category_key=' + encodeURIComponent(item.category_key);
+            if (item.subcategory_key) url += '&subcategory_key=' + encodeURIComponent(item.subcategory_key);
+            return url;
+        }
+
+        function buildVendorAssetGuideUrl(item) {
+            if (!item || item.asset_kind !== 'prototype') return '';
+            var lc = item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0));
+            if (!lc) return '';
+            return item.match_guide_url || ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id));
+        }
+
         function renderVendorAssetsGrid(items) {
             var grid = document.getElementById('vendorAssetsGrid');
             var empty = document.getElementById('vendorAssetsEmpty');
@@ -798,10 +842,13 @@
                 return;
             }
             empty.classList.add('d-none');
+            var designLbl = vpTr('browseStyles.selectForDesign', '用此款進行設計');
+            var guideLbl = vpTr('browseStyles.viewMatchGuide', '看可搭配');
             pageItems.forEach(function (item) {
                 var col = document.createElement('div');
                 col.className = 'col-6 col-md-4 col-lg-3';
-                var kindLabel = item.asset_kind === 'material' ? '材料' : (item.asset_kind === 'part' ? '零件' : '原型');
+                var kind = item.asset_kind || 'prototype';
+                var kindLabel = kind === 'material' ? vpTr('customProduct.assetKindMaterial', '材料') : (kind === 'part' ? vpTr('customProduct.assetKindPart', '配件／零件') : vpTr('customProduct.assetKindPrototype', '數位原型'));
                 var cats = (item.catalog_groups || []).map(function (g) {
                     return '<span class="badge bg-light text-primary border border-primary border-opacity-25 me-1 mb-1" style="font-size:.65rem;">' + escHtml(g.name) + '</span>';
                 }).join('');
@@ -813,16 +860,30 @@
                     var lbl = cap && (cap.label || cap.name_zh) ? (cap.label || cap.name_zh) : '';
                     if (lbl) capBadges += '<span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.65rem;">' + escHtml(lbl) + '</span>';
                 });
-                col.innerHTML = '<div class="portfolio-card h-100">' +
-                    (item.image_url
-                        ? '<img src="' + escHtml(item.image_url) + '" class="vendor-asset-thumb" loading="lazy" alt="">'
-                        : '<div class="portfolio-no-img" style="aspect-ratio:1;"><i class="bi bi-image"></i></div>') +
-                    '<div class="p-2">' +
-                    '<span class="badge bg-light text-secondary border mb-1" style="font-size:.65rem;">' + escHtml(kindLabel) + '</span>' +
-                    (item.title ? '<div class="fw-semibold small text-truncate" style="color:#2d4059">' + escHtml(item.title) + '</div>' : '') +
-                    (capBadges ? '<div class="mt-1">' + capBadges + '</div>' : '') +
-                    (cats ? '<div class="mt-1">' + cats + '</div>' : '') +
-                    '</div></div>';
+                var imageItems = vendorAssetImageItems(item);
+                var imgUrl = (imageItems[0] && imageItems[0].url) || item.image_url || '';
+                var designUrl = buildVendorAssetDesignUrl(item);
+                var guideUrl = buildVendorAssetGuideUrl(item);
+                var multiBadge = imageItems.length > 1
+                    ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem;">' + imageItems.length + ' 張</span>' : '';
+                var thumbHtml = imgUrl
+                    ? '<div class="position-relative"><a href="' + escHtml(designUrl) + '" class="vendor-asset-thumb-link d-block">' + multiBadge +
+                    '<img src="' + escHtml(imgUrl) + '" class="vendor-asset-thumb" loading="lazy" alt=""></a></div>'
+                    : '<div class="portfolio-no-img" style="aspect-ratio:1;"><i class="bi bi-image"></i></div>';
+                var guideBtn = guideUrl
+                    ? '<a href="' + escHtml(guideUrl) + '" class="btn btn-sm btn-outline-secondary w-100">' + escHtml(guideLbl) + '</a>'
+                    : '';
+                col.innerHTML = '<div class="portfolio-card vendor-asset-card h-100">' +
+                    thumbHtml +
+                    '<div class="p-2 flex-grow-1 d-flex flex-column">' +
+                    '<span class="badge bg-light text-secondary border mb-1 align-self-start" style="font-size:.65rem;">' + escHtml(kindLabel) + '</span>' +
+                    (item.title ? '<div class="fw-semibold small text-truncate mb-1" style="color:#2d4059" title="' + escHtml(item.title) + '">' + escHtml(item.title) + '</div>' : '') +
+                    (capBadges ? '<div class="mb-1">' + capBadges + '</div>' : '') +
+                    (cats ? '<div class="mb-1">' + cats + '</div>' : '') +
+                    '<div class="d-grid gap-1 mt-auto pt-2">' +
+                    '<a href="' + escHtml(designUrl) + '" class="btn btn-sm btn-primary w-100">' + escHtml(designLbl) + '</a>' +
+                    guideBtn +
+                    '</div></div></div>';
                 grid.appendChild(col);
             });
         }

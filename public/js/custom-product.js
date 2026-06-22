@@ -1499,6 +1499,92 @@ $(document).ready(function () {
         });
     }
 
+    function slotKeyForVendorAssetKind(kind) {
+        if (kind === 'material') return 'material';
+        if (kind === 'part') return 'part';
+        return 'prototype';
+    }
+
+    /** 廠商頁素材庫：材料／配件以 vendor_asset_id 帶入對應參考槽 */
+    function applyVendorAssetIdFromUrl() {
+        if (!urlParams) return;
+        if ((urlParams.get('prototype_asset_id') || '').trim()) return;
+        var aid = (urlParams.get('vendor_asset_id') || '').trim();
+        var mfrId = (urlParams.get('manufacturer_id') || '').trim();
+        if (!aid || !mfrId) return;
+
+        fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var items = (data && data.items) ? data.items : [];
+                var item = null;
+                for (var i = 0; i < items.length; i++) {
+                    if (items[i] && String(items[i].id) === aid) { item = items[i]; break; }
+                }
+                if (!item) {
+                    scheduleStripDesignDeepLinkFromUrl();
+                    return;
+                }
+                var slotKey = slotKeyForVendorAssetKind(item.asset_kind);
+                var imageItems = vendorStyleItemImageItems(item);
+                if (!imageItems.length) {
+                    scheduleStripDesignDeepLinkFromUrl();
+                    return;
+                }
+                var baseMeta = {
+                    vendor_asset_id: item.id,
+                    manufacturer_id: item.manufacturer_id || mfrId,
+                    manufacturer_name: item.manufacturer_name || refVendorName || '',
+                    manufacturer_profile_url: item.manufacturer_profile_url || '',
+                    category_key: item.category_key || null,
+                    subcategory_key: item.subcategory_key || null,
+                    asset_kind: item.asset_kind || slotKey,
+                    title: item.title || ''
+                };
+                return ensureCatPickerReady().then(function () {
+                    return syncCategorySelectionFromKeys(item.category_key || '', item.subcategory_key || '').then(function () {
+                        var cap = vendorImportCapacity(slotKey);
+                        var maxPick = Math.max(1, Math.min(imageItems.length, cap.maxAdd));
+                        if (imageItems.length > 1) {
+                            openVendorAssetImagePickModal({
+                                imageItems: imageItems,
+                                maxSelect: maxPick,
+                                targetKey: slotKey,
+                                baseMeta: baseMeta,
+                                pickerModalEl: null,
+                                assetTitle: item.title || ''
+                            });
+                            scheduleStripDesignDeepLinkFromUrl();
+                            return;
+                        }
+                        return fetchUrlAsDataUrl(imageItems[0].url).catch(function () { return null; }).then(function (dataUrl) {
+                            if (!dataUrl) {
+                                scheduleStripDesignDeepLinkFromUrl();
+                                return;
+                            }
+                            clearRefSlot(slotKey);
+                            addRefImageToSlot(slotKey, dataUrl, Object.assign({}, baseMeta, {
+                                image_url: imageItems[0].url,
+                                image_label: (imageItems[0].label || '').trim(),
+                                gallery_label: (imageItems[0].label || '').trim() || undefined
+                            }));
+                            refIntentActiveTab = slotKey;
+                            if (slotKey === 'prototype') {
+                                return syncCategoryFromPrototypeAsset(item.id, item.category_key, item.subcategory_key).then(function () {
+                                    prototypeLinkSummary.loaded = false;
+                                    refreshPrototypeLinkSummary(function () { renderIntentSlots(); });
+                                    scheduleStripDesignDeepLinkFromUrl();
+                                });
+                            }
+                            renderIntentSlots();
+                            scheduleStripDesignDeepLinkFromUrl();
+                        });
+                    });
+                });
+            })
+            .catch(function () { scheduleStripDesignDeepLinkFromUrl(); });
+    }
+
     function applyPrototypeAssetIdFromUrl() {
         if (!urlParams) return;
         var pid = (urlParams.get('prototype_asset_id') || '').trim();
@@ -1572,8 +1658,13 @@ $(document).ready(function () {
             addRefImageToSlot('prototype', redesignUrl, { asset_kind: 'prototype' });
             renderIntentSlots();
         } else {
+            var hasProtoDeepLink = urlParams && (urlParams.get('prototype_asset_id') || '').trim();
+            var hasVendorAssetDeepLink = urlParams && (urlParams.get('vendor_asset_id') || '').trim();
             applyPrototypeAssetIdFromUrl();
-            scheduleStripDesignDeepLinkFromUrl();
+            applyVendorAssetIdFromUrl();
+            if (!hasProtoDeepLink && !hasVendorAssetDeepLink) {
+                scheduleStripDesignDeepLinkFromUrl();
+            }
             if (!window.__matchdoGuideSessionPageshowWired) {
                 window.__matchdoGuideSessionPageshowWired = true;
                 window.addEventListener('pageshow', function (ev) {
