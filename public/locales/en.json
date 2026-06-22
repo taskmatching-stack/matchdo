@@ -892,6 +892,7 @@
   "customProduct.deleteDesign": "Delete",
   "customProduct.deleteDesignConfirm": "Delete this design permanently? This cannot be undone.",
   "customProduct.deleteDesignFailed": "Could not delete. Please try again.",
+  "customProduct.galleryLoadingMore": "Loading more…",
   "customProduct.thisGeneration": "This generation",
   "customProduct.noTitle": "(No title)",
   "customProduct.patternExtractTab": "Pattern extract",

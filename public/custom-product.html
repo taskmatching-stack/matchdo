@@ -578,6 +578,7 @@
         #custom-product .past-gallery-inner .past-item { aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; display: block; }
         #custom-product .past-gallery .past-item img,
         #custom-product .past-gallery-inner .past-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        #custom-product .past-gallery-inner .past-item img.past-item-img-error { object-fit: none; background: #f1f5f9; }
         #custom-product .past-gallery-inner .past-item-wrap { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; position: relative; }
         #custom-product .past-item-delete {
             position: absolute;
@@ -597,6 +598,7 @@
         }
         #custom-product .past-item-delete:hover { background: rgba(185, 28, 28, 0.92); }
         #custom-product .past-gallery-inner .past-item-caption { font-size: 0.7rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+        #custom-product .past-gallery-sentinel { width: 100%; min-height: 1px; }
         /* 歷史圖放大 modal：與首頁媒體牆 lightbox 一致（圓角、陰影、疊加詳情、footer 按鈕）；避免開啟時版面被撐開或忽大忽小 */
         html { scrollbar-gutter: stable; }
         body.modal-open { overflow: hidden; padding-right: 0 !important; margin-right: 0 !important; }
@@ -1592,7 +1594,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=4" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=98" defer></script>
+    <script src="js/custom-product.js?v=100" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

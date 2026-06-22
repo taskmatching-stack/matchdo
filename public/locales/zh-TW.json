@@ -933,6 +933,7 @@
   "customProduct.deleteDesign": "刪除",
   "customProduct.deleteDesignConfirm": "確定要刪除此設計？刪除後無法復原。",
   "customProduct.deleteDesignFailed": "刪除失敗，請稍後再試",
+  "customProduct.galleryLoadingMore": "載入更多…",
   "customProduct.thisGeneration": "本次生成",
   "customProduct.noTitle": "（無標題）",
   "customProduct.patternExtractTab": "圖樣提取",

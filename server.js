@@ -10655,19 +10655,24 @@ app.get('/api/custom-products', async (req, res) => {
         const ownerEmail = user.email || '';
 
         if (galleryMode) {
-            const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 40));
+            const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 25));
+            const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
+            const rangeEnd = offsetN + limitN;
             const { data, error } = await supabase
                 .from('custom_products')
                 .select('id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at')
                 .eq('owner_id', user.id)
                 .not('ai_generated_image_url', 'is', null)
+                .neq('ai_generated_image_url', '')
                 .order('created_at', { ascending: false })
-                .limit(limitN);
+                .range(offsetN, rangeEnd);
             if (error) {
                 console.error('查詢客製產品 gallery 失敗:', error);
                 return res.status(500).json({ error: error.message });
             }
-            const list = data || [];
+            const rawList = data || [];
+            const hasMore = rawList.length > limitN;
+            const list = hasMore ? rawList.slice(0, limitN) : rawList;
             const productsWithOwner = list.map(function (p) {
                 return customProductLineage.stripInternalCustomProductFields({
                     ...p,
@@ -10675,7 +10680,14 @@ app.get('/api/custom-products', async (req, res) => {
                     owner_display: ownerDisplay
                 });
             });
-            return res.json({ success: true, hasItems: productsWithOwner.length > 0, count: productsWithOwner.length, products: productsWithOwner });
+            return res.json({
+                success: true,
+                hasItems: productsWithOwner.length > 0 || offsetN > 0,
+                count: productsWithOwner.length,
+                offset: offsetN,
+                hasMore: hasMore,
+                products: productsWithOwner
+            });
         }
 
         const selectFields = summaryOnly ? 'id' : '*';

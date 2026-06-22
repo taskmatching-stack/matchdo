@@ -3461,7 +3461,7 @@ $(document).ready(function () {
                 previewHtml += buildFluxStaffDebugPreviewHtml(result.debugFlux);
                 $('#generatedImagePreview').html(previewHtml);
                 showGeneratedResult();
-                try { refreshPastGeneratedGallery(); } catch (e) { console.warn(e); }
+                invalidateGalleryCache();
                 document.getElementById('generatedImagePreviewWrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else if (response.status === 402) {
                 $('#generatedImagePreview').html(`
@@ -3744,7 +3744,10 @@ $(document).ready(function () {
                 .then(function (r) {
                     if (r.ok && r.data && r.data.success) {
                         alert('已儲存至「我的訂製產品」。');
-                        try { refreshPastGeneratedGallery(); } catch (e) { console.warn(e); }
+                        invalidateGalleryCache();
+                        setTimeout(function () {
+                            try { refreshPastGeneratedGallery(undefined, { skipIfSame: true }); } catch (e) { console.warn(e); }
+                        }, 1200);
                     } else {
                         alert(r.data && r.data.error ? r.data.error : '儲存失敗');
                     }
@@ -3802,12 +3805,241 @@ $(document).ready(function () {
         cb(null);
     }
 
-    // 右側：數位資產 gallery（輕量 API + sessionStorage 快取）
+    // 右側：數位資產 gallery（分頁 25 張 + 往下滑載入更多）
     var GALLERY_CACHE_KEY = 'customProductGalleryCache';
     var GALLERY_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+    var GALLERY_PAGE_SIZE = 25;
+    var galleryPaging = { offset: 0, hasMore: false, loading: false, observer: null, observeTimer: null, fetchGen: 0 };
+    var galleryHistoryBootstrapped = false;
 
     function invalidateGalleryCache() {
         try { sessionStorage.removeItem(GALLERY_CACHE_KEY); } catch (e) {}
+    }
+
+    function normalizeGalleryImageUrl(url) {
+        if (!url || typeof url !== 'string') return '';
+        url = url.trim();
+        if (!url) return '';
+        if (/^https?:\/\//i.test(url) || url.indexOf('data:') === 0) return url;
+        if (url.indexOf('//') === 0) return (window.location.protocol || 'https:') + url;
+        var origin = window.location.origin || '';
+        return origin + (url.charAt(0) === '/' ? '' : '/') + url;
+    }
+
+    function galleryProductImageUrl(p) {
+        return normalizeGalleryImageUrl((p && (p.ai_generated_image_url || p.reference_image_url)) || '');
+    }
+
+    function getGalleryTitle(ownerDisplay) {
+        return (ownerDisplay || t('customProduct.thisAccount')) + t('customProduct.digitalAssetsSuffix');
+    }
+
+    function buildPastItemWrapFromProduct(p, eagerLoad) {
+        var url = galleryProductImageUrl(p);
+        if (!url) return null;
+        var promptText = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        var seedStr = (p.analysis_json && p.analysis_json.generation_seed != null) ? String(p.analysis_json.generation_seed) : (p.generation_seed != null ? String(p.generation_seed) : '');
+        var ownerDisplay = (p.owner_display != null && String(p.owner_display).trim()) ? String(p.owner_display).trim() : (p.owner_email || '');
+        var tip = promptText.substring(0, 120) + (seedStr ? ' · Seed: ' + seedStr : '');
+        var showOnHomepage = p.show_on_homepage === true;
+        var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
+        var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
+        var refSourcesJson = (p.reference_sources && Array.isArray(p.reference_sources) && p.reference_sources.length) ? JSON.stringify(p.reference_sources) : '';
+        var $cell = $('<div class="past-item-wrap"></div>').attr({
+            'data-image-url': url,
+            'data-prompt': promptText,
+            'data-seed': seedStr,
+            'data-owner-display': ownerDisplay,
+            'data-product-id': p.id || '',
+            'data-show-on-homepage': showOnHomepage ? '1' : '0',
+            'data-category-key': catKey,
+            'data-subcategory-key': subKey,
+            'data-reference-sources': refSourcesJson
+        });
+        var $img = $('<img>').attr({ src: url, alt: '' });
+        if (eagerLoad) {
+            $img.attr('loading', 'eager');
+        } else {
+            $img.attr({ loading: 'lazy', decoding: 'async' });
+        }
+        $img.on('error', function () {
+            $(this).addClass('past-item-img-error');
+        });
+        $cell.append($('<a class="past-item" href="#" role="button">').attr('title', tip).append($img));
+        var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
+        $cell.append($('<p class="past-item-caption text-muted small mb-0">').attr('title', tip).text(caption));
+        attachPastItemDeleteBtn($cell, p.id || '');
+        return $cell;
+    }
+
+    function appendGalleryProducts(grid, products, eagerFirstPage) {
+        var eagerCount = eagerFirstPage ? Math.min(products.length, GALLERY_PAGE_SIZE) : 0;
+        (products || []).forEach(function (p, idx) {
+            var $cell = buildPastItemWrapFromProduct(p, idx < eagerCount);
+            if ($cell) grid.append($cell);
+        });
+    }
+
+    function buildPastItemWrapFromSession(item) {
+        var dataUrl = item.href || item;
+        var prompt = (item.prompt != null && item.prompt !== undefined) ? String(item.prompt) : '';
+        var seed = (item.seed != null && item.seed !== undefined) ? String(item.seed) : '';
+        var url = (dataUrl + '').replace(/"/g, '&quot;');
+        var tip = (prompt ? String(prompt).replace(/"/g, '&quot;').replace(/</g, '&lt;') : '') || (t('customProduct.thisGeneration') + '（點擊放大）');
+        if (seed) tip += ' · Seed: ' + seed;
+        var $cell = $('<div class="past-item-wrap"></div>').attr({ 'data-image-url': url, 'data-prompt': prompt, 'data-seed': seed !== '' ? seed : '', 'data-owner-display': '' });
+        $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
+        var caption = (prompt ? prompt.substring(0, 120) : t('customProduct.thisGeneration')) + (seed ? ' · Seed: ' + seed : '');
+        $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
+        return $cell;
+    }
+
+    function ensurePastGalleryShell(wrap, ownerDisplay) {
+        if (!wrap.find('.past-gallery-inner').length) {
+            wrap.html(
+                '<p class="past-gallery-title"></p>' +
+                '<div class="past-gallery-inner"></div>' +
+                '<div id="pastGalleryScrollSentinel" class="past-gallery-sentinel" aria-hidden="true"></div>'
+            );
+        }
+        wrap.find('.past-gallery-title').text(getGalleryTitle(ownerDisplay));
+        return wrap.find('.past-gallery-inner');
+    }
+
+    function setGallerySentinelState(state) {
+        var $s = $('#pastGalleryScrollSentinel');
+        if (!$s.length) return;
+        if (state === 'hidden') {
+            $s.addClass('d-none').removeClass('is-loading').empty();
+        } else if (state === 'loading') {
+            $s.removeClass('d-none').addClass('is-loading').html(
+                '<p class="text-muted small mb-0 text-center py-2"><i class="fas fa-spinner fa-spin me-1"></i>' +
+                (t('customProduct.galleryLoadingMore') || '載入更多…') + '</p>'
+            );
+        } else {
+            $s.removeClass('d-none is-loading').empty();
+        }
+    }
+
+    function teardownGalleryScrollObserver() {
+        if (galleryPaging.observeTimer) {
+            clearTimeout(galleryPaging.observeTimer);
+            galleryPaging.observeTimer = null;
+        }
+        if (galleryPaging.observer) {
+            galleryPaging.observer.disconnect();
+            galleryPaging.observer = null;
+        }
+    }
+
+    function ensureGalleryScrollObserver() {
+        if (galleryPaging.observer || typeof IntersectionObserver === 'undefined') return;
+        var sentinel = document.getElementById('pastGalleryScrollSentinel');
+        if (!sentinel) return;
+        galleryPaging.observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) loadMoreGalleryProducts();
+            });
+        }, { root: null, rootMargin: '120px', threshold: 0 });
+        galleryPaging.observer.observe(sentinel);
+    }
+
+    function syncGalleryPagingAfterFetch(hasMore, loadedCount) {
+        galleryPaging.hasMore = !!hasMore;
+        galleryPaging.offset = loadedCount;
+        if (galleryPaging.hasMore) {
+            setGallerySentinelState('idle');
+            teardownGalleryScrollObserver();
+            galleryPaging.observeTimer = setTimeout(function () {
+                galleryPaging.observeTimer = null;
+                if (galleryPaging.hasMore && !galleryPaging.loading) ensureGalleryScrollObserver();
+            }, 500);
+        } else {
+            setGallerySentinelState('hidden');
+            teardownGalleryScrollObserver();
+        }
+    }
+
+    function fetchGalleryPage(token, offset, limit) {
+        var q = '?gallery=1&limit=' + limit + '&offset=' + (offset || 0);
+        return fetch('/api/custom-products' + q, { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function (res) {
+                return res.text().then(function (text) {
+                    return { ok: res.ok, status: res.status, text: text };
+                });
+            })
+            .then(function (r) {
+                if (!r.ok) {
+                    return { ok: false, status: r.status, products: [], hasMore: false };
+                }
+                var data = {};
+                try {
+                    data = (r.text && r.text.trim() && r.text.trim().startsWith('{')) ? JSON.parse(r.text) : {};
+                } catch (e) {
+                    return { ok: false, products: [], hasMore: false };
+                }
+                return {
+                    ok: true,
+                    products: Array.isArray(data.products) ? data.products : [],
+                    hasMore: !!data.hasMore
+                };
+            })
+            .catch(function () {
+                return { ok: false, products: [], hasMore: false };
+            });
+    }
+
+    function cacheGalleryFirstPage(products, ownerDisplay, hasMore) {
+        try {
+            if (!products || !products.length) return;
+            var toCache = products.map(function (p) {
+                return {
+                    id: p.id, ai_generated_image_url: p.ai_generated_image_url, reference_image_url: p.reference_image_url,
+                    generation_prompt: p.generation_prompt, generation_seed: p.generation_seed, title: p.title,
+                    owner_display: p.owner_display, owner_email: p.owner_email, show_on_homepage: p.show_on_homepage,
+                    category: p.category, subcategory_key: p.subcategory_key, analysis_json: p.analysis_json,
+                    reference_sources: p.reference_sources
+                };
+            });
+            sessionStorage.setItem(GALLERY_CACHE_KEY, JSON.stringify({
+                products: toCache,
+                ownerDisplay: ownerDisplay || '',
+                hasMore: !!hasMore,
+                ts: Date.now()
+            }));
+        } catch (e) {}
+    }
+
+    function loadMoreGalleryProducts(optionalToken) {
+        if (galleryPaging.loading || !galleryPaging.hasMore) return;
+        galleryPaging.loading = true;
+        teardownGalleryScrollObserver();
+        setGallerySentinelState('loading');
+        var myGen = galleryPaging.fetchGen;
+        function doFetch(token) {
+            if (!token) {
+                galleryPaging.loading = false;
+                setGallerySentinelState('idle');
+                syncGalleryPagingAfterFetch(galleryPaging.hasMore, galleryPaging.offset);
+                return;
+            }
+            fetchGalleryPage(token, galleryPaging.offset, GALLERY_PAGE_SIZE).then(function (result) {
+                if (myGen !== galleryPaging.fetchGen) return;
+                galleryPaging.loading = false;
+                if (!result.ok || !result.products.length) {
+                    galleryPaging.hasMore = false;
+                    setGallerySentinelState('hidden');
+                    teardownGalleryScrollObserver();
+                    return;
+                }
+                var grid = $('#pastGeneratedGallery .past-gallery-inner');
+                appendGalleryProducts(grid, result.products, false);
+                galleryPaging.offset += result.products.length;
+                syncGalleryPagingAfterFetch(result.hasMore, galleryPaging.offset);
+            });
+        }
+        if (optionalToken) doFetch(optionalToken);
+        else getAuthToken(doFetch);
     }
 
     function deleteCustomProductById(productId, cb) {
@@ -3831,6 +4063,7 @@ $(document).ready(function () {
             }).then(function (r) {
                 if (r.ok && r.data && r.data.success) {
                     invalidateGalleryCache();
+                    if (galleryPaging.offset > 0) galleryPaging.offset -= 1;
                     if (typeof cb === 'function') cb(true);
                 } else {
                     alert((r.data && r.data.error) || t('customProduct.deleteDesignFailed') || '刪除失敗');
@@ -3863,15 +4096,20 @@ $(document).ready(function () {
         $cell.append($del);
     }
 
-    function refreshPastGeneratedGallery(optionalToken) {
+    function refreshPastGeneratedGallery(optionalToken, options) {
+        options = options || {};
         var wrap = $('#pastGeneratedGallery');
         if (!wrap.length) return;
+        var myGen = ++galleryPaging.fetchGen;
+        galleryPaging.offset = 0;
+        galleryPaging.hasMore = false;
+        galleryPaging.loading = false;
+        teardownGalleryScrollObserver();
         function doFetch(token) {
             var galleryOwnerDisplay = '';
-            function getGalleryTitle() { return (galleryOwnerDisplay || t('customProduct.thisAccount')) + t('customProduct.digitalAssetsSuffix'); }
             if (!token) {
                 wrap.html(
-                    '<p class="past-gallery-title">' + getGalleryTitle() + '</p><div class="past-gallery-inner">' +
+                    '<p class="past-gallery-title">' + getGalleryTitle('') + '</p><div class="past-gallery-inner">' +
                     '<p class="text-muted small mb-0">' + t('customProduct.loginToViewHistory') + '</p>' +
                     '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
                 );
@@ -3886,9 +4124,9 @@ $(document).ready(function () {
                 if (href) sessionThumbs.push({ href: href, prompt: prompt, seed: seed });
             });
 
-            function renderEmpty(dbCount) {
+            function renderEmpty() {
                 wrap.html(
-                    '<p class="past-gallery-title">' + getGalleryTitle() + '</p><div class="past-gallery-inner">' +
+                    '<p class="past-gallery-title">' + getGalleryTitle(galleryOwnerDisplay) + '</p><div class="past-gallery-inner">' +
                     '<p class="text-muted small mb-0">' + t('customProduct.noHistoryYet') + '</p>' +
                     '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
                 );
@@ -3896,111 +4134,87 @@ $(document).ready(function () {
             }
             function renderLoadError() {
                 wrap.html(
-                    '<p class="past-gallery-title">' + getGalleryTitle() + '</p><div class="past-gallery-inner">' +
+                    '<p class="past-gallery-title">' + getGalleryTitle(galleryOwnerDisplay) + '</p><div class="past-gallery-inner">' +
                     '<p class="text-warning small mb-0">' + t('customProduct.loadHistoryError') + '</p>' +
                     '<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>' + t('customProduct.reload') + '</button></div>'
                 );
                 $('#generatedImagePlaceholder').hide();
             }
-            function renderLoading() {
-                wrap.html('<p class="past-gallery-title">' + getGalleryTitle() + '</p><div class="past-gallery-inner"><p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p></div>');
-                $('#generatedImagePlaceholder').hide();
+            function galleryIdsMatch(products) {
+                if (!options.skipIfSame) return false;
+                var existing = [];
+                wrap.find('.past-item-wrap[data-product-id]').each(function () {
+                    var id = $(this).attr('data-product-id');
+                    if (id) existing.push(String(id));
+                });
+                if (!existing.length) return false;
+                var incoming = (products || []).map(function (p) { return String(p.id); });
+                if (existing.length !== incoming.length) return false;
+                for (var i = 0; i < existing.length; i++) {
+                    if (existing[i] !== incoming[i]) return false;
+                }
+                return true;
             }
-            function renderGallery(products) {
+            function renderGalleryPage(products, hasMore) {
                 if (products && products.length > 0 && products[0].owner_display) {
                     galleryOwnerDisplay = String(products[0].owner_display).trim();
                 }
-                wrap.html('<p class="past-gallery-title">' + getGalleryTitle() + '</p><div class="past-gallery-inner"></div>');
-                var grid = wrap.find('.past-gallery-inner');
+                if (galleryIdsMatch(products)) {
+                    galleryPaging.offset = (products || []).length;
+                    syncGalleryPagingAfterFetch(hasMore, galleryPaging.offset);
+                    return;
+                }
+                var grid = ensurePastGalleryShell(wrap, galleryOwnerDisplay);
+                grid.empty();
                 sessionThumbs.forEach(function (item) {
-                    var dataUrl = item.href || item;
-                    var prompt = (item.prompt != null && item.prompt !== undefined) ? String(item.prompt) : '';
-                    var seed = (item.seed != null && item.seed !== undefined) ? String(item.seed) : '';
-                    var url = (dataUrl + '').replace(/"/g, '&quot;');
-                    var tip = (prompt ? String(prompt).replace(/"/g, '&quot;').replace(/</g, '&lt;') : '') || (t('customProduct.thisGeneration') + '（點擊放大）');
-                    if (seed) tip += ' · Seed: ' + seed;
-                    var $cell = $('<div class="past-item-wrap"></div>').attr({ 'data-image-url': url, 'data-prompt': prompt, 'data-seed': seed !== '' ? seed : '', 'data-owner-display': '' });
-                    $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
-                    var caption = (prompt ? prompt.substring(0, 120) : t('customProduct.thisGeneration')) + (seed ? ' · Seed: ' + seed : '');
-                    $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
-                    grid.append($cell);
+                    grid.append(buildPastItemWrapFromSession(item));
                 });
-                (products || []).forEach(function (p) {
-                    var url = String(p.ai_generated_image_url || p.reference_image_url || '').replace(/"/g, '&quot;');
-                    var promptText = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-                    var seedStr = (p.analysis_json && p.analysis_json.generation_seed != null) ? String(p.analysis_json.generation_seed) : (p.generation_seed != null ? String(p.generation_seed) : '');
-                    var ownerDisplay = (p.owner_display != null && String(p.owner_display).trim()) ? String(p.owner_display).trim() : (p.owner_email || '');
-                    var tip = promptText.substring(0, 120) + (seedStr ? ' · Seed: ' + seedStr : '');
-                    var showOnHomepage = p.show_on_homepage === true;
-                    var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
-                    var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
-                    var refSourcesJson = (p.reference_sources && Array.isArray(p.reference_sources) && p.reference_sources.length) ? JSON.stringify(p.reference_sources) : '';
-                    var $cell = $('<div class="past-item-wrap"></div>').attr({
-                        'data-image-url': url,
-                        'data-prompt': promptText,
-                        'data-seed': seedStr,
-                        'data-owner-display': ownerDisplay,
-                        'data-product-id': p.id || '',
-                        'data-show-on-homepage': showOnHomepage ? '1' : '0',
-                        'data-category-key': catKey,
-                        'data-subcategory-key': subKey,
-                        'data-reference-sources': refSourcesJson
-                    });
-                    $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt="" loading="lazy" decoding="async"></a>'));
-                    var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
-                    $cell.append($('<p class="past-item-caption text-muted small mb-0" title="' + tip + '">').text(caption));
-                    attachPastItemDeleteBtn($cell, p.id || '');
-                    grid.append($cell);
-                });
+                appendGalleryProducts(grid, products || [], true);
                 if (sessionThumbs.length === 0 && (!products || products.length === 0)) {
                     grid.append($('<p class="text-muted small mb-0">').text(t('customProduct.noHistoryYet')));
                     grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(t('customProduct.reload')));
+                    setGallerySentinelState('hidden');
+                } else {
+                    galleryPaging.offset = (products || []).length;
+                    syncGalleryPagingAfterFetch(hasMore, galleryPaging.offset);
+                    cacheGalleryFirstPage(products || [], galleryOwnerDisplay, hasMore);
                 }
                 $('#generatedImagePlaceholder').hide();
-                try {
-                    if (products && products.length > 0) {
-                        var toCache = products.slice(0, 30).map(function (p) {
-                            return { id: p.id, ai_generated_image_url: p.ai_generated_image_url, reference_image_url: p.reference_image_url, generation_prompt: p.generation_prompt, generation_seed: p.generation_seed, title: p.title, owner_display: p.owner_display, owner_email: p.owner_email, show_on_homepage: p.show_on_homepage, category: p.category, subcategory_key: p.subcategory_key, analysis_json: p.analysis_json, reference_sources: p.reference_sources };
-                        });
-                        sessionStorage.setItem('customProductGalleryCache', JSON.stringify({ products: toCache, ownerDisplay: galleryOwnerDisplay, ts: Date.now() }));
-                    }
-                } catch (e) {}
             }
 
-            var headers = { 'Authorization': 'Bearer ' + token };
-            fetch('/api/custom-products?gallery=1&limit=40', { headers: headers })
-                .then(function (res) { return res.text().then(function (text) { return { ok: res.ok, status: res.status, text: text }; }); })
-                .then(function (r) {
-                    if (!r.ok && r.status === 401) {
-                        wrap.html('<p class="past-gallery-title">' + getGalleryTitle() + '</p><div class="past-gallery-inner"><p class="text-muted small mb-0">請重新登入後查看歷史生成的圖</p></div>');
-                        $('#generatedImagePlaceholder').hide();
-                        return;
-                    }
-                    var data = {};
-                    try {
-                        data = (r.text && r.text.trim() && r.text.trim().startsWith('{')) ? JSON.parse(r.text) : {};
-                    } catch (e) {
-                        renderLoadError();
-                        return;
-                    }
-                    var list = Array.isArray(data.products) ? data.products : [];
-                    if (list.length > 0 && list[0].owner_display) {
-                        galleryOwnerDisplay = String(list[0].owner_display).trim();
-                    }
-                    if (list.length === 0 && sessionThumbs.length === 0) {
-                        renderEmpty();
-                        return;
-                    }
-                    renderGallery(list);
-                })
-                .catch(function (err) {
-                    console.warn('refreshPastGeneratedGallery gallery fetch:', err);
+            fetchGalleryPage(token, 0, GALLERY_PAGE_SIZE).then(function (result) {
+                if (myGen !== galleryPaging.fetchGen) return;
+                if (!result.ok && result.status === 401) {
+                    wrap.html('<p class="past-gallery-title">' + getGalleryTitle('') + '</p><div class="past-gallery-inner"><p class="text-muted small mb-0">請重新登入後查看歷史生成的圖</p></div>');
+                    $('#generatedImagePlaceholder').hide();
+                    return;
+                }
+                if (!result.ok) {
                     if (sessionThumbs.length > 0) {
-                        renderGallery([]);
+                        renderGalleryPage([], false);
                     } else {
                         renderLoadError();
                     }
-                });
+                    return;
+                }
+                var list = result.products || [];
+                if (list.length > 0 && list[0].owner_display) {
+                    galleryOwnerDisplay = String(list[0].owner_display).trim();
+                }
+                if (list.length === 0 && sessionThumbs.length === 0) {
+                    renderEmpty();
+                    return;
+                }
+                renderGalleryPage(list, result.hasMore);
+            }).catch(function (err) {
+                if (myGen !== galleryPaging.fetchGen) return;
+                console.warn('refreshPastGeneratedGallery gallery fetch:', err);
+                if (sessionThumbs.length > 0) {
+                    renderGalleryPage([], false);
+                } else {
+                    renderLoadError();
+                }
+            });
         }
         if (optionalToken != null && optionalToken !== '') {
             doFetch(optionalToken);
@@ -4011,9 +4225,10 @@ $(document).ready(function () {
 
     // 點擊「重新載入」時再抓一次歷史
     $(document).on('click', '.js-reload-history', function () {
+        invalidateGalleryCache();
         var wrap = $('#pastGeneratedGallery');
         if (wrap.length) wrap.find('.past-gallery-inner').html('<p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>載入中…</p>');
-        refreshPastGeneratedGallery();
+        refreshPastGeneratedGallery(undefined, { force: true });
     });
 
     $(document).on('click', '.js-preview-enlarge', function (e) {
@@ -4211,8 +4426,7 @@ $(document).ready(function () {
             $cell.append($('<p class="past-item-caption text-muted small mb-0">').text(caption));
             var inner = wrap.find('.past-gallery-inner');
             if (!inner.length) {
-                wrap.html('<p class="past-gallery-title">' + ((ownerDisplay && ownerDisplay.trim()) ? ownerDisplay.trim() : t('customProduct.thisAccount')) + t('customProduct.digitalAssetsSuffix') + '</p><div class="past-gallery-inner"></div>');
-                inner = wrap.find('.past-gallery-inner');
+                inner = ensurePastGalleryShell(wrap, '');
             }
             inner.find('p.text-muted').remove();
             inner.prepend($cell);
@@ -4225,47 +4439,34 @@ $(document).ready(function () {
     // 從 sessionStorage 快取渲染縮圖（切回頁面時先顯示，再背景更新）
     function renderGalleryFromCache(wrap, cached) {
         if (!wrap || !wrap.length || !cached || !cached.products) return;
-        var products = cached.products;
+        var products = (cached.products || []).filter(function (p) { return !!galleryProductImageUrl(p); });
         var ownerDisplay = (cached.ownerDisplay && String(cached.ownerDisplay).trim()) ? String(cached.ownerDisplay).trim() : '';
-        var title = (ownerDisplay || t('customProduct.thisAccount')) + t('customProduct.digitalAssetsSuffix');
-        wrap.html('<p class="past-gallery-title">' + title + '</p><div class="past-gallery-inner"></div>');
-        var grid = wrap.find('.past-gallery-inner');
-        (products || []).forEach(function (p) {
-            var url = String(p.ai_generated_image_url || p.reference_image_url || '').replace(/"/g, '&quot;');
-            var promptText = String((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-            var seedStr = (p.analysis_json && p.analysis_json.generation_seed != null) ? String(p.analysis_json.generation_seed) : (p.generation_seed != null ? String(p.generation_seed) : '');
-            var ownerD = (p.owner_display != null && String(p.owner_display).trim()) ? String(p.owner_display).trim() : (p.owner_email || '');
-            var tip = promptText.substring(0, 120) + (seedStr ? ' · Seed: ' + seedStr : '');
-            var showOnHomepage = p.show_on_homepage === true;
-            var catKey = (p.category != null && p.category !== '') ? String(p.category) : ((p.analysis_json && p.analysis_json.category) != null ? String(p.analysis_json.category) : '');
-            var subKey = (p.subcategory_key != null && p.subcategory_key !== '') ? String(p.subcategory_key) : ((p.analysis_json && p.analysis_json.subcategory_key) != null ? String(p.analysis_json.subcategory_key) : '');
-            var refSourcesJson = (p.reference_sources && Array.isArray(p.reference_sources) && p.reference_sources.length) ? JSON.stringify(p.reference_sources) : '';
-            var $cell = $('<div class="past-item-wrap"></div>').attr({
-                'data-image-url': url,
-                'data-prompt': promptText,
-                'data-seed': seedStr,
-                'data-owner-display': ownerD,
-                'data-product-id': p.id || '',
-                'data-show-on-homepage': showOnHomepage ? '1' : '0',
-                'data-category-key': catKey,
-                'data-subcategory-key': subKey,
-                'data-reference-sources': refSourcesJson
-            });
-            $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt="" loading="lazy" decoding="async"></a>'));
-            var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
-            $cell.append($('<p class="past-item-caption text-muted small mb-0" title="' + tip + '">').text(caption));
-            attachPastItemDeleteBtn($cell, p.id || '');
-            grid.append($cell);
-        });
+        var grid = ensurePastGalleryShell(wrap, ownerDisplay);
+        grid.empty();
+        appendGalleryProducts(grid, products, true);
+        galleryPaging.offset = products.length;
+        galleryPaging.hasMore = !!cached.hasMore;
+        galleryPaging.loading = false;
+        if (galleryPaging.hasMore) {
+            setGallerySentinelState('idle');
+            teardownGalleryScrollObserver();
+            galleryPaging.observeTimer = setTimeout(function () {
+                galleryPaging.observeTimer = null;
+                if (galleryPaging.hasMore && !galleryPaging.loading) ensureGalleryScrollObserver();
+            }, 500);
+        } else {
+            setGallerySentinelState('hidden');
+        }
         if (products.length === 0) {
             grid.append($('<p class="text-muted small mb-0">').text(t('customProduct.noHistoryYet')));
-            grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-spinner fa-spin me-1"></i>').text(t('customProduct.reload')));
+            grid.append($('<button type="button" class="btn btn-sm btn-outline-secondary mt-2 js-reload-history"><i class="fas fa-sync-alt me-1"></i>').text(t('customProduct.reload')));
         }
         $('#generatedImagePlaceholder').hide();
     }
 
     // 有 token 才載入歷史（token 可來自 Auth 回調的 session.access_token，避免搶跑）
-    function tryLoadHistoryWhenAuthReady(optionalToken) {
+    function tryLoadHistoryWhenAuthReady(optionalToken, forceReload) {
+        if (galleryHistoryBootstrapped && !forceReload) return;
         function run(token) {
             if (!token) {
                 $('#pastGeneratedGallery').html(
@@ -4276,6 +4477,7 @@ $(document).ready(function () {
                 $('#generatedImagePlaceholder').hide();
                 return;
             }
+            if (!forceReload) galleryHistoryBootstrapped = true;
             var wrap = $('#pastGeneratedGallery');
             var cached = null;
             try {
@@ -4285,13 +4487,15 @@ $(document).ready(function () {
                     if (parsed && parsed.ts && (Date.now() - parsed.ts) < GALLERY_CACHE_MAX_AGE_MS) cached = parsed;
                 }
             } catch (e) {}
-            if (cached) {
+            if (cached && !forceReload) {
                 renderGalleryFromCache(wrap, cached);
-            } else {
+                return;
+            }
+            if (!cached) {
                 wrap.html('<p class="past-gallery-title">' + t('customProduct.thisAccount') + t('customProduct.digitalAssetsSuffix') + '</p><div class="past-gallery-inner"><p class="text-muted small mb-0"><i class="fas fa-spinner fa-spin me-1"></i>' + t('home.loading') + '</p></div>');
             }
             $('#generatedImagePlaceholder').hide();
-            refreshPastGeneratedGallery(token);
+            refreshPastGeneratedGallery(token, forceReload ? {} : { skipIfSame: false });
         }
         if (optionalToken) {
             run(optionalToken);
@@ -4309,8 +4513,8 @@ $(document).ready(function () {
     var supabaseAuth = (window.__supabaseClient || window.supabaseClient || {}).auth;
     if (supabaseAuth && typeof supabaseAuth.onAuthStateChange === 'function') {
         supabaseAuth.onAuthStateChange(function (event, session) {
-            if (event === 'TOKEN_REFRESHED') return; // 切回分頁時只刷新 token，不重載歷史
-            if (event === 'INITIAL_SESSION' && historyLoadedOnce) return; // 已載入過則不再因 INITIAL_SESSION 重跑
+            if (event === 'TOKEN_REFRESHED') return;
+            if (event === 'INITIAL_SESSION' && historyLoadedOnce) return;
             if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
                 historyLoadedOnce = true;
                 if (session && session.access_token) {
@@ -4322,7 +4526,7 @@ $(document).ready(function () {
         });
     }
     getAuthToken(function (token) {
-        if (token) {
+        if (token && !galleryHistoryBootstrapped) {
             historyLoadedOnce = true;
             tryLoadHistoryWhenAuthReady(token);
         }
@@ -4472,7 +4676,7 @@ $(document).ready(function () {
                 $empty.removeClass('d-none').text(t('customProduct.loginToSelectAssets'));
                 return;
             }
-            fetch('/api/custom-products?gallery=1&limit=40', { headers: { 'Authorization': 'Bearer ' + token } })
+            fetch('/api/custom-products?gallery=1&limit=40&offset=0', { headers: { 'Authorization': 'Bearer ' + token } })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     $loading.addClass('d-none');
