@@ -241,6 +241,7 @@
                                     <div class="col-6"><label class="form-label small mb-1">Instagram</label><input type="url" class="form-control form-control-sm" id="soc-instagram"></div>
                                     <div class="col-6"><label class="form-label small mb-1">Threads</label><input type="url" class="form-control form-control-sm" id="soc-threads"></div>
                                     <div class="col-6"><label class="form-label small mb-1">X</label><input type="url" class="form-control form-control-sm" id="soc-twitter"></div>
+                                    <div class="col-6"><label class="form-label small mb-1">YouTube</label><input type="url" class="form-control form-control-sm" id="soc-youtube" placeholder="https://youtube.com/@…"></div>
                                     <div class="col-6"><label class="form-label small mb-1">LINE</label><input type="text" class="form-control form-control-sm" id="soc-line"></div>
                                     <div class="col-6"><label class="form-label small mb-1">官網</label><input type="url" class="form-control form-control-sm" id="soc-url"></div>
                                 </div>
@@ -379,6 +380,7 @@
                 var socMap = {
                     facebook: 'soc-facebook', instagram: 'soc-instagram',
                     threads: 'soc-threads',   twitter: 'soc-twitter',
+                    youtube: 'soc-youtube',
                     line_id: 'soc-line',      url: 'soc-url'
                 };
                 Object.keys(socMap).forEach(function(k) {
@@ -481,6 +483,7 @@
                             instagram: document.getElementById('soc-instagram').value.trim(),
                             threads:   document.getElementById('soc-threads').value.trim(),
                             twitter:   document.getElementById('soc-twitter').value.trim(),
+                            youtube:   document.getElementById('soc-youtube').value.trim(),
                             line_id:   document.getElementById('soc-line').value.trim(),
                             url:       document.getElementById('soc-url').value.trim()
                         };
