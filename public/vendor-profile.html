@@ -716,7 +716,7 @@
                         vendorAssetsActiveGroupId = '';
                         vendorProfileOffset = 0;
                         vendorProfileListItems = items;
-                        fetch('/api/manufacturers/' + encodeURIComponent(mfrId) + '/catalog-groups')
+                        fetch('/api/manufacturers/' + encodeURIComponent(mfrId) + '/catalog-groups' + (profileContentLang() === 'en' ? '?lang=en' : ''))
                             .then(function (r) { return r.ok ? r.json() : { flat: [] }; })
                             .then(function (cg) {
                                 vendorAssetsCatalogFlat = (cg && cg.flat) ? cg.flat : [];

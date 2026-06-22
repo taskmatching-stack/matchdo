@@ -266,9 +266,11 @@
                                 </div>
                                 <div class="d-flex flex-wrap gap-2 align-items-center">
                                     <button type="button" class="btn btn-sm btn-primary" id="btnSaveMfrEn">儲存英文</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateMfrEn">AI 生成英文</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateMfrEn">AI 生成簡介英文</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateAllMfrEn">AI 生成全部英文</button>
                                     <span id="mfrEnMsg" class="small text-muted"></span>
                                 </div>
+                                <p class="text-muted small mb-0 mt-1">「全部」含廠商簡介、素材庫、展示案例、自訂分類（僅補尚未有英文的項目，除非覆寫）。</p>
                                 <p class="form-text small text-muted mb-0 mt-2" id="mfrEnMeta"></p>
                                 <a href="#" class="small" id="btn-preview-en-page" target="_blank" rel="noopener noreferrer">預覽英文公開頁 ↗</a>
                             </div>
@@ -624,51 +626,80 @@
             }
             if (btnGenerateMfrEn) {
                 btnGenerateMfrEn.addEventListener('click', async function () {
-                    setMfrEnMsg('AI 生成中…', 'text-muted');
-                    var t = await getToken();
-                    if (!t) { setMfrEnMsg('請先登入', 'text-danger'); return; }
-                    var overwrite = false;
+                    await runMfrEnGenerate({ scope: 'profile', label: '簡介' });
+                });
+            }
+            var btnGenerateAllMfrEn = document.getElementById('btnGenerateAllMfrEn');
+            if (btnGenerateAllMfrEn) {
+                btnGenerateAllMfrEn.addEventListener('click', async function () {
+                    await runMfrEnGenerate({ scope: 'all', label: '全部內容' });
+                });
+            }
+
+            async function runMfrEnGenerate(opts) {
+                var scope = (opts && opts.scope) || 'profile';
+                var label = (opts && opts.label) || '英文';
+                setMfrEnMsg('AI 生成' + label + '中…', 'text-muted');
+                var t = await getToken();
+                if (!t) { setMfrEnMsg('請先登入', 'text-danger'); return; }
+                var overwrite = false;
+                if (scope === 'profile') {
                     var hasExisting = (document.getElementById('mfr-name-en') && document.getElementById('mfr-name-en').value.trim())
                         || (document.getElementById('mfr-desc-en') && document.getElementById('mfr-desc-en').value.trim());
-                    if (hasExisting && !confirm('已有英文內容，確定要重新生成並覆蓋？')) return;
+                    if (hasExisting && !confirm('已有英文簡介，確定要重新生成並覆蓋？')) return;
                     if (hasExisting) overwrite = true;
-                    btnGenerateMfrEn.disabled = true;
-                    try {
-                        var r = await fetch('/api/me/manufacturer/generate-i18n-en', {
+                } else if (scope === 'all') {
+                    if (!confirm('將為簡介、素材、作品、分類補齊英文（已有英文的項目預設跳過）。若要覆寫全部請在下一個對話框選「確定」。\n\n確定繼續？')) return;
+                    overwrite = confirm('是否覆寫已有英文內容？\n確定 = 覆寫全部\n取消 = 只補空白英文');
+                }
+                var btn = scope === 'all' ? btnGenerateAllMfrEn : btnGenerateMfrEn;
+                if (btn) btn.disabled = true;
+                if (scope === 'all' && btnGenerateMfrEn) btnGenerateMfrEn.disabled = true;
+                try {
+                    var r = await fetch('/api/me/manufacturer/generate-i18n-en', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                        body: JSON.stringify({ scope: scope, overwrite: overwrite })
+                    });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (r.status === 409 && scope === 'profile' && !overwrite) {
+                        if (!confirm('已有英文內容，要覆蓋重新生成嗎？')) {
+                            setMfrEnMsg('');
+                            return;
+                        }
+                        r = await fetch('/api/me/manufacturer/generate-i18n-en', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-                            body: JSON.stringify({ overwrite: overwrite })
+                            body: JSON.stringify({ scope: scope, overwrite: true })
                         });
-                        var data = await r.json().catch(function () { return {}; });
-                        if (r.status === 409 && !overwrite) {
-                            if (!confirm('已有英文內容，要覆蓋重新生成嗎？')) {
-                                setMfrEnMsg('');
-                                return;
-                            }
-                            r = await fetch('/api/me/manufacturer/generate-i18n-en', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
-                                body: JSON.stringify({ overwrite: true })
-                            });
-                            data = await r.json().catch(function () { return {}; });
-                        }
-                        if (!r.ok) throw new Error(data.error || '生成失敗');
+                        data = await r.json().catch(function () { return {}; });
+                    }
+                    if (!r.ok) throw new Error(data.error || '生成失敗');
+                    if (data.name_en != null || (data.profile && data.profile.name_en != null)) {
                         var ne = document.getElementById('mfr-name-en');
                         var de = document.getElementById('mfr-desc-en');
-                        if (ne) ne.value = data.name_en || (data.manufacturer && data.manufacturer.name_en) || '';
-                        if (de) de.value = data.description_en || (data.manufacturer && data.manufacturer.description_en) || '';
+                        var p = data.profile || data;
+                        if (ne) ne.value = data.name_en || p.name_en || '';
+                        if (de) de.value = data.description_en || p.description_en || '';
                         var metaEnEl = document.getElementById('mfrEnMeta');
-                        if (metaEnEl && data.generated_at) {
-                            metaEnEl.textContent = '上次 AI 生成：' + new Date(data.generated_at).toLocaleString('zh-TW');
+                        var genAt = data.generated_at || (p && p.generated_at);
+                        if (metaEnEl && genAt) {
+                            metaEnEl.textContent = '上次 AI 生成：' + new Date(genAt).toLocaleString('zh-TW');
                         }
-                        setMfrEnMsg('✅ 已生成並寫入', 'text-success');
-                        setTimeout(function () { setMfrEnMsg(''); }, 4000);
-                    } catch (e) {
-                        setMfrEnMsg('❌ ' + e.message, 'text-danger');
-                    } finally {
-                        btnGenerateMfrEn.disabled = false;
                     }
-                });
+                    var parts = [];
+                    if (data.assets && !data.assets.error) parts.push('素材 ' + (data.assets.updated || 0) + ' 筆');
+                    if (data.portfolio && !data.portfolio.error) parts.push('作品 ' + (data.portfolio.updated || 0) + ' 筆');
+                    if (data.catalog_groups && !data.catalog_groups.error) parts.push('分類 ' + (data.catalog_groups.updated || 0) + ' 筆');
+                    var extra = parts.length ? '（' + parts.join('、') + '）' : '';
+                    setMfrEnMsg('✅ 已生成並寫入' + extra, 'text-success');
+                    setTimeout(function () { setMfrEnMsg(''); }, 6000);
+                } catch (e) {
+                    setMfrEnMsg('❌ ' + e.message, 'text-danger');
+                } finally {
+                    if (btn) btn.disabled = false;
+                    if (scope === 'all' && btnGenerateMfrEn) btnGenerateMfrEn.disabled = false;
+                }
             }
 
             // 首次建立廠商表單

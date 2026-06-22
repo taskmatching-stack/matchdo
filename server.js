@@ -1468,6 +1468,201 @@ async function geminiTranslateVendorProfileToEnglish(source) {
     };
 }
 
+const VENDOR_I18N_BATCH_CHUNK = 15;
+
+const VENDOR_ASSETS_I18N_GEMINI_INSTRUCTION =
+    'Translate vendor digital product catalog copy (titles and descriptions) for a B2B marketplace. '
+    + 'Source is Traditional Chinese (zh-TW). Output natural US English. '
+    + 'Keep brand names, model numbers, URLs, and @handles unchanged. '
+    + 'Input JSON shape: { "items": [ { "id": "uuid", "title": "...", "description": "..." } ] }. '
+    + 'Return ONLY valid JSON: { "items": [ { "id": "same uuid", "title_en": "...", "description_en": "..." } ] } '
+    + 'Same number of items, same ids, preserve order. Empty source fields → empty string in output. No markdown.';
+
+const VENDOR_PORTFOLIO_I18N_GEMINI_INSTRUCTION =
+    'Translate manufacturer portfolio showcase copy for a B2B marketplace. '
+    + 'Source is Traditional Chinese (zh-TW). Output natural US English. '
+    + 'Keep brand names and proper nouns unchanged. '
+    + 'Input JSON: { "items": [ { "id": "uuid", "title": "...", "description": "...", "design_highlight": "..." } ] }. '
+    + 'Return ONLY valid JSON: { "items": [ { "id": "same uuid", "title_en": "...", "description_en": "...", "design_highlight_en": "..." } ] }. '
+    + 'Same ids and order. No markdown.';
+
+const VENDOR_CATALOG_GROUPS_I18N_GEMINI_INSTRUCTION =
+    'Translate vendor custom category names for a product catalog. '
+    + 'Source is Traditional Chinese (zh-TW). Output concise US English category labels. '
+    + 'Input JSON: { "items": [ { "id": "uuid", "name": "..." } ] }. '
+    + 'Return ONLY valid JSON: { "items": [ { "id": "same uuid", "name_en": "..." } ] }. Same ids and order. No markdown.';
+
+function vendorI18nBatchItemsFromGemini(parsed, chunk) {
+    const list = parsed && Array.isArray(parsed.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
+    const byId = {};
+    list.forEach((row) => {
+        if (row && row.id) byId[String(row.id)] = row;
+    });
+    return chunk.map((src, idx) => {
+        const hit = byId[String(src.id)] || list[idx] || {};
+        return { src, hit };
+    });
+}
+
+/** @param {string} instruction @param {object[]} inputItems */
+async function geminiTranslateVendorItemBatchToEnglish(instruction, inputItems) {
+    if (!inputItems.length) return [];
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error('翻譯服務未設定');
+    const merged = [];
+    for (let i = 0; i < inputItems.length; i += VENDOR_I18N_BATCH_CHUNK) {
+        const chunk = inputItems.slice(i, i + VENDOR_I18N_BATCH_CHUNK);
+        const raw = await geminiTranslateWithInstruction(instruction, JSON.stringify({ items: chunk }));
+        const parsed = parseJsonObjectFromGeminiText(raw);
+        if (!parsed) throw new Error('翻譯結果格式錯誤');
+        vendorI18nBatchItemsFromGemini(parsed, chunk).forEach(({ src, hit }) => {
+            merged.push({ src, hit });
+        });
+    }
+    return merged;
+}
+
+function vendorAssetNeedsEnTranslation(row, overwrite) {
+    if (!row) return false;
+    const hasZh = !!(String(row.title || '').trim() || String(row.description || '').trim());
+    if (!hasZh) return false;
+    if (overwrite) return true;
+    const hasEn = !!(String(row.title_en || '').trim() || String(row.description_en || '').trim());
+    return !hasEn;
+}
+
+function vendorPortfolioNeedsEnTranslation(row, overwrite) {
+    if (!row) return false;
+    const hasZh = !!(String(row.title || '').trim() || String(row.description || '').trim() || String(row.design_highlight || '').trim());
+    if (!hasZh) return false;
+    if (overwrite) return true;
+    const hasEn = !!(String(row.title_en || '').trim() || String(row.description_en || '').trim() || String(row.design_highlight_en || '').trim());
+    return !hasEn;
+}
+
+function vendorCatalogGroupNeedsEnTranslation(row, overwrite) {
+    if (!row || !String(row.name || '').trim()) return false;
+    if (overwrite) return true;
+    return !String(row.name_en || '').trim();
+}
+
+async function generateVendorAssetsEnglish(manufacturerId, overwrite) {
+    let sel = 'id, title, title_en, description, description_en';
+    let { data: rows, error } = await supabase.from('vendor_assets').select(sel).eq('manufacturer_id', manufacturerId);
+    if (error && error.code === '42703') {
+        return { updated: 0, skipped: true, reason: 'no_columns' };
+    }
+    if (error) throw error;
+    const todo = (rows || []).filter((r) => vendorAssetNeedsEnTranslation(r, overwrite));
+    if (!todo.length) return { updated: 0, total: (rows || []).length };
+    const batchIn = todo.map((r) => ({
+        id: r.id,
+        title: String(r.title || '').trim(),
+        description: String(r.description || '').trim()
+    }));
+    const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_ASSETS_I18N_GEMINI_INSTRUCTION, batchIn);
+    let updated = 0;
+    for (const { src, hit } of translated) {
+        const patch = {
+            title_en: hit.title_en != null ? String(hit.title_en).trim() || null : null,
+            description_en: hit.description_en != null ? String(hit.description_en).trim() || null : null
+        };
+        const { error: upErr } = await supabase.from('vendor_assets').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId);
+        if (!upErr) updated += 1;
+        else console.warn('generateVendorAssetsEnglish update:', src.id, upErr.message);
+    }
+    return { updated, total: (rows || []).length, translated: todo.length };
+}
+
+async function generateVendorPortfolioEnglish(manufacturerId, overwrite) {
+    let sel = 'id, title, title_en, description, description_en, design_highlight, design_highlight_en';
+    let { data: rows, error } = await supabase.from('manufacturer_portfolio').select(sel).eq('manufacturer_id', manufacturerId);
+    if (error && error.code === '42703') {
+        return { updated: 0, skipped: true, reason: 'no_columns' };
+    }
+    if (error) throw error;
+    const todo = (rows || []).filter((r) => vendorPortfolioNeedsEnTranslation(r, overwrite));
+    if (!todo.length) return { updated: 0, total: (rows || []).length };
+    const batchIn = todo.map((r) => ({
+        id: r.id,
+        title: String(r.title || '').trim(),
+        description: String(r.description || '').trim(),
+        design_highlight: String(r.design_highlight || '').trim()
+    }));
+    const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_PORTFOLIO_I18N_GEMINI_INSTRUCTION, batchIn);
+    let updated = 0;
+    for (const { src, hit } of translated) {
+        const patch = {
+            title_en: hit.title_en != null ? String(hit.title_en).trim() || null : null,
+            description_en: hit.description_en != null ? String(hit.description_en).trim() || null : null,
+            design_highlight_en: hit.design_highlight_en != null ? String(hit.design_highlight_en).trim() || null : null
+        };
+        const { error: upErr } = await supabase.from('manufacturer_portfolio').update(patch).eq('id', src.id).eq('manufacturer_id', manufacturerId);
+        if (!upErr) updated += 1;
+        else console.warn('generateVendorPortfolioEnglish update:', src.id, upErr.message);
+    }
+    return { updated, total: (rows || []).length, translated: todo.length };
+}
+
+async function generateVendorCatalogGroupsEnglish(manufacturerId, overwrite) {
+    if (!(await vendorCatalogGroupsTableReady())) return { updated: 0, skipped: true, reason: 'no_table' };
+    let { data: rows, error } = await supabase.from('vendor_catalog_groups').select('id, name, name_en').eq('manufacturer_id', manufacturerId);
+    if (error && error.code === '42703') {
+        return { updated: 0, skipped: true, reason: 'no_columns' };
+    }
+    if (error) throw error;
+    const todo = (rows || []).filter((r) => vendorCatalogGroupNeedsEnTranslation(r, overwrite));
+    if (!todo.length) return { updated: 0, total: (rows || []).length };
+    const batchIn = todo.map((r) => ({ id: r.id, name: String(r.name || '').trim() }));
+    const translated = await geminiTranslateVendorItemBatchToEnglish(VENDOR_CATALOG_GROUPS_I18N_GEMINI_INSTRUCTION, batchIn);
+    let updated = 0;
+    for (const { src, hit } of translated) {
+        const nameEn = hit.name_en != null ? String(hit.name_en).trim() || null : null;
+        const { error: upErr } = await supabase.from('vendor_catalog_groups').update({ name_en: nameEn }).eq('id', src.id).eq('manufacturer_id', manufacturerId);
+        if (!upErr) updated += 1;
+        else console.warn('generateVendorCatalogGroupsEnglish update:', src.id, upErr.message);
+    }
+    return { updated, total: (rows || []).length, translated: todo.length };
+}
+
+async function generateVendorProfileEnglish(mfr, overwrite) {
+    const sourceName = String(mfr.name || '').trim();
+    const sourceDesc = String(mfr.description || '').trim();
+    if (!sourceName && !sourceDesc) {
+        return { skipped: true, reason: 'empty_source' };
+    }
+    if (!overwrite) {
+        const hasEn = (mfr.name_en && String(mfr.name_en).trim()) || (mfr.description_en && String(mfr.description_en).trim());
+        if (hasEn) {
+            return { skipped: true, reason: 'already_has_en', name_en: mfr.name_en || '', description_en: mfr.description_en || '' };
+        }
+    }
+    const translated = await geminiTranslateVendorProfileToEnglish({ name: sourceName, description: sourceDesc });
+    const sourceHash = vendorContentSourceHash({ name: sourceName, description: sourceDesc });
+    const updates = {
+        name_en: translated.name_en || null,
+        description_en: translated.description_en || null,
+        i18n_en_generated_at: new Date().toISOString(),
+        i18n_en_source_hash: sourceHash
+    };
+    const { data: updated, error: upErr } = await supabase
+        .from('manufacturers')
+        .update(updates)
+        .eq('id', mfr.id)
+        .select('id, name, name_en, description, description_en, i18n_en_generated_at, i18n_en_source_hash')
+        .single();
+    if (upErr) throw upErr;
+    return { updated: true, manufacturer: updated, name_en: updated.name_en || '', description_en: updated.description_en || '', generated_at: updated.i18n_en_generated_at || null };
+}
+
+function normalizeVendorI18nGenerateScope(raw) {
+    const s = String(raw || 'profile').trim().toLowerCase();
+    if (s === 'all' || s === 'assets' || s === 'portfolio' || s === 'catalog_groups' || s === 'catalog' || s === 'profile') {
+        return s === 'catalog' ? 'catalog_groups' : s;
+    }
+    return 'profile';
+}
+
 function applyManufacturerLocaleToResponse(mfr, lang) {
     if (!mfr) return mfr;
     const loc = normalizeVendorContentLang(lang);
@@ -12688,7 +12883,7 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
     }
 });
 
-// POST /api/me/manufacturer/generate-i18n-en — Gemini 生成廠商英文簡介並寫入 DB（非即時讀取翻譯）
+// POST /api/me/manufacturer/generate-i18n-en — Gemini 生成廠商英文並寫入 DB（scope: profile|assets|portfolio|catalog_groups|all）
 app.post('/api/me/manufacturer/generate-i18n-en', express.json(), async (req, res) => {
     try {
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
@@ -12714,52 +12909,65 @@ app.post('/api/me/manufacturer/generate-i18n-en', express.json(), async (req, re
         if (await rejectSeedVendorSelfServiceWrite(user.id, mfr, res)) return;
         const body = req.body || {};
         const overwrite = parseTruthyBody(body.overwrite);
-        const sourceName = String(mfr.name || '').trim();
-        const sourceDesc = String(mfr.description || '').trim();
-        if (!sourceName && !sourceDesc) {
-            return res.status(400).json({ error: '請先填寫中文廠商名稱或簡介' });
-        }
-        if (!overwrite) {
-            const hasEn = (mfr.name_en && String(mfr.name_en).trim()) || (mfr.description_en && String(mfr.description_en).trim());
-            if (hasEn) {
-                return res.status(409).json({
-                    error: '已有英文內容；若要覆寫請傳 overwrite=true',
-                    name_en: mfr.name_en || '',
-                    description_en: mfr.description_en || ''
-                });
+        const scope = normalizeVendorI18nGenerateScope(body.scope);
+        const result = { ok: true, scope, overwrite };
+
+        if (scope === 'profile' || scope === 'all') {
+            try {
+                const profileRes = await generateVendorProfileEnglish(mfr, overwrite);
+                result.profile = profileRes;
+                if (profileRes.skipped && profileRes.reason === 'already_has_en' && scope === 'profile' && !overwrite) {
+                    return res.status(409).json({
+                        error: '已有英文內容；若要覆寫請傳 overwrite=true',
+                        name_en: profileRes.name_en || '',
+                        description_en: profileRes.description_en || ''
+                    });
+                }
+                if (profileRes.skipped && profileRes.reason === 'empty_source' && scope === 'profile') {
+                    return res.status(400).json({ error: '請先填寫中文廠商名稱或簡介' });
+                }
+            } catch (te) {
+                console.error('generate-i18n-en profile:', te);
+                if (scope === 'profile') return res.status(502).json({ error: te.message || '翻譯失敗，請稍後再試' });
+                result.profile = { error: te.message || '翻譯失敗' };
             }
         }
-        let translated;
-        try {
-            translated = await geminiTranslateVendorProfileToEnglish({ name: sourceName, description: sourceDesc });
-        } catch (te) {
-            console.error('generate-i18n-en Gemini:', te);
-            return res.status(502).json({ error: te.message || '翻譯失敗，請稍後再試' });
+
+        if (scope === 'assets' || scope === 'all') {
+            try {
+                result.assets = await generateVendorAssetsEnglish(mfr.id, overwrite);
+            } catch (te) {
+                console.error('generate-i18n-en assets:', te);
+                result.assets = { error: te.message || '素材翻譯失敗' };
+            }
         }
-        const sourceHash = vendorContentSourceHash({ name: sourceName, description: sourceDesc });
-        const updates = {
-            name_en: translated.name_en || null,
-            description_en: translated.description_en || null,
-            i18n_en_generated_at: new Date().toISOString(),
-            i18n_en_source_hash: sourceHash
-        };
-        const { data: updated, error: upErr } = await supabase
-            .from('manufacturers')
-            .update(updates)
-            .eq('id', mfr.id)
-            .select('id, name, name_en, description, description_en, i18n_en_generated_at, i18n_en_source_hash')
-            .single();
-        if (upErr) {
-            console.error('POST generate-i18n-en update:', upErr);
-            return res.status(500).json({ error: '寫入英文欄位失敗' });
+
+        if (scope === 'portfolio' || scope === 'all') {
+            try {
+                result.portfolio = await generateVendorPortfolioEnglish(mfr.id, overwrite);
+            } catch (te) {
+                console.error('generate-i18n-en portfolio:', te);
+                result.portfolio = { error: te.message || '作品翻譯失敗' };
+            }
         }
-        res.json({
-            ok: true,
-            manufacturer: updated,
-            name_en: updated.name_en || '',
-            description_en: updated.description_en || '',
-            generated_at: updated.i18n_en_generated_at || null
-        });
+
+        if (scope === 'catalog_groups' || scope === 'all') {
+            try {
+                result.catalog_groups = await generateVendorCatalogGroupsEnglish(mfr.id, overwrite);
+            } catch (te) {
+                console.error('generate-i18n-en catalog_groups:', te);
+                result.catalog_groups = { error: te.message || '分類翻譯失敗' };
+            }
+        }
+
+        if (result.profile && result.profile.manufacturer) {
+            result.manufacturer = result.profile.manufacturer;
+            result.name_en = result.profile.name_en;
+            result.description_en = result.profile.description_en;
+            result.generated_at = result.profile.generated_at;
+        }
+
+        res.json(result);
     } catch (e) {
         console.error('POST /api/me/manufacturer/generate-i18n-en 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -14415,11 +14623,12 @@ function normalizeVendorCatalogGroupKindFilter(q) {
     return null;
 }
 
-async function buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter) {
+async function buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter, lang) {
+    const contentLang = normalizeVendorContentLang(lang);
     const kindFilter = normalizeVendorCatalogGroupKindFilter(assetKindFilter);
     let { data: groups, error } = await supabase
         .from('vendor_catalog_groups')
-        .select('id, manufacturer_id, name, slug, parent_id, sort_order, asset_kind, created_at, updated_at')
+        .select('id, manufacturer_id, name, name_en, slug, parent_id, sort_order, asset_kind, created_at, updated_at')
         .eq('manufacturer_id', manufacturerId)
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
@@ -14430,6 +14639,7 @@ async function buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter) 
             .eq('manufacturer_id', manufacturerId)
             .order('sort_order', { ascending: true })
             .order('name', { ascending: true }));
+        (groups || []).forEach((g) => { g.name_en = null; });
     }
     if (error) throw error;
     let list = groups || [];
@@ -14466,16 +14676,19 @@ async function buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter) 
         nodes.sort((a, b) => (a.sort_order - b.sort_order) || String(a.name).localeCompare(String(b.name), 'zh-Hant'));
         nodes.forEach((n) => {
             const pad = depth > 0 ? '\u3000'.repeat(Math.min(depth, 3)) : '';
+            const displayName = pickVendorLocalizedText(n.name, n.name_en, contentLang);
             out.push({
                 id: n.id,
-                name: n.name,
+                name: displayName,
+                name_zh: n.name,
+                name_en: n.name_en || '',
                 slug: n.slug,
                 parent_id: n.parent_id,
                 sort_order: n.sort_order,
                 asset_count: n.asset_count,
                 asset_kind: vendorCatalogGroupRowAssetKind(n),
                 depth,
-                label: pad + n.name + (n.asset_count ? ` (${n.asset_count})` : '')
+                label: pad + displayName + (n.asset_count ? ` (${n.asset_count})` : '')
             });
             if (n.children && n.children.length) flatten(n.children, depth + 1, out);
         });
@@ -14737,15 +14950,21 @@ app.get('/api/manufacturers/:id/catalog-groups', async (req, res) => {
     try {
         const manufacturerId = (req.params.id || '').trim();
         if (!manufacturerId) return res.status(400).json({ error: '缺少廠商 id' });
+        const contentLang = normalizeVendorContentLang(req.query.lang);
         if (!(await vendorCatalogGroupsTableReady())) {
             return res.json({ tree: [], flat: [], manufacturer_id: manufacturerId });
         }
-        const { data: mfr } = await supabase.from('manufacturers').select('id, name, is_active').eq('id', manufacturerId).eq('is_active', true).maybeSingle();
+        let mfrRes = await supabase.from('manufacturers').select('id, name, name_en, is_active').eq('id', manufacturerId).eq('is_active', true).maybeSingle();
+        if (mfrRes.error && mfrRes.error.code === '42703') {
+            mfrRes = await supabase.from('manufacturers').select('id, name, is_active').eq('id', manufacturerId).eq('is_active', true).maybeSingle();
+        }
+        const mfr = mfrRes.data;
         if (!mfr) return res.status(404).json({ error: '找不到廠商' });
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
         const assetKindFilter = normalizeVendorCatalogGroupKindFilter(assetKindQ);
-        const payload = await buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter);
-        res.json({ ...payload, manufacturer_id: manufacturerId, manufacturer_name: mfr.name });
+        const payload = await buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter, contentLang);
+        const mfrName = pickVendorLocalizedText(mfr.name, mfr.name_en, contentLang) || mfr.name;
+        res.json({ ...payload, manufacturer_id: manufacturerId, manufacturer_name: mfrName, lang: contentLang });
     } catch (e) {
         console.error('GET /api/manufacturers/:id/catalog-groups:', e);
         res.status(500).json({ error: '查詢失敗' });
