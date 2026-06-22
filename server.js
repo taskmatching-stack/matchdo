@@ -14547,7 +14547,7 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
             return res.status(400).json({ error: '請傳入 category_key 或 manufacturer_id' });
         }
         const assetKindFilter = 'prototype';
-        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, sort_order, created_at, asset_kind, is_public, style_key';
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, sort_order, created_at, asset_kind, is_public, style_key';
         async function runBrowseQuery(cols) {
             let q = supabase
                 .from('vendor_assets')
@@ -14617,11 +14617,16 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
         const itemsAll = list.map((r) => {
             const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
             const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
+            const node = mapVendorAssetLinkTreeNode(r) || {};
+            const imageUrls = node.image_urls || [];
             return {
                 id: r.id,
                 title: r.title,
                 description: r.description,
-                image_url: r.image_url,
+                image_url: node.image_url || r.image_url,
+                image_urls: imageUrls,
+                image_items: node.image_items || [],
+                image_count: imageUrls.length,
                 category_key: r.category_key,
                 subcategory_key: r.subcategory_key,
                 style_key: r.style_key || null,

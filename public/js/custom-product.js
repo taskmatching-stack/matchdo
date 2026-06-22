@@ -1448,6 +1448,57 @@ $(document).ready(function () {
         scheduleStripDesignDeepLinkFromUrl();
     }
 
+    function prototypeImageItemsFromNode(p) {
+        if (!p) return [];
+        if (p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
+            return p.image_items.filter(function (it) { return it && it.url; });
+        }
+        var u = (p.image_url || '').trim();
+        return u ? [{ url: u, label: '', sort_order: 0, is_cover: true }] : [];
+    }
+
+    function applyPrototypeRefsFromLinkTreeNode(p) {
+        var imageItems = prototypeImageItemsFromNode(p);
+        if (!imageItems.length) return Promise.resolve();
+        var baseMeta = {
+            vendor_asset_id: p.id,
+            manufacturer_id: p.manufacturer_id,
+            manufacturer_name: p.manufacturer_name || '',
+            title: p.title || '',
+            image_url: imageItems[0].url,
+            asset_kind: 'prototype',
+            category_key: (p.category_key || '').trim() || null,
+            subcategory_key: (p.subcategory_key || '').trim() || null
+        };
+        clearRefSlot('prototype');
+        if (p.manufacturer_id && !refVendorMfrId) {
+            refVendorMfrId = p.manufacturer_id;
+            if (p.manufacturer_name) refVendorName = p.manufacturer_name;
+        }
+        var cap = vendorImportCapacity('prototype');
+        if (cap.maxAdd <= 0) return Promise.resolve();
+        if (imageItems.length === 1) {
+            var it0 = imageItems[0];
+            return fetchUrlAsDataUrl(it0.url).catch(function () { return null; }).then(function (dataUrl) {
+                if (!dataUrl) return;
+                addRefImageToSlot('prototype', dataUrl, Object.assign({}, baseMeta, {
+                    image_label: (it0.label || '').trim(),
+                    gallery_label: (it0.label || '').trim() || undefined
+                }));
+            });
+        }
+        return Promise.resolve().then(function () {
+            openVendorAssetImagePickModal({
+                imageItems: imageItems,
+                maxSelect: cap.maxAdd,
+                targetKey: 'prototype',
+                baseMeta: baseMeta,
+                pickerModalEl: null,
+                assetTitle: p.title || ''
+            });
+        });
+    }
+
     function applyPrototypeAssetIdFromUrl() {
         if (!urlParams) return;
         var pid = (urlParams.get('prototype_asset_id') || '').trim();
@@ -1464,7 +1515,6 @@ $(document).ready(function () {
 
         function applyTreePayload(treeData) {
             var p = treeData.prototype;
-            var imgUrl = (p.image_url || '').trim();
             var mainCat = (p.category_key || '').trim();
             var subCat = (p.subcategory_key || '').trim();
             var session = consumeGuideSessionFromStorage();
@@ -1473,24 +1523,7 @@ $(document).ready(function () {
                     if (session.protoRefs.length || session.linkedRefs.length) {
                         return applyGuideSessionBundle(treeData, session).then(finishGuideImportToDesignPage);
                     }
-                    if (!imgUrl) return finishGuideImportToDesignPage();
-                    return fetchUrlAsDataUrl(imgUrl).catch(function () { return null; }).then(function (dataUrl) {
-                        if (!dataUrl) return finishGuideImportToDesignPage();
-                        clearRefSlot('prototype');
-                        addRefImageToSlot('prototype', dataUrl, {
-                            vendor_asset_id: p.id,
-                            manufacturer_id: p.manufacturer_id,
-                            manufacturer_name: p.manufacturer_name,
-                            title: p.title,
-                            image_url: imgUrl,
-                            asset_kind: 'prototype'
-                        });
-                        if (p.manufacturer_id && !refVendorMfrId) {
-                            refVendorMfrId = p.manufacturer_id;
-                            if (p.manufacturer_name) refVendorName = p.manufacturer_name;
-                        }
-                        return finishGuideImportToDesignPage();
-                    });
+                    return applyPrototypeRefsFromLinkTreeNode(p).then(finishGuideImportToDesignPage);
                 });
             });
         }
@@ -2960,8 +2993,24 @@ $(document).ready(function () {
         return url;
     }
 
+    function vendorStyleItemImageItems(item) {
+        if (!item) return [];
+        if (item.image_items && item.image_items.length) {
+            return item.image_items.filter(function (it) { return it && it.url; });
+        }
+        var urls = (item.image_urls && item.image_urls.length) ? item.image_urls.filter(Boolean)
+            : (item.image_url ? [item.image_url] : []);
+        return urls.map(function (u, idx) {
+            return { url: u, label: '', sort_order: idx, is_cover: idx === 0 };
+        });
+    }
+
     function buildVendorStyleBrowseCardHtml(item) {
-        var imgUrl = (item.image_url || '').replace(/"/g, '&quot;');
+        var imageItems = vendorStyleItemImageItems(item);
+        var imageUrls = imageItems.map(function (it) { return it.url; }).filter(Boolean);
+        var imgUrl = (imageUrls[0] || item.image_url || '').replace(/"/g, '&quot;');
+        var imageUrlsJson = JSON.stringify(imageUrls).replace(/"/g, '&quot;');
+        var imageItemsJson = JSON.stringify(imageItems).replace(/"/g, '&quot;');
         var title = (item.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var mfrName = vendorItemManufacturerName(item).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         var mfrLogo = vendorMfrLogoHtml(item.manufacturer_logo_url, 'vendor-asset-mfr-logo');
@@ -2977,24 +3026,57 @@ $(document).ready(function () {
             ? '<span class="badge bg-light text-secondary border mb-1">' +
             (t('browseStyles.linkCountBadge') || '可搭配 {n} 項').replace('{n}', String(linkCount)).replace(/</g, '&lt;') + '</span> '
             : '';
+        var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');
+        var pickHint = (t('customProduct.vendorAssetPickHint') || '單擊加入參考圖；雙擊或按 🔍 放大').replace(/"/g, '&quot;');
+        var multiBadge = imageUrls.length > 1
+            ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' +
+            imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         var thumb = imgUrl
-            ? '<img src="' + imgUrl + '" alt="" loading="lazy" style="height:140px;width:100%;object-fit:cover;">'
+            ? '<div class="bs-card-thumb-wrap position-relative" title="' + pickHint + '">' + multiBadge +
+            '<button type="button" class="vendor-asset-zoom-btn" title="' + zoomTitle + '" aria-label="' + zoomTitle + '"><i class="bi bi-zoom-in"></i></button>' +
+            '<a href="' + designUrl + '" class="text-decoration-none text-dark d-block bs-card-thumb-link" data-prototype-id="' +
+            escAttr(item.id || '') + '"><img src="' + imgUrl + '" alt="" class="bs-card-thumb-img" loading="lazy" style="height:140px;width:100%;object-fit:cover;"></a></div>'
             : '<div class="d-flex align-items-center justify-content-center bg-light text-muted" style="height:140px;"><i class="bi bi-image fs-2"></i></div>';
-        var thumbInner = '<a href="' + designUrl + '" class="text-decoration-none text-dark bs-card-thumb-link" data-prototype-id="' +
-            escAttr(item.id || '') + '">' + thumb + '</a>';
+        var coverLabel = (imageItems[0] && imageItems[0].label) ? String(imageItems[0].label).trim() : '';
+        var coverLabelHtml = coverLabel
+            ? '<div class="small text-muted text-truncate" title="' + escAttr(coverLabel) + '">' +
+            coverLabel.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '';
         var selectBtn = '<a href="' + designUrl + '" class="btn btn-sm btn-primary w-100 bs-btn-select-design" data-prototype-id="' +
             escAttr(item.id || '') + '">' + selectLbl + '</a>';
         var guideBtn = hasLinks
             ? '<a href="' + guideUrl + '" class="btn btn-sm btn-outline-secondary w-100">' + guideLbl + '</a>'
             : '';
-        return '<article class="bs-card h-100 d-flex flex-column">' +
-            thumbInner +
+        return '<article class="bs-card h-100 d-flex flex-column"' +
+            ' data-vendor-asset-id="' + escAttr(item.id || '') + '"' +
+            ' data-image-url="' + imgUrl + '"' +
+            ' data-image-urls="' + imageUrlsJson + '"' +
+            ' data-image-items="' + imageItemsJson + '"' +
+            ' data-title="' + title + '"' +
+            ' data-manufacturer-id="' + escAttr(item.manufacturer_id || '') + '"' +
+            ' data-manufacturer-name="' + mfrName + '"' +
+            ' data-asset-kind="prototype">' +
+            thumb +
             '<div class="bs-card-body p-2 flex-grow-1">' +
             linkHint +
             '<div class="fw-semibold small text-truncate mb-1" title="' + title + '">' + title + '</div>' +
+            coverLabelHtml +
             '<div class="d-flex align-items-center gap-1">' + mfrLogo +
             '<a href="' + profileUrl + '" class="small text-primary text-decoration-none text-truncate" target="_blank" rel="noopener" title="' + mfrName + '">' + mfrName + '</a></div></div>' +
             '<div class="p-2 pt-0 bs-card-actions d-grid gap-1">' + selectBtn + guideBtn + '</div></article>';
+    }
+
+    function bindVendorStyleBrowseCardClicks($grid) {
+        if (!$grid || !$grid.length) return;
+        $grid.find('.vendor-asset-zoom-btn').off('click.bsCardZoom').on('click.bsCardZoom', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openVendorAssetCardLightbox($(this).closest('.bs-card'));
+        });
+        $grid.find('.bs-card-thumb-img').off('dblclick.bsCardZoom').on('dblclick.bsCardZoom', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openVendorAssetCardLightbox($(this).closest('.bs-card'));
+        });
     }
 
     function escAttr(s) {
@@ -3158,6 +3240,7 @@ $(document).ready(function () {
             items.forEach(function (item) {
                 $grid.append(buildVendorStyleBrowseCardHtml(item));
             });
+            bindVendorStyleBrowseCardClicks($grid);
             renderVendorStylesTabPager((res.data && res.data.total != null) ? Number(res.data.total) : items.length);
             });
         }).catch(function () {
