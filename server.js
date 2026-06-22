@@ -320,9 +320,7 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
     const refMfrId = pickManufacturerIdFromReferenceSources(p.reference_sources);
     const refProtoId = pickPrototypeAssetIdFromReferenceSources(p.reference_sources);
     let link = '/custom/gallery.html';
-    if (refProtoId) {
-        link = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(refProtoId);
-    } else if (refMfrId) {
+    if (refMfrId) {
         link = '/vendor-profile.html?id=' + encodeURIComponent(refMfrId);
     }
     return attachDisplayTags({

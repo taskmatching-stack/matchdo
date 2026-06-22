@@ -2126,13 +2126,6 @@ $(document).ready(function () {
         return '';
     }
 
-    function prototypeOrderUrlFromSource(s) {
-        if (!s || !s.vendor_asset_id) return '';
-        var kind = (s.asset_kind || 'prototype');
-        if (kind !== 'prototype') return '';
-        return '/product-tree.html?prototype_asset_id=' + encodeURIComponent(s.vendor_asset_id);
-    }
-
     function applyPastItemModalFindVendorLink(findVendorUrl) {
         var linkEl = document.getElementById('pastItemModalLink');
         if (!linkEl) return;
@@ -2143,7 +2136,7 @@ $(document).ready(function () {
         else linkEl.classList.add('d-none');
     }
 
-    /** 「找廠商訂製」：有引用廠商原型時優先連產品關聯頁，否則廠商首頁，再 fallback 圖庫 */
+    /** 「找廠商訂製」：有引用廠商時連廠商首頁，否則 fallback 圖庫 */
     function resolvePastItemFindVendorUrl(refSourcesList, catKey, subKey) {
         var list = Array.isArray(refSourcesList) ? refSourcesList : [];
         var protoByMfr = {};
@@ -2154,23 +2147,11 @@ $(document).ready(function () {
         });
         var protoMfrIds = Object.keys(protoByMfr);
         if (protoMfrIds.length === 1) {
-            var protoSrc = protoByMfr[protoMfrIds[0]];
-            var treeUrl = prototypeOrderUrlFromSource(protoSrc);
-            if (treeUrl) return treeUrl;
-            var protoUrl = vendorProfileUrlFromSource(protoSrc);
+            var protoUrl = vendorProfileUrlFromSource(protoByMfr[protoMfrIds[0]]);
             if (protoUrl) return protoUrl;
-        }
-        var protoOnly = list.filter(function (s) {
-            return s && s.vendor_asset_id && (s.asset_kind || 'prototype') === 'prototype';
-        });
-        if (protoOnly.length === 1) {
-            var singleTree = prototypeOrderUrlFromSource(protoOnly[0]);
-            if (singleTree) return singleTree;
         }
         var anchor = getPrototypeAnchorSource();
         if (anchor) {
-            var anchorTree = prototypeOrderUrlFromSource(anchor);
-            if (anchorTree) return anchorTree;
             var anchorUrl = vendorProfileUrlFromSource(anchor);
             if (anchorUrl) return anchorUrl;
         }

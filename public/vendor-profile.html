@@ -684,22 +684,29 @@
             var section = document.getElementById('sectionVendorAssets');
             if (!section || !mfrId) return;
             vendorAssetsAuthHeaders().then(function (authHdr) {
-            return Promise.all([
-                fetch('/api/manufacturers/' + encodeURIComponent(mfrId) + '/catalog-groups').then(function (r) { return r.json(); }),
-                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1', { headers: authHdr }).then(function (r) { return r.json(); })
-            ]).then(function (results) {
-                var cg = results[0] || {};
-                var assets = results[1] || {};
-                vendorAssetsCatalogFlat = cg.flat || [];
-                var items = assets.items || [];
-                if (!items.length && !vendorAssetsCatalogFlat.length) return;
-                section.style.display = '';
-                vendorAssetsActiveGroupId = '';
-                vendorProfileOffset = 0;
-                vendorProfileListItems = items;
-                renderVendorCatalogNav(mfrId);
-                renderVendorAssetsGrid(vendorProfileListItems);
-            }).catch(function () {});
+                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1', { headers: authHdr })
+                    .then(function (r) { return r.json(); })
+                    .then(function (assets) {
+                        var items = (assets && assets.items) ? assets.items : [];
+                        if (!items.length) return;
+                        section.style.display = '';
+                        vendorAssetsActiveGroupId = '';
+                        vendorProfileOffset = 0;
+                        vendorProfileListItems = items;
+                        fetch('/api/manufacturers/' + encodeURIComponent(mfrId) + '/catalog-groups')
+                            .then(function (r) { return r.ok ? r.json() : { flat: [] }; })
+                            .then(function (cg) {
+                                vendorAssetsCatalogFlat = (cg && cg.flat) ? cg.flat : [];
+                                renderVendorCatalogNav(mfrId);
+                                renderVendorAssetsGrid(vendorProfileListItems);
+                            })
+                            .catch(function () {
+                                vendorAssetsCatalogFlat = [];
+                                renderVendorCatalogNav(mfrId);
+                                renderVendorAssetsGrid(vendorProfileListItems);
+                            });
+                    })
+                    .catch(function () {});
             });
         }
 
