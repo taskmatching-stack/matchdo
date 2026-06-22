@@ -270,10 +270,25 @@
         var id = new URLSearchParams(location.search).get('id');
         if (!id) { showError(); return; }
 
+        function profileContentLang() {
+            var qp = new URLSearchParams(location.search).get('lang');
+            if (qp && String(qp).toLowerCase().indexOf('en') === 0) return 'en';
+            if (window.i18n && typeof window.i18n.getLang === 'function') {
+                var gl = window.i18n.getLang();
+                if (gl && String(gl).toLowerCase().indexOf('en') === 0) return 'en';
+            }
+            return 'zh';
+        }
+
+        function langQuerySuffix() {
+            return profileContentLang() === 'en' ? '&lang=en' : '';
+        }
+
         function fetchManufacturer(token) {
             var headers = {};
             if (token) headers['Authorization'] = 'Bearer ' + token;
-            return fetch('/api/manufacturers/' + encodeURIComponent(id), { headers: headers });
+            var url = '/api/manufacturers/' + encodeURIComponent(id) + (profileContentLang() === 'en' ? '?lang=en' : '');
+            return fetch(url, { headers: headers });
         }
 
         function loadProfile() {
@@ -692,7 +707,7 @@
             var section = document.getElementById('sectionVendorAssets');
             if (!section || !mfrId) return;
             vendorAssetsAuthHeaders().then(function (authHdr) {
-                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1', { headers: authHdr })
+                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1' + langQuerySuffix(), { headers: authHdr })
                     .then(function (r) { return r.json(); })
                     .then(function (assets) {
                         var items = (assets && assets.items) ? assets.items : [];
@@ -774,7 +789,7 @@
                     vendorAssetsActiveGroupId = btn.getAttribute('data-group') || '';
                     vendorProfileOffset = 0;
                     renderVendorCatalogNav(mfrId);
-                    var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1';
+                    var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1' + langQuerySuffix();
                     if (vendorAssetsActiveGroupId) url += '&catalog_group_id=' + encodeURIComponent(vendorAssetsActiveGroupId);
                     vendorAssetsAuthHeaders().then(function (authHdr) {
                     fetch(url, { headers: authHdr }).then(function (r) { return r.json(); }).then(function (data) {

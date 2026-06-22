@@ -249,6 +249,31 @@
                             </div>
                         </div>
                     </div>
+                    <div class="accordion-item border-0 shadow-sm mb-2">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-i18n-en">英文版（公開頁 lang=en）</button>
+                        </h2>
+                        <div id="mfr-panel-i18n-en" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
+                            <div class="accordion-body pt-0">
+                                <p class="text-muted small">訪客切換英文時顯示下列內容；可手動編輯，或使用 AI 依中文名稱／簡介生成並寫入資料庫。</p>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1" for="mfr-name-en">Company name (English)</label>
+                                    <input type="text" class="form-control form-control-sm" id="mfr-name-en" maxlength="200" placeholder="e.g. Grantclassic Leather">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1" for="mfr-desc-en">Introduction (English)</label>
+                                    <textarea class="form-control form-control-sm" id="mfr-desc-en" rows="3" placeholder="Brief intro for international buyers…"></textarea>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm btn-primary" id="btnSaveMfrEn">儲存英文</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnGenerateMfrEn">AI 生成英文</button>
+                                    <span id="mfrEnMsg" class="small text-muted"></span>
+                                </div>
+                                <p class="form-text small text-muted mb-0 mt-2" id="mfrEnMeta"></p>
+                                <a href="#" class="small" id="btn-preview-en-page" target="_blank" rel="noopener noreferrer">預覽英文公開頁 ↗</a>
+                            </div>
+                        </div>
+                    </div>
                     <div class="accordion-item border-0 shadow-sm">
                         <h2 class="accordion-header">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-recent">最新展示案例</button>
@@ -315,6 +340,8 @@
                 mfrId = mfr.id;
                 document.getElementById('mfr-name').textContent = mfr.name || '廠商';
                 var publicUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+                var btnPreviewEn = document.getElementById('btn-preview-en-page');
+                if (btnPreviewEn) btnPreviewEn.href = publicUrl + '&lang=en';
                 var publicCard = document.getElementById('public-page-card');
                 if (publicCard) publicCard.classList.remove('d-none');
                 var btnOpenPublic = document.getElementById('btn-open-public-page');
@@ -359,6 +386,17 @@
 
                 // 廠商 LOGO
                 renderLogoPreview(mfr.logo_url || '');
+
+                var nameEnEl = document.getElementById('mfr-name-en');
+                var descEnEl = document.getElementById('mfr-desc-en');
+                var metaEnEl = document.getElementById('mfrEnMeta');
+                if (nameEnEl) nameEnEl.value = mfr.name_en || '';
+                if (descEnEl) descEnEl.value = mfr.description_en || '';
+                if (metaEnEl) {
+                    metaEnEl.textContent = mfr.i18n_en_generated_at
+                        ? ('上次 AI 生成：' + new Date(mfr.i18n_en_generated_at).toLocaleString('zh-TW'))
+                        : '尚未 AI 生成英文';
+                }
 
                 await loadStats(mfr);
                 await loadRecentPortfolio();
@@ -545,6 +583,90 @@
                         logoSaveMsg.className = 'small text-danger';
                     } finally {
                         btnClearLogo.disabled = false;
+                    }
+                });
+            }
+
+            // 英文版儲存／生成
+            var btnSaveMfrEn = document.getElementById('btnSaveMfrEn');
+            var btnGenerateMfrEn = document.getElementById('btnGenerateMfrEn');
+            var mfrEnMsg = document.getElementById('mfrEnMsg');
+            function setMfrEnMsg(text, cls) {
+                if (!mfrEnMsg) return;
+                mfrEnMsg.textContent = text || '';
+                mfrEnMsg.className = 'small ' + (cls || 'text-muted');
+            }
+            if (btnSaveMfrEn) {
+                btnSaveMfrEn.addEventListener('click', async function () {
+                    setMfrEnMsg('儲存中…', 'text-muted');
+                    var t = await getToken();
+                    if (!t) { setMfrEnMsg('請先登入', 'text-danger'); return; }
+                    btnSaveMfrEn.disabled = true;
+                    try {
+                        var r = await fetch('/api/me/manufacturer', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                            body: JSON.stringify({
+                                name_en: (document.getElementById('mfr-name-en') && document.getElementById('mfr-name-en').value || '').trim(),
+                                description_en: (document.getElementById('mfr-desc-en') && document.getElementById('mfr-desc-en').value || '').trim()
+                            })
+                        });
+                        var data = await r.json().catch(function () { return {}; });
+                        if (!r.ok) throw new Error(data.error || '儲存失敗');
+                        setMfrEnMsg('✅ 已儲存', 'text-success');
+                        setTimeout(function () { setMfrEnMsg(''); }, 3000);
+                    } catch (e) {
+                        setMfrEnMsg('❌ ' + e.message, 'text-danger');
+                    } finally {
+                        btnSaveMfrEn.disabled = false;
+                    }
+                });
+            }
+            if (btnGenerateMfrEn) {
+                btnGenerateMfrEn.addEventListener('click', async function () {
+                    setMfrEnMsg('AI 生成中…', 'text-muted');
+                    var t = await getToken();
+                    if (!t) { setMfrEnMsg('請先登入', 'text-danger'); return; }
+                    var overwrite = false;
+                    var hasExisting = (document.getElementById('mfr-name-en') && document.getElementById('mfr-name-en').value.trim())
+                        || (document.getElementById('mfr-desc-en') && document.getElementById('mfr-desc-en').value.trim());
+                    if (hasExisting && !confirm('已有英文內容，確定要重新生成並覆蓋？')) return;
+                    if (hasExisting) overwrite = true;
+                    btnGenerateMfrEn.disabled = true;
+                    try {
+                        var r = await fetch('/api/me/manufacturer/generate-i18n-en', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                            body: JSON.stringify({ overwrite: overwrite })
+                        });
+                        var data = await r.json().catch(function () { return {}; });
+                        if (r.status === 409 && !overwrite) {
+                            if (!confirm('已有英文內容，要覆蓋重新生成嗎？')) {
+                                setMfrEnMsg('');
+                                return;
+                            }
+                            r = await fetch('/api/me/manufacturer/generate-i18n-en', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                                body: JSON.stringify({ overwrite: true })
+                            });
+                            data = await r.json().catch(function () { return {}; });
+                        }
+                        if (!r.ok) throw new Error(data.error || '生成失敗');
+                        var ne = document.getElementById('mfr-name-en');
+                        var de = document.getElementById('mfr-desc-en');
+                        if (ne) ne.value = data.name_en || (data.manufacturer && data.manufacturer.name_en) || '';
+                        if (de) de.value = data.description_en || (data.manufacturer && data.manufacturer.description_en) || '';
+                        var metaEnEl = document.getElementById('mfrEnMeta');
+                        if (metaEnEl && data.generated_at) {
+                            metaEnEl.textContent = '上次 AI 生成：' + new Date(data.generated_at).toLocaleString('zh-TW');
+                        }
+                        setMfrEnMsg('✅ 已生成並寫入', 'text-success');
+                        setTimeout(function () { setMfrEnMsg(''); }, 4000);
+                    } catch (e) {
+                        setMfrEnMsg('❌ ' + e.message, 'text-danger');
+                    } finally {
+                        btnGenerateMfrEn.disabled = false;
                     }
                 });
             }
