@@ -334,8 +334,8 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
         title: p.title || '未命名',
         image_url: p.ai_generated_image_url || p.reference_image_url,
         link,
-        manufacturer_id: refMfrId || null,
-        prototype_asset_id: refProtoId || null,
+        ref_manufacturer_id: refMfrId || null,
+        ref_prototype_asset_id: refProtoId || null,
         inspiration_url: id ? `/inspiration/user_design/${id}` : null,
         owner_display: ownerDisplayMap[p.owner_id] || null,
         category_key: p.category || null,
@@ -3441,6 +3441,14 @@ function manufacturerVisibleToPublicAudience(mfr) {
 function vendorAssetVisibleToPublicAudience(mfr, assetRow) {
     if (!assetRow || assetRow.is_public === false) return false;
     return manufacturerVisibleToPublicAudience(mfr);
+}
+
+/** 廠商詳情頁素材庫：is_public 且廠商 active 即可（與 product-tree 一致） */
+function vendorAssetVisibleOnManufacturerProfile(mfr, assetRow) {
+    if (!assetRow || assetRow.is_public === false) return false;
+    if (!mfr || mfr.is_active === false) return false;
+    if (mfr.expires_at && new Date(mfr.expires_at) <= new Date()) return false;
+    return true;
 }
 
 function parseSeedPublicReleasedAtBody(raw) {
@@ -14878,6 +14886,7 @@ app.get('/api/vendor-assets/prototype-link-summary', async (req, res) => {
 app.get('/api/vendor-assets', async (req, res) => {
     try {
         const internalPreview = await getRequestInternalPreviewFlag(req);
+        const forProfile = parseTruthyBody(req.query.for_profile);
         const categoryKey = (req.query.category_key || '').trim() || null;
         const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
         const styleKey = normalizeVendorStyleKey(req.query.style_key) || null;
@@ -14988,6 +14997,7 @@ app.get('/api/vendor-assets', async (req, res) => {
             const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
             if (!mfr) return !!internalPreview;
             if (internalPreview) return true;
+            if (forProfile && manufacturerId) return vendorAssetVisibleOnManufacturerProfile(mfr, r);
             return vendorAssetVisibleToPublicAudience(mfr, r);
         });
         const lang = (req.query.lang || '').trim();

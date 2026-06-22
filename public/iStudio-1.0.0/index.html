@@ -645,10 +645,10 @@
                     } else if (item.type === 'user_design') {
                         var findVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
                         var destUrl;
-                        if (item.prototype_asset_id) {
-                            destUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.prototype_asset_id);
-                        } else if (item.manufacturer_id) {
-                            destUrl = '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id);
+                        if (item.ref_prototype_asset_id) {
+                            destUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.ref_prototype_asset_id);
+                        } else if (item.ref_manufacturer_id) {
+                            destUrl = '/vendor-profile.html?id=' + encodeURIComponent(item.ref_manufacturer_id);
                         } else if (item.link && (item.link.indexOf('product-tree') !== -1 || item.link.indexOf('vendor-profile') !== -1)) {
                             destUrl = item.link;
                         } else {
@@ -1503,10 +1503,10 @@
                     linkEl.onclick = null;
                     var _findVendor = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
                     var _dest;
-                    if (item.prototype_asset_id) {
-                        _dest = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.prototype_asset_id);
-                    } else if (item.manufacturer_id) {
-                        _dest = '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id);
+                    if (item.ref_prototype_asset_id) {
+                        _dest = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.ref_prototype_asset_id);
+                    } else if (item.ref_manufacturer_id) {
+                        _dest = '/vendor-profile.html?id=' + encodeURIComponent(item.ref_manufacturer_id);
                     } else if (item.link && (item.link.indexOf('product-tree') !== -1 || item.link.indexOf('vendor-profile') !== -1)) {
                         _dest = item.link;
                     } else {

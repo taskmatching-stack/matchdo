@@ -686,7 +686,7 @@
             vendorAssetsAuthHeaders().then(function (authHdr) {
             return Promise.all([
                 fetch('/api/manufacturers/' + encodeURIComponent(mfrId) + '/catalog-groups').then(function (r) { return r.json(); }),
-                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId), { headers: authHdr }).then(function (r) { return r.json(); })
+                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1', { headers: authHdr }).then(function (r) { return r.json(); })
             ]).then(function (results) {
                 var cg = results[0] || {};
                 var assets = results[1] || {};
@@ -759,7 +759,7 @@
                     vendorAssetsActiveGroupId = btn.getAttribute('data-group') || '';
                     vendorProfileOffset = 0;
                     renderVendorCatalogNav(mfrId);
-                    var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
+                    var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1';
                     if (vendorAssetsActiveGroupId) url += '&catalog_group_id=' + encodeURIComponent(vendorAssetsActiveGroupId);
                     vendorAssetsAuthHeaders().then(function (authHdr) {
                     fetch(url, { headers: authHdr }).then(function (r) { return r.json(); }).then(function (data) {
