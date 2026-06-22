@@ -32,11 +32,11 @@
           封測請優先 <strong>下架</strong>（資料保留）；<strong>刪除</strong> 永久移除且無法復原。
         </div>
         <div class="alert alert-warning border-warning mb-3 py-2 small">
-          <strong>代為維護：</strong> 用<strong>種子綁定帳號</strong>登入廠商前台即可編輯作品與素材（種子期不鎖）；或在本頁點「上傳／素材」。轉正式廠商後再交付帳密予廠商。
+          <strong>平台建置內容：</strong> 用<strong>種子綁定帳號</strong>（非 admin）登入廠商前台建素材／作品；管理員在本頁用「<strong>自助編輯</strong>」開關控制該帳號能否寫入。交付廠商試用前請<strong>關閉自助編輯</strong>。本頁「上傳／素材」為 admin 備援，非主要流程。
         </div>
         <p class="text-muted small mb-3">
-          <strong>步驟一</strong>：若要封測「平台代維護、同意後才公開」，請用下方表單建立 <strong>種子</strong> 廠商（可設公開天數）。<br>
-          <strong>步驟二</strong>：列表點「上傳」代傳素材；種子另可點「天數」「同意公開」。已存在的示範店若類型為一般／付費，請用「素材」上下架，或點「轉為官方範例」／「轉為種子」。
+          <strong>步驟一</strong>：若要封測「平台代維護、同意後才公開」，請用下方表單建立 <strong>種子</strong> 廠商（可設公開天數；預設允許自助編輯）。<br>
+          <strong>步驟二</strong>：平台人員以綁定帳號登入前台建內容；種子列可調「天數」「同意公開」「自助編輯」。已存在的示範店若類型為一般／付費，請用「素材」上下架，或點「轉為官方範例」／「轉為種子」。
         </p>
 
         <!-- 步驟一：代為建立廠商資料（新增種子廠商） -->
@@ -115,13 +115,14 @@
                     <th>剩餘天數</th>
                     <th>到期日</th>
                     <th>同意公開</th>
+                    <th>自助編輯</th>
                     <th>廠商頁</th>
                     <th>建立時間</th>
                     <th style="min-width:360px">操作</th>
                   </tr>
                 </thead>
                 <tbody id="tableBody">
-                  <tr><td colspan="8" class="text-center text-muted">載入中…</td></tr>
+                  <tr><td colspan="9" class="text-center text-muted">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -378,6 +379,13 @@
           ? '<span class="badge bg-success">已同意</span>'
           : '<span class="badge bg-secondary">未同意</span>';
       }
+      var selfServiceCell = naCell;
+      if (isSeed) {
+        var selfOn = m.seed_vendor_self_service_enabled !== false;
+        selfServiceCell = selfOn
+          ? '<span class="badge bg-success">開啟</span>'
+          : '<span class="badge bg-secondary">關閉</span>';
+      }
       var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(m.id);
       var createdCell = formatDate(m.created_at);
       var mfrName = (m.name || '').replace(/"/g, '&quot;');
@@ -386,6 +394,11 @@
       actionCell += '<button type="button" class="btn btn-sm btn-outline-dark" data-action="assets" data-is-seed="' + (isSeed ? '1' : '0') + '" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-images me-1"></i>素材</button>';
       if (isSeed) {
         actionCell += '<button type="button" class="btn btn-sm btn-outline-secondary" data-action="edit-days" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '" data-expires="' + escapeHtml(m.expires_at || '') + '"><i class="bi bi-calendar me-1"></i>天數</button>';
+        if (m.seed_vendor_self_service_enabled !== false) {
+          actionCell += '<button type="button" class="btn btn-sm btn-outline-warning" data-action="self-service-off" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-lock me-1"></i>關閉自助</button>';
+        } else {
+          actionCell += '<button type="button" class="btn btn-sm btn-outline-success" data-action="self-service-on" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '"><i class="bi bi-unlock me-1"></i>允許自助</button>';
+        }
         if (m.seed_public_released) {
           actionCell += '<button type="button" class="btn btn-sm btn-outline-warning" data-action="revoke-release" data-mfr-id="' + escapeHtml(m.id) + '" data-mfr-name="' + mfrName + '">撤回同意</button>';
         } else {
@@ -412,6 +425,7 @@
         '<td>' + daysCell + '</td>' +
         '<td>' + expiresCell + '</td>' +
         '<td>' + releasedCell + '</td>' +
+        '<td>' + selfServiceCell + '</td>' +
         '<td><a href="' + profileUrl + '" target="_blank" rel="noopener">開啟廠商頁 <i class="bi bi-box-arrow-up-right small"></i></a></td>' +
         '<td>' + createdCell + '</td>' +
         '<td style="min-width:300px">' + actionCell + '</td>' +
@@ -445,6 +459,22 @@
           patchManufacturer(id, { seed_public_released_at: null },
             '撤回「' + name + '」的對外同意？\n\n一般訂製者將無法再看到其素材。',
             '已撤回同意公開');
+        });
+        return;
+      }
+      if (action === 'self-service-off') {
+        btn.addEventListener('click', function() {
+          patchManufacturer(id, { seed_vendor_self_service_enabled: false },
+            '關閉「' + name + '」的自助編輯？\n\n綁定帳號登入後將無法再透過廠商前台寫入（唯讀試用）。',
+            '已關閉自助編輯');
+        });
+        return;
+      }
+      if (action === 'self-service-on') {
+        btn.addEventListener('click', function() {
+          patchManufacturer(id, { seed_vendor_self_service_enabled: true },
+            '允許「' + name + '」自助編輯？\n\n綁定帳號可再次透過廠商前台建／改內容。',
+            '已允許自助編輯');
         });
         return;
       }

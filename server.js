@@ -3698,9 +3698,49 @@ function manufacturerIsSeedVendor(mfr) {
     return !!(mfr && mfr.vendor_source === 'seed');
 }
 
-/** 種子期間由平台用綁定帳號維護，不擋編輯；轉正式廠商後才交付帳密。付費／免費上傳仍走 hasActivePaidSubscription。 */
-async function rejectSeedVendorSelfServiceWrite(_userId, _mfrOrManufacturerId, _res) {
-    return false;
+/** 非種子一律可寫；種子看 seed_vendor_self_service_enabled（false = 鎖 /api/me/* 寫入）。 */
+function manufacturerSeedSelfServiceEnabled(mfr) {
+    if (!mfr || !manufacturerIsSeedVendor(mfr)) return true;
+    return mfr.seed_vendor_self_service_enabled !== false;
+}
+
+async function resolveManufacturerForSeedSelfServiceCheck(mfrOrId) {
+    if (mfrOrId == null) return null;
+    if (typeof mfrOrId === 'string' || typeof mfrOrId === 'number') {
+        const { data, error } = await supabase
+            .from('manufacturers')
+            .select('id, vendor_source, seed_vendor_self_service_enabled')
+            .eq('id', mfrOrId)
+            .maybeSingle();
+        if (error && isMissingManufacturerColumnError(error, 'seed_vendor_self_service_enabled')) {
+            const fb = await supabase.from('manufacturers').select('id, vendor_source').eq('id', mfrOrId).maybeSingle();
+            return fb.data || null;
+        }
+        return data || null;
+    }
+    if (mfrOrId.id && manufacturerIsSeedVendor(mfrOrId) && mfrOrId.seed_vendor_self_service_enabled === undefined) {
+        const { data, error } = await supabase
+            .from('manufacturers')
+            .select('id, vendor_source, seed_vendor_self_service_enabled')
+            .eq('id', mfrOrId.id)
+            .maybeSingle();
+        if (error && isMissingManufacturerColumnError(error, 'seed_vendor_self_service_enabled')) return mfrOrId;
+        return data || mfrOrId;
+    }
+    return mfrOrId;
+}
+
+async function rejectSeedVendorSelfServiceWrite(_userId, mfrOrManufacturerId, res) {
+    const mfr = await resolveManufacturerForSeedSelfServiceCheck(mfrOrManufacturerId);
+    if (!mfr || !manufacturerIsSeedVendor(mfr)) return false;
+    if (manufacturerSeedSelfServiceEnabled(mfr)) return false;
+    if (res) {
+        res.status(403).json({
+            error: '此種子廠商帳號目前不開放自助編輯；請聯繫 MatchDO 平台開啟編輯權限。',
+            code: 'SEED_SELF_SERVICE_LOCKED'
+        });
+    }
+    return true;
 }
 
 function manufacturerSeedPublicReleased(mfr) {
@@ -4061,7 +4101,8 @@ app.post('/api/admin/seed-manufacturer', express.json(), async (req, res) => {
             is_active: true,
             verified: !!body.verified,
             vendor_source: 'seed',
-            expires_at: expiresAt
+            expires_at: expiresAt,
+            seed_vendor_self_service_enabled: true
         };
         const { data: inserted, error } = await supabase.from('manufacturers').insert(payload).select('id, name, user_id, vendor_source, expires_at').single();
         if (error) {
@@ -4076,7 +4117,7 @@ app.post('/api/admin/seed-manufacturer', express.json(), async (req, res) => {
     }
 });
 
-const MFR_ADMIN_ROW_SELECT = 'id, name, description, location, contact_json, categories, is_active, verified, expires_at, vendor_source, seed_public_released_at';
+const MFR_ADMIN_ROW_SELECT = 'id, name, description, location, contact_json, categories, is_active, verified, expires_at, vendor_source, seed_public_released_at, seed_vendor_self_service_enabled';
 
 function isMissingManufacturerColumnError(err, colName) {
     const msg = String((err && err.message) || '');
@@ -4094,7 +4135,11 @@ async function updateManufacturerAdminRow(manufacturerId, updates) {
     }
     if (error && isMissingManufacturerColumnError(error, 'seed_public_released_at')) {
         delete payload.seed_public_released_at;
-        ({ data, error } = await supabase.from('manufacturers').update(payload).eq('id', manufacturerId).select(MFR_ADMIN_ROW_SELECT.replace(', seed_public_released_at', '')).single());
+        ({ data, error } = await supabase.from('manufacturers').update(payload).eq('id', manufacturerId).select(MFR_ADMIN_ROW_SELECT.replace(', seed_public_released_at', '').replace(', seed_vendor_self_service_enabled', '')).single());
+    }
+    if (error && isMissingManufacturerColumnError(error, 'seed_vendor_self_service_enabled')) {
+        delete payload.seed_vendor_self_service_enabled;
+        ({ data, error } = await supabase.from('manufacturers').update(payload).eq('id', manufacturerId).select(MFR_ADMIN_ROW_SELECT.replace(', seed_vendor_self_service_enabled', '')).single());
     }
     return { data, error };
 }
@@ -4126,6 +4171,9 @@ app.patch('/api/admin/manufacturers/:id', express.json(), async (req, res) => {
         }
         const releasedAt = parseSeedPublicReleasedAtBody(body.seed_public_released_at);
         if (releasedAt !== undefined) updates.seed_public_released_at = releasedAt;
+        if (body.seed_vendor_self_service_enabled !== undefined) {
+            updates.seed_vendor_self_service_enabled = !!body.seed_vendor_self_service_enabled;
+        }
         if (Object.keys(updates).length === 0) return res.status(400).json({ error: '無可更新的欄位' });
         const { data: updated, error } = await updateManufacturerAdminRow(manufacturerId, updates);
         if (error) {
@@ -4177,9 +4225,14 @@ app.get('/api/admin/seed-manufacturers', async (req, res) => {
         const adminUser = await requireAdmin(req, res);
         if (!adminUser) return;
         const seedOnly = (req.query.seed_only === '1' || req.query.seed_only === 'true');
-        let query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, is_active, location, contact_json, verified, created_at, seed_public_released_at').order('created_at', { ascending: false });
+        let query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, is_active, location, contact_json, verified, created_at, seed_public_released_at, seed_vendor_self_service_enabled').order('created_at', { ascending: false });
         if (seedOnly) query = query.eq('vendor_source', 'seed');
-        const { data: rows, error } = await query;
+        let { data: rows, error } = await query;
+        if (error && isMissingManufacturerColumnError(error, 'seed_vendor_self_service_enabled')) {
+            query = supabase.from('manufacturers').select('id, name, user_id, vendor_source, expires_at, is_active, location, contact_json, verified, created_at, seed_public_released_at').order('created_at', { ascending: false });
+            if (seedOnly) query = query.eq('vendor_source', 'seed');
+            ({ data: rows, error } = await query);
+        }
         if (error) {
             if (error.code === '42703') return res.status(500).json({ error: '請先執行 docs/add-manufacturers-vendor-source.sql 與 add-manufacturers-expires-at.sql' });
             console.error('GET /api/admin/seed-manufacturers:', error);
@@ -4203,6 +4256,7 @@ app.get('/api/admin/seed-manufacturers', async (req, res) => {
                 expires_at: m.expires_at || null,
                 seed_public_released_at: m.seed_public_released_at || null,
                 seed_public_released: !!(m.seed_public_released_at),
+                seed_vendor_self_service_enabled: m.seed_vendor_self_service_enabled !== false,
                 remaining_days: remainingDays,
                 is_paid: isPaid,
                 is_platform: isPlatform,
@@ -12719,8 +12773,8 @@ app.get('/api/me/manufacturer', async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
-        const selectWithLogo = 'id, name, name_en, description, description_en, location, categories, contact_json, logo_url, vendor_source, expires_at, i18n_en_generated_at, i18n_en_source_hash';
-        const selectWithoutLogo = 'id, name, name_en, description, description_en, location, categories, contact_json, vendor_source, expires_at, i18n_en_generated_at, i18n_en_source_hash';
+        const selectWithLogo = 'id, name, name_en, description, description_en, location, categories, contact_json, logo_url, vendor_source, expires_at, seed_vendor_self_service_enabled, i18n_en_generated_at, i18n_en_source_hash';
+        const selectWithoutLogo = 'id, name, name_en, description, description_en, location, categories, contact_json, vendor_source, expires_at, seed_vendor_self_service_enabled, i18n_en_generated_at, i18n_en_source_hash';
         let resq = await supabase.from('manufacturers').select(selectWithLogo).eq('user_id', user.id).maybeSingle();
         if (resq.error) {
             const msg = (resq.error.message || '').toLowerCase();
@@ -12740,6 +12794,8 @@ app.get('/api/me/manufacturer', async (req, res) => {
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
         mfr.logo_url = manufacturerLogoFromRow(mfr);
+        mfr.seed_vendor_self_service_locked = manufacturerIsSeedVendor(mfr) && !manufacturerSeedSelfServiceEnabled(mfr);
+        mfr.can_edit_vendor_content = !mfr.seed_vendor_self_service_locked;
         res.json(mfr);
     } catch (e) {
         console.error('GET /api/me/manufacturer 異常:', e);
@@ -17534,11 +17590,18 @@ app.get('/api/me/capabilities', async (req, res) => {
         });
 
         const [mfrRes, staffBypassPortfolio, catalogReady] = await Promise.all([
-            supabase.from('manufacturers').select('id, vendor_source, is_active').eq('user_id', user.id).maybeSingle(),
+            supabase.from('manufacturers').select('id, vendor_source, is_active, seed_vendor_self_service_enabled').eq('user_id', user.id).maybeSingle(),
             isStaffProfileUserId(user.id),
             supplierCatalogTablesReady()
         ]);
-        const mfr = mfrRes.data;
+        let mfr = mfrRes.data;
+        if (mfrRes.error && isMissingManufacturerColumnError(mfrRes.error, 'seed_vendor_self_service_enabled')) {
+            const fb = await supabase.from('manufacturers').select('id, vendor_source, is_active').eq('user_id', user.id).maybeSingle();
+            mfr = fb.data;
+        } else if (mfrRes.error) {
+            console.error('GET /api/me/capabilities mfr:', mfrRes.error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
         const hasManufacturer = !!mfr;
         let activePortfolioCount = 0;
         if (mfr && mfr.is_active !== false) {
@@ -17546,6 +17609,8 @@ app.get('/api/me/capabilities', async (req, res) => {
             else activePortfolioCount = (await hasEnabledPortfolioWork(mfr.id)) ? 1 : 0;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
+        const seedSelfServiceLocked = isSeed && !manufacturerSeedSelfServiceEnabled(mfr);
+        const canEditVendorContent = !seedSelfServiceLocked;
         // 廠商資格：至少 1 件啟用中作品（種子亦同，供平台維護期匯入材料）
         const isQualifiedManufacturer = !!mfr && mfr.is_active !== false
             && (activePortfolioCount >= 1 || staffBypassPortfolio);
@@ -17575,7 +17640,8 @@ app.get('/api/me/capabilities', async (req, res) => {
             bypass_supplier_portfolio_gate: staffBypassPortfolio,
             vendor_source: mfr ? mfr.vendor_source : null,
             is_seed_vendor: !!isSeed,
-            seed_vendor_self_service_locked: false,
+            seed_vendor_self_service_locked: !!seedSelfServiceLocked,
+            can_edit_vendor_content: canEditVendorContent,
             supplier_catalog_ready: catalogReady,
             can_upload_products_and_assets: canUploadProductsAndAssets,
             can_use_supplier_catalog: canImport,
