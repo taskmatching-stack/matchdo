@@ -2126,7 +2126,24 @@ $(document).ready(function () {
         return '';
     }
 
-    /** 「找廠商訂製」：有引用廠商素材時連到該廠商首頁，否則 fallback 圖庫 */
+    function prototypeOrderUrlFromSource(s) {
+        if (!s || !s.vendor_asset_id) return '';
+        var kind = (s.asset_kind || 'prototype');
+        if (kind !== 'prototype') return '';
+        return '/product-tree.html?prototype_asset_id=' + encodeURIComponent(s.vendor_asset_id);
+    }
+
+    function applyPastItemModalFindVendorLink(findVendorUrl) {
+        var linkEl = document.getElementById('pastItemModalLink');
+        if (!linkEl) return;
+        linkEl.href = findVendorUrl || '#';
+        var label = (typeof t === 'function' && t('home.findVendor')) ? t('home.findVendor') : '找廠商訂製';
+        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + label;
+        if (findVendorUrl && findVendorUrl !== '#') linkEl.classList.remove('d-none');
+        else linkEl.classList.add('d-none');
+    }
+
+    /** 「找廠商訂製」：有引用廠商原型時優先連產品關聯頁，否則廠商首頁，再 fallback 圖庫 */
     function resolvePastItemFindVendorUrl(refSourcesList, catKey, subKey) {
         var list = Array.isArray(refSourcesList) ? refSourcesList : [];
         var protoByMfr = {};
@@ -2137,11 +2154,23 @@ $(document).ready(function () {
         });
         var protoMfrIds = Object.keys(protoByMfr);
         if (protoMfrIds.length === 1) {
-            var protoUrl = vendorProfileUrlFromSource(protoByMfr[protoMfrIds[0]]);
+            var protoSrc = protoByMfr[protoMfrIds[0]];
+            var treeUrl = prototypeOrderUrlFromSource(protoSrc);
+            if (treeUrl) return treeUrl;
+            var protoUrl = vendorProfileUrlFromSource(protoSrc);
             if (protoUrl) return protoUrl;
+        }
+        var protoOnly = list.filter(function (s) {
+            return s && s.vendor_asset_id && (s.asset_kind || 'prototype') === 'prototype';
+        });
+        if (protoOnly.length === 1) {
+            var singleTree = prototypeOrderUrlFromSource(protoOnly[0]);
+            if (singleTree) return singleTree;
         }
         var anchor = getPrototypeAnchorSource();
         if (anchor) {
+            var anchorTree = prototypeOrderUrlFromSource(anchor);
+            if (anchorTree) return anchorTree;
             var anchorUrl = vendorProfileUrlFromSource(anchor);
             if (anchorUrl) return anchorUrl;
         }
@@ -2154,7 +2183,7 @@ $(document).ready(function () {
             var singleUrl = vendorProfileUrlFromSource(allByMfr[allMfrIds[0]]);
             if (singleUrl) return singleUrl;
         }
-        if (refVendorMfrId) {
+        if (refVendorMfrId && allMfrIds.indexOf(refVendorMfrId) !== -1) {
             return '/vendor-profile.html?id=' + encodeURIComponent(refVendorMfrId);
         }
         var q = [];
@@ -4440,8 +4469,7 @@ $(document).ready(function () {
         $('#pastItemModalShowSection').addClass('d-none');
         $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
         var findVendorUrl = resolvePastItemFindVendorUrl(getActiveRefSourcesList(), ck, sk);
-        var linkEl = document.getElementById('pastItemModalLink');
-        if (linkEl) { linkEl.href = findVendorUrl; linkEl.classList.remove('d-none'); }
+        applyPastItemModalFindVendorLink(findVendorUrl);
         showBootstrapModal(document.getElementById('pastItemModal'));
     });
 
@@ -4475,11 +4503,7 @@ $(document).ready(function () {
         var catKey = (wrap.attr('data-category-key') || '').trim();
         var subKey = (wrap.attr('data-subcategory-key') || '').trim();
         var findVendorUrl = resolvePastItemFindVendorUrl(refSourcesList, catKey, subKey);
-        var linkEl = document.getElementById('pastItemModalLink');
-        if (linkEl) {
-            linkEl.href = findVendorUrl;
-            linkEl.classList.remove('d-none');
-        }
+        applyPastItemModalFindVendorLink(findVendorUrl);
         if (productId) {
             $showSection.removeClass('d-none');
             $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);

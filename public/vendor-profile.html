@@ -266,8 +266,20 @@
         var id = new URLSearchParams(location.search).get('id');
         if (!id) { showError(); return; }
 
-        fetch('/api/manufacturers/' + encodeURIComponent(id))
-            .then(function (r) {
+        function fetchManufacturer(token) {
+            var headers = {};
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            return fetch('/api/manufacturers/' + encodeURIComponent(id), { headers: headers });
+        }
+
+        function loadProfile() {
+            var p = (typeof AuthService !== 'undefined')
+                ? AuthService.getSession().then(function (s) {
+                    var token = s && (s.access_token || (s.session && s.session.access_token));
+                    return fetchManufacturer(token);
+                }).catch(function () { return fetchManufacturer(null); })
+                : fetchManufacturer(null);
+            p.then(function (r) {
                 if (r.ok) return r.json();
                 return r.json().catch(function () { return {}; }).then(function (body) {
                     return Promise.reject({ status: r.status, message: (body && body.error) || '無法載入' });
@@ -286,6 +298,8 @@
                 var msg = (err && err.message) || '';
                 showError(status, msg);
             });
+        }
+        loadProfile();
 
         function showError(status, detail) {
             document.getElementById('pageLoading').classList.add('d-none');

@@ -643,16 +643,24 @@
                         linkEl.onclick = function() { window.location.href = collUrl; };
                         linkEl.style.display = 'inline-block';
                     } else if (item.type === 'user_design') {
-                        // 一般設計圖（單張）→ 搜尋廠商（帶分類到圖庫）
-                        var mainKey = (item.category_key || item.category || '').trim();
-                        var subKey = (item.subcategory_key || '').trim();
-                        var q = [];
-                        if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
-                        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
-                        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
-                        var searchVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.searchVendor') : '搜尋廠商';
-                        linkEl.innerHTML = '<i class="bi bi-search me-1"></i>' + searchVendorText;
-                        linkEl.onclick = (function(u){ return function(){ window.location.href = u; }; })(galleryUrl);
+                        var findVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
+                        var destUrl;
+                        if (item.prototype_asset_id) {
+                            destUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.prototype_asset_id);
+                        } else if (item.manufacturer_id) {
+                            destUrl = '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id);
+                        } else if (item.link && (item.link.indexOf('product-tree') !== -1 || item.link.indexOf('vendor-profile') !== -1)) {
+                            destUrl = item.link;
+                        } else {
+                            var mainKey = (item.category_key || item.category || '').trim();
+                            var subKey = (item.subcategory_key || '').trim();
+                            var q = [];
+                            if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
+                            if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+                            destUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+                        }
+                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + findVendorText;
+                        linkEl.onclick = (function(u){ return function(){ window.location.href = u; }; })(destUrl);
                         linkEl.style.display = 'inline-block';
                     } else if (item.link) {
                         var base = (item.link.indexOf('gallery') !== -1) ? item.link.split('?')[0] : '/custom/gallery.html';
@@ -1493,9 +1501,14 @@
                 if (titleEl) titleEl.textContent = item.title || '';
                 if (linkEl) {
                     linkEl.onclick = null;
+                    var _findVendor = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
                     var _dest;
-                    if (item.manufacturer_id) {
+                    if (item.prototype_asset_id) {
+                        _dest = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.prototype_asset_id);
+                    } else if (item.manufacturer_id) {
                         _dest = '/vendor-profile.html?id=' + encodeURIComponent(item.manufacturer_id);
+                    } else if (item.link && (item.link.indexOf('product-tree') !== -1 || item.link.indexOf('vendor-profile') !== -1)) {
+                        _dest = item.link;
                     } else {
                         var mainKey = (item.category_key || item.category || '').trim();
                         var subKey = (item.subcategory_key || '').trim();
@@ -1508,11 +1521,7 @@
                             _dest = item.link || '/custom/gallery.html';
                         }
                     }
-                    var _viewVendor = (window.i18n && window.i18n.t) ? window.i18n.t('home.viewVendorDetail') : '廠商詳情';
-                    var _searchVendor = (window.i18n && window.i18n.t) ? window.i18n.t('home.searchVendor') : '搜尋廠商';
-                    var _label = item.manufacturer_id ? ('<i class="bi bi-person-badge me-1"></i>' + _viewVendor)
-                        : ('<i class="bi bi-search me-1"></i>' + _searchVendor);
-                    linkEl.innerHTML = _label;
+                    linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + _findVendor;
                     linkEl.onclick = (function(d){ return function(){ window.location.href = d; }; })(_dest);
                     linkEl.style.display = 'inline-block';
                 }

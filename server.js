@@ -267,11 +267,64 @@ async function fetchOwnerDisplayMap(ownerIds) {
     return ownerDisplayMap;
 }
 
+function pickManufacturerIdFromReferenceSources(refSourcesRaw) {
+    const list = Array.isArray(refSourcesRaw) ? refSourcesRaw : [];
+    const protoByMfr = {};
+    list.forEach((s) => {
+        if (!s || !s.manufacturer_id) return;
+        const kind = (s.asset_kind || 'prototype');
+        if (kind === 'prototype') protoByMfr[s.manufacturer_id] = s;
+    });
+    const protoIds = Object.keys(protoByMfr);
+    if (protoIds.length === 1) return protoIds[0];
+    const allByMfr = {};
+    list.forEach((s) => { if (s && s.manufacturer_id) allByMfr[s.manufacturer_id] = true; });
+    const allIds = Object.keys(allByMfr);
+    if (allIds.length === 1) return allIds[0];
+    return null;
+}
+
+function pickPrototypeAssetIdFromReferenceSources(refSourcesRaw) {
+    const list = Array.isArray(refSourcesRaw) ? refSourcesRaw : [];
+    const protos = list.filter((s) => s && s.vendor_asset_id && (s.asset_kind || 'prototype') === 'prototype');
+    if (protos.length === 1) return protos[0].vendor_asset_id;
+    return null;
+}
+
+async function manufacturerHasPublicVendorAssets(manufacturerId) {
+    if (!manufacturerId) return false;
+    const { data, error } = await supabase
+        .from('vendor_assets')
+        .select('id')
+        .eq('manufacturer_id', manufacturerId)
+        .eq('is_public', true)
+        .limit(1)
+        .maybeSingle();
+    if (error) return false;
+    return !!(data && data.id);
+}
+
+/** 廠商詳情頁：一般曝光規則，或種子廠商已有公開 vendor_assets（與 product-tree 一致可訂製導向） */
+async function manufacturerEligibleForProfilePage(mfr, { internalPreview = false } = {}) {
+    if (!mfr || mfr.is_active === false) return false;
+    if (internalPreview) return true;
+    if (manufacturerVisibleToPublicAudience(mfr)) return true;
+    return manufacturerHasPublicVendorAssets(mfr.id);
+}
+
 function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
     let aj = p.analysis_json;
     if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
     const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
     const id = p.id;
+    const refMfrId = pickManufacturerIdFromReferenceSources(p.reference_sources);
+    const refProtoId = pickPrototypeAssetIdFromReferenceSources(p.reference_sources);
+    let link = '/custom/gallery.html';
+    if (refProtoId) {
+        link = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(refProtoId);
+    } else if (refMfrId) {
+        link = '/vendor-profile.html?id=' + encodeURIComponent(refMfrId);
+    }
     return attachDisplayTags({
         ...p,
         analysis_json: aj || null,
@@ -280,7 +333,9 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
         size: '1x1',
         title: p.title || '未命名',
         image_url: p.ai_generated_image_url || p.reference_image_url,
-        link: '/custom/gallery.html',
+        link,
+        manufacturer_id: refMfrId || null,
+        prototype_asset_id: refProtoId || null,
         inspiration_url: id ? `/inspiration/user_design/${id}` : null,
         owner_display: ownerDisplayMap[p.owner_id] || null,
         category_key: p.category || null,
@@ -332,7 +387,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
     const pattern = `%${escapeForIlike(searchQ)}%`;
     const pool = Math.min(500, Math.max(perPage * 10, 150));
     const merged = [];
-    const userSelect = 'id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json';
+    const userSelect = 'id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources';
     const portfolioSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, created_at';
 
     const pushIfMatch = (item, createdAt) => {
@@ -10907,7 +10962,7 @@ app.get('/api/media-wall', async (req, res) => {
         if (!layoutOnly || layoutOnly === 'user_design') {
         let userQuery = supabase
             .from('custom_products')
-            .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json')
+            .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources')
             .not('ai_generated_image_url', 'eq', null)
             .or('show_on_homepage.eq.true,show_on_homepage.is.null');
         if (categoryKeysToMatch && categoryKeysToMatch.length) userQuery = userQuery.in('category', categoryKeysToMatch);
@@ -10940,23 +10995,8 @@ app.get('/api/media-wall', async (req, res) => {
             }
             // 照抄 GET /api/custom-products 的 product 形狀；確保 analysis_json 為物件，且 generation_seed 從 analysis_json 帶出
             userRows.forEach(p => {
-                let aj = p.analysis_json;
-                if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
-                const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
-                const userItem = attachDisplayTags({
-                    ...p,
-                    analysis_json: aj || null,
-                    generation_seed: seed != null && seed !== '' ? seed : null,
-                    type: 'user_design',
-                    size: '1x1',
-                    title: p.title || '未命名',
-                    image_url: p.ai_generated_image_url || p.reference_image_url,
-                    link: '/custom/gallery.html',
-                    inspiration_url: p.id ? `/inspiration/user_design/${p.id}` : null,
-                    owner_display: ownerDisplayMap[p.owner_id] || null,
-                    category_key: p.category || null,
-                    subcategory_key: p.subcategory_key || null
-                });
+                let ownerMap = ownerDisplayMap;
+                const userItem = mapUserRowToMediaWallItem(p, ownerMap);
                 out.push(userItem);
             });
         }
@@ -12892,12 +12932,24 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         if (!resq.error && !resq.data) {
             resq = await supabase.from('manufacturers').select(fullSelect).eq('user_id', id).maybeSingle();
         }
+        if (!resq.error && !resq.data) {
+            const { data: assetRow } = await supabase.from('vendor_assets').select('manufacturer_id').eq('id', id).maybeSingle();
+            if (assetRow && assetRow.manufacturer_id) {
+                resq = await supabase.from('manufacturers').select(fullSelect).eq('id', assetRow.manufacturer_id).maybeSingle();
+            }
+        }
 
         if (resq.error) {
             console.warn('GET /api/manufacturers/:id 完整查詢失敗:', resq.error.code, resq.error.message);
             resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories, expires_at').eq('id', id).maybeSingle();
             if (!resq.error && !resq.data) {
                 resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories, expires_at').eq('user_id', id).maybeSingle();
+            }
+            if (!resq.error && !resq.data) {
+                const { data: assetRow } = await supabase.from('vendor_assets').select('manufacturer_id').eq('id', id).maybeSingle();
+                if (assetRow && assetRow.manufacturer_id) {
+                    resq = await supabase.from('manufacturers').select('id, name, description, location, contact_json, categories, expires_at').eq('id', assetRow.manufacturer_id).maybeSingle();
+                }
             }
             if (!resq.error && resq.data) {
                 resq.data.rating = null;
@@ -12914,7 +12966,8 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         }
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '廠商不存在' });
-        if (!internalPreview && !manufacturerVisibleToPublicAudience(mfr)) {
+        const profileEligible = await manufacturerEligibleForProfilePage(mfr, { internalPreview });
+        if (!profileEligible) {
             if (manufacturerIsSeedVendor(mfr) && !manufacturerSeedPublicReleased(mfr)) {
                 return res.status(404).json({ error: '此廠商尚未對外開放展示。' });
             }
@@ -12927,11 +12980,12 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             }
         }
 
+        const mfrId = mfr.id;
         let portfolio = [];
         const portRes = await supabase
             .from('manufacturer_portfolio')
             .select('id, title, description, image_url, image_url_before, design_highlight, tags, category_key, subcategory_key, sort_order, min_order_quantity')
-            .eq('manufacturer_id', id)
+            .eq('manufacturer_id', mfrId)
             .order('sort_order', { ascending: true });
         if (portRes.error) {
             console.warn('GET /api/manufacturers/:id portfolio 查詢失敗:', portRes.error.message);
