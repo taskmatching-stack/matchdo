@@ -32,3 +32,5 @@ ALTER TABLE public.vendor_catalog_groups
     ADD COLUMN IF NOT EXISTS name_en TEXT;
 
 COMMENT ON COLUMN public.vendor_catalog_groups.name_en IS '廠商自訂分類名稱英文版';
+
+-- 產品政策：廠商 UGC 英文生成／讀取為平台基礎功能，API 不得扣點（見 docs/PROGRESS-vendor-content-i18n-en.md）

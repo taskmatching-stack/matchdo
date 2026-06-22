@@ -12884,6 +12884,7 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
 });
 
 // POST /api/me/manufacturer/generate-i18n-en — Gemini 生成廠商英文並寫入 DB（scope: profile|assets|portfolio|catalog_groups|all）
+// 產品政策：廠商公開頁多語系為平台基礎功能，本端點與讀取 ?lang=en 皆不得扣點（勿呼叫 credits/consume）。
 app.post('/api/me/manufacturer/generate-i18n-en', express.json(), async (req, res) => {
     try {
         const authHeader = req.headers.authorization || req.headers['x-auth-token'];
