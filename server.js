@@ -8324,7 +8324,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                         if (creditErr) console.warn('寫入 credit_transactions 失敗:', creditErr.message);
                         else console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
                     }
-                    const title = (prompt && String(prompt).trim()) ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '') : '產品草圖';
+                    const title = (prompt && String(prompt).trim()) ? String(prompt).trim().substring(0, 80) + (String(prompt).trim().length > 80 ? '…' : '') : '產品設計圖';
                     const description = (prompt && String(prompt).trim()) || '（無描述）';
                     const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
                     const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;

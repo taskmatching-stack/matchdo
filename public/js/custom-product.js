@@ -2115,6 +2115,54 @@ $(document).ready(function () {
         return u;
     }
 
+    function vendorProfileUrlFromSource(s) {
+        if (!s) return '';
+        if (s.manufacturer_profile_url && String(s.manufacturer_profile_url).trim() && s.manufacturer_profile_url !== '#') {
+            return String(s.manufacturer_profile_url).trim();
+        }
+        if (s.manufacturer_id) {
+            return '/vendor-profile.html?id=' + encodeURIComponent(s.manufacturer_id);
+        }
+        return '';
+    }
+
+    /** 「找廠商訂製」：有引用廠商素材時連到該廠商首頁，否則 fallback 圖庫 */
+    function resolvePastItemFindVendorUrl(refSourcesList, catKey, subKey) {
+        var list = Array.isArray(refSourcesList) ? refSourcesList : [];
+        var protoByMfr = {};
+        list.forEach(function (s) {
+            if (!s || !s.manufacturer_id) return;
+            var kind = (s.asset_kind || 'prototype');
+            if (kind === 'prototype') protoByMfr[s.manufacturer_id] = s;
+        });
+        var protoMfrIds = Object.keys(protoByMfr);
+        if (protoMfrIds.length === 1) {
+            var protoUrl = vendorProfileUrlFromSource(protoByMfr[protoMfrIds[0]]);
+            if (protoUrl) return protoUrl;
+        }
+        var anchor = getPrototypeAnchorSource();
+        if (anchor) {
+            var anchorUrl = vendorProfileUrlFromSource(anchor);
+            if (anchorUrl) return anchorUrl;
+        }
+        var allByMfr = {};
+        list.forEach(function (s) {
+            if (s && s.manufacturer_id) allByMfr[s.manufacturer_id] = s;
+        });
+        var allMfrIds = Object.keys(allByMfr);
+        if (allMfrIds.length === 1) {
+            var singleUrl = vendorProfileUrlFromSource(allByMfr[allMfrIds[0]]);
+            if (singleUrl) return singleUrl;
+        }
+        if (refVendorMfrId) {
+            return '/vendor-profile.html?id=' + encodeURIComponent(refVendorMfrId);
+        }
+        var q = [];
+        if (catKey) q.push('category_key=' + encodeURIComponent(catKey));
+        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+        return '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+    }
+
     function buildPastItemModalRefSourcesHtml(refSourcesList) {
         if (!refSourcesList || !refSourcesList.length) return '';
         var byMfr = {};
@@ -3777,7 +3825,7 @@ $(document).ready(function () {
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
-        var title = promptText ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '') : '產品草圖';
+        var title = promptText ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '') : '產品設計圖';
         var description = promptText || '（無描述）';
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {
@@ -3789,7 +3837,7 @@ $(document).ready(function () {
             imageUrl = generatedImageData;
         }
         if (!imageUrl) {
-            alert('尚無可儲存的生成圖，請先生成草圖。');
+            alert('尚無可儲存的生成圖，請先生成設計圖。');
             return;
         }
         getAuthToken(function (token) {
@@ -4391,12 +4439,9 @@ $(document).ready(function () {
         applyPastItemModalRefSources(getActiveRefSourcesList());
         $('#pastItemModalShowSection').addClass('d-none');
         $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
-        var q = [];
-        if (ck) q.push('category_key=' + encodeURIComponent(ck));
-        if (sk) q.push('subcategory_key=' + encodeURIComponent(sk));
-        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+        var findVendorUrl = resolvePastItemFindVendorUrl(getActiveRefSourcesList(), ck, sk);
         var linkEl = document.getElementById('pastItemModalLink');
-        if (linkEl) { linkEl.href = galleryUrl; linkEl.classList.remove('d-none'); }
+        if (linkEl) { linkEl.href = findVendorUrl; linkEl.classList.remove('d-none'); }
         showBootstrapModal(document.getElementById('pastItemModal'));
     });
 
@@ -4429,13 +4474,10 @@ $(document).ready(function () {
         var $checkbox = $('#pastItemModalShowOnHomepage');
         var catKey = (wrap.attr('data-category-key') || '').trim();
         var subKey = (wrap.attr('data-subcategory-key') || '').trim();
-        var q = [];
-        if (catKey) q.push('category_key=' + encodeURIComponent(catKey));
-        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
-        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
+        var findVendorUrl = resolvePastItemFindVendorUrl(refSourcesList, catKey, subKey);
         var linkEl = document.getElementById('pastItemModalLink');
         if (linkEl) {
-            linkEl.href = galleryUrl;
+            linkEl.href = findVendorUrl;
             linkEl.classList.remove('d-none');
         }
         if (productId) {

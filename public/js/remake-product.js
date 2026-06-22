@@ -415,7 +415,7 @@ $(document).ready(function () {
     $(document).on('click', '#saveGeneratedProductBtn', function () {
         var btn = $(this);
         var promptText = (lastGeneratedPrompt || $('#productPrompt').val() || '').trim();
-        var title = promptText ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '') : '產品草圖';
+        var title = promptText ? promptText.substring(0, 80) + (promptText.length > 80 ? '…' : '') : '產品設計圖';
         var description = promptText || '（無描述）';
         var seedToSave = lastGeneratedSeed;
         if (seedToSave == null || seedToSave === '') {
@@ -427,7 +427,7 @@ $(document).ready(function () {
             imageUrl = generatedImageData;
         }
         if (!imageUrl) {
-            alert('尚無可儲存的生成圖，請先生成草圖。');
+            alert('尚無可儲存的生成圖，請先生成設計圖。');
             return;
         }
         getAuthToken(function (token) {
@@ -696,7 +696,7 @@ $(document).ready(function () {
         var ownerDisplay = wrap.attr('data-owner-display') || '';
         var productId = wrap.attr('data-product-id') || '';
         var showOnHomepage = wrap.attr('data-show-on-homepage') === '1';
-        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : '生成草圖');
+        $('#pastItemModalLabel').text(prompt ? (prompt.length > 50 ? prompt.substring(0, 50) + '…' : prompt) : '設計圖');
         var inner = document.getElementById('pastItemModalBodyInner');
         if (inner) {
             inner.innerHTML = url ? '<img src="' + (url.replace(/"/g, '&quot;')) + '" alt="">' : '<p class="text-muted py-4 mb-0">無圖</p>';
