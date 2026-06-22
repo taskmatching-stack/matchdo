@@ -3802,7 +3802,67 @@ $(document).ready(function () {
         cb(null);
     }
 
-    // 右側：先問「有沒有歷史資料」，有再抓完整列表與圖。可傳入 token（Auth 回調的 session.access_token）避免搶跑
+    // 右側：數位資產 gallery（輕量 API + sessionStorage 快取）
+    var GALLERY_CACHE_KEY = 'customProductGalleryCache';
+    var GALLERY_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+
+    function invalidateGalleryCache() {
+        try { sessionStorage.removeItem(GALLERY_CACHE_KEY); } catch (e) {}
+    }
+
+    function deleteCustomProductById(productId, cb) {
+        if (!productId) return;
+        var msg = t('customProduct.deleteDesignConfirm') || '確定要刪除此設計？刪除後無法復原。';
+        if (!confirm(msg)) return;
+        getAuthToken(function (token) {
+            if (!token) {
+                alert(t('customProduct.loginToViewHistory') || '請先登入');
+                return;
+            }
+            fetch('/api/custom-products/' + encodeURIComponent(productId), {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(function (res) {
+                return res.text().then(function (text) {
+                    var data = {};
+                    try { data = (text && text.trim().startsWith('{')) ? JSON.parse(text) : {}; } catch (e) {}
+                    return { ok: res.ok, data: data };
+                });
+            }).then(function (r) {
+                if (r.ok && r.data && r.data.success) {
+                    invalidateGalleryCache();
+                    if (typeof cb === 'function') cb(true);
+                } else {
+                    alert((r.data && r.data.error) || t('customProduct.deleteDesignFailed') || '刪除失敗');
+                    if (typeof cb === 'function') cb(false);
+                }
+            }).catch(function () {
+                alert(t('customProduct.deleteDesignFailed') || '刪除失敗');
+                if (typeof cb === 'function') cb(false);
+            });
+        });
+    }
+
+    function attachPastItemDeleteBtn($cell, productId) {
+        if (!productId || !$cell || !$cell.length) return;
+        var label = t('customProduct.deleteDesign') || '刪除';
+        var $del = $('<button type="button" class="past-item-delete" aria-label="' + label + '" title="' + label + '">×</button>');
+        $del.on('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteCustomProductById(productId, function (ok) {
+                if (!ok) return;
+                $cell.remove();
+                var modalPid = $('#pastItemModalDelete').data('product-id');
+                if (modalPid && String(modalPid) === String(productId)) {
+                    var modalEl = document.getElementById('pastItemModal');
+                    if (modalEl && typeof hideBootstrapModal === 'function') hideBootstrapModal(modalEl);
+                }
+            });
+        });
+        $cell.append($del);
+    }
+
     function refreshPastGeneratedGallery(optionalToken) {
         var wrap = $('#pastGeneratedGallery');
         if (!wrap.length) return;
@@ -3886,9 +3946,10 @@ $(document).ready(function () {
                         'data-subcategory-key': subKey,
                         'data-reference-sources': refSourcesJson
                     });
-                    $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
+                    $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt="" loading="lazy" decoding="async"></a>'));
                     var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
                     $cell.append($('<p class="past-item-caption text-muted small mb-0" title="' + tip + '">').text(caption));
+                    attachPastItemDeleteBtn($cell, p.id || '');
                     grid.append($cell);
                 });
                 if (sessionThumbs.length === 0 && (!products || products.length === 0)) {
@@ -3907,8 +3968,7 @@ $(document).ready(function () {
             }
 
             var headers = { 'Authorization': 'Bearer ' + token };
-            // 第一階段：只問有沒有資料（輕量，不帶圖）
-            fetch('/api/custom-products?summary=1', { headers: headers })
+            fetch('/api/custom-products?gallery=1&limit=40', { headers: headers })
                 .then(function (res) { return res.text().then(function (text) { return { ok: res.ok, status: res.status, text: text }; }); })
                 .then(function (r) {
                     if (!r.ok && r.status === 401) {
@@ -3920,42 +3980,26 @@ $(document).ready(function () {
                     try {
                         data = (r.text && r.text.trim() && r.text.trim().startsWith('{')) ? JSON.parse(r.text) : {};
                     } catch (e) {
+                        renderLoadError();
+                        return;
+                    }
+                    var list = Array.isArray(data.products) ? data.products : [];
+                    if (list.length > 0 && list[0].owner_display) {
+                        galleryOwnerDisplay = String(list[0].owner_display).trim();
+                    }
+                    if (list.length === 0 && sessionThumbs.length === 0) {
                         renderEmpty();
                         return;
                     }
-                    var hasItems = (data.hasItems === true) || (Array.isArray(data.products) && data.products.length > 0);
-                    var dbCount = (data.count != null && !isNaN(data.count)) ? Number(data.count) : (Array.isArray(data.products) ? data.products.length : 0);
-                    if (!hasItems && sessionThumbs.length === 0) {
-                        renderEmpty(dbCount);
-                        return;
-                    }
-                    // 第二階段：有資料才抓完整列表（含圖）
-                    fetch('/api/custom-products', { headers: headers })
-                        .then(function (res) { return res.text().then(function (text) { return { ok: res.ok, text: text }; }); })
-                        .then(function (r2) {
-                            var list = [];
-                            try {
-                                var d = (r2.text && r2.text.trim() && r2.text.trim().startsWith('{')) ? JSON.parse(r2.text) : {};
-                                list = Array.isArray(d.products) ? d.products : [];
-                            } catch (e) {}
-                            if (list.length > 0 && list[0].owner_display) {
-                                galleryOwnerDisplay = String(list[0].owner_display).trim();
-                            }
-                            var products = list.filter(function (p) { return p && p.ai_generated_image_url; });
-                            renderGallery(products);
-                        })
-                        .catch(function (err) {
-                            console.warn('refreshPastGeneratedGallery full fetch:', err);
-                            if (sessionThumbs.length > 0) {
-                                renderGallery([]);
-                            } else {
-                                renderEmpty();
-                            }
-                        });
+                    renderGallery(list);
                 })
                 .catch(function (err) {
-                    console.warn('refreshPastGeneratedGallery summary fetch:', err);
-                    renderLoadError();
+                    console.warn('refreshPastGeneratedGallery gallery fetch:', err);
+                    if (sessionThumbs.length > 0) {
+                        renderGallery([]);
+                    } else {
+                        renderLoadError();
+                    }
                 });
         }
         if (optionalToken != null && optionalToken !== '') {
@@ -4001,6 +4045,7 @@ $(document).ready(function () {
         $('#pastItemModalOwner').text(t('customProduct.thisGeneration'));
         applyPastItemModalRefSources(getActiveRefSourcesList());
         $('#pastItemModalShowSection').addClass('d-none');
+        $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
         var q = [];
         if (ck) q.push('category_key=' + encodeURIComponent(ck));
         if (sk) q.push('subcategory_key=' + encodeURIComponent(sk));
@@ -4052,11 +4097,24 @@ $(document).ready(function () {
             $showSection.removeClass('d-none');
             $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
             $('#pastItemModalShowOnHomepageHint').text(t('customProduct.freeUserShowHint')).css('color', '');
+            $('#pastItemModalDelete').removeClass('d-none').data('product-id', productId).data('source-wrap', wrap);
         } else {
             $showSection.addClass('d-none');
             $checkbox.removeData('product-id').removeData('source-wrap');
+            $('#pastItemModalDelete').addClass('d-none').removeData('product-id').removeData('source-wrap');
         }
         showBootstrapModal(document.getElementById('pastItemModal'));
+    });
+
+    $(document).on('click', '#pastItemModalDelete', function () {
+        var productId = $(this).data('product-id');
+        var wrap = $(this).data('source-wrap');
+        deleteCustomProductById(productId, function (ok) {
+            if (!ok) return;
+            if (wrap && wrap.length) wrap.remove();
+            var modalEl = document.getElementById('pastItemModal');
+            if (modalEl && typeof hideBootstrapModal === 'function') hideBootstrapModal(modalEl);
+        });
     });
 
     // 「找廠商訂製」：先送追蹤再開新分頁（原連結為 target="_blank"）
@@ -4165,8 +4223,6 @@ $(document).ready(function () {
     }
 
     // 從 sessionStorage 快取渲染縮圖（切回頁面時先顯示，再背景更新）
-    var GALLERY_CACHE_KEY = 'customProductGalleryCache';
-    var GALLERY_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
     function renderGalleryFromCache(wrap, cached) {
         if (!wrap || !wrap.length || !cached || !cached.products) return;
         var products = cached.products;
@@ -4195,9 +4251,10 @@ $(document).ready(function () {
                 'data-subcategory-key': subKey,
                 'data-reference-sources': refSourcesJson
             });
-            $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt=""></a>'));
+            $cell.append($('<a class="past-item" href="#" role="button" title="' + tip + '"><img src="' + url + '" alt="" loading="lazy" decoding="async"></a>'));
             var caption = (promptText ? promptText.substring(0, 120) : '（無提示詞）') + (seedStr ? ' · Seed: ' + seedStr : '');
             $cell.append($('<p class="past-item-caption text-muted small mb-0" title="' + tip + '">').text(caption));
+            attachPastItemDeleteBtn($cell, p.id || '');
             grid.append($cell);
         });
         if (products.length === 0) {
@@ -4415,7 +4472,7 @@ $(document).ready(function () {
                 $empty.removeClass('d-none').text(t('customProduct.loginToSelectAssets'));
                 return;
             }
-            fetch('/api/custom-products', { headers: { 'Authorization': 'Bearer ' + token } })
+            fetch('/api/custom-products?gallery=1&limit=40', { headers: { 'Authorization': 'Bearer ' + token } })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     $loading.addClass('d-none');
@@ -4431,7 +4488,7 @@ $(document).ready(function () {
                         var title = (p.title || p.generation_prompt || '').toString().substring(0, 40);
                         var $col = $('<div class="col-6 col-md-4 col-lg-3"></div>');
                         var $card = $('<div class="card border scene-sim-asset-item" style="cursor:pointer;"></div>').attr('data-image-url', url);
-                        var $img = $('<img class="card-img-top scene-sim-asset-img" style="height:120px;object-fit:cover;cursor:zoom-in;">').attr('src', url).attr('alt', title).attr('title', t('customProduct.zoomImage') || '點擊放大');
+                        var $img = $('<img class="card-img-top scene-sim-asset-img" style="height:120px;object-fit:cover;cursor:zoom-in;">').attr('src', url).attr('alt', title).attr('title', t('customProduct.zoomImage') || '點擊放大').attr('loading', 'lazy').attr('decoding', 'async');
                         $card.append($img);
                         $card.append($('<div class="card-body py-1"><p class="small text-muted mb-0 text-truncate">').text(title || t('customProduct.noTitle')));
                         $col.append($card);

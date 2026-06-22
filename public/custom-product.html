@@ -121,6 +121,7 @@
                     </div>
                 </div>
                 <div class="modal-footer py-2">
+                    <button type="button" id="pastItemModalDelete" class="btn btn-outline-danger btn-sm d-none me-auto" data-i18n="customProduct.deleteDesign">刪除</button>
                     <button type="button" id="pastItemModalSceneSim" class="btn btn-outline-primary btn-sm" data-i18n="home.sceneSim">實境模擬</button>
                     <a id="pastItemModalLink" href="#" class="btn btn-primary btn-sm d-none" target="_blank" rel="noopener" data-i18n="home.findVendor">找廠商訂製</a>
                     <button type="button" id="pastItemModalRedesign" class="btn btn-outline-primary btn-sm" data-i18n="home.redesign">再設計</button>
@@ -577,7 +578,24 @@
         #custom-product .past-gallery-inner .past-item { aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; display: block; }
         #custom-product .past-gallery .past-item img,
         #custom-product .past-gallery-inner .past-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        #custom-product .past-gallery-inner .past-item-wrap { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+        #custom-product .past-gallery-inner .past-item-wrap { min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; position: relative; }
+        #custom-product .past-item-delete {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            z-index: 3;
+            width: 1.25rem;
+            height: 1.25rem;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.72);
+            color: #fff;
+            font-size: 0.875rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+        #custom-product .past-item-delete:hover { background: rgba(185, 28, 28, 0.92); }
         #custom-product .past-gallery-inner .past-item-caption { font-size: 0.7rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
         /* 歷史圖放大 modal：與首頁媒體牆 lightbox 一致（圓角、陰影、疊加詳情、footer 按鈕）；避免開啟時版面被撐開或忽大忽小 */
         html { scrollbar-gutter: stable; }
@@ -1574,7 +1592,7 @@
     <script src="/js/offset-list-pager.js" defer></script>
     <script src="js/custom-product-cat-picker.js?v=4" defer></script>
     <script src="js/browse-styles.js?v=7" defer></script>
-    <script src="js/custom-product.js?v=97" defer></script>
+    <script src="js/custom-product.js?v=98" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

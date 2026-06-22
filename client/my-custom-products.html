@@ -319,6 +319,9 @@
                                 <i class="bi bi-check-circle me-1"></i>標記為已完成訂製
                             </button>
                             ` : ''}
+                            <button class="btn btn-outline-danger btn-sm btn-delete-design" data-id="${product.id}">
+                                <i class="bi bi-trash me-1"></i>刪除
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -334,8 +337,42 @@
             if (doneBtn) {
                 doneBtn.addEventListener('click', () => markCompleted(product.id));
             }
+            const deleteBtn = col.querySelector('.btn-delete-design');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => deleteProduct(product.id, col));
+            }
 
             return col;
+        }
+
+        async function deleteProduct(productId, colEl) {
+            if (!confirm('確定要刪除此設計？刪除後無法復原。')) return;
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('請先登入');
+                const response = await fetch(`/api/custom-products/${productId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '刪除失敗');
+                if (colEl && colEl.parentNode) colEl.remove();
+                const badgeEl = document.getElementById('badgeDesigns');
+                if (badgeEl) {
+                    const n = Math.max(0, (parseInt(badgeEl.textContent, 10) || 1) - 1);
+                    badgeEl.textContent = String(n);
+                }
+                const list = document.getElementById('productsList');
+                if (list && !list.querySelector('[data-product-id]')) {
+                    list.style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'block';
+                }
+                showAlert('已刪除', 'success');
+            } catch (error) {
+                console.error('刪除失敗:', error);
+                showAlert('刪除失敗: ' + error.message, 'danger');
+            }
         }
 
         function getStatusInfo(status) {

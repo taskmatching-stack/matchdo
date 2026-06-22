@@ -10650,6 +10650,34 @@ app.get('/api/custom-products', async (req, res) => {
         }
 
         const summaryOnly = req.query.summary === '1' || req.query.summary === 'true';
+        const galleryMode = req.query.gallery === '1' || req.query.gallery === 'true';
+        const ownerDisplay = (user.user_metadata && user.user_metadata.full_name) || user.email || '';
+        const ownerEmail = user.email || '';
+
+        if (galleryMode) {
+            const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 40));
+            const { data, error } = await supabase
+                .from('custom_products')
+                .select('id, ai_generated_image_url, reference_image_url, generation_prompt, generation_seed, title, show_on_homepage, category, subcategory_key, reference_sources, analysis_json, created_at')
+                .eq('owner_id', user.id)
+                .not('ai_generated_image_url', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(limitN);
+            if (error) {
+                console.error('查詢客製產品 gallery 失敗:', error);
+                return res.status(500).json({ error: error.message });
+            }
+            const list = data || [];
+            const productsWithOwner = list.map(function (p) {
+                return customProductLineage.stripInternalCustomProductFields({
+                    ...p,
+                    owner_email: ownerEmail,
+                    owner_display: ownerDisplay
+                });
+            });
+            return res.json({ success: true, hasItems: productsWithOwner.length > 0, count: productsWithOwner.length, products: productsWithOwner });
+        }
+
         const selectFields = summaryOnly ? 'id' : '*';
 
         const { data, error } = await supabase
@@ -10667,8 +10695,6 @@ app.get('/api/custom-products', async (req, res) => {
         if (summaryOnly) {
             return res.json({ success: true, hasItems: list.length > 0, count: list.length, products: list });
         }
-        const ownerDisplay = (user.user_metadata && user.user_metadata.full_name) || user.email || '';
-        const ownerEmail = user.email || '';
         const productsWithOwner = list.map(p => customProductLineage.stripInternalCustomProductFields({
             ...p,
             owner_email: ownerEmail,
@@ -11902,6 +11928,52 @@ app.patch('/api/custom-products/:id', express.json(), async (req, res) => {
         res.json({ success: true, product: data });
     } catch (e) {
         console.error('PATCH /api/custom-products/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/custom-products/:id — 刪除自己的數位資產（設計稿）
+app.delete('/api/custom-products/:id', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+            return res.status(401).json({ error: '未授權：缺少 token' });
+        }
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) {
+            return res.status(401).json({ error: '未授權：token 無效' });
+        }
+        const productId = String(req.params.id || '').trim();
+        if (!productId) {
+            return res.status(400).json({ error: '缺少產品 id' });
+        }
+        const { data: product, error: productError } = await supabase
+            .from('custom_products')
+            .select('id')
+            .eq('id', productId)
+            .eq('owner_id', user.id)
+            .maybeSingle();
+        if (productError) {
+            console.error('DELETE custom_products lookup:', productError);
+            return res.status(500).json({ error: productError.message });
+        }
+        if (!product) {
+            return res.status(404).json({ error: '產品不存在或無權限' });
+        }
+        await supabase.from('custom_product_matches').delete().eq('custom_product_id', productId);
+        const { error: delErr } = await supabase
+            .from('custom_products')
+            .delete()
+            .eq('id', productId)
+            .eq('owner_id', user.id);
+        if (delErr) {
+            console.error('DELETE custom_products:', delErr);
+            return res.status(500).json({ error: delErr.message });
+        }
+        res.json({ success: true, deleted: true, id: productId });
+    } catch (e) {
+        console.error('DELETE /api/custom-products/:id 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
