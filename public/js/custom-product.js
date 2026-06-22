@@ -4042,6 +4042,53 @@ $(document).ready(function () {
         else getAuthToken(doFetch);
     }
 
+    function countGalleryDbItems() {
+        var n = 0;
+        $('#pastGeneratedGallery .past-item-wrap[data-product-id]').each(function () {
+            if ($(this).attr('data-product-id')) n += 1;
+        });
+        return n;
+    }
+
+    function refillGallerySlotAfterDelete(optionalToken) {
+        if (!galleryPaging.hasMore || galleryPaging.loading) return;
+        function doRefill(token) {
+            if (!token) return;
+            var domCount = countGalleryDbItems();
+            galleryPaging.offset = domCount;
+            galleryPaging.loading = true;
+            fetchGalleryPage(token, domCount, 1).then(function (result) {
+                galleryPaging.loading = false;
+                if (!result.ok) return;
+                if (!result.products.length) {
+                    galleryPaging.hasMore = false;
+                    syncGalleryPagingAfterFetch(false, galleryPaging.offset);
+                    return;
+                }
+                var p = result.products[0];
+                var pid = String(p.id || '');
+                var duplicate = false;
+                $('#pastGeneratedGallery .past-item-wrap[data-product-id]').each(function () {
+                    if (String($(this).attr('data-product-id')) === pid) {
+                        duplicate = true;
+                        return false;
+                    }
+                });
+                if (duplicate) {
+                    syncGalleryPagingAfterFetch(galleryPaging.hasMore, galleryPaging.offset);
+                    return;
+                }
+                var grid = $('#pastGeneratedGallery .past-gallery-inner');
+                var $cell = buildPastItemWrapFromProduct(p, false);
+                if ($cell && grid.length) grid.append($cell);
+                galleryPaging.offset = domCount + 1;
+                syncGalleryPagingAfterFetch(result.hasMore, galleryPaging.offset);
+            });
+        }
+        if (optionalToken) doRefill(optionalToken);
+        else getAuthToken(doRefill);
+    }
+
     function deleteCustomProductById(productId, cb) {
         if (!productId) return;
         var msg = t('customProduct.deleteDesignConfirm') || '確定要刪除此設計？刪除後無法復原。';
@@ -4063,7 +4110,6 @@ $(document).ready(function () {
             }).then(function (r) {
                 if (r.ok && r.data && r.data.success) {
                     invalidateGalleryCache();
-                    if (galleryPaging.offset > 0) galleryPaging.offset -= 1;
                     if (typeof cb === 'function') cb(true);
                 } else {
                     alert((r.data && r.data.error) || t('customProduct.deleteDesignFailed') || '刪除失敗');
@@ -4086,6 +4132,7 @@ $(document).ready(function () {
             deleteCustomProductById(productId, function (ok) {
                 if (!ok) return;
                 $cell.remove();
+                refillGallerySlotAfterDelete();
                 var modalPid = $('#pastItemModalDelete').data('product-id');
                 if (modalPid && String(modalPid) === String(productId)) {
                     var modalEl = document.getElementById('pastItemModal');
@@ -4327,6 +4374,7 @@ $(document).ready(function () {
         deleteCustomProductById(productId, function (ok) {
             if (!ok) return;
             if (wrap && wrap.length) wrap.remove();
+            refillGallerySlotAfterDelete();
             var modalEl = document.getElementById('pastItemModal');
             if (modalEl && typeof hideBootstrapModal === 'function') hideBootstrapModal(modalEl);
         });
