@@ -1424,15 +1424,34 @@ function pickVendorLocalizedText(primary, enValue, lang) {
 }
 
 /** contact_json.store_urls：{ label?, url }[]，最多 20 筆 */
+function parseManufacturerContactJson(raw) {
+    if (raw == null) return {};
+    if (typeof raw === 'string') {
+        try {
+            const p = JSON.parse(raw);
+            return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
+        } catch (_) { return {}; }
+    }
+    if (typeof raw === 'object' && !Array.isArray(raw)) return { ...raw };
+    return {};
+}
+
+function normalizeStoreUrlString(raw) {
+    const u = String(raw || '').trim();
+    if (!u) return '';
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(u)) return u;
+    return 'https://' + u.replace(/^\/+/, '');
+}
+
 function normalizeStoreUrls(raw) {
     if (!Array.isArray(raw)) return [];
     const out = [];
     for (const item of raw) {
         if (typeof item === 'string') {
-            const url = String(item).trim();
+            const url = normalizeStoreUrlString(item);
             if (url) out.push({ label: '', url });
         } else if (item && typeof item === 'object') {
-            const url = String(item.url || '').trim();
+            const url = normalizeStoreUrlString(item.url);
             if (!url) continue;
             out.push({ label: String(item.label || '').trim(), url });
         }
@@ -12893,7 +12912,7 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
         }
         // 合併 contact_json（只更新帶進來的欄位）
         const SOCIAL_KEYS = ['email','phone','line_id','url','facebook','instagram','threads','twitter','whatsapp','youtube','linkedin'];
-        const existing = mfr.contact_json || {};
+        const existing = parseManufacturerContactJson(mfr.contact_json);
         let contactPatch = {};
         if (body.contact_json && typeof body.contact_json === 'object') {
             SOCIAL_KEYS.forEach(k => {

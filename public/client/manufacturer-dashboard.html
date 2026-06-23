@@ -247,7 +247,7 @@
                                 </div>
                                 <div class="mb-2">
                                     <label class="form-label small mb-1">賣場網址</label>
-                                    <p class="form-text small mb-1">可新增多個連結；名稱由您自訂（例如品牌官購、某平台店名等）。</p>
+                                    <p class="form-text small mb-1">可新增多個連結；名稱由您自訂。請填寫網址後按下方<strong>儲存社群</strong>（僅按「新增賣場」不會寫入）。</p>
                                     <div id="store-urls-list" class="d-flex flex-column gap-2"></div>
                                     <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnAddStoreUrl"><i class="bi bi-plus-lg me-1"></i>新增賣場</button>
                                 </div>
@@ -355,6 +355,15 @@
             } catch (e) { return null; }
         }
 
+        function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+        function normalizeStoreUrlInput(raw) {
+            var u = (raw || '').trim();
+            if (!u) return '';
+            if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(u)) u = 'https://' + u.replace(/^\/+/, '');
+            return u;
+        }
+
         function storeUrlDisplayText(label, url) {
             var t = (label || '').trim();
             if (t) return t;
@@ -374,7 +383,7 @@
             rows.forEach(function (row) {
                 var urlEl = row.querySelector('.store-url-url');
                 var labelEl = row.querySelector('.store-url-label');
-                var url = (urlEl && urlEl.value || '').trim();
+                var url = normalizeStoreUrlInput(urlEl && urlEl.value);
                 if (!url) return;
                 out.push({
                     label: (labelEl && labelEl.value || '').trim(),
@@ -382,6 +391,19 @@
                 });
             });
             return out;
+        }
+
+        function validateStoreUrlRowsBeforeSave() {
+            var rows = document.querySelectorAll('#store-urls-list .store-url-row');
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var label = (row.querySelector('.store-url-label') && row.querySelector('.store-url-label').value || '').trim();
+                var urlRaw = (row.querySelector('.store-url-url') && row.querySelector('.store-url-url').value || '').trim();
+                if (label && !urlRaw) {
+                    return '第 ' + (i + 1) + ' 筆賣場已填名稱，請補上網址';
+                }
+            }
+            return '';
         }
 
         function renderStoreUrlRows(urls) {
@@ -394,7 +416,7 @@
                 var url = esc((item && item.url) || '');
                 return '<div class="row g-2 store-url-row align-items-center">' +
                     '<div class="col-sm-4 col-12"><input type="text" class="form-control form-control-sm store-url-label" placeholder="賣場名稱" value="' + label + '"></div>' +
-                    '<div class="col-sm-7 col-11"><input type="url" class="form-control form-control-sm store-url-url" placeholder="https://…" value="' + url + '"></div>' +
+                    '<div class="col-sm-7 col-11"><input type="text" class="form-control form-control-sm store-url-url" placeholder="網址（必填）例：shopee.tw/…" value="' + url + '"></div>' +
                     '<div class="col-sm-1 col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger store-url-remove" title="移除"><i class="bi bi-x-lg"></i></button></div>' +
                     '</div>';
             }).join('');
@@ -550,8 +572,6 @@
             } catch (e) { el.innerHTML = '<div class="col-12 text-muted small">載入失敗。</div>'; }
         }
 
-        function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
         function renderLogoPreview(url) {
             var logoPreview = document.getElementById('logo-preview');
             var btnClear = document.getElementById('btnClearLogo');
@@ -584,10 +604,17 @@
             if (btnSaveSocial) {
                 btnSaveSocial.addEventListener('click', async function () {
                     var msg = document.getElementById('socialSaveMsg');
+                    var storeErr = validateStoreUrlRowsBeforeSave();
+                    if (storeErr) {
+                        msg.textContent = '❌ ' + storeErr;
+                        msg.className = 'small text-danger';
+                        return;
+                    }
                     msg.textContent = '儲存中…';
                     msg.className = 'small text-muted';
                     var t = await getToken();
                     if (!t) { msg.textContent = '請先登入'; msg.className = 'small text-danger'; return; }
+                    btnSaveSocial.disabled = true;
                     try {
                         var contact_json = {
                             facebook:  document.getElementById('soc-facebook').value.trim(),
@@ -604,7 +631,10 @@
                             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
                             body: JSON.stringify({ contact_json: contact_json })
                         });
-                        if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
+                        var data = await r.json().catch(function () { return {}; });
+                        if (!r.ok) throw new Error(data.error || '儲存失敗');
+                        var savedContact = data.contact_json || contact_json;
+                        renderStoreUrlRows(savedContact.store_urls);
                         msg.textContent = '✅ 已儲存';
                         msg.className = 'small text-success';
                         await loadMfr();
@@ -612,6 +642,8 @@
                     } catch (e) {
                         msg.textContent = '❌ ' + e.message;
                         msg.className = 'small text-danger';
+                    } finally {
+                        btnSaveSocial.disabled = false;
                     }
                 });
             }
