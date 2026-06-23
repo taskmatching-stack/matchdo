@@ -304,10 +304,10 @@ async function manufacturerHasPublicVendorAssets(manufacturerId) {
     return !!(data && data.id);
 }
 
-/** 廠商詳情頁：一般曝光規則，或種子廠商已有公開 vendor_assets（與 product-tree 一致可訂製導向） */
-async function manufacturerEligibleForProfilePage(mfr, { internalPreview = false } = {}) {
+/** 廠商詳情頁：一般曝光規則，或種子廠商已有公開 vendor_assets；廠商本人可預覽自己的頁面 */
+async function manufacturerEligibleForProfilePage(mfr, { internalPreview = false, ownerPreview = false } = {}) {
     if (!mfr || mfr.is_active === false) return false;
-    if (internalPreview) return true;
+    if (internalPreview || ownerPreview) return true;
     if (manufacturerVisibleToPublicAudience(mfr)) return true;
     return manufacturerHasPublicVendorAssets(mfr.id);
 }
@@ -13431,7 +13431,18 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         }
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '廠商不存在' });
-        const profileEligible = await manufacturerEligibleForProfilePage(mfr, { internalPreview });
+        const authUser = await getRequestUserFromAuthHeader(req);
+        let ownerPreview = !!(authUser && mfr.user_id && authUser.id === mfr.user_id);
+        if (!ownerPreview && authUser && mfr.id) {
+            const { data: ownedRow } = await supabase
+                .from('manufacturers')
+                .select('id')
+                .eq('id', mfr.id)
+                .eq('user_id', authUser.id)
+                .maybeSingle();
+            ownerPreview = !!ownedRow;
+        }
+        const profileEligible = await manufacturerEligibleForProfilePage(mfr, { internalPreview, ownerPreview });
         if (!profileEligible) {
             if (manufacturerIsSeedVendor(mfr) && !manufacturerSeedPublicReleased(mfr)) {
                 return res.status(404).json({ error: '此廠商尚未對外開放展示。' });
@@ -13440,7 +13451,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             return res.status(404).json({ error: '找不到廠商' });
         }
         if (mfr.expires_at && new Date(mfr.expires_at) <= new Date()) {
-            if (!internalPreview) {
+            if (!internalPreview && !ownerPreview) {
                 return res.status(404).json({ error: '此廠商已過公開期。如需繼續曝光請至挖貝升級付費方案。' });
             }
         }

@@ -252,6 +252,26 @@
                     </div>
                     <div class="accordion-item border-0 shadow-sm mb-2">
                         <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-zh">中文版（公開頁預設）</button>
+                        </h2>
+                        <div id="mfr-panel-zh" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
+                            <div class="accordion-body pt-0">
+                                <p class="text-muted small">訪客未切換英文時顯示下列內容；英文版請展開下方「英文版」區塊。</p>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1" for="mfr-name-zh">廠商名稱</label>
+                                    <input type="text" class="form-control form-control-sm" id="mfr-name-zh" maxlength="200" placeholder="公司或工作室名稱">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1" for="mfr-desc-zh">簡短介紹</label>
+                                    <textarea class="form-control form-control-sm" id="mfr-desc-zh" rows="3" placeholder="介紹服務特色、工藝或產品方向…"></textarea>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" id="btnSaveMfrZh">儲存中文</button>
+                                <span id="mfrZhMsg" class="small text-muted ms-2"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item border-0 shadow-sm mb-2">
+                        <h2 class="accordion-header">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mfr-panel-i18n-en">英文版（公開頁 lang=en）</button>
                         </h2>
                         <div id="mfr-panel-i18n-en" class="accordion-collapse collapse" data-bs-parent="#mfr-dash-accordion">
@@ -314,7 +334,7 @@
             banner.classList.remove('d-none');
             if (locked) {
                 banner.className = 'alert alert-secondary border-0 rounded-0 mb-0';
-                banner.innerHTML = '<i class="bi bi-lock me-2"></i>種子展示期（唯讀）：此帳號目前不可修改素材／作品；如需編輯請聯繫 MatchDO 平台。';
+                banner.innerHTML = '<i class="bi bi-lock me-2"></i>種子展示期（唯讀）：不可修改素材／作品，但仍可瀏覽公開頁與試用。如需恢復編輯請聯繫 MatchDO 平台。';
                 return;
             }
             banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
@@ -398,9 +418,13 @@
 
                 var nameEnEl = document.getElementById('mfr-name-en');
                 var descEnEl = document.getElementById('mfr-desc-en');
-                var metaEnEl = document.getElementById('mfrEnMeta');
+                var nameZhEl = document.getElementById('mfr-name-zh');
+                var descZhEl = document.getElementById('mfr-desc-zh');
+                if (nameZhEl) nameZhEl.value = mfr.name || '';
+                if (descZhEl) descZhEl.value = mfr.description || '';
                 if (nameEnEl) nameEnEl.value = mfr.name_en || '';
                 if (descEnEl) descEnEl.value = mfr.description_en || '';
+                var metaEnEl = document.getElementById('mfrEnMeta');
                 if (metaEnEl) {
                     metaEnEl.textContent = mfr.i18n_en_generated_at
                         ? ('上次 AI 生成：' + new Date(mfr.i18n_en_generated_at).toLocaleString('zh-TW'))
@@ -593,6 +617,45 @@
                         logoSaveMsg.className = 'small text-danger';
                     } finally {
                         btnClearLogo.disabled = false;
+                    }
+                });
+            }
+
+            // 中文版儲存
+            var btnSaveMfrZh = document.getElementById('btnSaveMfrZh');
+            var mfrZhMsg = document.getElementById('mfrZhMsg');
+            function setMfrZhMsg(text, cls) {
+                if (!mfrZhMsg) return;
+                mfrZhMsg.textContent = text || '';
+                mfrZhMsg.className = 'small ms-2 ' + (cls || 'text-muted');
+            }
+            if (btnSaveMfrZh) {
+                btnSaveMfrZh.addEventListener('click', async function () {
+                    var nameVal = (document.getElementById('mfr-name-zh') && document.getElementById('mfr-name-zh').value || '').trim();
+                    if (!nameVal) { setMfrZhMsg('請填寫廠商名稱', 'text-danger'); return; }
+                    setMfrZhMsg('儲存中…', 'text-muted');
+                    var t = await getToken();
+                    if (!t) { setMfrZhMsg('請先登入', 'text-danger'); return; }
+                    btnSaveMfrZh.disabled = true;
+                    try {
+                        var r = await fetch('/api/me/manufacturer', {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+                            body: JSON.stringify({
+                                name: nameVal,
+                                description: (document.getElementById('mfr-desc-zh') && document.getElementById('mfr-desc-zh').value || '').trim()
+                            })
+                        });
+                        var data = await r.json().catch(function () { return {}; });
+                        if (!r.ok) throw new Error(data.error || '儲存失敗');
+                        document.getElementById('mfr-name').textContent = nameVal;
+                        setMfrZhMsg('✅ 已儲存', 'text-success');
+                        await loadMfr();
+                        setTimeout(function () { setMfrZhMsg(''); }, 3000);
+                    } catch (e) {
+                        setMfrZhMsg('❌ ' + e.message, 'text-danger');
+                    } finally {
+                        btnSaveMfrZh.disabled = false;
                     }
                 });
             }
