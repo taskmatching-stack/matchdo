@@ -712,6 +712,7 @@ $(document).ready(function () {
         var g = refSlots[key];
         if (!g || !g.items || index < 0 || index >= g.items.length) return;
         g.items.splice(index, 1);
+        if (key === 'prototype') refreshPrototypeLinkSummary();
     }
 
     function getRefKindCounts() {
@@ -3626,9 +3627,12 @@ $(document).ready(function () {
             if (referenceImages.length > 0) {
                 payload.referenceImages = referenceImages;
                 if (orderedRefs.referenceSources.length) payload.referenceSources = orderedRefs.referenceSources;
-                var capSel = collectSelectedCapabilitiesForGenerate();
-                if (capSel.keys.length) payload.selected_capability_keys = capSel.keys;
-                if (capSel.custom_labels.length) payload.selected_capability_custom_labels = capSel.custom_labels;
+                // 表面工藝僅在已鎖定廠商數位原型時送出（避免移除原型後殘留勾選阻擋生圖）
+                if (hasVendorPrototypeLock()) {
+                    var capSel = collectSelectedCapabilitiesForGenerate();
+                    if (capSel.keys.length) payload.selected_capability_keys = capSel.keys;
+                    if (capSel.custom_labels.length) payload.selected_capability_custom_labels = capSel.custom_labels;
+                }
             }
             if (seedNum != null) payload.seed = seedNum;
             try {

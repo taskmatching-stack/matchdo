@@ -8799,16 +8799,16 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         }
         const capKeysReq = manufacturerTaxonomy.parseJsonStringArray(selected_capability_keys);
         const capCustomReq = manufacturerTaxonomy.parseJsonStringArray(selected_capability_custom_labels);
-        if (hasRefs && (capKeysReq.length || capCustomReq.length)) {
+        // 表面工藝僅在「廠商數位原型」流程驗證；文生圖／自傳參考圖不依賴廠商原型，勿阻擋生圖
+        if (capKeysReq.length || capCustomReq.length) {
             const protoIdForCapValidate = resolvePrimaryPrototypeAssetIdFromReferenceSources(referenceSources || []);
-            if (!protoIdForCapValidate) {
-                return res.status(400).json({ success: false, error: '請先加入廠商數位原型參考圖，再勾選表面工藝' });
-            }
-            const capValidReq = await manufacturerTaxonomy.validateSelectedCapabilitiesForPrototype(
-                supabase, protoIdForCapValidate, capKeysReq, capCustomReq
-            );
-            if (!capValidReq.ok) {
-                return res.status(400).json({ success: false, error: capValidReq.error || '工藝選項無效' });
+            if (protoIdForCapValidate) {
+                const capValidReq = await manufacturerTaxonomy.validateSelectedCapabilitiesForPrototype(
+                    supabase, protoIdForCapValidate, capKeysReq, capCustomReq
+                );
+                if (!capValidReq.ok) {
+                    return res.status(400).json({ success: false, error: capValidReq.error || '工藝選項無效' });
+                }
             }
         }
 
