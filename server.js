@@ -1098,7 +1098,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
             if (applyMode === 'remove_bg') {
                 return 'Exact surface graphic from image ' + n + ' printed on the main product body in every panel after removing the reference background; keep foreground artwork exactly as shown in image ' + n + '.' + panelNote;
             }
-            return 'Exact surface graphic from image ' + n + ' applied as an opaque rectangular overlay on the main product body in every panel; reproduce the complete artwork precisely as shown in image ' + n + ' including all colors, background colors, and graphic elements as a solid sticker that covers and replaces any material color beneath it, without modification, reinterpretation, or color changes.' + panelNote;
+            return 'Exact surface graphic from image ' + n + ' applied as an opaque rectangular overlay on the main product body in every panel; reproduce the complete artwork precisely as shown in image ' + n + ' including all colors, background colors, and graphic elements as a solid sticker that covers and replaces any material color beneath it, without modification, reinterpretation, or color changes. When the sticker surface is viewed at an angle, the full graphic (text + shapes) must still appear complete and legible on the portion of the sticker visible from that camera angle — do not split, crop, or omit any part of the artwork due to perspective; the sticker must read as a whole unit.' + panelNote;
         }
         return '';
     }
@@ -1126,7 +1126,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (applyModeZh === 'remove_bg') {
             return '去除 image ' + n + ' 背景後，將前景圖稿原樣印刷在四格型錄同一主產品表面，前景須與參考圖一致。' + panelNote;
         }
-        return 'image ' + n + ' 的表面圖稿作為不透明矩形覆蓋層貼在四格型錄同一主產品本體表面，必須與參考圖完全一致，包括所有色彩、底色與圖形元素，如同實心貼紙覆蓋並取代下方材料色，不得修改、重新詮釋或改變色彩。' + panelNote;
+        return 'image ' + n + ' 的表面圖稿作為不透明矩形覆蓋層貼在四格型錄同一主產品本體表面，必須與參考圖完全一致，包括所有色彩、底色與圖形元素，如同實心貼紙覆蓋並取代下方材料色，不得修改、重新詮釋或改變色彩。斜角視圖中貼紙面朝鏡頭的部分應呈現圖稿的完整可辨識樣貌（文字加圖形），不可因透視角度而裁切、分割或省略圖稿的任何部分。' + panelNote;
     }
     return '';
 }
@@ -1192,7 +1192,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
-    result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement. Treat this as photographing one physical object from four different angles, not as creating four separate product renders.';
+    result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement. Treat this as photographing one physical object from four different angles, not as creating four separate product renders. For surface stickers/labels: in every panel where the sticker surface is visible, render the complete artwork (text + shapes) legibly as a whole unit; never show a partial/sliced/cropped version of the sticker due to the viewing angle.';
     if (hasOriginalPrint) {
         result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
@@ -1292,7 +1292,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
             } else if (applyMode === 'motif_extract') {
                 lines.push('  Extract the salient visual motif from image ' + n + ': main subject, emblem blocks, and key colors; integrate onto the product with natural placement—not a full rectangular paste; keep motif parts intact including any colored shape blocks in the artwork.');
             } else {
-                lines.push('  Apply image ' + n + ' as a complete opaque rectangular overlay including all background colors; treat it as a solid sticker that covers the material - do not remove or alter any part of the reference image, do not make the background transparent, do not replace the pattern background color with material color.');
+                lines.push('  Apply image ' + n + ' as a complete opaque rectangular overlay including all background colors; treat it as a solid sticker that covers the material - do not remove or alter any part of the reference image, do not make the background transparent, do not replace the pattern background color with material color. In angled or side-view panels, position the sticker so its face is oriented toward the camera and the complete artwork remains readable as a whole unit; never show only a sliver or partial crop of the sticker.');
             }
         }
     });
