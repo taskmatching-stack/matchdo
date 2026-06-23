@@ -610,6 +610,8 @@
                                 <input type="text" class="form-control" id="edit-tag-input" data-i18n-placeholder="baseModels.tagInputPlaceholder" placeholder="新增標籤">
                                 <button type="button" class="btn btn-outline-secondary" id="btn-edit-add-tag" data-i18n="baseModels.addTagBtn">加入</button>
                             </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-regenerate-tags"><span class="btn-edit-regenerate-tags-label">AI 重生標籤</span> — <span id="edit-points-regenerate-tags" class="fw-semibold">5</span> <span data-i18n="baseModels.pointsUnit">點</span></button>
+                            <p class="form-text text-muted small mb-0">讀取封面與所有多角度圖綜合產生標籤。</p>
                         </div>
                         <div id="edit-image-options" class="mb-3 d-none">
                             <div class="form-check mb-1">
@@ -691,7 +693,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'taxonomy-parallel-load-20260621';
+        window.__MATCHDO_MATERIALS_BUILD = 'regenerate-tags-5pts-20260621';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -3700,6 +3702,8 @@
             if (editOpt) editOpt.textContent = String(optimizePointsForKind(assetKind));
             var editDescPts = document.getElementById('edit-points-description');
             if (editDescPts) editDescPts.textContent = String(uploadPricing.points_description != null ? uploadPricing.points_description : 1);
+            var editRegenPts = document.getElementById('edit-points-regenerate-tags');
+            if (editRegenPts) editRegenPts.textContent = String(uploadPricing.points_upload != null ? uploadPricing.points_upload : 5);
         }
 
         function renderEditTags(alwaysShowPanel) {
@@ -5006,6 +5010,45 @@
         document.getElementById('edit-tag-input').addEventListener('keydown', function (e) {
             if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-edit-add-tag').click(); }
         });
+
+        var btnEditRegenerateTags = document.getElementById('btn-edit-regenerate-tags');
+        if (btnEditRegenerateTags) {
+            btnEditRegenerateTags.addEventListener('click', async function () {
+                var id = document.getElementById('edit-id').value;
+                if (!id) return;
+                var t = await getToken();
+                if (!t) { showToast('請先登入', 'warning'); return; }
+                var labelEl = btnEditRegenerateTags.querySelector('.btn-edit-regenerate-tags-label');
+                btnEditRegenerateTags.disabled = true;
+                if (labelEl) labelEl.textContent = '分析中…';
+                try {
+                    var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/regenerate-tags', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer ' + t }
+                    });
+                    var data = await r.json().catch(function () { return {}; });
+                    if (r.status === 402) {
+                        showToast((data.error || tr('baseModels.insufficientPoints', '點數不足')) + ' (' + (data.required || '') + ')', 'danger');
+                        return;
+                    }
+                    if (!r.ok) throw new Error(data.error || '重生失敗');
+                    editPending.tags = Array.isArray(data.ai_tags) ? data.ai_tags.slice() : [];
+                    editPending.semantics = data.image_semantics_json || null;
+                    renderEditTags(true);
+                    await loadMaterials();
+                    var okMsg = 'AI 標籤已重生';
+                    if (data.image_count != null) okMsg += '（' + data.image_count + ' 張圖）';
+                    if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
+                    if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
+                    showToast(okMsg, 'success');
+                } catch (e) {
+                    showToast(e.message || '重生失敗', 'danger');
+                } finally {
+                    btnEditRegenerateTags.disabled = false;
+                    if (labelEl) labelEl.textContent = 'AI 重生標籤';
+                }
+            });
+        }
 
         document.getElementById('btn-edit-save').addEventListener('click', async function () {
             var saveBtn = document.getElementById('btn-edit-save');

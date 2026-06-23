@@ -2717,9 +2717,15 @@ function finalizeVendorAssetSemantics(semanticsJson, tags, assetKind) {
 }
 
 async function runVendorAssetImageSemantics(file, context, ownerId) {
+    return runVendorAssetImageSemanticsFromFiles([{
+        file,
+        label: (context && context.image_label) || ''
+    }], context, ownerId);
+}
+
+async function runVendorAssetImageSemanticsFromFiles(fileEntries, context, ownerId) {
     const assetKind = normalizeVendorAssetKind(context.asset_kind);
     const patternIntent = normalizePatternIntent(context.pattern_intent);
-    // 原圖印刷類型圖樣：跳過 Gemini 語意分析，避免解讀干擾精確複製
     const skipSemantics = (assetKind === 'other' && patternIntent !== 'style');
     if (skipSemantics) {
         return {
@@ -2731,13 +2737,22 @@ async function runVendorAssetImageSemantics(file, context, ownerId) {
         };
     }
     const deps = getVisualSemanticsDeps();
-    const imagePart = visualSemantics.bufferToImagePart(file.buffer || file, file.mimetype);
-    const result = await visualSemantics.analyzeImageSemantics(deps, imagePart, context);
+    const imageEntries = [];
+    for (const entry of (fileEntries || [])) {
+        if (!entry || !entry.file) continue;
+        const f = entry.file;
+        imageEntries.push({
+            part: visualSemantics.bufferToImagePart(f.buffer || f, f.mimetype),
+            label: (entry.label || '').trim()
+        });
+    }
+    if (!imageEntries.length) throw new Error('無圖片可分析');
+    const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, context);
     await recordVisualSemanticsEvent({
         source_type: 'vendor_asset',
         source_id: null,
         image_url: context.image_url || null,
-        text_input: null,
+        text_input: imageEntries.length > 1 ? `multi_image:${imageEntries.length}` : null,
         semantics_kind: 'image',
         ai_tags: result.tags,
         semantics_json: result.semantics,
@@ -2748,6 +2763,137 @@ async function runVendorAssetImageSemantics(file, context, ownerId) {
     });
     const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(result.semantics);
     return { ...result, description };
+}
+
+async function runVendorAssetImageSemanticsFromRow(row, context, ownerId) {
+    const items = buildVendorAssetImageItems(row);
+    if (!items.length) throw new Error('無圖片可分析');
+    const deps = getVisualSemanticsDeps();
+    const imageEntries = [];
+    for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const url = (it.url || '').trim();
+        if (!url) continue;
+        const part = await visualSemantics.fetchUrlToImagePart(deps.fetch, url);
+        const lbl = (it.label || '').trim() || (i === 0 ? '封面' : `圖 ${i + 1}`);
+        imageEntries.push({ part, label: lbl });
+    }
+    if (!imageEntries.length) throw new Error('無圖片可分析');
+    const assetKind = normalizeVendorAssetKind(context.asset_kind || row.asset_kind);
+    const patternIntent = normalizePatternIntent(context.pattern_intent);
+    if (assetKind === 'other' && patternIntent !== 'style') {
+        return { tags: [], semantics: null, description: null, model: null, prompt_version: null };
+    }
+    const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, {
+        ...context,
+        asset_kind: assetKind
+    });
+    await recordVisualSemanticsEvent({
+        source_type: 'vendor_asset',
+        source_id: row.id || null,
+        image_url: items[0] && items[0].url ? items[0].url : null,
+        text_input: imageEntries.length > 1 ? `multi_image:${imageEntries.length}` : null,
+        semantics_kind: 'image',
+        ai_tags: result.tags,
+        semantics_json: result.semantics,
+        model: result.model,
+        prompt_version: result.prompt_version,
+        owner_id: ownerId || null,
+        category_key: context.category_key || row.category_key || null
+    });
+    const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(result.semantics);
+    return { ...result, description };
+}
+
+/** 依素材現有全部圖片重算 AI 標籤；失敗時回傳 null（不拋出，避免圖庫操作整筆失敗） */
+async function tryRefreshVendorAssetTagsFromAllImages(row, context, ownerId) {
+    try {
+        const items = buildVendorAssetImageItems(row);
+        if (!items.length) return null;
+        return await runVendorAssetImageSemanticsFromRow(row, context, ownerId);
+    } catch (e) {
+        console.warn('tryRefreshVendorAssetTagsFromAllImages:', e.message || e);
+        return null;
+    }
+}
+
+async function runVendorAssetImageSemanticsCoverPlusGallery(coverFile, row, context, ownerId) {
+    const gallery = parseGalleryImages(row && row.gallery_images);
+    if (!gallery.length) {
+        return runVendorAssetImageSemanticsFromFiles([{
+            file: coverFile,
+            label: (row && row.cover_image_label) || labelFromOriginalFilename(coverFile.originalname) || '封面'
+        }], context, ownerId);
+    }
+    const assetKind = normalizeVendorAssetKind(context.asset_kind || (row && row.asset_kind));
+    const patternIntent = normalizePatternIntent(context.pattern_intent);
+    if (assetKind === 'other' && patternIntent !== 'style') {
+        return { tags: [], semantics: null, description: null, model: null, prompt_version: null };
+    }
+    const deps = getVisualSemanticsDeps();
+    const imageEntries = [{
+        part: visualSemantics.bufferToImagePart(coverFile.buffer || coverFile, coverFile.mimetype),
+        label: (row && row.cover_image_label && String(row.cover_image_label).trim())
+            || labelFromOriginalFilename(coverFile.originalname)
+            || '封面'
+    }];
+    for (let i = 0; i < gallery.length; i++) {
+        const g = gallery[i];
+        if (!g || !g.url) continue;
+        const part = await visualSemantics.fetchUrlToImagePart(deps.fetch, g.url);
+        imageEntries.push({
+            part,
+            label: (g.label || '').trim() || `圖 ${i + 2}`
+        });
+    }
+    const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, {
+        ...context,
+        asset_kind: assetKind
+    });
+    await recordVisualSemanticsEvent({
+        source_type: 'vendor_asset',
+        source_id: row && row.id ? row.id : null,
+        image_url: null,
+        text_input: `multi_image:${imageEntries.length}`,
+        semantics_kind: 'image',
+        ai_tags: result.tags,
+        semantics_json: result.semantics,
+        model: result.model,
+        prompt_version: result.prompt_version,
+        owner_id: ownerId || null,
+        category_key: context.category_key || (row && row.category_key) || null
+    });
+    const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(result.semantics);
+    return { ...result, description };
+}
+
+function vendorAssetSemanticsPatchFromResult(sem) {
+    if (!sem || !sem.tags || !sem.tags.length) return {};
+    return {
+        ai_tags: sem.tags,
+        image_semantics_json: sem.semantics || null,
+        ai_tags_generated_at: new Date().toISOString(),
+        tags_source: 'gemini'
+    };
+}
+
+async function mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, assetId, context, ownerId) {
+    if (!updated || !buildVendorAssetImageItems(updated).length) return updated;
+    const sem = await tryRefreshVendorAssetTagsFromAllImages(updated, context, ownerId);
+    const patch = vendorAssetSemanticsPatchFromResult(sem);
+    if (!Object.keys(patch).length) return updated;
+    const tagSelect = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+    const { data: withTags, error } = await supabase.from('vendor_assets')
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('id', assetId)
+        .eq('manufacturer_id', manufacturerId)
+        .select(tagSelect)
+        .single();
+    if (error || !withTags) {
+        if (error) console.warn('mergeVendorAssetTagRefreshFromAllImages:', error.message || error);
+        return updated;
+    }
+    return withTags;
 }
 
 function vendorAssetDescriptionFromSemantics(semanticsJson) {
@@ -16067,6 +16213,85 @@ app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (r
     }
 });
 
+// POST /api/me/vendor-assets/:id/regenerate-tags — 依目前已上傳的全部圖片重算 AI 標籤（扣點，與上傳產標籤同額）
+app.post('/api/me/vendor-assets/:id/regenerate-tags', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const id = (req.params.id || '').trim();
+        const ownerId = seedUser.id;
+        const pointsRequired = await getPointsVendorAssetUpload();
+        let isAdmin = false;
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+        isAdmin = profile?.role === 'admin';
+        if (!isAdmin && ownerId && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
+            id, manufacturerId, 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind'
+        );
+        if (rowErr) return res.status(500).json({ error: '查詢失敗' });
+        if (!row) return res.status(404).json({ error: '找不到該素材' });
+        if (!buildVendorAssetImageItems(row).length) {
+            return res.status(400).json({ error: '尚無圖片可分析' });
+        }
+        const assetKind = normalizeVendorAssetKind(row.asset_kind);
+        let materialHint = '';
+        if (assetKind === 'material') {
+            materialHint = await materialCatalogHintForVendorAsset(manufacturerId, id);
+        }
+        const sem = await runVendorAssetImageSemanticsFromRow(row, {
+            asset_kind: assetKind,
+            category_key: row.category_key,
+            title: row.title,
+            description: row.description,
+            material_catalog_hint: materialHint || undefined
+        }, seedUser.id);
+        const patch = vendorAssetSemanticsPatchFromResult(sem);
+        if (!Object.keys(patch).length) {
+            return res.status(503).json({ error: 'AI 標籤產生失敗，請稍後重試' });
+        }
+        const { data: updated, error } = await supabase.from('vendor_assets')
+            .update({ ...patch, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('manufacturer_id', manufacturerId)
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .single();
+        if (error) return res.status(500).json({ error: '更新失敗' });
+        let balanceAfter = null;
+        let pointsDeducted = 0;
+        if (!isAdmin && ownerId && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'vendor_asset_regenerate_tags',
+                `素材庫 AI 重生標籤（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, vendor_asset_id: id, image_count: buildVendorAssetImageItems(updated).length }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: consumed.error || '扣點失敗', balance: consumed.balance, required: pointsRequired });
+            }
+            balanceAfter = consumed.balance_after;
+            pointsDeducted = pointsRequired;
+        }
+        res.json({
+            ...mapVendorAssetForApi(updated),
+            image_count: buildVendorAssetImageItems(updated).length,
+            points_deducted: pointsDeducted,
+            balance_after: balanceAfter
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/:id/regenerate-tags:', e);
+        res.status(503).json({ error: e.message || 'AI 標籤產生失敗，請稍後重試' });
+    }
+});
+
 // POST /api/me/vendor-assets/generate-description — 編輯區讀圖產生簡短說明（扣點，預覽標籤不扣點）
 app.post('/api/me/vendor-assets/generate-description', upload.single('image'), async (req, res) => {
     try {
@@ -16298,15 +16523,33 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                     : body.image_semantics_json;
             } catch (_) {}
         }
+        const imageLabels = supportsGallery
+            ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
+            : parseImageLabelsBody(body, 1);
         if (!tags || !tags.length) {
             try {
-                const sem = await runVendorAssetImageSemantics(file, {
+                const semanticsFiles = [{
+                    file,
+                    label: (imageLabels[0] && String(imageLabels[0]).trim())
+                        || labelFromOriginalFilename(file.originalname)
+                        || '封面'
+                }];
+                for (let gi = 0; gi < galleryUploadFiles.length; gi++) {
+                    const gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
+                    if (!gf) continue;
+                    semanticsFiles.push({
+                        file: gf,
+                        label: (imageLabels[gi + 1] && String(imageLabels[gi + 1]).trim())
+                            || labelFromOriginalFilename(gf.originalname)
+                            || (`圖 ${gi + 2}`)
+                    });
+                }
+                const sem = await runVendorAssetImageSemanticsFromFiles(semanticsFiles, {
                     asset_kind: assetKind,
                     category_key: categoryKey,
                     title,
                     description,
-                    material_catalog_hint: materialCatalogHint || undefined,
-                    image_label: labelFromOriginalFilename(file.originalname) || undefined
+                    material_catalog_hint: materialCatalogHint || undefined
                 }, ownerId);
                 tags = sem.tags;
                 semanticsJson = sem.semantics;
@@ -16338,10 +16581,6 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 materialCatalogHint
             });
         }
-
-        const imageLabels = supportsGallery
-            ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
-            : parseImageLabelsBody(body, 1);
 
         const materialSurfaceCreate = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
         if (assetKind === 'material' && optimizeIndices.length && !materialSurfaceCreate) {
@@ -16898,7 +17137,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title'
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, category_key, description'
         );
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
@@ -16993,10 +17232,19 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
             );
             if (consumed.ok) balanceAfter = consumed.balance_after;
         }
+        const tagContext = {
+            asset_kind: assetKind,
+            category_key: updated.category_key || row.category_key,
+            title: titleForPrompt,
+            description: updated.description || row.description,
+            material_catalog_hint: materialCatalogHint || undefined
+        };
+        const withTags = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, tagContext, ownerId);
         res.json({
-            ...mapVendorAssetForApi(updated),
+            ...mapVendorAssetForApi(withTags),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
-            balance_after: balanceAfter
+            balance_after: balanceAfter,
+            ai_tags_refreshed: withTags !== updated
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/:id/gallery-images:', e);
@@ -17146,7 +17394,19 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/cover', express.json(), asyn
             }
             return res.status(500).json({ error: '更新失敗' });
         }
-        res.json(mapVendorAssetForApi(updated));
+        const assetKindCover = normalizeVendorAssetKind(updated.asset_kind);
+        let materialHintCover = '';
+        if (assetKindCover === 'material') {
+            materialHintCover = await materialCatalogHintForVendorAsset(manufacturerId, id);
+        }
+        const withTagsCover = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, {
+            asset_kind: assetKindCover,
+            category_key: updated.category_key,
+            title: updated.title,
+            description: updated.description,
+            material_catalog_hint: materialHintCover || undefined
+        }, seedUser.id);
+        res.json(mapVendorAssetForApi(withTagsCover));
     } catch (e) {
         console.error('PATCH /api/me/vendor-assets/:id/gallery-images/cover:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -17200,7 +17460,19 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
             }
             return res.status(500).json({ error: '更新失敗' });
         }
-        res.json(mapVendorAssetForApi(updated));
+        const assetKindDel = normalizeVendorAssetKind(updated.asset_kind);
+        let materialHintDel = '';
+        if (assetKindDel === 'material') {
+            materialHintDel = await materialCatalogHintForVendorAsset(manufacturerId, id);
+        }
+        const withTagsDel = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, {
+            asset_kind: assetKindDel,
+            category_key: updated.category_key,
+            title: updated.title,
+            description: updated.description,
+            material_catalog_hint: materialHintDel || undefined
+        }, seedUser.id);
+        res.json(mapVendorAssetForApi(withTagsDel));
     } catch (e) {
         console.error('DELETE /api/me/vendor-assets/:id/gallery-images:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -17471,13 +17743,12 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             }
             if (!tags || !tags.length) {
                 try {
-                    const sem = await runVendorAssetImageSemantics(file, {
+                    const sem = await runVendorAssetImageSemanticsCoverPlusGallery(file, row, {
                         asset_kind: assetKind,
                         category_key: categoryKeyForTags,
                         title: titleForPrompt,
                         description: updates.description !== undefined ? updates.description : row.description,
-                        material_catalog_hint: materialCatalogHintPut || undefined,
-                        image_label: labelFromOriginalFilename(file.originalname) || undefined
+                        material_catalog_hint: materialCatalogHintPut || undefined
                     }, ownerId);
                     tags = sem.tags;
                     semanticsJson = sem.semantics;
