@@ -122,7 +122,7 @@ Split-view 4（右下格）：側面按鈕與底部孔位特寫，精確展示�
 
 3. **主分類** `custom_product_categories.prompt` 維持空白或僅一句極短說明，避免與子分類重複。
 
-4. **（可選二期）** 將【輸出格式】【參考圖】改由 `server.js` `composeGeneratePromptWithReferences` 自動附加，子分類只留品類 + Split-view 1～4，減少一百多筆重複維護。
+4. **（可選二期，須另開規格）** 若未來要由後端自動附加【輸出格式】【參考圖】共用段，**僅限**與各子分類 Split-view **無衝突**的通用句；**不得**在 `server.js` 追加品類專屬鏡位、四格視角劇本或「左下／右下不得重複」等 Split-view 細節。詳見 **§7**。
 
 ---
 
@@ -135,4 +135,48 @@ Split-view 4（右下格）：側面按鈕與底部孔位特寫，精確展示�
 
 ---
 
-*建立：2026-06-11 — 四視圖 Split-view 定案；`phone_case` 先測後批量。*
+## 7. 禁止：在 `server.js` 寫死 Split-view／四格視角（必守）
+
+本站約 **200 個** `custom_product_subcategories`，**每一個子分類的 Split-view 1～4 劇本不同**（手機殼、行動電源、帆布包、文具…鏡位與特寫重點皆異）。  
+**四格該怎麼拍，唯一權威是後台子分類 `prompt`（DB）**，不是後端全域字串。
+
+### 7.1 嚴禁（會與百餘分類矛盾、曾造成回歸）
+
+在 `server.js`（含 `buildFluxCatalogCompositeRefLead`、`buildFluxReferenceApplySummary`、`composeGeneratePromptWithReferences` 等）**不得**新增或強化下列內容：
+
+| 禁止 | 原因 |
+|------|------|
+| 品類專屬 Split-view 1～4 鏡位句（如「45° 量體」「接口特寫」「左下與右下不得相同」） | 僅某一子分類適用，寫進後端會與其他 199 個分類衝突 |
+| 為修單一案例（某廠商行動電源四格重複）在後端加「四格視角必須不同」等全域強化 | 應改**該子分類** DB prompt，見 §2 模板 |
+| 在 `CONSISTENCY ENFORCEMENT` 追加越寫越細的「每格怎麼拍」 | 與子分類 Split-view 重複或矛盾 |
+| 以「強化四格一致性／結構完整性」為名，改動 Split-view 構圖規則 | 結構／參考圖附錄可維護**通用**句；**構圖劇本**只准在 DB |
+
+### 7.2 後端允許維護的範圍（通用、與品類無關）
+
+以下可留在 `server.js`，且**不得**擴寫成品類 Split-view：
+
+- **參考圖角色**：原型／材料／配件／原圖印刷／風格 —「擷取特徵、不重繪參考圖畫面、不取代 Split-view 構圖」（見 `docs/custom-product-reference-pattern-prompt-policy.md`）
+- **四格同一成品**：同一產品、同一配色／圖樣／結構（**不是**規定每一格鏡位）
+- **參考圖排序**：`reorderFluxReferenceInputs`
+- **組裝順序**：DB 分類 prompt → 參考圖附錄 → 工藝 visual_hint（有廠商原型時）→ 使用者描述
+
+### 7.3 四格視角不對時，正確修法
+
+1. **改後台**該子分類 `prompt`：補齊 §2 的【輸出格式】【參考圖】；在 Split-view 2／4 寫清與其他格**互斥**的鏡位（品類專屬，只改這一筆）。
+2. **改使用者描述**：只寫圖案／材質／印刷，**不要**在描述裡覆寫 Split-view。
+3. **禁止**：為了「修這一個分類」去改 `server.js` 全域 prompt — 會再次毀掉其他分類。
+
+### 7.4 Agent／工程師自檢
+
+改 `server.js` 生圖 prompt 前問：
+
+- [ ] 這段文字是否**所有**子分類都適用？
+- [ ] 是否在寫 Split-view 1～4 或「第幾格該怎麼拍」？
+- [ ] 是否為**單一使用者回報**而加的全域句？
+
+任一项為「否／是／是」→ **不要改 server.js**，改 DB 子分類 prompt。
+
+---
+
+*建立：2026-06-11 — 四視圖 Split-view 定案；`phone_case` 先測後批量。*  
+*修訂：2026-06-24 — §7 禁止在 server.js 寫死 Split-view／四格視角（200 子分類衝突與回歸預防）。*

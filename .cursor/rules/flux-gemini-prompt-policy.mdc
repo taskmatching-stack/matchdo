@@ -32,3 +32,11 @@ alwaysApply: true
 
 - ❌ 把原圖印刷窄化成 **Logo lockup / wordmark** 專用 prompt block
 - ❌ 前端自動灌 **image 1=…→** 中文對照進使用者 prompt
+
+## 嚴禁（訂製品 2×2 Split-view — 200 子分類）
+
+改 **設計頁生圖** `buildFluxCatalogCompositeRefLead`、`composeGeneratePromptWithReferences` 前，**先讀** `docs/custom-product-subcategory-prompt-guide.md` **§7**。
+
+- ❌ 在 `server.js` **寫死或強化** Split-view 1～4、四格視角、鏡位互斥（如「左下與右下不得相同」）— **只准改後台子分類 DB `prompt`**
+- ❌ 為修**單一分類**案例在後端加全域四格構圖句 — 會與其他子分類矛盾
+- ✅ 後端僅維護**通用**參考圖附錄（特徵擷取、四格同一成品、不重繪參考圖構圖）

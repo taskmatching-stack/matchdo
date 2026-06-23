@@ -150,6 +150,7 @@
 - [ ] 材料 FLUX 是否在 **無 `image_semantics_json`** 時仍靜默執行？
 - [ ] 是否擅自改 **1024×1024** 或其它未文件化輸出尺寸？
 - [ ] 矛盾形容是否在 **Gemini prompt** 用自洽規則處理，而非後端第二套分類？
+- [ ] 是否在 `server.js` 追加 **Split-view 1～4／四格視角劇本**（含「四格不得相同角度」等）？→ **禁止**，見 `docs/custom-product-subcategory-prompt-guide.md` §7
 
 ---
 
