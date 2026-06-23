@@ -59,7 +59,8 @@ const CAPABILITY_TREE = [
         key: 'cap.printing', name_zh: '印刷工藝', sort: 10, children: [
             { key: 'digital', name_zh: '數位印刷', leaves: [['inkjet', '數位噴墨印刷'], ['latex', 'Latex 印刷'], ['dtg', 'DTG 直噴印刷'], ['dtf', 'DTF 轉印'], ['heat_transfer', '熱轉印'], ['sublimation', '熱昇華轉印'], ['heat_press', '熱壓轉印'], ['film_transfer', '膠膜轉印']] },
             { key: 'traditional', name_zh: '傳統印刷', leaves: [['screen', '網版印刷'], ['pad', '移印'], ['letterpress', '凸版印刷'], ['gravure', '凹版印刷'], ['offset', '平版印刷']] },
-            { key: 'special', name_zh: '特殊印刷', leaves: [['foil_gold', '燙金'], ['foil_silver', '燙銀'], ['spot_uv', '局部 UV'], ['emboss_print', '浮雕印刷'], ['glow', '夜光印刷'], ['scent', '香味印刷']] }
+            { key: 'special', name_zh: '特殊印刷', leaves: [['foil_gold', '燙金'], ['foil_silver', '燙銀'], ['spot_uv', '局部 UV'], ['emboss_print', '浮雕印刷'], ['glow', '夜光印刷'], ['scent', '香味印刷']] },
+            { key: 'hand_paint', name_zh: '手工彩繪', leaves: [['hand_paint', '手工彩繪', ['手繪', '定制彩繪']]] }
         ]
     },
     {
@@ -212,7 +213,10 @@ function buildRows() {
                 sort_order: major.sort
             });
             let leafSort = 0;
-            for (const [slug, label] of mid.leaves) {
+            for (const leaf of mid.leaves) {
+                const slug = leaf[0];
+                const label = leaf[1];
+                const leafAliases = leaf.length > 2 ? leaf[2] : null;
                 leafSort += 1;
                 push({
                     key: `${midKey}.${slug}`,
@@ -220,6 +224,7 @@ function buildRows() {
                     parent_key: midKey,
                     depth: 2,
                     name_zh: label,
+                    aliases: leafAliases,
                     sort_order: major.sort * 100 + leafSort
                 });
             }

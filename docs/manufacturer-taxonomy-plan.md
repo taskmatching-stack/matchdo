@@ -108,6 +108,8 @@
 
 約 **152** 個工藝標籤（depth=2）為**起點種子**；管理後台可增修，廠商亦可自填補缺。
 
+**手工彩繪**（成品表面手繪，通用、不拆球鞋／安全帽等品類標籤）：`cap.printing.hand_paint.hand_paint` — 路徑 **印刷工藝 → 手工彩繪**；見 `docs/add-taxonomy-hand-paint.sql`。
+
 ### 3.3 廠商表單 UI（MT-3）
 
 ```text

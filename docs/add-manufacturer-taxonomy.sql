@@ -130,6 +130,8 @@ VALUES
 ('cap.printing.special.emboss_print', 'capability', 'cap.printing.special', 2, '浮雕印刷', '{}'::text[], NULL, 3004),
 ('cap.printing.special.glow', 'capability', 'cap.printing.special', 2, '夜光印刷', '{}'::text[], NULL, 3005),
 ('cap.printing.special.scent', 'capability', 'cap.printing.special', 2, '香味印刷', '{}'::text[], NULL, 3006),
+('cap.printing.hand_paint', 'capability', 'cap.printing', 1, '手工彩繪', '{}'::text[], NULL, 40),
+('cap.printing.hand_paint.hand_paint', 'capability', 'cap.printing.hand_paint', 2, '手工彩繪', ARRAY['手繪','定制彩繪']::text[], NULL, 4001),
 
 -- ══ 2 紡織與車縫 ══
 ('cap.textile', 'capability', NULL, 0, '紡織與車縫', ARRAY['紡織工藝']::text[], NULL, 20),
