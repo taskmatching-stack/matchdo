@@ -691,7 +691,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'material-flux-prompt-preview-20260618';
+        window.__MATCHDO_MATERIALS_BUILD = 'taxonomy-parallel-load-20260621';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -715,6 +715,7 @@
         var productionTypes = [];
         var capabilityTaxonomyNodes = [];
         var taxonomyApiReady = false;
+        var taxonomyProductionReady = false;
         var materialsAll = [];
         var activeKind = 'prototype';
         var deleteTargetId = null;
@@ -3195,9 +3196,32 @@
             return { root: '', parent: '', leaf: '' };
         }
 
+        function markProductionTypeSelectsLoading() {
+            document.querySelectorAll('.add-production-type, #edit-production-type').forEach(function (sel) {
+                if (!sel) return;
+                sel.innerHTML = '<option value="">— 未指定 —</option>';
+                var opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '（載入中…）';
+                opt.disabled = true;
+                sel.appendChild(opt);
+                sel.disabled = true;
+            });
+        }
+
         function fillProductionTypeSelect(sel, selectedKey) {
             if (!sel) return;
+            sel.disabled = false;
             sel.innerHTML = '<option value="">— 未指定 —</option>';
+            if (!productionTypes.length) {
+                var hint = document.createElement('option');
+                hint.value = '';
+                hint.textContent = taxonomyProductionReady ? '（尚無生產模式資料）' : '（載入中…）';
+                hint.disabled = true;
+                sel.appendChild(hint);
+                if (!taxonomyProductionReady) sel.disabled = true;
+                return;
+            }
             productionTypes.forEach(function (pt) {
                 var opt = document.createElement('option');
                 opt.value = pt.key;
@@ -3509,20 +3533,26 @@
             productionTypes = [];
             capabilityTaxonomyNodes = [];
             taxonomyApiReady = false;
+            taxonomyProductionReady = false;
             try {
-                var r1 = await fetch('/api/taxonomy?dimension=production_type');
-                var d1 = await r1.json().catch(function () { return {}; });
-                var r2 = await fetch('/api/taxonomy?dimension=capability');
-                var d2 = await r2.json().catch(function () { return {}; });
-                if (r1.ok) productionTypes = d1.items || [];
-                if (r2.ok) capabilityTaxonomyNodes = d2.items || [];
-                taxonomyApiReady = r2.ok && capabilityTaxonomyNodes.length > 0;
+                var responses = await Promise.all([
+                    fetch('/api/taxonomy?dimension=production_type'),
+                    fetch('/api/taxonomy?dimension=capability')
+                ]);
+                var payloads = await Promise.all(responses.map(function (r) {
+                    return r.json().catch(function () { return {}; });
+                }));
+                if (responses[0].ok) productionTypes = payloads[0].items || [];
+                taxonomyProductionReady = responses[0].ok;
+                if (responses[1].ok) capabilityTaxonomyNodes = payloads[1].items || [];
+                taxonomyApiReady = responses[1].ok && capabilityTaxonomyNodes.length > 0;
             } catch (_) { /* ignore */ }
             initTaxonomySelects();
             document.querySelectorAll('.add-form').forEach(wireTaxonomySelectsOnForm);
             wireEditTaxonomySelects();
         }
 
+        markProductionTypeSelectsLoading();
         bootstrapCapabilityUi();
 
         function getFormPending(form) {
@@ -4053,14 +4083,19 @@
             catalogAssetKindSplitOk = true;
             var kinds = ['prototype', 'material', 'part'];
             try {
-                for (var ki = 0; ki < kinds.length; ki++) {
-                    var k = kinds[ki];
-                    var r = await fetch('/api/me/vendor-catalog-groups?asset_kind=' + encodeURIComponent(k), { headers: { Authorization: 'Bearer ' + token } });
-                var d = await r.json().catch(function () { return {}; });
+                var catalogResults = await Promise.all(kinds.map(function (k) {
+                    return fetch('/api/me/vendor-catalog-groups?asset_kind=' + encodeURIComponent(k), { headers: { Authorization: 'Bearer ' + token } })
+                        .then(function (r) {
+                            return r.json().catch(function () { return {}; }).then(function (d) { return { k: k, d: d }; });
+                        });
+                }));
+                catalogResults.forEach(function (item) {
+                    var k = item.k;
+                    var d = item.d;
                     if (d.message && String(d.message).indexOf('add-vendor-catalog-groups') !== -1) catalogGroupsDbReady = false;
                     if (d.asset_kind_split_unavailable) catalogAssetKindSplitOk = false;
                     catalogGroupsByKind[k] = filterCatalogGroupsForKind(d.flat || [], k);
-                }
+                });
                 if (!catalogGroupsDbReady) showToast(tr('baseModels.catalogDbMissing', '請先執行 docs/add-vendor-catalog-groups.sql'), 'warning');
                 else if (!catalogAssetKindSplitOk) showToast(tr('baseModels.catalogAssetKindSqlRequired', '請執行 add-vendor-catalog-groups-asset-kind.sql'), 'warning');
             } catch (e) {
@@ -5446,10 +5481,13 @@
                 var linkPubMat = document.getElementById('link-public-vendor-page-mat');
                 if (linkPubMat && mfrData.id) linkPubMat.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrData.id);
                 document.getElementById('main-content').classList.remove('d-none');
-                await loadCategories();
-                await loadCatalogGroups();
-                await loadCapabilities();
-                await loadTaxonomy();
+                markProductionTypeSelectsLoading();
+                await Promise.all([
+                    loadCategories(),
+                    loadCatalogGroups(),
+                    loadCapabilities(),
+                    loadTaxonomy()
+                ]);
                 await applySeedVendorInfoBanner(mfrData.vendor_source);
                 await loadUploadPricing();
                 await loadMaterials();
