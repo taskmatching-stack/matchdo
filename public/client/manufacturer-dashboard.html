@@ -482,8 +482,49 @@
             return html;
         }
 
-        function applyContactJsonToSocialUi(contact) {
+        function hydrateStoreUrls(contact) {
             contact = parseContactJsonClient(contact);
+            var nested = Array.isArray(contact.store_urls) ? contact.store_urls : [];
+            if (nested.some(function (item) { return storeUrlItemName(item); })) {
+                contact.store_urls = nested;
+                return contact;
+            }
+            var names = contact.shop_names;
+            var urls = contact.shop_urls;
+            if (!Array.isArray(urls) || !urls.length) {
+                contact.store_urls = nested;
+                return contact;
+            }
+            var rebuilt = [];
+            for (var i = 0; i < urls.length; i++) {
+                var u = normalizeStoreUrlInput(urls[i]);
+                if (!u) continue;
+                var n = (Array.isArray(names) && names[i] != null) ? String(names[i]).trim() : '';
+                rebuilt.push({ store_name: n, url: u });
+            }
+            contact.store_urls = rebuilt.length ? rebuilt : nested;
+            return contact;
+        }
+
+        function renderMfrSummaryCard(mfr, contact) {
+            contact = hydrateStoreUrls(contact || mfr.contact_json || {});
+            var storeSummaryHtml = buildStoreSummaryHtml(contact);
+            document.getElementById('mfr-summary').innerHTML = [
+                '<div class="row g-2">',
+                '<div class="col-12"><div class="fw-semibold fs-5">' + esc(mfr.name || '—') + '</div></div>',
+                mfr.description ? '<div class="col-12 text-muted small">' + esc(mfr.description).substring(0, 120) + (mfr.description.length > 120 ? '…' : '') + '</div>' : '',
+                '<div class="col-sm-6"><span class="text-muted small">分類：</span>' + ((mfr.categories || []).map(function (c) { return '<span class="badge bg-secondary me-1">' + esc(c) + '</span>'; }).join('') || '<span class="text-muted">—</span>') + '</div>',
+                '<div class="col-sm-6"><span class="text-muted small">地點：</span>' + esc(mfr.location || '—') + '</div>',
+                contact.email ? '<div class="col-sm-6"><i class="bi bi-envelope me-1 text-muted"></i>' + esc(contact.email) + '</div>' : '',
+                contact.phone ? '<div class="col-sm-6"><i class="bi bi-telephone me-1 text-muted"></i>' + esc(contact.phone) + '</div>' : '',
+                contact.url ? '<div class="col-sm-6"><i class="bi bi-link-45deg me-1 text-muted"></i><a href="' + esc(contact.url) + '" target="_blank">' + esc(contact.url) + '</a></div>' : '',
+                storeSummaryHtml,
+                '</div>'
+            ].join('');
+        }
+
+        function applyContactJsonToSocialUi(contact) {
+            contact = hydrateStoreUrls(contact);
             var socMap = {
                 facebook: 'soc-facebook', instagram: 'soc-instagram',
                 threads: 'soc-threads',   twitter: 'soc-twitter',
@@ -536,20 +577,8 @@
                 }
 
                 // 摘要卡
-                const contact = parseContactJsonClient(mfr.contact_json);
-                var storeSummaryHtml = buildStoreSummaryHtml(contact);
-                document.getElementById('mfr-summary').innerHTML = [
-                    '<div class="row g-2">',
-                    '<div class="col-12"><div class="fw-semibold fs-5">' + esc(mfr.name || '—') + '</div></div>',
-                    mfr.description ? '<div class="col-12 text-muted small">' + esc(mfr.description).substring(0, 120) + (mfr.description.length > 120 ? '…' : '') + '</div>' : '',
-                    '<div class="col-sm-6"><span class="text-muted small">分類：</span>' + ((mfr.categories || []).map(c => '<span class="badge bg-secondary me-1">' + esc(c) + '</span>').join('') || '<span class="text-muted">—</span>') + '</div>',
-                    '<div class="col-sm-6"><span class="text-muted small">地點：</span>' + esc(mfr.location || '—') + '</div>',
-                    contact.email ? '<div class="col-sm-6"><i class="bi bi-envelope me-1 text-muted"></i>' + esc(contact.email) + '</div>' : '',
-                    contact.phone ? '<div class="col-sm-6"><i class="bi bi-telephone me-1 text-muted"></i>' + esc(contact.phone) + '</div>' : '',
-                    contact.url ? '<div class="col-sm-6"><i class="bi bi-link-45deg me-1 text-muted"></i><a href="' + esc(contact.url) + '" target="_blank">' + esc(contact.url) + '</a></div>' : '',
-                    storeSummaryHtml,
-                    '</div>'
-                ].join('');
+                const contact = hydrateStoreUrls(mfr.contact_json);
+                renderMfrSummaryCard(mfr, contact);
 
                 applyContactJsonToSocialUi(contact);
 
@@ -678,10 +707,15 @@
                         var data = await r.json().catch(function () { return {}; });
                         if (!r.ok) throw new Error(data.error || '儲存失敗');
                         var savedContact = applyContactJsonToSocialUi(data.contact_json || contact_json);
-                        msg.textContent = '✅ 已儲存';
+                        renderMfrSummaryCard({
+                            name: data.name,
+                            description: data.description,
+                            location: data.location,
+                            categories: data.categories
+                        }, savedContact);
+                        msg.textContent = '✅ 已儲存（含賣場名稱）';
                         msg.className = 'small text-success';
-                        await loadMfr();
-                        setTimeout(function(){ msg.textContent = ''; }, 3000);
+                        setTimeout(function(){ msg.textContent = ''; }, 4000);
                     } catch (e) {
                         msg.textContent = '❌ ' + e.message;
                         msg.className = 'small text-danger';

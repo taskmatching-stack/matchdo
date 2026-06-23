@@ -579,6 +579,20 @@
                 socialEl.appendChild(a);
             });
             var storeUrls = Array.isArray(contact.store_urls) ? contact.store_urls : [];
+            var hasStoreName = storeUrls.some(function (item) {
+                return item && String(item.store_name || item.label || item.name || item.title || '').trim();
+            });
+            if (!hasStoreName && Array.isArray(contact.shop_urls) && contact.shop_urls.length) {
+                var names = contact.shop_names || [];
+                storeUrls = contact.shop_urls.map(function (rawUrl, i) {
+                    var url = String(rawUrl || '').trim();
+                    if (url && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url)) url = 'https://' + url.replace(/^\/+/, '');
+                    return {
+                        store_name: (names[i] != null ? String(names[i]) : '').trim(),
+                        url: url
+                    };
+                }).filter(function (item) { return item.url; });
+            }
             storeUrls.forEach(function (item) {
                 var url = (item && item.url ? String(item.url) : '').trim();
                 if (!url) return;

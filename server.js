@@ -1466,6 +1466,39 @@ function normalizeStoreUrls(raw) {
     return out;
 }
 
+/** 合併 store_urls 物件陣列與 shop_names/shop_urls 平行陣列（名稱較不易在 jsonb 遺失） */
+function attachStoreUrlsToContactJson(contact) {
+    const c = parseManufacturerContactJson(contact);
+    const fromNested = normalizeStoreUrls(c.store_urls);
+    if (fromNested.some((s) => s.store_name)) {
+        c.store_urls = fromNested;
+        return c;
+    }
+    const names = Array.isArray(c.shop_names) ? c.shop_names : [];
+    const urls = Array.isArray(c.shop_urls) ? c.shop_urls : [];
+    if (urls.length > 0) {
+        const out = [];
+        urls.forEach((rawUrl, i) => {
+            const url = normalizeStoreUrlString(rawUrl);
+            if (!url) return;
+            out.push({ store_name: String(names[i] != null ? names[i] : '').trim(), url });
+        });
+        c.store_urls = out.length ? out : fromNested;
+    } else {
+        c.store_urls = fromNested;
+    }
+    return c;
+}
+
+function storeUrlsToContactFields(stores) {
+    const list = normalizeStoreUrls(stores);
+    return {
+        store_urls: list,
+        shop_names: list.map((s) => s.store_name || ''),
+        shop_urls: list.map((s) => s.url)
+    };
+}
+
 function vendorContentSourceHash(fields) {
     return crypto.createHash('sha256').update(JSON.stringify(fields || {})).digest('hex').slice(0, 32);
 }
@@ -12837,7 +12870,7 @@ app.get('/api/me/manufacturer', async (req, res) => {
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
         mfr.logo_url = manufacturerLogoFromRow(mfr);
-        mfr.contact_json = parseManufacturerContactJson(mfr.contact_json);
+        mfr.contact_json = attachStoreUrlsToContactJson(mfr.contact_json);
         mfr.seed_vendor_self_service_locked = manufacturerIsSeedVendor(mfr) && !manufacturerSeedSelfServiceEnabled(mfr);
         mfr.can_edit_vendor_content = !mfr.seed_vendor_self_service_locked;
         res.json(mfr);
@@ -12926,7 +12959,10 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
                 if (body.contact_json[k] !== undefined) contactPatch[k] = body.contact_json[k];
             });
             if (body.contact_json.store_urls !== undefined) {
-                contactPatch.store_urls = normalizeStoreUrls(body.contact_json.store_urls);
+                const storeFields = storeUrlsToContactFields(body.contact_json.store_urls);
+                contactPatch.store_urls = storeFields.store_urls;
+                contactPatch.shop_names = storeFields.shop_names;
+                contactPatch.shop_urls = storeFields.shop_urls;
             }
         }
         if (Object.keys(contactPatch).length > 0) {
@@ -12976,7 +13012,7 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
                 }
                 return res.json({
                     ...fallback,
-                    contact_json: parseManufacturerContactJson(fallback.contact_json)
+                    contact_json: attachStoreUrlsToContactJson(fallback.contact_json)
                 });
             }
             console.error('PATCH /api/me/manufacturer:', error);
@@ -12984,7 +13020,7 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
         }
         res.json({
             ...updated,
-            contact_json: parseManufacturerContactJson(updated.contact_json)
+            contact_json: attachStoreUrlsToContactJson(updated.contact_json)
         });
     } catch (e) {
         console.error('PATCH /api/me/manufacturer 異常:', e);
@@ -13546,7 +13582,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             rating: mfr.rating,
             location: mfr.location,
             capabilities: mfr.capabilities,
-            contact: parseManufacturerContactJson(mfr.contact_json),
+            contact: attachStoreUrlsToContactJson(mfr.contact_json),
             verified: mfr.verified,
             categories: mfr.categories || [],
             user_id: mfr.user_id || null,
