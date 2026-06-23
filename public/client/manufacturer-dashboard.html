@@ -393,6 +393,32 @@
             }
         }
 
+        function collectAllStoreUrlRowsFromForm() {
+            var rows = document.querySelectorAll('#store-urls-list .store-url-row');
+            var out = [];
+            rows.forEach(function (row) {
+                var urlEl = row.querySelector('.store-url-url');
+                var labelEl = row.querySelector('.store-url-label');
+                var urlRaw = (urlEl && urlEl.value || '').trim();
+                out.push({
+                    store_name: (labelEl && labelEl.value || '').trim(),
+                    url: urlRaw ? (normalizeStoreUrlInput(urlRaw) || urlRaw) : ''
+                });
+            });
+            return out;
+        }
+
+        function storeUrlsFormHasDraft() {
+            var rows = document.querySelectorAll('#store-urls-list .store-url-row');
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var label = (row.querySelector('.store-url-label') && row.querySelector('.store-url-label').value || '').trim();
+                var urlRaw = (row.querySelector('.store-url-url') && row.querySelector('.store-url-url').value || '').trim();
+                if (label || urlRaw) return true;
+            }
+            return false;
+        }
+
         function collectStoreUrlsFromForm() {
             var rows = document.querySelectorAll('#store-urls-list .store-url-row');
             var out = [];
@@ -576,8 +602,10 @@
                     profileUrlInput.value = origin ? (origin.replace(/\/$/, '') + '/vendor-profile.html?id=' + encodeURIComponent(mfrId)) : ('/vendor-profile.html?id=' + encodeURIComponent(mfrId));
                 }
 
-                // 摘要卡
+                // 摘要卡（切換分頁回來時若表單有未儲存賣場，保留使用者輸入）
                 const contact = hydrateStoreUrls(mfr.contact_json);
+                var preservedStoreUrls = storeUrlsFormHasDraft() ? collectAllStoreUrlRowsFromForm() : null;
+                if (preservedStoreUrls) contact.store_urls = preservedStoreUrls;
                 renderMfrSummaryCard(mfr, contact);
 
                 applyContactJsonToSocialUi(contact);
@@ -1032,16 +1060,28 @@
             var btnPublicPageCopy = document.getElementById('btn-public-page-copy');
             if (btnPublicPageCopy) btnPublicPageCopy.addEventListener('click', copyPublicProfileUrl);
 
+            var mfrLoadedOnce = false;
+            function triggerLoadMfr(force) {
+                if (!force && mfrLoadedOnce) return;
+                mfrLoadedOnce = true;
+                loadMfr();
+            }
             if (typeof AuthService !== 'undefined') {
                 AuthService.onAuthStateChange(function (event, session) {
-                    if (session && session.user) loadMfr();
-                    else if (event === 'SIGNED_OUT') {
+                    // 切回分頁時 Supabase 會 TOKEN_REFRESHED，勿重載以免清空未儲存賣場
+                    if (event === 'TOKEN_REFRESHED') return;
+                    if (event === 'SIGNED_OUT') {
+                        mfrLoadedOnce = false;
                         document.getElementById('mfr-summary').innerHTML = '<div class="alert alert-warning mb-0">請先<a href="/index.html" class="alert-link">登入</a>。</div>';
                         document.getElementById('mfr-name').textContent = '';
+                        return;
+                    }
+                    if (session && session.user) {
+                        if (event === 'SIGNED_IN') triggerLoadMfr(true);
+                        else if (event === 'INITIAL_SESSION') triggerLoadMfr(false);
                     }
                 });
-                // 頁面載入時也主動嘗試（onAuthStateChange 有時在 INITIAL_SESSION 前觸發）
-                loadMfr();
+                triggerLoadMfr(false);
             } else {
                 loadMfr();
             }
