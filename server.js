@@ -1054,8 +1054,13 @@ function buildFluxReferenceUiSlotSummary(sources) {
 /** 2×2 型錄：四格同一合成成品（對齊 custom-product-subcategory-prompt-guide.md） */
 function buildFluxCatalogCompositeRefLead() {
     return [
-        'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid.',
-        'Every panel shows the same single finished product — merge only the uploaded reference features listed below — only the studio camera angle per panel changes per Split-view.',
+        'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid only.',
+        'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
+        'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT with perfectly consistent design across every panel.',
+        'Every visible attribute — body shape, body color, surface texture, surface print/artwork/logo/graphics, hardware/parts, and finish — must be IDENTICAL in all four panels. Do not vary any design element between panels.',
+        'Only the studio camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
+        'If a logo, icon, text, or graphic appears on the product surface, it must appear in EXACTLY the same form on the same surface area in every panel where that surface is visible.',
+        'One identical product instance in all four panels; do not render multiple different variants, color variations, or modified versions of the product.',
         'Reference input images supply product features only; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
     ].join(' ');
 }
@@ -1187,6 +1192,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
+    result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement. Treat this as photographing one physical object from four different angles, not as creating four separate product renders.';
     if (hasOriginalPrint) {
         result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
