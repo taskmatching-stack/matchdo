@@ -1423,6 +1423,24 @@ function pickVendorLocalizedText(primary, enValue, lang) {
     return primary != null ? String(primary).trim() : '';
 }
 
+/** contact_json.store_urls：{ label?, url }[]，最多 20 筆 */
+function normalizeStoreUrls(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    for (const item of raw) {
+        if (typeof item === 'string') {
+            const url = String(item).trim();
+            if (url) out.push({ label: '', url });
+        } else if (item && typeof item === 'object') {
+            const url = String(item.url || '').trim();
+            if (!url) continue;
+            out.push({ label: String(item.label || '').trim(), url });
+        }
+        if (out.length >= 20) break;
+    }
+    return out;
+}
+
 function vendorContentSourceHash(fields) {
     return crypto.createHash('sha256').update(JSON.stringify(fields || {})).digest('hex').slice(0, 32);
 }
@@ -12881,6 +12899,9 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
             SOCIAL_KEYS.forEach(k => {
                 if (body.contact_json[k] !== undefined) contactPatch[k] = body.contact_json[k];
             });
+            if (body.contact_json.store_urls !== undefined) {
+                contactPatch.store_urls = normalizeStoreUrls(body.contact_json.store_urls);
+            }
         }
         if (Object.keys(contactPatch).length > 0) {
             updates.contact_json = Object.assign({}, existing, contactPatch);

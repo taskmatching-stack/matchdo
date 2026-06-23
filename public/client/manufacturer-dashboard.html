@@ -245,6 +245,12 @@
                                     <div class="col-6"><label class="form-label small mb-1">LINE</label><input type="text" class="form-control form-control-sm" id="soc-line"></div>
                                     <div class="col-6"><label class="form-label small mb-1">官網</label><input type="url" class="form-control form-control-sm" id="soc-url"></div>
                                 </div>
+                                <div class="mb-2">
+                                    <label class="form-label small mb-1">賣場網址</label>
+                                    <p class="form-text small mb-1">可新增多個連結；名稱由您自訂（例如品牌官購、某平台店名等）。</p>
+                                    <div id="store-urls-list" class="d-flex flex-column gap-2"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnAddStoreUrl"><i class="bi bi-plus-lg me-1"></i>新增賣場</button>
+                                </div>
                                 <button class="btn btn-sm btn-primary" id="btnSaveSocial">儲存社群</button>
                                 <span id="socialSaveMsg" class="small ms-2"></span>
                             </div>
@@ -349,6 +355,63 @@
             } catch (e) { return null; }
         }
 
+        function storeUrlDisplayText(label, url) {
+            var t = (label || '').trim();
+            if (t) return t;
+            var u = (url || '').trim();
+            if (!u) return '';
+            try {
+                var parsed = new URL(u.indexOf('://') >= 0 ? u : ('https://' + u));
+                return parsed.hostname.replace(/^www\./i, '') || u;
+            } catch (e) {
+                return u.length > 48 ? (u.slice(0, 45) + '…') : u;
+            }
+        }
+
+        function collectStoreUrlsFromForm() {
+            var rows = document.querySelectorAll('#store-urls-list .store-url-row');
+            var out = [];
+            rows.forEach(function (row) {
+                var urlEl = row.querySelector('.store-url-url');
+                var labelEl = row.querySelector('.store-url-label');
+                var url = (urlEl && urlEl.value || '').trim();
+                if (!url) return;
+                out.push({
+                    label: (labelEl && labelEl.value || '').trim(),
+                    url: url
+                });
+            });
+            return out;
+        }
+
+        function renderStoreUrlRows(urls) {
+            var list = document.getElementById('store-urls-list');
+            if (!list) return;
+            var items = Array.isArray(urls) ? urls : [];
+            if (items.length === 0) items = [{ label: '', url: '' }];
+            list.innerHTML = items.map(function (item) {
+                var label = esc((item && item.label) || '');
+                var url = esc((item && item.url) || '');
+                return '<div class="row g-2 store-url-row align-items-center">' +
+                    '<div class="col-sm-4 col-12"><input type="text" class="form-control form-control-sm store-url-label" placeholder="賣場名稱" value="' + label + '"></div>' +
+                    '<div class="col-sm-7 col-11"><input type="url" class="form-control form-control-sm store-url-url" placeholder="https://…" value="' + url + '"></div>' +
+                    '<div class="col-sm-1 col-1 text-end"><button type="button" class="btn btn-sm btn-outline-danger store-url-remove" title="移除"><i class="bi bi-x-lg"></i></button></div>' +
+                    '</div>';
+            }).join('');
+            list.querySelectorAll('.store-url-remove').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var row = btn.closest('.store-url-row');
+                    if (!row) return;
+                    if (list.querySelectorAll('.store-url-row').length <= 1) {
+                        row.querySelector('.store-url-label').value = '';
+                        row.querySelector('.store-url-url').value = '';
+                        return;
+                    }
+                    row.remove();
+                });
+            });
+        }
+
         async function loadMfr() {
             token = await getToken();
             if (!token) {
@@ -388,6 +451,15 @@
 
                 // 摘要卡
                 const contact = mfr.contact_json || {};
+                var storeSummaryHtml = '';
+                if (Array.isArray(contact.store_urls)) {
+                    contact.store_urls.forEach(function (item) {
+                        var su = (item && item.url || '').trim();
+                        if (!su) return;
+                        var sl = storeUrlDisplayText(item && item.label, su);
+                        storeSummaryHtml += '<div class="col-sm-6"><i class="bi bi-bag-check me-1 text-muted"></i><a href="' + esc(su) + '" target="_blank" rel="noopener">' + esc(sl) + '</a></div>';
+                    });
+                }
                 document.getElementById('mfr-summary').innerHTML = [
                     '<div class="row g-2">',
                     '<div class="col-12"><div class="fw-semibold fs-5">' + esc(mfr.name || '—') + '</div></div>',
@@ -397,6 +469,7 @@
                     contact.email ? '<div class="col-sm-6"><i class="bi bi-envelope me-1 text-muted"></i>' + esc(contact.email) + '</div>' : '',
                     contact.phone ? '<div class="col-sm-6"><i class="bi bi-telephone me-1 text-muted"></i>' + esc(contact.phone) + '</div>' : '',
                     contact.url ? '<div class="col-sm-6"><i class="bi bi-link-45deg me-1 text-muted"></i><a href="' + esc(contact.url) + '" target="_blank">' + esc(contact.url) + '</a></div>' : '',
+                    storeSummaryHtml,
                     '</div>'
                 ].join('');
 
@@ -412,6 +485,7 @@
                     var el = document.getElementById(socMap[k]);
                     if (el) el.value = soc[k] || '';
                 });
+                renderStoreUrlRows(soc.store_urls);
 
                 // 廠商 LOGO
                 renderLogoPreview(mfr.logo_url || '');
@@ -497,6 +571,14 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            var btnAddStoreUrl = document.getElementById('btnAddStoreUrl');
+            if (btnAddStoreUrl) {
+                btnAddStoreUrl.addEventListener('click', function () {
+                    var current = collectStoreUrlsFromForm();
+                    current.push({ label: '', url: '' });
+                    renderStoreUrlRows(current);
+                });
+            }
             // 社群帳號儲存
             var btnSaveSocial = document.getElementById('btnSaveSocial');
             if (btnSaveSocial) {
@@ -514,7 +596,8 @@
                             twitter:   document.getElementById('soc-twitter').value.trim(),
                             youtube:   document.getElementById('soc-youtube').value.trim(),
                             line_id:   document.getElementById('soc-line').value.trim(),
-                            url:       document.getElementById('soc-url').value.trim()
+                            url:       document.getElementById('soc-url').value.trim(),
+                            store_urls: collectStoreUrlsFromForm()
                         };
                         var r = await fetch('/api/me/manufacturer', {
                             method: 'PATCH',
@@ -524,6 +607,7 @@
                         if (!r.ok) throw new Error((await r.json()).error || '儲存失敗');
                         msg.textContent = '✅ 已儲存';
                         msg.className = 'small text-success';
+                        await loadMfr();
                         setTimeout(function(){ msg.textContent = ''; }, 3000);
                     } catch (e) {
                         msg.textContent = '❌ ' + e.message;

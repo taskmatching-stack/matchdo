@@ -69,6 +69,7 @@
         .social-link.line { border-color: #06c755; color: #06c755; }
         .social-link.wa  { border-color: #25d366; color: #25d366; }
         .social-link.web { border-color: #445D7E; color: #445D7E; }
+        .social-link.shop { border-color: #e67e22; color: #e67e22; }
         .social-link.email { border-color: #6c757d; color: #6c757d; }
         .social-link.phone { border-color: #445D7E; color: #445D7E; }
 
@@ -575,6 +576,29 @@
                 a.target = (def.key === 'email' || def.key === 'phone') ? '_self' : '_blank';
                 a.rel = 'noopener noreferrer';
                 a.innerHTML = '<i class="bi ' + def.icon + ' si"></i>' + def.label;
+                socialEl.appendChild(a);
+            });
+            var storeUrls = Array.isArray(contact.store_urls) ? contact.store_urls : [];
+            storeUrls.forEach(function (item) {
+                var url = (item && item.url ? String(item.url) : '').trim();
+                if (!url) return;
+                var label = (item && item.label ? String(item.label) : '').trim();
+                var display = label;
+                if (!display) {
+                    try {
+                        var parsed = new URL(url.indexOf('://') >= 0 ? url : ('https://' + url));
+                        display = parsed.hostname.replace(/^www\./i, '') || url;
+                    } catch (e) {
+                        display = url.length > 48 ? (url.slice(0, 45) + '…') : url;
+                    }
+                }
+                hasSocial = true;
+                var a = document.createElement('a');
+                a.className = 'social-link shop';
+                a.href = url.indexOf('://') >= 0 ? url : ('https://' + url);
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.innerHTML = '<i class="bi bi-bag-check si"></i>' + escHtml(display);
                 socialEl.appendChild(a);
             });
             if (hasSocial) document.getElementById('sectionSocial').style.display = '';
