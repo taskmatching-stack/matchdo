@@ -1058,6 +1058,7 @@ function buildFluxCatalogCompositeRefLead() {
         'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
         'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT with perfectly consistent design across every panel.',
         'Every visible attribute — body shape, body color, surface texture, surface print/artwork/logo/graphics, hardware/parts, and finish — must be IDENTICAL in all four panels. Do not vary any design element between panels.',
+        'STRUCTURAL COMPLETENESS: The reference images show the COMPLETE product structure. You must preserve ALL structural elements visible in the reference images, including but not limited to: elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, and any other physical components. Do not simplify, omit, reinterpret, or redesign any structural element shown in the reference.',
         'Only the studio camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
         'If a logo, icon, text, or graphic appears on the product surface, it must appear in EXACTLY the same form on the same surface area in every panel where that surface is visible.',
         'One identical product instance in all four panels; do not render multiple different variants, color variations, or modified versions of the product.',
@@ -1074,7 +1075,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         ? ' Feature for the same product in all four 2x2 catalog panels.'
         : ' 特徵套用在四格型錄的同一成品上。';
     if (isEn) {
-        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure (image ' + n + ').' + panelNote;
+        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and complete structure from image ' + n + ': replicate ALL visible structural elements exactly as shown in the reference, including every component, attachment, band, strap, closure, pocket, seam, and detail. Do not simplify or omit any structural feature.' + panelNote;
         if (k === 'material') {
             if (protoImageNum != null) {
                 return 'Recolor the main product body using material reference (image ' + n + '): keep the same body opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + panelNote;
@@ -1102,7 +1103,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         }
         return '';
     }
-    if (k === 'prototype') return '主產品造型、輪廓、比例與結構（image ' + n + '）。' + panelNote;
+    if (k === 'prototype') return '主產品造型、輪廓、比例與完整結構取自 image ' + n + '：必須精準複製參考圖中所有可見的結構元素，包含每個零件、附件、鬆緊帶、束帶、扣具、口袋、縫線與細節，不得簡化或省略任何結構特徵。' + panelNote;
     if (k === 'material') {
         if (protoImageNum != null) {
             return '材料換色：僅取自 image ' + n + ' 的色彩與質感；本體不透明／厚度／側邊／材質類以原型 image ' + p + ' 可見者為準，勿自行改成透明或磨砂。' + panelNote;
@@ -1192,7 +1193,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
-    result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement. Treat this as photographing one physical object from four different angles, not as creating four separate product renders. For surface prints and labels: place each artwork element on the product\'s primary flat face so it reads clearly from all catalog angles; the artwork perspective-foreshortens with the surface geometry but remains structurally complete in every panel — all elements present, none hidden by product edges or omitted due to geometry.';
+    result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement, and same complete structure. Treat this as photographing one physical object from four different angles, not as creating four separate product renders. STRUCTURAL INTEGRITY: Every structural element visible in the reference images (elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, attachments) must appear in the generated product in all four panels. Do not simplify, omit, redesign, or reinterpret any structural component. For surface prints and labels: place each artwork element on the product\'s primary flat face so it reads clearly from all catalog angles; the artwork perspective-foreshortens with the surface geometry but remains structurally complete in every panel — all elements present, none hidden by product edges or omitted due to geometry.';
     if (hasOriginalPrint) {
         result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
@@ -1230,11 +1231,11 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
     });
     if (hasProto) {
         if (protoCount === 1) {
-            lines.push('Prototype tab: image ' + protoN + ' supplies shape; merged into the same product in every 2x2 panel.');
+            lines.push('Prototype tab: image ' + protoN + ' supplies the complete product structure including all visible components, attachments, straps, bands, closures, pockets, and details; replicate every structural element exactly as shown in the reference, without simplification or omission, merged into the same product in every 2x2 panel.');
         } else {
             lines.push('Prototype tab: images ' + list.map(function (s, i) {
                 return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
-            }).filter(Boolean).join(', ') + ' are multiple views of one product; combine for one shape in every panel.');
+            }).filter(Boolean).join(', ') + ' are multiple views of one product showing its complete structure; combine all visible structural elements for one complete product in every panel, preserving every component exactly as shown.');
         }
     }
     if (hasPart) {
