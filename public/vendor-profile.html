@@ -582,8 +582,8 @@
             storeUrls.forEach(function (item) {
                 var url = (item && item.url ? String(item.url) : '').trim();
                 if (!url) return;
-                var label = (item && item.label ? String(item.label) : '').trim();
-                var display = label;
+                var name = (item && (item.store_name || item.label || item.name || item.title) ? String(item.store_name || item.label || item.name || item.title) : '').trim();
+                var display = name;
                 if (!display) {
                     try {
                         var parsed = new URL(url.indexOf('://') >= 0 ? url : ('https://' + url));
@@ -595,7 +595,7 @@
                 hasSocial = true;
                 var a = document.createElement('a');
                 a.className = 'social-link shop';
-                a.href = url.indexOf('://') >= 0 ? url : ('https://' + url);
+                a.href = url.indexOf('://') >= 0 ? url : ('https://' + url.replace(/^\/+/, ''));
                 a.target = '_blank';
                 a.rel = 'noopener noreferrer';
                 a.innerHTML = '<i class="bi bi-bag-check si"></i>' + escHtml(display);

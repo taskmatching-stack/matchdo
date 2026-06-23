@@ -1443,17 +1443,23 @@ function normalizeStoreUrlString(raw) {
     return 'https://' + u.replace(/^\/+/, '');
 }
 
+function storeUrlItemName(item) {
+    if (!item || typeof item !== 'object') return '';
+    return String(item.store_name || item.label || item.name || item.title || '').trim();
+}
+
 function normalizeStoreUrls(raw) {
     if (!Array.isArray(raw)) return [];
     const out = [];
     for (const item of raw) {
         if (typeof item === 'string') {
             const url = normalizeStoreUrlString(item);
-            if (url) out.push({ label: '', url });
+            if (url) out.push({ store_name: '', url });
         } else if (item && typeof item === 'object') {
             const url = normalizeStoreUrlString(item.url);
             if (!url) continue;
-            out.push({ label: String(item.label || '').trim(), url });
+            const store_name = storeUrlItemName(item);
+            out.push({ store_name, url });
         }
         if (out.length >= 20) break;
     }
@@ -12831,6 +12837,7 @@ app.get('/api/me/manufacturer', async (req, res) => {
         const mfr = resq.data;
         if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
         mfr.logo_url = manufacturerLogoFromRow(mfr);
+        mfr.contact_json = parseManufacturerContactJson(mfr.contact_json);
         mfr.seed_vendor_self_service_locked = manufacturerIsSeedVendor(mfr) && !manufacturerSeedSelfServiceEnabled(mfr);
         mfr.can_edit_vendor_content = !mfr.seed_vendor_self_service_locked;
         res.json(mfr);
@@ -12967,12 +12974,18 @@ app.patch('/api/me/manufacturer', express.json(), async (req, res) => {
                     console.error('PATCH /api/me/manufacturer:', fbErr);
                     return res.status(500).json({ error: '更新失敗' });
                 }
-                return res.json(fallback);
+                return res.json({
+                    ...fallback,
+                    contact_json: parseManufacturerContactJson(fallback.contact_json)
+                });
             }
             console.error('PATCH /api/me/manufacturer:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
-        res.json(updated);
+        res.json({
+            ...updated,
+            contact_json: parseManufacturerContactJson(updated.contact_json)
+        });
     } catch (e) {
         console.error('PATCH /api/me/manufacturer 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -13533,7 +13546,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
             rating: mfr.rating,
             location: mfr.location,
             capabilities: mfr.capabilities,
-            contact: mfr.contact_json || {},
+            contact: parseManufacturerContactJson(mfr.contact_json),
             verified: mfr.verified,
             categories: mfr.categories || [],
             user_id: mfr.user_id || null,
