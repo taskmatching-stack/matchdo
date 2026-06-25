@@ -1095,7 +1095,7 @@ function buildFluxCatalogCompositeRefLead(hasStylePattern) {
         'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
         'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT with perfectly consistent design across every panel.',
         'Every visible attribute — body shape, body color, surface texture, surface print/artwork/logo/graphics, hardware/parts, and finish — must be IDENTICAL in all four panels. Do not vary any design element between panels.',
-        'STRUCTURAL COMPLETENESS: The reference images show the COMPLETE product structure. You must preserve ALL structural elements visible in the prototype reference images, including but not limited to: elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, and any other physical components. Do not simplify, omit, reinterpret, or redesign any structural element shown in the prototype.',
+        'STRUCTURAL COMPLETENESS: Preserve ALL structural components visible in the prototype reference images (elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, and any other physical components). Do not simplify, omit, or redesign any component; adapt their appearance naturally to each Split-view angle without forcing the exact pose or viewing angle of the reference photo.',
         'Only the studio camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
         'If a logo, icon, text, or graphic appears on the product surface, it must appear in EXACTLY the same form on the same surface area in every panel where that surface is visible.',
         'One identical product instance in all four panels; do not render multiple different variants, color variations, or modified versions of the product.',
@@ -1116,7 +1116,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         ? ' Feature for the same product in all four 2x2 catalog panels.'
         : ' 特徵套用在四格型錄的同一成品上。';
     if (isEn) {
-        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and complete structure from image ' + n + ': replicate ALL visible structural elements exactly as shown in the reference, including every component, attachment, band, strap, closure, pocket, seam, and detail. Do not simplify or omit any structural feature.' + panelNote;
+        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and complete structure from image ' + n + ': preserve ALL structural components (attachments, bands, straps, closures, pockets, seams, details) visible in the reference; adapt their appearance naturally to each catalog angle without replicating the exact viewing pose of the reference photo. Do not simplify or omit any structural feature.' + panelNote;
         if (k === 'material') {
             if (protoImageNum != null) {
                 return 'Recolor the main product body using material reference (image ' + n + '): keep the same body opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + panelNote;
@@ -1147,7 +1147,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         }
         return '';
     }
-    if (k === 'prototype') return '主產品造型、輪廓、比例與完整結構取自 image ' + n + '：必須精準複製參考圖中所有可見的結構元素，包含每個零件、附件、鬆緊帶、束帶、扣具、口袋、縫線與細節，不得簡化或省略任何結構特徵。' + panelNote;
+    if (k === 'prototype') return '主產品造型、輪廓、比例與完整結構取自 image ' + n + '：保留所有可見結構元件（零件、附件、鬆緊帶、束帶、扣具、口袋、縫線、細節），隨四格視角自然呈現，勿強制複製參考圖拍攝角度。不得簡化或省略任何結構特徵。' + panelNote;
     if (k === 'material') {
         if (protoImageNum != null) {
             return '材料換色：僅取自 image ' + n + ' 的色彩與質感；本體不透明／厚度／側邊／材質類以原型 image ' + p + ' 可見者為準，勿自行改成透明或磨砂。' + panelNote;
@@ -1285,7 +1285,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
     });
     if (hasProto) {
         if (protoCount === 1) {
-            lines.push('Prototype tab: image ' + protoN + ' supplies the complete product structure including all visible components, attachments, straps, bands, closures, pockets, and details; replicate every structural element exactly as shown in the reference, without simplification or omission, merged into the same product in every 2x2 panel.');
+            lines.push('Prototype tab: image ' + protoN + ' supplies the complete product structure including all visible components, attachments, straps, bands, closures, pockets, and details; preserve every structural component without simplification or omission, adapting naturally to each Split-view angle in all 2x2 panels.');
         } else {
             lines.push('Prototype tab: images ' + list.map(function (s, i) {
                 return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
