@@ -1051,57 +1051,19 @@ function buildFluxReferenceUiSlotSummary(sources) {
     return 'From design UI (' + list.length + ' reference image(s); empty tabs skipped): ' + bits.join('; ') + '.';
 }
 
-function collectFluxStyleRefImageNums(list) {
-    const nums = [];
-    (Array.isArray(list) ? list : []).forEach(function (s, idx) {
-        if (normalizeVendorAssetKind(s && s.asset_kind) === 'other' && normalizePatternIntent(s && s.pattern_intent) === 'style') {
-            nums.push(idx + 1);
-        }
-    });
-    return nums;
-}
-
-/** 風格參考：把配色／圖案畫在產品表面；參考圖僅供讀取，不修改原圖 */
-function buildFluxSurfaceStyleLead(list) {
-    const styleNums = collectFluxStyleRefImageNums(list);
-    if (!styleNums.length) return '';
-    const protoNums = (Array.isArray(list) ? list : []).map(function (s, i) {
-        return normalizeVendorAssetKind(s && s.asset_kind) === 'prototype' ? i + 1 : null;
-    }).filter(Boolean);
-    const protoN = protoNums.length ? protoNums[0] : null;
-    const styleStr = styleNums.join(', ');
-    const protoStr = protoNums.length > 1 ? protoNums.join(', ') : (protoN != null ? String(protoN) : '');
-    const guards = 'Input reference images are read-only sources — do not modify, redraw, replace, or output any reference photo. Do not use the style reference as a scene, background, or panel composition.';
-    if (protoN != null) {
-        return [
-            'SURFACE STYLE (required): Paint or print the visible product surfaces with colors, graphic motifs, and artistic treatment inspired by image ' + styleStr + '.',
-            'Product shape, silhouette, proportions, and structure come from prototype image' + (protoNums.length > 1 ? 's ' + protoStr : ' ' + protoStr) + ' only — keep structure unchanged.',
-            'Style reference image ' + styleStr + ' supplies surface design inspiration only; apply it ON the product body in all four panels.',
-            guards,
-            'Do not leave the product plain white or blank if the style reference shows distinct colors and surface design.'
-        ].join(' ');
-    }
-    return [
-        'SURFACE STYLE (required): Paint or print the generated product surfaces with colors and artistic treatment inspired by image ' + styleStr + '.',
-        'Style reference image ' + styleStr + ' is for product surface design only.',
-        guards
-    ].join(' ');
-}
-
 /** 2×2 型錄：四格同一合成成品（對齊 custom-product-subcategory-prompt-guide.md） */
-function buildFluxCatalogCompositeRefLead(hasStylePattern) {
-    const lines = [
+function buildFluxCatalogCompositeRefLead() {
+    return [
         'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid only.',
         'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
-        'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT photographed from four different camera angles.',
-        'The product itself does not change between panels — only the camera viewpoint changes per Split-view instructions.',
-        'Do not create four different product variants, color variations, or design modifications.',
-        'Reference input images supply product features for the single product; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
-    ];
-    if (hasStylePattern) {
-        lines.push('Style reference images are for painting/decorating the PRODUCT SURFACE only (colors, graphics, motifs) — never as panel backgrounds, scenes, or replacements for Split-view. Do not modify or redraw any input reference image.');
-    }
-    return lines.join(' ');
+        'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT with perfectly consistent design across every panel.',
+        'Every visible attribute — body shape, body color, surface texture, surface print/artwork/logo/graphics, hardware/parts, and finish — must be IDENTICAL in all four panels. Do not vary any design element between panels.',
+        'STRUCTURAL COMPLETENESS: The reference images show the COMPLETE product structure. You must preserve ALL structural elements visible in the reference images, including but not limited to: elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, and any other physical components. Do not simplify, omit, reinterpret, or redesign any structural element shown in the reference.',
+        'Only the studio camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
+        'If a logo, icon, text, or graphic appears on the product surface, it must appear in EXACTLY the same form on the same surface area in every panel where that surface is visible.',
+        'One identical product instance in all four panels; do not render multiple different variants, color variations, or modified versions of the product.',
+        'Reference input images supply product features only; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
+    ].join(' ');
 }
 
 /** 各參考槽 FLUX 角色句（特徵來源；套用在四格同一成品上） */
@@ -1113,7 +1075,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         ? ' Feature for the same product in all four 2x2 catalog panels.'
         : ' 特徵套用在四格型錄的同一成品上。';
     if (isEn) {
-        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure from image ' + n + '.' + panelNote;
+        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and complete structure from image ' + n + ': replicate ALL visible structural elements exactly as shown in the reference, including every component, attachment, band, strap, closure, pocket, seam, and detail. Do not simplify or omit any structural feature.' + panelNote;
         if (k === 'material') {
             if (protoImageNum != null) {
                 return 'Recolor the main product body using material reference (image ' + n + '): keep the same body opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + panelNote;
@@ -1128,10 +1090,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         }
         if (k === 'other') {
             if (normalizePatternIntent(patternIntent) === 'style') {
-                if (protoImageNum != null) {
-                    return 'Surface style reference (image ' + n + '): paint or print the main product body surfaces with colors, motifs, and artistic treatment inspired by this image; product structure stays from prototype image ' + p + '. Do not modify reference input images; do not paste this image as a background.' + panelNote;
-                }
-                return 'Surface style reference (image ' + n + '): paint or print the generated product surfaces with colors and artistic treatment inspired by this image. Do not modify reference input images.' + panelNote;
+                return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
             }
             const applyMode = patternApplyMode || 'original';
             if (applyMode === 'motif_extract') {
@@ -1144,7 +1103,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         }
         return '';
     }
-    if (k === 'prototype') return '主產品造型、輪廓、比例與結構取自 image ' + n + '。' + panelNote;
+    if (k === 'prototype') return '主產品造型、輪廓、比例與完整結構取自 image ' + n + '：必須精準複製參考圖中所有可見的結構元素，包含每個零件、附件、鬆緊帶、束帶、扣具、口袋、縫線與細節，不得簡化或省略任何結構特徵。' + panelNote;
     if (k === 'material') {
         if (protoImageNum != null) {
             return '材料換色：僅取自 image ' + n + ' 的色彩與質感；本體不透明／厚度／側邊／材質類以原型 image ' + p + ' 可見者為準，勿自行改成透明或磨砂。' + panelNote;
@@ -1159,10 +1118,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     }
     if (k === 'other') {
         if (normalizePatternIntent(patternIntent) === 'style') {
-            if (protoImageNum != null) {
-                return '表面風格參考 image ' + n + '：將配色／圖案畫在主產品表面（造型依 prototype image ' + p + '）；勿修改任何參考原圖。' + panelNote;
-            }
-            return '表面風格參考 image ' + n + '：將配色／圖案畫在生成產品表面；勿修改參考原圖。' + panelNote;
+            return '主產品表面風格參考 image ' + n + '（四格同一成品）。' + panelNote;
         }
         const applyModeZh = patternApplyMode || 'original';
         if (applyModeZh === 'motif_extract') {
@@ -1212,11 +1168,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
         const k = normalizeVendorAssetKind(s.asset_kind);
         if (k === 'other') {
             if (normalizePatternIntent(s.pattern_intent) === 'style') {
-                if (protoN != null) {
-                    bits.push('paint product surfaces with style inspired by image ' + n + ' (structure from image ' + protoN + ') in all panels');
-                } else {
-                    bits.push('paint product surfaces with style inspired by image ' + n + ' in all panels');
-                }
+                bits.push('style from image ' + n + ' on the same product in all panels');
             } else if (normalizePatternApplyMode(s) === 'motif_extract') {
                 bits.push('motif from image ' + n + ' integrated naturally on the same product in all panels');
             } else {
@@ -1241,7 +1193,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
-    result += '\nAll four 2x2 panels show the SAME product from four camera angles; do not create four different variants.';
+    result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement, and same complete structure. Treat this as photographing one physical object from four different angles, not as creating four separate product renders. STRUCTURAL INTEGRITY: Every structural element visible in the reference images (elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, attachments) must appear in the generated product in all four panels. Do not simplify, omit, redesign, or reinterpret any structural component. For surface prints and labels: place each artwork element on the product\'s primary flat face so it reads clearly from all catalog angles; the artwork perspective-foreshortens with the surface geometry but remains structurally complete in every panel — all elements present, none hidden by product edges or omitted due to geometry.';
     if (hasOriginalPrint) {
         result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
@@ -1264,10 +1216,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
     const header = isEn
         ? '【Reference images — feature extract for 2x2 catalog composite】'
         : '【參考圖用途 — 2×2 型錄合成】';
-    const hasStylePatternEarly = list.some(function (s) {
-        return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style';
-    });
-    const lines = [header, buildFluxCatalogCompositeRefLead(hasStylePatternEarly)];
+    const lines = [header, buildFluxCatalogCompositeRefLead()];
     const protoCount = list.filter(function (s) {
         return normalizeVendorAssetKind(s.asset_kind) === 'prototype';
     }).length;
@@ -1282,7 +1231,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
     });
     if (hasProto) {
         if (protoCount === 1) {
-            lines.push('Prototype tab: image ' + protoN + ' supplies the product structure.');
+            lines.push('Prototype tab: image ' + protoN + ' supplies the complete product structure including all visible components, attachments, straps, bands, closures, pockets, and details; replicate every structural element exactly as shown in the reference, without simplification or omission, merged into the same product in every 2x2 panel.');
         } else {
             lines.push('Prototype tab: images ' + list.map(function (s, i) {
                 return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
@@ -1318,7 +1267,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const styNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (style reference): image ' + styNums + ' — paint/decorate the product surface using this style in every panel; do not modify reference images or use as background.');
+        lines.push('Pattern tab (style reference): image ' + styNums + ' — inspired surface design on the same product in every panel; follow user prompt if provided, otherwise AI may design freely.');
     }
     list.forEach(function (s, idx) {
         const n = idx + 1;
@@ -8499,10 +8448,8 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-    const surfaceStyleLead = buildFluxSurfaceStyleLead(ordered.sources);
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
-    if (surfaceStyleLead) fullPrompt = surfaceStyleLead + '\n\n' + (fullPrompt || '').trim();
 
     const hasPrintPattern = fluxSourcesHasPrintPattern(ordered.sources);
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
