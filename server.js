@@ -1093,10 +1093,10 @@ function buildFluxCatalogCompositeRefLead(hasStylePattern) {
     const lines = [
         'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid only.',
         'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
-        'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT.',
-        'Only the camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
+        'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT photographed from four different camera angles.',
+        'The product itself does not change between panels — only the camera viewpoint changes per Split-view instructions.',
         'Do not create four different product variants, color variations, or design modifications.',
-        'Reference input images supply product features only; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
+        'Reference input images supply product features for the single product; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
     ];
     if (hasStylePattern) {
         lines.push('Style reference images are for painting/decorating the PRODUCT SURFACE only (colors, graphics, motifs) — never as panel backgrounds, scenes, or replacements for Split-view. Do not modify or redraw any input reference image.');
@@ -1241,7 +1241,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
-    result += '\nAll four 2x2 panels show the SAME product; do not create four different variants.';
+    result += '\nAll four 2x2 panels show the SAME product from four camera angles; do not create four different variants.';
     if (hasOriginalPrint) {
         result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
