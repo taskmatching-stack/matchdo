@@ -8423,8 +8423,8 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
 }
 
 /**
- * FLUX 生圖 prompt：DB 分類 → 參考圖事實 →（有原圖印刷時）工藝 visual_hint → 使用者描述（最後）。
- * 各參考 Tab：未上傳則附錄不提。有原圖印刷時：Pattern 附錄（image 編號）+ DB visual_hint 原文；改圖樣／配色靠 visual_hint 與使用者描述。
+ * FLUX 生圖 prompt：DB 分類 → 參考圖事實 →（有廠商原型且勾選工藝時）工藝 visual_hint → 使用者描述（最後）。
+ * 工藝 hint 不依賴原圖印刷 Tab；風格參考 + 手工彩繪等亦應附上 DB visual_hint。
  */
 async function composeGeneratePromptWithReferences(opts) {
     const categoryKeys = opts.categoryKeys;
@@ -8451,11 +8451,10 @@ async function composeGeneratePromptWithReferences(opts) {
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
 
-    const hasPrintPattern = fluxSourcesHasPrintPattern(ordered.sources);
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
     const capCustom = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityCustomLabels);
-    if (hasPrintPattern && protoIdForCaps && (capKeys.length || capCustom.length)) {
+    if (protoIdForCaps && (capKeys.length || capCustom.length)) {
         const capValid = await manufacturerTaxonomy.validateSelectedCapabilitiesForPrototype(
             supabase, protoIdForCaps, capKeys, capCustom
         );
