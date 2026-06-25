@@ -1093,12 +1093,9 @@ function buildFluxCatalogCompositeRefLead(hasStylePattern) {
     const lines = [
         'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid only.',
         'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
-        'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT with perfectly consistent design across every panel.',
-        'Every visible attribute — body shape, body color, surface texture, surface print/artwork/logo/graphics, hardware/parts, and finish — must be consistent across all four panels with natural perspective adaptation per viewing angle. For hand-painted or artistic finishes, allow natural brushstroke and artistic variation while maintaining overall design coherence.',
-        'STRUCTURAL COMPLETENESS: Preserve ALL structural components visible in the prototype reference images (elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, and any other physical components). Do not simplify, omit, or redesign any component; adapt their appearance naturally to each Split-view angle without forcing the exact pose or viewing angle of the reference photo.',
-        'Only the studio camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
-        'If a logo, icon, text, or graphic appears on the product surface, it must appear in EXACTLY the same form on the same surface area in every panel where that surface is visible.',
-        'One identical product instance in all four panels; do not render multiple different variants, color variations, or modified versions of the product.',
+        'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT.',
+        'Only the camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
+        'Do not create four different product variants, color variations, or design modifications.',
         'Reference input images supply product features only; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
     ];
     if (hasStylePattern) {
@@ -1116,7 +1113,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         ? ' Feature for the same product in all four 2x2 catalog panels.'
         : ' 特徵套用在四格型錄的同一成品上。';
     if (isEn) {
-        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and complete structure from image ' + n + ': preserve ALL structural components (attachments, bands, straps, closures, pockets, seams, details) visible in the reference; adapt their appearance naturally to each catalog angle without replicating the exact viewing pose of the reference photo. Do not simplify or omit any structural feature.' + panelNote;
+        if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and structure from image ' + n + '.' + panelNote;
         if (k === 'material') {
             if (protoImageNum != null) {
                 return 'Recolor the main product body using material reference (image ' + n + '): keep the same body opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + panelNote;
@@ -1147,7 +1144,7 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         }
         return '';
     }
-    if (k === 'prototype') return '主產品造型、輪廓、比例與完整結構取自 image ' + n + '：保留所有可見結構元件（零件、附件、鬆緊帶、束帶、扣具、口袋、縫線、細節），隨四格視角自然呈現，勿強制複製參考圖拍攝角度。不得簡化或省略任何結構特徵。' + panelNote;
+    if (k === 'prototype') return '主產品造型、輪廓、比例與結構取自 image ' + n + '。' + panelNote;
     if (k === 'material') {
         if (protoImageNum != null) {
             return '材料換色：僅取自 image ' + n + ' 的色彩與質感；本體不透明／厚度／側邊／材質類以原型 image ' + p + ' 可見者為準，勿自行改成透明或磨砂。' + panelNote;
@@ -1244,7 +1241,7 @@ function buildFluxReferenceApplySummary(sources, lang) {
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
-    result += '\nCONSISTENCY GUIDANCE: The finished product should represent the same design concept across all four 2x2 panels — same overall design, color scheme, surface artwork placement, and complete structure, naturally adapted to each viewing angle. Treat this as photographing one physical object from four different angles with natural perspective variation. For hand-painted or artistic surfaces, allow natural brushstroke variation and artistic expression while maintaining design coherence. STRUCTURAL INTEGRITY: Every structural component visible in the reference images (elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, attachments) must appear in the generated product in all four panels, naturally adapted to each angle. For surface prints and labels: place each artwork element on the product\'s primary flat face so it reads clearly from all catalog angles; the artwork perspective-foreshortens with the surface geometry but remains structurally complete in every panel.';
+    result += '\nAll four 2x2 panels show the SAME product; do not create four different variants.';
     if (hasOriginalPrint) {
         result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
@@ -1285,7 +1282,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
     });
     if (hasProto) {
         if (protoCount === 1) {
-            lines.push('Prototype tab: image ' + protoN + ' supplies the complete product structure including all visible components, attachments, straps, bands, closures, pockets, and details; preserve every structural component without simplification or omission, adapting naturally to each Split-view angle in all 2x2 panels.');
+            lines.push('Prototype tab: image ' + protoN + ' supplies the product structure.');
         } else {
             lines.push('Prototype tab: images ' + list.map(function (s, i) {
                 return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
