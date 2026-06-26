@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627i';
+  const BUILD = 'embed-simulator-20260627j';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -25,9 +25,8 @@
   // === 全域狀態 ===
   const state = {
     manufacturer: null,
-    prototypes: [],
-    selectedPrototype: null,           // 單選，同 product-tree 左側主產品
-    selectedPrototypeAngles: [],       // 主產品 image_items 每張圖 = 一個角度，最多 3 張
+    prototype: null,                   // 此 iframe 綁定的一款主產品（同看可搭配，無多款列表）
+    selectedPrototypeAngles: [],       // image_items 每張圖 = 一格，最多 3 張進生圖
     materials: [],
     parts: [],
     capabilities: [],
@@ -52,34 +51,17 @@
       name: '優質工坊',
       logo_url: 'https://via.placeholder.com/80x80/445D7E/FFFFFF?text=Logo'
     },
-    prototypes: [
-      {
-        id: 'proto-001',
-        title: '經典後背包',
-        image_url: 'https://via.placeholder.com/300x300/E8ECF0/445D7E?text=角度1',
-        image_items: [
-          { url: 'https://via.placeholder.com/300x300/E8ECF0/445D7E?text=角度1', label: '', is_cover: true },
-          { url: 'https://via.placeholder.com/300x300/D0DCE8/445D7E?text=角度2', label: '' },
-          { url: 'https://via.placeholder.com/300x300/B8CCD8/445D7E?text=角度3', label: '' },
-          { url: 'https://via.placeholder.com/300x300/A0BCC8/445D7E?text=角度4', label: '' }
-        ]
-      },
-      {
-        id: 'proto-002',
-        title: '休閒側背包',
-        image_url: 'https://via.placeholder.com/300x300/F0F4F8/445D7E?text=側背包'
-      },
-      {
-        id: 'proto-003',
-        title: '輕巧手提包',
-        image_url: 'https://via.placeholder.com/300x300/F8FAFC/445D7E?text=手提包'
-      },
-      {
-        id: 'proto-004',
-        title: '多功能腰包',
-        image_url: 'https://via.placeholder.com/300x300/E0E7EE/445D7E?text=腰包'
-      }
-    ],
+    prototype: {
+      id: 'proto-001',
+      title: '經典後背包',
+      image_url: 'https://picsum.photos/seed/matchdo-embed-p1/400/400',
+      image_items: [
+        { url: 'https://picsum.photos/seed/matchdo-embed-p1/400/400', label: '正面', is_cover: true },
+        { url: 'https://picsum.photos/seed/matchdo-embed-p2/400/400', label: '背面' },
+        { url: 'https://picsum.photos/seed/matchdo-embed-p3/400/400', label: '側面' },
+        { url: 'https://picsum.photos/seed/matchdo-embed-p4/400/400', label: '細節' }
+      ]
+    },
     linkTree: {
       linked_assets: [
         {
@@ -156,6 +138,42 @@
     updateStep2Visibility();
   }
   
+  /** bootstrap 只應回傳此 iframe 綁定的一款主產品 */
+  function pickBootstrapPrototype(data) {
+    if (!data) return null;
+    if (data.prototype && data.prototype.id) return data.prototype;
+    var list = Array.isArray(data.prototypes) ? data.prototypes : [];
+    if (data.prototype_asset_id) {
+      var bound = list.find(function (p) { return p && p.id === data.prototype_asset_id; });
+      if (bound) return bound;
+    }
+    if (list.length === 1) return list[0];
+    return list.length ? list[0] : null;
+  }
+
+  async function initWithPrototype(proto) {
+    if (!proto || !proto.id) {
+      state.prototype = null;
+      renderStep1Prototype();
+      return;
+    }
+    state.prototype = proto;
+    syncPrototypeAnglesOnSelect(proto);
+    renderStep1Prototype();
+    updateStep1Summary();
+    renderVendorRefSummary();
+
+    var step2 = document.getElementById('step2');
+    if (step2) {
+      step2.style.display = '';
+      step2.classList.add('expanded');
+    }
+    var stepRef = document.getElementById('stepRef');
+    if (stepRef) stepRef.style.display = '';
+    await loadLinkTree(proto.id);
+    loadCapabilities(proto.id);
+  }
+
   function updateStep2Visibility() {
     const step2 = document.getElementById('step2');
     const noMat = document.getElementById('noMaterials');
@@ -174,8 +192,8 @@
     if (!el) return;
     
     const items = [];
-    if (state.selectedPrototype) {
-      const p = state.selectedPrototype;
+    if (state.prototype) {
+      const p = state.prototype;
       state.selectedPrototypeAngles.forEach(function (angle) {
         if (!angle || !angle.url) return;
         items.push({
@@ -195,7 +213,7 @@
     });
     
     if (!items.length) {
-      var proto = state.selectedPrototype;
+      var proto = state.prototype;
       var protoItems = proto ? getPrototypeImageItems(proto) : [];
       if (proto && protoItems.length > 1 && !state.selectedPrototypeAngles.length) {
         el.innerHTML = '<p class="sim-vendor-ref-hint">已選主產品「' + escapeHtml(proto.title || '主產品') + '」。請回到步驟 1 點圖選取要帶入生圖的參考。</p>';
@@ -235,8 +253,8 @@
       if (url) referenceImages.push(url);
     }
     
-    if (state.selectedPrototype) {
-      const p = state.selectedPrototype;
+    if (state.prototype) {
+      const p = state.prototype;
       state.selectedPrototypeAngles.forEach(function (angle) {
         if (!angle || !angle.url) return;
         pushVendorRef('prototype', {
@@ -415,14 +433,8 @@
       }
       const data = await res.json();
       state.manufacturer = data.manufacturer;
-      state.prototypes = data.prototypes || [];
-      
       renderHeader();
-      if (state.prototypes.length >= 1) {
-        await selectMainProduct(state.prototypes[0]);
-      } else {
-        renderStep1Prototype();
-      }
+      await initWithPrototype(pickBootstrapPrototype(data));
     } catch (e) {
       console.error('[Init Error]', e);
       showError('網路錯誤，請稍後再試');
@@ -432,14 +444,8 @@
   // === Mock 資料初始化 ===
   function initWithMockData() {
     state.manufacturer = MOCK_DATA.manufacturer;
-    state.prototypes = MOCK_DATA.prototypes;
-    
     renderHeader();
-    if (state.prototypes.length >= 1) {
-      selectMainProduct(state.prototypes[0]);
-    } else {
-      renderStep1Prototype();
-    }
+    initWithPrototype(MOCK_DATA.prototype);
   }
   
   // === Header 渲染 ===
@@ -495,55 +501,24 @@
     }
   }
 
-  // === Step 1：主產品（同 product-tree：側欄切換 + 主產品區圖格，無款式/角度分級）===
+  // === Step 1：主產品圖格（同看可搭配 renderGuideCanvas 主產品區，單款無列表）===
   function renderStep1Prototype() {
-    var switcher = document.getElementById('prototypeSwitcher');
     var section = document.getElementById('prototypeGuideSection');
     var empty = document.getElementById('prototypeEmpty');
     var heading = document.getElementById('prototypeSectionHeading');
     var grid = document.getElementById('prototypeTileGrid');
+    var proto = state.prototype;
 
-    if (!state.prototypes.length) {
-      if (switcher) switcher.style.display = 'none';
+    if (!proto) {
       if (section) section.style.display = 'none';
       if (empty) empty.style.display = 'block';
+      if (heading) heading.innerHTML = '';
+      if (grid) grid.innerHTML = '';
       return;
     }
     if (empty) empty.style.display = 'none';
     if (section) section.style.display = '';
-
-    if (switcher) {
-      if (state.prototypes.length > 1) {
-        switcher.style.display = '';
-        switcher.innerHTML = state.prototypes.map(function (p) {
-          var active = isPrototypeActive(p.id);
-          var thumb = p.image_url || '/img/placeholder.png';
-          return (
-            '<button type="button" class="sim-proto-switch-item' + (active ? ' active' : '') + '" data-id="' + p.id + '" aria-current="' + (active ? 'true' : 'false') + '">' +
-            '<img class="sim-proto-switch-thumb" src="' + escapeHtml(thumb) + '" alt="">' +
-            '<span class="sim-proto-switch-title">' + escapeHtml(p.title || '主產品') + '</span>' +
-            '</button>'
-          );
-        }).join('');
-        switcher.querySelectorAll('.sim-proto-switch-item').forEach(function (btn) {
-          btn.addEventListener('click', function () {
-            var proto = state.prototypes.find(function (x) { return x.id === btn.dataset.id; });
-            if (proto) selectMainProduct(proto);
-          });
-        });
-      } else {
-        switcher.style.display = 'none';
-        switcher.innerHTML = '';
-      }
-    }
-
-    var proto = state.selectedPrototype;
     if (!heading || !grid) return;
-    if (!proto) {
-      heading.innerHTML = '';
-      grid.innerHTML = '';
-      return;
-    }
 
     heading.innerHTML =
       '<span class="sim-guide-tag">主產品</span>' +
@@ -578,16 +553,12 @@
   }
   
   function getPrimaryPrototype() {
-    return state.selectedPrototype || null;
-  }
-  
-  function isPrototypeActive(id) {
-    return !!(state.selectedPrototype && state.selectedPrototype.id === id);
+    return state.prototype || null;
   }
   
   function updateStep1Summary() {
     const step1 = document.getElementById('step1');
-    const proto = state.selectedPrototype;
+    const proto = state.prototype;
     const picked = state.selectedPrototypeAngles.length;
     step1.classList.toggle('has-selection', picked > 0);
     const el = document.getElementById('step1SelectedName');
@@ -607,8 +578,8 @@
   }
 
   function togglePrototypeTile(url, label) {
-    if (!url || !state.selectedPrototype) return;
-    const items = getPrototypeImageItems(state.selectedPrototype);
+    if (!url || !state.prototype) return;
+    const items = getPrototypeImageItems(state.prototype);
     if (items.length <= 1) return;
     const list = state.selectedPrototypeAngles;
     const idx = list.findIndex(function (a) { return a.url === url; });
@@ -624,40 +595,6 @@
     renderStep1Prototype();
     updateStep1Summary();
     renderVendorRefSummary();
-  }
-  
-  async function onFirstPrototypeSelected(proto) {
-    const step2 = document.getElementById('step2');
-    step2.style.display = '';
-    step2.classList.add('expanded');
-    const stepRef = document.getElementById('stepRef');
-    if (stepRef) stepRef.style.display = '';
-    await loadLinkTree(proto.id);
-    loadCapabilities(proto.id);
-  }
-
-  async function selectMainProduct(proto) {
-    if (!proto) return;
-    if (state.selectedPrototype && state.selectedPrototype.id === proto.id) return;
-
-    const isFirst = !state.selectedPrototype;
-    state.selectedPrototype = proto;
-    syncPrototypeAnglesOnSelect(proto);
-
-    if (isFirst) {
-      await onFirstPrototypeSelected(proto);
-    } else {
-      state.selectedMaterials = [];
-      state.selectedParts = [];
-      await loadLinkTree(proto.id);
-      loadCapabilities(proto.id);
-      updateStep2Summary();
-    }
-
-    renderStep1Prototype();
-    updateStep1Summary();
-    renderVendorRefSummary();
-    document.getElementById('step1').classList.add('expanded');
   }
   
   // === 載入材配樹 ===
@@ -869,12 +806,12 @@
   async function handleGenerate() {
     if (state.generating) return;
     
-    if (!state.selectedPrototype) {
+    if (!state.prototype) {
       alert('請選擇主產品');
       return;
     }
 
-    var protoItems = getPrototypeImageItems(state.selectedPrototype);
+    var protoItems = getPrototypeImageItems(state.prototype);
     if (protoItems.length > 1 && !state.selectedPrototypeAngles.length) {
       alert('請點選要帶入生圖的主產品參考圖（最多 3 張，與看可搭配相同）');
       document.getElementById('step1').classList.add('expanded');

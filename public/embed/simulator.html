@@ -155,45 +155,7 @@
       flex-wrap: wrap;
     }
     
-    /* === Step 1：主產品（同 product-tree 左側列表 + 主產品區圖格）=== */
-    .sim-proto-switcher {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      margin-bottom: 1rem;
-    }
-    .sim-proto-switch-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      width: 100%;
-      padding: 0.4rem 0.5rem;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      background: #fff;
-      cursor: pointer;
-      text-align: left;
-      transition: border-color 0.15s;
-    }
-    .sim-proto-switch-item:hover { border-color: var(--sim-primary); }
-    .sim-proto-switch-item.active {
-      border-color: var(--sim-primary);
-      background: #f8fafc;
-    }
-    .sim-proto-switch-thumb {
-      width: 40px;
-      height: 40px;
-      border-radius: 6px;
-      object-fit: cover;
-      flex-shrink: 0;
-      background: #f1f5f9;
-    }
-    .sim-proto-switch-title {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #334155;
-      line-height: 1.3;
-    }
+    /* === Step 1：主產品區（同看可搭配）=== */
     .sim-guide-section-heading {
       margin-bottom: 0.5rem;
       font-size: 0.85rem;
@@ -578,11 +540,10 @@
     <div class="sim-step expanded" id="step1" data-step="prototype">
       <div class="sim-step-header" onclick="window.toggleStep(1)">
         <span class="sim-step-number">1</span>
-        <span class="sim-step-title">選擇主產品</span>
+        <span class="sim-step-title">主產品</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
-        <div id="prototypeSwitcher" class="sim-proto-switcher" style="display:none;"></div>
         <div id="prototypeGuideSection" class="sim-guide-section">
           <div class="sim-guide-section-heading" id="prototypeSectionHeading"></div>
           <div id="prototypeTileGrid" class="sim-guide-tiles" role="list"></div>
