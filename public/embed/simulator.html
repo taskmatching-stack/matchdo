@@ -168,6 +168,7 @@
       cursor: pointer;
       transition: all 0.15s;
       background: #fff;
+      position: relative;
     }
     .sim-proto-card:hover { 
       border-color: var(--sim-primary); 
@@ -525,16 +526,17 @@
     <div class="sim-step expanded" id="step1" data-step="prototype">
       <div class="sim-step-header" onclick="window.toggleStep(1)">
         <span class="sim-step-number">1</span>
-        <span class="sim-step-title">選擇款式</span>
+        <span class="sim-step-title">選擇款式（可複選）</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <div id="prototypeGrid" class="sim-proto-grid">
           <!-- JS 動態填充 -->
         </div>
+        <p class="sim-prompt-hint">可複選最多 3 款，作為不同角度參考。材料、配件與工藝以<strong>第一款</strong>為準。</p>
       </div>
       <div class="sim-step-summary" id="step1Summary">
-        已選：<span id="step1SelectedName">—</span>
+        已選 <span id="step1SelectedName">—</span>
       </div>
     </div>
     
