@@ -1416,7 +1416,10 @@ $(document).ready(function () {
                         title: refTitle || p.title,
                         image_url: imgUrl,
                         asset_kind: 'prototype',
-                        gallery_label: variantLabel || undefined
+                        gallery_label: variantLabel || undefined,
+                        link_group: (typeof MatchdoImageLinkGroups !== 'undefined')
+                            ? MatchdoImageLinkGroups.linkGroupForUrl(prototypeImageItemsFromNode(p), imgUrl)
+                            : ''
                     });
                 });
             });
@@ -2497,7 +2500,8 @@ $(document).ready(function () {
                         asset_kind: def ? def.assetKind : baseMeta.asset_kind,
                         image_url: it.url,
                         image_label: (it.label || '').trim(),
-                        gallery_label: (it.label || '').trim() || undefined
+                        gallery_label: (it.label || '').trim() || undefined,
+                        link_group: (it.link_group || '').trim() || undefined
                     });
                     if (def && def.patternIntent) importMeta.pattern_intent = def.patternIntent;
                     if (addRefImageToSlot(targetKey, dataUrl, importMeta)) added++;
@@ -2541,7 +2545,81 @@ $(document).ready(function () {
         $('#vendorAssetImagesPickConfirm').prop('disabled', n < 1 || over);
     }
 
-    function openVendorAssetImagePickModal(opts) {
+        function syncVendorAssetPickChecksFromSelection(selectedItems) {
+            var $grid = $('#vendorAssetImagesPickGrid');
+            var st = vendorAssetPickModalState;
+            if (!st || !$grid.length) return;
+            var urlSet = {};
+            (selectedItems || []).forEach(function (it) {
+                if (it && it.url) urlSet[it.url] = true;
+            });
+            $grid.data('link-group-sync', 1);
+            $grid.find('input.vendor-asset-pick-check').each(function () {
+                var i = parseInt($(this).val(), 10);
+                var it = st.imageItems[i];
+                $(this).prop('checked', !!(it && urlSet[it.url]));
+            });
+            $grid.removeData('link-group-sync');
+            updateVendorAssetPickModalCount();
+        }
+
+        function handleVendorAssetPickCheckChange($cb, idx) {
+            var st = vendorAssetPickModalState;
+            if (!st) return;
+            var $grid = $('#vendorAssetImagesPickGrid');
+            if ($grid.data('link-group-sync')) return;
+            var it = st.imageItems[idx];
+            if (!it || !it.url) return;
+
+            if (st.targetKey === 'prototype' && typeof MatchdoImageLinkGroups !== 'undefined') {
+                if (!$cb.prop('checked')) {
+                    updateVendorAssetPickModalCount();
+                    return;
+                }
+                var before = [];
+                $grid.find('input.vendor-asset-pick-check:checked').each(function () {
+                    var i = parseInt($(this).val(), 10);
+                    if (i === idx) return;
+                    var row = st.imageItems[i];
+                    if (row && row.url) {
+                        before.push({
+                            url: row.url,
+                            label: (row.label || '').trim(),
+                            link_group: row.link_group || ''
+                        });
+                    }
+                });
+                var merged = MatchdoImageLinkGroups.toggleLinkedPrototypePick(
+                    st.imageItems,
+                    before,
+                    it.url,
+                    {
+                        maxSelect: st.maxSelect,
+                        labelForItem: function (row) { return (row.label || '').trim(); }
+                    }
+                );
+                if (merged.action === 'blocked' && merged.reason === 'max') {
+                    $cb.prop('checked', false);
+                    alert(tr('customProduct.vendorAssetPickMaxAlert', '此類參考圖最多還能加 {max} 張。').replace('{max}', String(st.maxSelect)));
+                    updateVendorAssetPickModalCount();
+                    return;
+                }
+                if (merged.truncated) {
+                    alert(tr('customProduct.vendorAssetPickMaxAlert', '此類參考圖最多還能加 {max} 張。').replace('{max}', String(st.maxSelect)));
+                }
+                syncVendorAssetPickChecksFromSelection(merged.selected);
+                return;
+            }
+
+            var checked = $grid.find('input.vendor-asset-pick-check:checked');
+            if (checked.length > st.maxSelect) {
+                $cb.prop('checked', false);
+                alert(tr('customProduct.vendorAssetPickMaxAlert', '此類參考圖最多還能加 {max} 張。').replace('{max}', String(st.maxSelect)));
+            }
+            updateVendorAssetPickModalCount();
+        }
+
+        function openVendorAssetImagePickModal(opts) {
         opts = opts || {};
         var imageItems = opts.imageItems || [];
         var maxSelect = opts.maxSelect || 1;
@@ -2592,12 +2670,7 @@ $(document).ready(function () {
                 }));
             $label.append($cb).append($wrap).append($('<div class="vendor-asset-pick-item-label"></div>').html(safeLabel));
             $cb.on('change', function () {
-                var checked = $grid.find('input.vendor-asset-pick-check:checked');
-                if (checked.length > maxSelect) {
-                    $(this).prop('checked', false);
-                    alert(tr('customProduct.vendorAssetPickMaxAlert', '此類參考圖最多還能加 {max} 張。').replace('{max}', String(maxSelect)));
-                }
-                updateVendorAssetPickModalCount();
+                handleVendorAssetPickCheckChange($(this), idx);
             });
             $col.append($label);
             $grid.append($col);

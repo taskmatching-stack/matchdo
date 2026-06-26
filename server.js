@@ -550,6 +550,11 @@ function normalizeVendorPartKey(raw, assetKind) {
 
 const PROTOTYPE_GALLERY_MAX_EXTRA = 11; // 封面 image_url 以外最多再 11 張
 
+function normalizeImageLinkGroup(raw) {
+    if (raw == null) return '';
+    return String(raw).trim().slice(0, 48);
+}
+
 function parseGalleryImages(raw) {
     if (raw == null || raw === '') return [];
     let arr = raw;
@@ -578,6 +583,10 @@ function parseGalleryImages(raw) {
             const row = { url: url, sort_order: sortOrder, label: label };
             if (aiDerived === 'redraw' || aiDerived === 'upscale') row.ai_derived = aiDerived;
             if (sourceUrl) row.source_url = sourceUrl;
+            if (entry && typeof entry === 'object' && entry.link_group != null) {
+                const lg = normalizeImageLinkGroup(entry.link_group);
+                if (lg) row.link_group = lg;
+            }
             out.push(row);
         }
     });
@@ -667,11 +676,13 @@ function buildVendorAssetImageItems(row) {
     const items = [];
     const cover = String(row.image_url || '').trim();
     if (cover) {
+        const coverLinkGroup = normalizeImageLinkGroup(row.cover_link_group);
         items.push({
             url: cover,
             sort_order: 0,
             label: String(row.cover_image_label || '').trim() || labelFromImageUrl(cover),
-            is_cover: true
+            is_cover: true,
+            ...(coverLinkGroup ? { link_group: coverLinkGroup } : {})
         });
     }
     parseGalleryImages(row.gallery_images).forEach(function (g, idx) {
@@ -684,6 +695,7 @@ function buildVendorAssetImageItems(row) {
         };
         if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') item.ai_derived = g.ai_derived;
         if (g.source_url) item.source_url = String(g.source_url).trim();
+        if (g.link_group) item.link_group = g.link_group;
         items.push(item);
     });
     return items;
@@ -711,18 +723,21 @@ function reorderVendorAssetCoverFromUrl(row, targetUrl) {
         metaByUrl[it.url] = {
             label: it.label || '',
             ai_derived: it.ai_derived === 'redraw' || it.ai_derived === 'upscale' ? it.ai_derived : '',
-            source_url: it.source_url ? String(it.source_url).trim() : ''
+            source_url: it.source_url ? String(it.source_url).trim() : '',
+            link_group: it.link_group ? String(it.link_group).trim() : ''
         };
     });
     const reordered = urls[0] === url ? urls.slice() : [url].concat(urls.filter(function (u) { return u !== url; }));
     return {
         image_url: reordered[0],
         cover_image_label: (metaByUrl[reordered[0]] && metaByUrl[reordered[0]].label) || '',
+        cover_link_group: (metaByUrl[reordered[0]] && metaByUrl[reordered[0]].link_group) || null,
         gallery_images: reordered.slice(1).map(function (u, i) {
             const meta = metaByUrl[u] || {};
             const g = { url: u, sort_order: i + 1, label: meta.label || '' };
             if (meta.ai_derived) g.ai_derived = meta.ai_derived;
             if (meta.source_url) g.source_url = meta.source_url;
+            if (meta.link_group) g.link_group = meta.link_group;
             return g;
         })
     };
@@ -2170,12 +2185,12 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
     });
 }
 
-const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, created_at, updated_at';
+const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_MINIMAL = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 
 const VENDOR_ASSET_OPTIONAL_COLS_42703 = [
-    'source_catalog_item_id', 'cover_image_label', 'gallery_images', 'asset_kind', 'part_key',
+    'source_catalog_item_id', 'cover_image_label', 'cover_link_group', 'gallery_images', 'asset_kind', 'part_key',
     'min_order_quantity', 'customization_levels', 'color_key', 'production_type_key'
 ];
 
@@ -2213,6 +2228,7 @@ async function fetchVendorAssetOwnedByManufacturer(assetId, manufacturerId, sele
     if (result.data) {
         if (result.data.source_catalog_item_id === undefined) result.data.source_catalog_item_id = null;
         if (result.data.cover_image_label === undefined) result.data.cover_image_label = null;
+        if (result.data.cover_link_group === undefined) result.data.cover_link_group = null;
         if (result.data.gallery_images === undefined) result.data.gallery_images = [];
         if (result.data.asset_kind === undefined) result.data.asset_kind = 'prototype';
     }
@@ -17396,7 +17412,7 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
         const id = (req.params.id || '').trim();
         const body = req.body || {};
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, cover_image_label'
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, cover_image_label, cover_link_group'
         );
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
@@ -17407,26 +17423,44 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
         if (body.cover_label !== undefined) {
             updates.cover_image_label = String(body.cover_label || '').trim() || null;
         }
+        if (body.cover_link_group !== undefined) {
+            const clg = normalizeImageLinkGroup(body.cover_link_group);
+            updates.cover_link_group = clg || null;
+        }
         if (Array.isArray(body.entries) && body.entries.length) {
             const byUrl = {};
             body.entries.forEach(function (ent) {
                 if (!ent || !ent.url) return;
-                byUrl[String(ent.url).trim()] = String(ent.label != null ? ent.label : '').trim();
+                const key = String(ent.url).trim();
+                if (!byUrl[key]) byUrl[key] = {};
+                if (ent.label !== undefined) byUrl[key].label = String(ent.label != null ? ent.label : '').trim();
+                if (ent.link_group !== undefined) {
+                    const lg = normalizeImageLinkGroup(ent.link_group);
+                    byUrl[key].link_group = lg || null;
+                }
             });
             const gallery = parseGalleryImages(row.gallery_images).map(function (g) {
-                if (byUrl[g.url] === undefined) return g;
-                const next = { url: g.url, sort_order: g.sort_order, label: byUrl[g.url] };
+                const patch = byUrl[g.url];
+                if (!patch) return g;
+                const next = { url: g.url, sort_order: g.sort_order, label: patch.label !== undefined ? patch.label : g.label };
                 if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') next.ai_derived = g.ai_derived;
                 if (g.source_url) next.source_url = g.source_url;
+                if (patch.link_group !== undefined) {
+                    if (patch.link_group) next.link_group = patch.link_group;
+                } else if (g.link_group) {
+                    next.link_group = g.link_group;
+                }
                 return next;
             });
             updates.gallery_images = gallery;
         }
         if (Object.keys(updates).length <= 1) {
-            return res.status(400).json({ error: '請提供 cover_label 或 entries' });
+            return res.status(400).json({ error: '請提供 cover_label、cover_link_group 或 entries' });
         }
         const coverLabelRequested = body.cover_label !== undefined;
+        const coverLinkGroupRequested = body.cover_link_group !== undefined;
         let coverLabelSkipped = false;
+        let coverLinkGroupSkipped = false;
         let { data: updated, error } = await supabase.from('vendor_assets')
             .update(updates)
             .eq('id', id)
@@ -17437,6 +17471,10 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             if (String(error.message || '').includes('cover_image_label')) {
                 delete updates.cover_image_label;
                 coverLabelSkipped = coverLabelRequested;
+            }
+            if (String(error.message || '').includes('cover_link_group')) {
+                delete updates.cover_link_group;
+                coverLinkGroupSkipped = coverLinkGroupRequested;
             }
             if (String(error.message || '').includes('gallery_images')) {
                 delete updates.gallery_images;
@@ -17468,7 +17506,12 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             return res.status(500).json({ error: error.message || '更新失敗' });
         }
         const payload = mapVendorAssetForApi(updated);
-        if (coverLabelSkipped) {
+        if (coverLabelSkipped && coverLinkGroupSkipped) {
+            payload.warning = '資料庫尚未支援連動組；請執行 docs/add-vendor-asset-image-link-groups.sql';
+        } else if (coverLinkGroupSkipped) {
+            payload.cover_link_group_skipped = true;
+            payload.warning = '部分欄位已儲存；連動組需執行 docs/add-vendor-asset-image-link-groups.sql';
+        } else if (coverLabelSkipped) {
             payload.cover_label_skipped = true;
             payload.warning = '多角度圖名稱已儲存；封面名稱需執行 docs/add-vendor-asset-image-labels.sql';
         }

@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627j';
+  const BUILD = 'embed-simulator-20260627l';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -56,10 +56,10 @@
       title: '經典後背包',
       image_url: 'https://picsum.photos/seed/matchdo-embed-p1/400/400',
       image_items: [
-        { url: 'https://picsum.photos/seed/matchdo-embed-p1/400/400', label: '正面', is_cover: true },
-        { url: 'https://picsum.photos/seed/matchdo-embed-p2/400/400', label: '背面' },
-        { url: 'https://picsum.photos/seed/matchdo-embed-p3/400/400', label: '側面' },
-        { url: 'https://picsum.photos/seed/matchdo-embed-p4/400/400', label: '細節' }
+        { url: 'https://picsum.photos/seed/matchdo-embed-p1/400/400', label: '正面', is_cover: true, link_group: 'black' },
+        { url: 'https://picsum.photos/seed/matchdo-embed-p2/400/400', label: '背面', link_group: 'black' },
+        { url: 'https://picsum.photos/seed/matchdo-embed-p3/400/400', label: '側面', link_group: 'navy' },
+        { url: 'https://picsum.photos/seed/matchdo-embed-p4/400/400', label: '細節', link_group: 'navy' }
       ]
     },
     linkTree: {
@@ -496,7 +496,8 @@
       var it = items[0];
       state.selectedPrototypeAngles.push({
         url: it.url,
-        label: prototypeTileLabel(proto, it, 0, 1)
+        label: prototypeTileLabel(proto, it, 0, 1),
+        link_group: (it.link_group || '').trim()
       });
     }
   }
@@ -579,19 +580,42 @@
 
   function togglePrototypeTile(url, label) {
     if (!url || !state.prototype) return;
-    const items = getPrototypeImageItems(state.prototype);
+    var items = getPrototypeImageItems(state.prototype);
     if (items.length <= 1) return;
-    const list = state.selectedPrototypeAngles;
-    const idx = list.findIndex(function (a) { return a.url === url; });
-    if (idx >= 0) {
-      list.splice(idx, 1);
+    var labelFor = function (it) {
+      var idx = items.findIndex(function (x) { return x && x.url === it.url; });
+      return prototypeTileLabel(state.prototype, it, idx >= 0 ? idx : 0, items.length);
+    };
+    var result;
+    if (typeof MatchdoImageLinkGroups !== 'undefined') {
+      result = MatchdoImageLinkGroups.toggleLinkedPrototypePick(
+        items,
+        state.selectedPrototypeAngles,
+        url,
+        { maxSelect: MAX_REF_IMAGES_PER_SLOT, labelForItem: labelFor }
+      );
     } else {
-      if (list.length >= MAX_REF_IMAGES_PER_SLOT) {
+      var list = state.selectedPrototypeAngles.slice();
+      var idx = list.findIndex(function (a) { return a.url === url; });
+      if (idx >= 0) {
+        list.splice(idx, 1);
+        result = { selected: list, action: 'remove' };
+      } else if (list.length >= MAX_REF_IMAGES_PER_SLOT) {
         alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張（與看可搭配／設計頁原型槽相同）');
         return;
+      } else {
+        list.push({ url: url, label: label || '' });
+        result = { selected: list, action: 'add' };
       }
-      list.push({ url: url, label: label || '' });
     }
+    if (result.action === 'blocked' && result.reason === 'max') {
+      alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張（與看可搭配／設計頁原型槽相同）');
+      return;
+    }
+    if (result.truncated) {
+      alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張；同組部分角度未能全部加入');
+    }
+    state.selectedPrototypeAngles = result.selected;
     renderStep1Prototype();
     updateStep1Summary();
     renderVendorRefSummary();

@@ -105,20 +105,43 @@
 
     function togglePrototypeVariantSelection(assetId, url, label) {
         if (!url || !assetId) return;
-        var list = state.guideSelectedPrototypeVariants;
-        var idx = -1;
-        for (var i = 0; i < list.length; i++) {
-            if (list[i].url === url) { idx = i; break; }
-        }
-        if (idx >= 0) {
-            list.splice(idx, 1);
+        var p = prototypeById(assetId);
+        if (!p) return;
+        var items = variantImageItems(p);
+        var list = state.guideSelectedPrototypeVariants.slice();
+        var labelFor = function (it) {
+            var idx = items.findIndex(function (x) { return x && x.url === it.url; });
+            return guideTileOptionLabel(p, it, idx >= 0 ? idx : 0, items.length);
+        };
+        var result;
+        if (typeof MatchdoImageLinkGroups !== 'undefined') {
+            result = MatchdoImageLinkGroups.toggleLinkedPrototypePick(items, list, url, {
+                maxSelect: 3,
+                labelForItem: labelFor,
+                warnFn: function (msg) { showAlert(msg, 'warning'); }
+            });
         } else {
-            if (list.length >= 3) {
+            var idx = list.findIndex(function (v) { return v.url === url; });
+            if (idx >= 0) {
+                list.splice(idx, 1);
+                result = { selected: list, action: 'remove' };
+            } else if (list.length >= 3) {
                 showAlert(tr('productTree.guidePrototypeMax', '主產品角度最多選 3 張（與設計頁原型槽上限相同）'), 'warning');
                 return;
+            } else {
+                list.push({ url: url, label: label || '' });
+                result = { selected: list, action: 'add' };
             }
-            list.push({ url: url, label: label || '' });
         }
+        if (result.action === 'blocked' && result.reason === 'max') {
+            showAlert(tr('productTree.guidePrototypeMax', '主產品角度最多選 3 張（與設計頁原型槽上限相同）'), 'warning');
+            return;
+        }
+        if (result.truncated) {
+            showAlert(tr('productTree.guidePrototypeMax', '主產品角度最多選 3 張（與設計頁原型槽上限相同）'), 'warning');
+        }
+        state.guideSelectedPrototypeVariants = result.selected;
+        list = result.selected;
         if (list.length) {
             state.guideVariantByAssetId[assetId] = list[list.length - 1];
         } else {
@@ -128,21 +151,29 @@
         renderGuidePanel();
     }
 
-    /** 看可搭配：主產品多圖時預選前 3 張角度（與設計頁原型槽上限相同） */
+    /** 看可搭配：主產品多圖時預選第一連動組（或前 N 張，上限 3） */
     function seedDefaultPrototypeVariantSelection(prototypeId) {
         if (IS_VENDOR || !prototypeId) return;
         var p = prototypeById(prototypeId);
         if (!p) return;
         var items = variantImageItems(p);
         if (!items.length) return;
-        var take = Math.min(3, items.length);
-        state.guideSelectedPrototypeVariants = [];
-        for (var i = 0; i < take; i++) {
-            var it = items[i];
-            state.guideSelectedPrototypeVariants.push({
-                url: it.url,
-                label: guideTileOptionLabel(p, it, i, items.length)
-            });
+        var labelFor = function (it) {
+            var idx = items.findIndex(function (x) { return x && x.url === it.url; });
+            return guideTileOptionLabel(p, it, idx >= 0 ? idx : 0, items.length);
+        };
+        if (typeof MatchdoImageLinkGroups !== 'undefined') {
+            state.guideSelectedPrototypeVariants = MatchdoImageLinkGroups.defaultLinkedSelection(items, 3, labelFor);
+        } else {
+            var take = Math.min(3, items.length);
+            state.guideSelectedPrototypeVariants = [];
+            for (var i = 0; i < take; i++) {
+                var it = items[i];
+                state.guideSelectedPrototypeVariants.push({
+                    url: it.url,
+                    label: labelFor(it)
+                });
+            }
         }
         var last = state.guideSelectedPrototypeVariants[state.guideSelectedPrototypeVariants.length - 1];
         if (last) {

@@ -612,7 +612,7 @@
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-edit-clear-pending">清除待傳</button>
                             </div>
                             <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」或「AI 放大」；按「<strong>上傳所選</strong>」或下方「<strong>儲存</strong>」都會把待傳圖寫入圖庫。<strong>已上傳的圖</strong>按「AI 重繪」後請勾選要上傳的圖，再按「<strong>儲存</strong>」。<strong>點圖片＝預覽放大</strong>。</p>
-                            <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
+                            <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。同一顏色／款式各角度請填相同<strong>連動組</strong>（例：black）— 消費端<strong>點一張會同組一起選</strong>，之後仍可個別取消。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
                             <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面順序，或於下方「更換封面」上傳新圖。</p>
@@ -713,7 +713,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'asset-share-links-phase2-20260626';
+        window.__MATCHDO_MATERIALS_BUILD = 'link-groups-select-20260627';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1072,17 +1072,27 @@
         async function saveImageLabels(assetId) {
             if (!assetId) return;
             var coverIn = document.getElementById('edit-cover-label');
-            var entries = [];
+            var coverLgIn = document.getElementById('edit-cover-link-group');
+            var byUrl = {};
             document.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
                 var url = inp.getAttribute('data-url');
                 if (!url) return;
-                entries.push({ url: url, label: (inp.value || '').trim() });
+                if (!byUrl[url]) byUrl[url] = { url: url };
+                byUrl[url].label = (inp.value || '').trim();
             });
+            document.querySelectorAll('.edit-gallery-link-group-input').forEach(function (inp) {
+                var url = inp.getAttribute('data-url');
+                if (!url) return;
+                if (!byUrl[url]) byUrl[url] = { url: url };
+                byUrl[url].link_group = (inp.value || '').trim();
+            });
+            var entries = Object.keys(byUrl).map(function (u) { return byUrl[u]; });
             try {
                 var tok = token || (await getToken());
                 if (!tok) return;
                 var body = { entries: entries };
                 if (coverIn) body.cover_label = (coverIn.value || '').trim();
+                if (coverLgIn) body.cover_link_group = (coverLgIn.value || '').trim();
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(assetId) + '/image-labels', {
                     method: 'PATCH',
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
@@ -1099,7 +1109,7 @@
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === assetId; });
                 if (idx >= 0) materialsAll[idx] = data;
-                if (data.cover_label_skipped && data.warning) {
+                if (data.warning && (data.cover_label_skipped || data.cover_link_group_skipped)) {
                     showToast(data.warning, 'warning');
                 }
             } catch (err) {
@@ -2499,6 +2509,7 @@
                 return;
             }
             var cards = galleryCardsFromItems(items);
+            var showLinkGroup = m && normalizeKind(m.asset_kind) === 'prototype';
             var lightboxItemsJson = esc(JSON.stringify(items.map(function (x) {
                 return { url: x.url, label: displayGalleryImageLabel(x) };
             }))).replace(/"/g, '&quot;');
@@ -2515,6 +2526,12 @@
                 var labelField = isCover
                     ? '<input type="text" class="form-control form-control-sm mt-1 pending-card-label" id="edit-cover-label" placeholder="封面名稱" value="' + esc(displayLabel) + '">'
                     : '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(displayLabel) + '">';
+                var linkGroupVal = (it.link_group || '').trim();
+                var linkGroupField = showLinkGroup
+                    ? (isCover
+                        ? '<input type="text" class="form-control form-control-sm mt-1 edit-cover-link-group" id="edit-cover-link-group" placeholder="連動組（選填，例：black）" value="' + esc(linkGroupVal) + '">'
+                        : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-link-group-input" data-url="' + esc(url) + '" placeholder="連動組（選填）" value="' + esc(linkGroupVal) + '">')
+                    : '';
                 var slotPrefix = 'egslot-' + idx;
                 var imgHtml = (slot && slot.imageBusy)
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
@@ -2539,6 +2556,7 @@
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
                     labelField +
+                    linkGroupField +
                     actions +
                     '</div></div>';
             }).join('');
@@ -2546,7 +2564,14 @@
             if (coverLabelIn) {
                 coverLabelIn.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
             }
+            var coverLgIn = document.getElementById('edit-cover-link-group');
+            if (coverLgIn) {
+                coverLgIn.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
+            }
             grid.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
+                inp.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
+            });
+            grid.querySelectorAll('.edit-gallery-link-group-input').forEach(function (inp) {
                 inp.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
             });
             grid.querySelectorAll('.btn-gallery-set-cover').forEach(function (btn) {
