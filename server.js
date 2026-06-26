@@ -1051,6 +1051,42 @@ function buildFluxReferenceUiSlotSummary(sources) {
     return 'From design UI (' + list.length + ' reference image(s); empty tabs skipped): ' + bits.join('; ') + '.';
 }
 
+function collectFluxStyleRefImageNums(list) {
+    const nums = [];
+    (Array.isArray(list) ? list : []).forEach(function (s, idx) {
+        if (normalizeVendorAssetKind(s && s.asset_kind) === 'other' && normalizePatternIntent(s && s.pattern_intent) === 'style') {
+            nums.push(idx + 1);
+        }
+    });
+    return nums;
+}
+
+/** 風格參考（全分類通用）：配色／圖案畫在產品表面；參考圖僅供讀取，不修改原圖、不當背景 */
+function buildFluxSurfaceStyleLead(list) {
+    const styleNums = collectFluxStyleRefImageNums(list);
+    if (!styleNums.length) return '';
+    const protoNums = (Array.isArray(list) ? list : []).map(function (s, i) {
+        return normalizeVendorAssetKind(s && s.asset_kind) === 'prototype' ? i + 1 : null;
+    }).filter(Boolean);
+    const protoN = protoNums.length ? protoNums[0] : null;
+    const styleStr = styleNums.join(', ');
+    const protoStr = protoNums.length > 1 ? protoNums.join(', ') : (protoN != null ? String(protoN) : '');
+    const guards = 'Input reference images are read-only sources — do not modify, redraw, replace, or output any reference photo. Do not use the style reference as a scene, background, or panel composition.';
+    if (protoN != null) {
+        return [
+            'SURFACE STYLE (required): Paint or print the visible product surfaces with colors, graphic motifs, and artistic treatment inspired by image ' + styleStr + '.',
+            'Product shape, silhouette, proportions, and structure come from prototype image' + (protoNums.length > 1 ? 's ' + protoStr : ' ' + protoStr) + ' only — keep structure unchanged.',
+            'Style reference image ' + styleStr + ' supplies surface design inspiration only; apply it ON the product body in all four panels.',
+            guards
+        ].join(' ');
+    }
+    return [
+        'SURFACE STYLE (required): Paint or print the generated product surfaces with colors and artistic treatment inspired by image ' + styleStr + '.',
+        'Style reference image ' + styleStr + ' is for product surface design only.',
+        guards
+    ].join(' ');
+}
+
 /** 2×2 型錄：四格同一合成成品（對齊 custom-product-subcategory-prompt-guide.md） */
 function buildFluxCatalogCompositeRefLead() {
     return [
@@ -1090,7 +1126,10 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         }
         if (k === 'other') {
             if (normalizePatternIntent(patternIntent) === 'style') {
-                return 'Style reference (image ' + n + ') for the main product body surface in every panel; inspired look only, no literal copy.' + panelNote;
+                if (protoImageNum != null) {
+                    return 'Surface style reference (image ' + n + '): paint or print the main product body surfaces with colors, motifs, and artistic treatment inspired by this image; product structure stays from prototype image ' + p + '. Do not modify reference input images; do not paste this image as a background.' + panelNote;
+                }
+                return 'Surface style reference (image ' + n + '): paint or print the generated product surfaces with colors and artistic treatment inspired by this image. Do not modify reference input images.' + panelNote;
             }
             const applyMode = patternApplyMode || 'original';
             if (applyMode === 'motif_extract') {
@@ -1118,7 +1157,10 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     }
     if (k === 'other') {
         if (normalizePatternIntent(patternIntent) === 'style') {
-            return '主產品表面風格參考 image ' + n + '（四格同一成品）。' + panelNote;
+            if (protoImageNum != null) {
+                return '表面風格參考 image ' + n + '：將配色／圖案畫在主產品表面（造型依 prototype image ' + p + '）；勿修改任何參考原圖。' + panelNote;
+            }
+            return '表面風格參考 image ' + n + '：將配色／圖案畫在生成產品表面；勿修改參考原圖。' + panelNote;
         }
         const applyModeZh = patternApplyMode || 'original';
         if (applyModeZh === 'motif_extract') {
@@ -1162,13 +1204,20 @@ function buildFluxReferenceApplySummary(sources, lang) {
             && normalizePatternIntent(s.pattern_intent) !== 'style'
             && normalizePatternApplyMode(s) === 'motif_extract';
     });
+    const hasStylePattern = list.some(function (s) {
+        return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style';
+    });
     const bits = [];
     list.forEach(function (s, idx) {
         const n = idx + 1;
         const k = normalizeVendorAssetKind(s.asset_kind);
         if (k === 'other') {
             if (normalizePatternIntent(s.pattern_intent) === 'style') {
-                bits.push('style from image ' + n + ' on the same product in all panels');
+                if (protoN != null) {
+                    bits.push('paint product surfaces with style inspired by image ' + n + ' (structure from image ' + protoN + ') in all panels');
+                } else {
+                    bits.push('paint product surfaces with style inspired by image ' + n + ' in all panels');
+                }
             } else if (normalizePatternApplyMode(s) === 'motif_extract') {
                 bits.push('motif from image ' + n + ' integrated naturally on the same product in all panels');
             } else {
@@ -1196,6 +1245,9 @@ function buildFluxReferenceApplySummary(sources, lang) {
     result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement, and same complete structure. Treat this as photographing one physical object from four different angles, not as creating four separate product renders. STRUCTURAL INTEGRITY: Every structural element visible in the reference images (elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, attachments) must appear in the generated product in all four panels. Do not simplify, omit, redesign, or reinterpret any structural component. For surface prints and labels: place each artwork element on the product\'s primary flat face so it reads clearly from all catalog angles; the artwork perspective-foreshortens with the surface geometry but remains structurally complete in every panel — all elements present, none hidden by product edges or omitted due to geometry.';
     if (hasOriginalPrint) {
         result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
+    }
+    if (hasStylePattern) {
+        result += '\nStyle reference: apply surface colors and design from the style reference image(s) onto the product body in all panels; reference input images are read-only and must not be used as panel backgrounds.';
     }
     if (hasMotifExtract) {
         result += '\nFor motif-extract patterns: preserve key visual elements (colors, emblem blocks, main subject) from the reference and integrate them naturally on the product; avoid reducing the design to text-only or dropping colored shape blocks that belong to the motif.';
@@ -1267,7 +1319,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const styNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (style reference): image ' + styNums + ' — inspired surface design on the same product in every panel; follow user prompt if provided, otherwise AI may design freely.');
+        lines.push('Pattern tab (style reference): image ' + styNums + ' — paint/decorate the product surface using this style in every panel; do not modify reference images or use as background.');
     }
     list.forEach(function (s, idx) {
         const n = idx + 1;
@@ -8448,8 +8500,10 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
+    const surfaceStyleLead = buildFluxSurfaceStyleLead(ordered.sources);
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
+    if (surfaceStyleLead) fullPrompt = surfaceStyleLead + '\n\n' + (fullPrompt || '').trim();
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
