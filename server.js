@@ -1061,8 +1061,8 @@ function collectFluxStyleRefImageNums(list) {
     return nums;
 }
 
-/** 風格參考（全分類通用）：配色／圖案畫在產品表面；參考圖僅供讀取，不修改原圖、不當背景 */
-function buildFluxSurfaceStyleLead(list) {
+/** 風格參考（全分類通用）：配色／圖案取自風格圖；具體技法依勾選工藝 visual_hint，不寫死彩繪／印刷 */
+function buildFluxStyleReferenceLead(list) {
     const styleNums = collectFluxStyleRefImageNums(list);
     if (!styleNums.length) return '';
     const protoNums = (Array.isArray(list) ? list : []).map(function (s, i) {
@@ -1072,17 +1072,18 @@ function buildFluxSurfaceStyleLead(list) {
     const styleStr = styleNums.join(', ');
     const protoStr = protoNums.length > 1 ? protoNums.join(', ') : (protoN != null ? String(protoN) : '');
     const guards = 'Input reference images are read-only sources — do not modify, redraw, replace, or output any reference photo. Do not use the style reference as a scene, background, or panel composition.';
+    const craftNote = 'Apply surface treatment using the selected craft capability hints below when provided; otherwise follow the user description.';
     if (protoN != null) {
         return [
-            'SURFACE STYLE (required): Paint or print the visible product surfaces with colors, graphic motifs, and artistic treatment inspired by image ' + styleStr + '.',
-            'Product shape, silhouette, proportions, and structure come from prototype image' + (protoNums.length > 1 ? 's ' + protoStr : ' ' + protoStr) + ' only — keep structure unchanged.',
-            'Style reference image ' + styleStr + ' supplies surface design inspiration only; apply it ON the product body in all four panels.',
+            'STYLE REFERENCE: Apply the visual style, color palette, and surface design from image ' + styleStr + ' onto the product body in all four panels.',
+            'Product structure from prototype image' + (protoNums.length > 1 ? 's ' + protoStr : ' ' + protoStr) + '; style inspiration from image ' + styleStr + '.',
+            craftNote,
             guards
         ].join(' ');
     }
     return [
-        'SURFACE STYLE (required): Paint or print the generated product surfaces with colors and artistic treatment inspired by image ' + styleStr + '.',
-        'Style reference image ' + styleStr + ' is for product surface design only.',
+        'STYLE REFERENCE: Apply the visual style, color palette, and surface design from image ' + styleStr + ' onto the generated product body in all four panels.',
+        craftNote,
         guards
     ].join(' ');
 }
@@ -1127,9 +1128,9 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (k === 'other') {
             if (normalizePatternIntent(patternIntent) === 'style') {
                 if (protoImageNum != null) {
-                    return 'Surface style reference (image ' + n + '): paint or print the main product body surfaces with colors, motifs, and artistic treatment inspired by this image; product structure stays from prototype image ' + p + '. Do not modify reference input images; do not paste this image as a background.' + panelNote;
+                    return 'Style reference (image ' + n + '): apply visual style, color palette, and surface design from this image onto the main product body; product structure stays from prototype image ' + p + '. Surface technique follows selected craft capability hints. Do not modify reference input images; do not paste this image as a background.' + panelNote;
                 }
-                return 'Surface style reference (image ' + n + '): paint or print the generated product surfaces with colors and artistic treatment inspired by this image. Do not modify reference input images.' + panelNote;
+                return 'Style reference (image ' + n + '): apply visual style, color palette, and surface design from this image onto the generated product body. Surface technique follows selected craft capability hints. Do not modify reference input images.' + panelNote;
             }
             const applyMode = patternApplyMode || 'original';
             if (applyMode === 'motif_extract') {
@@ -1158,9 +1159,9 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
     if (k === 'other') {
         if (normalizePatternIntent(patternIntent) === 'style') {
             if (protoImageNum != null) {
-                return '表面風格參考 image ' + n + '：將配色／圖案畫在主產品表面（造型依 prototype image ' + p + '）；勿修改任何參考原圖。' + panelNote;
+                return '風格參考 image ' + n + '：配色／表面設計取自本圖，造型依 prototype image ' + p + '；表面技法依勾選工藝。勿修改參考原圖。' + panelNote;
             }
-            return '表面風格參考 image ' + n + '：將配色／圖案畫在生成產品表面；勿修改參考原圖。' + panelNote;
+            return '風格參考 image ' + n + '：配色／表面設計取自本圖；表面技法依勾選工藝。勿修改參考原圖。' + panelNote;
         }
         const applyModeZh = patternApplyMode || 'original';
         if (applyModeZh === 'motif_extract') {
@@ -1214,9 +1215,9 @@ function buildFluxReferenceApplySummary(sources, lang) {
         if (k === 'other') {
             if (normalizePatternIntent(s.pattern_intent) === 'style') {
                 if (protoN != null) {
-                    bits.push('paint product surfaces with style inspired by image ' + n + ' (structure from image ' + protoN + ') in all panels');
+                    bits.push('apply style from image ' + n + ' onto the product (structure from image ' + protoN + ') in all panels');
                 } else {
-                    bits.push('paint product surfaces with style inspired by image ' + n + ' in all panels');
+                    bits.push('apply style from image ' + n + ' onto the product in all panels');
                 }
             } else if (normalizePatternApplyMode(s) === 'motif_extract') {
                 bits.push('motif from image ' + n + ' integrated naturally on the same product in all panels');
@@ -1319,7 +1320,7 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
         const styNums = list.map(function (s, i) {
             return normalizeVendorAssetKind(s.asset_kind) === 'other' && normalizePatternIntent(s.pattern_intent) === 'style' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
-        lines.push('Pattern tab (style reference): image ' + styNums + ' — paint/decorate the product surface using this style in every panel; do not modify reference images or use as background.');
+        lines.push('Pattern tab (style reference): image ' + styNums + ' — apply visual style and surface design from this image onto the product in every panel; surface technique per selected craft capability hints; do not modify reference images or use as background.');
     }
     list.forEach(function (s, idx) {
         const n = idx + 1;
@@ -8475,8 +8476,8 @@ async function buildPromptFromCategoryKeys(categoryKeys, userPrompt) {
 }
 
 /**
- * FLUX 生圖 prompt：DB 分類 → 參考圖事實 →（有廠商原型且勾選工藝時）工藝 visual_hint → 使用者描述（最後）。
- * 工藝 hint 不依賴原圖印刷 Tab；風格參考 + 手工彩繪等亦應附上 DB visual_hint。
+ * FLUX 生圖 prompt：DB 分類 → 參考圖事實 → 工藝 visual_hint → 使用者描述；有風格參考時總述置前。
+ * 風格參考只提供配色／圖案方向；表面技法依勾選工藝 DB visual_hint（手工彩繪、電繡等），不寫死彩繪。
  */
 async function composeGeneratePromptWithReferences(opts) {
     const categoryKeys = opts.categoryKeys;
@@ -8500,10 +8501,9 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
-    const surfaceStyleLead = buildFluxSurfaceStyleLead(ordered.sources);
+    const styleReferenceLead = buildFluxStyleReferenceLead(ordered.sources);
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
-    if (surfaceStyleLead) fullPrompt = surfaceStyleLead + '\n\n' + (fullPrompt || '').trim();
 
     const protoIdForCaps = resolvePrimaryPrototypeAssetIdFromReferenceSources(ordered.sources);
     const capKeys = manufacturerTaxonomy.parseJsonStringArray(selectedCapabilityKeys);
@@ -8519,6 +8519,7 @@ async function composeGeneratePromptWithReferences(opts) {
     }
 
     if (userLine) fullPrompt = (fullPrompt || '').trim() + '\n\n' + userLine;
+    if (styleReferenceLead) fullPrompt = styleReferenceLead + '\n\n' + (fullPrompt || '').trim();
 
     return {
         fullPrompt: fullPrompt.trim(),
