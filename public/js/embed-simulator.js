@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627d';
+  const BUILD = 'embed-simulator-20260627e';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -185,7 +185,7 @@
     });
     
     if (!items.length) {
-      el.innerHTML = '<p class="sim-vendor-ref-hint">勾選主產品後，其圖片會自動作為生圖參考。</p>';
+      el.innerHTML = '<p class="sim-vendor-ref-hint">選取主產品後，其圖片會自動作為生圖參考。</p>';
       return;
     }
     
@@ -438,34 +438,27 @@
     grid.innerHTML = state.prototypes.map(function (p) {
       const sel = isPrototypeSelected(p.id);
       return (
-        '<label class="sim-proto-card' + (sel ? ' selected' : '') + '" data-id="' + p.id + '">' +
-        '<input type="checkbox" class="sim-proto-cb"' + (sel ? ' checked' : '') + ' aria-label="選擇 ' + escapeHtml(p.title || '主產品') + '">' +
+        '<div class="sim-proto-card' + (sel ? ' selected' : '') + '" data-id="' + p.id + '" role="button" tabindex="0" aria-pressed="' + (sel ? 'true' : 'false') + '" aria-label="' + escapeHtml(p.title || '主產品') + '">' +
         '<img class="sim-proto-img" src="' + (p.image_url || '/img/placeholder.png') + '" alt="' + escapeHtml(p.title) + '">' +
+        '<i class="sim-mat-checkmark bi bi-check" aria-hidden="true"></i>' +
         '<div class="sim-proto-name">' + escapeHtml(p.title || '主產品') + '</div>' +
-        '</label>'
+        '</div>'
       );
     }).join('');
     
-    grid.querySelectorAll('.sim-proto-cb').forEach(function (cb) {
-      cb.addEventListener('change', function (e) {
-        e.stopPropagation();
-        const card = cb.closest('.sim-proto-card');
+    grid.querySelectorAll('.sim-proto-card').forEach(function (card) {
+      card.addEventListener('click', function () {
         const proto = state.prototypes.find(function (x) { return x.id === card.dataset.id; });
-        if (!proto) return;
-        onPrototypeCheckboxChange(proto, cb.checked);
+        if (proto) togglePrototype(proto);
+      });
+      card.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
       });
     });
     
-    syncPrototypeCardUI();
-  }
-  
-  async function onPrototypeCheckboxChange(proto, wantChecked) {
-    const isSel = isPrototypeSelected(proto.id);
-    if (wantChecked && !isSel) {
-      await addPrototype(proto);
-    } else if (!wantChecked && isSel) {
-      await removePrototype(proto);
-    }
     syncPrototypeCardUI();
   }
   
@@ -481,8 +474,7 @@
     document.querySelectorAll('.sim-proto-card').forEach(function (el) {
       const sel = isPrototypeSelected(el.dataset.id);
       el.classList.toggle('selected', sel);
-      const cb = el.querySelector('.sim-proto-cb');
-      if (cb) cb.checked = sel;
+      el.setAttribute('aria-pressed', sel ? 'true' : 'false');
     });
   }
   
@@ -540,7 +532,7 @@
   async function addPrototype(proto) {
     if (isPrototypeSelected(proto.id)) return;
     if (state.selectedPrototypes.length >= MAX_PROTOTYPE_SELECT) {
-      alert('最多勾選 ' + MAX_PROTOTYPE_SELECT + ' 個主產品（可作不同角度參考）');
+      alert('最多選取 ' + MAX_PROTOTYPE_SELECT + ' 個主產品（可作不同角度參考）');
       return;
     }
     const isFirst = !state.selectedPrototypes.length;
@@ -787,7 +779,7 @@
     if (state.generating) return;
     
     if (!state.selectedPrototypes.length) {
-      alert('請至少勾選一個主產品');
+      alert('請至少選取一個主產品');
       return;
     }
     

@@ -162,26 +162,14 @@
       gap: 0.75rem; 
     }
     .sim-proto-card {
-      border: 2px solid transparent; 
+      border: 2px solid #e2e8f0;
       border-radius: 8px; 
       overflow: hidden; 
       cursor: pointer;
       transition: all 0.15s;
       background: #fff;
       position: relative;
-      display: block;
-      margin: 0;
-    }
-    .sim-proto-cb {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      z-index: 3;
-      width: 20px;
-      height: 20px;
-      cursor: pointer;
-      accent-color: var(--sim-primary);
-      box-shadow: 0 0 0 2px #fff;
+      user-select: none;
     }
     .sim-proto-card:hover { 
       border-color: var(--sim-primary); 
@@ -190,6 +178,12 @@
     .sim-proto-card.selected { 
       border-color: var(--sim-primary); 
       box-shadow: 0 0 0 3px rgba(68,93,126,0.1); 
+    }
+    .sim-proto-card .sim-mat-checkmark {
+      display: none;
+    }
+    .sim-proto-card.selected .sim-mat-checkmark {
+      display: flex;
     }
     .sim-proto-img { 
       width: 100%; 
@@ -546,7 +540,7 @@
         <div id="prototypeGrid" class="sim-proto-grid">
           <!-- JS 動態填充 -->
         </div>
-        <p class="sim-prompt-hint">勾選最多 3 個主產品（例如不同角度）。材料、配件與工藝以<strong>第一個勾選的主產品</strong>為準。此步驟不會自動收起，可繼續勾選。</p>
+        <p class="sim-prompt-hint">點擊卡片選取／取消（<strong>藍框＋打勾＝已選</strong>），最多 3 個主產品。材料、配件與工藝以<strong>第一個選取的主產品</strong>為準。</p>
       </div>
       <div class="sim-step-summary" id="step1Summary">
         已選 <span id="step1SelectedName">—</span>
