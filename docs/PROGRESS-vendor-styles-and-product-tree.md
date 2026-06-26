@@ -182,7 +182,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 ## 待辦（Phase C，未做）
 
 - [ ] **產品關聯鏈匯出 PDF**（無網站 UI）— 見 **`docs/product-link-chain-export-plan.md`**
-- [ ] 分享 URL、手機版 guide 體驗優化
+- [ ] 分享 URL、手機版 guide 體驗優化 → **細項規劃：`docs/PROGRESS-vendor-asset-share-links.md`**（後台素材卡複製試做／導覽連結 P0）
 - [x] 多選材料／配件帶入 refs（`guideLinkedAssetRefs` + 設計頁參考槽）
 - [x] **廠商設定擇一組** UI + API（`pick_group`／`allow_multi_pick`；SQL 見上）
 - [x] 廠商設計洞察頁（`GET …/design-insights`、控制台入口）

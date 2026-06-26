@@ -689,11 +689,12 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/offset-list-pager.js"></script>
     <script src="/js/image-lightbox.js"></script>
+    <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'regenerate-tags-5pts-20260621';
+        window.__MATCHDO_MATERIALS_BUILD = 'asset-share-links-20260626';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -719,6 +720,7 @@
         var taxonomyApiReady = false;
         var taxonomyProductionReady = false;
         var materialsAll = [];
+        var viewerManufacturerId = null;
         var activeKind = 'prototype';
         var deleteTargetId = null;
         var editModalEl = null;
@@ -4197,11 +4199,87 @@
         function renderViewerContextBar(viewer) {
             var bar = document.getElementById('viewer-context-bar');
             if (!bar || !viewer) { if (bar) bar.classList.add('d-none'); return; }
+            viewerManufacturerId = viewer.manufacturer_id || null;
             var email = viewer.email || viewer.user_id || '—';
             var mfrName = viewer.manufacturer_name || '—';
             var tpl = tr('baseModels.viewerContext', '目前登入：{email}　·　本廠：{manufacturer}');
             bar.textContent = tpl.replace('{email}', email).replace('{manufacturer}', mfrName);
             bar.classList.remove('d-none');
+        }
+
+        function findMaterialItemById(id) {
+            if (!id) return null;
+            for (var i = 0; i < materialsAll.length; i++) {
+                if (materialsAll[i] && materialsAll[i].id === id) return materialsAll[i];
+            }
+            return null;
+        }
+
+        function assetItemForShare(item) {
+            if (!item) return null;
+            var out = Object.assign({}, item);
+            if (!out.manufacturer_id && viewerManufacturerId) out.manufacturer_id = viewerManufacturerId;
+            return out;
+        }
+
+        function renderPrototypeShareLinkDropdown(m) {
+            if (!m || m.asset_kind !== 'prototype' || isSeedVendor) return '';
+            var isPub = m.is_public !== false;
+            var lc = m.link_count != null ? Number(m.link_count) : 0;
+            var hasGuide = lc > 0;
+            var menuTitle = esc(tr('baseModels.shareLinkMenu', '複製分享連結'));
+            var needPubTitle = esc(tr('baseModels.shareLinkNeedPublic', '請先上架後再分享'));
+            var designLbl = esc(tr('baseModels.copyShareDesign', '複製試做連結'));
+            var guideLbl = esc(tr('baseModels.copyShareGuide', '複製搭配導覽連結'));
+            var disabledCls = isPub ? '' : ' disabled';
+            var disabledAttr = isPub ? '' : ' disabled tabindex="-1"';
+            return '<div class="dropdown flex-fill">' +
+                '<button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle' + disabledCls + '" type="button" ' +
+                'data-bs-toggle="dropdown" aria-expanded="false" title="' + (isPub ? menuTitle : needPubTitle) + '"' + disabledAttr + '>' +
+                '<i class="bi bi-link-45deg"></i></button>' +
+                '<ul class="dropdown-menu dropdown-menu-end">' +
+                '<li><button type="button" class="dropdown-item btn-copy-share-design" data-id="' + esc(m.id) + '"' + disabledAttr + '>' + designLbl + '</button></li>' +
+                (hasGuide ? '<li><button type="button" class="dropdown-item btn-copy-share-guide" data-id="' + esc(m.id) + '"' + disabledAttr + '>' + guideLbl + '</button></li>' : '') +
+                '</ul></div>';
+        }
+
+        function bindShareLinkCopyButtons(scope) {
+            if (!scope || !window.VendorAssetShareUrls) return;
+            var Share = window.VendorAssetShareUrls;
+            scope.querySelectorAll('.btn-copy-share-design').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var item = assetItemForShare(findMaterialItemById(btn.dataset.id));
+                    if (!item || item.is_public === false) {
+                        showToast(tr('baseModels.shareLinkNeedPublic', '請先上架後再分享'), 'warning');
+                        return;
+                    }
+                    var url = Share.buildShareDesignUrl(item);
+                    Share.copyTextToClipboard(url, function (ok) {
+                        showToast(ok
+                            ? tr('baseModels.copyShareDone', '已複製連結')
+                            : tr('baseModels.copyShareFailed', '複製失敗，請手動複製'), ok ? 'success' : 'danger');
+                    });
+                });
+            });
+            scope.querySelectorAll('.btn-copy-share-guide').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var item = assetItemForShare(findMaterialItemById(btn.dataset.id));
+                    if (!item || item.is_public === false) {
+                        showToast(tr('baseModels.shareLinkNeedPublic', '請先上架後再分享'), 'warning');
+                        return;
+                    }
+                    var url = Share.buildShareGuideUrl(item);
+                    Share.copyTextToClipboard(url, function (ok) {
+                        showToast(ok
+                            ? tr('baseModels.copyShareDone', '已複製連結')
+                            : tr('baseModels.copyShareFailed', '複製失敗，請手動複製'), ok ? 'success' : 'danger');
+                    });
+                });
+            });
         }
 
         async function loadMaterials() {
@@ -4302,9 +4380,10 @@
                     ? ('<a class="btn btn-outline-info btn-sm flex-fill" href="/client/vendor-prototype-insights.html?prototype_asset_id=' +
                         encodeURIComponent(m.id) + '" title="設計洞察"><i class="bi bi-bar-chart"></i></a>')
                     : '';
+                var shareLinkBtn = renderPrototypeShareLinkDropdown(m);
                 var actionBtns = isSeedVendor
                     ? ('<span class="text-muted small">由管理員於種子後台調整上下架</span>')
-                    : (togglePubBtn + insightsBtn +
+                    : (togglePubBtn + shareLinkBtn + insightsBtn +
                        '<button class="btn btn-outline-primary btn-sm flex-fill btn-edit" type="button" data-id="' + esc(m.id) + '"><i class="bi bi-pencil"></i></button>' +
                        '<button class="btn btn-outline-danger btn-sm btn-del" type="button" data-id="' + esc(m.id) + '" data-title="' + esc(m.title || '') + '"><i class="bi bi-trash"></i></button>');
                 var taxonomyHtml = '';
@@ -4360,6 +4439,7 @@
             }).join('');
             grid.innerHTML = html;
             if (!isSeedVendor) {
+                bindShareLinkCopyButtons(grid);
                 grid.querySelectorAll('.btn-del').forEach(function (btn) {
                     btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
                 });

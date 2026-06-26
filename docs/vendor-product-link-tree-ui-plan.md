@@ -143,6 +143,11 @@ https://matchdo.cc/product-tree/{manufacturer_slug}/{product_slug}
 - [ ] `docs/SEO-PROGRESS.md` 補一列 product-tree 政策  
 - [ ] Phase 2：`sitemap-product-trees.xml`、可選 `/product-tree/:id` 301  
 
+### 8.9 廠商後台「複製單款連結」（2026-06-26 規劃）
+
+對外頁（公開廠商頁、設計頁廠商版型 Tab）已有試做／導覽按鈕；**廠商素材庫後台卡片尚缺複製連結**，供無自建模擬系統的廠商貼在官網。  
+完整 URL 規格與 Phase 1～3 實作步驟：**`docs/PROGRESS-vendor-asset-share-links.md`**。
+
 ---
 
 ## 目標

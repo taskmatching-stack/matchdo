@@ -15991,6 +15991,24 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         } catch (taxErr) {
             console.warn('enrichVendorAssetItems:', taxErr && taxErr.message);
         }
+        const protoRowsForLinks = (list || []).filter((r) => normalizeVendorAssetKind(r.asset_kind) === 'prototype');
+        let linkCountsByProtoMe = {};
+        if (protoRowsForLinks.length && (await vendorPrototypeLinksTableReady())) {
+            linkCountsByProtoMe = await batchPrototypeLinkCounts(protoRowsForLinks);
+        }
+        mapped = mapped.map(function (item) {
+            const kind = normalizeVendorAssetKind(item.asset_kind);
+            if (kind !== 'prototype') return item;
+            const c = linkCountsByProtoMe[item.id] || { material_count: 0, part_count: 0 };
+            const linkCount = c.material_count + c.part_count;
+            return {
+                ...item,
+                material_count: c.material_count,
+                part_count: c.part_count,
+                link_count: linkCount,
+                match_guide_url: '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id)
+            };
+        });
         /* 廠商後台依分頁在前端各 Tab 篩選；此處回傳完整列表，避免只取 12 筆導致原型／零件列表空白 */
         res.json({
             items: mapped,
