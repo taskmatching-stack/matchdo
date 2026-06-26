@@ -54,10 +54,13 @@ sequenceDiagram
 
 | 類型 | 怎麼選 | UI 位置 |
 |------|--------|---------|
-| **款式（原型）** | 步驟 1 點選廠商數位版型卡片 | 自動帶入，Step 2 頂部「廠商來源」摘要 |
+| **款式（原型）** | 步驟 1 **複選**廠商數位版型（最多 3 款，不同角度） | 自動帶入 Step 2「廠商來源」摘要 |
 | **材料** | 步驟 2 從 link-tree 關聯列表單選 | 同上 |
 | **配件** | 步驟 2 從 link-tree 關聯列表複選 | 同上 |
 | **原圖印刷 / 風格參考** | 訪客本機上傳 | 步驟 4「圖稿／風格參考」 |
+
+**第一款**（`prototype_asset_id`）決定：link-tree、工藝驗證、`categoryKeys`（主／子分類）。  
+**全部已選款式**（`prototype_asset_ids`）皆進 `referenceSources`（`asset_kind: prototype`），供多角度 I2I。
 
 **禁止**在步驟 4 重複上傳款式／材料／配件（與 custom-product 一致：廠商素材從選取帶入，訪客只上傳圖稿）。
 
@@ -207,71 +210,103 @@ function hashIp(ip) { /* SHA256 for visitor_ip_hash */ }
 {
   "embed_id": "xxx",
   "sig": "yyy",
-  "prototype_asset_id": "uuid",
+  "prototype_asset_id": "uuid-first-selected",
+  "prototype_asset_ids": ["uuid-a", "uuid-b"],
   "material_ids": ["uuid"],
   "part_ids": ["uuid"],
   "capability_keys": ["printing"],
   "capability_custom_labels": ["手工縫線"],
-  "ref_images": {
-    "prototype": [{ "url": "data:image/jpeg;base64,...", "filename": "a.jpg" }],
-    "material": [],
-    "part": [],
-    "pattern_print": [],
-    "pattern_style": []
-  },
+  "reference_sources": [
+    { "intent": "prototype", "vendor_asset_id": "...", "asset_kind": "prototype", "image_url": "https://...", "title": "側面" },
+    { "intent": "material", "vendor_asset_id": "...", "asset_kind": "material", "image_url": "https://..." },
+    { "intent": "pattern_print", "image_url": "data:image/jpeg;base64,...", "pattern_intent": "print" }
+  ],
+  "reference_images": ["https://...", "data:image/jpeg;base64,..."],
   "prompt": "軍綠色，正面印 LOGO",
   "session_id": "emb_..."
 }
 ```
 
+前端 `buildReferencePayload()` 已組裝；順序：原型 → 配件 → 材料 → 原圖印刷 → 風格參考（同 `custom-product.js` `refSlotPayloadRank`）。
+
 ### 4.2 檢查順序（全部通過才呼叫 FLUX）
 
 ```text
-1. resolveEmbedInstance → 403 embed_disabled / instance_disabled / invalid_signature
-2. prototype 存在且公開、屬該廠商 → 404 prototype_not_found
-3. 實例 daily_cap / monthly_cap → 429
-4. IP hourly limit → 429 rate_limit_ip_hour
-5. 方案月池剩餘 OR 廠商 balance ≥ 10 → 402 plan_quota_exhausted_no_credits
-6. validateSelectedCapabilitiesForPrototype（已有 lib）
-7. material_ids / part_ids 須在 link-tree 內（防篡改）
+1. resolveEmbedInstance → 403
+2. prototype_asset_id + prototype_asset_ids 皆屬該廠商且公開；ids.length ≤ 3 → 404
+3. 實例 daily/monthly cap → 429
+4. IP hourly → 429
+5. 月池 OR 廠商 balance ≥ 10 → 402
+6. material_ids / part_ids 在第一款 link-tree 內
+7. validateSelectedCapabilitiesForPrototype（第一款）
 ```
 
-### 4.3 組裝生圖參數（重用現有）
+### 4.3 提示詞組裝（必與本站一致 — 嚴禁第二套）
 
-從 embed body 轉成內部格式，呼叫與 `generate-product-image` 相同路徑：
+> 政策：[`flux-and-gemini-prompt-policy.md`](flux-and-gemini-prompt-policy.md)  
+> 現有入口：`POST /api/generate-product-image`（`server.js` L8850+）
 
-| embed 欄位 | 轉成 |
-|-----------|------|
-| `prototype_asset_id` | `referenceSources` 主原型 |
-| `material_ids` / `part_ids` | link-tree 項目 → referenceSources |
-| `ref_images.*` | base64 → 上傳 GCS 或 inline → `referenceImages` |
-| `capability_keys` | `selected_capability_keys` |
-| `prompt` | `userPrompt` |
-| 原型 category | 從 vendor_assets 取 `category_keys` |
+**Embed 不得複製 prompt 字串、不得另寫 regex／material_key map。**
 
-**必呼叫**：`composeGeneratePromptWithReferences()`（遵守 flux-gemini 政策）
+#### 唯一正確路徑
 
-**扣點主體**：`manufacturers.user_id`（廠商），非訪客
+```text
+embed body
+  → buildEmbedReferenceSources()        // 後端驗證 + 補齊 vendor_assets
+  → categoryKeys ← 第一款 category_key + subcategory_key
+  → composeGeneratePromptWithReferences()  // server.js L8495，唯一組裝函式
+       ├─ buildPromptFromCategoryKeys
+       ├─ reorderFluxReferenceInputs
+       ├─ buildFluxStyleReferenceLead
+       ├─ buildFluxReferenceFactsAppendix
+       └─ buildSelectedCapabilityPromptAppendix（工藝 DB visual_hint）
+  → generateImageWithFlux2Pro(..., bfl_flux_model_generate)
+  → uploadToSupabaseStorage
+  → vendor_embed_designs（不寫 custom_products）
+```
 
-**點數規則**：
+**建議**：抽出 `runFluxProductImageGeneration(opts)`，`generate-product-image` 與 embed **共用**，避免 drift。
 
-- 月池內：`billing_type = plan_quota`, `points_charged = 0`
-- 超額：扣 `payment_config.points_embed_simulator_generate`（10）
-- **embed 固定 10 點**，不論有無參考圖（產品決策）
+#### referenceSources 格式（對齊 `collectReferencePayload`）
 
-### 4.4 成功後寫入
+| 欄位 | 廠商素材 | 訪客上傳 |
+|------|----------|----------|
+| `asset_kind` | prototype / material / part | other + `pattern_intent` |
+| `vendor_asset_id` | 必填 | 不填 |
+| `image_url` | vendor_assets | DataURL 或 GCS URL |
+| `pattern_intent` | — | print / style |
 
-1. `vendor_embed_designs` — 成圖 URL、prompt、reference_sources 快照、visitor_ip_hash、session_id、referrer
-2. `embed_instance_usage_counters` — 當日 +1
-3. 方案月池計數（新表或 `credit_transactions` metadata）
-4. 超額時 `user_credits` 扣 10 + `credit_transactions`
+多款原型：多筆 `asset_kind: prototype`。`referenceImages[]` 與 `referenceSources[]` **同索引對齊**。
 
-### 4.5 失敗 rollback
+#### categoryKeys / 工藝 / FLUX
 
-- FLUX 5xx / timeout → **不** increment 計數、**不**扣點
-- 回 `flux_error` + 500
+- `categoryKeys`：第一款 prototype 的主／子分類，訪客不可改
+- 工藝：`validateSelectedCapabilitiesForPrototype` + compose 內 appendix；**禁止** embed 另寫工藝句
+- FLUX：有參考圖 → `generateImageWithFlux2Pro`；無 → `generateImageWithFlux2ProTextToImage`；jpeg 1024×1024
 
-### 4.6 Response
+#### 嚴禁
+
+- ❌ embed 專用 prompt 模板
+- ❌ 複製 compose 邏輯到 embed 路由
+- ❌ 略過 reorderFluxReferenceInputs
+- ❌ 訪客直打 `/api/generate-product-image`
+
+### 4.4 扣點（Embed 專屬）
+
+- 主體：`manufacturers.user_id`
+- 月池內：`plan_quota` / 0 點；超額：`credit_overage` / **固定 10 點**（與設計頁 15/20 分開）
+
+### 4.5 成功後寫入
+
+1. `vendor_embed_designs`（含 `fluxReferenceSources` 快照）
+2. `embed_instance_usage_counters` +1
+3. 超額扣點 + `credit_transactions`（`source: embed_simulator_generate`）
+
+### 4.6 失敗 rollback
+
+FLUX 失敗 → 不計次、不扣點 → `flux_error` 500
+
+### 4.7 Response
 
 ```json
 {
@@ -328,8 +363,8 @@ function hashIp(ip) { /* SHA256 for visitor_ip_hash */ }
 | **2** | `lib/embed-simulator.js`：resolveEmbedInstance、驗簽、限流 helper | unit / 手動 |
 | **3** | GET bootstrap | curl + 瀏覽器去掉 mock |
 | **4** | GET link-tree + capabilities | 選款後 Network tab |
-| **5** | POST generate（先不接 FLUX，回假圖驗流程） | Postman |
-| **6** | 接上 composeGenerate + FLUX + 扣點 | 真實生圖 |
+| **5** | 抽出 `runFluxProductImageGeneration` + `buildEmbedReferenceSources` | 與 design 頁同一 compose |
+| **6** | POST generate 接 FLUX + 扣點 | 真實生圖；**對照** design 頁同 inputs 的 prompt 一致 |
 | **7** | 寫 vendor_embed_designs | 廠商後台列表 |
 | **8** | 前端 error_code UI | 手動觸發限流 |
 | **9** | 廠商後台 iframe 管理 | 複製貼到測試頁 |
@@ -342,8 +377,10 @@ function hashIp(ip) { /* SHA256 for visitor_ip_hash */ }
 
 - [ ] 真實廠商原型卡片顯示（非 placeholder）
 - [ ] 無材配款式：Step 2 正確隱藏/提示
-- [ ] 工藝預設全勾，取消勾選後 generate 不帶該 key
-- [ ] 5 槽參考圖上傳後 generate 成功
+- [ ] 款式複選（最多 3）皆進 referenceSources
+- [ ] 與 design 頁相同 reference 輸入 → **fullPrompt 一致**（staff debug 或 log 比對）
+- [ ] 工藝預設全勾，取消後 compose 不帶該 key
+- [ ] 圖稿上傳後 generate 成功
 - [ ] 月池內生圖不扣點；超額扣 10
 - [ ] 點數不足 402，前端顯示聯絡廠商
 - [ ] IP hourly 429
@@ -360,7 +397,8 @@ docs/
 └─ add-embed-simulator-schema.sql          (Phase A)
 
 lib/
-└─ embed-simulator.js                      (helper：驗簽、限流、額度)
+├─ embed-simulator.js                      (驗簽、限流、額度)
+└─ product-image-generation.js             (共用 FLUX：compose + generateImageWithFlux2Pro)
 
 server.js
 └─ + /api/embed/simulator/bootstrap
@@ -375,5 +413,5 @@ public/client/                             (Phase D)
 
 ---
 
-**最後更新**：2026-06-27  
+**最後更新**：2026-06-27（款式複選 + 提示詞組裝必與本站一致）  
 **相關**：[`embed-simulator-ui-implementation.md`](embed-simulator-ui-implementation.md)、[`embed-simulator-frontend-testing.md`](embed-simulator-frontend-testing.md)
