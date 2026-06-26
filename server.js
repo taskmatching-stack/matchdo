@@ -7117,6 +7117,17 @@ app.get(/^\/locales\/[a-z]{2}(-[A-Z]{2})?\.json$/i, (req, res, next) => {
     servePublicFileNoCache(rel, req, res, next);
 });
 
+// embed 產品卡片牆：允許第三方 iframe 嵌入（見 docs/PROGRESS-vendor-embed-catalog.md）
+function serveEmbedPage(relPath, req, res, next) {
+    const filePath = path.join(__dirname, 'public', 'embed', relPath);
+    if (!fs.existsSync(filePath)) return next();
+    res.set('Content-Security-Policy', "frame-ancestors *");
+    res.set('Cache-Control', 'public, max-age=300');
+    res.sendFile(filePath);
+}
+app.get('/embed/vendor-catalog.html', (req, res, next) => serveEmbedPage('vendor-catalog.html', req, res, next));
+app.get('/embed/preview.html', (req, res, next) => serveEmbedPage('preview.html', req, res, next));
+
 app.use(express.static(path.join(__dirname, 'public')));
 // 錯誤連結修正：/public/custom/* → /custom/*
 app.get(/^\/public\/custom\/?(.*)$/, (req, res) => {

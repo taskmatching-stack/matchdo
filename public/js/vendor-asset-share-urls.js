@@ -75,6 +75,36 @@
         return normalizeAssetKind(item) === 'prototype' && prototypeLinkCount(item) > 0;
     }
 
+    /** embed 卡片 CTA 用 UTM（官網 iframe 轉換追蹤） */
+    function appendEmbedUtm(url) {
+        if (!url) return '';
+        var u = String(url);
+        var sep = u.indexOf('?') >= 0 ? '&' : '?';
+        return u + sep + 'utm_source=embed&utm_medium=vendor_site';
+    }
+
+    function buildEmbedCatalogPath(manufacturerId, opts) {
+        opts = opts || {};
+        if (!manufacturerId) return '/embed/vendor-catalog.html';
+        var path = '/embed/vendor-catalog.html?manufacturer_id=' + encodeURIComponent(String(manufacturerId));
+        if (opts.catalogGroupId) path += '&catalog_group_id=' + encodeURIComponent(String(opts.catalogGroupId));
+        if (opts.lang) path += '&lang=' + encodeURIComponent(String(opts.lang));
+        return path;
+    }
+
+    function buildEmbedCatalogUrl(manufacturerId, origin, opts) {
+        return withOrigin(buildEmbedCatalogPath(manufacturerId, opts), origin);
+    }
+
+    function buildEmbedIframeSnippet(manufacturerId, origin, opts) {
+        opts = opts || {};
+        var src = buildEmbedCatalogUrl(manufacturerId, origin, opts);
+        var height = opts.height != null ? Number(opts.height) : 640;
+        if (!Number.isFinite(height) || height < 200) height = 640;
+        var title = opts.title ? String(opts.title).replace(/"/g, '&quot;') : 'Matchdo 數位原型試做';
+        return '<iframe\n  src="' + src + '"\n  width="100%"\n  height="' + height + '"\n  style="border:0;"\n  loading="lazy"\n  title="' + title + '">\n</iframe>';
+    }
+
     function copyTextToClipboard(text, onDone) {
         if (!text) {
             if (typeof onDone === 'function') onDone(false);
@@ -107,6 +137,10 @@
         buildShareDesignUrl: buildShareDesignUrl,
         buildShareGuideUrl: buildShareGuideUrl,
         buildShareMaterialUrl: buildShareMaterialUrl,
+        buildEmbedCatalogPath: buildEmbedCatalogPath,
+        buildEmbedCatalogUrl: buildEmbedCatalogUrl,
+        buildEmbedIframeSnippet: buildEmbedIframeSnippet,
+        appendEmbedUtm: appendEmbedUtm,
         prototypeLinkCount: prototypeLinkCount,
         shouldShowGuideLink: shouldShowGuideLink,
         copyTextToClipboard: copyTextToClipboard

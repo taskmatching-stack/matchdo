@@ -357,6 +357,14 @@
 - **須保持上架中**；下架後連結對訪客無效。編輯原型時「分享連結」區塊亦可複製。
 - 詳見 `docs/PROGRESS-vendor-asset-share-links.md`。
 
+**官網嵌入產品卡片（iframe）**
+
+- 在 **廠商控制台** →「我的廠商首頁」區塊下方，可 **複製 iframe 嵌入碼**。
+- 訪客在您的官網 iframe 內瀏覽公開數位原型；點 **用此款試做** 會跳至 Matchdo 全頁完成生圖（不在 iframe 內扣點）。
+- 嵌入頁網址：`/embed/vendor-catalog.html?manufacturer_id={廠商UUID}`；建議 iframe 高度 **640px**，寬度 100%。
+- 站內可用 `/embed/preview.html?manufacturer_id={UUID}` 預覽嵌入效果。
+- 詳見 `docs/PROGRESS-vendor-embed-catalog.md`。
+
 ### 8.4 訂製需求（`/client/demands.html`）
 
 - 製造商**接案**用：依主／子分類查詢訂製者已標記「開放製造」的設計，再聯絡訂製者。
@@ -371,4 +379,4 @@
 ---
 
 *本手冊依目前網站功能撰寫，若畫面或流程有更新，請以站內實際介面為準。*  
-*最後更新：2026-06-02（素材庫多角度圖新增／編輯；廠商後台導覽、公開頁與上傳頁分工）*
+*最後更新：2026-06-26（官網 iframe 嵌入產品卡片；素材庫分享連結）*
