@@ -50,7 +50,20 @@ sequenceDiagram
 | 參考圖 | DataURL 本機上傳 | 同 POST body `ref_images` | 後端轉成 `referenceImages` + `referenceSources` |
 | 工藝 | **預設全勾** | `capability_keys` + `capability_custom_labels` | 同 custom-product |
 
-### 1.1 前端串接時要改的地方（Phase C2，約 30 行）
+### 1.1 參考圖來源（已定案）
+
+| 類型 | 怎麼選 | UI 位置 |
+|------|--------|---------|
+| **款式（原型）** | 步驟 1 點選廠商數位版型卡片 | 自動帶入，Step 2 頂部「廠商來源」摘要 |
+| **材料** | 步驟 2 從 link-tree 關聯列表單選 | 同上 |
+| **配件** | 步驟 2 從 link-tree 關聯列表複選 | 同上 |
+| **原圖印刷 / 風格參考** | 訪客本機上傳 | 步驟 4「圖稿／風格參考」 |
+
+**禁止**在步驟 4 重複上傳款式／材料／配件（與 custom-product 一致：廠商素材從選取帶入，訪客只上傳圖稿）。
+
+**link-tree API 回傳格式**：`linked_assets[]`（依 `asset_kind` 分 material / part），不是 `materials` / `parts` 頂層欄位。
+
+### 1.2 前端串接時要改的地方（Phase C2，約 30 行）
 
 檔案：`public/js/embed-simulator.js`
 

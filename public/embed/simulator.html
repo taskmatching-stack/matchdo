@@ -465,6 +465,48 @@
     .sim-ref-thumb-remove:hover {
       background: rgba(220, 38, 38, 0.9);
     }
+    
+    /* === 廠商來源圖（步驟 1、2 自動帶入）=== */
+    .sim-vendor-ref-hint {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin: 0 0 0.75rem;
+    }
+    .sim-vendor-ref-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .sim-vendor-ref-item {
+      border: 1px solid var(--sim-border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      text-align: center;
+    }
+    .sim-vendor-ref-item img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      display: block;
+      background: #f8fafc;
+    }
+    .sim-vendor-ref-tag {
+      display: block;
+      font-size: 0.65rem;
+      color: var(--sim-primary);
+      font-weight: 600;
+      padding: 0.25rem 0.35rem 0;
+    }
+    .sim-vendor-ref-name {
+      display: block;
+      font-size: 0.7rem;
+      color: #475569;
+      padding: 0.15rem 0.35rem 0.4rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   </style>
 </head>
 <body>
@@ -504,6 +546,7 @@
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
+        <div id="vendorRefSummary" class="sim-vendor-ref-block"></div>
         <div id="materialSection" style="display:none;">
           <label class="sim-label">材料（單選）</label>
           <div id="materialList" class="sim-material-list"></div>
@@ -534,16 +577,16 @@
       </div>
     </div>
     
-    <!-- Step 3.5: 參考圖 -->
-    <div class="sim-step" id="stepRef" data-step="references">
+    <!-- Step 4: 訪客上傳圖稿（選填）-->
+    <div class="sim-step" id="stepRef" data-step="references" style="display:none;">
       <div class="sim-step-header" onclick="window.toggleStep('ref')">
-        <span class="sim-step-number">📎</span>
-        <span class="sim-step-title">參考圖（選填）</span>
+        <span class="sim-step-number">4</span>
+        <span class="sim-step-title">圖稿／風格參考（選填）</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <p class="sim-label" style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #64748b;">
-          依用途上傳，每類最多 3 張，總計最多 8 張
+          款式、材料、配件已在上方選擇並自動帶入。此處僅上傳您的 Logo 圖稿或風格參考圖。
         </p>
         <div id="refSlotsContainer" class="sim-ref-slots"></div>
       </div>
@@ -552,20 +595,20 @@
       </div>
     </div>
     
-    <!-- Step 4: 描述 -->
+    <!-- Step 5: 描述 -->
     <div class="sim-step expanded" id="step4" data-step="prompt">
       <div class="sim-step-header" onclick="window.toggleStep(4)">
-        <span class="sim-step-number">4</span>
+        <span class="sim-step-number">5</span>
         <span class="sim-step-title">描述你想要的產品</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <textarea id="simPrompt" class="sim-prompt-textarea" placeholder="例：軍綠色，正面印白色 LOGO"></textarea>
-        <p class="sim-prompt-hint">有參考圖時可簡短描述顏色、文字等細節。</p>
+        <p class="sim-prompt-hint">已選款式／材配或上傳圖稿時，可簡短描述顏色、文字、位置等細節。</p>
       </div>
     </div>
     
-    <!-- Step 5: 生成 -->
+    <!-- Step 6: 生成 -->
     <div class="sim-step expanded" id="step5" data-step="generate">
       <div class="sim-step-body" style="display:block;">
         <button id="btnGenerate" class="sim-generate-btn" onclick="window.handleGenerate()">

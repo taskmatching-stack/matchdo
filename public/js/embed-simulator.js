@@ -6,9 +6,17 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627';
+  const BUILD = 'embed-simulator-20260627b';
   
-  // === URL 參數 ===
+  // 訪客上傳槽（款式／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
+  const UPLOAD_REF_SLOTS = [
+    { key: 'pattern_print', title: '原圖印刷', hint: 'Logo、圖稿等，原樣轉印到產品上' },
+    { key: 'pattern_style', title: '風格參考', hint: '參考配色、紋理或設計風格（非 Logo 圖稿）' }
+  ];
+  
+  // === 參考圖上傳限制 ===
+  const MAX_REF_IMAGES_TOTAL = 8;
+  const MAX_REF_IMAGES_PER_SLOT = 3;
   const params = new URLSearchParams(window.location.search);
   const embedId = params.get('embed_id');
   const sig = params.get('sig');
@@ -26,25 +34,13 @@
     selectedParts: [],      // 可複選
     selectedCapabilities: [],
     selectedCustomCapabilities: [],
-    refImages: {},          // { prototype: [], material: [], part: [], pattern_print: [], pattern_style: [] }
+    refImages: {},          // 僅訪客上傳：pattern_print、pattern_style
     prompt: '',
     generating: false,
     sessionId: getOrCreateSessionId()
   };
   
-  // === 參考圖槽位定義 ===
-  const MAX_REF_IMAGES_TOTAL = 8;
-  const MAX_REF_IMAGES_PER_SLOT = 3;
-  const REF_SLOTS = [
-    { key: 'prototype', title: '主體原型', hint: '幾何結構與尺寸' },
-    { key: 'material', title: '主體材料', hint: '表面面料、皮革' },
-    { key: 'part', title: '配件／零件', hint: '五金、拉鍊、掛繩' },
-    { key: 'pattern_print', title: '原圖印刷', hint: '圖稿原樣轉印' },
-    { key: 'pattern_style', title: '風格參考', hint: '參考風格設計表面' }
-  ];
-  
-  // 初始化參考圖狀態
-  REF_SLOTS.forEach(slot => {
+  UPLOAD_REF_SLOTS.forEach(function (slot) {
     state.refImages[slot.key] = [];
   });
   
@@ -78,38 +74,42 @@
       }
     ],
     linkTree: {
-      materials: [
+      linked_assets: [
         {
           id: 'mat-001',
           title: '帆布',
-          image_url: 'https://via.placeholder.com/150x150/F5E6D3/8B4513?text=帆布'
+          image_url: 'https://via.placeholder.com/150x150/F5E6D3/8B4513?text=帆布',
+          asset_kind: 'material'
         },
         {
           id: 'mat-002',
           title: '皮革',
-          image_url: 'https://via.placeholder.com/150x150/8B4513/FFFFFF?text=皮革'
+          image_url: 'https://via.placeholder.com/150x150/8B4513/FFFFFF?text=皮革',
+          asset_kind: 'material'
         },
         {
           id: 'mat-003',
           title: '尼龍',
-          image_url: 'https://via.placeholder.com/150x150/1C1C1C/FFFFFF?text=尼龍'
-        }
-      ],
-      parts: [
+          image_url: 'https://via.placeholder.com/150x150/1C1C1C/FFFFFF?text=尼龍',
+          asset_kind: 'material'
+        },
         {
           id: 'part-001',
           title: '金屬扣環',
-          image_url: 'https://via.placeholder.com/150x150/C0C0C0/000000?text=扣環'
+          image_url: 'https://via.placeholder.com/150x150/C0C0C0/000000?text=扣環',
+          asset_kind: 'part'
         },
         {
           id: 'part-002',
           title: '拉鍊頭',
-          image_url: 'https://via.placeholder.com/150x150/FFD700/000000?text=拉鍊'
+          image_url: 'https://via.placeholder.com/150x150/FFD700/000000?text=拉鍊',
+          asset_kind: 'part'
         },
         {
           id: 'part-003',
           title: '肩帶',
-          image_url: 'https://via.placeholder.com/150x150/8B4513/FFFFFF?text=肩帶'
+          image_url: 'https://via.placeholder.com/150x150/8B4513/FFFFFF?text=肩帶',
+          asset_kind: 'part'
         }
       ]
     },
@@ -132,11 +132,122 @@
     return sid;
   }
   
+  // === 解析 link-tree API 回應 ===
+  function applyLinkTreeData(data) {
+    const linked = (data && data.linked_assets) ? data.linked_assets : [];
+    state.materials = linked.filter(function (a) { return a.asset_kind === 'material'; });
+    state.parts = linked.filter(function (a) { return a.asset_kind === 'part'; });
+    // 相容舊格式或 embed API 精簡回傳
+    if (data && Array.isArray(data.materials) && data.materials.length) {
+      state.materials = data.materials;
+    }
+    if (data && Array.isArray(data.parts) && data.parts.length) {
+      state.parts = data.parts;
+    }
+    renderMaterials();
+    renderParts();
+    updateStep2Visibility();
+  }
+  
+  function updateStep2Visibility() {
+    const step2 = document.getElementById('step2');
+    const noMat = document.getElementById('noMaterials');
+    const hasAny = state.materials.length || state.parts.length;
+    if (noMat) {
+      noMat.style.display = hasAny ? 'none' : 'block';
+    }
+    if (step2 && state.selectedPrototype) {
+      step2.style.display = '';
+    }
+  }
+  
+  // === 廠商來源圖摘要（步驟 1、2 自動帶入，非上傳）===
+  function renderVendorRefSummary() {
+    const el = document.getElementById('vendorRefSummary');
+    if (!el) return;
+    
+    const items = [];
+    if (state.selectedPrototype) {
+      items.push({
+        tag: '款式',
+        title: state.selectedPrototype.title || '款式',
+        url: state.selectedPrototype.image_url
+      });
+    }
+    state.selectedMaterials.forEach(function (id) {
+      const m = state.materials.find(function (x) { return x.id === id; });
+      if (m) items.push({ tag: '材料', title: m.title || '材料', url: m.image_url });
+    });
+    state.selectedParts.forEach(function (id) {
+      const p = state.parts.find(function (x) { return x.id === id; });
+      if (p) items.push({ tag: '配件', title: p.title || '配件', url: p.image_url });
+    });
+    
+    if (!items.length) {
+      el.innerHTML = '<p class="sim-vendor-ref-hint">選擇款式後，款式圖會自動作為生圖參考。</p>';
+      return;
+    }
+    
+    el.innerHTML =
+      '<p class="sim-vendor-ref-hint">以下由步驟 1、2 選擇的廠商素材自動帶入生圖，無需重複上傳。</p>' +
+      '<div class="sim-vendor-ref-grid">' +
+      items.map(function (it) {
+        return '<div class="sim-vendor-ref-item">' +
+          '<img src="' + (it.url || '/img/placeholder.png') + '" alt="">' +
+          '<span class="sim-vendor-ref-tag">' + escapeHtml(it.tag) + '</span>' +
+          '<span class="sim-vendor-ref-name">' + escapeHtml(it.title) + '</span>' +
+          '</div>';
+      }).join('') +
+      '</div>';
+  }
+  
+  function buildReferencePayload() {
+    const referenceSources = [];
+    const referenceImages = [];
+    
+    function pushVendorRef(intent, asset, assetKind) {
+      if (!asset || !asset.id) return;
+      const url = (asset.image_url || '').trim();
+      referenceSources.push({
+        intent: intent,
+        vendor_asset_id: asset.id,
+        asset_kind: assetKind,
+        image_url: url || undefined,
+        title: asset.title || undefined
+      });
+      if (url) referenceImages.push(url);
+    }
+    
+    if (state.selectedPrototype) {
+      pushVendorRef('prototype', state.selectedPrototype, 'prototype');
+    }
+    state.selectedMaterials.forEach(function (id) {
+      pushVendorRef('material', state.materials.find(function (m) { return m.id === id; }), 'material');
+    });
+    state.selectedParts.forEach(function (id) {
+      pushVendorRef('part', state.parts.find(function (p) { return p.id === id; }), 'part');
+    });
+    
+    UPLOAD_REF_SLOTS.forEach(function (slot) {
+      (state.refImages[slot.key] || []).forEach(function (img) {
+        const src = {
+          intent: slot.key,
+          image_url: img.url,
+          pattern_intent: slot.key === 'pattern_style' ? 'style' : 'print'
+        };
+        referenceSources.push(src);
+        referenceImages.push(img.url);
+      });
+    });
+    
+    return { referenceSources: referenceSources, referenceImages: referenceImages };
+  }
+  
   // === 渲染參考圖槽位 ===
   function renderRefSlots() {
     const container = document.getElementById('refSlotsContainer');
     
-    container.innerHTML = REF_SLOTS.map(slot => `
+    container.innerHTML = UPLOAD_REF_SLOTS.map(slot => `
       <div class="sim-ref-slot" data-slot="${slot.key}">
         <div class="sim-ref-slot-header">
           <span class="sim-ref-slot-title">${escapeHtml(slot.title)}</span>
@@ -150,7 +261,7 @@
     `).join('');
     
     // 渲染每個槽位的內容
-    REF_SLOTS.forEach(slot => {
+    UPLOAD_REF_SLOTS.forEach(slot => {
       renderRefSlotContent(slot.key);
     });
   }
@@ -199,7 +310,7 @@
   
   function countTotalRefImages() {
     let total = 0;
-    REF_SLOTS.forEach(slot => {
+    UPLOAD_REF_SLOTS.forEach(slot => {
       total += (state.refImages[slot.key] || []).length;
     });
     return total;
@@ -343,9 +454,10 @@
   // === 選擇原型 ===
   async function selectPrototype(proto) {
     state.selectedPrototype = proto;
+    state.selectedMaterials = [];
+    state.selectedParts = [];
     
-    // UI 更新
-    document.querySelectorAll('.sim-proto-card').forEach(el => {
+    document.querySelectorAll('.sim-proto-card').forEach(function (el) {
       el.classList.toggle('selected', el.dataset.id === proto.id);
     });
     
@@ -353,44 +465,48 @@
     step1.classList.add('has-selection');
     document.getElementById('step1SelectedName').textContent = proto.title;
     
-    // 收起 Step 1（若有多款）
     if (state.prototypes.length > 1) {
       step1.classList.remove('expanded');
     }
     
-    // 載入材配 + 工藝
+    // 步驟 2 選完款式後一律顯示
+    const step2 = document.getElementById('step2');
+    step2.style.display = '';
+    step2.classList.add('expanded');
+    
+    const stepRef = document.getElementById('stepRef');
+    if (stepRef) stepRef.style.display = '';
+    
     await loadLinkTree(proto.id);
     loadCapabilities(proto.id);
     
-    // 展開 Step 2（若有材配）
-    if (state.materials.length || state.parts.length) {
-      const step2 = document.getElementById('step2');
-      step2.style.display = '';
-      step2.classList.add('expanded');
-    }
+    renderVendorRefSummary();
+    updateStep2Summary();
   }
   
   // === 載入材配樹 ===
   async function loadLinkTree(protoId) {
     if (useMockData) {
-      // Mock 資料
-      state.materials = MOCK_DATA.linkTree.materials;
-      state.parts = MOCK_DATA.linkTree.parts;
-      renderMaterials();
-      renderParts();
+      applyLinkTreeData(MOCK_DATA.linkTree);
       return;
     }
     
     try {
-      const res = await fetch(`/api/embed/simulator/link-tree?embed_id=${embedId}&sig=${sig}&prototype_asset_id=${protoId}`);
+      let res = await fetch('/api/embed/simulator/link-tree?embed_id=' + encodeURIComponent(embedId) +
+        '&sig=' + encodeURIComponent(sig) + '&prototype_asset_id=' + encodeURIComponent(protoId));
+      if (!res.ok) {
+        // 後端 embed API 尚未就緒時，fallback 公開 link-tree
+        res = await fetch('/api/vendor-assets/' + encodeURIComponent(protoId) + '/link-tree');
+      }
+      if (!res.ok) {
+        applyLinkTreeData({ linked_assets: [] });
+        return;
+      }
       const data = await res.json();
-      state.materials = data.materials || [];
-      state.parts = data.parts || [];
-      
-      renderMaterials();
-      renderParts();
+      applyLinkTreeData(data);
     } catch (e) {
       console.warn('[Link Tree Error]', e);
+      applyLinkTreeData({ linked_assets: [] });
     }
   }
   
@@ -435,6 +551,7 @@
     });
     
     updateStep2Summary();
+    renderVendorRefSummary();
   }
   
   // === Step 2: 配件渲染 ===
@@ -474,8 +591,9 @@
       state.selectedParts.push(partId);
     }
     
-    document.querySelector(`#partList [data-id="${partId}"]`).classList.toggle('selected');
+    document.querySelector('#partList [data-id="' + partId + '"]').classList.toggle('selected');
     updateStep2Summary();
+    renderVendorRefSummary();
   }
   
   // === 更新 Step 2 摘要 ===
@@ -610,18 +728,7 @@
   
   // === 真實生成 ===
   async function realGenerate() {
-    // 準備參考圖（轉成 base64 或 URL）
-    const refImagesPayload = {};
-    REF_SLOTS.forEach(slot => {
-      const images = state.refImages[slot.key] || [];
-      if (images.length > 0) {
-        refImagesPayload[slot.key] = images.map(img => ({
-          url: img.url,  // DataURL (base64)
-          filename: img.file ? img.file.name : 'image.jpg'
-        }));
-      }
-    });
-    
+    const refs = buildReferencePayload();
     const payload = {
       embed_id: embedId,
       sig: sig,
@@ -630,7 +737,8 @@
       part_ids: state.selectedParts,
       capability_keys: state.selectedCapabilities,
       capability_custom_labels: state.selectedCustomCapabilities || [],
-      ref_images: refImagesPayload,
+      reference_sources: refs.referenceSources,
+      reference_images: refs.referenceImages,
       prompt: state.prompt,
       session_id: state.sessionId
     };
