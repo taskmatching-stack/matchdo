@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Session 測試</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #28a745; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Supabase Session 測試工具</h1>
+    
+    <div class="section">
+        <h2>1. localStorage 中的 Session</h2>
+        <button class="btn-success" onclick="checkLocalStorage()">檢查 localStorage</button>
+        <button class="btn-danger" onclick="clearLocalStorage()">清除 localStorage</button>
+        <pre id="localStorage-output">點擊按鈕檢查...</pre>
+    </div>
+
+    <div class="section">
+        <h2>2. Supabase getSession()</h2>
+        <button class="btn-success" onclick="checkSupabaseSession()">檢查 Supabase Session</button>
+        <pre id="supabase-session-output">點擊按鈕檢查...</pre>
+    </div>
+
+    <div class="section">
+        <h2>3. Supabase getUser()</h2>
+        <button class="btn-success" onclick="checkSupabaseUser()">檢查當前用戶</button>
+        <pre id="supabase-user-output">點擊按鈕檢查...</pre>
+    </div>
+
+    <div class="section">
+        <h2>4. 快速測試登入</h2>
+        <input type="email" id="test-email" placeholder="Email" style="padding: 8px; width: 200px;">
+        <input type="password" id="test-password" placeholder="密碼" style="padding: 8px; width: 200px;">
+        <button class="btn-primary" onclick="testLogin()">測試登入</button>
+        <button class="btn-danger" onclick="testLogout()">測試登出</button>
+        <pre id="test-output"></pre>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module">
+        import AuthService from '/js/auth-service.js';
+        window.AuthService = AuthService;
+        window.supabaseClient = AuthService.supabase;
+
+        window.checkLocalStorage = function() {
+            const output = document.getElementById('localStorage-output');
+            const keys = Object.keys(localStorage).filter(key => key.includes('supabase'));
+            
+            if (keys.length === 0) {
+                output.textContent = '❌ 沒有找到 Supabase 相關的 localStorage 項目';
+                return;
+            }
+
+            let result = `✅ 找到 ${keys.length} 個 Supabase localStorage 項目:\n\n`;
+            keys.forEach(key => {
+                const value = localStorage.getItem(key);
+                result += `Key: ${key}\n`;
+                try {
+                    const parsed = JSON.parse(value);
+                    result += `Value: ${JSON.stringify(parsed, null, 2)}\n\n`;
+                } catch (e) {
+                    result += `Value: ${value}\n\n`;
+                }
+            });
+            output.textContent = result;
+        };
+
+        window.clearLocalStorage = function() {
+            const keys = Object.keys(localStorage).filter(key => key.includes('supabase'));
+            keys.forEach(key => localStorage.removeItem(key));
+            alert(`✅ 已清除 ${keys.length} 個 Supabase localStorage 項目`);
+            checkLocalStorage();
+        };
+
+        window.checkSupabaseSession = async function() {
+            const output = document.getElementById('supabase-session-output');
+            output.textContent = '⏳ 正在檢查...';
+            
+            try {
+                const { data, error } = await window.supabaseClient.auth.getSession();
+                if (error) {
+                    output.textContent = `❌ 錯誤: ${error.message}\n\n${JSON.stringify(error, null, 2)}`;
+                } else if (data.session) {
+                    output.textContent = `✅ Session 存在:\n\n${JSON.stringify({
+                        user: {
+                            id: data.session.user.id,
+                            email: data.session.user.email
+                        },
+                        access_token: data.session.access_token.substring(0, 50) + '...',
+                        expires_at: new Date(data.session.expires_at * 1000).toLocaleString()
+                    }, null, 2)}`;
+                } else {
+                    output.textContent = '⚠️ Session 不存在';
+                }
+            } catch (err) {
+                output.textContent = `❌ 異常: ${err.message}`;
+            }
+        };
+
+        window.checkSupabaseUser = async function() {
+            const output = document.getElementById('supabase-user-output');
+            output.textContent = '⏳ 正在檢查...';
+            
+            try {
+                const { data, error } = await window.supabaseClient.auth.getUser();
+                if (error) {
+                    output.textContent = `❌ 錯誤: ${error.message}\n\n${JSON.stringify(error, null, 2)}`;
+                } else if (data.user) {
+                    output.textContent = `✅ 用戶存在:\n\n${JSON.stringify({
+                        id: data.user.id,
+                        email: data.user.email,
+                        created_at: data.user.created_at
+                    }, null, 2)}`;
+                } else {
+                    output.textContent = '⚠️ 用戶不存在';
+                }
+            } catch (err) {
+                output.textContent = `❌ 異常: ${err.message}`;
+            }
+        };
+
+        window.testLogin = async function() {
+            const email = document.getElementById('test-email').value;
+            const password = document.getElementById('test-password').value;
+            const output = document.getElementById('test-output');
+            
+            if (!email || !password) {
+                output.textContent = '❌ 請輸入 email 和密碼';
+                return;
+            }
+
+            output.textContent = '⏳ 正在登入...';
+            
+            try {
+                const result = await AuthService.signInWithEmail(email, password);
+                output.textContent = `✅ 登入成功!\n\n${JSON.stringify({
+                    user: {
+                        id: result.user.id,
+                        email: result.user.email
+                    },
+                    session_exists: !!result.session
+                }, null, 2)}`;
+                
+                // 自動檢查 localStorage 和 session
+                setTimeout(() => {
+                    checkLocalStorage();
+                    checkSupabaseSession();
+                    checkSupabaseUser();
+                }, 500);
+            } catch (err) {
+                output.textContent = `❌ 登入失敗: ${err.message}`;
+            }
+        };
+
+        window.testLogout = async function() {
+            const output = document.getElementById('test-output');
+            output.textContent = '⏳ 正在登出...';
+            
+            try {
+                await AuthService.signOut();
+                output.textContent = '✅ 登出成功!';
+                
+                // 自動檢查
+                setTimeout(() => {
+                    checkLocalStorage();
+                    checkSupabaseSession();
+                    checkSupabaseUser();
+                }, 500);
+            } catch (err) {
+                output.textContent = `❌ 登出失敗: ${err.message}`;
+            }
+        };
+
+        // 頁面載入時自動檢查
+        window.addEventListener('load', () => {
+            checkLocalStorage();
+            checkSupabaseSession();
+            checkSupabaseUser();
+        });
+    </script>
+</body>
+</html>

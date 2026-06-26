@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>用戶管理 - MatchDO 管理後台</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="../iStudio-1.0.0/img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="../iStudio-1.0.0/lib/animate/animate.min.css" rel="stylesheet">
+    <link href="../iStudio-1.0.0/lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="../iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="../iStudio-1.0.0/css/style.css" rel="stylesheet">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config/auth-config.js"></script>
+
+    <style>
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .role-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .action-buttons .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        .table-responsive {
+            max-height: calc(100vh - 400px);
+            overflow-y: auto;
+        }
+        .filters {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Site Header -->
+    <div id="site-header"></div>
+
+    <!-- Page Header Start -->
+    <div class="container-fluid bg-primary py-2 mb-3">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h3 class="text-white mb-0">
+                        <i class="fas fa-users-cog me-2"></i>用戶管理
+                    </h3>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb justify-content-md-end mb-0">
+                            <li class="breadcrumb-item"><a href="index.html" class="text-white">管理後台</a></li>
+                            <li class="breadcrumb-item text-white active">用戶管理</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- User Management Start -->
+    <div class="container-xxl py-3">
+        <div class="container">
+            <!-- Statistics Cards -->
+            <div class="row g-3 mb-3">
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="bg-primary bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-users fa-lg text-white"></i>
+                            </div>
+                            <h4 class="mb-1" id="totalUsers">
+                                <span class="spinner-border spinner-border-sm"></span>
+                            </h4>
+                            <small class="text-muted">總用戶數</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="bg-success bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-user-check fa-lg text-white"></i>
+                            </div>
+                            <h4 class="mb-1" id="verifiedUsers">
+                                <span class="spinner-border spinner-border-sm"></span>
+                            </h4>
+                            <small class="text-muted">已驗證用戶</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="bg-info bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-user-tie fa-lg text-white"></i>
+                            </div>
+                            <h4 class="mb-1" id="adminUsers">
+                                <span class="spinner-border spinner-border-sm"></span>
+                            </h4>
+                            <small class="text-muted">管理員</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center">
+                            <div class="bg-warning bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-clock fa-lg text-white"></i>
+                            </div>
+                            <h4 class="mb-1" id="recentUsers">
+                                <span class="spinner-border spinner-border-sm"></span>
+                            </h4>
+                            <small class="text-muted">本月新用戶</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label small mb-1">搜尋用戶</label>
+                        <input type="text" class="form-control" id="searchInput" placeholder="姓名、Email...">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">角色篩選</label>
+                        <select class="form-select" id="roleFilter">
+                            <option value="">全部角色</option>
+                            <option value="admin">管理員</option>
+                            <option value="user">一般用戶</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-1">狀態篩選</label>
+                        <select class="form-select" id="statusFilter">
+                            <option value="">全部狀態</option>
+                            <option value="verified">已驗證</option>
+                            <option value="unverified">未驗證</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" onclick="loadUsers()">
+                            <i class="fas fa-search me-1"></i>搜尋
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list me-2"></i>用戶列表
+                        </h5>
+                        <button class="btn btn-sm btn-primary" onclick="loadUsers()">
+                            <i class="fas fa-sync-alt me-1"></i>重新整理
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="bg-light sticky-top">
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th style="width: 60px;">頭像</th>
+                                    <th>姓名</th>
+                                    <th>Email</th>
+                                    <th style="width: 100px;">角色</th>
+                                    <th style="width: 100px;">狀態</th>
+                                    <th style="width: 150px;">註冊時間</th>
+                                    <th style="width: 180px;" class="text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr>
+                                    <td colspan="8" class="text-center py-5">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">載入中...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">載入用戶資料中...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted" id="userCount">共 0 位用戶</small>
+                        <nav id="pagination"></nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- User Management End -->
+
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-user-edit me-2"></i>編輯用戶
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editUserId">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editUserEmail" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">姓名</label>
+                        <input type="text" class="form-control" id="editUserName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色 *</label>
+                        <select class="form-select" id="editUserRole">
+                            <option value="user">一般用戶</option>
+                            <option value="admin">管理員</option>
+                        </select>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            管理員可以存取管理後台和分類管理功能
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="saveUser()">
+                        <i class="fas fa-save me-1"></i>儲存變更
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="container-fluid bg-dark text-light footer mt-5 pt-5 wow fadeIn" data-wow-delay="0.1s">
+        <div class="container py-5">
+            <div class="row g-5">
+                <div class="col-lg-12 text-center">
+                    <p class="mb-2">&copy; 2026 MatchDO 合做. All Rights Reserved.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../iStudio-1.0.0/lib/wow/wow.min.js"></script>
+    <script src="../iStudio-1.0.0/lib/easing/easing.min.js"></script>
+    <script src="../iStudio-1.0.0/lib/waypoints/waypoints.min.js"></script>
+    <script src="../iStudio-1.0.0/lib/owlcarousel/owl.carousel.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="../iStudio-1.0.0/js/main.js"></script>
+    <script src="../iStudio-1.0.0/js/site-header.js"></script>
+
+    <!-- User Management Logic -->
+    <script>
+        let currentPage = 1;
+        const pageSize = 20;
+
+        $(document).ready(async function () {
+            try {
+                // 確保 AuthService 已載入
+                if (!window.AuthService) {
+                    console.error('AuthService 未載入');
+                    alert('系統初始化失敗，請重新整理頁面');
+                    return;
+                }
+
+                // 檢查登入狀態和管理員權限
+                const { data: { user }, error: userError } = await AuthService.getUser();
+                if (userError || !user) {
+                    console.error('用戶未登入:', userError);
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                // 檢查是否為管理員
+                const profile = await AuthService.getUserProfile();
+                const isAdmin = user.user_metadata?.role === 'admin' || profile?.role === 'admin';
+                
+                if (!isAdmin) {
+                    alert('您沒有權限訪問此頁面');
+                    window.location.href = '/iStudio-1.0.0/index.html';
+                    return;
+                }
+
+                // 載入統計資料
+                await loadStatistics();
+
+                // 載入用戶列表
+                await loadUsers();
+
+                // 搜尋事件
+                $('#searchInput').on('keyup', function(e) {
+                    if (e.key === 'Enter') {
+                        loadUsers();
+                    }
+                });
+            } catch (error) {
+                console.error('初始化失敗:', error);
+                alert('載入失敗：' + error.message);
+                $('#totalUsers, #verifiedUsers, #adminUsers, #recentUsers').text('錯誤');
+                $('#usersTableBody').html(`
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="alert alert-danger mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                載入失敗：${error.message}
+                            </div>
+                        </td>
+                    </tr>
+                `);
+                    </tr>
+                `);
+            }
+        });
+
+        async function loadStatistics() {
+            try {
+                console.log('開始載入統計資料...');
+                
+                // 使用 Auth Admin API 取得所有用戶
+                // 注意：這需要管理員權限，我們改用客戶端可用的方法
+                
+                // 暫時顯示靜態資料，因為 profiles 表不存在
+                // 實際環境需要先建立 profiles 表或使用 Auth Admin API
+                
+                $('#totalUsers').text('需建立表');
+                $('#verifiedUsers').text('需建立表');
+                $('#adminUsers').text('需建立表');
+                $('#recentUsers').text('需建立表');
+
+                // 顯示提示
+                console.warn('profiles 表不存在，請執行 docs/user-roles-schema.sql');
+
+            } catch (error) {
+                console.error('載入統計失敗:', error);
+                $('#totalUsers, #verifiedUsers, #adminUsers, #recentUsers').text('錯誤');
+            }
+        }
+
+        async function loadUsers() {
+            const tbody = $('#usersTableBody');
+            tbody.html(`
+                <tr>
+                    <td colspan="8" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status"></div>
+                        <p class="mt-2 text-muted">載入中...</p>
+                    </td>
+                </tr>
+            `);
+
+            try {
+                console.log('開始載入用戶列表...');
+                
+                const searchTerm = $('#searchInput').val().toLowerCase();
+                const roleFilter = $('#roleFilter').val();
+                const statusFilter = $('#statusFilter').val();
+
+                // 建立查詢
+                let query = AuthService.supabase
+                    .from('profiles')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                // 套用篩選
+                if (roleFilter) {
+                    query = query.eq('role', roleFilter);
+                }
+
+                const { data: users, error } = await query;
+
+                if (error) {
+                    console.error('查詢用戶列表失敗:', error);
+                    
+                    // 如果 profiles 表不存在，顯示建立說明
+                    if (error.code === 'PGRST204' || error.message.includes('Could not find')) {
+                        tbody.html(`
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <div class="alert alert-warning mb-4">
+                                <i class="fas fa-database fa-3x mb-3"></i>
+                                <h5><strong>需要建立 profiles 表</strong></h5>
+                                <p class="mb-3">用戶管理功能需要 profiles 表來儲存用戶資料和角色。</p>
+                                
+                                <div class="text-start bg-light p-3 rounded mb-3">
+                                    <strong>📋 建立步驟：</strong>
+                                    <ol class="mb-0 mt-2">
+                                        <li>登入 Supabase Dashboard: <a href="https://uuhxyaggbrhaytmyaqmo.supabase.co" target="_blank">開啟</a></li>
+                                        <li>點擊左側選單的「SQL Editor」</li>
+                                        <li>點擊「+ New query」</li>
+                                        <li>複製以下檔案的內容並貼上執行：<br>
+                                            <code>d:\\AI建站\\ai-matching\\docs\\user-roles-schema.sql</code>
+                                        </li>
+                                        <li>點擊「Run」執行 SQL</li>
+                                        <li>回到此頁面重新整理</li>
+                                    </ol>
+                                </div>
+                                
+                                <div class="text-start bg-info bg-opacity-10 p-3 rounded">
+                                    <strong>💡 快速建立（複製以下 SQL）：</strong>
+                                    <pre class="mb-0 mt-2" style="font-size: 0.85rem;">-- 建立 profiles 表
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email text,
+    full_name text,
+    avatar_url text,
+    role text DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+    email_verified boolean DEFAULT false,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- 啟用 RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- 允許用戶查看所有 profiles
+CREATE POLICY "Users can view all profiles"
+    ON public.profiles FOR SELECT
+    USING (true);
+
+-- 允許用戶更新自己的 profile
+CREATE POLICY "Users can update own profile"
+    ON public.profiles FOR UPDATE
+    USING (auth.uid() = id);
+
+-- 允許管理員更新任何 profile
+CREATE POLICY "Admins can update any profile"
+    ON public.profiles FOR UPDATE
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
+
+-- 自動建立 profile 觸發器
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+    INSERT INTO public.profiles (id, email, full_name, avatar_url, email_verified)
+    VALUES (
+        new.id,
+        new.email,
+        COALESCE(new.raw_user_meta_data->>'full_name', new.email),
+        new.raw_user_meta_data->>'avatar_url',
+        new.email_confirmed_at IS NOT NULL
+    );
+    RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 將當前用戶設為管理員（記得改 email）
+-- UPDATE public.profiles SET role = 'admin' WHERE email = 'liutsaiiu@gmail.com';</pre>
+                                </div>
+                                
+                                <button class="btn btn-primary mt-3" onclick="location.reload()">
+                                    <i class="fas fa-sync-alt me-2"></i>重新整理頁面
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `);
+                        return;
+                    }
+                    
+                    throw error;
+                }
+
+                console.log('成功取得用戶列表:', users);
+
+                // 客戶端篩選
+                let filteredUsers = users || [];
+                if (searchTerm) {
+                    filteredUsers = filteredUsers.filter(u => 
+                        (u.full_name || '').toLowerCase().includes(searchTerm) ||
+                        (u.email || '').toLowerCase().includes(searchTerm)
+                    );
+                }
+                if (statusFilter === 'verified') {
+                    filteredUsers = filteredUsers.filter(u => u.email_verified);
+                } else if (statusFilter === 'unverified') {
+                    filteredUsers = filteredUsers.filter(u => !u.email_verified);
+                }
+
+                $('#userCount').text(`共 ${filteredUsers.length} 位用戶`);
+
+                if (filteredUsers.length === 0) {
+                    tbody.html(`
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">沒有符合條件的用戶</p>
+                            </td>
+                        </tr>
+                    `);
+                    return;
+                }
+
+                // 分頁
+                const start = (currentPage - 1) * pageSize;
+                const end = start + pageSize;
+                const paginatedUsers = filteredUsers.slice(start, end);
+
+                // 顯示用戶列表
+                let html = '';
+                paginatedUsers.forEach((user, index) => {
+                    const avatarUrl = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || user.email)}&background=667eea&color=fff`;
+                    const roleBadge = user.role === 'admin' 
+                        ? '<span class="badge bg-danger role-badge">管理員</span>'
+                        : '<span class="badge bg-secondary role-badge">用戶</span>';
+                    const statusBadge = user.email_verified
+                        ? '<span class="badge bg-success role-badge">已驗證</span>'
+                        : '<span class="badge bg-warning role-badge">未驗證</span>';
+
+                    html += `
+                        <tr>
+                            <td>${start + index + 1}</td>
+                            <td>
+                                <img src="${avatarUrl}" class="user-avatar" alt="Avatar">
+                            </td>
+                            <td>${user.full_name || '<span class="text-muted">未設定</span>'}</td>
+                            <td>${user.email || ''}</td>
+                            <td>${roleBadge}</td>
+                            <td>${statusBadge}</td>
+                            <td><small>${new Date(user.created_at).toLocaleDateString('zh-TW')}</small></td>
+                            <td class="text-center action-buttons">
+                                <button class="btn btn-sm btn-outline-primary" onclick="editUser('${user.id}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" onclick="viewUserDetails('${user.id}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tbody.html(html);
+
+                // 生成分頁
+                generatePagination(filteredUsers.length);
+
+            } catch (error) {
+                console.error('載入用戶失敗:', error);
+                tbody.html(`
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <div class="alert alert-danger mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                載入失敗，請稍後再試
+                            </div>
+                        </td>
+                    </tr>
+                `);
+            }
+        }
+
+            const totalPages = Math.ceil(totalCount / pageSize);
+            if (totalPages <= 1) {
+                $('#pagination').html('');
+                return;
+            }
+
+            let html = '<ul class="pagination pagination-sm mb-0">';
+            
+            // 上一頁
+            html += `<li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">«</a>
+            </li>`;
+
+            // 頁碼
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                    html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
+                        <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                    </li>`;
+                } else if (i === currentPage - 3 || i === currentPage + 3) {
+                    html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                }
+            }
+
+            // 下一頁
+            html += `<li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">»</a>
+            </li>`;
+
+            html += '</ul>';
+            $('#pagination').html(html);
+        }
+
+        function changePage(page) {
+            currentPage = page;
+            loadUsers();
+        }
+
+        async function editUser(userId) {
+            try {
+                const { data: user, error } = await AuthService.supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+
+                if (error) throw error;
+
+                $('#editUserId').val(user.id);
+                $('#editUserEmail').val(user.email);
+                $('#editUserName').val(user.full_name || '');
+                $('#editUserRole').val(user.role || 'user');
+
+                new bootstrap.Modal($('#editUserModal')).show();
+
+            } catch (error) {
+                console.error('載入用戶資料失敗:', error);
+                alert('載入失敗，請稍後再試');
+            }
+        }
+
+        async function saveUser() {
+            const userId = $('#editUserId').val();
+            const fullName = $('#editUserName').val();
+            const role = $('#editUserRole').val();
+
+            if (!userId) {
+                alert('用戶 ID 錯誤');
+                return;
+            }
+
+            try {
+                // 更新 profiles 表
+                const { error: profileError } = await AuthService.supabase
+                    .from('profiles')
+                    .update({
+                        full_name: fullName,
+                        role: role,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', userId);
+
+                if (profileError) throw profileError;
+
+                // 如果需要同時更新 auth.users 的 metadata
+                // 需要使用服務端 API (admin 權限)
+                // 這裡先只更新 profiles 表
+
+                alert('用戶資料已更新！');
+                bootstrap.Modal.getInstance($('#editUserModal')).hide();
+                
+                await loadStatistics();
+                await loadUsers();
+
+            } catch (error) {
+                console.error('儲存失敗:', error);
+                alert('儲存失敗：' + error.message);
+            }
+        }
+
+        function viewUserDetails(userId) {
+            // TODO: 導向用戶詳情頁面或顯示詳情模態框
+            alert('用戶詳情功能開發中...');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <title>產品試做</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="/img/favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    /* === 全域 === */
+    :root {
+      --sim-primary: #445D7E;
+      --sim-dark: #2d4059;
+      --sim-border: rgba(68, 93, 126, 0.15);
+    }
+    * { box-sizing: border-box; }
+    html, body { 
+      margin: 0; 
+      min-height: 100vh; 
+      background: #f8fafc; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    
+    /* === Header === */
+    .sim-header {
+      background: #fff; 
+      border-bottom: 1px solid var(--sim-border);
+      padding: 0.75rem 1rem; 
+      display: flex; 
+      align-items: center; 
+      gap: 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .sim-logo { 
+      width: 40px; 
+      height: 40px; 
+      border-radius: 8px; 
+      object-fit: contain; 
+      background: #f0f4f8; 
+    }
+    .sim-vendor-name { 
+      font-size: 1rem; 
+      font-weight: 600; 
+      color: var(--sim-dark); 
+    }
+    .sim-header-spacer { flex: 1; }
+    .sim-powered { 
+      font-size: 0.7rem; 
+      color: #6c757d; 
+    }
+    .sim-powered a { 
+      color: var(--sim-primary); 
+      text-decoration: none; 
+    }
+    .sim-powered a:hover { text-decoration: underline; }
+    
+    /* === 單欄容器（桌機手機通用）=== */
+    .sim-container {
+      max-width: 640px; 
+      margin: 0 auto; 
+      padding: 1rem;
+      background: #fff; 
+      min-height: calc(100vh - 60px);
+    }
+    @media (max-width: 767.98px) {
+      .sim-container { padding: 0.75rem; }
+    }
+    
+    .sim-step {
+      border: 1px solid var(--sim-border); 
+      border-radius: 8px;
+      margin-bottom: 0.75rem; 
+      overflow: hidden;
+    }
+    .sim-step-header {
+      display: flex; 
+      align-items: center; 
+      padding: 0.75rem 1rem;
+      background: #f8fafc; 
+      cursor: pointer; 
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .sim-step-header:hover { background: #e8ecf0; }
+    .sim-step-number {
+      width: 24px; 
+      height: 24px; 
+      border-radius: 50%; 
+      background: var(--sim-primary);
+      color: #fff; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
+      font-size: 0.75rem; 
+      font-weight: 600; 
+      flex-shrink: 0;
+    }
+    .sim-step-title { 
+      flex: 1; 
+      margin-left: 0.75rem; 
+      font-weight: 600; 
+      font-size: 0.9rem; 
+    }
+    .sim-step-chevron { 
+      transition: transform 0.2s; 
+      color: #64748b;
+    }
+    .sim-step.expanded .sim-step-chevron { transform: rotate(180deg); }
+    .sim-step-body {
+      padding: 1rem; 
+      display: none;
+    }
+    .sim-step.expanded .sim-step-body { display: block; }
+    .sim-step-summary {
+      padding: 0.5rem 1rem; 
+      background: #f0f9ff; 
+      border-top: 1px solid var(--sim-border);
+      font-size: 0.8rem; 
+      color: #0369a1; 
+      display: none;
+    }
+    .sim-step.has-selection .sim-step-summary { display: block; }
+    
+    /* === 結果區（插在生成按鈕後）=== */
+    .sim-result-section {
+      margin-top: 1.5rem; 
+      padding-top: 1.5rem; 
+      border-top: 1px solid var(--sim-border);
+      text-align: center;
+    }
+    .sim-result-placeholder {
+      padding: 3rem 1rem; 
+      color: #94a3b8;
+    }
+    .sim-result-placeholder i { 
+      font-size: 3rem; 
+      opacity: 0.5; 
+      display: block;
+      margin-bottom: 0.75rem; 
+    }
+    .sim-result-img {
+      max-width: 100%; 
+      height: auto; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    .sim-result-actions { 
+      margin-top: 1rem; 
+      display: flex; 
+      gap: 0.5rem; 
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    /* === Step 內容 === */
+    .sim-proto-grid { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 0.75rem; 
+    }
+    .sim-proto-card {
+      border: 2px solid transparent; 
+      border-radius: 8px; 
+      overflow: hidden; 
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #fff;
+    }
+    .sim-proto-card:hover { 
+      border-color: var(--sim-primary); 
+      transform: translateY(-2px);
+    }
+    .sim-proto-card.selected { 
+      border-color: var(--sim-primary); 
+      box-shadow: 0 0 0 3px rgba(68,93,126,0.1); 
+    }
+    .sim-proto-img { 
+      width: 100%; 
+      aspect-ratio: 1; 
+      object-fit: cover; 
+      background: #f8fafc;
+    }
+    .sim-proto-name { 
+      padding: 0.5rem; 
+      font-size: 0.8rem; 
+      text-align: center; 
+      background: #fff; 
+    }
+    
+    .sim-material-list, .sim-part-list {
+      display: grid; 
+      grid-template-columns: repeat(3, 1fr); 
+      gap: 0.5rem; 
+      margin-bottom: 1rem;
+    }
+    .sim-mat-item {
+      aspect-ratio: 1; 
+      border: 2px solid #e2e8f0; 
+      border-radius: 8px; 
+      overflow: hidden;
+      cursor: pointer; 
+      position: relative; 
+      transition: all 0.15s;
+      background: #f8fafc;
+    }
+    .sim-mat-item:hover { 
+      border-color: var(--sim-primary); 
+      transform: scale(1.05);
+    }
+    .sim-mat-item.selected { 
+      border-color: var(--sim-primary); 
+      box-shadow: 0 0 0 3px rgba(68,93,126,0.1); 
+    }
+    .sim-mat-img { 
+      width: 100%; 
+      height: 100%; 
+      object-fit: cover; 
+    }
+    .sim-mat-checkmark {
+      position: absolute; 
+      top: 4px; 
+      right: 4px; 
+      width: 20px; 
+      height: 20px;
+      background: var(--sim-primary); 
+      border-radius: 50%; 
+      color: #fff;
+      display: none; 
+      align-items: center; 
+      justify-content: center; 
+      font-size: 0.7rem;
+    }
+    .sim-mat-item.selected .sim-mat-checkmark { display: flex; }
+    
+    .sim-cap-options { 
+      display: flex; 
+      flex-wrap: wrap; 
+      gap: 0.5rem; 
+    }
+    .sim-cap-checkbox { 
+      display: flex; 
+      align-items: center; 
+      gap: 0.35rem; 
+      padding: 0.4rem 0.75rem;
+      border: 1px solid #cbd5e1; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      font-size: 0.85rem;
+      transition: all 0.15s;
+    }
+    .sim-cap-checkbox:hover { background: #f1f5f9; }
+    .sim-cap-checkbox input[type="checkbox"] { 
+      margin: 0; 
+      cursor: pointer;
+    }
+    
+    .sim-prompt-textarea {
+      width: 100%; 
+      padding: 0.75rem; 
+      border: 1px solid #cbd5e1; 
+      border-radius: 8px;
+      font-size: 0.9rem; 
+      resize: vertical; 
+      min-height: 80px;
+      font-family: inherit;
+    }
+    .sim-prompt-textarea:focus {
+      outline: none;
+      border-color: var(--sim-primary);
+      box-shadow: 0 0 0 3px rgba(68,93,126,0.1);
+    }
+    .sim-prompt-hint { 
+      font-size: 0.75rem; 
+      color: #64748b; 
+      margin-top: 0.35rem; 
+    }
+    
+    .sim-generate-btn {
+      width: 100%; 
+      padding: 0.75rem; 
+      background: var(--sim-primary); 
+      color: #fff;
+      border: none; 
+      border-radius: 8px; 
+      font-size: 1rem; 
+      font-weight: 600; 
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sim-generate-btn:hover { 
+      background: var(--sim-dark); 
+      transform: translateY(-1px);
+    }
+    .sim-generate-btn:disabled { 
+      background: #94a3b8; 
+      cursor: not-allowed; 
+      transform: none;
+    }
+    
+    .sim-loading { 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      gap: 0.5rem; 
+      color: #64748b; 
+      margin-top: 0.75rem;
+    }
+    .sim-spinner { 
+      border: 3px solid #e2e8f0; 
+      border-top-color: var(--sim-primary);
+      border-radius: 50%; 
+      width: 24px; 
+      height: 24px; 
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .sim-error { 
+      padding: 0.75rem 1rem; 
+      background: #fef2f2; 
+      border: 1px solid #fca5a5; 
+      border-radius: 8px;
+      color: #991b1b; 
+      font-size: 0.85rem; 
+      margin-top: 0.5rem;
+    }
+    
+    .sim-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--sim-dark);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    
+    .sim-no-data {
+      text-align: center;
+      color: #94a3b8;
+      padding: 2rem 1rem;
+      font-size: 0.85rem;
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      text-decoration: none;
+      border: 1px solid;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-outline-secondary {
+      background: #fff;
+      color: #64748b;
+      border-color: #cbd5e1;
+    }
+    .btn-outline-secondary:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+    .btn-outline-primary {
+      background: #fff;
+      color: var(--sim-primary);
+      border-color: var(--sim-primary);
+    }
+    .btn-outline-primary:hover {
+      background: var(--sim-primary);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="sim-header">
+    <img id="simLogo" class="sim-logo" src="/img/placeholder-logo.png" alt="">
+    <span id="simVendorName" class="sim-vendor-name">載入中…</span>
+    <div class="sim-header-spacer"></div>
+    <span class="sim-powered">Powered by <a href="https://matchdo.cc" target="_blank">Matchdo</a></span>
+  </header>
+  
+  <!-- 單欄容器 -->
+  <div class="sim-container">
+    
+    <!-- Step 1: 選款式 -->
+    <div class="sim-step expanded" id="step1" data-step="prototype">
+      <div class="sim-step-header" onclick="window.toggleStep(1)">
+        <span class="sim-step-number">1</span>
+        <span class="sim-step-title">選擇款式</span>
+        <i class="bi bi-chevron-down sim-step-chevron"></i>
+      </div>
+      <div class="sim-step-body">
+        <div id="prototypeGrid" class="sim-proto-grid">
+          <!-- JS 動態填充 -->
+        </div>
+      </div>
+      <div class="sim-step-summary" id="step1Summary">
+        已選：<span id="step1SelectedName">—</span>
+      </div>
+    </div>
+    
+    <!-- Step 2: 材料與配件 -->
+    <div class="sim-step" id="step2" data-step="materials" style="display:none;">
+      <div class="sim-step-header" onclick="window.toggleStep(2)">
+        <span class="sim-step-number">2</span>
+        <span class="sim-step-title">材料與配件（選填）</span>
+        <i class="bi bi-chevron-down sim-step-chevron"></i>
+      </div>
+      <div class="sim-step-body">
+        <div id="materialSection" style="display:none;">
+          <label class="sim-label">材料（單選）</label>
+          <div id="materialList" class="sim-material-list"></div>
+        </div>
+        <div id="partSection" style="display:none;">
+          <label class="sim-label">配件（可複選）</label>
+          <div id="partList" class="sim-part-list"></div>
+        </div>
+        <p id="noMaterials" class="sim-no-data">此款式無關聯材配</p>
+      </div>
+      <div class="sim-step-summary" id="step2Summary">
+        已選 <span id="step2Count">0</span> 項
+      </div>
+    </div>
+    
+    <!-- Step 3: 表面工藝 -->
+    <div class="sim-step" id="step3" data-step="capabilities" style="display:none;">
+      <div class="sim-step-header" onclick="window.toggleStep(3)">
+        <span class="sim-step-number">3</span>
+        <span class="sim-step-title">表面工藝（選填）</span>
+        <i class="bi bi-chevron-down sim-step-chevron"></i>
+      </div>
+      <div class="sim-step-body">
+        <div id="capabilityOptions" class="sim-cap-options"></div>
+      </div>
+      <div class="sim-step-summary" id="step3Summary">
+        已選 <span id="step3Count">0</span> 項
+      </div>
+    </div>
+    
+    <!-- Step 4: 描述 -->
+    <div class="sim-step expanded" id="step4" data-step="prompt">
+      <div class="sim-step-header" onclick="window.toggleStep(4)">
+        <span class="sim-step-number">4</span>
+        <span class="sim-step-title">描述你想要的產品</span>
+        <i class="bi bi-chevron-down sim-step-chevron"></i>
+      </div>
+      <div class="sim-step-body">
+        <textarea id="simPrompt" class="sim-prompt-textarea" placeholder="例：軍綠色，正面印白色 LOGO"></textarea>
+        <p class="sim-prompt-hint">有參考圖時可簡短描述顏色、文字等細節。</p>
+      </div>
+    </div>
+    
+    <!-- Step 5: 生成 -->
+    <div class="sim-step expanded" id="step5" data-step="generate">
+      <div class="sim-step-body" style="display:block;">
+        <button id="btnGenerate" class="sim-generate-btn" onclick="window.handleGenerate()">
+          立即生成
+        </button>
+        <div id="generateStatus" class="sim-loading" style="display:none;">
+          <div class="sim-spinner"></div>
+          <span>生成中…</span>
+        </div>
+        <div id="generateError" class="sim-error" style="display:none;"></div>
+      </div>
+    </div>
+    
+    <!-- 結果區（生成後顯示）-->
+    <section id="resultSection" class="sim-result-section" style="display:none;">
+      <div id="resultPlaceholder" class="sim-result-placeholder">
+        <i class="bi bi-magic"></i>
+        <p>選擇款式與描述後<br>點擊「立即生成」查看效果</p>
+      </div>
+      <div id="resultContent" style="display:none;">
+        <img id="resultImg" class="sim-result-img" src="" alt="生成結果">
+        <div class="sim-result-actions">
+          <button class="btn btn-outline-secondary" onclick="window.handleRegenerate()">
+            <i class="bi bi-arrow-repeat"></i> 再生成一次
+          </button>
+          <a id="resultDownload" class="btn btn-outline-primary" href="" download>
+            <i class="bi bi-download"></i> 下載
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+  <script src="/js/embed-simulator.js"></script>
+</body>
+</html>

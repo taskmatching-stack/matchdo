@@ -1,0 +1,22 @@
+{
+  "name": "ai-matching",
+  "version": "1.0.0",
+  "description": "AI自動估價系統，Node.js + Supabase + Bootstrap5",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "db:init": "node scripts/apply_schema.js",
+    "db:test": "node scripts/test_db.js",
+    "supabase:health": "node scripts/supabase_health.js",
+    "supabase:import-default": "node scripts/import_default_categories.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.39.7",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^4.50.0",
+    "pg": "^8.11.3"
+  }
+}

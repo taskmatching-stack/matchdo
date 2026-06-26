@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>用戶管理 - MatchDO</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="../iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config/auth-config.js"></script>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container mt-4">
+        <h2>用戶管理</h2>
+        <div class="row mb-3">
+            <div class="col-3"><div class="card"><div class="card-body text-center"><h4 id="totalUsers">0</h4><small>總用戶</small></div></div></div>
+            <div class="col-3"><div class="card"><div class="card-body text-center"><h4 id="adminUsers">0</h4><small>管理員</small></div></div></div>
+        </div>
+        <table class="table"><thead><tr><th>#</th><th>Email</th><th>角色</th><th>操作</th></tr></thead><tbody id="usersTable"><tr><td colspan="4" class="text-center">載入中...</td></tr></tbody></table>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../iStudio-1.0.0/js/site-header.js"></script>
+    <script>
+        $(async function(){
+            try{
+                if(!AuthService){alert('AuthService未載入');return;}
+                const{data:{user}}=await AuthService.getUser();
+                if(!user){location.href='/login.html';return;}
+                const profile=await AuthService.getUserProfile();
+                if(user.user_metadata?.role!=='admin'&&profile?.role!=='admin'){alert('無權限');location.href='/iStudio-1.0.0/index.html';return;}
+                const{data:users,error}=await AuthService.supabase.from('profiles').select('*');
+                if(error){$('#usersTable').html(`<tr><td colspan="4" class="text-center"><div class="alert alert-warning">請執行SQL：<br><code>INSERT INTO profiles(id,email,role) SELECT id,email,'user' FROM auth.users WHERE id NOT IN(SELECT id FROM profiles);UPDATE profiles SET role='admin' WHERE email='liutsaiiu@gmail.com';</code></div></td></tr>`);return;}
+                $('#totalUsers').text(users.length);
+                $('#adminUsers').text(users.filter(u=>u.role==='admin').length);
+                let html='';
+                users.forEach((u,i)=>{html+=`<tr><td>${i+1}</td><td>${u.email}</td><td>${u.role==='admin'?'<span class="badge bg-danger">管理員</span>':'用戶'}</td><td><button class="btn btn-sm btn-primary" onclick="alert('編輯功能開發中')">編輯</button></td></tr>`;});
+                $('#usersTable').html(html);
+            }catch(e){$('#usersTable').html(`<tr><td colspan="4" class="text-center text-danger">錯誤:${e.message}</td></tr>`);}
+        });
+    </script>
+</body>
+</html>

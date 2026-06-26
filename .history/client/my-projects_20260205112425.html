@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>我的專案 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="/iStudio-1.0.0/img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
+
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+</head>
+
+<body>
+    <!-- 共用前台導覽 -->
+    <div id="site-header"></div>
+
+    <!-- Page Header Start -->
+    <div class="container-fluid bg-primary py-2">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="text-white mb-0">我的專案</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb bg-transparent mb-0">
+                        <li class="breadcrumb-item"><a class="text-white" href="/iStudio-1.0.0/index.html">首頁</a></li>
+                        <li class="breadcrumb-item"><a class="text-white" href="/client/dashboard.html">控制台</a></li>
+                        <li class="breadcrumb-item text-white active">我的專案</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- Projects List Start -->
+    <div class="container-xxl py-2">
+        <div class="container">
+            <!-- 操作列 -->
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm" id="filterAll">
+                                <i class="bi bi-list me-1"></i>全部
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" id="filterPublished">
+                                <i class="bi bi-check-circle me-1"></i>已發布
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" id="filterInProgress">
+                                <i class="bi bi-clock me-1"></i>進行中
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" id="filterCompleted">
+                                <i class="bi bi-check-all me-1"></i>已完成
+                            </button>
+                        </div>
+                        <a href="/iStudio-1.0.0/index.html#ai-estimate" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-2"></i>建立新專案
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 專案列表 -->
+            <div class="row g-3" id="projectsList">
+                <!-- 載入中 -->
+                <div class="col-12 text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">載入中...</span>
+                    </div>
+                    <p class="text-muted mt-3">載入專案中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Projects List End -->
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/wow/wow.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/easing/easing.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/waypoints/waypoints.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/counterup/counterup.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/owlcarousel/owl.carousel.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/isotope/isotope.pkgd.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/lightbox/js/lightbox.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="/iStudio-1.0.0/js/main.js"></script>
+    <script src="/iStudio-1.0.0/js/site-header.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await requireAuth();
+            const user = await AuthService.getCurrentUser();
+            if (user) {
+                loadProjects(user.id);
+            }
+        });
+
+        async function loadProjects(userId) {
+            const container = document.getElementById('projectsList');
+            
+            try {
+                const { data: projects, error } = await AuthService.supabase
+                    .from('projects')
+                    .select('*')
+                    .eq('client_id', userId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!projects || projects.length === 0) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="text-center py-5">
+                                <i class="bi bi-folder2-open display-1 text-muted mb-3"></i>
+                                <h4 class="text-muted">尚無專案</h4>
+                                <p class="text-muted">建立您的第一個專案，開始媒合專業服務</p>
+                                <a href="/iStudio-1.0.0/index.html#ai-estimate" class="btn btn-primary mt-3">
+                                    <i class="bi bi-plus-lg me-2"></i>建立新專案
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = projects.map(project => `
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h5 class="card-title mb-0">${escapeHtml(project.title)}</h5>
+                                    <span class="badge bg-${getStatusColor(project.status)}">
+                                        ${getStatusText(project.status)}
+                                    </span>
+                                </div>
+                                
+                                ${project.description ? `
+                                    <p class="card-text text-muted small mb-3">
+                                        ${escapeHtml(project.description).substring(0, 100)}${project.description.length > 100 ? '...' : ''}
+                                    </p>
+                                ` : ''}
+                                
+                                <div class="d-flex justify-content-between align-items-center text-muted small mb-3">
+                                    <span><i class="bi bi-calendar me-1"></i>${new Date(project.created_at).toLocaleDateString('zh-TW')}</span>
+                                    ${project.budget_max ? `
+                                        <span><i class="bi bi-cash me-1"></i>${(project.budget_max / 10000).toFixed(1)}萬</span>
+                                    ` : ''}
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <a href="/client/project-detail.html?id=${project.id}" class="btn btn-outline-primary btn-sm">
+                                        <i class="bi bi-eye me-1"></i>查看詳情
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('載入專案失敗:', error);
+                container.innerHTML = `
+                    <div class="col-12">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            載入失敗：${error.message}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                draft: 'secondary',
+                published: 'primary',
+                in_progress: 'info',
+                completed: 'success',
+                cancelled: 'danger'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                draft: '草稿',
+                published: '已發布',
+                in_progress: '進行中',
+                completed: '已完成',
+                cancelled: '已取消'
+            };
+            return texts[status] || status;
+        }
+
+        // 篩選功能
+        document.getElementById('filterAll').addEventListener('click', () => loadProjects(AuthService.getCurrentUser().then(u => u.id)));
+        // TODO: 實作其他篩選按鈕
+    </script>
+</body>
+</html>

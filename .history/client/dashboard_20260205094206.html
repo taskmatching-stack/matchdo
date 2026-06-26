@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>發案者控制台 - MatchDO 合做</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .stat-card {
+            border-left: 4px solid #0d6efd;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .quick-action-btn {
+            height: 100px;
+            border: 2px dashed #dee2e6;
+            transition: all 0.2s;
+        }
+        .quick-action-btn:hover {
+            border-color: #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .project-item {
+            transition: background-color 0.2s;
+        }
+        .project-item:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <!-- 網站頭部 -->
+    <div id="site-header"></div>
+
+    <div class="container-fluid py-2">
+        <div class="row">
+            <!-- 側邊欄 -->
+            <div class="col-md-2" id="sidebar"></div>
+
+            <!-- 主要內容 -->
+            <div class="col-md-10">
+                <!-- 頁面標題 -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="mb-0">
+                        <i class="bi bi-speedometer2 text-primary"></i>
+                        控制台
+                    </h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="/">首頁</a></li>
+                            <li class="breadcrumb-item active">控制台</li>
+                        </ol>
+                    </nav>
+                </div>
+
+                <!-- 統計卡片 -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="stat-icon bg-primary bg-opacity-10 text-primary me-3">
+                                        <i class="bi bi-folder"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted small">我的專案</div>
+                                        <h3 class="mb-0" id="totalProjects">-</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card stat-card" style="border-left-color: #198754;">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="stat-icon bg-success bg-opacity-10 text-success me-3">
+                                        <i class="bi bi-check-circle"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted small">已發包項目</div>
+                                        <h3 class="mb-0" id="publishedItems">-</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card stat-card" style="border-left-color: #ffc107;">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="stat-icon bg-warning bg-opacity-10 text-warning me-3">
+                                        <i class="bi bi-people"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted small">媒合廠商</div>
+                                        <h3 class="mb-0" id="totalMatches">-</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="card stat-card" style="border-left-color: #dc3545;">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="stat-icon bg-danger bg-opacity-10 text-danger me-3">
+                                        <i class="bi bi-unlock"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-muted small">已聯繫廠商</div>
+                                        <h3 class="mb-0" id="totalUnlocks">-</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快速操作 -->
+                <div class="card mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-lightning-charge text-warning"></i>
+                            快速操作
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <a href="/client/my-projects.html?action=create" class="text-decoration-none">
+                                    <div class="quick-action-btn d-flex flex-column align-items-center justify-content-center text-center">
+                                        <i class="bi bi-plus-circle fs-1 text-primary mb-2"></i>
+                                        <div class="fw-bold">建立新專案</div>
+                                        <small class="text-muted">開始尋找合適廠商</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/client/my-projects.html" class="text-decoration-none">
+                                    <div class="quick-action-btn d-flex flex-column align-items-center justify-content-center text-center">
+                                        <i class="bi bi-folder fs-1 text-success mb-2"></i>
+                                        <div class="fw-bold">查看所有專案</div>
+                                        <small class="text-muted">管理進行中的專案</small>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="/client/matched-experts.html" class="text-decoration-none">
+                                    <div class="quick-action-btn d-flex flex-column align-items-center justify-content-center text-center">
+                                        <i class="bi bi-people fs-1 text-warning mb-2"></i>
+                                        <div class="fw-bold">查看媒合廠商</div>
+                                        <small class="text-muted">聯繫合適的廠商</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- 最新專案 -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-folder text-primary"></i>
+                                    最新專案
+                                </h5>
+                                <a href="/client/my-projects.html" class="btn btn-sm btn-outline-primary">查看全部</a>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="recentProjects" class="list-group list-group-flush">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">載入中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最新媒合 -->
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-people text-success"></i>
+                                    最新媒合廠商
+                                </h5>
+                                <a href="/client/matched-experts.html" class="btn btn-sm btn-outline-success">查看全部</a>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="recentMatches" class="list-group list-group-flush">
+                                    <div class="text-center py-4">
+                                        <div class="spinner-border text-success" role="status">
+                                            <span class="visually-hidden">載入中...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { AuthService } from '../js/auth-service.js';
+
+        let currentUser = null;
+
+        async function init() {
+            try {
+                // 檢查登入狀態
+                currentUser = await AuthService.getCurrentUser();
+                if (!currentUser) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                // 載入資料
+                await Promise.all([
+                    loadStats(),
+                    loadRecentProjects(),
+                    loadRecentMatches()
+                ]);
+            } catch (error) {
+                console.error('初始化失敗:', error);
+                showError('載入資料失敗');
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const { data: projects } = await AuthService.supabase
+                    .from('projects')
+                    .select('id')
+                    .eq('owner_id', currentUser.id);
+
+                const projectIds = projects?.map(p => p.id) || [];
+
+                // 取得已發包項目數
+                let publishedCount = 0;
+                if (projectIds.length > 0) {
+                    const { count } = await AuthService.supabase
+                        .from('project_items')
+                        .select('*', { count: 'exact', head: true })
+                        .in('project_id', projectIds)
+                        .in('status', ['published', 'matched', 'assigned', 'in_progress', 'completed']);
+                    publishedCount = count || 0;
+                }
+
+                // 取得媒合數
+                let matchCount = 0;
+                if (projectIds.length > 0) {
+                    const { count } = await AuthService.supabase
+                        .from('matches')
+                        .select('*', { count: 'exact', head: true })
+                        .in('project_id', projectIds)
+                        .eq('status', 'active');
+                    matchCount = count || 0;
+                }
+
+                // 取得已聯繫廠商數
+                const { count: unlockCount } = await AuthService.supabase
+                    .from('contact_unlocks')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('requester_id', currentUser.id)
+                    .eq('status', 'accepted');
+
+                document.getElementById('totalProjects').textContent = projects?.length || 0;
+                document.getElementById('publishedItems').textContent = publishedCount;
+                document.getElementById('totalMatches').textContent = matchCount;
+                document.getElementById('totalUnlocks').textContent = unlockCount || 0;
+            } catch (error) {
+                console.error('載入統計失敗:', error);
+            }
+        }
+
+        async function loadRecentProjects() {
+            const container = document.getElementById('recentProjects');
+            try {
+                const { data: projects, error } = await AuthService.supabase
+                    .from('projects')
+                    .select('*')
+                    .eq('owner_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (error) throw error;
+
+                if (!projects || projects.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-folder-x fs-1 d-block mb-2"></i>
+                            尚無專案，<a href="/client/my-projects.html?action=create">立即建立</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = projects.map(project => `
+                    <a href="/client/project-detail.html?id=${project.id}" class="list-group-item list-group-item-action project-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${escapeHtml(project.title)}</h6>
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar"></i>
+                                    ${new Date(project.created_at).toLocaleDateString('zh-TW')}
+                                </small>
+                            </div>
+                            <span class="badge bg-${getStatusColor(project.status)}">${getStatusText(project.status)}</span>
+                        </div>
+                    </a>
+                `).join('');
+            } catch (error) {
+                console.error('載入專案失敗:', error);
+                container.innerHTML = `
+                    <div class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-triangle fs-1 d-block mb-2"></i>
+                        載入失敗
+                    </div>
+                `;
+            }
+        }
+
+        async function loadRecentMatches() {
+            const container = document.getElementById('recentMatches');
+            try {
+                // 先取得用戶的專案
+                const { data: projects } = await AuthService.supabase
+                    .from('projects')
+                    .select('id')
+                    .eq('owner_id', currentUser.id);
+
+                if (!projects || projects.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-people-x fs-1 d-block mb-2"></i>
+                            尚無媒合記錄
+                        </div>
+                    `;
+                    return;
+                }
+
+                const projectIds = projects.map(p => p.id);
+
+                const { data: matches, error } = await AuthService.supabase
+                    .from('matches')
+                    .select(`
+                        *,
+                        expert:expert_id(email, id),
+                        project:project_id(title)
+                    `)
+                    .in('project_id', projectIds)
+                    .eq('status', 'active')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (error) throw error;
+
+                if (!matches || matches.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-people-x fs-1 d-block mb-2"></i>
+                            尚無媒合記錄
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = matches.map(match => `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${escapeHtml(match.project?.title || '未知專案')}</h6>
+                                <small class="text-muted">
+                                    <i class="bi bi-person"></i> ${escapeHtml(match.expert?.email || '未知廠商')}
+                                </small>
+                                <div class="mt-1">
+                                    <span class="badge bg-success">媒合分數: ${match.match_score}%</span>
+                                </div>
+                            </div>
+                            <small class="text-muted">${new Date(match.created_at).toLocaleDateString('zh-TW')}</small>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('載入媒合記錄失敗:', error);
+                container.innerHTML = `
+                    <div class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-triangle fs-1 d-block mb-2"></i>
+                        載入失敗
+                    </div>
+                `;
+            }
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'draft': 'secondary',
+                'published': 'primary',
+                'matched': 'success',
+                'in_progress': 'warning',
+                'completed': 'info',
+                'cancelled': 'danger'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'draft': '草稿',
+                'published': '已發布',
+                'matched': '已媒合',
+                'in_progress': '進行中',
+                'completed': '已完成',
+                'cancelled': '已取消'
+            };
+            return texts[status] || status;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            alert(message);
+        }
+
+        // 初始化
+        init();
+    </script>
+</body>
+</html>

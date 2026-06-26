@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>資料庫快速修復工具</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 40px; background: #f8f9fa; }
+    .tool-card { background: white; border-radius: 8px; padding: 30px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .step { border-left: 3px solid #007bff; padding-left: 15px; margin-bottom: 20px; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    .status-box { padding: 15px; border-radius: 4px; margin: 15px 0; }
+    .status-success { background: #d4edda; color: #155724; }
+    .status-error { background: #f8d7da; color: #721c24; }
+    .status-warning { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 MatchDO 資料庫快速修復</h1>
+    <p class="text-muted">解決分類列表空白問題</p>
+
+    <div class="tool-card">
+      <h3>📊 當前狀態檢測</h3>
+      <button onclick="checkStatus()" class="btn btn-primary">執行檢測</button>
+      <div id="statusResult"></div>
+    </div>
+
+    <div class="tool-card">
+      <h3>🚀 快速修復方案</h3>
+      
+      <div class="step">
+        <h5>方案 1：SQL Editor 手動執行（推薦）</h5>
+        <ol>
+          <li>開啟 <a href="https://supabase.com/dashboard" target="_blank">Supabase Dashboard</a></li>
+          <li>選擇專案 → 左側選單 <strong>SQL Editor</strong> → <strong>New query</strong></li>
+          <li>複製以下 SQL 腳本：</li>
+        </ol>
+        <button onclick="copySQL()" class="btn btn-sm btn-secondary mb-2">📋 複製完整 SQL</button>
+        <pre id="sqlScript">-- 請稍候，載入中...</pre>
+        <ol start="4">
+          <li>貼上到 SQL Editor 並點選 <strong>RUN</strong></li>
+          <li>執行成功後返回此頁，點選「重新載入後台」</li>
+        </ol>
+        <button onclick="reloadAdmin()" class="btn btn-success">✔ 重新載入後台</button>
+      </div>
+
+      <div class="step">
+        <h5>方案 2：臨時本地模式（測試用）</h5>
+        <p class="text-muted">如無法存取資料庫，可暫時使用本地檔案進行編輯</p>
+        <button onclick="loadLocal()" class="btn btn-warning">載入本地預設分類</button>
+        <div id="localResult"></div>
+      </div>
+    </div>
+
+    <div class="tool-card">
+      <h3>📝 完整 SQL 腳本</h3>
+      <button onclick="downloadSQL()" class="btn btn-info">💾 下載 SQL 檔案</button>
+      <p class="text-muted mt-2">或在專案目錄查看: <code>db/setup_categories.sql</code></p>
+    </div>
+  </div>
+
+  <script>
+    const SQL_CONTENT = `-- ========================================
+-- MatchDO 分類表建立與資料匯入
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS public.ai_categories (
+  key text PRIMARY KEY,
+  name text NOT NULL,
+  prompt text NOT NULL DEFAULT '',
+  subcategories jsonb NOT NULL DEFAULT '[]'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO public.ai_categories(key, name, prompt, subcategories) VALUES
+('home', '居家', '你是專業居家裝修與維修估算師,具備圖像識別與空間分析能力。
+
+【分析流程】
+1. 仔細檢視用戶提供的圖片/影片(如有),識別:空間類型、現況問題、材質狀態、施工範圍
+2. 依據所選子分類「{subcategory}」,列出: 拆除/保護工程、主要施工項目、材料規格、收尾工程
+3. 輸出格式:JSON 陣列 [{"item_name":"項目", "spec":"規格", "quantity":數量, "unit":"單位"}]
+
+【注意】若無圖片依子分類提供標準清單；數量估算需合理', 
+'["清潔服務","家電 燈具","廚房","門片 拉門","木工 油漆 壁紙","泥作 圍藝","家事服務","搬家 回收","抓漏防水","櫥櫃 家具","消毒除蟲","地板 地毯 磁磚","鐵作 採光罩","寵物","水電工程","衛浴","窗戶 窗簾","室內設計與裝潢","其他裝修工程","保全防盜"]'::jsonb),
+
+('event', '活動', '你是專業活動企劃顧問,具備場地評估能力。依據場地照片識別空間大小、設備、動線。結合子分類「{subcategory}」列出人力配置、物資租賃、服務項目。輸出JSON陣列格式。', 
+'["婚禮籌備","場地 餐飲","設備租賃","活動協助","攝影服務","娛樂表演"]'::jsonb),
+
+('learn', '學習', '你是教學課程規劃顧問,具備學習環境評估能力。依據場地照片識別空間、設備、學員數。結合子分類「{subcategory}」列出教師配置、教材購置、空間改造。輸出JSON陣列格式。', 
+'["鋼琴 鍵盤樂器","國樂課程","設計課程","個人成長","理工 商管課程","證照課程","弦樂課程","歌唱 樂理","才藝課程","各科家教","電腦課程","行銷課程","管樂 打擊樂課程","繪畫課程","舞蹈課程","語言課程","美容相關課程","其他課程"]'::jsonb),
+
+('health', '健康', '你是健康與運動教練顧問,具備體態評估能力。依據體態照片識別身體狀態、空間設備、器材。結合子分類「{subcategory}」列出教練服務、器材需求、課程設計。輸出JSON陣列格式。', 
+'["健身雕塑","武術運動","健康諮詢","美容美髮","運動"]'::jsonb),
+
+('business', '商業', '你是企業服務與設計顧問,具備視覺設計分析能力。依據空間/設計稿照片識別業態、風格、品牌需求。結合子分類「{subcategory}」列出人力服務、交付項目、周期。輸出JSON陣列格式。', 
+'["行銷服務","印刷 招牌","網頁 程式","嵌入式開發","資料輸入 校稿","紙紮諮詢","人力支援","拍照攝影","平面設計","IT相關服務","商業空間設計","音樂製作","企業補助顧問","影片製作","多媒體設計","工業設計","翻譯服務","職涯成長","公司業務支援"]'::jsonb),
+
+('other', '其他', '你是通用服務顧問,具備多領域物件識別能力。依據物件/故障照片識別類型、問題、品牌型號。結合子分類「{subcategory}」列出服務項目、零件需求、時間估算。輸出JSON陣列格式。', 
+'["3C維修","汽車 機車","代辦服務","交通運輸","服飾配件","樂器維修","手工製作"]'::jsonb)
+
+ON CONFLICT (key) DO UPDATE SET 
+  name = EXCLUDED.name,
+  prompt = EXCLUDED.prompt,
+  subcategories = EXCLUDED.subcategories,
+  updated_at = now();
+
+ALTER TABLE public.ai_categories ALTER COLUMN prompt SET DEFAULT '';
+
+SELECT key, name, jsonb_array_length(subcategories) as 子分類數 FROM public.ai_categories ORDER BY key;`;
+
+    document.getElementById('sqlScript').textContent = SQL_CONTENT;
+
+    async function checkStatus() {
+      const result = document.getElementById('statusResult');
+      result.innerHTML = '<div class="status-box status-warning">檢測中...</div>';
+      
+      try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        
+        if (data.categories && data.categories.length > 0) {
+          result.innerHTML = `<div class="status-box status-success">
+            ✔ 資料庫正常！已載入 ${data.categories.length} 筆分類<br>
+            來源: ${data.via || '未知'}<br>
+            <a href="/admin/categories.html" class="btn btn-sm btn-primary mt-2">前往管理頁面</a>
+          </div>`;
+        } else {
+          result.innerHTML = `<div class="status-box status-error">
+            ✖ 資料庫表格存在但無資料<br>
+            請執行「方案 1」手動匯入 SQL
+          </div>`;
+        }
+      } catch (e) {
+        result.innerHTML = `<div class="status-box status-error">
+          ✖ 無法連線到後端服務<br>
+          錯誤: ${e.message}
+        </div>`;
+      }
+    }
+
+    function copySQL() {
+      navigator.clipboard.writeText(SQL_CONTENT).then(() => {
+        alert('✔ SQL 已複製到剪貼簿！\n請前往 Supabase SQL Editor 貼上執行。');
+      });
+    }
+
+    function downloadSQL() {
+      const blob = new Blob([SQL_CONTENT], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'setup_categories.sql';
+      a.click();
+    }
+
+    function reloadAdmin() {
+      window.location.href = '/admin/categories.html';
+    }
+
+    async function loadLocal() {
+      const result = document.getElementById('localResult');
+      result.innerHTML = '<div class="status-box status-warning">載入中...</div>';
+      
+      try {
+        const res = await fetch('/config/default-categories.json');
+        const json = await res.json();
+        
+        if (json.categories && json.categories.length > 0) {
+          result.innerHTML = `<div class="status-box status-success">
+            ✔ 已載入 ${json.categories.length} 筆本地預設分類<br>
+            <a href="/admin/categories.html" class="btn btn-sm btn-warning mt-2">前往管理頁面（本地模式）</a>
+          </div>`;
+          
+          // 嘗試將本地資料寫入後端
+          try {
+            await fetch('/api/categories/import-default', { method: 'POST' });
+          } catch {}
+        }
+      } catch (e) {
+        result.innerHTML = `<div class="status-box status-error">
+          ✖ 本地檔案讀取失敗<br>
+          ${e.message}
+        </div>`;
+      }
+    }
+
+    // 頁面載入時自動檢測
+    window.onload = checkStatus;
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MATCHDO 分類管理</title>
+  <link href="../iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <!-- 共用後台標頭（由 admin-common.js 載入） -->
+  <div id="admin-header"></div>
+
+  <div class="container-fluid">
+    <div class="row">
+      <!-- 共用後台側欄（由 admin-common.js 載入） -->
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0">分類列表</h4>
+          <div class="btn-group">
+            <button id="addRow" class="btn btn-secondary">新增一筆</button>
+            <button id="importDefault" class="btn btn-outline-primary">一鍵匯入預設分類</button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered" id="catTable">
+            <thead class="table-light">
+              <tr>
+                <th style="width:180px;">key</th>
+                <th style="width:220px;">名稱</th>
+                <th>提示詞</th>
+                <th style="width:260px;">子分類（以逗號分隔）</th>
+                <th style="width:100px;">刪除</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <button id="saveBtn" class="btn btn-primary">儲存變更</button>
+          <span id="status" class="ms-3"></span>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    async function loadCategories() {
+      const res = await fetch('/api/categories');
+      const data = await res.json();
+      const list = Array.isArray(data.categories) ? data.categories : [];
+      const tbody = document.querySelector('#catTable tbody');
+      tbody.innerHTML = '';
+      list.forEach(cat => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="form-control" value="${cat.key || ''}" /></td>
+          <td><input class="form-control" value="${cat.name || ''}" /></td>
+          <td><textarea class="form-control" rows="3">${cat.prompt || ''}</textarea></td>
+          <td><input class="form-control" value="${Array.isArray(cat.sub) ? cat.sub.join(',') : ''}" /></td>
+          <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      if (list.length === 0) {
+        document.getElementById('status').textContent = '目前沒有分類，請新增一筆後儲存。';
+      } else {
+        document.getElementById('status').textContent = '';
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'addRow') {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="form-control" /></td>
+          <td><input class="form-control" /></td>
+          <td><textarea class="form-control" rows="3"></textarea></td>
+          <td><input class="form-control" /></td>
+          <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+        `;
+        document.querySelector('#catTable tbody').appendChild(tr);
+      }
+      if (e.target && e.target.classList.contains('del')) {
+        e.target.closest('tr').remove();
+      }
+      if (e.target && e.target.id === 'saveBtn') {
+        saveCategories();
+      }
+      if (e.target && e.target.id === 'importDefault') {
+        importDefaultCategories();
+      }
+    });
+
+    async function saveCategories() {
+      const rows = document.querySelectorAll('#catTable tbody tr');
+      const payload = [];
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const key = cells[0].querySelector('input').value.trim();
+        const name = cells[1].querySelector('input').value.trim();
+        const prompt = cells[2].querySelector('textarea').value.trim();
+        const subStr = cells[3].querySelector('input').value.trim();
+        const sub = subStr ? subStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        if (key && name) {
+          payload.push({ key, name, prompt, sub });
+        }
+      });
+      const status = document.getElementById('status');
+      status.textContent = '儲存中...';
+      try {
+        const res = await fetch('/api/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categories: payload })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          status.textContent = `✔ 已儲存（更新 ${data.count} 筆）`;
+        } else {
+          status.textContent = '✖ 儲存失敗';
+        }
+      } catch (e) {
+        status.textContent = '✖ 儲存失敗（網路錯誤）';
+      }
+    }
+
+    // 載入共用標頭與側欄
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCategories();
+    });
+
+    async function importDefaultCategories() {
+      const status = document.getElementById('status');
+      status.textContent = '匯入預設中...';
+      try {
+        const res = await fetch('/api/categories/import-default', { method: 'POST' });
+        const data = await res.json();
+        if (data && data.success) {
+          status.textContent = `✔ 已匯入預設（${data.count} 筆），重新載入中...`;
+          await loadCategories();
+        } else {
+          status.textContent = '✖ 匯入失敗';
+        }
+      } catch (e) {
+        status.textContent = '✖ 匯入失敗（網路錯誤）';
+      }
+    }
+  </script>
+  <script src="/admin/js/admin-common.js"></script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!-- 
+    MatchDO 管理員後台導航列
+    只在 /admin/ 目錄下使用
+-->
+<nav class="navbar navbar-expand-lg navbar-dark bg-danger shadow-sm sticky-top">
+    <div class="container-fluid">
+        <!-- Admin Logo -->
+        <a class="navbar-brand fw-bold" href="/admin/index.html">
+            <i class="fas fa-shield-alt me-2"></i>MatchDO 管理後台
+        </a>
+        
+        <!-- Mobile Toggle -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <!-- Admin Navigation -->
+        <div class="collapse navbar-collapse" id="adminNavigation">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/index.html">
+                        <i class="fas fa-tachometer-alt me-1"></i>控制台
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/user-management.html">
+                        <i class="fas fa-users me-1"></i>用戶管理
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/categories.html">
+                        <i class="fas fa-sitemap me-1"></i>分類管理
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/admin/category-images.html">
+                        <i class="fas fa-images me-1"></i>分類圖片
+                    </a>
+                </li>
+            </ul>
+            
+            <!-- Right Menu -->
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">
+                        <i class="fas fa-home me-1"></i>返回前台
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" onclick="handleLogout(); return false;">
+                        <i class="fas fa-sign-out-alt me-1"></i>登出
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Admin Alert Banner -->
+<div class="bg-warning text-dark py-2 text-center">
+    <small>
+        <i class="fas fa-exclamation-triangle me-1"></i>
+        <strong>管理員模式</strong> - 您正在使用系統管理功能，請謹慎操作
+    </small>
+</div>
+
+<script>
+async function handleLogout() {
+    if (!confirm('確定要登出嗎？')) return;
+    
+    try {
+        await AuthService.logout();
+        alert('✅ 已登出');
+        window.location.href = '/';
+    } catch (error) {
+        console.error('登出失敗:', error);
+        alert('❌ 登出失敗');
+    }
+}
+
+// 高亮當前頁面
+document.addEventListener('DOMContentLoaded', () => {
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('#adminNavigation .nav-link').forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>

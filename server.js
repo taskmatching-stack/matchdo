@@ -7127,6 +7127,8 @@ function serveEmbedPage(relPath, req, res, next) {
 }
 app.get('/embed/vendor-catalog.html', (req, res, next) => serveEmbedPage('vendor-catalog.html', req, res, next));
 app.get('/embed/preview.html', (req, res, next) => serveEmbedPage('preview.html', req, res, next));
+app.get('/embed/simulator.html', (req, res, next) => serveEmbedPage('simulator.html', req, res, next));
+app.get('/embed/preview-simulator.html', (req, res, next) => serveEmbedPage('preview-simulator.html', req, res, next));
 
 app.use(express.static(path.join(__dirname, 'public')));
 // 錯誤連結修正：/public/custom/* → /custom/*

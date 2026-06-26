@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MATCHDO 分類管理</title>
+  <link href="../iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <!-- 共用後台標頭（由 admin-common.js 載入） -->
+  <div id="admin-header"></div>
+
+  <div class="container-fluid">
+    <div class="row">
+      <!-- 共用後台側欄（由 admin-common.js 載入） -->
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0">分類列表</h4>
+          <div class="btn-group">
+            <button id="addRow" class="btn btn-secondary">新增一筆</button>
+            <button id="importDefault" class="btn btn-outline-primary">一鍵匯入預設分類</button>
+            <button id="checkHealth" class="btn btn-outline-info">檢查健康</button>
+          </div>
+        </div>
+
+        <div id="dataSourceIndicator" class="alert alert-info mb-3" style="display:none;">
+          <strong>數據來源：</strong><span id="dataSourceText"></span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered" id="catTable">
+            <thead class="table-light">
+              <tr>
+                <th style="width:120px;">key</th>
+                <th style="width:140px;">名稱</th>
+                <th style="width:30%;">提示詞 (Prompt)</th>
+                <th style="width:30%;">子分類 (逗號分隔)</th>
+                <th style="width:100px;">欄位設定</th>
+                <th style="width:80px;">刪除</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <button id="saveBtn" class="btn btn-primary">儲存變更</button>
+          <span id="status" class="ms-3"></span>
+        </div>
+        <div class="mt-3">
+          <details>
+            <summary>除錯資訊</summary>
+            <div class="mt-2">
+              <pre id="debugPanel" class="bg-light p-3 border" style="white-space:pre-wrap;"></pre>
+            </div>
+          </details>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 動態表單配置 Modal -->
+  <div class="modal fade" id="configModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="fas fa-tasks me-2"></i>子分類表單配置 - <span id="modalCatName"></span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="modalContent">
+            <!-- 動態生成子分類配置區 -->
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="confirmConfigBtn">完成設定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../iStudio-1.0.0/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentConfigs = {}; // 暫存目前編輯中的 sub_configs
+    let editingCatKey = null;
+
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories', { cache: 'no-store' });
+        const data = await res.json();
+        
+        console.log('API 返回數據:', data); // 除錯用
+        
+        const list = Array.isArray(data.categories) ? data.categories : [];
+        
+        console.log(`解析到 ${list.length} 筆分類`); // 除錯用
+        
+        // 顯示數據來源
+        const indicator = document.getElementById('dataSourceIndicator');
+        const sourceText = document.getElementById('dataSourceText');
+        if (data.via) {
+          indicator.style.display = 'block';
+          if (data.via === 'postgrest') {
+            indicator.className = 'alert alert-success mb-3';
+            sourceText.textContent = '✓ Supabase 資料庫（REST API）';
+          } else if (data.via === 'db-direct') {
+            indicator.className = 'alert alert-success mb-3';
+            sourceText.textContent = '✓ Supabase 資料庫（直連）';
+          } else if (data.via === 'local-fallback' || data.via === 'local-only') {
+            indicator.className = 'alert alert-warning mb-3';
+            sourceText.textContent = '⚠ 本地預設分類（資料庫連線異常）';
+          }
+        } else {
+          indicator.style.display = 'none';
+        }
+        
+        const tbody = document.querySelector('#catTable tbody');
+        tbody.innerHTML = '';
+        
+        if (list.length === 0) {
+          document.getElementById('status').textContent = '⚠ 目前沒有分類，請點選「一鍵匯入預設分類」';
+          return;
+        }
+        
+        list.forEach(cat => {
+          const tr = document.createElement('tr');
+          tr.className = 'main-category-row'; // 標記為主分類行
+          tr.dataset.config = JSON.stringify(cat.sub_configs || {});
+          // 相容 sub 與 subcategories 兩種格式
+          const subs = cat.subcategories || cat.sub || [];
+          const subsStr = Array.isArray(subs) ? subs.join(',') : '';
+          tr.innerHTML = `
+            <td><div class="fw-bold text-primary mb-1"><i class="fas fa-folder me-1"></i>${cat.key || ''}</div><input class="form-control form-control-sm d-none" value="${cat.key || ''}" /></td>
+            <td><div class="fw-bold mb-1">${cat.name || ''}</div><input class="form-control form-control-sm d-none" value="${cat.name || ''}" /></td>
+            <td><textarea class="form-control" rows="2">${cat.prompt || ''}</textarea></td>
+            <td><div class="small text-muted mb-2">${subs.length} 個子分類</div><textarea class="form-control" rows="3">${subsStr}</textarea></td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-info edit-config" title="設定子分類的專屬表單欄位">
+                <i class="fas fa-cog"></i> 設定
+              </button>
+            </td>
+            <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        
+        document.getElementById('status').textContent = `✓ 已載入 ${list.length} 筆分類`;
+      } catch (e) {
+        console.error('載入分類失敗:', e);
+        document.getElementById('status').textContent = '✖ 載入失敗：' + e.message;
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.id === 'addRow') {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="form-control" /></td>
+          <td><input class="form-control" /></td>
+          <td><textarea class="form-control" rows="3"></textarea></td>
+          <td><textarea class="form-control" rows="4"></textarea></td>
+          <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+        `;
+        document.querySelector('#catTable tbody').appendChild(tr);
+      }
+      if (e.target && e.target.classList.contains('del')) {
+        e.target.closest('tr').remove();
+      }
+      if (e.target && e.target.closest('.edit-config')) {
+        const tr = e.target.closest('tr');
+        const catName = tr.querySelectorAll('td')[1].querySelector('input').value;
+        const subsStr = tr.querySelectorAll('td')[3].querySelector('textarea').value;
+        const subList = subsStr.split(',').map(s => s.trim()).filter(Boolean);
+        const configs = JSON.parse(tr.dataset.config || '{}');
+        
+        openConfigModal(catName, subList, configs, tr);
+      }
+      if (e.target && e.target.id === 'saveBtn') {
+        saveCategories();
+      }
+      if (e.target && e.target.id === 'importDefault') {
+        importDefaultCategories();
+      }
+      if (e.target && e.target.id === 'checkHealth') {
+        checkHealth();
+      }
+    });
+
+    async function saveCategories() {
+      const rows = document.querySelectorAll('#catTable tbody tr');
+      const payload = [];
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const key = cells[0].querySelector('input').value.trim();
+        const name = cells[1].querySelector('input').value.trim();
+        const prompt = cells[2].querySelector('textarea').value.trim();
+        const subStr = cells[3].querySelector('textarea').value.trim();
+        const sub = subStr ? subStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const sub_configs = JSON.parse(row.dataset.config || '{}'); // 讀取設定好的配置
+        
+        if (key && name) {
+          payload.push({ key, name, prompt, sub, sub_configs });
+        }
+      });
+      const status = document.getElementById('status');
+      status.textContent = '儲存中...';
+      try {
+        const res = await fetch('/api/categories', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categories: payload })
+        });
+        const data = await res.json();
+        if (data && data.success) {
+          status.textContent = `✔ 已儲存（更新 ${data.count} 筆）`;
+        } else {
+          status.textContent = '✖ 儲存失敗';
+        }
+      } catch (e) {
+        status.textContent = '✖ 儲存失敗（網路錯誤）';
+      }
+    }
+
+    // 載入共用標頭與側欄
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCategories();
+    });
+
+    async function importDefaultCategories() {
+      const status = document.getElementById('status');
+      status.textContent = '匯入預設中...';
+      try {
+        const res = await fetch('/api/categories/import-default', { method: 'POST' });
+        const data = await res.json();
+        if (data && data.success) {
+          if (data.via === 'postgrest') {
+            status.textContent = `✔ 已成功匯入 ${data.count} 筆分類到資料庫 (Supabase REST)`;
+          } else if (data.via === 'db-direct') {
+            status.textContent = `✔ 已成功匯入 ${data.count} 筆分類到資料庫 (直連)`;
+          }
+          await loadCategories();
+        } else {
+          // 匯入失敗，顯示錯誤訊息
+          const msg = (data && data.error) ? data.error : '未知錯誤';
+          status.innerHTML = `✖ 匯入失敗：${msg}<br><small>${data.details || ''}</small>`;
+          if (data.via === 'local-only') {
+            status.innerHTML += '<br><span style="color:#f39c12;">⚠ 資料庫連線異常，請使用 SQL Editor 手動匯入</span>';
+            status.innerHTML += '<br><a href="#" onclick="loadFromLocal(); return false;" class="btn btn-sm btn-warning mt-2">暫時載入本地預設檔</a>';
+            showDebug('資料庫連線失敗', suggest(msg));
+          }
+        }
+      } catch (e) {
+        status.innerHTML = '✖ 匯入失敗（網路錯誤）<br><a href="#" onclick="loadFromLocal(); return false;" class="btn btn-sm btn-warning mt-2">暫時載入本地預設檔</a>';
+        showDebug('匯入失敗（網路）', e.message || String(e));
+      }
+    }
+
+    // 臨時方案：直接讀取本地預設檔案
+    async function loadFromLocal() {
+      const status = document.getElementById('status');
+      try {
+        const res = await fetch('/config/default-categories.json');
+        const json = await res.json();
+        const list = Array.isArray(json.categories) ? json.categories : [];
+        
+        const indicator = document.getElementById('dataSourceIndicator');
+        const sourceText = document.getElementById('dataSourceText');
+        indicator.style.display = 'block';
+        indicator.className = 'alert alert-warning mb-3';
+        sourceText.textContent = '⚠ 本地預設分類（僅供編輯，儲存時會嘗試寫入資料庫）';
+        
+        const tbody = document.querySelector('#catTable tbody');
+        tbody.innerHTML = '';
+        list.forEach(cat => {
+          const tr = document.createElement('tr');
+          const subs = cat.sub || [];
+          const subsStr = Array.isArray(subs) ? subs.join(',') : '';
+          tr.innerHTML = `
+            <td><input class="form-control" value="${cat.key || ''}" /></td>
+            <td><input class="form-control" value="${cat.name || ''}" /></td>
+            <td><textarea class="form-control" rows="3">${cat.prompt || ''}</textarea></td>
+            <td><textarea class="form-control" rows="4">${subsStr}</textarea></td>
+            <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        status.textContent = `✔ 已載入 ${list.length} 筆本地預設分類（請修復資料庫後再儲存）`;
+      } catch (e) {
+        status.textContent = '✖ 本地預設檔讀取失敗';
+      }
+    }
+
+    async function checkHealth() {
+      const status = document.getElementById('status');
+      status.textContent = '檢查中...';
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        status.textContent = '健康檢查完成';
+        showDebug('健康檢查', JSON.stringify(data, null, 2));
+        // 額外提示
+        if (data && data.supabase && data.supabase.error) {
+          showDebug('Supabase 錯誤提示', suggest(data.supabase.error));
+        }
+        if (data && data.db && data.db.error) {
+          showDebug('PG 直連錯誤提示', suggest(data.db.error));
+        }
+      } catch (e) {
+        status.textContent = '檢查失敗';
+        showDebug('健康檢查失敗', e.message || String(e));
+      }
+    }
+
+    function showDebug(title, details) {
+      const panel = document.getElementById('debugPanel');
+      const prev = panel.textContent ? panel.textContent + "\n\n" : '';
+      panel.textContent = prev + `[${new Date().toLocaleString()}] ${title}\n` + (typeof details === 'string' ? details : JSON.stringify(details, null, 2));
+    }
+
+    function suggest(errorText) {
+      const t = (errorText || '').toLowerCase();
+      let tips = '';
+      if (t.includes('schema cache') || t.includes('relation does not exist')) {
+        tips = `可能原因：PostgREST 尚未看到 ai_categories。\n處置：\n1) 在 Supabase SQL Editor 建表 public.ai_categories。\n2) 執行 ALTER 促使快取刷新：\n   alter table public.ai_categories alter column prompt set default '';`;
+      }
+      if (t.includes('enotfound') || t.includes('getaddrinfo')) {
+        tips += (tips ? '\n\n' : '') + `可能原因：直連 PostgreSQL DNS 解析失敗。\n處置：\n1) 測試時可忽略，改用 Supabase REST（不需直連）。\n2) 如需直連，確認 SUPABASE_DB_URL 網路/防火牆與密碼 URL encode（@→%40）。`;
+      }
+      if (!tips) tips = errorText;
+      return tips;
+    }
+  </script>
+  <script src="/admin/js/admin-common.js"></script>
+</body>
+</html>

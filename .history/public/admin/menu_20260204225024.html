@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MATCHDO 前台選單管理</title>
+  <link href="../iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="mb-0">前台選單管理</h4>
+          <button id="addRow" class="btn btn-secondary">新增一筆</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-bordered" id="menuTable">
+            <thead class="table-light">
+              <tr>
+                <th style="width:260px;">標籤</th>
+                <th>連結（href）</th>
+                <th style="width:100px;">刪除</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <button id="saveBtn" class="btn btn-primary">儲存變更</button>
+          <span id="status" class="ms-3"></span>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    async function loadMenu(){
+      const res = await fetch('/api/site-menu');
+      const data = await res.json();
+      const list = Array.isArray(data.items) ? data.items : [];
+      const tbody = document.querySelector('#menuTable tbody');
+      tbody.innerHTML = '';
+      list.forEach(it => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="form-control" value="${it.label || ''}" /></td>
+          <td><input class="form-control" value="${it.href || ''}" /></td>
+          <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('status').textContent = list.length ? '' : '目前選單為空，請新增一筆。';
+    }
+    async function saveMenu(){
+      const rows = document.querySelectorAll('#menuTable tbody tr');
+      const items = [];
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        const label = cells[0].querySelector('input').value.trim();
+        const href = cells[1].querySelector('input').value.trim();
+        if(label && href){ items.push({ label, href }); }
+      });
+      const status = document.getElementById('status');
+      status.textContent = '儲存中...';
+      try{
+        const res = await fetch('/api/site-menu', { method: 'PUT', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ items }) });
+        const data = await res.json();
+        status.textContent = (data && data.success) ? `✔ 已儲存（${data.count} 項）` : '✖ 儲存失敗';
+      }catch(e){ status.textContent = '✖ 儲存失敗（網路錯誤）'; }
+    }
+    document.addEventListener('click', (e)=>{
+      if(e.target && e.target.id === 'addRow'){
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input class="form-control" /></td>
+          <td><input class="form-control" /></td>
+          <td><button class="btn btn-sm btn-danger del">刪除</button></td>
+        `;
+        document.querySelector('#menuTable tbody').appendChild(tr);
+      }
+      if(e.target && e.target.classList.contains('del')){
+        e.target.closest('tr').remove();
+      }
+      if(e.target && e.target.id === 'saveBtn'){
+        saveMenu();
+      }
+    });
+    document.addEventListener('DOMContentLoaded', ()=>{ loadMenu(); });
+  </script>
+  <script src="/admin/js/admin-common.js"></script>
+</body>
+</html>

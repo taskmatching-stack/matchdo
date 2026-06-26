@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="utf-8">
+    <title>專案詳情 - MatchDO 合做</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+    <!-- Favicon -->
+    <link href="/iStudio-1.0.0/img/favicon.ico" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&family=Space+Grotesk&display=swap" rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="/iStudio-1.0.0/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="/iStudio-1.0.0/css/style.css" rel="stylesheet">
+
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/iStudio-1.0.0/js/site-header.js"></script>
+</head>
+
+<body>
+    <!-- 共用前台導覽 -->
+    <div id="site-header"></div>
+
+    <!-- Page Header Start -->
+    <div class="container-fluid bg-primary py-2">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="text-white mb-0">專案詳情</h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb bg-transparent mb-0">
+                        <li class="breadcrumb-item"><a class="text-white" href="/iStudio-1.0.0/index.html">首頁</a></li>
+                        <li class="breadcrumb-item"><a class="text-white" href="dashboard.html">控制台</a></li>
+                        <li class="breadcrumb-item"><a class="text-white" href="my-projects.html">我的專案</a></li>
+                        <li class="breadcrumb-item text-white active">專案詳情</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <!-- Page Header End -->
+
+    <!-- Project Detail Start -->
+    <div class="container-xxl py-3">
+        <div class="container">
+            <!-- 載入中 -->
+            <div id="loadingSection" class="text-center py-5">
+                <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                <p class="mt-3 text-muted">載入專案資料中...</p>
+            </div>
+
+            <!-- 錯誤訊息 -->
+            <div id="errorSection" class="d-none">
+                <div class="text-center py-5">
+                    <i class="fas fa-exclamation-circle fa-4x text-warning mb-4"></i>
+                    <h4 class="mb-3" id="errorMessage">載入失敗</h4>
+                    <p class="text-muted mb-4">請確認專案 ID 是否正確，或從專案列表選擇要查看的專案</p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <a href="/client/my-projects.html" class="btn btn-primary">
+                            <i class="fas fa-list me-2"></i>返回專案列表
+                        </a>
+                        <a href="/iStudio-1.0.0/index.html#ai-estimate" class="btn btn-success">
+                            <i class="fas fa-plus me-2"></i>建立新專案
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 專案內容 -->
+            <div id="projectContent" class="d-none">
+                <!-- 專案基本資訊 -->
+                <div class="row mb-4">
+                    <!-- 專案封面圖片 -->
+                    <div class="col-lg-4 mb-3">
+                        <div class="card border-0 shadow-sm">
+                            <img id="projectCoverImage" src="" class="card-img-top" alt="專案封面" style="height: 300px; object-fit: cover;">
+                            <div class="card-body">
+                                <h6 class="mb-2">封面圖片</h6>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="uploadCoverImage()">
+                                        <i class="fas fa-upload me-1"></i>上傳照片
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success" onclick="generateAICoverImage()">
+                                        <i class="fas fa-magic me-1"></i>AI 生成（20 點）
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="useDefaultImage()">
+                                        <i class="fas fa-undo me-1"></i>使用預設圖
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-8">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h2 class="mb-0" id="projectTitle">專案名稱</h2>
+                                    <span id="projectStatus" class="badge bg-primary">進行中</span>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <p class="text-muted mb-2">
+                                            <i class="fas fa-tag me-2"></i>
+                                            主分類：<span id="projectCategory">居家</span>
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="text-muted mb-2">
+                                            <i class="fas fa-calendar me-2"></i>
+                                            建立時間：<span id="projectCreated">2026-02-05</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h5 class="mb-2">專案描述</h5>
+                                    <p id="projectDescription" class="text-muted">專案描述載入中...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body p-4">
+                                <h5 class="mb-3">快速操作</h5>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary" onclick="editProject()">
+                                        <i class="fas fa-edit me-2"></i>編輯專案
+                                    </button>
+                                    <button class="btn btn-success" onclick="manageItems()">
+                                        <i class="fas fa-tasks me-2"></i>管理分包項目
+                                    </button>
+                                    <button class="btn btn-outline-danger" onclick="deleteProject()">
+                                        <i class="fas fa-trash me-2"></i>刪除專案
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分包項目與統包組合 -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h4 class="mb-0">
+                                        <i class="fas fa-boxes me-2 text-primary"></i>
+                                        分包項目管理
+                                    </h4>
+                                    <button class="btn btn-primary btn-sm" onclick="addNewItem()">
+                                        <i class="fas fa-plus me-1"></i>新增項目
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-4">
+                                <!-- 統包組合 -->
+                                <div id="packageGroupsSection">
+                                    <h5 class="mb-3">
+                                        <i class="fas fa-layer-group me-2"></i>統包組合
+                                    </h5>
+                                    <div id="packageGroupsList">
+                                        <p class="text-muted text-center py-3">尚未建立統包組合</p>
+                                    </div>
+                                </div>
+
+                                <hr class="my-4">
+
+                                <!-- 單獨分包項目 -->
+                                <div id="singleItemsSection">
+                                    <h5 class="mb-3">
+                                        <i class="fas fa-cube me-2"></i>單獨分包項目
+                                    </h5>
+                                    <div id="singleItemsList">
+                                        <p class="text-muted text-center py-3">尚未建立分包項目</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 媒合專家列表 -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3">
+                                <h4 class="mb-0">
+                                    <i class="fas fa-user-tie me-2 text-success"></i>
+                                    媒合專家列表
+                                </h4>
+                            </div>
+                            <div class="card-body p-4">
+                                <div id="matchedExpertsList">
+                                    <p class="text-muted text-center py-5">
+                                        <i class="fas fa-info-circle fa-3x mb-3 d-block"></i>
+                                        尚未開始媒合，或暫無符合的專家
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Project Detail End -->
+
+    <!-- Back to Top -->
+    <a href="#" class="btn btn-lg btn-primary btn-lg-square back-to-top"><i class="bi bi-arrow-up"></i></a>
+
+    <!-- JavaScript Libraries -->
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/wow/wow.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/easing/easing.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/waypoints/waypoints.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/owlcarousel/owl.carousel.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/isotope/isotope.pkgd.min.js"></script>
+    <script src="/iStudio-1.0.0/lib/lightbox/js/lightbox.min.js"></script>
+
+    <!-- Template Javascript -->
+    <script src="/iStudio-1.0.0/js/main.js"></script>
+    <script src="/iStudio-1.0.0/js/site-header.js"></script>
+    
+    <!-- Category Default Images -->
+    <script src="/config/category-default-images.js"></script>
+
+    <!-- Project Detail Script -->
+    <script>
+        let currentUser = null;
+        let projectId = null;
+        let projectData = null;
+
+        // 從 URL 取得專案 ID
+        function getProjectIdFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('=== Project Detail 初始化開始 ===');
+
+                // 檢查登入
+                if (!window.AuthService) {
+                    console.error('❌ AuthService 未載入！');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                currentUser = await AuthService.getCurrentUser();
+                if (!currentUser) {
+                    console.warn('⚠️ 用戶未登入');
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                // 取得專案 ID
+                projectId = getProjectIdFromUrl();
+                if (!projectId) {
+                    showError('缺少專案 ID');
+                    return;
+                }
+
+                console.log('✅ 載入專案:', projectId);
+
+                // 載入專案資料
+                await loadProjectData();
+                await loadProjectItems();
+                await loadMatchedExperts();
+
+                console.log('=== Project Detail 初始化完成 ===');
+            } catch (error) {
+                console.error('💥 初始化失敗:', error);
+                showError(error.message);
+            }
+        });
+
+        // 載入專案資料
+        async function loadProjectData() {
+            try {
+                const { data, error } = await AuthService.supabase
+                    .from('projects')
+                    .select('*')
+                    .eq('id', projectId)
+                    .eq('owner_id', currentUser.id)
+                    .single();
+
+                if (error) throw error;
+                if (!data) throw new Error('專案不存在或無權限查看');
+
+                projectData = data;
+
+                // 顯示專案資訊
+                document.getElementById('projectTitle').textContent = data.title || '未命名專案';
+                document.getElementById('projectDescription').textContent = data.description || '無描述';
+                document.getElementById('projectCreated').textContent = new Date(data.created_at).toLocaleDateString('zh-TW');
+                
+                // 狀態標籤
+                const statusBadge = document.getElementById('projectStatus');
+                const statusMap = {
+                    'open': { text: '進行中', class: 'bg-primary' },
+                    'in_progress': { text: '施工中', class: 'bg-warning' },
+                    'completed': { text: '已完成', class: 'bg-success' },
+                    'cancelled': { text: '已取消', class: 'bg-secondary' }
+                };
+                const status = statusMap[data.status] || { text: '未知', class: 'bg-secondary' };
+                statusBadge.textContent = status.text;
+                statusBadge.className = `badge ${status.class}`;
+
+                // 顯示內容區
+                document.getElementById('loadingSection').classList.add('d-none');
+                document.getElementById('projectContent').classList.remove('d-none');
+
+            } catch (error) {
+                console.error('❌ 載入專案失敗:', error);
+                throw error;
+            }
+        }
+
+        // 載入分包項目
+        async function loadProjectItems() {
+            try {
+                const { data: items, error } = await AuthService.supabase
+                    .from('project_items')
+                    .select('*')
+                    .eq('project_id', projectId)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!items || items.length === 0) {
+                    return; // 保持預設的「尚未建立」訊息
+                }
+
+                // 分組：統包組 vs 單獨項目
+                const packageGroups = {};
+                const singleItems = [];
+
+                items.forEach(item => {
+                    if (item.is_bundled && item.package_group_id) {
+                        if (!packageGroups[item.package_group_id]) {
+                            packageGroups[item.package_group_id] = {
+                                name: item.package_group || '未命名組合',
+                                items: []
+                            };
+                        }
+                        packageGroups[item.package_group_id].items.push(item);
+                    } else {
+                        singleItems.push(item);
+                    }
+                });
+
+                // 顯示統包組合
+                renderPackageGroups(packageGroups);
+
+                // 顯示單獨項目
+                renderSingleItems(singleItems);
+
+            } catch (error) {
+                console.error('❌ 載入分包項目失敗:', error);
+            }
+        }
+
+        // 渲染統包組合
+        function renderPackageGroups(groups) {
+            const container = document.getElementById('packageGroupsList');
+            
+            if (Object.keys(groups).length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-3">尚未建立統包組合</p>';
+                return;
+            }
+
+            let html = '';
+            Object.entries(groups).forEach(([groupId, group]) => {
+                html += `
+                    <div class="card mb-3 border-success">
+                        <div class="card-header bg-success bg-opacity-10">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-box-open me-2 text-success"></i>
+                                    ${group.name} (${group.items.length} 個項目)
+                                </h6>
+                                <button class="btn btn-sm btn-outline-danger" onclick="ungroupPackage('${groupId}')">
+                                    <i class="fas fa-unlink me-1"></i>解散
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                ${group.items.map(item => `
+                                    <div class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">${item.item_name}</h6>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-tag me-1"></i>${item.category_name || '未分類'}
+                                                </small>
+                                            </div>
+                                            <span class="badge bg-${getStatusColor(item.status)}">${getStatusText(item.status)}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // 渲染單獨項目
+        function renderSingleItems(items) {
+            const container = document.getElementById('singleItemsList');
+
+            if (items.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-3">尚未建立單獨分包項目</p>';
+                return;
+            }
+
+            const html = items.map(item => `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">${item.item_name}</h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-tag me-1"></i>${item.category_name || '未分類'}
+                                </small>
+                            </div>
+                            <div>
+                                <span class="badge bg-${getStatusColor(item.status)} me-2">${getStatusText(item.status)}</span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="editItem('${item.id}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        // 載入媒合專家
+        async function loadMatchedExperts() {
+            try {
+                const { data: matches, error } = await AuthService.supabase
+                    .from('matches')
+                    .select(`
+                        *,
+                        expert:expert_id (
+                            id,
+                            email,
+                            user_metadata
+                        ),
+                        listing:listing_id (
+                            id,
+                            title,
+                            description
+                        )
+                    `)
+                    .eq('project_id', projectId)
+                    .eq('status', 'active')
+                    .order('score', { ascending: false });
+
+                if (error) throw error;
+
+                if (!matches || matches.length === 0) {
+                    return; // 保持預設訊息
+                }
+
+                // 渲染專家列表
+                renderMatchedExperts(matches);
+
+            } catch (error) {
+                console.error('❌ 載入媒合專家失敗:', error);
+            }
+        }
+
+        // 渲染媒合專家
+        function renderMatchedExperts(matches) {
+            const container = document.getElementById('matchedExpertsList');
+
+            const html = matches.map(match => {
+                const expert = match.expert;
+                const listing = match.listing;
+                const score = Math.round(match.score || 0);
+
+                return `
+                    <div class="card mb-3 border-primary">
+                        <div class="card-body p-4">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5 class="mb-2">
+                                        <i class="fas fa-user-circle me-2 text-primary"></i>
+                                        ${expert?.user_metadata?.full_name || expert?.email || '未知專家'}
+                                    </h5>
+                                    <p class="text-muted mb-2">${listing?.title || '未命名服務'}</p>
+                                    <p class="mb-3">${listing?.description || ''}</p>
+                                    
+                                    <!-- 媒合分數 -->
+                                    <div class="mb-3">
+                                        <span class="me-3">
+                                            <i class="fas fa-star text-warning me-1"></i>
+                                            媒合分數：<strong>${score} 分</strong>
+                                        </span>
+                                    </div>
+
+                                    <!-- 聯絡方式（媒合成功直接顯示） -->
+                                    <div class="alert alert-info mb-0">
+                                        <h6 class="mb-2">
+                                            <i class="fas fa-phone me-2"></i>聯絡方式
+                                        </h6>
+                                        <p class="mb-1" id="contact-${match.id}">
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            載入聯絡資訊中...
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="progress mb-2" style="height: 25px;">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: ${score}%">
+                                            ${score}%
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary w-100" onclick="contactExpert('${expert.id}')">
+                                        <i class="fas fa-envelope me-2"></i>立即聯繫
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+
+            // 載入每個專家的聯絡方式
+            matches.forEach(match => {
+                if (match.expert?.id) {
+                    loadContactInfo(match.expert.id, match.id);
+                }
+            });
+        }
+
+        // 載入聯絡資訊（媒合成功直接顯示，無需解鎖）
+        async function loadContactInfo(expertId, matchId) {
+            try {
+                const { data, error } = await AuthService.supabase
+                    .from('contact_info')
+                    .select('*')
+                    .eq('user_id', expertId)
+                    .single();
+
+                if (error) throw error;
+
+                const container = document.getElementById(`contact-${matchId}`);
+                
+                if (!data) {
+                    container.innerHTML = '<small class="text-muted">該專家尚未填寫聯絡資訊</small>';
+                    return;
+                }
+
+                // 組合聯絡資訊
+                const contacts = [];
+                if (data.phone) contacts.push(`<i class="fas fa-phone me-1"></i>${data.phone}`);
+                if (data.mobile) contacts.push(`<i class="fas fa-mobile me-1"></i>${data.mobile}`);
+                if (data.line_id) contacts.push(`<i class="fab fa-line me-1"></i>${data.line_id}`);
+                if (data.email) contacts.push(`<i class="fas fa-envelope me-1"></i>${data.email}`);
+
+                if (contacts.length === 0) {
+                    container.innerHTML = '<small class="text-muted">該專家尚未填寫聯絡資訊</small>';
+                } else {
+                    container.innerHTML = contacts.map(c => `<div class="mb-1">${c}</div>`).join('');
+                }
+
+            } catch (error) {
+                console.error('❌ 載入聯絡資訊失敗:', error);
+                const container = document.getElementById(`contact-${matchId}`);
+                container.innerHTML = '<small class="text-danger">載入失敗</small>';
+            }
+        }
+
+        // 工具函數
+        function getStatusColor(status) {
+            const colors = {
+                'draft': 'secondary',
+                'published': 'primary',
+                'matched': 'success',
+                'assigned': 'info',
+                'in_progress': 'warning',
+                'completed': 'success',
+                'cancelled': 'danger'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function getStatusText(status) {
+            const texts = {
+                'draft': '草稿',
+                'published': '已發包',
+                'matched': '已媒合',
+                'assigned': '已指派',
+                'in_progress': '進行中',
+                'completed': '已完成',
+                'cancelled': '已取消'
+            };
+            return texts[status] || '未知';
+        }
+
+        function showError(message) {
+            document.getElementById('loadingSection').classList.add('d-none');
+            document.getElementById('errorSection').classList.remove('d-none');
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // 操作函數（暫時跳轉或提示）
+        function editProject() {
+            alert('編輯專案功能開發中');
+        }
+
+        function manageItems() {
+            window.location.href = `project-items.html?id=${projectId}`;
+        }
+
+        function deleteProject() {
+            if (confirm('確定要刪除此專案嗎？此操作無法復原。')) {
+                alert('刪除功能開發中');
+            }
+        }
+
+        function addNewItem() {
+            window.location.href = `project-items.html?id=${projectId}&action=new`;
+        }
+
+        function editItem(itemId) {
+            alert(`編輯項目 ${itemId} 功能開發中`);
+        }
+
+        function ungroupPackage(groupId) {
+            if (confirm('確定要解散此統包組合嗎？項目將變為單獨分包。')) {
+                alert('解散統包功能開發中');
+            }
+        }
+
+        function contactExpert(expertId) {
+            alert(`聯繫專家 ${expertId} 功能開發中（可開啟對話視窗或跳轉到訊息頁面）`);
+        }
+    </script>
+</body>
+
+</html>
