@@ -90,6 +90,7 @@ const {
 } = require('./lib/stability-fast-upscale');
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
+const embedSimulator = require('./lib/embed-simulator');
 const { registerSitemapRoutes } = require('./routes/sitemap');
 
 async function vendorAssetFileFromMulter(file) {
@@ -9483,6 +9484,12 @@ async function getPointsImageToImage() {
     return Math.max(0, parseInt(v, 10) || 20);
 }
 
+async function getPointsEmbedSimulatorGenerate() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_embed_simulator_generate');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 10);
+}
+
 // 廠商素材上傳（含 AI 標籤，預設 5 點）
 async function getPointsVendorAssetUpload() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_upload');
@@ -14782,7 +14789,7 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
 async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     const { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
-        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, asset_kind, is_public')
+        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public')
         .eq('id', prototypeAssetId)
         .maybeSingle();
     if (protoErr) throw protoErr;
@@ -15653,6 +15660,338 @@ app.get('/api/vendor-assets/:id/design-capabilities', async (req, res) => {
     } catch (e) {
         console.error('GET /api/vendor-assets/:id/design-capabilities:', e);
         return res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// --- Embed Simulator API（對齊主站 link-tree / design-capabilities / composeGeneratePromptWithReferences）---
+
+async function fetchPublicPrototypeForEmbed(manufacturerId, prototypeAssetId) {
+    const id = String(prototypeAssetId || '').trim();
+    if (!id || !manufacturerId) return null;
+    const cols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public';
+    const { data: row, error } = await supabase.from('vendor_assets').select(cols).eq('id', id).eq('manufacturer_id', manufacturerId).maybeSingle();
+    if (error || !row) return null;
+    if (normalizeVendorAssetKind(row.asset_kind) !== 'prototype') return null;
+    if (!row.is_public) return null;
+    const node = mapVendorAssetLinkTreeNode(row);
+    if (!node) return null;
+    return Object.assign({}, node, {
+        category_key: row.category_key || null,
+        subcategory_key: row.subcategory_key || null
+    });
+}
+
+async function resolveEmbedPrototypeForRequest(ctx, prototypeAssetIdParam) {
+    const bound = ctx.instance.prototype_asset_id;
+    const requested = String(prototypeAssetIdParam || bound || '').trim();
+    if (!requested) {
+        throw new embedSimulator.EmbedSimulatorError('prototype_not_found', 404, '尚未綁定主產品');
+    }
+    if (bound && String(bound) !== requested) {
+        throw new embedSimulator.EmbedSimulatorError('prototype_not_found', 404, '該款式已下架');
+    }
+    const proto = await fetchPublicPrototypeForEmbed(ctx.instance.manufacturer_id, requested);
+    if (!proto) {
+        throw new embedSimulator.EmbedSimulatorError('prototype_not_found', 404, '該款式已下架');
+    }
+    return proto;
+}
+
+async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
+    const prototypeId = proto.id;
+    const angleUrls = Array.isArray(body.prototype_angle_urls) ? body.prototype_angle_urls.slice(0, 3) : [];
+    const validUrlSet = {};
+    (proto.image_items || []).forEach(function (it) {
+        if (it && it.url) validUrlSet[String(it.url).trim()] = true;
+    });
+    if (!Object.keys(validUrlSet).length && proto.image_url) {
+        validUrlSet[String(proto.image_url).trim()] = true;
+    }
+    let angles = angleUrls.filter(function (u) { return validUrlSet[String(u || '').trim()]; });
+    if (!angles.length && proto.image_url) angles = [proto.image_url];
+
+    const linkPack = await getLinkedAssetIdsForPrototype(ctx.instance.manufacturer_id, prototypeId);
+    const linkedSet = new Set((linkPack.ids || []).map(String));
+    const materialIds = (Array.isArray(body.material_ids) ? body.material_ids : []).slice(0, 1).map(String);
+    const partIds = (Array.isArray(body.part_ids) ? body.part_ids : []).slice(0, 3).map(String);
+
+    materialIds.forEach(function (mid) {
+        if (mid && !linkedSet.has(mid)) {
+            throw new embedSimulator.EmbedSimulatorError('invalid_material', 400, '材料選項無效');
+        }
+    });
+    partIds.forEach(function (pid) {
+        if (pid && !linkedSet.has(pid)) {
+            throw new embedSimulator.EmbedSimulatorError('invalid_part', 400, '配件選項無效');
+        }
+    });
+
+    const referenceSources = [];
+    const referenceImages = [];
+    function pushRef(src, url) {
+        if (!url) return;
+        referenceSources.push(src);
+        referenceImages.push(url);
+    }
+
+    angles.forEach(function (url) {
+        pushRef({
+            intent: 'prototype',
+            vendor_asset_id: prototypeId,
+            asset_kind: 'prototype',
+            image_url: url
+        }, url);
+    });
+
+    const assetIdsToLoad = partIds.concat(materialIds).filter(Boolean);
+    let assetRows = [];
+    if (assetIdsToLoad.length) {
+        const { data: rows } = await supabase
+            .from('vendor_assets')
+            .select('id, title, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public')
+            .eq('manufacturer_id', ctx.instance.manufacturer_id)
+            .in('id', assetIdsToLoad);
+        assetRows = rows || [];
+    }
+    const byId = {};
+    assetRows.forEach(function (r) { byId[r.id] = r; });
+
+    partIds.forEach(function (pid) {
+        const r = byId[pid];
+        if (!r || !r.is_public) return;
+        const items = buildVendorAssetImageItems(r);
+        const url = r.image_url || (items[0] && items[0].url) || '';
+        pushRef({
+            intent: 'part',
+            vendor_asset_id: pid,
+            asset_kind: 'part',
+            image_url: url,
+            title: r.title || undefined
+        }, url);
+    });
+
+    materialIds.forEach(function (mid) {
+        const r = byId[mid];
+        if (!r || !r.is_public) return;
+        const items = buildVendorAssetImageItems(r);
+        const url = r.image_url || (items[0] && items[0].url) || '';
+        pushRef({
+            intent: 'material',
+            vendor_asset_id: mid,
+            asset_kind: 'material',
+            image_url: url,
+            title: r.title || undefined
+        }, url);
+    });
+
+    (Array.isArray(body.reference_sources) ? body.reference_sources : []).forEach(function (src) {
+        if (!src || src.vendor_asset_id) return;
+        const intent = src.intent || (src.pattern_intent === 'style' ? 'pattern_style' : 'pattern_print');
+        if (intent !== 'pattern_print' && intent !== 'pattern_style') return;
+        const url = (src.image_url || '').trim();
+        if (!url) return;
+        pushRef({
+            intent: intent,
+            asset_kind: 'other',
+            image_url: url,
+            pattern_intent: intent === 'pattern_style' ? 'style' : 'print'
+        }, url);
+    });
+
+    if (referenceImages.length > 8) {
+        referenceSources.length = 8;
+        referenceImages.length = 8;
+    }
+    return { referenceSources, referenceImages };
+}
+
+app.get('/api/embed/simulator/bootstrap', async (req, res) => {
+    try {
+        const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
+        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const proto = await resolveEmbedPrototypeForRequest(ctx, ctx.instance.prototype_asset_id);
+        const mfrName = ctx.manufacturer.name || '廠商';
+        res.json({
+            manufacturer: {
+                id: ctx.manufacturer.id,
+                name: mfrName,
+                logo_url: embedSimulator.manufacturerLogoFromRow(ctx.manufacturer)
+            },
+            prototype: proto,
+            prototype_asset_id: proto.id,
+            service_status: 'ok'
+        });
+    } catch (e) {
+        return embedSimulator.sendEmbedError(res, e, null);
+    }
+});
+
+app.get('/api/embed/simulator/link-tree', async (req, res) => {
+    try {
+        const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
+        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const protoId = (req.query.prototype_asset_id || ctx.instance.prototype_asset_id || '').trim();
+        await resolveEmbedPrototypeForRequest(ctx, protoId);
+        const payload = await buildPublicPrototypeLinkTree(protoId);
+        if (payload.error === 'not_found' || payload.error === 'not_public') {
+            throw new embedSimulator.EmbedSimulatorError('prototype_not_found', 404, '該款式已下架');
+        }
+        res.json({
+            linked_assets: payload.linked_assets || [],
+            material_count: payload.material_count || 0,
+            part_count: payload.part_count || 0
+        });
+    } catch (e) {
+        return embedSimulator.sendEmbedError(res, e, null);
+    }
+});
+
+app.get('/api/embed/simulator/capabilities', async (req, res) => {
+    try {
+        const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
+        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const protoId = (req.query.prototype_asset_id || ctx.instance.prototype_asset_id || '').trim();
+        await resolveEmbedPrototypeForRequest(ctx, protoId);
+        const payload = await manufacturerTaxonomy.getVendorAssetDesignCapabilities(supabase, protoId);
+        return res.json(payload);
+    } catch (e) {
+        return embedSimulator.sendEmbedError(res, e, null);
+    }
+});
+
+app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async (req, res) => {
+    let billing = null;
+    let ctx = null;
+    try {
+        const body = req.body || {};
+        ctx = await embedSimulator.resolveEmbedInstance(supabase, body.embed_id, body.sig);
+        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const proto = await resolveEmbedPrototypeForRequest(ctx, body.prototype_asset_id || ctx.instance.prototype_asset_id);
+
+        const clientIp = embedSimulator.getRequestClientIp(req);
+        embedSimulator.checkIpHourlyLimit(ctx.instance.id, clientIp, ctx.instance.rate_limit_per_ip_hour);
+        const usage = await embedSimulator.getInstanceUsageCounts(supabase, ctx.instance.id);
+        embedSimulator.assertCaps(ctx.instance, usage);
+
+        const overagePts = await getPointsEmbedSimulatorGenerate();
+        billing = await embedSimulator.resolveEmbedBilling(supabase, ctx.instance.manufacturer_id, ctx.vendorUserId, overagePts);
+
+        const refs = await buildValidatedEmbedReferencePayload(ctx, body, proto);
+        const hasRefs = refs.referenceImages.length > 0;
+        const userPrompt = (body.prompt != null ? String(body.prompt) : '').trim();
+        if (!userPrompt && !hasRefs) {
+            return res.status(400).json({ error: '請提供產品描述或參考圖', error_code: 'missing_input' });
+        }
+
+        const categoryKeys = [proto.category_key, proto.subcategory_key].filter(Boolean);
+        if (!categoryKeys.length) {
+            return res.status(400).json({ error: '主產品缺少分類設定', error_code: 'missing_category' });
+        }
+
+        const capKeys = manufacturerTaxonomy.parseJsonStringArray(body.capability_keys);
+        const capCustom = manufacturerTaxonomy.parseJsonStringArray(body.capability_custom_labels);
+        if (capKeys.length || capCustom.length) {
+            const capValid = await manufacturerTaxonomy.validateSelectedCapabilitiesForPrototype(
+                supabase, proto.id, capKeys, capCustom
+            );
+            if (!capValid.ok) {
+                return res.status(400).json({ error: capValid.error || '工藝選項無效', error_code: 'invalid_capabilities' });
+            }
+        }
+
+        const uiLang = resolveUiLocaleFromRequest(req);
+        const composed = await composeGeneratePromptWithReferences({
+            categoryKeys,
+            userPrompt,
+            useRemake: false,
+            uiLang,
+            referenceImages: hasRefs ? refs.referenceImages : [],
+            referenceSources: hasRefs ? refs.referenceSources : [],
+            selectedCapabilityKeys: body.capability_keys,
+            selectedCapabilityCustomLabels: body.capability_custom_labels
+        });
+
+        let seedNum = Math.floor(Math.random() * 2147483647);
+        let imageData = null;
+        const outputFormat = 'jpeg';
+        const fluxGenerateEndpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_generate');
+
+        if (process.env.BFL_API_KEY) {
+            try {
+                if (hasRefs) {
+                    const buffer = await generateImageWithFlux2Pro(composed.fullPrompt, composed.fluxReferenceImages, seedNum, outputFormat, {
+                        endpointUrl: fluxGenerateEndpoint
+                    });
+                    if (buffer) imageData = buffer.toString('base64');
+                } else {
+                    const buffer = await generateImageWithFlux2ProTextToImage(composed.fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint);
+                    if (buffer) imageData = buffer.toString('base64');
+                }
+            } catch (fluxErr) {
+                console.warn('embed generate FLUX failed:', fluxErr.message);
+            }
+        }
+
+        if (!imageData) {
+            throw new embedSimulator.EmbedSimulatorError('flux_error', 500, '生成失敗，請稍後再試');
+        }
+
+        const buffer = Buffer.from(imageData, 'base64');
+        const mime = 'image/jpeg';
+        let imageUrl = null;
+        try {
+            const { publicUrl } = await uploadToSupabaseStorage('custom-products', 'embed-generated', {
+                buffer,
+                mimetype: mime,
+                originalname: 'embed-' + Date.now() + '.jpg'
+            }, { ext: 'jpg', contentType: mime });
+            imageUrl = publicUrl;
+        } catch (uploadErr) {
+            console.warn('embed upload failed:', uploadErr.message);
+            imageUrl = 'data:' + mime + ';base64,' + imageData;
+        }
+
+        if (billing.billing_type === 'credit_overage' && billing.points_charged > 0) {
+            await embedSimulator.chargeVendorCredits(
+                supabase,
+                ctx.vendorUserId,
+                billing.points_charged,
+                'Embed 模擬器生圖超額'
+            );
+        }
+
+        await embedSimulator.incrementDailyUsage(supabase, ctx.instance.id);
+
+        const referrerHost = (req.headers.referer || req.headers.origin || '').trim();
+        let refHost = null;
+        if (referrerHost) {
+            try { refHost = new URL(referrerHost).host; } catch (_) { refHost = referrerHost.slice(0, 120); }
+        }
+
+        await supabase.from('vendor_embed_designs').insert({
+            embed_instance_id: ctx.instance.id,
+            manufacturer_id: ctx.instance.manufacturer_id,
+            prototype_asset_id: proto.id,
+            reference_sources: composed.fluxReferenceSources.length ? composed.fluxReferenceSources : refs.referenceSources,
+            prompt: userPrompt || null,
+            ai_generated_image_url: imageUrl,
+            generation_seed: seedNum,
+            visitor_ip_hash: embedSimulator.hashVisitorIp(clientIp),
+            embed_session_id: (body.session_id || '').trim() || null,
+            referrer_host: refHost,
+            billing_type: billing.billing_type,
+            points_charged: billing.points_charged || 0
+        });
+
+        res.json({
+            success: true,
+            imageUrl,
+            billing_type: billing.billing_type,
+            points_charged: billing.points_charged || 0
+        });
+    } catch (e) {
+        const name = ctx && ctx.manufacturer ? ctx.manufacturer.name : null;
+        return embedSimulator.sendEmbedError(res, e, name);
     }
 });
 

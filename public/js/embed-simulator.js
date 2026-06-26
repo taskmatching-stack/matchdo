@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627l';
+  const BUILD = 'embed-simulator-20260627m';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -264,11 +264,11 @@
         }, 'prototype');
       });
     }
-    state.selectedMaterials.forEach(function (id) {
-      pushVendorRef('material', state.materials.find(function (m) { return m.id === id; }), 'material');
-    });
     state.selectedParts.forEach(function (id) {
       pushVendorRef('part', state.parts.find(function (p) { return p.id === id; }), 'part');
+    });
+    state.selectedMaterials.forEach(function (id) {
+      pushVendorRef('material', state.materials.find(function (m) { return m.id === id; }), 'material');
     });
     
     UPLOAD_REF_SLOTS.forEach(function (slot) {
@@ -407,6 +407,12 @@
   }
   
   // === 初始化 ===
+  function embedErrorMessage(data, fallback) {
+    if (!data) return fallback || '操作失敗';
+    if (data.error) return data.error;
+    return fallback || '操作失敗';
+  }
+
   async function init() {
     console.log('[Embed Simulator]', BUILD);
     
@@ -425,13 +431,12 @@
     }
     
     try {
-      const res = await fetch(`/api/embed/simulator/bootstrap?embed_id=${embedId}&sig=${sig}`);
+      const res = await fetch(`/api/embed/simulator/bootstrap?embed_id=${encodeURIComponent(embedId)}&sig=${encodeURIComponent(sig)}`);
+      const data = await res.json().catch(function () { return {}; });
       if (!res.ok) {
-        const err = await res.json();
-        showError(err.error || '載入失敗');
+        showError(embedErrorMessage(data, '載入失敗'));
         return;
       }
-      const data = await res.json();
       state.manufacturer = data.manufacturer;
       renderHeader();
       await initWithPrototype(pickBootstrapPrototype(data));
@@ -631,15 +636,12 @@
     try {
       let res = await fetch('/api/embed/simulator/link-tree?embed_id=' + encodeURIComponent(embedId) +
         '&sig=' + encodeURIComponent(sig) + '&prototype_asset_id=' + encodeURIComponent(protoId));
+      const data = await res.json().catch(function () { return {}; });
       if (!res.ok) {
-        // 後端 embed API 尚未就緒時，fallback 公開 link-tree
-        res = await fetch('/api/vendor-assets/' + encodeURIComponent(protoId) + '/link-tree');
-      }
-      if (!res.ok) {
+        console.warn('[Link Tree]', embedErrorMessage(data, 'HTTP ' + res.status));
         applyLinkTreeData({ linked_assets: [] });
         return;
       }
-      const data = await res.json();
       applyLinkTreeData(data);
     } catch (e) {
       console.warn('[Link Tree Error]', e);
@@ -750,8 +752,16 @@
     }
     
     try {
-      const res = await fetch(`/api/embed/simulator/capabilities?embed_id=${embedId}&sig=${sig}&prototype_asset_id=${protoId}`);
-      const data = await res.json();
+      const res = await fetch('/api/embed/simulator/capabilities?embed_id=' + encodeURIComponent(embedId) +
+        '&sig=' + encodeURIComponent(sig) + '&prototype_asset_id=' + encodeURIComponent(protoId));
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok) {
+        console.warn('[Capabilities]', embedErrorMessage(data, 'HTTP ' + res.status));
+        state.capabilities = [];
+        state.customCapabilities = [];
+        renderCapabilities();
+        return;
+      }
       state.capabilities = data.capabilities || [];
       state.customCapabilities = data.custom_labels || [];
       
@@ -895,10 +905,17 @@
       body: JSON.stringify(payload)
     });
     
-    const data = await res.json();
+    const data = await res.json().catch(function () { return {}; });
     
     if (!res.ok) {
-      throw new Error(data.error || '生成失敗');
+      const code = data.error_code || '';
+      if (code === 'daily_cap_reached' || code === 'monthly_cap_reached' || code === 'rate_limit_ip_hour') {
+        throw new Error(data.error || '試做次數已達上限，請稍後再試');
+      }
+      if (code === 'insufficient_credits' || code === 'plan_quota_exhausted_no_credits') {
+        throw new Error(data.error || '試做暫停，請聯絡廠商');
+      }
+      throw new Error(embedErrorMessage(data, '生成失敗'));
     }
     
     showResult(data.imageUrl);
