@@ -155,41 +155,68 @@
       flex-wrap: wrap;
     }
     
-    /* === Step 內容 === */
-    .sim-proto-grid { 
-      display: grid; 
-      grid-template-columns: repeat(2, 1fr); 
-      gap: 0.75rem; 
+    /* === Step 1：主產品（同 product-tree 左側列表 + 主產品區圖格）=== */
+    .sim-proto-switcher {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      margin-bottom: 1rem;
     }
-    .sim-proto-card {
+    .sim-proto-switch-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.4rem 0.5rem;
       border: 2px solid #e2e8f0;
-      border-radius: 8px; 
-      overflow: hidden; 
-      cursor: pointer;
-      transition: all 0.15s;
+      border-radius: 8px;
       background: #fff;
-      position: relative;
-      user-select: none;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.15s;
     }
-    .sim-proto-card:hover { 
-      border-color: var(--sim-primary); 
-      transform: translateY(-2px);
-    }
-    .sim-proto-card.active { 
-      border-color: var(--sim-primary); 
-      box-shadow: 0 0 0 3px rgba(68,93,126,0.1); 
-    }
-    .sim-proto-img { 
-      width: 100%; 
-      aspect-ratio: 1; 
-      object-fit: cover; 
+    .sim-proto-switch-item:hover { border-color: var(--sim-primary); }
+    .sim-proto-switch-item.active {
+      border-color: var(--sim-primary);
       background: #f8fafc;
     }
-    .sim-proto-name { 
-      padding: 0.5rem; 
-      font-size: 0.8rem; 
-      text-align: center; 
-      background: #fff; 
+    .sim-proto-switch-thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #f1f5f9;
+    }
+    .sim-proto-switch-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #334155;
+      line-height: 1.3;
+    }
+    .sim-guide-section-heading {
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+    .sim-guide-tag {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      background: #e0f2fe;
+      color: #0369a1;
+      margin-right: 0.35rem;
+    }
+    .sim-guide-name {
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .sim-guide-tiles {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
     }
     
     .sim-material-list, .sim-part-list {
@@ -237,16 +264,6 @@
     }
     .sim-mat-item.selected .sim-mat-checkmark { display: flex; }
 
-    .sim-prototype-angle-section {
-      margin-top: 1rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid #e2e8f0;
-    }
-    .sim-angle-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.5rem;
-    }
     .sim-angle-item {
       aspect-ratio: auto;
       display: flex;
@@ -565,16 +582,13 @@
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
-        <label class="sim-label">切換主產品</label>
-        <div id="prototypeGrid" class="sim-proto-grid">
-          <!-- JS 動態填充 -->
+        <div id="prototypeSwitcher" class="sim-proto-switcher" style="display:none;"></div>
+        <div id="prototypeGuideSection" class="sim-guide-section">
+          <div class="sim-guide-section-heading" id="prototypeSectionHeading"></div>
+          <div id="prototypeTileGrid" class="sim-guide-tiles" role="list"></div>
+          <p class="sim-prompt-hint" id="prototypeStepHint">點圖選取要帶入生圖的主產品參考（<strong>藍框＋打勾＝已選</strong>，最多 3 張，與看可搭配相同）。</p>
         </div>
-        <div id="prototypeAngleSection" class="sim-prototype-angle-section" style="display:none;">
-          <label class="sim-label" id="prototypeAngleTitle">角度</label>
-          <div id="prototypeAngleGrid" class="sim-angle-grid"></div>
-          <p id="prototypeAngleHint" class="sim-prompt-hint">主產品每一張圖 = 一個角度。請勾選生圖要用的角度（<strong>藍框＋打勾＝已選</strong>），最多 3 張，與看可搭配／設計頁原型槽相同。</p>
-        </div>
-        <p class="sim-prompt-hint">上方選主產品（藍框 = 目前試做款）；下方每格為一個角度，勾選後才帶入生圖。</p>
+        <p id="prototypeEmpty" class="sim-no-data" style="display:none;">暫無主產品</p>
       </div>
       <div class="sim-step-summary" id="step1Summary">
         已選 <span id="step1SelectedName">—</span>
