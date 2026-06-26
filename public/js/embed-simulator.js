@@ -6,9 +6,9 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627c';
+  const BUILD = 'embed-simulator-20260627d';
   
-  // 訪客上傳槽（款式／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
+  // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
     { key: 'pattern_print', title: '原圖印刷', hint: 'Logo、圖稿等，原樣轉印到產品上' },
     { key: 'pattern_style', title: '風格參考', hint: '參考配色、紋理或設計風格（非 Logo 圖稿）' }
@@ -27,7 +27,7 @@
   const state = {
     manufacturer: null,
     prototypes: [],
-    selectedPrototypes: [],  // 可複選，最多 3 款（不同角度參考）
+    selectedPrototypes: [],  // 可複選，最多 3 個主產品（不同角度參考）
     materials: [],
     parts: [],
     capabilities: [],
@@ -170,8 +170,8 @@
     const items = [];
     state.selectedPrototypes.forEach(function (p) {
       items.push({
-        tag: '款式',
-        title: p.title || '款式',
+        tag: '主產品',
+        title: p.title || '主產品',
         url: p.image_url
       });
     });
@@ -185,12 +185,12 @@
     });
     
     if (!items.length) {
-      el.innerHTML = '<p class="sim-vendor-ref-hint">選擇款式後，款式圖會自動作為生圖參考。</p>';
+      el.innerHTML = '<p class="sim-vendor-ref-hint">勾選主產品後，其圖片會自動作為生圖參考。</p>';
       return;
     }
     
     el.innerHTML =
-      '<p class="sim-vendor-ref-hint">以下由步驟 1、2 選擇的廠商素材自動帶入生圖，無需重複上傳。</p>' +
+      '<p class="sim-vendor-ref-hint">以下由步驟 1、2 勾選的廠商素材自動帶入生圖，無需重複上傳。</p>' +
       '<div class="sim-vendor-ref-grid">' +
       items.map(function (it) {
         return '<div class="sim-vendor-ref-item">' +
@@ -431,25 +431,41 @@
     const grid = document.getElementById('prototypeGrid');
     
     if (!state.prototypes.length) {
-      grid.innerHTML = '<p class="sim-no-data">暫無產品款式</p>';
+      grid.innerHTML = '<p class="sim-no-data">暫無主產品</p>';
       return;
     }
     
-    grid.innerHTML = state.prototypes.map(p => `
-      <div class="sim-proto-card" data-id="${p.id}">
-        <img class="sim-proto-img" src="${p.image_url || '/img/placeholder.png'}" alt="${escapeHtml(p.title)}">
-        <i class="sim-mat-checkmark bi bi-check"></i>
-        <div class="sim-proto-name">${escapeHtml(p.title || '款式')}</div>
-      </div>
-    `).join('');
+    grid.innerHTML = state.prototypes.map(function (p) {
+      const sel = isPrototypeSelected(p.id);
+      return (
+        '<label class="sim-proto-card' + (sel ? ' selected' : '') + '" data-id="' + p.id + '">' +
+        '<input type="checkbox" class="sim-proto-cb"' + (sel ? ' checked' : '') + ' aria-label="選擇 ' + escapeHtml(p.title || '主產品') + '">' +
+        '<img class="sim-proto-img" src="' + (p.image_url || '/img/placeholder.png') + '" alt="' + escapeHtml(p.title) + '">' +
+        '<div class="sim-proto-name">' + escapeHtml(p.title || '主產品') + '</div>' +
+        '</label>'
+      );
+    }).join('');
     
-    grid.querySelectorAll('.sim-proto-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const proto = state.prototypes.find(x => x.id === card.dataset.id);
-        if (proto) togglePrototype(proto);
+    grid.querySelectorAll('.sim-proto-cb').forEach(function (cb) {
+      cb.addEventListener('change', function (e) {
+        e.stopPropagation();
+        const card = cb.closest('.sim-proto-card');
+        const proto = state.prototypes.find(function (x) { return x.id === card.dataset.id; });
+        if (!proto) return;
+        onPrototypeCheckboxChange(proto, cb.checked);
       });
     });
     
+    syncPrototypeCardUI();
+  }
+  
+  async function onPrototypeCheckboxChange(proto, wantChecked) {
+    const isSel = isPrototypeSelected(proto.id);
+    if (wantChecked && !isSel) {
+      await addPrototype(proto);
+    } else if (!wantChecked && isSel) {
+      await removePrototype(proto);
+    }
     syncPrototypeCardUI();
   }
   
@@ -463,7 +479,10 @@
   
   function syncPrototypeCardUI() {
     document.querySelectorAll('.sim-proto-card').forEach(function (el) {
-      el.classList.toggle('selected', isPrototypeSelected(el.dataset.id));
+      const sel = isPrototypeSelected(el.dataset.id);
+      el.classList.toggle('selected', sel);
+      const cb = el.querySelector('.sim-proto-cb');
+      if (cb) cb.checked = sel;
     });
   }
   
@@ -477,9 +496,9 @@
       return;
     }
     if (count === 1) {
-      el.textContent = state.selectedPrototypes[0].title || '1 款';
+      el.textContent = state.selectedPrototypes[0].title || '1 個主產品';
     } else {
-      el.textContent = count + ' 款';
+      el.textContent = count + ' 個主產品';
     }
   }
   
@@ -518,35 +537,44 @@
     loadCapabilities(proto.id);
   }
   
-  async function togglePrototype(proto) {
-    const idx = state.selectedPrototypes.findIndex(function (p) { return p.id === proto.id; });
-    const prevPrimaryId = getPrimaryPrototype() ? getPrimaryPrototype().id : null;
-    
-    if (idx >= 0) {
-      state.selectedPrototypes.splice(idx, 1);
-      if (!state.selectedPrototypes.length) {
-        hideStepsAfterPrototypeClear();
-      } else if (prevPrimaryId === proto.id) {
-        await reloadPrimaryPrototypeContext();
-      }
-    } else {
-      if (state.selectedPrototypes.length >= MAX_PROTOTYPE_SELECT) {
-        alert('最多選擇 ' + MAX_PROTOTYPE_SELECT + ' 款（可作不同角度參考）');
-        return;
-      }
-      const isFirst = !state.selectedPrototypes.length;
-      state.selectedPrototypes.push(proto);
-      if (isFirst) {
-        await onFirstPrototypeSelected(proto);
-      }
-      if (state.selectedPrototypes.length > 1 && state.prototypes.length > 1) {
-        document.getElementById('step1').classList.remove('expanded');
-      }
+  async function addPrototype(proto) {
+    if (isPrototypeSelected(proto.id)) return;
+    if (state.selectedPrototypes.length >= MAX_PROTOTYPE_SELECT) {
+      alert('最多勾選 ' + MAX_PROTOTYPE_SELECT + ' 個主產品（可作不同角度參考）');
+      return;
     }
-    
-    syncPrototypeCardUI();
+    const isFirst = !state.selectedPrototypes.length;
+    state.selectedPrototypes.push(proto);
+    if (isFirst) {
+      await onFirstPrototypeSelected(proto);
+    }
     updateStep1Summary();
     renderVendorRefSummary();
+    // 步驟 1 保持展開，方便繼續勾選
+    document.getElementById('step1').classList.add('expanded');
+  }
+  
+  async function removePrototype(proto) {
+    const idx = state.selectedPrototypes.findIndex(function (p) { return p.id === proto.id; });
+    if (idx < 0) return;
+    const wasPrimary = getPrimaryPrototype() && getPrimaryPrototype().id === proto.id;
+    state.selectedPrototypes.splice(idx, 1);
+    if (!state.selectedPrototypes.length) {
+      hideStepsAfterPrototypeClear();
+    } else if (wasPrimary) {
+      await reloadPrimaryPrototypeContext();
+    }
+    updateStep1Summary();
+    renderVendorRefSummary();
+  }
+  
+  async function togglePrototype(proto) {
+    if (isPrototypeSelected(proto.id)) {
+      await removePrototype(proto);
+    } else {
+      await addPrototype(proto);
+    }
+    syncPrototypeCardUI();
   }
   
   // === 載入材配樹 ===
@@ -759,7 +787,7 @@
     if (state.generating) return;
     
     if (!state.selectedPrototypes.length) {
-      alert('請至少選擇一款');
+      alert('請至少勾選一個主產品');
       return;
     }
     

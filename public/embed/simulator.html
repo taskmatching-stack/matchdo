@@ -169,6 +169,19 @@
       transition: all 0.15s;
       background: #fff;
       position: relative;
+      display: block;
+      margin: 0;
+    }
+    .sim-proto-cb {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 3;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: var(--sim-primary);
+      box-shadow: 0 0 0 2px #fff;
     }
     .sim-proto-card:hover { 
       border-color: var(--sim-primary); 
@@ -522,18 +535,18 @@
   <!-- 單欄容器 -->
   <div class="sim-container">
     
-    <!-- Step 1: 選款式 -->
+    <!-- Step 1: 選主產品 -->
     <div class="sim-step expanded" id="step1" data-step="prototype">
       <div class="sim-step-header" onclick="window.toggleStep(1)">
         <span class="sim-step-number">1</span>
-        <span class="sim-step-title">選擇款式（可複選）</span>
+        <span class="sim-step-title">選擇主產品（可複選）</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <div id="prototypeGrid" class="sim-proto-grid">
           <!-- JS 動態填充 -->
         </div>
-        <p class="sim-prompt-hint">可複選最多 3 款，作為不同角度參考。材料、配件與工藝以<strong>第一款</strong>為準。</p>
+        <p class="sim-prompt-hint">勾選最多 3 個主產品（例如不同角度）。材料、配件與工藝以<strong>第一個勾選的主產品</strong>為準。此步驟不會自動收起，可繼續勾選。</p>
       </div>
       <div class="sim-step-summary" id="step1Summary">
         已選 <span id="step1SelectedName">—</span>
@@ -557,7 +570,7 @@
           <label class="sim-label">配件（可複選）</label>
           <div id="partList" class="sim-part-list"></div>
         </div>
-        <p id="noMaterials" class="sim-no-data">此款式無關聯材配</p>
+        <p id="noMaterials" class="sim-no-data">此主產品無關聯材配</p>
       </div>
       <div class="sim-step-summary" id="step2Summary">
         已選 <span id="step2Count">0</span> 項
@@ -588,7 +601,7 @@
       </div>
       <div class="sim-step-body">
         <p class="sim-label" style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #64748b;">
-          款式、材料、配件已在上方選擇並自動帶入。此處僅上傳您的 Logo 圖稿或風格參考圖。
+          主產品、材料、配件已在上方選擇並自動帶入。此處僅上傳您的 Logo 圖稿或風格參考圖。
         </p>
         <div id="refSlotsContainer" class="sim-ref-slots"></div>
       </div>
@@ -606,7 +619,7 @@
       </div>
       <div class="sim-step-body">
         <textarea id="simPrompt" class="sim-prompt-textarea" placeholder="例：軍綠色，正面印白色 LOGO"></textarea>
-        <p class="sim-prompt-hint">已選款式／材配或上傳圖稿時，可簡短描述顏色、文字、位置等細節。</p>
+        <p class="sim-prompt-hint">已選主產品／材配或上傳圖稿時，可簡短描述顏色、文字、位置等細節。</p>
       </div>
     </div>
     
@@ -628,7 +641,7 @@
     <section id="resultSection" class="sim-result-section" style="display:none;">
       <div id="resultPlaceholder" class="sim-result-placeholder">
         <i class="bi bi-magic"></i>
-        <p>選擇款式與描述後<br>點擊「立即生成」查看效果</p>
+        <p>選擇主產品與描述後<br>點擊「立即生成」查看效果</p>
       </div>
       <div id="resultContent" style="display:none;">
         <img id="resultImg" class="sim-result-img" src="" alt="生成結果">
