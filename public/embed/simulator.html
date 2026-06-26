@@ -175,15 +175,9 @@
       border-color: var(--sim-primary); 
       transform: translateY(-2px);
     }
-    .sim-proto-card.selected { 
+    .sim-proto-card.active { 
       border-color: var(--sim-primary); 
       box-shadow: 0 0 0 3px rgba(68,93,126,0.1); 
-    }
-    .sim-proto-card .sim-mat-checkmark {
-      display: none;
-    }
-    .sim-proto-card.selected .sim-mat-checkmark {
-      display: flex;
     }
     .sim-proto-img { 
       width: 100%; 
@@ -571,15 +565,16 @@
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
+        <label class="sim-label">切換主產品</label>
         <div id="prototypeGrid" class="sim-proto-grid">
           <!-- JS 動態填充 -->
         </div>
         <div id="prototypeAngleSection" class="sim-prototype-angle-section" style="display:none;">
-          <label class="sim-label">請選取需要的角度</label>
+          <label class="sim-label" id="prototypeAngleTitle">角度</label>
           <div id="prototypeAngleGrid" class="sim-angle-grid"></div>
-          <p id="prototypeAngleHint" class="sim-prompt-hint">請勾選生圖要用的角度（<strong>藍框＋打勾＝已選</strong>），最多 3 張，與設計頁原型槽相同。</p>
+          <p id="prototypeAngleHint" class="sim-prompt-hint">主產品每一張圖 = 一個角度。請勾選生圖要用的角度（<strong>藍框＋打勾＝已選</strong>），最多 3 張，與看可搭配／設計頁原型槽相同。</p>
         </div>
-        <p class="sim-prompt-hint">先點選一個主產品（<strong>藍框＋打勾＝已選</strong>）。若有多張產品圖，請在下方<strong>自行勾選需要的角度</strong>。</p>
+        <p class="sim-prompt-hint">上方選主產品（藍框 = 目前試做款）；下方每格為一個角度，勾選後才帶入生圖。</p>
       </div>
       <div class="sim-step-summary" id="step1Summary">
         已選 <span id="step1SelectedName">—</span>
