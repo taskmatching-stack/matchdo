@@ -65,7 +65,15 @@ const CAPABILITY_TREE = [
     },
     {
         key: 'cap.textile', name_zh: '紡織工藝', sort: 20, children: [
-            { key: 'fabric_proc', name_zh: '布料加工', leaves: [['dyeing', '染色'], ['digital_print', '數位印花'], ['jacquard', '提花織造'], ['embroidery', '刺繡'], ['laser_fabric', '雷射雕刻布料']] },
+            { key: 'fabric_proc', name_zh: '布料加工', leaves: [
+                ['dyeing', '染色'],
+                ['digital_print', '數位印花'],
+                ['jacquard', '提花織造'],
+                ['embroidery', '刺繡', ['手繡', '傳統刺繡']],
+                ['machine_embroidery', '電繡', ['電腦刺繡', '機繡', '電腦繡']],
+                ['embroidery_3d', '立體電繡', ['3D刺繡', '立體刺繡', '泡棉繡']],
+                ['laser_fabric', '雷射雕刻布料']
+            ] },
             { key: 'sewing', name_zh: '車縫製造', leaves: [['flat_seam', '平車'], ['high_post', '高車'], ['twin_needle', '雙針車'], ['binding', '包邊'], ['piping', '滾邊']] },
             { key: 'garment', name_zh: '成衣加工', leaves: [['pattern', '打版'], ['sampling', '樣品製作'], ['garment_mfg', '成衣製造'], ['uniform', '制服製造'], ['sportswear', '運動服製造']] }
         ]

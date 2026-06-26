@@ -110,6 +110,8 @@
 
 **手工彩繪**（成品表面手繪，通用、不拆球鞋／安全帽等品類標籤）：`cap.printing.hand_paint.hand_paint` — 路徑 **印刷工藝 → 手工彩繪**；見 `docs/add-taxonomy-hand-paint.sql`。
 
+**電繡／立體電繡**（布料加工常用）：`cap.textile.fabric_proc.machine_embroidery`、`cap.textile.fabric_proc.embroidery_3d` — 路徑 **紡織與車縫 → 布料加工**；見 `docs/add-taxonomy-machine-embroidery.sql`（與既有 **刺繡** 並列，非車縫製造子項）。
+
 ### 3.3 廠商表單 UI（MT-3）
 
 ```text
