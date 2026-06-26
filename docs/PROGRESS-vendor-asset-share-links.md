@@ -170,9 +170,10 @@ function buildShareGuideUrl(item) {
 - [x] **P0** `manufacturer-materials.html` 原型卡「複製試做連結」
 - [x] **P0** 上架狀態 gating + 複製成功提示
 - [x] **P0** 列表含 `link_count` → 「複製搭配導覽連結」（有關聯才顯示）— `GET /api/me/vendor-assets`
-- [x] **P1** 抽出 `vendor-asset-share-urls.js`（materials 已引用；profile／custom-product 待改）
-- [ ] **P1** API 可選 `design_share_url` / `guide_share_url`
-- [ ] **P2** 使用者手冊 + 控制台說明一句
+- [x] **P1** 抽出 `vendor-asset-share-urls.js`；`vendor-profile`、`custom-product`、`manufacturer-materials` 已引用
+- [x] **P1** API `design_share_url` / `guide_share_url`（`GET /api/me/vendor-assets`、`GET /api/vendor-assets`）
+- [x] **P2** 使用者手冊 §8.3 + 控制台說明一句
+- [x] **P2** 編輯 modal 內試做／導覽 URL（只讀 + 複製）
 
 ---
 

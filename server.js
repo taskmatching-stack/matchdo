@@ -14934,6 +14934,34 @@ async function batchPrototypeLinkCounts(prototypeRows) {
     return out;
 }
 
+/** 廠商素材對外分享用 absolute URL（試做／導覽） */
+function buildVendorAssetAbsoluteShareUrls(item, linkCount) {
+    const base = String(BASE_URL || '').replace(/\/$/, '');
+    if (!base || !item || !item.id) return {};
+    const kind = normalizeVendorAssetKind(item.asset_kind);
+    const enc = (s) => encodeURIComponent(String(s));
+    const q = (path) => base + path;
+    if (kind === 'prototype') {
+        let designPath = '/custom-product.html?tab=product-design&prototype_asset_id=' + enc(item.id);
+        if (item.manufacturer_id) designPath += '&manufacturer_id=' + enc(item.manufacturer_id);
+        if (item.category_key) designPath += '&category_key=' + enc(item.category_key);
+        if (item.subcategory_key) designPath += '&subcategory_key=' + enc(item.subcategory_key);
+        const lc = linkCount != null ? Number(linkCount) : 0;
+        return {
+            design_share_url: q(designPath),
+            guide_share_url: lc > 0 ? q('/product-tree.html?prototype_asset_id=' + enc(item.id)) : null
+        };
+    }
+    if (kind === 'material' || kind === 'part') {
+        let designPath = '/custom-product.html?tab=product-design&vendor_asset_id=' + enc(item.id);
+        if (item.manufacturer_id) designPath += '&manufacturer_id=' + enc(item.manufacturer_id);
+        if (item.category_key) designPath += '&category_key=' + enc(item.category_key);
+        if (item.subcategory_key) designPath += '&subcategory_key=' + enc(item.subcategory_key);
+        return { design_share_url: q(designPath), guide_share_url: null };
+    }
+    return {};
+}
+
 function sortVendorAssetsWithPrototypeLinks(items, linkedIdSet, sortById) {
     if (!linkedIdSet || !linkedIdSet.size) return items;
     const linked = [];
@@ -15825,6 +15853,7 @@ app.get('/api/vendor-assets', async (req, res) => {
                 ? linkCountsByProto[r.id]
                 : { material_count: 0, part_count: 0 };
             const linkCount = protoLinkCounts.material_count + protoLinkCounts.part_count;
+            const shareUrls = buildVendorAssetAbsoluteShareUrls(r, linkCount);
             return {
                 id: r.id,
                 manufacturer_id: r.manufacturer_id,
@@ -15860,6 +15889,8 @@ app.get('/api/vendor-assets', async (req, res) => {
                 match_guide_url: kind === 'prototype'
                     ? '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id)
                     : null,
+                design_share_url: shareUrls.design_share_url || null,
+                guide_share_url: shareUrls.guide_share_url || null,
                 manufacturer_name: manufacturerNameForVendorAssetItem(mfrMap, r.manufacturer_id, contentLang),
                 manufacturer_logo_url: (() => { const m = getManufacturerFromMap(mfrMap, r.manufacturer_id); return manufacturerLogoFromRow(m); })(),
                 manufacturer_profile_url: r.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(r.manufacturer_id) : null,
@@ -15998,15 +16029,25 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         }
         mapped = mapped.map(function (item) {
             const kind = normalizeVendorAssetKind(item.asset_kind);
-            if (kind !== 'prototype') return item;
+            if (kind !== 'prototype') {
+                const shareUrlsOther = buildVendorAssetAbsoluteShareUrls(item, 0);
+                return {
+                    ...item,
+                    design_share_url: shareUrlsOther.design_share_url || null,
+                    guide_share_url: null
+                };
+            }
             const c = linkCountsByProtoMe[item.id] || { material_count: 0, part_count: 0 };
             const linkCount = c.material_count + c.part_count;
+            const shareUrls = buildVendorAssetAbsoluteShareUrls(item, linkCount);
             return {
                 ...item,
                 material_count: c.material_count,
                 part_count: c.part_count,
                 link_count: linkCount,
-                match_guide_url: '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id)
+                match_guide_url: '/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id),
+                design_share_url: shareUrls.design_share_url || null,
+                guide_share_url: shareUrls.guide_share_url || null
             };
         });
         /* 廠商後台依分頁在前端各 Tab 篩選；此處回傳完整列表，避免只取 12 筆導致原型／零件列表空白 */

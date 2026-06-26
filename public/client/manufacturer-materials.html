@@ -532,6 +532,25 @@
                             <div id="edit-prototype-links-list" class="border rounded p-2 d-flex flex-column gap-2" style="max-height:14rem;overflow-y:auto"></div>
                             <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                         </div>
+                        <div class="mb-3 d-none" id="edit-share-links-wrap">
+                            <label class="form-label fw-semibold">分享連結</label>
+                            <p class="text-muted small mb-2">可貼至官網或 LINE；訪客點連結即可用此款試做（須保持上架中）。</p>
+                            <div class="mb-2">
+                                <label class="form-label small text-muted mb-1">試做連結</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control font-monospace" id="edit-share-design-url" readonly>
+                                    <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-design">複製</button>
+                                </div>
+                            </div>
+                            <div class="mb-0 d-none" id="edit-share-guide-row">
+                                <label class="form-label small text-muted mb-1">搭配導覽連結</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" class="form-control font-monospace" id="edit-share-guide-url" readonly>
+                                    <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-guide">複製</button>
+                                </div>
+                            </div>
+                            <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用上述連結。</p>
+                        </div>
                         <div class="mb-3 d-none" id="edit-linked-prototypes-wrap">
                             <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
                             <p class="text-muted small mb-2" data-i18n="baseModels.linkedPrototypesHint">可複選適用此材料／配件的數位原型（主產品）。</p>
@@ -694,7 +713,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'asset-share-links-20260626';
+        window.__MATCHDO_MATERIALS_BUILD = 'asset-share-links-phase2-20260626';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4243,6 +4262,46 @@
                 '</ul></div>';
         }
 
+        function syncEditShareLinks(m) {
+            var wrap = document.getElementById('edit-share-links-wrap');
+            if (!wrap) return;
+            var isProto = m && normalizeKind(m.asset_kind) === 'prototype' && !isSeedVendor;
+            wrap.classList.toggle('d-none', !isProto);
+            if (!isProto) return;
+            var Share = window.VendorAssetShareUrls;
+            var item = assetItemForShare(m);
+            var designInp = document.getElementById('edit-share-design-url');
+            var guideRow = document.getElementById('edit-share-guide-row');
+            var guideInp = document.getElementById('edit-share-guide-url');
+            var unpubHint = document.getElementById('edit-share-unpublished-hint');
+            var isPub = m.is_public !== false;
+            var designUrl = (m.design_share_url && String(m.design_share_url).trim())
+                ? String(m.design_share_url).trim()
+                : (Share ? Share.buildShareDesignUrl(item) : '');
+            if (designInp) designInp.value = designUrl;
+            var lc = Share && Share.prototypeLinkCount ? Share.prototypeLinkCount(m) : (Number(m.link_count || 0));
+            var guideUrl = (m.guide_share_url && String(m.guide_share_url).trim())
+                ? String(m.guide_share_url).trim()
+                : (Share && lc > 0 ? Share.buildShareGuideUrl(item) : '');
+            if (guideRow) guideRow.classList.toggle('d-none', !(lc > 0 && guideUrl));
+            if (guideInp) guideInp.value = guideUrl;
+            if (unpubHint) unpubHint.classList.toggle('d-none', isPub);
+        }
+
+        function copyEditShareInput(inputId) {
+            var inp = document.getElementById(inputId);
+            var val = inp && inp.value ? String(inp.value).trim() : '';
+            if (!val) return;
+            var Share = window.VendorAssetShareUrls;
+            if (Share && Share.copyTextToClipboard) {
+                Share.copyTextToClipboard(val, function (ok) {
+                    showToast(ok
+                        ? tr('baseModels.copyShareDone', '已複製連結')
+                        : tr('baseModels.copyShareFailed', '複製失敗，請手動複製'), ok ? 'success' : 'danger');
+                });
+            }
+        }
+
         function bindShareLinkCopyButtons(scope) {
             if (!scope || !window.VendorAssetShareUrls) return;
             var Share = window.VendorAssetShareUrls;
@@ -5005,6 +5064,7 @@
             if (protoLinksWrap) protoLinksWrap.classList.add('d-none');
             if (linkedProtosWrap) linkedProtosWrap.classList.add('d-none');
             loadEditPrototypeLinks(id);
+            syncEditShareLinks(m);
             populateEditTaxonomyFields(m);
             return true;
         }
@@ -5023,6 +5083,14 @@
             toggleEditImageOptions(hasFile && !isPrototype);
         }
         document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
+        var btnEditCopyShareDesign = document.getElementById('btn-edit-copy-share-design');
+        if (btnEditCopyShareDesign) {
+            btnEditCopyShareDesign.addEventListener('click', function () { copyEditShareInput('edit-share-design-url'); });
+        }
+        var btnEditCopyShareGuide = document.getElementById('btn-edit-copy-share-guide');
+        if (btnEditCopyShareGuide) {
+            btnEditCopyShareGuide.addEventListener('click', function () { copyEditShareInput('edit-share-guide-url'); });
+        }
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
         bindEditGalleryUpload();

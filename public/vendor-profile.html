@@ -264,6 +264,7 @@
     <script src="/config/auth-config.js"></script>
     <script src="/js/area-codes.js"></script>
     <script src="/js/i18n.js"></script>
+    <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/site-header.js"></script>
     <script src="/js/site-footer.js"></script>
     <script src="/js/offset-list-pager.js"></script>
@@ -854,11 +855,17 @@
         }
 
         function buildVendorAssetDesignUrl(item) {
+            var Share = window.VendorAssetShareUrls;
             if (!item || !item.id) return '/custom-product.html?tab=product-design';
-            var mfrId = item.manufacturer_id || _vendorProfileMfrId || '';
+            var enriched = Object.assign({}, item, {
+                manufacturer_id: item.manufacturer_id || _vendorProfileMfrId || ''
+            });
+            if (Share && Share.buildShareDesignPath) {
+                return Share.buildShareDesignPath(enriched, { vendorName: _vendorProfileMfrName || '' });
+            }
             var kind = item.asset_kind || 'prototype';
             var url = '/custom-product.html?tab=product-design';
-            if (mfrId) url += '&manufacturer_id=' + encodeURIComponent(mfrId);
+            if (enriched.manufacturer_id) url += '&manufacturer_id=' + encodeURIComponent(enriched.manufacturer_id);
             if (_vendorProfileMfrName) url += '&vendor_name=' + encodeURIComponent(_vendorProfileMfrName);
             if (kind === 'prototype') {
                 url += '&prototype_asset_id=' + encodeURIComponent(item.id);
@@ -871,9 +878,13 @@
         }
 
         function buildVendorAssetGuideUrl(item) {
+            var Share = window.VendorAssetShareUrls;
             if (!item || item.asset_kind !== 'prototype') return '';
-            var lc = item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0));
+            var lc = Share && Share.prototypeLinkCount
+                ? Share.prototypeLinkCount(item)
+                : (item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0)));
             if (!lc) return '';
+            if (Share && Share.buildShareGuidePath) return Share.buildShareGuidePath(item);
             return item.match_guide_url || ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id));
         }
 

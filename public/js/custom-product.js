@@ -3136,6 +3136,8 @@ $(document).ready(function () {
 
     function buildVendorStyleDesignUrl(item) {
         if (!item || !item.id) return '/custom-product.html?tab=product-design';
+        var Share = window.VendorAssetShareUrls;
+        if (Share && Share.buildShareDesignPath) return Share.buildShareDesignPath(item);
         var url = '/custom-product.html?tab=product-design&prototype_asset_id=' + encodeURIComponent(item.id);
         if (item.manufacturer_id) url += '&manufacturer_id=' + encodeURIComponent(item.manufacturer_id);
         if (item.category_key) url += '&category_key=' + encodeURIComponent(item.category_key);
@@ -3167,7 +3169,13 @@ $(document).ready(function () {
         var profileUrl = (item.manufacturer_profile_url || '#').replace(/"/g, '&quot;');
         var designUrl = buildVendorStyleDesignUrl(item).replace(/"/g, '&quot;');
         var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
-        var guideUrl = (item.match_guide_url || ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo)).replace(/"/g, '&quot;');
+        var guidePath = '';
+        if (window.VendorAssetShareUrls && window.VendorAssetShareUrls.buildShareGuidePath) {
+            guidePath = window.VendorAssetShareUrls.buildShareGuidePath(item, { returnTo: '/custom-product.html?tab=product-design' });
+        }
+        var guideUrl = (guidePath || (item.match_guide_url
+            ? (item.match_guide_url + (item.match_guide_url.indexOf('return_to=') >= 0 ? '' : ('&return_to=' + returnTo)))
+            : ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo))).replace(/"/g, '&quot;');
         var selectLbl = (t('browseStyles.selectForDesign') || '用此款進行設計').replace(/</g, '&lt;');
         var guideLbl = (t('browseStyles.viewMatchGuide') || '看可搭配').replace(/</g, '&lt;');
         var linkCount = item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0));
