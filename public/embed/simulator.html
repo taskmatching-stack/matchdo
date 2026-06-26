@@ -374,6 +374,97 @@
       background: var(--sim-primary);
       color: #fff;
     }
+    
+    /* === 參考圖槽位 === */
+    .sim-ref-slots {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .sim-ref-slot {
+      border: 1px solid var(--sim-border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      background: #fafbfc;
+    }
+    .sim-ref-slot-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .sim-ref-slot-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--sim-dark);
+    }
+    .sim-ref-slot-hint {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+    .sim-ref-slot-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .sim-ref-upload {
+      aspect-ratio: 1;
+      border: 2px dashed #cbd5e1;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      overflow: hidden;
+      background: #fff;
+    }
+    .sim-ref-upload:hover {
+      border-color: var(--sim-primary);
+      background: #f8fafc;
+    }
+    .sim-ref-upload-icon {
+      font-size: 1.5rem;
+      color: #94a3b8;
+    }
+    .sim-ref-upload input[type="file"] {
+      display: none;
+    }
+    .sim-ref-thumb {
+      aspect-ratio: 1;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      background: #f8fafc;
+    }
+    .sim-ref-thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .sim-ref-thumb-remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: background 0.15s;
+    }
+    .sim-ref-thumb-remove:hover {
+      background: rgba(220, 38, 38, 0.9);
+    }
   </style>
 </head>
 <body>
@@ -440,6 +531,24 @@
       </div>
       <div class="sim-step-summary" id="step3Summary">
         已選 <span id="step3Count">0</span> 項
+      </div>
+    </div>
+    
+    <!-- Step 3.5: 參考圖 -->
+    <div class="sim-step" id="stepRef" data-step="references">
+      <div class="sim-step-header" onclick="window.toggleStep('ref')">
+        <span class="sim-step-number">📎</span>
+        <span class="sim-step-title">參考圖（選填）</span>
+        <i class="bi bi-chevron-down sim-step-chevron"></i>
+      </div>
+      <div class="sim-step-body">
+        <p class="sim-label" style="margin-bottom: 0.75rem; font-size: 0.75rem; color: #64748b;">
+          依用途上傳，每類最多 3 張，總計最多 8 張
+        </p>
+        <div id="refSlotsContainer" class="sim-ref-slots"></div>
+      </div>
+      <div class="sim-step-summary" id="stepRefSummary">
+        已上傳 <span id="stepRefCount">0</span> 張
       </div>
     </div>
     

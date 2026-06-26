@@ -25,10 +25,27 @@
     selectedMaterials: [],  // 單選，最多 1 項
     selectedParts: [],      // 可複選
     selectedCapabilities: [],
+    refImages: {},          // { prototype: [], material: [], part: [], pattern_print: [], pattern_style: [] }
     prompt: '',
     generating: false,
     sessionId: getOrCreateSessionId()
   };
+  
+  // === 參考圖槽位定義 ===
+  const MAX_REF_IMAGES_TOTAL = 8;
+  const MAX_REF_IMAGES_PER_SLOT = 3;
+  const REF_SLOTS = [
+    { key: 'prototype', title: '主體原型', hint: '幾何結構與尺寸' },
+    { key: 'material', title: '主體材料', hint: '表面面料、皮革' },
+    { key: 'part', title: '配件／零件', hint: '五金、拉鍊、掛繩' },
+    { key: 'pattern_print', title: '原圖印刷', hint: '圖稿原樣轉印' },
+    { key: 'pattern_style', title: '風格參考', hint: '參考風格設計表面' }
+  ];
+  
+  // 初始化參考圖狀態
+  REF_SLOTS.forEach(slot => {
+    state.refImages[slot.key] = [];
+  });
   
   // === 假資料（測試用）===
   const MOCK_DATA = {
@@ -113,9 +130,132 @@
     return sid;
   }
   
+  // === 渲染參考圖槽位 ===
+  function renderRefSlots() {
+    const container = document.getElementById('refSlotsContainer');
+    
+    container.innerHTML = REF_SLOTS.map(slot => `
+      <div class="sim-ref-slot" data-slot="${slot.key}">
+        <div class="sim-ref-slot-header">
+          <span class="sim-ref-slot-title">${escapeHtml(slot.title)}</span>
+          <span style="font-size: 0.7rem; color: #94a3b8;">
+            ${state.refImages[slot.key].length}/${MAX_REF_IMAGES_PER_SLOT}
+          </span>
+        </div>
+        <div class="sim-ref-slot-hint">${escapeHtml(slot.hint)}</div>
+        <div class="sim-ref-slot-grid" id="refSlot_${slot.key}"></div>
+      </div>
+    `).join('');
+    
+    // 渲染每個槽位的內容
+    REF_SLOTS.forEach(slot => {
+      renderRefSlotContent(slot.key);
+    });
+  }
+  
+  function renderRefSlotContent(slotKey) {
+    const grid = document.getElementById(`refSlot_${slotKey}`);
+    if (!grid) return;
+    
+    const images = state.refImages[slotKey] || [];
+    const canAddMore = images.length < MAX_REF_IMAGES_PER_SLOT && countTotalRefImages() < MAX_REF_IMAGES_TOTAL;
+    
+    let html = '';
+    
+    // 已上傳的圖片
+    images.forEach((img, idx) => {
+      html += `
+        <div class="sim-ref-thumb">
+          <img class="sim-ref-thumb-img" src="${img.url}" alt="">
+          <button class="sim-ref-thumb-remove" onclick="window.removeRefImage('${slotKey}', ${idx})">
+            <i class="bi bi-x"></i>
+          </button>
+        </div>
+      `;
+    });
+    
+    // 上傳按鈕
+    if (canAddMore) {
+      html += `
+        <label class="sim-ref-upload">
+          <input type="file" accept="image/*" onchange="window.handleRefUpload(event, '${slotKey}')">
+          <i class="bi bi-plus-lg sim-ref-upload-icon"></i>
+        </label>
+      `;
+    }
+    
+    grid.innerHTML = html;
+    
+    // 更新槽位計數
+    const slotEl = document.querySelector(`[data-slot="${slotKey}"] .sim-ref-slot-header span:last-child`);
+    if (slotEl) {
+      slotEl.textContent = `${images.length}/${MAX_REF_IMAGES_PER_SLOT}`;
+    }
+    
+    updateRefSummary();
+  }
+  
+  function countTotalRefImages() {
+    let total = 0;
+    REF_SLOTS.forEach(slot => {
+      total += (state.refImages[slot.key] || []).length;
+    });
+    return total;
+  }
+  
+  function updateRefSummary() {
+    const total = countTotalRefImages();
+    document.getElementById('stepRefCount').textContent = total;
+    document.getElementById('stepRef').classList.toggle('has-selection', total > 0);
+  }
+  
+  // === 處理參考圖上傳 ===
+  async function handleRefUpload(event, slotKey) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // 檢查總數限制
+    if (countTotalRefImages() >= MAX_REF_IMAGES_TOTAL) {
+      alert(`最多上傳 ${MAX_REF_IMAGES_TOTAL} 張參考圖`);
+      return;
+    }
+    
+    // 檢查單槽限制
+    if (state.refImages[slotKey].length >= MAX_REF_IMAGES_PER_SLOT) {
+      alert(`此類別最多 ${MAX_REF_IMAGES_PER_SLOT} 張`);
+      return;
+    }
+    
+    try {
+      // 讀取圖片為 DataURL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        state.refImages[slotKey].push({
+          url: e.target.result,
+          file: file
+        });
+        renderRefSlotContent(slotKey);
+      };
+      reader.readAsDataURL(file);
+    } catch (e) {
+      console.error('[Upload Error]', e);
+      alert('上傳失敗，請重試');
+    }
+  }
+  
+  // === 移除參考圖 ===
+  function removeRefImage(slotKey, index) {
+    if (!state.refImages[slotKey]) return;
+    state.refImages[slotKey].splice(index, 1);
+    renderRefSlotContent(slotKey);
+  }
+  
   // === 初始化 ===
   async function init() {
     console.log('[Embed Simulator]', BUILD);
+    
+    // 渲染參考圖槽位
+    renderRefSlots();
     
     if (useMockData) {
       console.log('[Mock Mode] 使用假資料');
@@ -438,6 +578,18 @@
   
   // === 真實生成 ===
   async function realGenerate() {
+    // 準備參考圖（轉成 base64 或 URL）
+    const refImagesPayload = {};
+    REF_SLOTS.forEach(slot => {
+      const images = state.refImages[slot.key] || [];
+      if (images.length > 0) {
+        refImagesPayload[slot.key] = images.map(img => ({
+          url: img.url,  // DataURL (base64)
+          filename: img.file ? img.file.name : 'image.jpg'
+        }));
+      }
+    });
+    
     const payload = {
       embed_id: embedId,
       sig: sig,
@@ -445,6 +597,7 @@
       material_ids: state.selectedMaterials,
       part_ids: state.selectedParts,
       capability_keys: state.selectedCapabilities,
+      ref_images: refImagesPayload,
       prompt: state.prompt,
       session_id: state.sessionId
     };
@@ -506,7 +659,7 @@
   
   // === 切換 Step 展開／收起 ===
   function toggleStep(stepNum) {
-    const step = document.getElementById(`step${stepNum}`);
+    const step = document.getElementById(stepNum === 'ref' ? 'stepRef' : `step${stepNum}`);
     if (step) {
       step.classList.toggle('expanded');
     }
@@ -534,6 +687,8 @@
   window.toggleStep = toggleStep;
   window.handleGenerate = handleGenerate;
   window.handleRegenerate = handleRegenerate;
+  window.handleRefUpload = handleRefUpload;
+  window.removeRefImage = removeRefImage;
   
   // === 啟動 ===
   if (document.readyState === 'loading') {

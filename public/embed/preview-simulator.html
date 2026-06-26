@@ -28,10 +28,30 @@
       margin-bottom: 1rem;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
+    .info.collapsed {
+      padding: 0.5rem 1rem;
+    }
+    .info.collapsed .info-content {
+      display: none;
+    }
     .info h2 {
       font-size: 1rem;
       color: #445D7E;
       margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+    .info.collapsed h2 {
+      margin-bottom: 0;
+    }
+    .info h2 .toggle-icon {
+      transition: transform 0.2s;
+    }
+    .info.collapsed h2 .toggle-icon {
+      transform: rotate(180deg);
     }
     .info p {
       font-size: 0.85rem;
@@ -67,19 +87,25 @@
   <div class="preview-container">
     <h1>🎨 嵌入式模擬器 - 預覽測試</h1>
     
-    <div class="info">
-      <h2>📌 測試說明</h2>
-      <p>此頁面模擬廠商網站嵌入 iframe 的效果。</p>
-      <p><strong>測試模式：</strong>使用假資料 <code>?mock=1</code></p>
-      <p><strong>真實模式：</strong>需要後端 API（Phase B 完成後）</p>
-      <p><strong>功能測試：</strong></p>
-      <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-        <li>選擇款式（4 款包包）</li>
-        <li>選擇材料（單選）+ 配件（複選）</li>
-        <li>勾選工藝（刺繡、絲印、燙金、雷射）</li>
-        <li>輸入描述 → 點擊「立即生成」</li>
-        <li>查看模擬成圖（3 秒延遲）</li>
-      </ul>
+    <div class="info collapsed">
+      <h2 onclick="this.parentElement.classList.toggle('collapsed')">
+        <span>📌 測試說明</span>
+        <span class="toggle-icon">▼</span>
+      </h2>
+      <div class="info-content">
+        <p>此頁面模擬廠商網站嵌入 iframe 的效果。</p>
+        <p><strong>測試模式：</strong>使用假資料 <code>?mock=1</code></p>
+        <p><strong>真實模式：</strong>需要後端 API（Phase B 完成後）</p>
+        <p><strong>功能測試：</strong></p>
+        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+          <li>選擇款式（4 款包包）</li>
+          <li>選擇材料（單選）+ 配件（複選）</li>
+          <li>勾選工藝（刺繡、絲印、燙金、雷射）</li>
+          <li>輸入參考圖（5 個槽位）</li>
+          <li>輸入描述 → 點擊「立即生成」</li>
+          <li>查看模擬成圖（3 秒延遲）</li>
+        </ul>
+      </div>
     </div>
     
     <div class="iframe-wrapper">
