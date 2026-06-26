@@ -25,6 +25,7 @@
     selectedMaterials: [],  // 單選，最多 1 項
     selectedParts: [],      // 可複選
     selectedCapabilities: [],
+    selectedCustomCapabilities: [],
     refImages: {},          // { prototype: [], material: [], part: [], pattern_print: [], pattern_style: [] }
     prompt: '',
     generating: false,
@@ -117,7 +118,8 @@
       { key: 'printing', label: '絲印' },
       { key: 'hot_stamping', label: '燙金' },
       { key: 'laser', label: '雷射雕刻' }
-    ]
+    ],
+    customCapabilities: []
   };
   
   // === Session ID ===
@@ -486,8 +488,8 @@
   // === 載入工藝選項 ===
   async function loadCapabilities(protoId) {
     if (useMockData) {
-      // Mock 資料
       state.capabilities = MOCK_DATA.capabilities;
+      state.customCapabilities = MOCK_DATA.customCapabilities || [];
       renderCapabilities();
       return;
     }
@@ -496,6 +498,7 @@
       const res = await fetch(`/api/embed/simulator/capabilities?embed_id=${embedId}&sig=${sig}&prototype_asset_id=${protoId}`);
       const data = await res.json();
       state.capabilities = data.capabilities || [];
+      state.customCapabilities = data.custom_labels || [];
       
       renderCapabilities();
     } catch (e) {
@@ -503,40 +506,69 @@
     }
   }
   
-  // === Step 3: 工藝渲染 ===
+  // === Step 3: 工藝渲染（預設全選，同 custom-product.html）===
   function renderCapabilities() {
-    if (!state.capabilities.length) return;
+    const caps = state.capabilities || [];
+    const customs = state.customCapabilities || [];
+    if (!caps.length && !customs.length) {
+      document.getElementById('step3').style.display = 'none';
+      state.selectedCapabilities = [];
+      state.selectedCustomCapabilities = [];
+      return;
+    }
     
     const step3 = document.getElementById('step3');
     step3.style.display = '';
     
+    // 預設全選
+    state.selectedCapabilities = caps.map(c => c.key).filter(Boolean);
+    state.selectedCustomCapabilities = customs.map(c => c.label).filter(Boolean);
+    
     const options = document.getElementById('capabilityOptions');
-    options.innerHTML = state.capabilities.map(c => `
+    let html = caps.map(c => `
       <label class="sim-cap-checkbox">
-        <input type="checkbox" value="${c.key}">
-        <span>${escapeHtml(c.label)}</span>
+        <input type="checkbox" value="${escapeHtml(c.key)}" checked>
+        <span>${escapeHtml(c.label || c.key)}</span>
       </label>
     `).join('');
     
-    // 綁定變更事件
+    html += customs.map(c => `
+      <label class="sim-cap-checkbox">
+        <input type="checkbox" value="custom:${escapeHtml(c.label)}" data-custom="1" checked>
+        <span>${escapeHtml(c.label)} <span style="color:#94a3b8;font-size:0.75rem">(自填)</span></span>
+      </label>
+    `).join('');
+    
+    options.innerHTML = html;
+    
     options.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-      cb.addEventListener('change', () => {
-        toggleCapability(cb.value);
-      });
+      cb.addEventListener('change', () => syncCapabilitiesFromDom());
     });
+    
+    updateCapabilitySummary();
   }
   
-  // === 切換工藝 ===
-  function toggleCapability(key) {
-    const idx = state.selectedCapabilities.indexOf(key);
-    if (idx >= 0) {
-      state.selectedCapabilities.splice(idx, 1);
-    } else {
-      state.selectedCapabilities.push(key);
-    }
-    
-    document.getElementById('step3Count').textContent = state.selectedCapabilities.length;
-    document.getElementById('step3').classList.toggle('has-selection', state.selectedCapabilities.length > 0);
+  function syncCapabilitiesFromDom() {
+    const keys = [];
+    const customs = [];
+    document.querySelectorAll('#capabilityOptions input[type="checkbox"]').forEach(cb => {
+      if (!cb.checked) return;
+      if (cb.dataset.custom === '1') {
+        const lbl = cb.value.replace(/^custom:/, '');
+        if (lbl) customs.push(lbl);
+      } else if (cb.value) {
+        keys.push(cb.value);
+      }
+    });
+    state.selectedCapabilities = keys;
+    state.selectedCustomCapabilities = customs;
+    updateCapabilitySummary();
+  }
+  
+  function updateCapabilitySummary() {
+    const count = state.selectedCapabilities.length + (state.selectedCustomCapabilities || []).length;
+    document.getElementById('step3Count').textContent = count;
+    document.getElementById('step3').classList.toggle('has-selection', count > 0);
   }
   
   // === Step 5: 生成 ===
@@ -597,6 +629,7 @@
       material_ids: state.selectedMaterials,
       part_ids: state.selectedParts,
       capability_keys: state.selectedCapabilities,
+      capability_custom_labels: state.selectedCustomCapabilities || [],
       ref_images: refImagesPayload,
       prompt: state.prompt,
       session_id: state.sessionId
