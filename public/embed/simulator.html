@@ -242,6 +242,40 @@
       font-size: 0.7rem;
     }
     .sim-mat-item.selected .sim-mat-checkmark { display: flex; }
+
+    .sim-prototype-angle-section {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #e2e8f0;
+    }
+    .sim-angle-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .sim-angle-item {
+      aspect-ratio: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding-bottom: 0.25rem;
+      background: #fff;
+    }
+    .sim-angle-item .sim-mat-img {
+      aspect-ratio: 1;
+      height: auto;
+      flex-shrink: 0;
+    }
+    .sim-angle-label {
+      font-size: 0.65rem;
+      color: #64748b;
+      text-align: center;
+      padding: 0.25rem 0.15rem 0;
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     
     .sim-cap-options { 
       display: flex; 
@@ -533,14 +567,19 @@
     <div class="sim-step expanded" id="step1" data-step="prototype">
       <div class="sim-step-header" onclick="window.toggleStep(1)">
         <span class="sim-step-number">1</span>
-        <span class="sim-step-title">選擇主產品（可複選）</span>
+        <span class="sim-step-title">選擇主產品</span>
         <i class="bi bi-chevron-down sim-step-chevron"></i>
       </div>
       <div class="sim-step-body">
         <div id="prototypeGrid" class="sim-proto-grid">
           <!-- JS 動態填充 -->
         </div>
-        <p class="sim-prompt-hint">點擊卡片選取／取消（<strong>藍框＋打勾＝已選</strong>），最多 3 個主產品。材料、配件與工藝以<strong>第一個選取的主產品</strong>為準。</p>
+        <div id="prototypeAngleSection" class="sim-prototype-angle-section" style="display:none;">
+          <label class="sim-label">請選取需要的角度</label>
+          <div id="prototypeAngleGrid" class="sim-angle-grid"></div>
+          <p id="prototypeAngleHint" class="sim-prompt-hint">請勾選生圖要用的角度（<strong>藍框＋打勾＝已選</strong>），最多 3 張，與設計頁原型槽相同。</p>
+        </div>
+        <p class="sim-prompt-hint">先點選一個主產品（<strong>藍框＋打勾＝已選</strong>）。若有多張產品圖，請在下方<strong>自行勾選需要的角度</strong>。</p>
       </div>
       <div class="sim-step-summary" id="step1Summary">
         已選 <span id="step1SelectedName">—</span>
