@@ -1,12 +1,22 @@
 # Embed Simulator 功能串接實作計畫（2026-06-27）
 
-> **前端狀態**：Phase C 完成（`simulator.html` + `embed-simulator.js`，Mock 模式可測）  
-> **後端狀態**：尚未實作  
+> **前端狀態**：Phase C 完成（`simulator.html` + `embed-simulator.js`，已串 API；`?mock=1` 可本機測 UI）  
+> **後端狀態**：Phase B 完成（bootstrap / link-tree / capabilities / generate + `lib/embed-simulator.js`）  
+> **廠商後台**：素材頁主產品編輯窗「② iframe」已接 `GET/POST /api/me/embed-simulator-instances`  
 > **規格母本**：[`PROGRESS-vendor-embed-simulator.md`](PROGRESS-vendor-embed-simulator.md)
 
 ---
 
 ## 0. 串接總覽
+
+### 0.1 計費分界（必讀）
+
+| 入口 | API | 扣誰 |
+|------|-----|------|
+| iframe 訪客生圖 | `POST /api/embed/simulator/generate` | **廠商**（embed 月池 → 超額 10 點） |
+| 主站設計頁生圖 | `POST /api/generate-product-image` | **訪客**（登入後文生圖／圖生圖點數） |
+
+iframe **只允許**實例綁定的**一款主產品**；主站試做連結可進全站流程。兩者**不統一計費**。
 
 ```mermaid
 sequenceDiagram
@@ -18,8 +28,8 @@ sequenceDiagram
 
   V->>F: 開頁 embed_id + sig
   F->>B: GET bootstrap
-  B->>DB: 驗簽 + 查實例 + 查原型列表
-  B-->>F: manufacturer + prototypes + status
+  B->>DB: 驗簽 + 查實例 + 查綁定主產品
+  B-->>F: manufacturer + prototype + status
 
   F->>B: GET link-tree（選款後）
   B-->>F: materials + parts
@@ -43,8 +53,8 @@ sequenceDiagram
 
 | 前端動作 | 現況（Mock） | 串接後 API | 備註 |
 |----------|-------------|-----------|------|
-| 初始化 | `?mock=1` 假資料 | `GET /api/embed/simulator/bootstrap` | 回傳廠商 + 公開原型列表 |
-| 選款後載材配 | 假 3 材料 + 3 配件 | `GET /api/embed/simulator/link-tree` | 包裝現有 `/api/vendor-assets/:id/link-tree` |
+| 初始化 | `?mock=1` 假資料 | `GET /api/embed/simulator/bootstrap` | 回傳廠商 + **綁定的一款** `prototype` |
+| 選款後載材配 | 假 3 材料 + 3 配件 | `GET /api/embed/simulator/link-tree` | `linked_assets[]` |
 | 選款後載工藝 | 假 4 工藝 | `GET /api/embed/simulator/capabilities` | 包裝 `/api/vendor-assets/:id/design-capabilities` |
 | 生成 | 3 秒假圖 | `POST /api/embed/simulator/generate` | 見 §4 |
 | 參考圖 | DataURL 本機上傳 | 同 POST body `ref_images` | 後端轉成 `referenceImages` + `referenceSources` |
@@ -54,30 +64,21 @@ sequenceDiagram
 
 | 類型 | 怎麼選 | UI 位置 |
 |------|--------|---------|
-| **款式（原型）** | 步驟 1 **複選**廠商數位版型（最多 3 款，不同角度） | 自動帶入 Step 2「廠商來源」摘要 |
-| **材料** | 步驟 2 從 link-tree 關聯列表單選 | 同上 |
+| **主產品（綁定款）** | iframe **不可換款**；`image_items` 每張＝角度，最多 3 張（連動組邏輯同主站） | Step 1 |
+| **材料** | 步驟 2 從 link-tree 關聯列表單選 | Step 2「廠商來源」摘要 |
 | **配件** | 步驟 2 從 link-tree 關聯列表複選 | 同上 |
 | **原圖印刷 / 風格參考** | 訪客本機上傳 | 步驟 4「圖稿／風格參考」 |
 
-**第一款**（`prototype_asset_id`）決定：link-tree、工藝驗證、`categoryKeys`（主／子分類）。  
-**全部已選款式**（`prototype_asset_ids`）皆進 `referenceSources`（`asset_kind: prototype`），供多角度 I2I。
+**`prototype_asset_id`** 由 embed 實例固定；決定 link-tree、工藝驗證、`categoryKeys`。  
+**多角度**：`prototype_angle_urls` 對應已選 `image_items` URL，進 `referenceSources`（`asset_kind: prototype`）。
 
 **禁止**在步驟 4 重複上傳款式／材料／配件（與 custom-product 一致：廠商素材從選取帶入，訪客只上傳圖稿）。
 
 **link-tree API 回傳格式**：`linked_assets[]`（依 `asset_kind` 分 material / part），不是 `materials` / `parts` 頂層欄位。
 
-### 1.2 前端串接時要改的地方（Phase C2，約 30 行）
+### 1.2 前端串接（Phase C2 ✅）
 
-檔案：`public/js/embed-simulator.js`
-
-1. 移除或保留 `?mock=1` 僅供本機開發
-2. `bootstrap` 失敗時顯示 §7 錯誤文案（403/402/429）
-3. `generate` 依 `error_code` 對應 UI（按鈕禁用、倒數、聯絡廠商）
-4. 原型卡片改用真實 `image_url`（來自 vendor_assets）
-5. 選款時若 link-tree 空 → Step 2 隱藏（已有）
-6. 工藝 API 回空 → Step 3 隱藏（已有）
-
-**不需改 HTML 結構**，只改 JS fetch 與錯誤處理。
+檔案：`public/js/embed-simulator.js` — 已接 bootstrap / link-tree / capabilities / generate；保留 `?mock=1` 供本機無 DB 測 UI。
 
 ---
 
@@ -99,10 +100,14 @@ sequenceDiagram
 | `subscription_plans` 擴欄 | `embed_enabled`、`embed_generations_monthly` |
 | `payment_config` | `points_embed_simulator_generate = 10` |
 
-### 2.2 種子資料（測試用）
+### 2.2 廠商取得 iframe（已實作）
 
-- 為測試廠商建立 1 筆 `manufacturer_embed_instances`
-- 後台尚未做前，可先用 SQL 手動 INSERT + 產生 iframe URL
+1. 登入 → 素材頁 → **主產品** → 編輯已上架款式  
+2. 「分享與嵌入」→ **② 嵌入官網 iframe**  
+3. 前端 `POST /api/me/embed-simulator-instances`（get-or-create）→ 複製 `iframe_snippet`  
+4. 貼到官網、活動頁等（**不**要求域名白名單）
+
+手動 SQL 建實例僅供開發除錯，正式流程不需 Supabase 手動 INSERT。
 
 ---
 
@@ -149,26 +154,23 @@ function hashIp(ip) { /* SHA256 for visitor_ip_hash */ }
     "name": "優質工坊",
     "logo_url": "https://..."
   },
-  "prototypes": [
-    {
-      "id": "uuid",
-      "title": "經典後背包",
-      "image_url": "https://...",
-      "category_keys": ["bags", "backpack"]
-    }
-  ],
+  "prototype": {
+    "id": "uuid",
+    "title": "經典後背包",
+    "image_url": "https://...",
+    "image_items": [{ "url": "...", "label": "正面" }],
+    "category_key": "bags",
+    "subcategory_key": "backpack"
+  },
+  "prototype_asset_id": "uuid",
   "service_status": "ok"
 }
 ```
 
-**實作重用**：
+**實作**：
 
-- 原型列表：複製 `GET /api/vendor-assets` 邏輯，篩選  
-  `manufacturer_id = instance.manufacturer_id`  
-  `asset_kind = 'prototype'`  
-  `is_public = true`  
-  `status = 'active'`
-- **不**回傳點數餘額、不暴露 embed_secret
+- 自 `manufacturer_embed_instances.prototype_asset_id` 查**單一**公開主產品（`resolveEmbedPrototypeForRequest`）
+- **不**回傳多款列表、點數餘額、embed_secret
 
 ### 3.4 GET `/api/embed/simulator/link-tree`
 
@@ -210,8 +212,8 @@ function hashIp(ip) { /* SHA256 for visitor_ip_hash */ }
 {
   "embed_id": "xxx",
   "sig": "yyy",
-  "prototype_asset_id": "uuid-first-selected",
-  "prototype_asset_ids": ["uuid-a", "uuid-b"],
+  "prototype_asset_id": "uuid-bound-prototype",
+  "prototype_angle_urls": ["https://..."],
   "material_ids": ["uuid"],
   "part_ids": ["uuid"],
   "capability_keys": ["printing"],
@@ -407,11 +409,12 @@ server.js
 └─ + /api/embed/simulator/generate
 
 public/client/                             (Phase D)
-├─ embed-instances.html
-└─ embed-visitor-designs.html
+├─ manufacturer-materials.html             (✅ 主產品編輯 → ② iframe 複製碼)
+├─ embed-instances.html                    (待做)
+└─ embed-visitor-designs.html              (待做)
 ```
 
 ---
 
-**最後更新**：2026-06-27（款式複選 + 提示詞組裝必與本站一致）  
+**最後更新**：2026-06-27（計費分界、一款 iframe、廠商後台 get-or-create API）  
 **相關**：[`embed-simulator-ui-implementation.md`](embed-simulator-ui-implementation.md)、[`embed-simulator-frontend-testing.md`](embed-simulator-frontend-testing.md)

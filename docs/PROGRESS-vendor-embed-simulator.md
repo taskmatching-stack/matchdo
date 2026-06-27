@@ -1,13 +1,26 @@
 # 廠商嵌入式模擬器 — 產品規格與實作進度（2026-06-27）
 
-> **狀態**：規劃定案，尚未實作  
+> **狀態**：Phase A～C 已實作；Phase D 進行中（素材後台「② iframe」已接 API，完整實例管理頁待做）  
 > **與現況關係**：已上線的 [`/embed/vendor-catalog.html`](../public/embed/vendor-catalog.html) 為「卡片牆 + 外跳試做」；本文件為**新產品**「iframe 內完整模擬 + 廠商扣點 + 訪客匿名」。
 
 ---
 
 ## 1. 產品目標
 
-廠商在自家官網嵌入 iframe，訪客**無需登入**即可完成「選款 → 選材配 → 輸入描述 → 生圖預覽」；成本由**廠商訂閱月額度 + 廠商點數**（超額）承擔，成圖與意圖紀錄進**廠商售前數據庫**。
+廠商在**自家官網、活動頁或任意推廣頁**嵌入 iframe，訪客**無需登入**即可完成「此款主產品 → 選材配 → 輸入描述 → 生圖預覽」；成本由**廠商訂閱月額度 + 廠商點數**（超額）承擔，成圖與意圖紀錄進**廠商售前數據庫**。
+
+### 1.1 兩種入口、兩套計費（已定案 · 2026-06-27）
+
+| 入口 | 訪客能做什麼 | 誰付生圖成本 | 成圖歸屬 |
+|------|--------------|--------------|----------|
+| **② iframe**（`/embed/simulator.html`） | **僅**廠商綁定的**一款主產品**（＋該款關聯材配）；不可換別款 | **廠商**（方案 `embed_generations_monthly` 月池 → 超額扣廠商點數） | `vendor_embed_designs` |
+| **① 主站試做連結**（`custom-product.html?prototype_asset_id=`） | Matchdo 全站設計流程（訪客可換款、存資產等） | **訪客**登入後扣**自己的** Matchdo 點數 | 訪客 `custom_products` |
+
+**產品原則**：
+
+- iframe 是廠商**推廣用**工具：訪客**不付點**、**不強制跳回** Matchdo 全站、**不要求**域名白名單（可貼官網、Landing、活動頁）。
+- 流量若進主站，即走主站規則，**扣訪客點數**——兩條路**刻意分開**，不是同一套計費的漏洞。
+- 素材後台「分享與嵌入」①② 文案須讓廠商理解上述差異。
 
 ---
 
@@ -40,7 +53,8 @@ flowchart TB
 |------|------|
 | **身分主體** | `embed_id` → `manufacturer_id` → `manufacturers.user_id` 為扣點／訂閱主體 |
 | **訪客匿名** | 不建立 Supabase 帳號、不發 JWT；用 `embed_session_id`（localStorage）防濫用 |
-| **生圖身分** | 後端以廠商帳號呼叫 FLUX，**禁止**訪客直打 `/api/generate-product-image`（現況無 token 可白嫖） |
+| **生圖身分** | iframe 訪客**禁止**直打 `/api/generate-product-image`；僅走 `/api/embed/simulator/generate`（廠商付費） |
+| **一款 iframe** | 一實例綁一 `prototype_asset_id`；後端拒絕換款、拒絕非關聯材配 |
 | **資料歸屬** | 成圖存廠商「Embed 訪客設計」表，**不**寫入訪客 `custom_products` |
 | **失敗不扣** | FLUX 失敗（BFL 5xx/timeout）→ **不扣**額度、**不扣**點數；成功才 commit |
 
@@ -54,8 +68,8 @@ flowchart TB
 embed-sim-shell
 ├─ embed-sim-header（極簡：廠商 logo + 名稱，無 Matchdo 選單）
 ├─ embed-sim-body
-│  ├─ Step 1: 選原型（卡片 grid，單選）
-│  ├─ Step 2: 材配（若有 link-tree 關聯；材料單選、配件可複選）
+│  ├─ Step 1: 此款主產品（iframe 已綁定，**無多款列表**；`image_items` 每張＝角度，最多 3 張）
+│  ├─ Step 2: 材配（該款 link-tree；材料單選、配件可複選）
 │  ├─ Step 3: 工藝（若原型有 capabilities）
 │  ├─ Step 4: 提示詞（textarea）
 │  ├─ Step 5: 生成按鈕 + loading + 結果圖
@@ -70,8 +84,8 @@ embed-sim-shell
 
 **步驟展開邏輯**：
 
-- Step 1（選原型）：預設展開；若廠商僅 **1 款**公開原型 → 自動選中 → Step 1 摺疊顯示已選 → 直接展開 Step 2
-- Step 2（材配）：選原型後自動展開（若無 link-tree 關聯則跳過）
+- Step 1：bootstrap 只回傳**綁定的一款**主產品；有 `image_items` 時選角度（連動組：首次點同組一併勾選，可個別取消）
+- Step 2（材配）：載入 link-tree 後自動展開（若無關聯則跳過）
 - Step 3（工藝）：若原型有 capabilities 才顯示
 - Step 4（prompt）：始終可見
 - Step 5（生成）：按鈕固定在底部（桌機）或 prompt 下方（手機）
@@ -80,7 +94,7 @@ embed-sim-shell
 
 | 功能 | 重用邏輯 | 精簡點 |
 |------|----------|--------|
-| 選原型 | `GET /api/vendor-assets?embed_id=&asset_kind=prototype&for_profile=1` | 無主/子分類選擇（embed_id 已定廠商）；無「看可搭配」外連（在 Step 2 內展開） |
+| 主產品＋角度 | `GET /api/embed/simulator/bootstrap` 回傳單一 `prototype` | **無**多款 grid、無換款；材配在 Step 2 內展開 |
 | 材配選取 | `GET /api/vendor-assets/:id/link-tree` + product-tree 選取邏輯 | fork 成 `embed-material-picker.js`（去掉左側原型列表、去掉「換款式」「進入設計」按鈕） |
 | 工藝 | `design-capabilities` | 精簡 UI（勾選框 + 名稱，無長說明） |
 | 提示詞 | custom-product 的 textarea | 去掉「說明 Modal」（改 tooltip 或一句 hint） |
@@ -153,15 +167,17 @@ embed-sim-shell
 
 ### 5.1 Embed 實例
 
-一個 iframe = 一筆 **manufacturer_embed_instances**。
+一個 iframe = 一筆 **manufacturer_embed_instances**，且綁定**一款** `prototype_asset_id`（一主產品一實例）。
 
 **iframe URL（規格）：**
 
 ```text
-/embed/simulator.html?embed_id={instance_uuid}&sig={hmac_sha256}
+/embed/simulator.html?embed_id={embed_key}&sig={hmac_sha256}
 ```
 
-`manufacturer_id` 由後端從 `embed_id` 解析，不可前端任意改。
+`manufacturer_id`、主產品 ID 由後端從 `embed_id` 解析，訪客不可換款。
+
+**廠商取得方式**：素材頁 → 主產品 → 編輯 →「② 嵌入官網 iframe」→ `POST /api/me/embed-simulator-instances`（get-or-create），複製 `<iframe>` 程式碼。
 
 ### 5.2 廠商可設定項（每實例）
 
@@ -171,7 +187,7 @@ embed-sim-shell
 | `rate_limit_per_ip_hour` | 同一 IP 每小時最多生圖次數 | 5 |
 | `daily_cap` | 此 iframe 當日總上限（0=不設） | 100 |
 | `monthly_cap` | 此 iframe 當月總上限（0=不設） | 500 |
-| `allowed_origins` | 可選域名白名單（逗號分隔或 jsonb） | null（任意） |
+| `allowed_origins` | 可選域名白名單（jsonb） | `[]`（**預設不限制**；Phase E 可選啟用） |
 | `is_active` | 開關 | true |
 
 ### 5.3 檢查順序（全部通過才生圖）
@@ -267,11 +283,13 @@ embed-sim-shell
 
 | Method | Path | 說明 | 需簽名 |
 |--------|------|------|--------|
-| GET | `/api/embed/simulator/bootstrap?embed_id=&sig=` | 原型列表、材配入口、服務狀態（不暴露點數餘額） | ✓ |
+| GET | `/api/embed/simulator/bootstrap?embed_id=&sig=` | 綁定主產品、廠商資訊、服務狀態（不暴露點數餘額） | ✓ |
 | GET | `/api/embed/simulator/link-tree?embed_id=&sig=&prototype_asset_id=` | 材配樹（限該廠商、公開） | ✓ |
 | POST | `/api/embed/simulator/generate` | 生圖 + 多層限流 + 扣額/扣點 + 寫庫 | ✓ |
-| GET | `/api/me/embed-instances` | 廠商管理 iframe 列表（需 Bearer） | ✗ |
-| POST/PATCH | `/api/me/embed-instances` | 建立/更新頻率與 cap | ✗ |
+| GET | `/api/me/embed-simulator-instances?prototype_asset_id=` | 查此款 iframe（需 Bearer） | ✗ |
+| POST | `/api/me/embed-simulator-instances` | get-or-create（一主產品一實例，回傳 URL + snippet） | ✗ |
+| GET | `/api/me/embed-instances` | 廠商管理 iframe 列表（Phase D 待做） | ✗ |
+| POST/PATCH | `/api/me/embed-instances` | 建立/更新頻率與 cap（Phase D 待做） | ✗ |
 | GET | `/api/me/embed-designs` | 訪客成圖列表 | ✗ |
 | GET | `/api/me/embed-usage` | 本月方案池用量、各實例用量 | ✗ |
 
@@ -395,26 +413,27 @@ ON CONFLICT (key) DO NOTHING;
 
 | Phase | 內容 | 預估行數 |
 |-------|------|----------|
-| **A - DB** | Schema（§10）+ RLS policies | SQL ~150 行 |
-| **B - 後端 API** | bootstrap / link-tree / generate + 限流 + 簽名驗證 | server.js ~500 行 |
-| **C - 前端 UI** | `/embed/simulator.html` + `embed-simulator.js` | HTML+JS ~600 行 |
-| **D - 廠商後台** | 實例管理、設定 UI、訪客設計列表 | HTML+JS ~400 行 |
+| **A - DB** | Schema（§10）+ RLS policies | ✅ `docs/add-embed-simulator-schema.sql` |
+| **B - 後端 API** | bootstrap / link-tree / generate + 限流 + 簽名 | ✅ `server.js` + `lib/embed-simulator.js` |
+| **C - 前端 UI** | `/embed/simulator.html` + `embed-simulator.js` | ✅ 已串 API（`?mock=1` 可本機測） |
+| **D - 廠商後台** | 素材編輯窗 ② iframe 複製碼；完整實例管理、訪客設計列表 | 🔄 部分完成 |
 | **E - 硬化** | 域名白名單、CAPTCHA、平台熔斷、GA4 事件 | ~200 行 |
 
 ---
 
 ## 12. 驗收清單
 
-- [ ] 訪客無登入可完成：選款 → 材配 → prompt → 看到成圖
-- [ ] 方案月免費次數內不扣點；超額扣 10 點；點數不足停止
-- [ ] 廠商可設 IP/小時、日 cap、月 cap；超限拒絕且不呼叫 FLUX
-- [ ] FLUX 失敗（5xx/timeout）不扣額度、不扣點
-- [ ] 成圖出現在廠商後台「Embed 訪客設計」
-- [ ] iframe 內無 site-header、無他廠、footer 僅「Powered by Matchdo」
-- [ ] 訪客可右鍵下載成圖（廠商自決浮水印）
-- [ ] 再生成每次計額度（成功才扣），受限流
-- [ ] 無法用 curl 無簽名刷 `/api/embed/simulator/generate`
-- [ ] 單款自動跳過 Step 1（摺疊已選）
+- [x] 訪客無登入可完成：此款主產品 → 材配 → prompt → 看到成圖
+- [x] 方案月免費次數內不扣點；超額扣 10 點；點數不足停止
+- [x] 實例 IP/小時、日 cap、月 cap（DB 預設；後台調整 UI 待 Phase D）
+- [x] FLUX 失敗不扣額度、不扣點
+- [ ] 成圖出現在廠商後台「Embed 訪客設計」列表（Phase D）
+- [x] iframe 內無 site-header、無他廠、footer 僅「Powered by Matchdo」
+- [x] 訪客可右鍵下載成圖
+- [x] 再生成每次計額度（成功才扣），受限流
+- [x] 無法用 curl 無簽名刷 `/api/embed/simulator/generate`
+- [x] 僅綁定一款主產品，不可換款
+- [x] 素材後台主產品編輯可複製 iframe 程式碼
 
 ---
 
@@ -451,3 +470,5 @@ ON CONFLICT (key) DO NOTHING;
 3. footer 保留「Powered by Matchdo」小字
 4. 訪客可右鍵下載成圖
 5. 再生成每次都計額度（成功才扣，受限流）
+6. **iframe 僅廠商綁定主產品、廠商付費；主站試做連結扣訪客點數**——兩入口分開，不統一計費
+7. iframe **不強制**跳主站、**不**預設域名白名單（推廣頁可貼）

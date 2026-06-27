@@ -12,6 +12,16 @@
 3. **對外頁面已有入口**（公開廠商頁、設計頁廠商版型 Tab）維持現狀；本項補**後台缺口的複製 UI**，不重做對外卡片版面。
 4. 連結只對 **`is_public=true` 且廠商 active** 的素材有意義；下架時訪客應看到既有 404／未公開提示（不新增平行權限模型）。
 
+### 與 iframe 試做（②）的關係（2026-06-27）
+
+| | ① 本文件試做／導覽連結 | ② iframe（[`PROGRESS-vendor-embed-simulator.md`](PROGRESS-vendor-embed-simulator.md)） |
+|---|---|---|
+| 入口 | `custom-product.html` / `product-tree.html` | `/embed/simulator.html` 嵌在廠商頁 |
+| 訪客付點 | **是**（登入後扣訪客 Matchdo 點數） | **否**（廠商 embed 方案／點數） |
+| 可試款式 | 主站流程（可換款等） | **僅**綁定的一款主產品 |
+
+兩者並存；素材後台「分享與嵌入」區塊已分開文案。
+
 ---
 
 ## 現況盤點

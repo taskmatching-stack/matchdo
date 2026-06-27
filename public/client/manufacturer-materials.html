@@ -533,10 +533,12 @@
                             <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                         </div>
                         <div class="mb-3 d-none" id="edit-share-links-wrap">
-                            <label class="form-label fw-semibold">分享連結</label>
-                            <p class="text-muted small mb-2">可貼至官網或 LINE；訪客點連結即可用此款試做（須保持上架中）。</p>
+                            <label class="form-label fw-semibold">分享與嵌入</label>
+                            <p class="text-muted small mb-2">主產品專用。訪客試做須保持<strong>上架中</strong>。① 與 ② 計費不同，請依用途選擇。</p>
+                            <p class="small fw-semibold text-secondary mb-1">① Matchdo 主站試做連結（訪客用<strong>自己的</strong> Matchdo 點數）</p>
                             <div class="mb-2">
                                 <label class="form-label small text-muted mb-1">試做連結</label>
+                                <p class="text-muted small mb-1">開啟 Matchdo 設計頁，適合 LINE、Email。訪客須登入；生圖扣<strong>訪客點數</strong>，非您代付。</p>
                                 <div class="input-group input-group-sm">
                                     <input type="text" class="form-control font-monospace" id="edit-share-design-url" readonly>
                                     <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-design">複製</button>
@@ -544,12 +546,28 @@
                             </div>
                             <div class="mb-0 d-none" id="edit-share-guide-row">
                                 <label class="form-label small text-muted mb-1">搭配導覽連結</label>
+                                <p class="text-muted small mb-1">先看可搭配再進設計頁（同 ①，扣訪客點數）。</p>
                                 <div class="input-group input-group-sm">
                                     <input type="text" class="form-control font-monospace" id="edit-share-guide-url" readonly>
                                     <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-guide">複製</button>
                                 </div>
                             </div>
-                            <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用上述連結。</p>
+                            <div class="mt-3 pt-3 border-top" id="edit-share-embed-block">
+                                <p class="small fw-semibold text-secondary mb-1">② 嵌入官網 iframe（訪客<strong>免付點</strong>，只試<strong>此款</strong>主產品）</p>
+                                <p class="text-muted small mb-2">複製 <code>&lt;iframe&gt;</code> 貼到官網、活動頁或 Landing Page。訪客留在您的頁面試做；生圖由<strong>您的 embed 方案／點數</strong>負擔。不可換其他主產品。</p>
+                                <div id="edit-share-embed-status" class="text-muted small mb-2">開啟編輯後自動載入…</div>
+                                <div id="edit-share-embed-fields" class="d-none">
+                                    <label class="form-label small text-muted mb-1">iframe 網址</label>
+                                    <div class="input-group input-group-sm mb-2">
+                                        <input type="text" class="form-control font-monospace" id="edit-share-embed-url" readonly>
+                                        <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-embed-url">複製</button>
+                                    </div>
+                                    <label class="form-label small text-muted mb-1">嵌入程式碼</label>
+                                    <textarea class="form-control form-control-sm font-monospace mb-2" id="edit-share-embed-snippet" rows="4" readonly></textarea>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-copy-share-embed-snippet"><i class="bi bi-clipboard me-1"></i>複製嵌入程式碼</button>
+                                </div>
+                            </div>
+                            <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用上述連結或 iframe。</p>
                         </div>
                         <div class="mb-3 d-none" id="edit-linked-prototypes-wrap">
                             <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
@@ -713,7 +731,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'link-groups-copy-20260627';
+        window.__MATCHDO_MATERIALS_BUILD = 'embed-iframe-vendor-20260627b';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4311,6 +4329,61 @@
             if (guideRow) guideRow.classList.toggle('d-none', !(lc > 0 && guideUrl));
             if (guideInp) guideInp.value = guideUrl;
             if (unpubHint) unpubHint.classList.toggle('d-none', isPub);
+            loadEditEmbedSimulator(m, isPub);
+        }
+
+        async function loadEditEmbedSimulator(m, isPub) {
+            var statusEl = document.getElementById('edit-share-embed-status');
+            var fieldsEl = document.getElementById('edit-share-embed-fields');
+            var urlInp = document.getElementById('edit-share-embed-url');
+            var snipTa = document.getElementById('edit-share-embed-snippet');
+            if (!statusEl || !fieldsEl) return;
+            fieldsEl.classList.add('d-none');
+            if (!m || !m.id) {
+                statusEl.textContent = '';
+                return;
+            }
+            if (isPub === false) {
+                statusEl.textContent = '請先上架主產品，才能產生官網 iframe。';
+                statusEl.classList.remove('text-danger');
+                return;
+            }
+            statusEl.textContent = '正在產生嵌入連結…';
+            statusEl.classList.remove('text-danger');
+            try {
+                var tok = token || (await getToken());
+                if (!tok) {
+                    statusEl.textContent = '請登入後取得 iframe 嵌入碼';
+                    return;
+                }
+                var r = await fetch('/api/me/embed-simulator-instances', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prototype_asset_id: m.id,
+                        name: ((m.title || '主產品') + ' 官網試做').slice(0, 120)
+                    })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 503 || data.code === 'EMBED_SCHEMA') {
+                    statusEl.textContent = '嵌入試做尚未啟用（資料庫設定）。請聯絡平台或稍後再試。';
+                    return;
+                }
+                if (!r.ok) {
+                    statusEl.textContent = data.error || '無法建立 iframe 連結';
+                    statusEl.classList.add('text-danger');
+                    return;
+                }
+                statusEl.textContent = data.created
+                    ? '已建立此款專用 iframe，請複製下方程式碼貼到官網。'
+                    : '已載入此款 iframe（可重複複製使用）。';
+                if (urlInp) urlInp.value = data.page_url || '';
+                if (snipTa) snipTa.value = data.iframe_snippet || '';
+                fieldsEl.classList.remove('d-none');
+            } catch (err) {
+                statusEl.textContent = err.message || '載入失敗';
+                statusEl.classList.add('text-danger');
+            }
         }
 
         function copyEditShareInput(inputId) {
@@ -5115,6 +5188,14 @@
         var btnEditCopyShareGuide = document.getElementById('btn-edit-copy-share-guide');
         if (btnEditCopyShareGuide) {
             btnEditCopyShareGuide.addEventListener('click', function () { copyEditShareInput('edit-share-guide-url'); });
+        }
+        var btnEditCopyShareEmbedUrl = document.getElementById('btn-edit-copy-share-embed-url');
+        if (btnEditCopyShareEmbedUrl) {
+            btnEditCopyShareEmbedUrl.addEventListener('click', function () { copyEditShareInput('edit-share-embed-url'); });
+        }
+        var btnEditCopyShareEmbedSnippet = document.getElementById('btn-edit-copy-share-embed-snippet');
+        if (btnEditCopyShareEmbedSnippet) {
+            btnEditCopyShareEmbedSnippet.addEventListener('click', function () { copyEditShareInput('edit-share-embed-snippet'); });
         }
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });

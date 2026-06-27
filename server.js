@@ -15995,6 +15995,150 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
     }
 });
 
+function embedSchemaMissingResponse(res) {
+    return res.status(503).json({
+        error: '嵌入試做尚未啟用，請聯絡平台管理員',
+        code: 'EMBED_SCHEMA',
+        hint: 'docs/add-embed-simulator-schema.sql'
+    });
+}
+
+async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, prototypeAssetId, instanceName) {
+    const protoId = String(prototypeAssetId || '').trim();
+    if (!protoId) return { error: 'missing_prototype' };
+
+    const { data: row, error: rowErr } = await supabase
+        .from('vendor_assets')
+        .select('id, manufacturer_id, title, asset_kind, is_public')
+        .eq('id', protoId)
+        .eq('manufacturer_id', manufacturerId)
+        .maybeSingle();
+    if (rowErr) throw rowErr;
+    if (!row || normalizeVendorAssetKind(row.asset_kind) !== 'prototype') {
+        return { error: 'not_prototype' };
+    }
+    if (!row.is_public) {
+        return { error: 'not_public' };
+    }
+
+    let existingRes = await supabase
+        .from('manufacturer_embed_instances')
+        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+        .eq('manufacturer_id', manufacturerId)
+        .eq('prototype_asset_id', protoId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    if (existingRes.error) {
+        if (existingRes.error.code === '42P01') return { error: 'schema' };
+        throw existingRes.error;
+    }
+    if (existingRes.data) {
+        return { instance: existingRes.data, created: false, prototype_title: row.title || '' };
+    }
+
+    const embedKey = embedSimulator.randomEmbedKey();
+    const embedSecret = embedSimulator.randomEmbedSecret();
+    const name = String(instanceName || '').trim() || ((row.title || '主產品') + ' 官網試做');
+    const insertRes = await supabase
+        .from('manufacturer_embed_instances')
+        .insert({
+            manufacturer_id: manufacturerId,
+            name: name.slice(0, 120),
+            embed_key: embedKey,
+            embed_secret: embedSecret,
+            prototype_asset_id: protoId,
+            is_active: true,
+            updated_at: new Date().toISOString()
+        })
+        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+        .single();
+    if (insertRes.error) {
+        if (insertRes.error.code === '42P01') return { error: 'schema' };
+        if (insertRes.error.code === '23505') {
+            existingRes = await supabase
+                .from('manufacturer_embed_instances')
+                .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+                .eq('manufacturer_id', manufacturerId)
+                .eq('prototype_asset_id', protoId)
+                .eq('is_active', true)
+                .maybeSingle();
+            if (existingRes.data) {
+                return { instance: existingRes.data, created: false, prototype_title: row.title || '' };
+            }
+        }
+        throw insertRes.error;
+    }
+    return { instance: insertRes.data, created: true, prototype_title: row.title || '' };
+}
+
+// GET /api/me/embed-simulator-instances?prototype_asset_id= — 廠商：查此款 iframe
+app.get('/api/me/embed-simulator-instances', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
+        const protoId = (req.query.prototype_asset_id || '').trim();
+        if (!protoId) return res.status(400).json({ error: '請提供 prototype_asset_id' });
+
+        const { data: row, error } = await supabase
+            .from('manufacturer_embed_instances')
+            .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+            .eq('manufacturer_id', manufacturerId)
+            .eq('prototype_asset_id', protoId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (error) {
+            if (error.code === '42P01') return embedSchemaMissingResponse(res);
+            throw error;
+        }
+        if (!row) return res.json({ instance: null });
+        const origin = embedSimulator.publicOriginFromRequest(req);
+        const mapped = embedSimulator.mapEmbedInstanceForVendor(row, origin, { title: '產品試做' });
+        return res.json({ instance: mapped });
+    } catch (e) {
+        console.error('GET /api/me/embed-simulator-instances:', e);
+        return res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// POST /api/me/embed-simulator-instances — 廠商：建立或取得 iframe（一主產品一實例）
+app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
+
+        const body = req.body || {};
+        const protoId = (body.prototype_asset_id || '').trim();
+        if (!protoId) return res.status(400).json({ error: '請提供 prototype_asset_id' });
+
+        const pack = await getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, protoId, body.name);
+        if (pack.error === 'schema') return embedSchemaMissingResponse(res);
+        if (pack.error === 'not_prototype') {
+            return res.status(400).json({ error: '僅主產品可建立 iframe 試做器' });
+        }
+        if (pack.error === 'missing_prototype') {
+            return res.status(400).json({ error: '請提供 prototype_asset_id' });
+        }
+        if (pack.error === 'not_public') {
+            return res.status(400).json({ error: '請先上架主產品，才能產生官網 iframe' });
+        }
+
+        const origin = embedSimulator.publicOriginFromRequest(req);
+        const mapped = embedSimulator.mapEmbedInstanceForVendor(pack.instance, origin, {
+            title: (pack.prototype_title || '產品試做').slice(0, 80)
+        });
+        return res.json(Object.assign({}, mapped, { created: !!pack.created }));
+    } catch (e) {
+        console.error('POST /api/me/embed-simulator-instances:', e);
+        return res.status(500).json({ error: '建立失敗' });
+    }
+});
+
 // GET /api/vendor-assets/:id/link-tree/export.pdf — 公開：關聯鏈 PDF（無網站 UI）
 app.get('/api/vendor-assets/:id/link-tree/export.pdf', async (req, res) => {
     try {
