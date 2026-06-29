@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627p';
+  const BUILD = 'embed-simulator-20260627r';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -37,7 +37,8 @@
     refImages: {},          // 僅訪客上傳：pattern_print、pattern_style
     prompt: '',
     generating: false,
-    sessionId: getOrCreateSessionId()
+    sessionId: getOrCreateSessionId(),
+    embedBranding: { show_powered_by: true }
   };
   
   UPLOAD_REF_SLOTS.forEach(function (slot) {
@@ -186,10 +187,8 @@
     }
   }
   
-  // === 右下角已選縮圖（主產品＋材配；步驟 2 不重複大圖）===
-  function renderSelectedStrip() {
-    var el = document.getElementById('simSelectedStrip');
-    if (!el) return;
+  // === 已選縮圖（sticky 列 + 右側欄 + 步驟摘要）===
+  function buildSelectedThumbsList() {
     var thumbs = [];
     if (state.prototype) {
       state.selectedPrototypeAngles.forEach(function (angle) {
@@ -207,15 +206,45 @@
       var p = state.parts.find(function (x) { return x.id === id; });
       if (p && p.image_url) thumbs.push({ url: p.image_url, title: '配件 · ' + (p.title || '') });
     });
+    UPLOAD_REF_SLOTS.forEach(function (slot) {
+      (state.refImages[slot.key] || []).forEach(function (img) {
+        if (img && img.url) thumbs.push({ url: img.url, title: slot.title || slot.key });
+      });
+    });
+    return thumbs;
+  }
+
+  function renderThumbHtml(thumbs, className) {
+    return thumbs.map(function (it) {
+      return '<img class="' + className + '" src="' + escapeHtml(it.url) + '" alt="" title="' + escapeHtml(it.title) + '">';
+    }).join('');
+  }
+
+  function renderSelectedStrip() {
+    var el = document.getElementById('simSelectedStrip');
+    var dock = document.getElementById('simSelectedDock');
+    var dockStrip = document.getElementById('simSelectedDockStrip');
+    var step1Thumbs = document.getElementById('step1SummaryThumbs');
+    var thumbs = buildSelectedThumbsList();
+
     if (!thumbs.length) {
-      el.innerHTML = '';
-      el.hidden = true;
+      if (el) { el.innerHTML = ''; el.hidden = true; }
+      if (dock) dock.hidden = true;
+      if (dockStrip) dockStrip.innerHTML = '';
+      if (step1Thumbs) step1Thumbs.innerHTML = '';
       return;
     }
-    el.hidden = false;
-    el.innerHTML = thumbs.map(function (it) {
-      return '<img class="sim-selected-thumb" src="' + escapeHtml(it.url) + '" alt="" title="' + escapeHtml(it.title) + '">';
-    }).join('');
+
+    var html = renderThumbHtml(thumbs, 'sim-selected-thumb');
+    if (el) { el.hidden = false; el.innerHTML = html; }
+    if (dock) dock.hidden = false;
+    if (dockStrip) dockStrip.innerHTML = html;
+    if (step1Thumbs) {
+      step1Thumbs.innerHTML = renderThumbHtml(
+        thumbs.filter(function (t) { return String(t.title || '').indexOf('主產品') === 0; }),
+        'sim-summary-thumb'
+      );
+    }
   }
 
   // === 步驟 2：僅提示材配（主產品已在步驟 1 選過，不重複展示）===
@@ -359,6 +388,7 @@
     const total = countTotalRefImages();
     document.getElementById('stepRefCount').textContent = total;
     document.getElementById('stepRef').classList.toggle('has-selection', total > 0);
+    renderSelectedStrip();
   }
   
   // === 處理參考圖上傳 ===
@@ -434,6 +464,7 @@
         return;
       }
       state.manufacturer = data.manufacturer;
+      state.embedBranding = data.embed_branding || { show_powered_by: true };
       renderHeader();
       await initWithPrototype(pickBootstrapPrototype(data));
     } catch (e) {
@@ -453,11 +484,16 @@
   function renderHeader() {
     const logo = document.getElementById('simLogo');
     const name = document.getElementById('simVendorName');
+    const powered = document.querySelector('.sim-powered');
     
     logo.src = state.manufacturer.logo_url || '/img/placeholder-logo.png';
     logo.alt = state.manufacturer.name;
     name.textContent = state.manufacturer.name || '廠商';
     document.title = `產品試做 - ${state.manufacturer.name}`;
+    if (powered) {
+      var showPowered = !state.embedBranding || state.embedBranding.show_powered_by !== false;
+      powered.style.display = showPowered ? '' : 'none';
+    }
   }
   
   // === 主產品 image_items：每張圖 = 一個角度（同 product-tree guideTilesForAsset）===

@@ -565,6 +565,11 @@
                                     <label class="form-label small text-muted mb-1">嵌入程式碼</label>
                                     <textarea class="form-control form-control-sm font-monospace mb-2" id="edit-share-embed-snippet" rows="4" readonly></textarea>
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-copy-share-embed-snippet"><i class="bi bi-clipboard me-1"></i>複製嵌入程式碼</button>
+                                    <div class="form-check mt-3 d-none" id="edit-share-embed-media-wall-wrap">
+                                        <input class="form-check-input" type="checkbox" id="edit-share-embed-media-wall" checked>
+                                        <label class="form-check-label small" for="edit-share-embed-media-wall">訪客試做成圖顯示於 MatchDO 首頁媒體牆</label>
+                                    </div>
+                                    <p class="small mb-0 mt-2"><a href="/client/embed-design-records.html" target="_blank" rel="noopener">查看 Embed 訪客生圖紀錄</a></p>
                                 </div>
                             </div>
                             <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用上述連結或 iframe。</p>
@@ -731,7 +736,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'embed-iframe-vendor-20260627b';
+        window.__MATCHDO_MATERIALS_BUILD = 'embed-plan-tiers-20260627a';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4337,8 +4342,11 @@
             var fieldsEl = document.getElementById('edit-share-embed-fields');
             var urlInp = document.getElementById('edit-share-embed-url');
             var snipTa = document.getElementById('edit-share-embed-snippet');
+            var mediaWallWrap = document.getElementById('edit-share-embed-media-wall-wrap');
+            var mediaWallChk = document.getElementById('edit-share-embed-media-wall');
             if (!statusEl || !fieldsEl) return;
             fieldsEl.classList.add('d-none');
+            if (mediaWallWrap) mediaWallWrap.classList.add('d-none');
             if (!m || !m.id) {
                 statusEl.textContent = '';
                 return;
@@ -4369,20 +4377,64 @@
                     statusEl.textContent = '嵌入試做尚未啟用（資料庫設定）。請聯絡平台或稍後再試。';
                     return;
                 }
+                if (data.error_code === 'embed_disabled') {
+                    statusEl.textContent = 'Embed 試做僅限付費會員（300／900／1800 方案）。';
+                    statusEl.classList.add('text-danger');
+                    return;
+                }
+                if (data.error_code === 'embed_instance_limit') {
+                    statusEl.textContent = data.error || 'iframe 組數已達方案上限';
+                    statusEl.classList.add('text-danger');
+                    return;
+                }
                 if (!r.ok) {
                     statusEl.textContent = data.error || '無法建立 iframe 連結';
                     statusEl.classList.add('text-danger');
                     return;
                 }
+                var tier = data.embed_tier || null;
+                var tierCfg = data.embed_tier_config || null;
                 statusEl.textContent = data.created
                     ? '已建立此款專用 iframe，請複製下方程式碼貼到官網。'
                     : '已載入此款 iframe（可重複複製使用）。';
+                if (tier === '300' && data.active_instance_count != null) {
+                    statusEl.textContent += '（300 方案最多 3 組 iframe）';
+                }
                 if (urlInp) urlInp.value = data.page_url || '';
                 if (snipTa) snipTa.value = data.iframe_snippet || '';
                 fieldsEl.classList.remove('d-none');
+                if (mediaWallWrap && mediaWallChk && tierCfg && tierCfg.wallMode === 'configurable' && data.id) {
+                    mediaWallWrap.classList.remove('d-none');
+                    mediaWallChk.checked = data.show_on_media_wall !== false;
+                    mediaWallChk.dataset.instanceId = data.id;
+                } else if (mediaWallChk) {
+                    mediaWallChk.dataset.instanceId = '';
+                }
             } catch (err) {
                 statusEl.textContent = err.message || '載入失敗';
                 statusEl.classList.add('text-danger');
+            }
+        }
+
+        async function saveEditEmbedMediaWallSetting(checked) {
+            var mediaWallChk = document.getElementById('edit-share-embed-media-wall');
+            if (!mediaWallChk || !mediaWallChk.dataset.instanceId) return;
+            try {
+                var tok = token || (await getToken());
+                if (!tok) return;
+                var r = await fetch('/api/me/embed-simulator-instances/' + encodeURIComponent(mediaWallChk.dataset.instanceId), {
+                    method: 'PATCH',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ show_on_media_wall: !!checked })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    showToast(data.error || '媒體牆設定儲存失敗', 'danger');
+                    mediaWallChk.checked = !checked;
+                }
+            } catch (e) {
+                showToast(e.message || '媒體牆設定儲存失敗', 'danger');
+                mediaWallChk.checked = !checked;
             }
         }
 
@@ -5196,6 +5248,12 @@
         var btnEditCopyShareEmbedSnippet = document.getElementById('btn-edit-copy-share-embed-snippet');
         if (btnEditCopyShareEmbedSnippet) {
             btnEditCopyShareEmbedSnippet.addEventListener('click', function () { copyEditShareInput('edit-share-embed-snippet'); });
+        }
+        var editShareEmbedMediaWall = document.getElementById('edit-share-embed-media-wall');
+        if (editShareEmbedMediaWall) {
+            editShareEmbedMediaWall.addEventListener('change', function () {
+                saveEditEmbedMediaWallSetting(editShareEmbedMediaWall.checked);
+            });
         }
         var editImageProto = document.getElementById('edit-image-prototype');
         if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });

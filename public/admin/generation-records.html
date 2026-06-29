@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>生圖紀錄 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .rec-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid #dee2e6; cursor: pointer; }
+    .rec-row { cursor: pointer; }
+    .rec-row:hover td { background: #f8f9fa; }
+    .badge-site { background: #0d6efd; }
+    .badge-embed { background: #6f42c1; }
+    pre.detail-json { font-size: 0.72rem; max-height: 240px; overflow: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 6px; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">生圖紀錄</h4>
+        <p class="text-muted small mb-3">主站訂製生圖與 Embed iframe 訪客生圖（含成圖、描述、參考來源）</p>
+
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label small mb-1">來源</label>
+                <select class="form-select form-select-sm" id="filterSource">
+                  <option value="all">全部</option>
+                  <option value="site">主站</option>
+                  <option value="embed">Embed</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small mb-1">關鍵字</label>
+                <input type="text" class="form-control form-control-sm" id="filterQ" placeholder="標題／描述／網域">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">起始</label>
+                <input type="date" class="form-control form-control-sm" id="filterFrom">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-1">結束</label>
+                <input type="date" class="form-control form-control-sm" id="filterTo">
+              </div>
+              <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-fill" id="btnSearch"><i class="bi bi-search me-1"></i>查詢</button>
+                <button class="btn btn-outline-secondary btn-sm" id="btnReset" title="清除"><i class="bi bi-x-lg"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:76px">成圖</th>
+                  <th>來源</th>
+                  <th>標題／描述</th>
+                  <th>帳號／廠商</th>
+                  <th>時間</th>
+                </tr>
+              </thead>
+              <tbody id="recordsBody">
+                <tr><td colspan="5" class="text-center text-muted py-4">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+            <button class="btn btn-outline-secondary btn-sm" id="btnPrev" disabled>上一頁</button>
+            <span class="small text-muted" id="pageInfo">第 1 頁</span>
+            <button class="btn btn-outline-secondary btn-sm" id="btnNext" disabled>下一頁</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title mb-0">生圖詳情</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body small" id="detailBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/js/auth-middleware.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function () {
+    var token = null;
+    var page = 0;
+    var perPage = 50;
+    var hasMore = false;
+    var items = [];
+    var detailModal = null;
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleString('zh-TW', { hour12: false }); } catch (_) { return String(iso).slice(0, 16); }
+    }
+
+    async function getToken() {
+      if (token) return token;
+      if (window.AuthService && typeof AuthService.getSession === 'function') {
+        var s = await AuthService.getSession();
+        token = s && (s.access_token || (s.session && s.session.access_token));
+      }
+      return token;
+    }
+
+    function renderRows() {
+      var body = document.getElementById('recordsBody');
+      if (!items.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">無符合紀錄</td></tr>';
+        return;
+      }
+      body.innerHTML = items.map(function (row, idx) {
+        var url = row.ai_generated_image_url || '';
+        var img = url ? '<img src="' + esc(url) + '" class="rec-thumb" alt="">' : '<span class="text-muted">—</span>';
+        var srcBadge = row.source === 'embed'
+          ? '<span class="badge badge-embed">Embed</span>'
+          : '<span class="badge badge-site">主站</span>';
+        var who = row.source === 'embed'
+          ? esc(row.manufacturer_name || row.manufacturer_id || '—')
+          : esc(row.owner_name || row.owner_email || row.owner_id || '—');
+        var cap = esc((row.title || row.prompt || '').slice(0, 80));
+        return '<tr class="rec-row" data-idx="' + idx + '"><td>' + img + '</td><td>' + srcBadge + '</td>' +
+          '<td><div class="text-truncate" style="max-width:280px" title="' + cap + '">' + cap + '</div></td>' +
+          '<td class="small">' + who + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
+      }).join('');
+      body.querySelectorAll('.rec-row').forEach(function (tr) {
+        tr.addEventListener('click', function () { openDetail(parseInt(tr.dataset.idx, 10)); });
+      });
+    }
+
+    function openDetail(idx) {
+      var row = items[idx];
+      if (!row) return;
+      var url = row.ai_generated_image_url || '';
+      var html = (url ? '<p><img src="' + esc(url) + '" class="img-fluid rounded border mb-2" alt=""></p>' : '') +
+        '<dl class="row mb-2">' +
+        '<dt class="col-sm-3">來源</dt><dd class="col-sm-9">' + esc(row.source) + '</dd>' +
+        '<dt class="col-sm-3">時間</dt><dd class="col-sm-9">' + esc(fmtTime(row.created_at)) + '</dd>' +
+        '<dt class="col-sm-3">標題</dt><dd class="col-sm-9">' + esc(row.title || '—') + '</dd>' +
+        '<dt class="col-sm-3">描述／Prompt</dt><dd class="col-sm-9">' + esc(row.prompt || row.generation_prompt || '—') + '</dd>' +
+        '<dt class="col-sm-3">Seed</dt><dd class="col-sm-9">' + esc(row.generation_seed != null ? row.generation_seed : '—') + '</dd>';
+      if (row.source === 'site') {
+        html += '<dt class="col-sm-3">owner</dt><dd class="col-sm-9">' + esc(row.owner_email || row.owner_id) + '</dd>' +
+          '<dt class="col-sm-3">廠商自產</dt><dd class="col-sm-9">' + (row.is_vendor_self_serve ? '是' : '否') + '</dd>' +
+          '<dt class="col-sm-3">媒體牆</dt><dd class="col-sm-9">' + (row.show_on_homepage !== false ? '是' : '否') + '</dd>';
+      } else {
+        html += '<dt class="col-sm-3">廠商</dt><dd class="col-sm-9">' + esc(row.manufacturer_name || row.manufacturer_id) + '</dd>' +
+          '<dt class="col-sm-3">來源網域</dt><dd class="col-sm-9">' + esc(row.referrer_host || '—') + '</dd>' +
+          '<dt class="col-sm-3">扣點</dt><dd class="col-sm-9">' + (row.points_charged ? row.points_charged + ' 點' : '—') + '</dd>';
+      }
+      html += '</dl><div class="fw-semibold mb-1">reference_sources</div><pre class="detail-json">' +
+        esc(JSON.stringify(row.reference_sources || [], null, 2)) + '</pre>';
+      document.getElementById('detailBody').innerHTML = html;
+      if (!detailModal) detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+      detailModal.show();
+    }
+
+    async function loadPage() {
+      var tok = await getToken();
+      if (!tok) return;
+      document.getElementById('recordsBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">載入中…</td></tr>';
+      var qs = new URLSearchParams({
+        limit: String(perPage),
+        offset: String(page * perPage),
+        source: document.getElementById('filterSource').value || 'all'
+      });
+      var q = document.getElementById('filterQ').value.trim();
+      var from = document.getElementById('filterFrom').value;
+      var to = document.getElementById('filterTo').value;
+      if (q) qs.set('q', q);
+      if (from) qs.set('from', from);
+      if (to) qs.set('to', to);
+      var r = await fetch('/api/admin/generation-records?' + qs.toString(), {
+        headers: { Authorization: 'Bearer ' + tok }
+      });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        document.getElementById('recordsBody').innerHTML = '<tr><td colspan="5" class="text-danger text-center py-4">' + esc(data.error || '載入失敗') + '</td></tr>';
+        return;
+      }
+      items = data.items || [];
+      hasMore = !!data.has_more;
+      document.getElementById('pageInfo').textContent = '第 ' + (page + 1) + ' 頁' + (data.total != null ? '（本批 ' + data.total + ' 筆內）' : '');
+      document.getElementById('btnPrev').disabled = page <= 0;
+      document.getElementById('btnNext').disabled = !hasMore;
+      renderRows();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('btnSearch').addEventListener('click', function () { page = 0; loadPage(); });
+      document.getElementById('btnReset').addEventListener('click', function () {
+        document.getElementById('filterSource').value = 'all';
+        document.getElementById('filterQ').value = '';
+        document.getElementById('filterFrom').value = '';
+        document.getElementById('filterTo').value = '';
+        page = 0;
+        loadPage();
+      });
+      document.getElementById('btnPrev').addEventListener('click', function () { if (page > 0) { page--; loadPage(); } });
+      document.getElementById('btnNext').addEventListener('click', function () { if (hasMore) { page++; loadPage(); } });
+      document.getElementById('filterQ').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { page = 0; loadPage(); }
+      });
+      setTimeout(loadPage, 400);
+    });
+  })();
+  </script>
+</body>
+</html>

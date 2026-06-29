@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <title>Embed 訪客生圖紀錄 - MatchDO 合做</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex,nofollow">
+    <link href="../img/favicon.ico" rel="icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <style>
+        .rec-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #dee2e6; }
+        .rec-row { cursor: pointer; }
+        .rec-row:hover { background: #f8fafc; }
+        .rec-detail-img { max-width: 100%; border-radius: 8px; border: 1px solid #dee2e6; }
+        .ref-chip { font-size: 0.72rem; background: #f1f5f9; border-radius: 4px; padding: 0.15rem 0.4rem; margin: 0.1rem; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
+        <div class="container" style="max-width: 1100px;">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <h4 class="mb-0 fw-bold">Embed 訪客生圖紀錄</h4>
+                    <small class="text-muted">官網 iframe 訪客試做成功後的成圖與搭配資料（扣您的點數）</small>
+                </div>
+                <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>廠商控制台</a>
+            </div>
+        </div>
+    </div>
+    <div class="container py-4" style="max-width: 1100px;">
+        <div id="load-alert" class="alert alert-warning d-none"></div>
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1">主產品篩選</label>
+                        <select class="form-select form-select-sm" id="filter-proto"><option value="">全部主產品</option></select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary btn-sm w-100" id="btn-reload"><i class="bi bi-arrow-clockwise me-1"></i>重新載入</button>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <span class="text-muted small" id="total-label"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:88px">成圖</th>
+                            <th>主產品／搭配</th>
+                            <th>描述</th>
+                            <th>來源網域</th>
+                            <th>扣點</th>
+                            <th>時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-body">
+                        <tr><td colspan="6" class="text-center text-muted py-4">載入中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center py-2">
+                <button class="btn btn-outline-secondary btn-sm" id="btn-prev" disabled>上一頁</button>
+                <span class="small text-muted" id="page-label">第 1 頁</span>
+                <button class="btn btn-outline-secondary btn-sm" id="btn-next" disabled>下一頁</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="detailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Embed 生圖詳情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detail-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/bootstrap.bundle.min.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/matchdo-image-lightbox.js"></script>
+    <script>
+    (function () {
+        'use strict';
+        var token = null;
+        var page = 0;
+        var perPage = 30;
+        var total = 0;
+        var records = [];
+        var detailModal = null;
+
+        function esc(s) {
+            return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        }
+
+        function showAlert(msg, kind) {
+            var el = document.getElementById('load-alert');
+            if (!el) return;
+            el.className = 'alert alert-' + (kind || 'warning');
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+
+        async function getToken() {
+            if (token) return token;
+            if (typeof window.getAuthToken === 'function') token = await window.getAuthToken();
+            return token;
+        }
+
+        async function loadPrototypes() {
+            var tok = await getToken();
+            if (!tok) return;
+            var r = await fetch('/api/me/vendor-assets?asset_kind=prototype', { headers: { Authorization: 'Bearer ' + tok } });
+            var data = await r.json().catch(function () { return {}; });
+            var items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+            var sel = document.getElementById('filter-proto');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">全部主產品</option>';
+            items.forEach(function (p) {
+                var opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = (p.title || p.id).slice(0, 80);
+                sel.appendChild(opt);
+            });
+        }
+
+        function formatTime(iso) {
+            if (!iso) return '—';
+            try { return new Date(iso).toLocaleString('zh-TW', { hour12: false }); } catch (_) { return String(iso).slice(0, 16); }
+        }
+
+        function renderTable() {
+            var body = document.getElementById('records-body');
+            if (!body) return;
+            if (!records.length) {
+                body.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">尚無 Embed 生圖紀錄</td></tr>';
+                return;
+            }
+            body.innerHTML = records.map(function (row, idx) {
+                var url = row.ai_generated_image_url || '';
+                var img = url
+                    ? '<img src="' + esc(url) + '" class="rec-thumb matchdo-enlarge-trigger" alt="" data-image-urls="' + esc(JSON.stringify([url])) + '">'
+                    : '<span class="text-muted small">無圖</span>';
+                return '<tr class="rec-row" data-idx="' + idx + '">' +
+                    '<td>' + img + '</td>' +
+                    '<td><div class="fw-semibold small">' + esc(row.prototype_title || '—') + '</div>' +
+                    '<div class="text-muted small text-truncate" style="max-width:220px" title="' + esc(row.combo_label) + '">' + esc(row.combo_label || '') + '</div></td>' +
+                    '<td class="small text-truncate" style="max-width:180px" title="' + esc(row.prompt) + '">' + esc(row.prompt || '—') + '</td>' +
+                    '<td class="small">' + esc(row.referrer_host || '—') + '</td>' +
+                    '<td class="small">' + (row.points_charged ? (row.points_charged + ' 點') : '—') + '</td>' +
+                    '<td class="small text-nowrap">' + esc(formatTime(row.created_at)) + '</td></tr>';
+            }).join('');
+            body.querySelectorAll('.rec-row').forEach(function (tr) {
+                tr.addEventListener('click', function (e) {
+                    if (e.target.closest('.matchdo-enlarge-trigger')) return;
+                    openDetail(parseInt(tr.dataset.idx, 10));
+                });
+            });
+            if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.wire === 'function') {
+                window.MatchdoImageLightbox.wire(body);
+            }
+        }
+
+        function openDetail(idx) {
+            var row = records[idx];
+            if (!row) return;
+            var refs = Array.isArray(row.reference_sources) ? row.reference_sources : [];
+            var refHtml = refs.map(function (s) {
+                if (!s) return '';
+                var t = (s.title || s.asset_kind || s.intent || '').trim();
+                return '<span class="ref-chip">' + esc(t || '參考') + '</span>';
+            }).join('') || '<span class="text-muted small">—</span>';
+            var url = row.ai_generated_image_url || '';
+            document.getElementById('detail-body').innerHTML =
+                (url ? '<img src="' + esc(url) + '" class="rec-detail-img mb-3 matchdo-enlarge-trigger" alt="" data-image-urls="' + esc(JSON.stringify([url])) + '">' : '') +
+                '<dl class="row small mb-0">' +
+                '<dt class="col-sm-3">主產品</dt><dd class="col-sm-9">' + esc(row.prototype_title || row.prototype_asset_id || '—') + '</dd>' +
+                '<dt class="col-sm-3">搭配</dt><dd class="col-sm-9">' + esc(row.combo_label || '—') + '</dd>' +
+                '<dt class="col-sm-3">訪客描述</dt><dd class="col-sm-9">' + esc(row.prompt || '—') + '</dd>' +
+                '<dt class="col-sm-3">來源網域</dt><dd class="col-sm-9">' + esc(row.referrer_host || '—') + '</dd>' +
+                '<dt class="col-sm-3">扣點</dt><dd class="col-sm-9">' + (row.points_charged ? (row.points_charged + ' 點（' + esc(row.billing_type || '') + '）') : '—') + '</dd>' +
+                '<dt class="col-sm-3">Seed</dt><dd class="col-sm-9">' + esc(row.generation_seed != null ? row.generation_seed : '—') + '</dd>' +
+                '<dt class="col-sm-3">iframe 實例</dt><dd class="col-sm-9">' + esc(row.embed_instance_name || row.embed_instance_id || '—') + '</dd>' +
+                '<dt class="col-sm-3">時間</dt><dd class="col-sm-9">' + esc(formatTime(row.created_at)) + '</dd>' +
+                '<dt class="col-sm-3">參考來源</dt><dd class="col-sm-9">' + refHtml + '</dd>' +
+                '</dl>';
+            if (window.MatchdoImageLightbox && typeof window.MatchdoImageLightbox.wire === 'function') {
+                window.MatchdoImageLightbox.wire(document.getElementById('detail-body'));
+            }
+            if (!detailModal) detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            detailModal.show();
+        }
+
+        async function loadRecords() {
+            var tok = await getToken();
+            if (!tok) { showAlert('請先登入', 'danger'); return; }
+            var proto = (document.getElementById('filter-proto').value || '').trim();
+            var qs = '?limit=' + perPage + '&offset=' + (page * perPage);
+            if (proto) qs += '&prototype_asset_id=' + encodeURIComponent(proto);
+            var r = await fetch('/api/me/embed-designs' + qs, { headers: { Authorization: 'Bearer ' + tok } });
+            var data = await r.json().catch(function () { return {}; });
+            if (r.status === 503) {
+                showAlert('Embed 資料表尚未建立，請聯絡平台。', 'warning');
+                records = [];
+                renderTable();
+                return;
+            }
+            if (!r.ok) {
+                showAlert(data.error || '載入失敗', 'danger');
+                return;
+            }
+            document.getElementById('load-alert').classList.add('d-none');
+            records = data.items || [];
+            total = data.total || 0;
+            document.getElementById('total-label').textContent = '共 ' + total + ' 筆';
+            document.getElementById('page-label').textContent = '第 ' + (page + 1) + ' 頁';
+            document.getElementById('btn-prev').disabled = page <= 0;
+            document.getElementById('btn-next').disabled = (page + 1) * perPage >= total;
+            renderTable();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof window.initSiteHeader === 'function') window.initSiteHeader();
+            document.getElementById('btn-reload').addEventListener('click', function () { page = 0; loadRecords(); });
+            document.getElementById('filter-proto').addEventListener('change', function () { page = 0; loadRecords(); });
+            document.getElementById('btn-prev').addEventListener('click', function () { if (page > 0) { page--; loadRecords(); } });
+            document.getElementById('btn-next').addEventListener('click', function () { if ((page + 1) * perPage < total) { page++; loadRecords(); } });
+            loadPrototypes().then(loadRecords);
+        });
+    })();
+    </script>
+</body>
+</html>

@@ -206,9 +206,12 @@
                     var url = g.ai_generated_image_url || '';
                     var cap = (g.combo_label || g.title || '').trim();
                     var dateStr = g.created_at ? String(g.created_at).slice(0, 10) : '';
+                    var srcBadge = g.source === 'embed'
+                        ? '<span class="badge bg-purple text-white me-1" style="background:#6f42c1;font-size:0.65rem">Embed</span>'
+                        : '';
                     col.innerHTML = url
                         ? '<img src="' + esc(url) + '" class="gen-thumb matchdo-enlarge-trigger" alt="" loading="lazy" data-image-urls="' + esc(JSON.stringify([url])) + '">' +
-                          '<div class="small text-truncate mt-1" title="' + esc(cap) + '">' + esc(cap) + '</div>' +
+                          '<div class="small text-truncate mt-1" title="' + esc(cap) + '">' + srcBadge + esc(cap) + '</div>' +
                           '<div class="text-muted small">' + esc(dateStr) + '</div>'
                         : '<div class="text-muted small">無圖</div>';
                     grid.appendChild(col);

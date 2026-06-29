@@ -14461,6 +14461,226 @@ function buildComboLabelFromReferenceSources(sources, titleById) {
     return parts.length ? parts.join(' · ') : '僅主產品';
 }
 
+function customProductRowIsEmbedVisitor(row) {
+    if (!row) return false;
+    const aj = row.analysis_json && typeof row.analysis_json === 'object' ? row.analysis_json : {};
+    if (aj.embed_visitor_design === true || aj.source === 'embed') return true;
+    const dl = row.data_lineage_json && typeof row.data_lineage_json === 'object' ? row.data_lineage_json : {};
+    return dl.embed_visitor_design === true || dl.source === 'embed';
+}
+
+function productRowReferencesManufacturer(row, manufacturerId) {
+    const mid = String(manufacturerId || '').trim();
+    if (!mid || !row) return false;
+    if (String(row.generator_manufacturer_id || '') === mid) return true;
+    return parseReferenceSourcesList(row.reference_sources).some(function (s) {
+        return s && String(s.manufacturer_id || '') === mid;
+    });
+}
+
+async function buildVendorAssetTitleMap(manufacturerId) {
+    const titleById = {};
+    const { data: assets } = await supabase
+        .from('vendor_assets')
+        .select('id, title')
+        .eq('manufacturer_id', manufacturerId);
+    (assets || []).forEach(function (a) {
+        if (a && a.id) titleById[a.id] = (a.title || '').trim() || a.id;
+    });
+    return titleById;
+}
+
+function mapEmbedDesignListItem(row, titleById, protoTitleById, instanceNameById) {
+    const protoId = row.prototype_asset_id || null;
+    return {
+        id: row.id,
+        source: 'embed',
+        created_at: row.created_at,
+        ai_generated_image_url: row.ai_generated_image_url || null,
+        prompt: row.prompt || null,
+        prototype_asset_id: protoId,
+        prototype_title: (protoId && protoTitleById[protoId]) || '',
+        combo_label: buildComboLabelFromReferenceSources(row.reference_sources, titleById),
+        reference_sources: row.reference_sources || [],
+        referrer_host: row.referrer_host || null,
+        points_charged: row.points_charged || 0,
+        billing_type: row.billing_type || null,
+        generation_seed: row.generation_seed != null ? row.generation_seed : null,
+        custom_product_id: row.custom_product_id || null,
+        embed_instance_id: row.embed_instance_id || null,
+        embed_instance_name: (row.embed_instance_id && instanceNameById[row.embed_instance_id]) || null
+    };
+}
+
+async function listVendorEmbedDesigns(manufacturerId, opts) {
+    opts = opts || {};
+    const limit = Math.min(100, Math.max(1, parseInt(opts.limit, 10) || 30));
+    const offset = Math.max(0, parseInt(opts.offset, 10) || 0);
+    const protoId = (opts.prototype_asset_id || '').trim();
+
+    let q = supabase
+        .from('vendor_embed_designs')
+        .select('id, embed_instance_id, manufacturer_id, prototype_asset_id, reference_sources, prompt, ai_generated_image_url, generation_seed, referrer_host, billing_type, points_charged, custom_product_id, created_at', { count: 'exact' })
+        .eq('manufacturer_id', manufacturerId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+    if (protoId) q = q.eq('prototype_asset_id', protoId);
+
+    const { data: rows, error, count } = await q;
+    if (error) {
+        if (error.code === '42P01') return { error: 'schema', items: [], total: 0 };
+        throw error;
+    }
+
+    const titleById = await buildVendorAssetTitleMap(manufacturerId);
+    const protoTitleById = titleById;
+    const instanceIds = [...new Set((rows || []).map(function (r) { return r.embed_instance_id; }).filter(Boolean))];
+    const instanceNameById = {};
+    if (instanceIds.length) {
+        const { data: instRows } = await supabase
+            .from('manufacturer_embed_instances')
+            .select('id, name')
+            .in('id', instanceIds);
+        (instRows || []).forEach(function (i) {
+            if (i && i.id) instanceNameById[i.id] = i.name || '';
+        });
+    }
+
+    return {
+        items: (rows || []).map(function (r) {
+            return mapEmbedDesignListItem(r, titleById, protoTitleById, instanceNameById);
+        }),
+        total: count || 0,
+        limit: limit,
+        offset: offset
+    };
+}
+
+async function listAdminGenerationRecords(opts) {
+    opts = opts || {};
+    const source = (opts.source || 'all').trim().toLowerCase();
+    const limit = Math.min(100, Math.max(1, parseInt(opts.limit, 10) || 50));
+    const offset = Math.max(0, parseInt(opts.offset, 10) || 0);
+    const manufacturerId = (opts.manufacturer_id || '').trim();
+    const qText = (opts.q || '').trim().toLowerCase();
+    const from = (opts.from || '').trim();
+    const to = (opts.to || '').trim();
+    const fetchN = Math.min(500, limit + offset + 50);
+    const merged = [];
+
+    if (source === 'all' || source === 'site') {
+        let cpQ = supabase
+            .from('custom_products')
+            .select('id, title, description, ai_generated_image_url, generation_prompt, generation_seed, reference_sources, created_at, owner_id, category, subcategory_key, is_vendor_self_serve, analysis_json, data_lineage_json, generator_manufacturer_id, show_on_homepage')
+            .not('ai_generated_image_url', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(fetchN);
+        if (from) cpQ = cpQ.gte('created_at', from);
+        if (to) cpQ = cpQ.lte('created_at', to + 'T23:59:59.999Z');
+        const cpRes = await cpQ;
+        if (!cpRes.error) {
+            (cpRes.data || []).forEach(function (row) {
+                if (customProductRowIsEmbedVisitor(row)) return;
+                if (manufacturerId && !productRowReferencesManufacturer(row, manufacturerId)) return;
+                const prompt = (row.generation_prompt || row.description || row.title || '').trim();
+                const hay = [row.title, prompt, row.category, row.subcategory_key].join(' ').toLowerCase();
+                if (qText && !hay.includes(qText)) return;
+                merged.push({
+                    id: row.id,
+                    source: 'site',
+                    created_at: row.created_at,
+                    ai_generated_image_url: row.ai_generated_image_url,
+                    title: row.title || '',
+                    prompt: prompt,
+                    generation_seed: row.generation_seed,
+                    reference_sources: row.reference_sources || [],
+                    owner_id: row.owner_id || null,
+                    category: row.category || null,
+                    subcategory_key: row.subcategory_key || null,
+                    is_vendor_self_serve: row.is_vendor_self_serve === true,
+                    show_on_homepage: row.show_on_homepage !== false,
+                    manufacturer_id: row.generator_manufacturer_id || null
+                });
+            });
+        }
+    }
+
+    if (source === 'all' || source === 'embed') {
+        let embQ = supabase
+            .from('vendor_embed_designs')
+            .select('id, embed_instance_id, manufacturer_id, prototype_asset_id, reference_sources, prompt, ai_generated_image_url, generation_seed, referrer_host, billing_type, points_charged, custom_product_id, created_at')
+            .order('created_at', { ascending: false })
+            .limit(fetchN);
+        if (manufacturerId) embQ = embQ.eq('manufacturer_id', manufacturerId);
+        if (from) embQ = embQ.gte('created_at', from);
+        if (to) embQ = embQ.lte('created_at', to + 'T23:59:59.999Z');
+        const embRes = await embQ;
+        if (!embRes.error) {
+            const mfrIds = [...new Set((embRes.data || []).map(function (r) { return r.manufacturer_id; }).filter(Boolean))];
+            const mfrNameById = {};
+            if (mfrIds.length) {
+                const { data: mfrs } = await supabase.from('manufacturers').select('id, name').in('id', mfrIds);
+                (mfrs || []).forEach(function (m) {
+                    if (m && m.id) mfrNameById[m.id] = m.name || '';
+                });
+            }
+            (embRes.data || []).forEach(function (row) {
+                const prompt = (row.prompt || '').trim();
+                const hay = [prompt, row.referrer_host, row.prototype_asset_id].join(' ').toLowerCase();
+                if (qText && !hay.includes(qText)) return;
+                merged.push({
+                    id: row.id,
+                    source: 'embed',
+                    created_at: row.created_at,
+                    ai_generated_image_url: row.ai_generated_image_url,
+                    title: 'Embed 訪客試做',
+                    prompt: prompt,
+                    generation_seed: row.generation_seed,
+                    reference_sources: row.reference_sources || [],
+                    manufacturer_id: row.manufacturer_id || null,
+                    manufacturer_name: mfrNameById[row.manufacturer_id] || '',
+                    referrer_host: row.referrer_host || null,
+                    points_charged: row.points_charged || 0,
+                    billing_type: row.billing_type || null,
+                    custom_product_id: row.custom_product_id || null,
+                    embed_instance_id: row.embed_instance_id || null,
+                    prototype_asset_id: row.prototype_asset_id || null,
+                    is_vendor_self_serve: false
+                });
+            });
+        }
+    }
+
+    merged.sort(function (a, b) {
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+    const items = merged.slice(offset, offset + limit);
+
+    const ownerIds = [...new Set(items.filter(function (i) { return i.source === 'site' && i.owner_id; }).map(function (i) { return i.owner_id; }))];
+    const ownerById = {};
+    if (ownerIds.length) {
+        const { data: profs } = await supabase.from('profiles').select('id, email, full_name').in('id', ownerIds);
+        (profs || []).forEach(function (p) {
+            if (p && p.id) ownerById[p.id] = p;
+        });
+    }
+    items.forEach(function (item) {
+        if (item.source === 'site' && item.owner_id && ownerById[item.owner_id]) {
+            const p = ownerById[item.owner_id];
+            item.owner_email = p.email || null;
+            item.owner_name = p.full_name || null;
+        }
+    });
+
+    return {
+        items: items,
+        total: merged.length,
+        limit: limit,
+        offset: offset,
+        has_more: merged.length > offset + limit
+    };
+}
+
 async function buildVendorPrototypeDesignInsights(manufacturerId, prototypeAssetId) {
     const { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
@@ -14483,7 +14703,7 @@ async function buildVendorPrototypeDesignInsights(manufacturerId, prototypeAsset
     });
     const { data: products, error: prodErr } = await supabase
         .from('custom_products')
-        .select('id, title, ai_generated_image_url, reference_sources, created_at')
+        .select('id, title, ai_generated_image_url, reference_sources, created_at, is_vendor_self_serve, analysis_json')
         .not('reference_sources', 'is', null)
         .not('ai_generated_image_url', 'is', null)
         .order('created_at', { ascending: false })
@@ -14492,6 +14712,9 @@ async function buildVendorPrototypeDesignInsights(manufacturerId, prototypeAsset
     const matched = [];
     const comboCounts = {};
     (products || []).forEach(function (row) {
+        if (row.is_vendor_self_serve === true) return;
+        const aj = row.analysis_json && typeof row.analysis_json === 'object' ? row.analysis_json : {};
+        if (aj.embed_visitor_design === true || aj.source === 'embed') return;
         if (!productReferencesPrototype(row.reference_sources, prototypeAssetId)) return;
         const comboKey = buildComboKeyFromReferenceSources(row.reference_sources);
         const comboLabel = buildComboLabelFromReferenceSources(row.reference_sources, titleById);
@@ -14507,6 +14730,38 @@ async function buildVendorPrototypeDesignInsights(manufacturerId, prototypeAsset
             comboCounts[comboKey] = { combo_key: comboKey, combo_label: comboLabel, count: 0 };
         }
         comboCounts[comboKey].count += 1;
+    });
+    let embedRows = [];
+    try {
+        const embedRes = await supabase
+            .from('vendor_embed_designs')
+            .select('id, ai_generated_image_url, reference_sources, created_at, custom_product_id, source, prompt')
+            .eq('manufacturer_id', manufacturerId)
+            .eq('prototype_asset_id', prototypeAssetId)
+            .not('ai_generated_image_url', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(500);
+        if (!embedRes.error) embedRows = embedRes.data || [];
+    } catch (_) {}
+    (embedRows || []).forEach(function (row) {
+        const comboKey = buildComboKeyFromReferenceSources(row.reference_sources);
+        const comboLabel = buildComboLabelFromReferenceSources(row.reference_sources, titleById);
+        matched.push({
+            id: row.custom_product_id || row.id,
+            title: (row.prompt || '').trim() || 'Embed 訪客試做',
+            ai_generated_image_url: row.ai_generated_image_url,
+            created_at: row.created_at,
+            combo_key: comboKey,
+            combo_label: comboLabel,
+            source: 'embed'
+        });
+        if (!comboCounts[comboKey]) {
+            comboCounts[comboKey] = { combo_key: comboKey, combo_label: comboLabel, count: 0 };
+        }
+        comboCounts[comboKey].count += 1;
+    });
+    matched.sort(function (a, b) {
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
     const generationCount = matched.length;
     const topCombos = Object.values(comboCounts)
@@ -14526,7 +14781,8 @@ async function buildVendorPrototypeDesignInsights(manufacturerId, prototypeAsset
             title: m.title,
             ai_generated_image_url: m.ai_generated_image_url,
             created_at: m.created_at,
-            combo_label: m.combo_label
+            combo_label: m.combo_label,
+            source: m.source || 'custom_product'
         };
     });
     return {
@@ -15808,7 +16064,7 @@ async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
 app.get('/api/embed/simulator/bootstrap', async (req, res) => {
     try {
         const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
-        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const tier = await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
         const proto = await resolveEmbedPrototypeForRequest(ctx, ctx.instance.prototype_asset_id);
         const mfrName = ctx.manufacturer.name || '廠商';
         res.json({
@@ -15819,6 +16075,7 @@ app.get('/api/embed/simulator/bootstrap', async (req, res) => {
             },
             prototype: proto,
             prototype_asset_id: proto.id,
+            embed_branding: embedSimulator.embedBrandingForTier(tier),
             service_status: 'ok'
         });
     } catch (e) {
@@ -15865,7 +16122,7 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
     try {
         const body = req.body || {};
         ctx = await embedSimulator.resolveEmbedInstance(supabase, body.embed_id, body.sig);
-        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const tier = await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
         const proto = await resolveEmbedPrototypeForRequest(ctx, body.prototype_asset_id || ctx.instance.prototype_asset_id);
 
         const clientIp = embedSimulator.getRequestClientIp(req);
@@ -15873,8 +16130,8 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
         const usage = await embedSimulator.getInstanceUsageCounts(supabase, ctx.instance.id);
         embedSimulator.assertCaps(ctx.instance, usage);
 
-        const overagePts = await getPointsEmbedSimulatorGenerate();
-        billing = await embedSimulator.resolveEmbedBilling(supabase, ctx.instance.manufacturer_id, ctx.vendorUserId, overagePts);
+        const pointsRequired = await getPointsEmbedSimulatorGenerate();
+        billing = await embedSimulator.resolveEmbedBilling(supabase, ctx.vendorUserId, pointsRequired);
 
         const refs = await buildValidatedEmbedReferencePayload(ctx, body, proto);
         const hasRefs = refs.referenceImages.length > 0;
@@ -15951,12 +16208,12 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
             imageUrl = 'data:' + mime + ';base64,' + imageData;
         }
 
-        if (billing.billing_type === 'credit_overage' && billing.points_charged > 0) {
+        if (billing.points_charged > 0) {
             await embedSimulator.chargeVendorCredits(
                 supabase,
                 ctx.vendorUserId,
                 billing.points_charged,
-                'Embed 模擬器生圖超額'
+                'Embed 模擬器生圖'
             );
         }
 
@@ -15968,11 +16225,71 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
             try { refHost = new URL(referrerHost).host; } catch (_) { refHost = referrerHost.slice(0, 120); }
         }
 
-        await supabase.from('vendor_embed_designs').insert({
+        const refSourcesFinal = composed.fluxReferenceSources.length ? composed.fluxReferenceSources : refs.referenceSources;
+        const showOnHomepage = embedSimulator.resolveEmbedMediaWallVisible(tier, ctx.instance);
+        const mfrName = ctx.manufacturer.name || '廠商';
+        const embedTitle = ((proto.title || '訂製品') + ' · 官網試做').slice(0, 120);
+        const embedDesc = (userPrompt || ('Embed 訪客試做 · ' + mfrName)).slice(0, 500);
+        const embedAnalysis = {
+            embed_visitor_design: true,
+            source: 'embed',
+            embed_instance_id: ctx.instance.id,
+            embed_session_id: (body.session_id || '').trim() || null,
+            referrer_host: refHost
+        };
+        let customProductId = null;
+        if (ctx.vendorUserId) {
+            const cpPayload = {
+                owner_id: ctx.vendorUserId,
+                title: embedTitle,
+                description: embedDesc,
+                category: proto.category_key || null,
+                subcategory_key: proto.subcategory_key || null,
+                ai_generated_image_url: imageUrl,
+                reference_sources: refSourcesFinal,
+                generation_prompt: composed.fullPrompt || null,
+                generation_seed: seedNum,
+                show_on_homepage: showOnHomepage,
+                status: 'draft',
+                is_vendor_self_serve: false,
+                has_self_vendor_reference: true,
+                generator_manufacturer_id: ctx.instance.manufacturer_id,
+                data_lineage_json: {
+                    embed_visitor_design: true,
+                    source: 'embed',
+                    billed_vendor_user_id: ctx.vendorUserId,
+                    is_vendor_self_serve: false,
+                    computed_at: new Date().toISOString()
+                },
+                analysis_json: embedAnalysis
+            };
+            let cpRes = await supabase.from('custom_products').insert(cpPayload).select('id').single();
+            if (cpRes.error && cpRes.error.code === '42703') {
+                const slim = Object.assign({}, cpPayload);
+                delete slim.is_vendor_self_serve;
+                delete slim.has_self_vendor_reference;
+                delete slim.generator_manufacturer_id;
+                delete slim.data_lineage_json;
+                cpRes = await supabase.from('custom_products').insert(slim).select('id').single();
+            }
+            if (!cpRes.error && cpRes.data && cpRes.data.id) {
+                customProductId = cpRes.data.id;
+                enrichCustomProductSemantics(customProductId, ctx.vendorUserId, {
+                    imageUrl: imageUrl,
+                    generationPrompt: composed.fullPrompt || userPrompt,
+                    title: embedTitle,
+                    categoryKey: proto.category_key || null
+                }).catch(function () {});
+            } else if (cpRes.error) {
+                console.warn('embed custom_products insert:', cpRes.error.message);
+            }
+        }
+
+        const embedInsert = {
             embed_instance_id: ctx.instance.id,
             manufacturer_id: ctx.instance.manufacturer_id,
             prototype_asset_id: proto.id,
-            reference_sources: composed.fluxReferenceSources.length ? composed.fluxReferenceSources : refs.referenceSources,
+            reference_sources: refSourcesFinal,
             prompt: userPrompt || null,
             ai_generated_image_url: imageUrl,
             generation_seed: seedNum,
@@ -15980,8 +16297,24 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
             embed_session_id: (body.session_id || '').trim() || null,
             referrer_host: refHost,
             billing_type: billing.billing_type,
-            points_charged: billing.points_charged || 0
-        });
+            points_charged: billing.points_charged || 0,
+            source: 'embed'
+        };
+        if (customProductId) embedInsert.custom_product_id = customProductId;
+        let embedDesignRes = await supabase.from('vendor_embed_designs').insert(embedInsert);
+        if (embedDesignRes.error) {
+            const slimEmbed = Object.assign({}, embedInsert);
+            if (embedDesignRes.error.code === '42703') {
+                delete slimEmbed.source;
+                delete slimEmbed.custom_product_id;
+                embedDesignRes = await supabase.from('vendor_embed_designs').insert(slimEmbed);
+            }
+            if (embedDesignRes.error && String(embedDesignRes.error.message || '').includes('billing_type')) {
+                slimEmbed.billing_type = 'credit_overage';
+                embedDesignRes = await supabase.from('vendor_embed_designs').insert(slimEmbed);
+            }
+            if (embedDesignRes.error) console.warn('vendor_embed_designs insert:', embedDesignRes.error.message);
+        }
 
         res.json({
             success: true,
@@ -16003,7 +16336,7 @@ function embedSchemaMissingResponse(res) {
     });
 }
 
-async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, prototypeAssetId, instanceName) {
+async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, prototypeAssetId, instanceName, vendorUserId) {
     const protoId = String(prototypeAssetId || '').trim();
     if (!protoId) return { error: 'missing_prototype' };
 
@@ -16023,7 +16356,7 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
 
     let existingRes = await supabase
         .from('manufacturer_embed_instances')
-        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
         .eq('manufacturer_id', manufacturerId)
         .eq('prototype_asset_id', protoId)
         .eq('is_active', true)
@@ -16038,6 +16371,9 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         return { instance: existingRes.data, created: false, prototype_title: row.title || '' };
     }
 
+    await embedSimulator.assertEmbedFeatureEnabled(supabase, vendorUserId);
+    await embedSimulator.assertEmbedInstanceQuota(supabase, manufacturerId, vendorUserId);
+
     const embedKey = embedSimulator.randomEmbedKey();
     const embedSecret = embedSimulator.randomEmbedSecret();
     const name = String(instanceName || '').trim() || ((row.title || '主產品') + ' 官網試做');
@@ -16050,16 +16386,17 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
             embed_secret: embedSecret,
             prototype_asset_id: protoId,
             is_active: true,
+            show_on_media_wall: true,
             updated_at: new Date().toISOString()
         })
-        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
         .single();
     if (insertRes.error) {
         if (insertRes.error.code === '42P01') return { error: 'schema' };
         if (insertRes.error.code === '23505') {
             existingRes = await supabase
                 .from('manufacturer_embed_instances')
-                .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+                .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
                 .eq('manufacturer_id', manufacturerId)
                 .eq('prototype_asset_id', protoId)
                 .eq('is_active', true)
@@ -16084,7 +16421,7 @@ app.get('/api/me/embed-simulator-instances', async (req, res) => {
 
         const { data: row, error } = await supabase
             .from('manufacturer_embed_instances')
-            .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+            .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
             .eq('manufacturer_id', manufacturerId)
             .eq('prototype_asset_id', protoId)
             .eq('is_active', true)
@@ -16093,12 +16430,38 @@ app.get('/api/me/embed-simulator-instances', async (req, res) => {
             .maybeSingle();
         if (error) {
             if (error.code === '42P01') return embedSchemaMissingResponse(res);
+            if (error.code === '42703') {
+                const fallback = await supabase
+                    .from('manufacturer_embed_instances')
+                    .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
+                    .eq('manufacturer_id', manufacturerId)
+                    .eq('prototype_asset_id', protoId)
+                    .eq('is_active', true)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                if (fallback.error) throw fallback.error;
+                if (!fallback.data) {
+                    const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
+                    const tier = mfrRow && mfrRow.user_id ? await embedSimulator.resolveEmbedPlanTier(supabase, mfrRow.user_id) : null;
+                    return res.json({ instance: null, embed_tier: tier });
+                }
+                const origin = embedSimulator.publicOriginFromRequest(req);
+                const mapped = embedSimulator.mapEmbedInstanceForVendor(fallback.data, origin, { title: '產品試做' });
+                const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
+                const tier = mfrRow && mfrRow.user_id ? await embedSimulator.resolveEmbedPlanTier(supabase, mfrRow.user_id) : null;
+                return res.json({ instance: mapped, embed_tier: tier });
+            }
             throw error;
         }
-        if (!row) return res.json({ instance: null });
+        const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
+        const tier = mfrRow && mfrRow.user_id ? await embedSimulator.resolveEmbedPlanTier(supabase, mfrRow.user_id) : null;
+        const tierCfg = tier ? embedSimulator.getEmbedTierConfig(tier) : null;
+        const activeCount = await embedSimulator.countActiveEmbedInstances(supabase, manufacturerId);
+        if (!row) return res.json({ instance: null, embed_tier: tier, embed_tier_config: tierCfg, active_instance_count: activeCount });
         const origin = embedSimulator.publicOriginFromRequest(req);
         const mapped = embedSimulator.mapEmbedInstanceForVendor(row, origin, { title: '產品試做' });
-        return res.json({ instance: mapped });
+        return res.json({ instance: mapped, embed_tier: tier, embed_tier_config: tierCfg, active_instance_count: activeCount });
     } catch (e) {
         console.error('GET /api/me/embed-simulator-instances:', e);
         return res.status(500).json({ error: '查詢失敗' });
@@ -16116,7 +16479,10 @@ app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) =
         const protoId = (body.prototype_asset_id || '').trim();
         if (!protoId) return res.status(400).json({ error: '請提供 prototype_asset_id' });
 
-        const pack = await getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, protoId, body.name);
+        const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
+        const vendorUserId = mfrRow && mfrRow.user_id ? mfrRow.user_id : null;
+
+        const pack = await getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, protoId, body.name, vendorUserId);
         if (pack.error === 'schema') return embedSchemaMissingResponse(res);
         if (pack.error === 'not_prototype') {
             return res.status(400).json({ error: '僅主產品可建立 iframe 試做器' });
@@ -16128,14 +16494,106 @@ app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) =
             return res.status(400).json({ error: '請先上架主產品，才能產生官網 iframe' });
         }
 
+        const tier = vendorUserId ? await embedSimulator.resolveEmbedPlanTier(supabase, vendorUserId) : null;
         const origin = embedSimulator.publicOriginFromRequest(req);
         const mapped = embedSimulator.mapEmbedInstanceForVendor(pack.instance, origin, {
             title: (pack.prototype_title || '產品試做').slice(0, 80)
         });
-        return res.json(Object.assign({}, mapped, { created: !!pack.created }));
+        return res.json(Object.assign({}, mapped, {
+            created: !!pack.created,
+            embed_tier: tier,
+            embed_tier_config: tier ? embedSimulator.getEmbedTierConfig(tier) : null,
+            active_instance_count: await embedSimulator.countActiveEmbedInstances(supabase, manufacturerId)
+        }));
     } catch (e) {
+        if (e instanceof embedSimulator.EmbedSimulatorError) {
+            return res.status(e.httpStatus || 403).json({ error: e.message, error_code: e.code });
+        }
         console.error('POST /api/me/embed-simulator-instances:', e);
         return res.status(500).json({ error: '建立失敗' });
+    }
+});
+
+// PATCH /api/me/embed-simulator-instances/:id — 1800 方案：設定 embed 成圖是否上首頁媒體牆
+app.patch('/api/me/embed-simulator-instances/:id', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
+
+        const instanceId = (req.params.id || '').trim();
+        if (!instanceId) return res.status(400).json({ error: '缺少 id' });
+
+        const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
+        const vendorUserId = mfrRow && mfrRow.user_id ? mfrRow.user_id : null;
+        const tier = vendorUserId ? await embedSimulator.resolveEmbedPlanTier(supabase, vendorUserId) : null;
+        const tierCfg = tier ? embedSimulator.getEmbedTierConfig(tier) : null;
+        if (!tierCfg || tierCfg.wallMode !== 'configurable') {
+            return res.status(403).json({ error: '僅 1800 方案可設定 embed 成圖是否上首頁媒體牆' });
+        }
+
+        const body = req.body || {};
+        const showOnWall = body.show_on_media_wall !== false && body.show_on_media_wall !== 'false' && body.show_on_media_wall !== 0;
+
+        const { data: row, error } = await supabase
+            .from('manufacturer_embed_instances')
+            .update({ show_on_media_wall: showOnWall, updated_at: new Date().toISOString() })
+            .eq('id', instanceId)
+            .eq('manufacturer_id', manufacturerId)
+            .select('id, show_on_media_wall')
+            .maybeSingle();
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(503).json({ error: '請先執行 docs/add-embed-simulator-plan-tiers.sql' });
+            }
+            throw error;
+        }
+        if (!row) return res.status(404).json({ error: '找不到 iframe 實例' });
+        return res.json({ success: true, show_on_media_wall: row.show_on_media_wall !== false });
+    } catch (e) {
+        console.error('PATCH /api/me/embed-simulator-instances/:id:', e);
+        return res.status(500).json({ error: '更新失敗' });
+    }
+});
+
+// GET /api/me/embed-designs — 廠商：Embed 訪客生圖紀錄
+app.get('/api/me/embed-designs', async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const payload = await listVendorEmbedDesigns(manufacturerId, {
+            limit: req.query.limit,
+            offset: req.query.offset,
+            prototype_asset_id: req.query.prototype_asset_id
+        });
+        if (payload.error === 'schema') {
+            return res.status(503).json({ error: 'Embed 尚未設定', code: 'EMBED_SCHEMA', items: [], total: 0 });
+        }
+        return res.json(payload);
+    } catch (e) {
+        console.error('GET /api/me/embed-designs:', e);
+        return res.status(500).json({ error: '查詢失敗' });
+    }
+});
+
+// GET /api/admin/generation-records — 管理員：主站 + Embed 生圖紀錄
+app.get('/api/admin/generation-records', async (req, res) => {
+    try {
+        const adminUser = await requireAdminOrTester(req, res);
+        if (!adminUser) return;
+        const payload = await listAdminGenerationRecords({
+            source: req.query.source,
+            limit: req.query.limit,
+            offset: req.query.offset,
+            manufacturer_id: req.query.manufacturer_id,
+            q: req.query.q,
+            from: req.query.from,
+            to: req.query.to
+        });
+        return res.json(payload);
+    } catch (e) {
+        console.error('GET /api/admin/generation-records:', e);
+        return res.status(500).json({ error: '查詢失敗' });
     }
 });
 
