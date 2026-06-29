@@ -62,6 +62,92 @@
             overflow-y: auto;
             padding-right: 4px;
         }
+        
+        /* === UI 簡化與視覺優化 === */
+        :root {
+            --mat-primary: #0d9488;
+            --mat-required-bg: #eff6ff;
+            --mat-required-border: #93c5fd;
+            --mat-optional-bg: #fafafa;
+        }
+        .upload-panel:hover {
+            border-color: var(--mat-primary);
+            box-shadow: 0 8px 24px rgba(13, 148, 136, 0.12);
+        }
+        .add-form .col-md-6:has(> label > .text-danger),
+        .add-form .col-12:has(> label > .text-danger) {
+            background: var(--mat-required-bg);
+            border-left: 4px solid var(--mat-required-border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .taxonomy-capability-block, .add-linked-prototypes-block {
+            background: var(--mat-optional-bg);
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 1.25rem;
+            position: relative;
+        }
+        .taxonomy-capability-block::before,
+        .add-linked-prototypes-block::before {
+            content: '選填';
+            position: absolute;
+            top: -10px;
+            left: 12px;
+            background: #fbbf24;
+            color: #78350f;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            border: 2px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .btn-add-submit-only {
+            background: linear-gradient(135deg, var(--mat-primary) 0%, #14b8a6 100%);
+            border: none;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+            transition: all 0.3s ease;
+        }
+        .btn-add-submit-only:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(13, 148, 136, 0.4);
+        }
+        .material-card:hover {
+            border-color: var(--mat-primary);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(13, 148, 136, 0.15);
+        }
+        #materials-list-pager {
+            background: white;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        #asset-kind-tabs .nav-link {
+            border-radius: 12px 12px 0 0;
+            transition: all 0.3s ease;
+        }
+        #asset-kind-tabs .nav-link:hover {
+            background: #f0fdfa;
+            color: var(--mat-primary);
+        }
+        .alert.border {
+            border-left-width: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .alert-info { background: #eff6ff; }
+        .alert-warning { background: #fef3c7; }
+        .alert-success { background: #f0fdfa; }
+        @media (max-width: 768px) {
+            .btn-add-submit-only {
+                width: 100%;
+                padding: 1rem;
+            }
+        }
     </style>
 </head>
 <body>
