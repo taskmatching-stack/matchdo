@@ -569,7 +569,7 @@
   "custom.product": "客製產品",
   "customProduct.pageTitle": "產品設計",
   "customProduct.designFlowSteps": "步驟：描述／選圖 → 生成 → 選廠商／下單",
-  "customProduct.aiSimulationDisclaimer": "AI 設計為模擬示意圖，實際產品呈現以廠商為準。",
+  "customProduct.aiSimulationDisclaimer": "AI 設計圖為創意溝通工具，實際製造規格與成品以廠商確認為準。",
   "customProduct.designNextStepHint": "建議：可到「我的數位資產」查看，或到「圖庫找廠商」找廠商訂製",
   "customProduct.pageSub": "輸入描述、選分類與參考圖，一鍵生成",
   "customProduct.promptLabel": "描述你想生成的產品",

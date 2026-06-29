@@ -12,7 +12,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="matchdo-asset-version" content="44">
+    <meta name="matchdo-asset-version" content="45">
     <title>產品設計 - MATCHDO 合做</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <meta name="keywords" content="客製產品設計,AI設計,廠商媒合,訂製,MATCHDO">
@@ -1220,7 +1220,31 @@
         #custom-product .ref-prompt-addon-row input { font-size: 0.8125rem; }
         #custom-product .btn-merge-desc { margin-top: 0.35rem; font-size: 0.8125rem; }
         #custom-product .btn-generate { width: 100%; padding: 0.875rem; font-size: 1rem; font-weight: 600; border-radius: 10px; border: none; margin-top: 1.25rem; }
-        #custom-product .design-ai-disclaimer { line-height: 1.45; color: #64748b; }
+        #custom-product .design-ai-disclaimer {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin: 0 0 0.75rem;
+            padding: 0.65rem 0.9rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1.5;
+            color: #92400e;
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #f59e0b;
+            border-radius: 8px;
+        }
+        #custom-product .design-ai-disclaimer-icon {
+            color: #d97706;
+            font-size: 1.05rem;
+            flex-shrink: 0;
+            margin-top: 0.05rem;
+        }
+        #custom-product #generatedImagePreviewWrap .design-ai-disclaimer {
+            margin-top: 0.75rem;
+            margin-bottom: 0;
+        }
         #panel-vendor-styles .vendor-asset-mfr-logo { display: block; width: auto; max-width: 48px; min-width: 22px; height: 22px; object-fit: contain; object-position: left center; border-radius: 4px; flex-shrink: 0; background: #f8fafc; }
         #panel-vendor-styles .vendor-asset-mfr-logo--ph { width: 22px; height: 22px; font-size: .75rem; }
         #custom-product .page-sub { font-size: 0.875rem; color: #6b7280; margin-bottom: 1.5rem; }
@@ -1293,8 +1317,8 @@
                 <div class="tab-content" id="designTabContent">
                     <div class="tab-pane fade show active" id="panel-product-design" role="tabpanel" aria-labelledby="tab-product-design">
                 <p class="design-flow-steps text-muted small mb-2" id="designFlowSteps" data-i18n="customProduct.designFlowSteps">步驟：描述／選圖 → 生成 → 選廠商／下單</p>
-                <p class="design-ai-disclaimer text-muted small mb-2" role="note">
-                    <i class="bi bi-info-circle me-1" aria-hidden="true"></i><span data-i18n="customProduct.aiSimulationDisclaimer">AI 設計為模擬示意圖，實際產品呈現以廠商為準。</span>
+                <p class="design-ai-disclaimer" role="note">
+                    <i class="bi bi-exclamation-circle-fill design-ai-disclaimer-icon" aria-hidden="true"></i><span data-i18n="customProduct.aiSimulationDisclaimer">AI 設計圖為創意溝通工具，實際製造規格與成品以廠商確認為準。</span>
                 </p>
                 <form id="customProductForm">
                     <div class="create-panel">
@@ -1364,8 +1388,8 @@
                             <div id="generatedImagePreview"></div>
                             <div id="pastGeneratedGallery" class="past-gallery"></div>
                             <p class="placeholder-hint mb-0" id="generatedImagePlaceholder">生成後的設計圖會顯示在這裡</p>
-                            <p class="design-ai-disclaimer text-muted small mt-2 mb-0" role="note">
-                                <i class="bi bi-info-circle me-1" aria-hidden="true"></i><span data-i18n="customProduct.aiSimulationDisclaimer">AI 設計為模擬示意圖，實際產品呈現以廠商為準。</span>
+                            <p class="design-ai-disclaimer" role="note">
+                                <i class="bi bi-exclamation-circle-fill design-ai-disclaimer-icon" aria-hidden="true"></i><span data-i18n="customProduct.aiSimulationDisclaimer">AI 設計圖為創意溝通工具，實際製造規格與成品以廠商確認為準。</span>
                             </p>
                         </div>
                     </div>
