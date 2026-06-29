@@ -554,7 +554,7 @@
                             </div>
                             <div class="mt-3 pt-3 border-top" id="edit-share-embed-block">
                                 <p class="small fw-semibold text-secondary mb-1">② 嵌入官網 iframe（訪客<strong>免付點</strong>，只試<strong>此款</strong>主產品）</p>
-                                <p class="text-muted small mb-2">複製 <code>&lt;iframe&gt;</code> 貼到官網、活動頁或 Landing Page。訪客留在您的頁面試做；生圖由<strong>您的 embed 方案／點數</strong>負擔。不可換其他主產品。</p>
+                                <p class="text-muted small mb-2">複製 <code>&lt;iframe&gt;</code> 貼到官網、活動頁或 Landing Page。訪客在您的頁面試做（不需 MatchDO 帳號）；生圖扣<strong>您的</strong>點數。嵌入碼僅付費方案可取得。</p>
                                 <div id="edit-share-embed-status" class="text-muted small mb-2">開啟編輯後自動載入…</div>
                                 <div id="edit-share-embed-fields" class="d-none">
                                     <label class="form-label small text-muted mb-1">iframe 網址</label>
@@ -4378,7 +4378,7 @@
                     return;
                 }
                 if (data.error_code === 'embed_disabled') {
-                    statusEl.textContent = 'Embed 試做僅限付費會員（300／900／1800 方案）。';
+                    statusEl.textContent = '取得嵌入碼需付費方案（300／900／1800）；訪客 iframe 試做介面不受此限。';
                     statusEl.classList.add('text-danger');
                     return;
                 }

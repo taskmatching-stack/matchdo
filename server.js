@@ -16064,7 +16064,6 @@ async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
 app.get('/api/embed/simulator/bootstrap', async (req, res) => {
     try {
         const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
-        const tier = await embedSimulator.resolveEmbedPlanTier(supabase, ctx.vendorUserId);
         const proto = await resolveEmbedPrototypeForRequest(ctx, ctx.instance.prototype_asset_id);
         const mfrName = ctx.manufacturer.name || '廠商';
         res.json({
@@ -16075,7 +16074,7 @@ app.get('/api/embed/simulator/bootstrap', async (req, res) => {
             },
             prototype: proto,
             prototype_asset_id: proto.id,
-            embed_branding: embedSimulator.embedBrandingForTier(tier || '300'),
+            embed_branding: embedSimulator.embedBrandingFromInstance(ctx.instance),
             service_status: 'ok'
         });
     } catch (e) {
@@ -16120,7 +16119,6 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
     try {
         const body = req.body || {};
         ctx = await embedSimulator.resolveEmbedInstance(supabase, body.embed_id, body.sig);
-        const tier = (await embedSimulator.resolveEmbedPlanTier(supabase, ctx.vendorUserId)) || '300';
         const proto = await resolveEmbedPrototypeForRequest(ctx, body.prototype_asset_id || ctx.instance.prototype_asset_id);
 
         const clientIp = embedSimulator.getRequestClientIp(req);
@@ -16224,7 +16222,7 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
         }
 
         const refSourcesFinal = composed.fluxReferenceSources.length ? composed.fluxReferenceSources : refs.referenceSources;
-        const showOnHomepage = embedSimulator.resolveEmbedMediaWallVisible(tier, ctx.instance);
+        const showOnHomepage = embedSimulator.resolveEmbedMediaWallFromInstance(ctx.instance);
         const mfrName = ctx.manufacturer.name || '廠商';
         const embedTitle = ((proto.title || '訂製品') + ' · 官網試做').slice(0, 120);
         const embedDesc = (userPrompt || ('Embed 訪客試做 · ' + mfrName)).slice(0, 500);
@@ -16369,26 +16367,38 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         return { instance: existingRes.data, created: false, prototype_title: row.title || '' };
     }
 
-    await embedSimulator.assertEmbedFeatureEnabled(supabase, vendorUserId);
+    const tier = await embedSimulator.assertEmbedFeatureEnabled(supabase, vendorUserId);
     await embedSimulator.assertEmbedInstanceQuota(supabase, manufacturerId, vendorUserId);
+    const tierBranding = embedSimulator.embedBrandingForTier(tier);
 
     const embedKey = embedSimulator.randomEmbedKey();
     const embedSecret = embedSimulator.randomEmbedSecret();
     const name = String(instanceName || '').trim() || ((row.title || '主產品') + ' 官網試做');
-    const insertRes = await supabase
+    const insertPayload = {
+        manufacturer_id: manufacturerId,
+        name: name.slice(0, 120),
+        embed_key: embedKey,
+        embed_secret: embedSecret,
+        prototype_asset_id: protoId,
+        is_active: true,
+        show_on_media_wall: true,
+        show_powered_by: tierBranding.show_powered_by !== false,
+        updated_at: new Date().toISOString()
+    };
+    let insertRes = await supabase
         .from('manufacturer_embed_instances')
-        .insert({
-            manufacturer_id: manufacturerId,
-            name: name.slice(0, 120),
-            embed_key: embedKey,
-            embed_secret: embedSecret,
-            prototype_asset_id: protoId,
-            is_active: true,
-            show_on_media_wall: true,
-            updated_at: new Date().toISOString()
-        })
-        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
+        .insert(insertPayload)
+        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall, show_powered_by')
         .single();
+    if (insertRes.error && insertRes.error.code === '42703') {
+        delete insertPayload.show_powered_by;
+        insertRes = await supabase
+            .from('manufacturer_embed_instances')
+            .insert(insertPayload)
+            .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
+            .single();
+        if (!insertRes.error && insertRes.data) insertRes.data.show_powered_by = tierBranding.show_powered_by !== false;
+    }
     if (insertRes.error) {
         if (insertRes.error.code === '42P01') return { error: 'schema' };
         if (insertRes.error.code === '23505') {

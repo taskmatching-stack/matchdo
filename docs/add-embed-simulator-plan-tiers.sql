@@ -17,7 +17,11 @@ UPDATE public.subscription_plans SET plan_key = '1800' WHERE price = 1800 AND (p
 ALTER TABLE public.manufacturer_embed_instances
 ADD COLUMN IF NOT EXISTS show_on_media_wall boolean DEFAULT true;
 
+ALTER TABLE public.manufacturer_embed_instances
+ADD COLUMN IF NOT EXISTS show_powered_by boolean DEFAULT true;
+
 COMMENT ON COLUMN public.manufacturer_embed_instances.show_on_media_wall IS '1800 方案可設：embed 成圖是否上首頁媒體牆；300/900 後端仍強制上牆';
+COMMENT ON COLUMN public.manufacturer_embed_instances.show_powered_by IS '建立 iframe 時依方案寫入；公開頁只讀此欄，不查訂閱';
 
 ALTER TABLE public.vendor_embed_designs
 ADD COLUMN IF NOT EXISTS custom_product_id uuid REFERENCES public.custom_products(id) ON DELETE SET NULL;
