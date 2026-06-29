@@ -16064,7 +16064,7 @@ async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
 app.get('/api/embed/simulator/bootstrap', async (req, res) => {
     try {
         const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
-        const tier = await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const tier = await embedSimulator.resolveEmbedPlanTier(supabase, ctx.vendorUserId);
         const proto = await resolveEmbedPrototypeForRequest(ctx, ctx.instance.prototype_asset_id);
         const mfrName = ctx.manufacturer.name || '廠商';
         res.json({
@@ -16075,7 +16075,7 @@ app.get('/api/embed/simulator/bootstrap', async (req, res) => {
             },
             prototype: proto,
             prototype_asset_id: proto.id,
-            embed_branding: embedSimulator.embedBrandingForTier(tier),
+            embed_branding: embedSimulator.embedBrandingForTier(tier || '300'),
             service_status: 'ok'
         });
     } catch (e) {
@@ -16086,7 +16086,6 @@ app.get('/api/embed/simulator/bootstrap', async (req, res) => {
 app.get('/api/embed/simulator/link-tree', async (req, res) => {
     try {
         const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
-        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
         const protoId = (req.query.prototype_asset_id || ctx.instance.prototype_asset_id || '').trim();
         await resolveEmbedPrototypeForRequest(ctx, protoId);
         const payload = await buildPublicPrototypeLinkTree(protoId);
@@ -16106,7 +16105,6 @@ app.get('/api/embed/simulator/link-tree', async (req, res) => {
 app.get('/api/embed/simulator/capabilities', async (req, res) => {
     try {
         const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
-        await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
         const protoId = (req.query.prototype_asset_id || ctx.instance.prototype_asset_id || '').trim();
         await resolveEmbedPrototypeForRequest(ctx, protoId);
         const payload = await manufacturerTaxonomy.getVendorAssetDesignCapabilities(supabase, protoId);
@@ -16122,7 +16120,7 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
     try {
         const body = req.body || {};
         ctx = await embedSimulator.resolveEmbedInstance(supabase, body.embed_id, body.sig);
-        const tier = await embedSimulator.assertEmbedFeatureEnabled(supabase, ctx.vendorUserId);
+        const tier = (await embedSimulator.resolveEmbedPlanTier(supabase, ctx.vendorUserId)) || '300';
         const proto = await resolveEmbedPrototypeForRequest(ctx, body.prototype_asset_id || ctx.instance.prototype_asset_id);
 
         const clientIp = embedSimulator.getRequestClientIp(req);

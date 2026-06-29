@@ -8,7 +8,7 @@ WHERE COALESCE(price, 0) = 0;
 
 UPDATE public.subscription_plans
 SET embed_enabled = true
-WHERE price IN (300, 900, 1800);
+WHERE COALESCE(price, 0) >= 300;
 
 UPDATE public.subscription_plans SET plan_key = '300' WHERE price = 300 AND (plan_key IS NULL OR plan_key = '' OR plan_key = 'tier2');
 UPDATE public.subscription_plans SET plan_key = '900' WHERE price = 900 AND (plan_key IS NULL OR plan_key = '' OR plan_key = 'tier3');
