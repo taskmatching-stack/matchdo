@@ -1,7 +1,7 @@
-# 廠商嵌入式模擬器 — 產品規格與實作進度（2026-06-27）
+# 廠商嵌入式模擬器 — 產品規格與實作進度（2026-06-27 · 2026-06-30 結案）
 
-> **狀態（2026-06-27 線上部署前）**：Phase A～C ✅、Phase B 付費分級／扣點／紀錄 API ✅、Phase D **部分**（素材 ② iframe、Embed 紀錄頁、管理員生圖紀錄；完整實例管理頁待做）。**UI 收尾暫停**，回來接 handoff。  
-> **Handoff 摘要**：[`PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md`](PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md)  
+> **狀態（2026-06-30）**：**MVP 已上線可結案**。Phase A～D 核心 ✅；Phase E（硬化）與獨立實例管理頁為**選做 backlog**。  
+> **Handoff**：[`PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md`](PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md)  
 > **與現況關係**：已上線的 [`/embed/vendor-catalog.html`](../public/embed/vendor-catalog.html) 為「卡片牆 + 外跳試做」；本文件為**新產品**「iframe 內完整模擬 + 廠商扣點 + 訪客匿名」。
 
 ---
@@ -243,7 +243,7 @@ embed-sim-shell
 | ② iframe 嵌入碼 | `manufacturer-materials.html` 主產品編輯窗 | ✅ |
 | Embed 生圖紀錄 | `/client/embed-design-records.html` + `GET /api/me/embed-designs` | ✅ |
 | 售前洞察 Embed badge | `vendor-prototype-insights.html` | ✅ |
-| 完整 iframe 實例管理 | 獨立列表／cap 調整 UI | ⏳ Phase D 待做 |
+| 完整 iframe 實例管理 | 獨立列表／cap 調整 UI | ⏳ 選做 backlog（MVP 用編輯窗 ② + 紀錄頁） |
 | 官方生圖紀錄 | `/admin/generation-records.html` | ✅ |
 
 成功生圖另寫 `custom_products`（`is_vendor_self_serve=false`、`analysis_json.embed_visitor_design=true`），供媒體牆與洞察；**不算**廠商自產刷量。
@@ -404,13 +404,13 @@ ON CONFLICT (key) DO NOTHING;
 
 ## 11. 實施階段
 
-| Phase | 內容 | 預估行數 |
-|-------|------|----------|
-| **A - DB** | Schema + plan-tiers SQL | ✅ `add-embed-simulator-schema.sql` + `add-embed-simulator-plan-tiers.sql`（**線上待跑**） |
-| **B - 後端 API** | bootstrap / link-tree / generate + 限流 + 簽名 + 付費 tier | ✅ `server.js` + `lib/embed-simulator.js` |
-| **C - 前端 UI** | `/embed/simulator.html` + `embed-simulator.js` | ✅ BUILD `embed-simulator-20260627s`；**UI 收尾暫停** |
-| **D - 廠商後台** | ② iframe、Embed 紀錄、admin 生圖紀錄、insights | 🔄 部分完成（完整實例管理頁待做） |
-| **E - 硬化** | 域名白名單、CAPTCHA、平台熔斷、GA4 事件 | ⏳ 待做 |
+| Phase | 內容 | 狀態 |
+|-------|------|------|
+| **A - DB** | Schema + plan-tiers SQL | ✅ 已上線 |
+| **B - 後端 API** | bootstrap / link-tree / generate + 限流 + 簽名 + 付費 tier | ✅ |
+| **C - 前端 UI** | `/embed/simulator.html` + `embed-simulator.js` | ✅ BUILD `embed-simulator-20260630a` |
+| **D - 廠商後台** | ② iframe、Embed 紀錄、admin 生圖紀錄、insights | ✅ MVP（編輯窗 ② + 紀錄頁；獨立管理頁 backlog） |
+| **E - 硬化** | 域名白名單、CAPTCHA、平台熔斷、GA4 事件 | ⏳ 選做 backlog |
 
 ---
 
@@ -427,8 +427,9 @@ ON CONFLICT (key) DO NOTHING;
 - [x] 無法用 curl 無簽名刷 `/api/embed/simulator/generate`
 - [x] 僅綁定一款主產品，不可換款
 - [x] 素材後台主產品編輯可複製 iframe 程式碼（付費 gate）
-- [ ] **線上**：Supabase 跑完 SQL + Cloud Run 部署後全链路驗收
-- [ ] **UI 收尾**：header／loading／錯誤態、mock 對齊（見 handoff §6.2）
+- [x] **線上**：Supabase SQL + Cloud Run 部署 + 全鏈路驗收
+- [x] iframe UI MVP（header、Powered by、已選列、生圖後文案）
+- [ ] **選做**：獨立 iframe 實例管理頁、loading／錯誤態 polish、Phase E 硬化（見 handoff §6.2）
 
 ---
 
@@ -459,7 +460,7 @@ ON CONFLICT (key) DO NOTHING;
 
 ---
 
-**最後更新**：2026-06-27（UI 收尾前 handoff）  
+**最後更新**：2026-06-30（MVP 結案）  
 **決策記錄**：
 1. FLUX 失敗不扣點（含 BFL 5xx/timeout）
 2. ~~方案月池~~ → **改為每次成功固定扣廠商 10 點**（2026-06-27）

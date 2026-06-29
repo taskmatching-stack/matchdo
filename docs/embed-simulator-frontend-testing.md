@@ -1,7 +1,7 @@
 # Embed Simulator 前端測試指南
 
-> **Build**: 2026-06-27  
-> **狀態**: Phase C 前端完成，Phase B 後端 API 待實作
+> **Build**: `embed-simulator-20260630a`  
+> **狀態（2026-06-30）**：Phase B～C ✅ 已上線；本文件供回歸測試用。
 
 ---
 
@@ -34,7 +34,7 @@ http://localhost:8080/embed/simulator.html?mock=1
 
 參數說明：
 - `?mock=1`：使用假資料，不呼叫後端 API
-- `?embed_id=xxx&sig=yyy`：真實模式（需要 Phase B 後端）
+- `?embed_id=xxx&sig=yyy`：正式模式（需有效實例與簽名）
 
 ---
 

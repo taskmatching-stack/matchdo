@@ -1,8 +1,9 @@
-# Embed 模擬器 — 線上部署前 handoff（2026-06-27）
+# Embed 模擬器 — 線上 handoff（2026-06-27 · 2026-06-30 結案更新）
 
-> **給回來收尾 UI 時用**：本文件摘要「已定案行為、已上線程式、待跑 SQL、待做 UI」。  
-> 規格母本：[`PROGRESS-vendor-embed-simulator.md`](PROGRESS-vendor-embed-simulator.md)（已同步 2026-06-27 決策）  
-> 串接細節：[`PROGRESS-vendor-embed-simulator-integration.md`](PROGRESS-vendor-embed-simulator-integration.md)
+> **狀態（2026-06-30）**：**MVP 已上線可結案** — Phase A～D 核心完成；SQL／部署／全鏈路驗收已由廠商端確認。  
+> **目前工作**：廠商／產品資料上線（與 Embed 功能開發無關）。  
+> **規格母本**：[`PROGRESS-vendor-embed-simulator.md`](PROGRESS-vendor-embed-simulator.md)  
+> **串接細節**：[`PROGRESS-vendor-embed-simulator-integration.md`](PROGRESS-vendor-embed-simulator-integration.md)
 
 ---
 
@@ -88,25 +89,26 @@
 | 檔案 | BUILD / 版本 | 備註 |
 |------|----------------|------|
 | `public/embed/simulator.html` | — | 主 iframe 頁 |
-| `public/js/embed-simulator.js` | `embed-simulator-20260627s` | 邏輯 |
+| `public/js/embed-simulator.js` | `embed-simulator-20260630a` | 邏輯 |
 | `public/client/manufacturer-materials.html` | `embed-plan-tiers-20260627a` 等 | ② iframe 區 |
 | `public/client/embed-design-records.html` | — | 廠商 Embed 紀錄 |
 | `public/client/vendor-prototype-insights.html` | — | 洞察含 Embed badge |
 
-### 6.1 已做 UI（待你線上驗收後微調）
+### 6.1 已完成 UI
 
 - Header：**淺灰漸層底**；Powered by **深底 + 白底 logo 膠囊**；1800 可隱藏 Powered by。
 - 廠商 logo **破圖 → 名稱首字** fallback。
 - 已選參考：**窄版 sticky「已選」列** + **≥880px 右側欄** + 步驟 1 摘要縮圖。
 - 步驟 2 **不重複**步驟 1 主產品大圖。
+- 生圖結果下方文案：「AI 模擬為設計參考，實際結構與材質細節歡迎與我們溝通確認。」
 
-### 6.2 UI 收尾待辦（回來再做）
+### 6.2 選做 backlog（不擋上線 · 需要時再做）
 
 - [ ] 依真實 iframe 寬度／廠商 logo 比例再調 header
-- [ ] Powered by 與 1800 白牌在實機確認
-- [ ] 生圖結果區、loading、錯誤文案統一風格
-- [ ] 完整「iframe 實例管理頁」（現僅素材編輯窗 ② + 紀錄頁）
-- [ ] `?mock=1` 與正式 API 視覺對齊一次
+- [ ] loading／錯誤態視覺再統一一輪
+- [ ] `?mock=1` 與正式 API 視覺對齊（開發用）
+- [ ] **獨立**「iframe 實例管理頁」（現以素材編輯窗 ② + 紀錄頁已足 MVP）
+- [ ] **Phase E**：域名白名單、CAPTCHA、平台熔斷、GA4
 
 ---
 
@@ -116,6 +118,8 @@
 
 1. [`docs/add-embed-simulator-schema.sql`](add-embed-simulator-schema.sql)
 2. [`docs/add-embed-simulator-plan-tiers.sql`](add-embed-simulator-plan-tiers.sql)
+
+**狀態（2026-06-30）**：✅ 已於線上執行；新環境 clone 時仍須依序跑上述兩檔。
 
 `plan-tiers` 含：`embed_enabled`、`show_on_media_wall`、`show_powered_by`、`vendor_embed_designs.source` / `custom_product_id`、`billing_type` 含 `credit_points`。
 
@@ -135,6 +139,8 @@
 | `49b3ba9` | 付費 tier 判定修正 |
 | `ce6325f` | **公開 iframe 不查訂閱**；付費僅取得嵌入碼 |
 | `824955b` | Header 底色、Powered by、logo fallback |
+| `392f2d7` 起 | 主站 UI 調整（與 Embed 無關） |
+| `5a7ff31` | 產品設計頁 AI 免責聲明 |
 
 部署：見 [`docs/deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md)。
 
@@ -149,14 +155,16 @@
 
 ---
 
-## 10. 驗收捷徑
+## 10. 驗收捷徑（MVP 已通過）
 
-1. Supabase 跑完 §7.1 SQL  
-2. 部署最新 `main`  
-3. 付費帳號 → 素材 → 主產品 → 編輯 → **② iframe** → 複製碼  
-4. 無痕／訪客開 iframe URL → 應**直接**看到試做（非付費錯誤頁）  
-5. 生圖成功 → 廠商點數 -10、`/client/embed-design-records.html` 有紀錄  
+1. ~~Supabase 跑完 §7.1 SQL~~ ✅  
+2. ~~部署最新 `main`~~ ✅  
+3. 付費帳號 → 素材 → 主產品 → 編輯 → **② iframe** → 複製碼 ✅  
+4. 無痕／訪客開 iframe URL → **直接**試做（非付費錯誤頁）✅  
+5. 生圖成功 → 廠商點數 -10、`/client/embed-design-records.html` 有紀錄 ✅  
+
+**結論**：Embed MVP **可結案**；§6.2 為日後優化 backlog。
 
 ---
 
-**最後更新**：2026-06-27（UI 收尾前 handoff）
+**最後更新**：2026-06-30（MVP 結案；廠商／產品資料上線進行中）

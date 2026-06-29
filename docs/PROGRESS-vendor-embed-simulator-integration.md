@@ -1,6 +1,6 @@
 # Embed Simulator 功能串接實作計畫（2026-06-27）
 
-> **狀態（2026-06-27）**：後端／前端主流程 ✅；**UI 收尾暫停**；**線上 SQL + 部署待做**。  
+> **狀態（2026-06-30）**：**MVP 已上線可結案** — 後端／前端主流程 ✅；SQL／部署／驗收 ✅。§6.2 為選做 backlog。  
 > **Handoff**：[`PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md`](PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md)  
 > **規格母本**：[`PROGRESS-vendor-embed-simulator.md`](PROGRESS-vendor-embed-simulator.md)
 
@@ -410,11 +410,11 @@ server.js
 
 public/client/                             (Phase D)
 ├─ manufacturer-materials.html             (✅ 主產品編輯 → ② iframe 複製碼)
-├─ embed-instances.html                    (待做)
-└─ embed-visitor-designs.html              (待做)
+├─ embed-design-records.html               (✅ Embed 訪客生圖紀錄)
+└─ embed-instances.html                    (選做 backlog：獨立實例管理頁)
 ```
 
 ---
 
-**最後更新**：2026-06-27（計費分界、一款 iframe、廠商後台 get-or-create API）  
+**最後更新**：2026-06-30（MVP 結案）  
 **相關**：[`embed-simulator-ui-implementation.md`](embed-simulator-ui-implementation.md)、[`embed-simulator-frontend-testing.md`](embed-simulator-frontend-testing.md)
