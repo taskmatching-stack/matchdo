@@ -4570,9 +4570,22 @@
                 grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + esc(tr('baseModels.listEmptyKind', '尚無素材，請使用上方表單上傳。')) + '</p></div>';
                 return;
             }
-            html += list.map(function (m) {
-                var catName = catNames[m.category_key] || m.category_key || '—';
-                var kindBadge = m.asset_kind === 'material'
+            if (!list.length) {
+                grid.innerHTML = html;
+                return;
+            }
+            /* 批次渲染：避免一次插入上百張卡片凍結瀏覽器 */
+            var tempContainer = document.createElement('div');
+            tempContainer.className = 'row g-3';
+            var batchSize = 12;
+            var currentBatch = 0;
+            function renderBatch() {
+                var start = currentBatch * batchSize;
+                var end = Math.min(start + batchSize, list.length);
+                if (start >= list.length) return;
+                var batchHtml = list.slice(start, end).map(function (m) {
+                    var catName = catNames[m.category_key] || m.category_key || '—';
+                    var kindBadge = m.asset_kind === 'material'
                     ? '<span class="badge bg-light text-success border mb-2">' + esc(tr('baseModels.tabMaterial', '材料')) + '</span> '
                     : (m.asset_kind === 'part'
                         ? '<span class="badge bg-light text-warning border mb-2">' + esc(tr('baseModels.tabPart', '零件')) + '</span> '
@@ -4645,36 +4658,46 @@
                     '<div class="fw-semibold text-truncate mb-1">' + esc(m.title || '（無標題）') + '</div>' + coverLabelHtml +
                     '<div class="text-muted small mb-1">' + esc(catName) + '</div>' + protoMetaHtml + taxonomyHtml + myCats + tagsHtml +
                     '<div class="d-flex gap-2">' + actionBtns + '</div></div></div></div>';
-            }).join('');
-            grid.innerHTML = html;
-            if (!isSeedVendor) {
-                bindShareLinkCopyButtons(grid);
-                grid.querySelectorAll('.btn-del').forEach(function (btn) {
-                    btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
-                });
-                grid.querySelectorAll('.btn-edit').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        editGalleryHighlightUrls.clear();
-                        openEditModal(btn.dataset.id);
-                    });
-                });
-                grid.querySelectorAll('.btn-toggle-pub').forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        var id = btn.dataset.id;
-                        var next = btn.dataset.public !== '1';
-                        fetch('/api/me/vendor-assets/' + encodeURIComponent(id), {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-                            body: JSON.stringify({ is_public: next })
-                        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-                            .then(function (res) {
-                                if (res.ok) loadMaterials();
-                                else alert((res.data && res.data.error) || '更新失敗');
-                            })
-                            .catch(function () { alert('網路錯誤'); });
-                    });
-                });
+                }).join('');
+                tempContainer.insertAdjacentHTML('beforeend', batchHtml);
+                currentBatch++;
+                if (currentBatch * batchSize < list.length) {
+                    requestAnimationFrame(renderBatch);
+                } else {
+                    grid.innerHTML = html;
+                    grid.appendChild(tempContainer);
+                    if (!isSeedVendor) {
+                        bindShareLinkCopyButtons(grid);
+                        grid.querySelectorAll('.btn-del').forEach(function (btn) {
+                            btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
+                        });
+                        grid.querySelectorAll('.btn-edit').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                editGalleryHighlightUrls.clear();
+                                openEditModal(btn.dataset.id);
+                            });
+                        });
+                        grid.querySelectorAll('.btn-toggle-pub').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                var id = btn.dataset.id;
+                                var next = btn.dataset.public !== '1';
+                                fetch('/api/me/vendor-assets/' + encodeURIComponent(id), {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                                    body: JSON.stringify({ is_public: next })
+                                }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                                    .then(function (res) {
+                                        if (res.ok) loadMaterials();
+                                        else alert((res.data && res.data.error) || '更新失敗');
+                                    })
+                                    .catch(function () { alert('網路錯誤'); });
+                            });
+                        });
+                    }
+                }
             }
+            grid.innerHTML = html; /* 先顯示分頁器 */
+            requestAnimationFrame(renderBatch);
         }
 
         function bindGridAddCard() {

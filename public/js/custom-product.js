@@ -82,8 +82,8 @@ $(document).ready(function () {
     var refVendorName = urlParams ? decodeURIComponent(urlParams.get('vendor_name') || '') : '';
     if (refVendorMfrId) {
         $('#btnRefFromThisVendorAssets').removeClass('d-none');
-        if (refVendorName) $('#btnRefFromThisVendorAssets').text((t('customProduct.selectFromVendorBasePrefix') || '從 ') + refVendorName + (t('customProduct.selectFromVendorBaseSuffix') || ' 版型庫選擇'));
-        else $('#btnRefFromThisVendorAssets').text(t('customProduct.selectFromThisVendorBase') || '從此廠商版型庫選擇');
+        if (refVendorName) $('#btnRefFromThisVendorAssets').html('<i class="bi bi-box-seam me-1"></i>' + refVendorName + ' 版型');
+        else $('#btnRefFromThisVendorAssets').html('<i class="bi bi-box-seam me-1"></i>廠商版型');
         $('#btnRefFromVendorAssets').addClass('d-none');
     }
     let lastGeneratedImageUrl = null;  // 最近一次生成的圖 URL（供儲存到後端）
@@ -3624,29 +3624,15 @@ $(document).ready(function () {
         openCategoryVendorPicker(null);
     });
 
-    // 從此廠商版型庫選擇：僅當 URL 帶 manufacturer_id 時顯示按鈕
+    // 從此廠商版型：跳轉到廠商版型 tab（取代 modal）
     $('#btnRefFromThisVendorAssets').on('click', function () {
         if (!refVendorMfrId) return;
-        try { window.__refImportTargetSlot = 'prototype'; } catch (e) {}
-        resetVendorAssetFilters();
-        $('#vendorAssetsAssetKind').val('prototype');
-        setVendorPickerMfrScopedMode(true);
-        updateVendorPickerPrototypeFiltersVisibility();
-        var labelText = refVendorName
-            ? ((t('customProduct.selectFromVendorBasePrefix') || '從 ') + refVendorName + (t('customProduct.selectFromVendorBaseSuffix') || ' 版型庫選擇'))
-            : (t('customProduct.selectFromThisVendorBase') || '從此廠商版型庫選擇');
-        $('#vendorAssetsPickerLabel').text(labelText);
-        updateVendorPickerDesignCategoryDisplay();
-        showBootstrapModal(document.getElementById('vendorAssetsPickerModal'));
-        vendorPickerOffset = 0;
-        setVendorPickerPageSize(readVendorPickerPageSize());
-        try { window.__vendorAssetsFetchParams = { mode: 'manufacturer', manufacturerId: refVendorMfrId }; } catch (e) {}
-        var $moreMfr = document.querySelector('#vendorAssetsPickerModal .vendor-picker-more-filters');
-        if ($moreMfr) $moreMfr.open = true;
-        fillVendorCatalogGroupSelect(refVendorMfrId).then(function () {
-            updateVendorPickerMultiVendorHint();
-            loadVendorAssetsPickerList();
-        });
+        // 保留 manufacturer_id 與 vendor_name，切換到廠商版型 tab
+        var url = new URL(window.location.href);
+        url.searchParams.set('tab', 'vendor-styles');
+        if (refVendorMfrId) url.searchParams.set('manufacturer_id', refVendorMfrId);
+        if (refVendorName) url.searchParams.set('vendor_name', refVendorName);
+        window.location.href = url.toString();
     });
 
     // AI 生成圖片：必選圖內容分類，後端依選中的 key 組合提示詞 + 使用者描述
