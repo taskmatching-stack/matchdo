@@ -1056,8 +1056,16 @@ $(document).ready(function () {
         var $actions = $('<div class="ref-intent-actions"></div>');
         $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
             .attr('data-i18n', 'customProduct.refSlotPickVendor')
-            .text(tr('customProduct.refSlotPickVendor', '素材庫'))
-            .on('click', function (e) { e.preventDefault(); openVendorPickerForRefSlot(slotKey); }));
+            .text(tr('customProduct.refSlotPickVendor', '廠商版型'))
+            .on('click', function (e) { 
+                e.preventDefault(); 
+                var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+                var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+                var url = '/custom-product.html?tab=vendor-styles';
+                if (mainKey) url += '&main=' + encodeURIComponent(mainKey);
+                if (subKey) url += '&sub=' + encodeURIComponent(subKey);
+                window.location.href = url;
+            }));
         if (items.length) {
             $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
                 .text(tr('customProduct.refSlotClearAll', '清空'))

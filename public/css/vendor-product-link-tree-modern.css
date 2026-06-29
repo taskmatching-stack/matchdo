@@ -13,9 +13,9 @@
 
 /* === 頁面標題區域 === */
 .vplt-page .page-title-bar {
-    background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
-    border-bottom: 1px solid var(--vplt-primary-border);
-    padding: 1.5rem 0;
+    background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%) !important;
+    border-bottom: 1px solid var(--vplt-primary-border) !important;
+    padding: 1.5rem 0 !important;
 }
 
 .vplt-page .page-title-bar h1 {
@@ -38,59 +38,59 @@
 }
 
 /* === 主佈局 === */
-.vplt-layout {
-    display: grid;
-    grid-template-columns: 1fr minmax(280px, 320px);
-    gap: 1.5rem;
-    min-height: 420px;
+.vplt-page--guide .vplt-layout {
+    display: grid !important;
+    grid-template-columns: 1fr minmax(280px, 320px) !important;
+    gap: 1.5rem !important;
+    min-height: 420px !important;
 }
 
 /* === 主產品展示區 === */
 .vplt-canvas {
-    background: white;
-    border-radius: var(--vplt-border-radius);
-    padding: 2rem;
-    box-shadow: var(--vplt-card-shadow);
-    transition: box-shadow 0.3s ease;
+    background: white !important;
+    border-radius: var(--vplt-border-radius) !important;
+    padding: 2rem !important;
+    box-shadow: var(--vplt-card-shadow) !important;
+    transition: box-shadow 0.3s ease !important;
 }
 
 .vplt-canvas:hover {
-    box-shadow: var(--vplt-card-shadow-hover);
+    box-shadow: var(--vplt-card-shadow-hover) !important;
 }
 
 /* 主產品卡片 */
 .vplt-root-card {
-    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
-    border: 2px solid var(--vplt-primary-border);
-    border-radius: var(--vplt-border-radius);
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12);
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%) !important;
+    border: 2px solid var(--vplt-primary-border) !important;
+    border-radius: var(--vplt-border-radius) !important;
+    padding: 1.5rem !important;
+    margin-bottom: 2rem !important;
+    box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12) !important;
 }
 
 .vplt-root-card-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px dashed var(--vplt-primary-border);
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
+    padding-bottom: 1rem !important;
+    border-bottom: 2px dashed var(--vplt-primary-border) !important;
 }
 
 .vplt-root-card-image {
-    width: 120px;
-    height: 120px;
-    border-radius: var(--vplt-border-radius-sm);
-    object-fit: cover;
-    border: 2px solid white;
-    box-shadow: var(--vplt-card-shadow);
+    width: 120px !important;
+    height: 120px !important;
+    border-radius: var(--vplt-border-radius-sm) !important;
+    object-fit: cover !important;
+    border: 2px solid white !important;
+    box-shadow: var(--vplt-card-shadow) !important;
 }
 
 .vplt-root-card-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--vplt-primary);
-    margin: 0;
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    color: var(--vplt-primary) !important;
+    margin: 0 !important;
 }
 
 .vplt-root-card-meta {
@@ -141,31 +141,31 @@
 
 /* === 材料/配件區域 === */
 .vplt-section-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 2rem 0 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 2px solid var(--vplt-primary-border);
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    margin: 2rem 0 1rem !important;
+    padding-bottom: 0.75rem !important;
+    border-bottom: 2px solid var(--vplt-primary-border) !important;
 }
 
 .vplt-section-icon {
-    width: 32px;
-    height: 32px;
-    background: var(--vplt-primary);
-    color: white;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
+    width: 32px !important;
+    height: 32px !important;
+    background: var(--vplt-primary) !important;
+    color: white !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 700 !important;
 }
 
 .vplt-section-title {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin: 0;
+    font-size: 1.125rem !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    margin: 0 !important;
 }
 
 .vplt-section-count {
@@ -179,21 +179,21 @@
 
 /* 配件/材料卡片網格 */
 .vplt-children {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 1rem;
-    margin-top: 1.5rem;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 1rem !important;
+    margin-top: 1.5rem !important;
 }
 
 .vplt-child-card {
-    background: white;
-    border: 2px solid #e2e8f0;
-    border-radius: var(--vplt-border-radius-sm);
-    padding: 1rem;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
+    background: white !important;
+    border: 2px solid #e2e8f0 !important;
+    border-radius: var(--vplt-border-radius-sm) !important;
+    padding: 1rem !important;
+    cursor: pointer !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    overflow: hidden !important;
 }
 
 .vplt-child-card::before {
@@ -209,23 +209,23 @@
 }
 
 .vplt-child-card:hover {
-    border-color: var(--vplt-primary);
-    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.15);
-    transform: translateY(-4px);
+    border-color: var(--vplt-primary) !important;
+    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.15) !important;
+    transform: translateY(-4px) !important;
 }
 
 .vplt-child-card:hover::before {
-    transform: scaleX(1);
+    transform: scaleX(1) !important;
 }
 
 .vplt-child-card.selected {
-    border-color: var(--vplt-primary);
-    background: var(--vplt-primary-bg);
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
+    border-color: var(--vplt-primary) !important;
+    background: var(--vplt-primary-bg) !important;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2) !important;
 }
 
 .vplt-child-card.selected::before {
-    transform: scaleX(1);
+    transform: scaleX(1) !important;
 }
 
 .vplt-child-card-image-wrap {
