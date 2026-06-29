@@ -303,6 +303,21 @@
       border-radius: 12px; 
       box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
+    .sim-result-note {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin: 1rem auto 0.5rem;
+      padding: 0.75rem 1rem;
+      background: #f8fafc;
+      border-left: 3px solid var(--sim-primary);
+      border-radius: 6px;
+      text-align: left;
+      max-width: 600px;
+    }
+    .sim-result-note i {
+      margin-right: 0.4rem;
+      color: var(--sim-primary);
+    }
     .sim-result-actions { 
       margin-top: 1rem; 
       display: flex; 
@@ -815,6 +830,10 @@
       </div>
       <div id="resultContent" style="display:none;">
         <img id="resultImg" class="sim-result-img" src="" alt="生成結果">
+        <p class="sim-result-note">
+          <i class="bi bi-info-circle"></i>
+          AI 模擬為設計參考，實際結構與材質細節歡迎與我們溝通確認。
+        </p>
         <div class="sim-result-actions">
           <button class="btn btn-outline-secondary" onclick="window.handleRegenerate()">
             <i class="bi bi-arrow-repeat"></i> 再生成一次
@@ -836,6 +855,6 @@
   </div>
   
   <script src="/js/vendor-asset-image-link-groups.js"></script>
-  <script src="/js/embed-simulator.js?v=20260627s"></script>
+  <script src="/js/embed-simulator.js?v=20260630a"></script>
 </body>
 </html>

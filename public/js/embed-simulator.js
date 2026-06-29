@@ -1,12 +1,12 @@
 /**
  * Embed Simulator - 嵌入式產品模擬器
- * Build: 2026-06-27
+ * Build: 2026-06-30 (AI 說明文案)
  */
 
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627s';
+  const BUILD = 'embed-simulator-20260630a';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [

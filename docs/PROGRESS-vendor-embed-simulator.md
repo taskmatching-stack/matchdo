@@ -1,24 +1,26 @@
 # 廠商嵌入式模擬器 — 產品規格與實作進度（2026-06-27）
 
-> **狀態**：Phase A～C 已實作；Phase D 進行中（素材後台「② iframe」已接 API，完整實例管理頁待做）  
+> **狀態（2026-06-27 線上部署前）**：Phase A～C ✅、Phase B 付費分級／扣點／紀錄 API ✅、Phase D **部分**（素材 ② iframe、Embed 紀錄頁、管理員生圖紀錄；完整實例管理頁待做）。**UI 收尾暫停**，回來接 handoff。  
+> **Handoff 摘要**：[`PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md`](PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md)  
 > **與現況關係**：已上線的 [`/embed/vendor-catalog.html`](../public/embed/vendor-catalog.html) 為「卡片牆 + 外跳試做」；本文件為**新產品**「iframe 內完整模擬 + 廠商扣點 + 訪客匿名」。
 
 ---
 
 ## 1. 產品目標
 
-廠商在**自家官網、活動頁或任意推廣頁**嵌入 iframe，訪客**無需登入**即可完成「此款主產品 → 選材配 → 輸入描述 → 生圖預覽」；成本由**廠商訂閱月額度 + 廠商點數**（超額）承擔，成圖與意圖紀錄進**廠商售前數據庫**。
+廠商在**自家官網、活動頁或任意推廣頁**嵌入 iframe，訪客**無需登入**即可完成「此款主產品 → 選材配 → 輸入描述 → 生圖預覽」；成本由**廠商點數**（生圖成功 **10 點／次**）承擔，成圖與意圖紀錄進**廠商售前數據庫**。
 
 ### 1.1 兩種入口、兩套計費（已定案 · 2026-06-27）
 
 | 入口 | 訪客能做什麼 | 誰付生圖成本 | 成圖歸屬 |
 |------|--------------|--------------|----------|
-| **② iframe**（`/embed/simulator.html`） | **僅**廠商綁定的**一款主產品**（＋該款關聯材配）；不可換別款 | **廠商**（方案 `embed_generations_monthly` 月池 → 超額扣廠商點數） | `vendor_embed_designs` |
+| **② iframe**（`/embed/simulator.html`） | **僅**廠商綁定的**一款主產品**（＋該款關聯材配）；不可換別款 | **廠商**（生圖成功 **固定 10 點**／次） | `vendor_embed_designs` + 媒體牆用 `custom_products` |
 | **① 主站試做連結**（`custom-product.html?prototype_asset_id=`） | Matchdo 全站設計流程（訪客可換款、存資產等） | **訪客**登入後扣**自己的** Matchdo 點數 | 訪客 `custom_products` |
 
 **產品原則**：
 
 - iframe 是廠商**推廣用**工具：訪客**不付點**、**不強制跳回** Matchdo 全站、**不要求**域名白名單（可貼官網、Landing、活動頁）。
+- **付費只限制「取得嵌入碼」**（`POST /api/me/embed-simulator-instances`）；**公開 iframe API 不查訂閱**，有合法連結的訪客都能看介面、試做。
 - 流量若進主站，即走主站規則，**扣訪客點數**——兩條路**刻意分開**，不是同一套計費的漏洞。
 - 素材後台「分享與嵌入」①② 文案須讓廠商理解上述差異。
 
@@ -33,17 +35,15 @@ flowchart TB
   end
   subgraph matchdo [Matchdo 後端]
     API["POST /api/embed/simulator/generate"]
-    Quota["方案月池<br/>embed_generations_monthly"]
-    InstanceCap["實例 daily/monthly cap<br/>IP hourly limit"]
-    Credits["廠商 user_credits<br/>超額 10 點/次"]
+    Caps["實例 cap + IP 限流"]
+    Credits["廠商 user_credits<br/>10 點/次（成功才扣）"]
     FLUX["composeGenerate + FLUX I2I"]
-    DB["vendor_embed_designs"]
+    DB["vendor_embed_designs<br/>+ custom_products 媒體牆"]
   end
   Visitor["訪客（無帳號）"] --> Iframe
   Iframe --> API
-  API --> Quota
-  API --> InstanceCap
-  Quota -->|超額| Credits
+  API --> Caps
+  API --> Credits
   API --> FLUX
   FLUX -->|成功| DB
   API --> Iframe
@@ -109,57 +109,51 @@ embed-sim-shell
 - 「找廠商訂製」「前往 Matchdo」（除 footer 小字 Powered by）
 - Seed 進階設定、過往設計列表
 
-### 3.4 footer 與白牌程度（已定案）
+### 3.4 footer 與白牌程度（已定案 · 依方案 tier）
 
-- **保留小字**「Powered by Matchdo」+ 連到廠商公開頁（`/vendor-profile.html?id=`）
-- 類 YouTube embed 模式：不影響廠商品牌主體，合理曝光平台
-- 若日後客戶要求完全白牌 → 需另議「白牌方案加價」
+| 方案 | Powered by Matchdo | 備註 |
+|------|-------------------|------|
+| **300 / 900** | **顯示** | 建立 iframe 時寫入實例 `show_powered_by=true` |
+| **1800** | **不顯示** | 建立時 `show_powered_by=false`；公開 API **只讀實例**，不查訂閱 |
+| admin / tester | 比照 1800 | — |
+
+- 小字「Powered by Matchdo」+ 連到廠商公開頁（`/vendor-profile.html?id=`）；header 已加淺灰漸層底 + 深底 logo 膠囊（見 handoff §6.1）。
+- 完全白牌僅 **1800** 權益；非加價選項。
 
 ---
 
-## 4. 額度與扣點（兩段式計費）
+## 4. 額度與扣點（已定案 · 2026-06-27）
 
-### 4.1 方案月池（共享）
+> ~~§4 舊稿「方案月池 + 超額扣點」~~ **已廢**；現行僅 **成功生圖扣廠商 10 點**。詳見 handoff §3。
 
 ```text
 每次 embed 生圖請求：
-  1. 檢查「廠商當月 embed 總已用次數」< 方案 embed_generations_monthly
-     → 免費通過，不扣點（billing_type = plan_quota, points_charged = 0）
-  2. 否則
-     → 扣廠商點數 10 點（billing_type = credit_overage, points_charged = 10）
-  3. 若需扣點且 user_credits.balance < 10
-     → 拒絕生圖，返 402，iframe 顯示「服務暫停，請聯絡廠商」
-  4. FLUX 成功 → commit 計數 + 扣點
-     FLUX 失敗 → 不扣額度、不扣點（rollback）
+  1. 通過簽名、實例 active、實例 cap、IP 限流
+  2. 檢查廠商 user_credits.balance ≥ 10（payment_config.points_embed_simulator_generate）
+     → 不足則拒絕，返 402，iframe 顯示「試做暫停，請聯絡廠商」
+  3. FLUX 成功 → 扣 10 點 + 寫 vendor_embed_designs（billing_type = credit_points）
+     FLUX 失敗 → 不扣點（rollback）
 ```
 
 | 項目 | 規格 |
 |------|------|
-| 方案月免費次數 | `subscription_plans.embed_generations_monthly`（新欄位，預設 0） |
-| 超額單價 | **固定 10 點**（`payment_config.points_embed_simulator_generate = 10`，可後台調） |
-| 月池共享 | 所有 embed 實例（官網、活動頁…）消耗**同一個**廠商月池 |
-| 再生成計次 | 訪客每按一次「再生成」= **1 次**計入額度（成功才扣） |
-| 方案未含 embed | 整個模擬器不可用（API 403） |
+| 單價 | **固定 10 點**／次（`payment_config.points_embed_simulator_generate`） |
+| 扣誰 | `manufacturers.user_id`（廠商），**不是**訪客 |
+| 再生成 | 每按一次「再生成」= **1 次**（成功才扣） |
+| 取得嵌入碼 | **付費方案**（300／900／1800）才可 `POST /api/me/embed-simulator-instances` |
+| 訪客試做 | **不查訂閱**；有合法 `embed_id` + `sig` 即可 |
+| ~~月池~~ | `embed_generations_monthly` 欄位可留 DB，**邏輯已移除** |
 
-### 4.2 月池 vs 實例 cap 關係（已釐清）
+### 4.2 實例 cap 與點數（並行檢查）
 
 ```text
-實際可用次數 = min(
-  方案月池剩餘,
+實際可用次數受 min(
   實例 monthly_cap 剩餘,
   實例 daily_cap 剩餘,
-  IP hourly 剩餘
-)
+  IP hourly 剩餘,
+  廠商點數可支撐次數（balance ÷ 10）
+) 約束；任一 cap 或點數不足即拒絕，不呼叫 FLUX。
 ```
-
-**範例**：
-
-- 方案：embed_generations_monthly = **500**（廠商總池）
-- 實例 A（官網）：monthly_cap = **300**、daily_cap = **50**
-- 實例 B（活動）：monthly_cap = **200**、daily_cap = **30**
-
-當月實際：A 已用 280、B 已用 150 → 方案池剩餘 70（500 - 280 - 150）  
-此時實例 A 可再用 min(70, 20, 50) = **20 次**；實例 B 可再用 min(70, 50, 30) = **30 次**（但兩者共享池，先到先得）
 
 ---
 
@@ -177,7 +171,7 @@ embed-sim-shell
 
 `manufacturer_id`、主產品 ID 由後端從 `embed_id` 解析，訪客不可換款。
 
-**廠商取得方式**：素材頁 → 主產品 → 編輯 →「② 嵌入官網 iframe」→ `POST /api/me/embed-simulator-instances`（get-or-create），複製 `<iframe>` 程式碼。
+**廠商取得方式**：素材頁 → 主產品 → 編輯 →「② 嵌入官網 iframe」→ `POST /api/me/embed-simulator-instances`（get-or-create），複製 `<iframe>` 程式碼。**300 方案**全帳號最多 **3** 組不同主產品實例；900/1800 無上限。
 
 ### 5.2 廠商可設定項（每實例）
 
@@ -187,6 +181,8 @@ embed-sim-shell
 | `rate_limit_per_ip_hour` | 同一 IP 每小時最多生圖次數 | 5 |
 | `daily_cap` | 此 iframe 當日總上限（0=不設） | 100 |
 | `monthly_cap` | 此 iframe 當月總上限（0=不設） | 500 |
+| `show_powered_by` | Powered by Matchdo（300/900 固定 true；1800 固定 false） | 依方案 |
+| `show_on_media_wall` | 成圖是否上首頁媒體牆（300/900 強制 true；1800 可 PATCH） | 依方案 |
 | `allowed_origins` | 可選域名白名單（jsonb） | `[]`（**預設不限制**；Phase E 可選啟用） |
 | `is_active` | 開關 | true |
 
@@ -195,13 +191,14 @@ embed-sim-shell
 ```text
 1. embed 實例存在且 active
 2. 簽名 sig 驗證通過（HMAC）
-3. 方案含 embed 功能（subscription_plans.embed_enabled 或 features 含 'embed_simulator'）
-4. 實例 daily_cap 剩餘 > 0
-5. 實例 monthly_cap 剩餘 > 0
-6. IP hourly limit（Redis 或 DB counter）
-7. 方案月池剩餘 > 0 OR 廠商點數 ≥ 10
-8. （可選）平台全站熔斷上限（admin config）
+3. 實例 daily_cap 剩餘 > 0
+4. 實例 monthly_cap 剩餘 > 0
+5. IP hourly limit（Redis 或 DB counter）
+6. 廠商點數 ≥ 10
+7. （可選）平台全站熔斷上限（admin config）
 ```
+
+> **公開 `/api/embed/simulator/*` 不查訂閱**（`ce6325f`）。付費檢查僅在 `POST /api/me/embed-simulator-instances` 建立嵌入碼時。
 
 任一失敗 → **不呼叫 FLUX**，返回明確錯誤碼（見 §7）。
 
@@ -231,25 +228,25 @@ embed-sim-shell
 | visitor_ip_hash | text | IP SHA256（合規，非明文） |
 | embed_session_id | text | localStorage 匿名 session |
 | referrer_host | text | 來源頁域名 |
-| billing_type | text | `plan_quota` / `credit_overage` |
-| points_charged | int | 0 或 10 |
+| billing_type | text | `credit_points`（現行）；舊值 `plan_quota` / `credit_overage` 仍相容 |
+| points_charged | int | 成功生圖固定 **10** |
+| source | text | `'embed'` |
+| custom_product_id | uuid | 媒體牆用 `custom_products` 關聯 |
 | created_at | timestamptz | 時間 |
 
 **不收集** email／電話（除非日後另做「留資優惠」opt-in）。
 
-### 6.2 廠商後台
+### 6.2 廠商後台（已部分實作）
 
-**列表頁**（新建或擴充現有控制台）：
+| 頁面 | 路徑 | 狀態 |
+|------|------|------|
+| ② iframe 嵌入碼 | `manufacturer-materials.html` 主產品編輯窗 | ✅ |
+| Embed 生圖紀錄 | `/client/embed-design-records.html` + `GET /api/me/embed-designs` | ✅ |
+| 售前洞察 Embed badge | `vendor-prototype-insights.html` | ✅ |
+| 完整 iframe 實例管理 | 獨立列表／cap 調整 UI | ⏳ Phase D 待做 |
+| 官方生圖紀錄 | `/admin/generation-records.html` | ✅ |
 
-- 路徑建議：`/client/embed-visitor-designs.html`
-- 顯示：時間、縮圖、原型名、材配摘要、prompt 前 80 字、來源 iframe 名稱
-- 篩選：日期、原型、embed 實例、referrer 域名
-- 匯出：CSV（不含 IP hash）
-
-**洞察**（Phase 2 可選）：
-
-- 併入 `vendor-prototype-insights` 加「Embed 訪客」tab
-- 熱門材配組合、熱門 prompt 關鍵字、轉換漏斗（選款 → 材配 → 生圖）
+成功生圖另寫 `custom_products`（`is_vendor_self_serve=false`、`analysis_json.embed_visitor_design=true`），供媒體牆與洞察；**不算**廠商自產刷量。
 
 ---
 
@@ -259,14 +256,13 @@ embed-sim-shell
 
 | 後端 code | HTTP | 訪客看到（中文） | 訪客看到（英文） | 廠商後台看到詳細原因 |
 |-----------|------|-----------------|-----------------|---------------------|
-| `embed_disabled` | 403 | 此功能未開通 | Feature not available | 方案未含 embed_simulator |
+| `embed_disabled` | 403 | 此功能未開通 | Feature not available | **僅**建立 iframe 時（非訪客 API） |
 | `instance_disabled` | 403 | 試做服務暫停中 | Service paused | 實例已停用 |
 | `invalid_signature` | 403 | 無效連結 | Invalid link | 簽名過期或不符 |
-| `rate_limit_ip_hour` | 429 | 請稍後再試（1 小時內已達上限） | Try again later | IP {hash} 超 hourly limit |
+| `rate_limit_ip_hour` | 429 | 請稍後再試（1 小時內已達上限） | Try again later | IP 超 hourly limit |
 | `daily_cap_reached` | 429 | 今日試做已額滿，明日再來 | Daily limit reached | 實例日 cap 用完 |
 | `monthly_cap_reached` | 429 | 本月試做已額滿 | Monthly limit reached | 實例月 cap 用完 |
-| `plan_quota_exhausted_no_credits` | 402 | 試做暫停，請聯絡 {廠商名} | Service paused, contact vendor | 方案月池 + 點數均不足 |
-| `insufficient_credits` | 402 | 試做暫停，請聯絡 {廠商名} | Service paused, contact vendor | 超額需扣點但餘額 < 10 |
+| `insufficient_credits` | 402 | 試做暫停，請聯絡 {廠商名} | Service paused, contact vendor | 廠商餘額 < 10 |
 | `flux_error` | 500 | 生成失敗，請稍後再試 | Generation failed | BFL 5xx / timeout |
 | `prototype_not_found` | 404 | 該款式已下架 | Style unavailable | 原型 is_public=false |
 
@@ -285,27 +281,32 @@ embed-sim-shell
 |--------|------|------|--------|
 | GET | `/api/embed/simulator/bootstrap?embed_id=&sig=` | 綁定主產品、廠商資訊、服務狀態（不暴露點數餘額） | ✓ |
 | GET | `/api/embed/simulator/link-tree?embed_id=&sig=&prototype_asset_id=` | 材配樹（限該廠商、公開） | ✓ |
-| POST | `/api/embed/simulator/generate` | 生圖 + 多層限流 + 扣額/扣點 + 寫庫 | ✓ |
-| GET | `/api/me/embed-simulator-instances?prototype_asset_id=` | 查此款 iframe（需 Bearer） | ✗ |
-| POST | `/api/me/embed-simulator-instances` | get-or-create（一主產品一實例，回傳 URL + snippet） | ✗ |
-| GET | `/api/me/embed-instances` | 廠商管理 iframe 列表（Phase D 待做） | ✗ |
-| POST/PATCH | `/api/me/embed-instances` | 建立/更新頻率與 cap（Phase D 待做） | ✗ |
-| GET | `/api/me/embed-designs` | 訪客成圖列表 | ✗ |
-| GET | `/api/me/embed-usage` | 本月方案池用量、各實例用量 | ✗ |
+| POST | `/api/embed/simulator/generate` | 生圖 + 限流 + 扣廠商點 + 寫庫 | ✓ |
+| GET | `/api/embed/simulator/capabilities` | 工藝能力 | ✓ |
+| GET | `/api/me/embed-simulator-instances?prototype_asset_id=` | 查此款 iframe（需 Bearer；**付費檢查在 POST**） | ✗ |
+| POST | `/api/me/embed-simulator-instances` | get-or-create（一主產品一實例；300 方案最多 3 組） | ✗ |
+| PATCH | `/api/me/embed-simulator-instances/:id` | 1800：媒體牆開關 | ✗ |
+| GET | `/api/me/embed-designs` | Embed 訪客成圖列表 | ✗ |
+| GET | `/api/admin/generation-records` | 官方：主站 + Embed 生圖紀錄 | ✗ |
 
 **禁止**：前端呼叫 `/api/generate-product-image`（現況無 token 可白嫖）。
 
 ---
 
-## 9. 訂閱方案包裝（示例）
+## 9. 訂閱方案包裝（已定案 · 300 / 900 / 1800）
 
-| 方案 | 月費 | 卡片 embed | 模擬器 embed | 月免費 embed 次數 | 超額單價 |
-|------|------|-----------|-------------|-------------------|----------|
-| 免費 | 0 | ✓ | ✗ | 0 | — |
-| 中階 | 例 899 | ✓ | ✓ | 例 30 | 10 點/次 |
-| 高階 | 例 1999 | ✓ | ✓ | 例 150 | 10 點/次 |
+| 方案 | iframe 組數 | Powered by | 媒體牆 | 取得嵌入碼 | 生圖扣點 |
+|------|-------------|------------|--------|------------|----------|
+| 免費 | — | — | — | ✗ | — |
+| **300** | 最多 **3** 組 | 顯示 | 強制上牆 | ✓ | 10 點/次（廠商） |
+| **900** | 無限 | 顯示 | 強制上牆 | ✓ | 10 點/次 |
+| **1800** | 無限 | **隱藏** | **可設定** | ✓ | 10 點/次 |
+| admin / tester | 比照 1800 | — | — | ✓ | 10 點/次 |
 
-**成本參考**：BFL I2I 約 9–15 credits/次（$0.09–$0.15）；10 點若 = $0.10 → 接近成本；需確認方案贈送次數不虧損。
+方案判定：`lib/embed-simulator.js` → `resolveEmbedPlanTier()`（`plan_key` 或 `price >= 300`）。  
+建立 iframe 時寫入實例 `show_powered_by`、`show_on_media_wall`；公開 API 只讀實例。
+
+**成本參考**：BFL I2I 約 9–15 credits/次；10 點若 ≈ $0.10 → 接近成本。
 
 ---
 
@@ -313,19 +314,11 @@ embed-sim-shell
 
 ### 10.1 擴 `subscription_plans`
 
+> 完整 migration 見 `add-embed-simulator-schema.sql` + `add-embed-simulator-plan-tiers.sql`。`embed_generations_monthly` 為舊稿欄位，**現行邏輯未使用**。
+
 ```sql
 ALTER TABLE public.subscription_plans
-ADD COLUMN IF NOT EXISTS embed_enabled boolean DEFAULT false,
-ADD COLUMN IF NOT EXISTS embed_generations_monthly integer DEFAULT 0;
-
-COMMENT ON COLUMN public.subscription_plans.embed_enabled IS '是否可使用嵌入式模擬器';
-COMMENT ON COLUMN public.subscription_plans.embed_generations_monthly IS '每月免費 embed 生圖次數（0=不可用）';
-```
-
-或若用 `features` jsonb：
-
-```sql
--- features 範例：{"embed_simulator": true, "embed_generations_monthly": 50}
+ADD COLUMN IF NOT EXISTS embed_enabled boolean DEFAULT false;
 ```
 
 ### 10.2 新表 `manufacturer_embed_instances`
@@ -413,27 +406,29 @@ ON CONFLICT (key) DO NOTHING;
 
 | Phase | 內容 | 預估行數 |
 |-------|------|----------|
-| **A - DB** | Schema（§10）+ RLS policies | ✅ `docs/add-embed-simulator-schema.sql` |
-| **B - 後端 API** | bootstrap / link-tree / generate + 限流 + 簽名 | ✅ `server.js` + `lib/embed-simulator.js` |
-| **C - 前端 UI** | `/embed/simulator.html` + `embed-simulator.js` | ✅ 已串 API（`?mock=1` 可本機測） |
-| **D - 廠商後台** | 素材編輯窗 ② iframe 複製碼；完整實例管理、訪客設計列表 | 🔄 部分完成 |
-| **E - 硬化** | 域名白名單、CAPTCHA、平台熔斷、GA4 事件 | ~200 行 |
+| **A - DB** | Schema + plan-tiers SQL | ✅ `add-embed-simulator-schema.sql` + `add-embed-simulator-plan-tiers.sql`（**線上待跑**） |
+| **B - 後端 API** | bootstrap / link-tree / generate + 限流 + 簽名 + 付費 tier | ✅ `server.js` + `lib/embed-simulator.js` |
+| **C - 前端 UI** | `/embed/simulator.html` + `embed-simulator.js` | ✅ BUILD `embed-simulator-20260627s`；**UI 收尾暫停** |
+| **D - 廠商後台** | ② iframe、Embed 紀錄、admin 生圖紀錄、insights | 🔄 部分完成（完整實例管理頁待做） |
+| **E - 硬化** | 域名白名單、CAPTCHA、平台熔斷、GA4 事件 | ⏳ 待做 |
 
 ---
 
 ## 12. 驗收清單
 
-- [x] 訪客無登入可完成：此款主產品 → 材配 → prompt → 看到成圖
-- [x] 方案月免費次數內不扣點；超額扣 10 點；點數不足停止
+- [x] 訪客無登入可完成：此款主產品 → 材配 → prompt → 看到成圖（**不查訂閱**）
+- [x] 每次成功生圖扣廠商 **10 點**；點數不足停止（402）
 - [x] 實例 IP/小時、日 cap、月 cap（DB 預設；後台調整 UI 待 Phase D）
-- [x] FLUX 失敗不扣額度、不扣點
-- [ ] 成圖出現在廠商後台「Embed 訪客設計」列表（Phase D）
-- [x] iframe 內無 site-header、無他廠、footer 僅「Powered by Matchdo」
+- [x] FLUX 失敗不扣點
+- [x] 成圖出現在 `/client/embed-design-records.html`
+- [x] iframe 內無 site-header、無他廠；Powered by 依方案 tier
 - [x] 訪客可右鍵下載成圖
-- [x] 再生成每次計額度（成功才扣），受限流
+- [x] 再生成每次扣點（成功才扣），受限流
 - [x] 無法用 curl 無簽名刷 `/api/embed/simulator/generate`
 - [x] 僅綁定一款主產品，不可換款
-- [x] 素材後台主產品編輯可複製 iframe 程式碼
+- [x] 素材後台主產品編輯可複製 iframe 程式碼（付費 gate）
+- [ ] **線上**：Supabase 跑完 SQL + Cloud Run 部署後全链路驗收
+- [ ] **UI 收尾**：header／loading／錯誤態、mock 對齊（見 handoff §6.2）
 
 ---
 
@@ -442,7 +437,7 @@ ON CONFLICT (key) DO NOTHING;
 | 現況 | Embed Simulator 需求 | 解法 |
 |------|---------------------|------|
 | 無 token 可生圖且不扣點 | 專用 API + 簽名 | 新建 `/api/embed/simulator/*` |
-| 無 embed 月額度欄位 | 擴 `subscription_plans` | Phase A SQL |
+| 無 embed 月額度欄位 | 擴 `subscription_plans` + 實例 tier 欄 | Phase A SQL（見 handoff §7.1） |
 | 成圖寫 `custom_products.owner_id=訪客` | 改寫 `vendor_embed_designs` | Phase B generate API |
 | 僅卡片 embed | 新建 `simulator.html` | Phase C |
 | I2I 預設 20 點 | Embed 固定 10 點 | `payment_config` 新 key |
@@ -454,6 +449,7 @@ ON CONFLICT (key) DO NOTHING;
 
 ## 14. 文件交叉引用
 
+- **Handoff（回來收尾用）**：[`PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md`](PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md)
 - 現有卡片 embed：[`docs/PROGRESS-vendor-embed-catalog.md`](PROGRESS-vendor-embed-catalog.md)
 - 分享連結：[`docs/PROGRESS-vendor-asset-share-links.md`](PROGRESS-vendor-asset-share-links.md)
 - 點數規則：[`docs/points-grant-current-state.md`](points-grant-current-state.md)
@@ -463,12 +459,14 @@ ON CONFLICT (key) DO NOTHING;
 
 ---
 
-**最後更新**：2026-06-27  
+**最後更新**：2026-06-27（UI 收尾前 handoff）  
 **決策記錄**：
 1. FLUX 失敗不扣點（含 BFL 5xx/timeout）
-2. 方案月池共享（所有實例消耗同一池）
-3. footer 保留「Powered by Matchdo」小字
-4. 訪客可右鍵下載成圖
-5. 再生成每次都計額度（成功才扣，受限流）
-6. **iframe 僅廠商綁定主產品、廠商付費；主站試做連結扣訪客點數**——兩入口分開，不統一計費
-7. iframe **不強制**跳主站、**不**預設域名白名單（推廣頁可貼）
+2. ~~方案月池~~ → **改為每次成功固定扣廠商 10 點**（2026-06-27）
+3. **公開 iframe 不查訂閱**；付費只 gate「取得嵌入碼」（`ce6325f`）
+4. Powered by：300/900 顯示、1800 隱藏（寫入實例，公開 API 只讀）
+5. 300 方案最多 3 組 iframe；900/1800 無限
+6. 訪客可右鍵下載成圖
+7. **iframe 僅廠商綁定主產品、廠商付點；主站試做連結扣訪客點數**——兩入口分開
+8. iframe **不強制**跳主站、**不**預設域名白名單
+9. Embed 成圖寫 `vendor_embed_designs` + 媒體牆 `custom_products`；洞察排除自產刷量

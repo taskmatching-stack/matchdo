@@ -1,8 +1,7 @@
 # Embed Simulator 功能串接實作計畫（2026-06-27）
 
-> **前端狀態**：Phase C 完成（`simulator.html` + `embed-simulator.js`，已串 API；`?mock=1` 可本機測 UI）  
-> **後端狀態**：Phase B 完成（bootstrap / link-tree / capabilities / generate + `lib/embed-simulator.js`）  
-> **廠商後台**：素材頁主產品編輯窗「② iframe」已接 `GET/POST /api/me/embed-simulator-instances`  
+> **狀態（2026-06-27）**：後端／前端主流程 ✅；**UI 收尾暫停**；**線上 SQL + 部署待做**。  
+> **Handoff**：[`PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md`](PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md)  
 > **規格母本**：[`PROGRESS-vendor-embed-simulator.md`](PROGRESS-vendor-embed-simulator.md)
 
 ---
@@ -13,8 +12,9 @@
 
 | 入口 | API | 扣誰 |
 |------|-----|------|
-| iframe 訪客生圖 | `POST /api/embed/simulator/generate` | **廠商**（embed 月池 → 超額 10 點） |
+| iframe 訪客生圖 | `POST /api/embed/simulator/generate` | **廠商**（成功 **10 點/次**；公開 API **不查訂閱**） |
 | 主站設計頁生圖 | `POST /api/generate-product-image` | **訪客**（登入後文生圖／圖生圖點數） |
+| 取得 iframe 嵌入碼 | `POST /api/me/embed-simulator-instances` | **付費方案** gate（300/900/1800） |
 
 iframe **只允許**實例綁定的**一款主產品**；主站試做連結可進全站流程。兩者**不統一計費**。
 
