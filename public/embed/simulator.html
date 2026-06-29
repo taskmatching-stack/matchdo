@@ -49,24 +49,98 @@
     .sim-header-spacer { flex: 1; }
     .sim-powered { 
       font-size: 0.7rem; 
-      color: #6c757d; 
+      color: #6c757d;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-shrink: 0;
     }
     .sim-powered a { 
-      color: var(--sim-primary); 
-      text-decoration: none; 
+      color: inherit;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      line-height: 0;
     }
-    .sim-powered a:hover { text-decoration: underline; }
+    .sim-powered a:hover { opacity: 0.85; }
+    .sim-powered-logo {
+      height: 16px;
+      width: auto;
+      display: block;
+    }
     
-    /* === 單欄容器（桌機手機通用）=== */
+    /* === 主版面：窄欄置中／寬欄雙欄 === */
     .sim-container {
-      max-width: 640px; 
-      margin: 0 auto; 
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
       padding: 1rem;
-      background: #fff; 
+      background: #fff;
       min-height: calc(100vh - 60px);
+    }
+    .sim-layout {
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    @media (min-width: 880px) {
+      .sim-layout {
+        max-width: 1080px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 168px;
+        gap: 1.25rem;
+        align-items: start;
+      }
+    }
+    .sim-main { min-width: 0; }
+    @media (max-width: 879.98px) {
+      .sim-main { padding-bottom: 3.25rem; }
+    }
+    .sim-aside {
+      pointer-events: none;
+    }
+    .sim-aside-inner {
+      background: #f8fafc;
+      border: 1px solid var(--sim-border);
+      border-radius: 8px;
+      padding: 0.5rem;
+    }
+    .sim-aside-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #64748b;
+      margin: 0 0 0.35rem;
+      display: none;
+    }
+    @media (min-width: 880px) {
+      .sim-aside {
+        position: sticky;
+        top: 4.5rem;
+        align-self: start;
+        pointer-events: auto;
+      }
+      .sim-aside-inner {
+        padding: 0.65rem;
+      }
+      .sim-aside-title { display: block; }
+    }
+    @media (max-width: 879.98px) {
+      .sim-aside {
+        position: absolute;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 5;
+        max-width: calc(100% - 2rem);
+      }
+      .sim-aside-inner {
+        background: transparent;
+        border: none;
+        padding: 0;
+      }
     }
     @media (max-width: 767.98px) {
       .sim-container { padding: 0.75rem; }
+      .sim-aside { right: 0.75rem; bottom: 0.75rem; }
     }
     
     .sim-step {
@@ -483,18 +557,20 @@
       background: rgba(220, 38, 38, 0.9);
     }
     
-    /* === 右下角已選縮圖（主產品＋材配，不重複佔步驟 2 版面）=== */
+    /* === 已選縮圖（窄：主版面右下；寬：右側欄直排）=== */
     .sim-selected-strip {
-      position: fixed;
-      bottom: 0.75rem;
-      right: 0.75rem;
-      z-index: 90;
       display: flex;
       flex-wrap: wrap;
       gap: 0.35rem;
-      max-width: min(56vw, 220px);
       justify-content: flex-end;
       pointer-events: none;
+    }
+    @media (min-width: 880px) {
+      .sim-selected-strip {
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+      }
     }
     .sim-selected-strip[hidden] { display: none !important; }
     .sim-selected-thumb {
@@ -504,7 +580,14 @@
       border: 2px solid var(--sim-primary);
       object-fit: cover;
       background: #fff;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
+    @media (min-width: 880px) {
+      .sim-selected-thumb {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1;
+      }
     }
     
     /* === 步驟 2：材配提示（不再重複主產品大圖）=== */
@@ -521,12 +604,13 @@
     <img id="simLogo" class="sim-logo" src="/img/placeholder-logo.png" alt="">
     <span id="simVendorName" class="sim-vendor-name">載入中…</span>
     <div class="sim-header-spacer"></div>
-    <span class="sim-powered">Powered by <a href="https://matchdo.cc" target="_blank">Matchdo</a></span>
+    <span class="sim-powered">Powered by <a href="https://matchdo.cc" target="_blank" rel="noopener noreferrer"><img src="/img/matchdo-logo.png" alt="MatchDO" class="sim-powered-logo"></a></span>
   </header>
   
-  <!-- 單欄容器 -->
+  <!-- 主版面（窄欄／寬欄自適應 iframe 寬度）-->
   <div class="sim-container">
-    
+    <div class="sim-layout">
+    <div class="sim-main">
     <!-- Step 1: 選主產品 -->
     <div class="sim-step expanded" id="step1" data-step="prototype">
       <div class="sim-step-header" onclick="window.toggleStep(1)">
@@ -649,11 +733,17 @@
         </div>
       </div>
     </section>
+    </div><!-- /.sim-main -->
+    <aside class="sim-aside" aria-label="已選參考圖預覽">
+      <div class="sim-aside-inner">
+        <p class="sim-aside-title">已選參考</p>
+        <div id="simSelectedStrip" class="sim-selected-strip" hidden></div>
+      </div>
+    </aside>
+    </div><!-- /.sim-layout -->
   </div>
   
-  <div id="simSelectedStrip" class="sim-selected-strip" hidden aria-label="已選參考圖預覽"></div>
-  
   <script src="/js/vendor-asset-image-link-groups.js"></script>
-  <script src="/js/embed-simulator.js?v=20260627o"></script>
+  <script src="/js/embed-simulator.js?v=20260627p"></script>
 </body>
 </html>

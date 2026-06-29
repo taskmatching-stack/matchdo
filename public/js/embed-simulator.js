@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627o';
+  const BUILD = 'embed-simulator-20260627p';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -229,7 +229,7 @@
       el.innerHTML = '';
       return;
     }
-    el.innerHTML = '<p class="sim-vendor-ref-hint mb-0">已勾選材料／配件會與步驟 1 主產品一併帶入生圖；右下角可預覽全部已選圖。</p>';
+    el.innerHTML = '<p class="sim-vendor-ref-hint mb-0">已勾選材料／配件會與步驟 1 主產品一併帶入生圖；右側欄可預覽全部已選圖。</p>';
   }
   
   function buildReferencePayload() {
