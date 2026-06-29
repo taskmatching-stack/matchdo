@@ -203,7 +203,8 @@
     }
     .sim-mat-item.selected { 
       border-color: var(--sim-primary); 
-      box-shadow: 0 0 0 3px rgba(68,93,126,0.1); 
+      border-width: 3px;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 5px rgba(68, 93, 126, 0.35);
     }
     .sim-mat-img { 
       width: 100%; 
@@ -214,15 +215,16 @@
       position: absolute; 
       top: 4px; 
       right: 4px; 
-      width: 20px; 
-      height: 20px;
+      width: 24px; 
+      height: 24px;
       background: var(--sim-primary); 
       border-radius: 50%; 
       color: #fff;
       display: none; 
       align-items: center; 
       justify-content: center; 
-      font-size: 0.7rem;
+      font-size: 0.85rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
     }
     .sim-mat-item.selected .sim-mat-checkmark { display: flex; }
 
@@ -481,46 +483,35 @@
       background: rgba(220, 38, 38, 0.9);
     }
     
-    /* === 廠商來源圖（步驟 1、2 自動帶入）=== */
+    /* === 右下角已選縮圖（主產品＋材配，不重複佔步驟 2 版面）=== */
+    .sim-selected-strip {
+      position: fixed;
+      bottom: 0.75rem;
+      right: 0.75rem;
+      z-index: 90;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      max-width: min(56vw, 220px);
+      justify-content: flex-end;
+      pointer-events: none;
+    }
+    .sim-selected-strip[hidden] { display: none !important; }
+    .sim-selected-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      border: 2px solid var(--sim-primary);
+      object-fit: cover;
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    }
+    
+    /* === 步驟 2：材配提示（不再重複主產品大圖）=== */
     .sim-vendor-ref-hint {
       font-size: 0.75rem;
       color: #64748b;
       margin: 0 0 0.75rem;
-    }
-    .sim-vendor-ref-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.5rem;
-    }
-    .sim-vendor-ref-item {
-      border: 1px solid var(--sim-border);
-      border-radius: 8px;
-      overflow: hidden;
-      background: #fff;
-      text-align: center;
-    }
-    .sim-vendor-ref-item img {
-      width: 100%;
-      aspect-ratio: 1;
-      object-fit: cover;
-      display: block;
-      background: #f8fafc;
-    }
-    .sim-vendor-ref-tag {
-      display: block;
-      font-size: 0.65rem;
-      color: var(--sim-primary);
-      font-weight: 600;
-      padding: 0.25rem 0.35rem 0;
-    }
-    .sim-vendor-ref-name {
-      display: block;
-      font-size: 0.7rem;
-      color: #475569;
-      padding: 0.15rem 0.35rem 0.4rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
   </style>
 </head>
@@ -660,7 +651,9 @@
     </section>
   </div>
   
+  <div id="simSelectedStrip" class="sim-selected-strip" hidden aria-label="已選參考圖預覽"></div>
+  
   <script src="/js/vendor-asset-image-link-groups.js"></script>
-  <script src="/js/embed-simulator.js"></script>
+  <script src="/js/embed-simulator.js?v=20260627o"></script>
 </body>
 </html>

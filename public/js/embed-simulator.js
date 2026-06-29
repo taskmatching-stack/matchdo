@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627n';
+  const BUILD = 'embed-simulator-20260627o';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -186,54 +186,50 @@
     }
   }
   
-  // === 廠商來源圖摘要（步驟 1、2 自動帶入，非上傳）===
-  function renderVendorRefSummary() {
-    const el = document.getElementById('vendorRefSummary');
+  // === 右下角已選縮圖（主產品＋材配；步驟 2 不重複大圖）===
+  function renderSelectedStrip() {
+    var el = document.getElementById('simSelectedStrip');
     if (!el) return;
-    
-    const items = [];
+    var thumbs = [];
     if (state.prototype) {
-      const p = state.prototype;
       state.selectedPrototypeAngles.forEach(function (angle) {
         if (!angle || !angle.url) return;
-        items.push({
-          tag: '主產品',
-          title: (p.title || '主產品') + (angle.label ? ' · ' + angle.label : ''),
-          url: angle.url
-        });
+        var t = '主產品';
+        if (angle.label) t += ' · ' + angle.label;
+        thumbs.push({ url: angle.url, title: t });
       });
     }
     state.selectedMaterials.forEach(function (id) {
-      const m = state.materials.find(function (x) { return x.id === id; });
-      if (m) items.push({ tag: '材料', title: m.title || '材料', url: m.image_url });
+      var m = state.materials.find(function (x) { return x.id === id; });
+      if (m && m.image_url) thumbs.push({ url: m.image_url, title: '材料 · ' + (m.title || '') });
     });
     state.selectedParts.forEach(function (id) {
-      const p = state.parts.find(function (x) { return x.id === id; });
-      if (p) items.push({ tag: '配件', title: p.title || '配件', url: p.image_url });
+      var p = state.parts.find(function (x) { return x.id === id; });
+      if (p && p.image_url) thumbs.push({ url: p.image_url, title: '配件 · ' + (p.title || '') });
     });
-    
-    if (!items.length) {
-      var proto = state.prototype;
-      var protoItems = proto ? getPrototypeImageItems(proto) : [];
-      if (proto && protoItems.length > 1 && !state.selectedPrototypeAngles.length) {
-        el.innerHTML = '<p class="sim-vendor-ref-hint">已選主產品「' + escapeHtml(proto.title || '主產品') + '」。請回到步驟 1 點圖選取要帶入生圖的參考。</p>';
-      } else {
-        el.innerHTML = '<p class="sim-vendor-ref-hint">選取主產品後，其圖片會自動作為生圖參考。</p>';
-      }
+    if (!thumbs.length) {
+      el.innerHTML = '';
+      el.hidden = true;
       return;
     }
-    
-    el.innerHTML =
-      '<p class="sim-vendor-ref-hint">以下由步驟 1、2 勾選的廠商素材自動帶入生圖，無需重複上傳。</p>' +
-      '<div class="sim-vendor-ref-grid">' +
-      items.map(function (it) {
-        return '<div class="sim-vendor-ref-item">' +
-          '<img src="' + (it.url || '/img/placeholder.png') + '" alt="">' +
-          '<span class="sim-vendor-ref-tag">' + escapeHtml(it.tag) + '</span>' +
-          '<span class="sim-vendor-ref-name">' + escapeHtml(it.title) + '</span>' +
-          '</div>';
-      }).join('') +
-      '</div>';
+    el.hidden = false;
+    el.innerHTML = thumbs.map(function (it) {
+      return '<img class="sim-selected-thumb" src="' + escapeHtml(it.url) + '" alt="" title="' + escapeHtml(it.title) + '">';
+    }).join('');
+  }
+
+  // === 步驟 2：僅提示材配（主產品已在步驟 1 選過，不重複展示）===
+  function renderVendorRefSummary() {
+    const el = document.getElementById('vendorRefSummary');
+    if (!el) return;
+    renderSelectedStrip();
+
+    var hasMatPart = state.selectedMaterials.length > 0 || state.selectedParts.length > 0;
+    if (!hasMatPart) {
+      el.innerHTML = '';
+      return;
+    }
+    el.innerHTML = '<p class="sim-vendor-ref-hint mb-0">已勾選材料／配件會與步驟 1 主產品一併帶入生圖；右下角可預覽全部已選圖。</p>';
   }
   
   function buildReferencePayload() {
@@ -570,10 +566,12 @@
     const el = document.getElementById('step1SelectedName');
     if (!proto) {
       el.textContent = '—';
+      renderSelectedStrip();
       return;
     }
     if (!picked) {
       el.textContent = (proto.title || '主產品') + ' · 請點圖選取';
+      renderSelectedStrip();
       return;
     }
     if (picked === 1) {
@@ -581,6 +579,7 @@
     } else {
       el.textContent = (proto.title || '主產品') + ' · ' + picked + ' 張';
     }
+    renderSelectedStrip();
   }
 
   function togglePrototypeTile(url, label) {
