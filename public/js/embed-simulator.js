@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260627r';
+  const BUILD = 'embed-simulator-20260627s';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -483,13 +483,36 @@
   // === Header 渲染 ===
   function renderHeader() {
     const logo = document.getElementById('simLogo');
+    const logoFallback = document.getElementById('simLogoFallback');
     const name = document.getElementById('simVendorName');
     const powered = document.querySelector('.sim-powered');
-    
-    logo.src = state.manufacturer.logo_url || '/img/placeholder-logo.png';
-    logo.alt = state.manufacturer.name;
-    name.textContent = state.manufacturer.name || '廠商';
-    document.title = `產品試做 - ${state.manufacturer.name}`;
+    const vendorName = (state.manufacturer && state.manufacturer.name) ? String(state.manufacturer.name).trim() : '廠商';
+    const initial = vendorName ? vendorName.charAt(0).toUpperCase() : '?';
+
+    function showLogoFallback() {
+      if (!logo || !logoFallback) return;
+      logo.hidden = true;
+      logoFallback.hidden = false;
+      logoFallback.textContent = initial;
+    }
+
+    if (logo) {
+      logo.hidden = false;
+      logo.onerror = function () { showLogoFallback(); };
+      logo.onload = function () {
+        if (logo.naturalWidth > 0) {
+          logo.hidden = false;
+          if (logoFallback) logoFallback.hidden = true;
+        } else {
+          showLogoFallback();
+        }
+      };
+      logo.src = state.manufacturer.logo_url || '';
+      logo.alt = vendorName;
+      if (!state.manufacturer.logo_url) showLogoFallback();
+    }
+    name.textContent = vendorName;
+    document.title = `產品試做 - ${vendorName}`;
     if (powered) {
       var showPowered = !state.embedBranding || state.embedBranding.show_powered_by !== false;
       powered.style.display = showPowered ? '' : 'none';
