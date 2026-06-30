@@ -3,7 +3,7 @@
 > **狀態（2026-06-30）**：**MVP 已上線可結案** — Phase A～D 核心完成；SQL／部署／全鏈路驗收已由廠商端確認。  
 > **目前工作**：廠商／產品資料上線（與 Embed 功能開發無關）。  
 > **規格母本**：[`PROGRESS-vendor-embed-simulator.md`](PROGRESS-vendor-embed-simulator.md)  
-> **串接細節**：[`PROGRESS-vendor-embed-simulator-integration.md`](PROGRESS-vendor-embed-simulator-integration.md)
+> **Handoff 總表（新視窗用）**：[`PROGRESS-handoff-2026-06-30.md`](PROGRESS-handoff-2026-06-30.md)
 
 ---
 
@@ -89,7 +89,7 @@
 | 檔案 | BUILD / 版本 | 備註 |
 |------|----------------|------|
 | `public/embed/simulator.html` | — | 主 iframe 頁 |
-| `public/js/embed-simulator.js` | `embed-simulator-20260630a` | 邏輯 |
+| `public/js/embed-simulator.js` | `embed-simulator-20260630b`（待 push） | 邏輯 |
 | `public/client/manufacturer-materials.html` | `embed-plan-tiers-20260627a` 等 | ② iframe 區 |
 | `public/client/embed-design-records.html` | — | 廠商 Embed 紀錄 |
 | `public/client/vendor-prototype-insights.html` | — | 洞察含 Embed badge |
@@ -101,6 +101,7 @@
 - 已選參考：**窄版 sticky「已選」列** + **≥880px 右側欄** + 步驟 1 摘要縮圖。
 - 步驟 2 **不重複**步驟 1 主產品大圖。
 - 生圖結果下方文案：「AI 模擬為設計參考，實際結構與材質細節歡迎與我們溝通確認。」
+- Header **廠商 logo + 名稱**可點 → `/vendor-profile.html?id=…`（bootstrap 回傳 `profile_url`；**2026-06-30 本機待 push**）
 
 ### 6.2 選做 backlog（不擋上線 · 需要時再做）
 

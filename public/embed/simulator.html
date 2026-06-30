@@ -62,6 +62,26 @@
       line-height: 1;
       user-select: none;
     }
+    .sim-vendor-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+      flex-shrink: 1;
+      text-decoration: none;
+      color: inherit;
+      border-radius: 10px;
+      padding: 0.15rem 0.35rem 0.15rem 0.15rem;
+      margin: -0.15rem 0;
+      transition: background 0.15s ease;
+    }
+    .sim-vendor-brand:hover {
+      background: rgba(255, 255, 255, 0.55);
+      text-decoration: none;
+    }
+    .sim-vendor-brand:hover .sim-vendor-name {
+      color: var(--sim-primary);
+    }
     .sim-vendor-name {
       font-size: 1rem;
       font-weight: 600;
@@ -699,11 +719,13 @@
 <body>
   <!-- Header -->
   <header class="sim-header">
-    <div class="sim-logo-wrap" id="simLogoWrap">
-      <img id="simLogo" class="sim-logo" src="/img/placeholder-logo.png" alt="">
-      <span id="simLogoFallback" class="sim-logo-fallback" hidden aria-hidden="true"></span>
-    </div>
-    <span id="simVendorName" class="sim-vendor-name">載入中…</span>
+    <a id="simVendorBrand" class="sim-vendor-brand" href="#" target="_blank" rel="noopener noreferrer" title="查看廠商首頁">
+      <div class="sim-logo-wrap" id="simLogoWrap">
+        <img id="simLogo" class="sim-logo" src="/img/placeholder-logo.png" alt="">
+        <span id="simLogoFallback" class="sim-logo-fallback" hidden aria-hidden="true"></span>
+      </div>
+      <span id="simVendorName" class="sim-vendor-name">載入中…</span>
+    </a>
     <div class="sim-header-spacer"></div>
     <span class="sim-powered">Powered by <a href="https://matchdo.cc" target="_blank" rel="noopener noreferrer"><img src="/img/matchdo-logo.png" alt="MatchDO" class="sim-powered-logo"></a></span>
   </header>
@@ -855,6 +877,6 @@
   </div>
   
   <script src="/js/vendor-asset-image-link-groups.js"></script>
-  <script src="/js/embed-simulator.js?v=20260630a"></script>
+  <script src="/js/embed-simulator.js?v=20260630b"></script>
 </body>
 </html>

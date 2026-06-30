@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260630a';
+  const BUILD = 'embed-simulator-20260630b';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -481,13 +481,22 @@
   }
   
   // === Header 渲染 ===
+  function manufacturerProfileUrl(mfr) {
+    if (!mfr) return '';
+    if (mfr.profile_url) return String(mfr.profile_url).trim();
+    if (mfr.id) return '/vendor-profile.html?id=' + encodeURIComponent(String(mfr.id));
+    return '';
+  }
+
   function renderHeader() {
     const logo = document.getElementById('simLogo');
     const logoFallback = document.getElementById('simLogoFallback');
     const name = document.getElementById('simVendorName');
+    const brand = document.getElementById('simVendorBrand');
     const powered = document.querySelector('.sim-powered');
     const vendorName = (state.manufacturer && state.manufacturer.name) ? String(state.manufacturer.name).trim() : '廠商';
     const initial = vendorName ? vendorName.charAt(0).toUpperCase() : '?';
+    const profileUrl = manufacturerProfileUrl(state.manufacturer);
 
     function showLogoFallback() {
       if (!logo || !logoFallback) return;
@@ -511,7 +520,19 @@
       logo.alt = vendorName;
       if (!state.manufacturer.logo_url) showLogoFallback();
     }
-    name.textContent = vendorName;
+    if (name) name.textContent = vendorName;
+    if (brand) {
+      if (profileUrl) {
+        brand.href = profileUrl;
+        brand.hidden = false;
+        brand.title = '查看 ' + vendorName + ' 廠商首頁';
+        brand.setAttribute('aria-label', brand.title);
+      } else {
+        brand.removeAttribute('href');
+        brand.hidden = false;
+        brand.title = vendorName;
+      }
+    }
     document.title = `產品試做 - ${vendorName}`;
     if (powered) {
       var showPowered = !state.embedBranding || state.embedBranding.show_powered_by !== false;

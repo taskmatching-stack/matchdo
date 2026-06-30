@@ -16070,7 +16070,8 @@ app.get('/api/embed/simulator/bootstrap', async (req, res) => {
             manufacturer: {
                 id: ctx.manufacturer.id,
                 name: mfrName,
-                logo_url: embedSimulator.manufacturerLogoFromRow(ctx.manufacturer)
+                logo_url: embedSimulator.manufacturerLogoFromRow(ctx.manufacturer),
+                profile_url: embedSimulator.manufacturerProfileUrlFromRow(ctx.manufacturer)
             },
             prototype: proto,
             prototype_asset_id: proto.id,
