@@ -45,7 +45,7 @@ git log -1 --oneline
 
 ---
 
-## 三、部署（二擇一，指令內容相同）
+## 三、部署（三擇一：優先單行，失敗改兩段式）
 
 部署前都會 **`git fetch origin main` + `git reset --hard origin/main`**，代表**只部署 GitHub 上的 main**，不是本機未 commit 的檔案。
 
@@ -86,6 +86,58 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 
 成功／失敗訊息與方式 A 相同。
 
+### 方式 C：兩段式部署（§三 單行 `--source` 無法完成時）
+
+**優先仍用方式 A 那一行**；僅在下列情況改本節：
+
+| 症狀 | 說明 |
+|------|------|
+| 卡在 `Uploading sources...` 很久或 Shell 中斷 | Cloud Shell 上傳 ~120MB 壓縮包不穩 |
+| `Container import failed` | source deploy 映像匯入失敗（本機 PowerShell 亦常見） |
+| 單行跑不完、但需上線 | 建置改走 repo 根目錄 **`cloudbuild.yaml`**（手動 docker build，避開上述匯入問題） |
+
+> **說明**：兩段式**不會比單行少傳檔**（第一步仍要上傳 tarball）；慢的是上傳＋建置。Shell 斷線後請先查 build 是否已在 GCP 跑完，勿盲目重跑（見下方「Shell 中斷」）。  
+> 終端機若刷 `Regional Access Boundary … Account not found for email: …taskmatchlng…`，多為 **gcloud 警告噪音**，build／deploy 仍可能成功，可忽略。
+
+**前置**（與方式 A 相同，確保程式為 GitHub `main`）：
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main
+```
+
+**① 建映像**（約 5～15 分鐘；可開 [Cloud Build 記錄](https://console.cloud.google.com/cloud-build/builds?project=matchdo) 看進度）：
+
+```bash
+gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1
+```
+
+成功時記下輸出中的 **BUILD_ID**（UUID，例如 `09bbd5be-7189-4339-828b-82b85dc74943`）。
+
+**② 部署映像**（不用再上傳原始碼，通常 1～3 分鐘）：
+
+```bash
+export BUILD_ID=貼上①的_BUILD_ID
+
+gcloud run deploy matchdo \
+  --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID \
+  --region=asia-northeast1 \
+  --allow-unauthenticated
+
+gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
+```
+
+**Shell 中斷**：重連後先查，不要馬上重跑 submit：
+
+```bash
+gcloud builds list --region=asia-northeast1 --limit=3
+```
+
+- **SUCCESS** → 只做 ②（用該筆 `ID` 當 `BUILD_ID`）
+- **WORKING** / **QUEUED** → 在 Console 等完成
+- 無紀錄或 **FAILURE** → 再執行 ①
+
+驗收同 §5.1（`spec.traffic` 應指向新 revision）。
+
 ---
 
 ## 四、不要做的事
@@ -94,7 +146,7 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 |--------|------|
 | 平常用 `update-traffic` **代替**部署 | 只切流量、**不會**重新建置映像 |
 | 拆掉 `fetch` + `reset --hard` 直接 deploy | 可能部署本機未 push 的舊檔 |
-| 自行改 `gcloud run deploy` 參數 | 方式 A／B 須一致：`--source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image` |
+| 自行改 `gcloud run deploy` 參數 | 方式 A／B 須一致：`--source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image`；**備援**見 §三 方式 C |
 
 ---
 
@@ -205,6 +257,8 @@ gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spe
 ```bash
 gcloud builds list --region=asia-northeast1 --limit=1
 ```
+
+若為 `gcloud run deploy --source` 的 **`Container import failed`** 或上傳卡住，改 **§三 方式 C（兩段式）**。
 
 ---
 

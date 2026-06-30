@@ -25,6 +25,8 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 
 （末尾 `update-traffic --to-latest`：避免流量釘在舊 revision、deploy 顯示 Done 卻沒換程式。）
 
+**單行失敗時（上傳卡住、`Container import failed`、Shell 中斷）**：改 **§三 方式 C 兩段式**（`gcloud builds submit --config=cloudbuild.yaml` → `deploy --image` → `update-traffic`）。詳見 `docs/deploy-matchdo-push-and-deploy.md`。
+
 **本機 PowerShell（Shell 額度滿時）：** 與 Cloud Shell **同一套 `gcloud run deploy` 參數**（含 `--clear-base-image`）。先 `gcloud config set account taskmatching@gmail.com`、`gcloud config set project matchdo`，再於專案目錄 `git fetch` + `reset --hard origin/main` + 部署（見 `docs/deploy-matchdo-push-and-deploy.md` 方式 B）。
 
 ## 部署後自查

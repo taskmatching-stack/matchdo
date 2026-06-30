@@ -305,11 +305,26 @@ async function manufacturerHasPublicVendorAssets(manufacturerId) {
     return !!(data && data.id);
 }
 
-/** 廠商詳情頁：一般曝光規則，或種子廠商已有公開 vendor_assets；廠商本人可預覽自己的頁面 */
+/** 廠商已有對外 iframe 試做（訪客可點 header 進廠商頁） */
+async function manufacturerHasActiveEmbedInstance(manufacturerId) {
+    if (!manufacturerId) return false;
+    const { data, error } = await supabase
+        .from('manufacturer_embed_instances')
+        .select('id')
+        .eq('manufacturer_id', manufacturerId)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
+    if (error) return false;
+    return !!(data && data.id);
+}
+
+/** 廠商詳情頁：一般曝光規則，或種子廠商已有公開 vendor_assets，或有啟用中的 Embed；廠商本人可預覽自己的頁面 */
 async function manufacturerEligibleForProfilePage(mfr, { internalPreview = false, ownerPreview = false } = {}) {
     if (!mfr || mfr.is_active === false) return false;
     if (internalPreview || ownerPreview) return true;
     if (manufacturerVisibleToPublicAudience(mfr)) return true;
+    if (await manufacturerHasActiveEmbedInstance(mfr.id)) return true;
     return manufacturerHasPublicVendorAssets(mfr.id);
 }
 
