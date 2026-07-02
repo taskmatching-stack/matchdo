@@ -653,27 +653,27 @@
                                 </div>
                             </div>
                             <div class="mt-3 pt-3 border-top" id="edit-share-embed-block">
-                                <p class="small fw-semibold text-secondary mb-1">② 嵌入官網 iframe（訪客<strong>免付點</strong>，生圖扣<strong>您的</strong>點數）</p>
-                                <p class="small mb-2">
-                                    <a href="/embed/preview-simulator.html" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-eye me-1"></i>UI 測試頁（假資料預覽）</a>
-                                </p>
-                                <div id="edit-share-embed-status" class="text-muted small mb-2 d-none"></div>
+                                <p class="small fw-semibold text-secondary mb-1">② 嵌入官網 iframe（訪客<strong>免付點</strong>，只試<strong>此款</strong>主產品）</p>
+                                <p class="text-muted small mb-2">複製 <code>&lt;iframe&gt;</code> 貼到官網、活動頁或 Landing Page。訪客在您的頁面試做（不需 MatchDO 帳號）；生圖扣<strong>您的</strong>點數。主產品上架後即可複製嵌入碼與預覽連結。</p>
+                                <div id="edit-share-embed-status" class="text-muted small mb-2">開啟編輯後自動載入…</div>
                                 <div id="edit-share-embed-fields" class="d-none">
-                                    <label class="form-label small text-muted mb-1">此款 iframe 網址</label>
+                                    <label class="form-label small text-muted mb-1">iframe 網址</label>
                                     <div class="input-group input-group-sm mb-2">
                                         <input type="text" class="form-control font-monospace" id="edit-share-embed-url" readonly>
                                         <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-embed-url">複製</button>
                                     </div>
-                                    <p class="small mb-2">
-                                        <a class="btn btn-outline-success btn-sm" id="btn-edit-open-share-embed-preview" href="#" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>開啟此款嵌入頁</a>
-                                    </p>
-                                    <label class="form-label small text-muted mb-1">貼到官網的程式碼</label>
-                                    <textarea class="form-control form-control-sm font-monospace mb-2" id="edit-share-embed-snippet" rows="3" readonly></textarea>
+                                    <div class="mb-2">
+                                        <a class="btn btn-outline-success btn-sm disabled" id="btn-edit-open-share-embed-preview" href="#" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1"><i class="bi bi-box-arrow-up-right me-1"></i>測試／預覽嵌入頁</a>
+                                        <span class="text-muted small ms-1">新分頁開啟，與訪客在官網 iframe 內相同</span>
+                                    </div>
+                                    <label class="form-label small text-muted mb-1">嵌入程式碼</label>
+                                    <textarea class="form-control form-control-sm font-monospace mb-2" id="edit-share-embed-snippet" rows="4" readonly></textarea>
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-copy-share-embed-snippet"><i class="bi bi-clipboard me-1"></i>複製嵌入程式碼</button>
                                     <div class="form-check mt-3 d-none" id="edit-share-embed-media-wall-wrap">
                                         <input class="form-check-input" type="checkbox" id="edit-share-embed-media-wall" checked>
                                         <label class="form-check-label small" for="edit-share-embed-media-wall">訪客試做成圖顯示於 MatchDO 首頁媒體牆</label>
                                     </div>
+                                    <p class="small mb-0 mt-2"><a href="/client/embed-design-records.html" target="_blank" rel="noopener">查看 Embed 訪客生圖紀錄</a></p>
                                 </div>
                             </div>
                             <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用上述連結或 iframe。</p>
@@ -840,7 +840,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'hints-collapsed-20260701i';
+        window.__MATCHDO_MATERIALS_BUILD = 'embed-restore-20260701j';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4889,49 +4889,45 @@
             var previewBtn = document.getElementById('btn-edit-open-share-embed-preview');
             if (!previewBtn) return;
             var url = (pageUrl || '').trim();
-            previewBtn.href = url || '#';
-            previewBtn.classList.toggle('disabled', !url);
-            if (!url) previewBtn.setAttribute('aria-disabled', 'true');
-            else previewBtn.removeAttribute('aria-disabled');
-        }
-
-        function setEditShareEmbedStatus(msg, isError) {
-            var statusEl = document.getElementById('edit-share-embed-status');
-            if (!statusEl) return;
-            if (!msg) {
-                statusEl.textContent = '';
-                statusEl.classList.add('d-none');
-                statusEl.classList.remove('text-danger');
-                return;
+            if (url) {
+                previewBtn.href = url;
+                previewBtn.classList.remove('disabled');
+                previewBtn.removeAttribute('aria-disabled');
+                previewBtn.removeAttribute('tabindex');
+            } else {
+                previewBtn.href = '#';
+                previewBtn.classList.add('disabled');
+                previewBtn.setAttribute('aria-disabled', 'true');
+                previewBtn.setAttribute('tabindex', '-1');
             }
-            statusEl.textContent = msg;
-            statusEl.classList.remove('d-none');
-            statusEl.classList.toggle('text-danger', !!isError);
         }
 
         async function loadEditEmbedSimulator(m, isPub) {
+            var statusEl = document.getElementById('edit-share-embed-status');
             var fieldsEl = document.getElementById('edit-share-embed-fields');
             var urlInp = document.getElementById('edit-share-embed-url');
             var snipTa = document.getElementById('edit-share-embed-snippet');
             var mediaWallWrap = document.getElementById('edit-share-embed-media-wall-wrap');
             var mediaWallChk = document.getElementById('edit-share-embed-media-wall');
-            if (!fieldsEl) return;
+            if (!statusEl || !fieldsEl) return;
             fieldsEl.classList.add('d-none');
-            if (urlInp) urlInp.value = '';
-            if (snipTa) snipTa.value = '';
             syncEditShareEmbedPreviewLink('');
-            setEditShareEmbedStatus('');
             if (mediaWallWrap) mediaWallWrap.classList.add('d-none');
-            if (!m || !m.id) return;
-            if (isPub === false) {
-                setEditShareEmbedStatus('此款未上架；上架後會自動產生下方嵌入網址與程式碼。');
+            if (!m || !m.id) {
+                statusEl.textContent = '';
                 return;
             }
-            setEditShareEmbedStatus('正在載入此款嵌入碼…');
+            if (isPub === false) {
+                statusEl.textContent = '請先上架主產品，才能產生官網 iframe。';
+                statusEl.classList.remove('text-danger');
+                return;
+            }
+            statusEl.textContent = '正在產生嵌入連結…';
+            statusEl.classList.remove('text-danger');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
-                    setEditShareEmbedStatus('請先登入', true);
+                    statusEl.textContent = '請登入後取得 iframe 嵌入碼';
                     return;
                 }
                 var r = await fetch('/api/me/embed-simulator-instances', {
@@ -4944,25 +4940,30 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (r.status === 503 || data.code === 'EMBED_SCHEMA') {
-                    setEditShareEmbedStatus('嵌入尚未啟用（資料庫）。可先用上方 UI 測試頁預覽版面。', true);
+                    statusEl.textContent = '嵌入試做尚未啟用（資料庫設定）。請聯絡平台或稍後再試。';
                     return;
                 }
                 if (data.error_code === 'embed_instance_limit') {
-                    setEditShareEmbedStatus(data.error || 'iframe 組數已達上限', true);
+                    statusEl.textContent = data.error || 'iframe 組數已達方案上限';
+                    statusEl.classList.add('text-danger');
                     return;
                 }
                 if (!r.ok) {
-                    var failMsg = (data && data.error) || '無法建立嵌入連結';
+                    var failMsg = (data && data.error) || '無法建立 iframe 連結';
                     if (data && data.error_detail) failMsg += '（' + data.error_detail + '）';
-                    setEditShareEmbedStatus(failMsg + '　可先用上方 UI 測試頁。', true);
+                    statusEl.textContent = failMsg;
+                    statusEl.classList.add('text-danger');
                     return;
                 }
-                setEditShareEmbedStatus('');
+                var tierCfg = data.embed_tier_config || null;
+                statusEl.textContent = data.created
+                    ? '已建立此款專用 iframe，請複製下方程式碼貼到官網。'
+                    : '已載入此款 iframe（可重複複製使用）。';
+                statusEl.classList.remove('text-danger');
                 if (urlInp) urlInp.value = data.page_url || '';
                 if (snipTa) snipTa.value = data.iframe_snippet || '';
                 syncEditShareEmbedPreviewLink(data.page_url || '');
                 fieldsEl.classList.remove('d-none');
-                var tierCfg = data.embed_tier_config || null;
                 if (mediaWallWrap && mediaWallChk && tierCfg && tierCfg.wallMode === 'configurable' && data.id) {
                     mediaWallWrap.classList.remove('d-none');
                     mediaWallChk.checked = data.show_on_media_wall !== false;
@@ -4971,7 +4972,8 @@
                     mediaWallChk.dataset.instanceId = '';
                 }
             } catch (err) {
-                setEditShareEmbedStatus((err.message || '載入失敗') + '　可先用上方 UI 測試頁。', true);
+                statusEl.textContent = err.message || '載入失敗';
+                statusEl.classList.add('text-danger');
             }
         }
 
@@ -5867,8 +5869,9 @@
         var btnEditOpenShareEmbedPreview = document.getElementById('btn-edit-open-share-embed-preview');
         if (btnEditOpenShareEmbedPreview) {
             btnEditOpenShareEmbedPreview.addEventListener('click', function (e) {
-                if (!btnEditOpenShareEmbedPreview.href || btnEditOpenShareEmbedPreview.href === '#' || btnEditOpenShareEmbedPreview.classList.contains('disabled')) {
+                if (btnEditOpenShareEmbedPreview.classList.contains('disabled')) {
                     e.preventDefault();
+                    showToast('尚無嵌入頁網址', 'warning');
                 }
             });
         }
