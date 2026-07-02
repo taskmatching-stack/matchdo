@@ -198,6 +198,7 @@
                 .media-wall-type-badge { position: absolute; top: 6px; left: 6px; z-index: 8; padding: 2px 6px; font-size: 0.6rem; font-weight: 600; border-radius: 4px; pointer-events: none; }
                 .media-wall-type-comparison { background: rgba(68,93,126,.9); color: #fff; }
                 .media-wall-type-collection { background: rgba(80,120,80,.9); color: #fff; }
+                .media-wall-type-vendor-ref { background: rgba(255,255,255,.9); color: #445D7E; border: 1px solid rgba(68,93,126,.28); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
                 /* 管理員：在首頁關閉個別圖片顯示 */
                 #media-wall-grid .card { position: relative; }
                 #media-wall-grid .media-wall-admin-hide { position: absolute; top: 4px; right: 4px; z-index: 10; padding: 2px 6px; font-size: 0.65rem; background: rgba(0,0,0,.7); color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 2px; }
@@ -804,6 +805,14 @@
                     return (window.location && window.location.origin ? window.location.origin : '') + '/api/proxy-image?url=' + encodeURIComponent(u);
                 return u;
             }
+            function hasVendorReference(p) {
+                if (!p || p.type !== 'user_design') return false;
+                if (p.has_vendor_reference === true) return true;
+                if (p.ref_manufacturer_id) return true;
+                var list = p.reference_sources;
+                if (!Array.isArray(list)) return false;
+                return list.some(function (s) { return s && s.vendor_asset_id; });
+            }
             function renderOne(p, opts) {
                     var wrap = document.createElement('div');
                     var cls = 'media-wall-item';
@@ -890,6 +899,7 @@
                     var typeBadge = '';
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
                     else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
+                    else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時參考了廠商公開素材">實品參考</span>';
                     var itemId = String(p.id || (p.title + p.type));
                     var inspirationHref = (p.inspiration_url && String(p.inspiration_url).trim())
                         || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(itemId));

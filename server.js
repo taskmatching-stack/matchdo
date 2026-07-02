@@ -328,6 +328,11 @@ async function manufacturerEligibleForProfilePage(mfr, { internalPreview = false
     return manufacturerHasPublicVendorAssets(mfr.id);
 }
 
+function hasVendorAssetReferenceInSources(refSourcesRaw) {
+    const list = Array.isArray(refSourcesRaw) ? refSourcesRaw : [];
+    return list.some((s) => s && s.vendor_asset_id);
+}
+
 function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
     let aj = p.analysis_json;
     if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
@@ -350,6 +355,7 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
         link,
         ref_manufacturer_id: refMfrId || null,
         ref_prototype_asset_id: refProtoId || null,
+        has_vendor_reference: hasVendorAssetReferenceInSources(p.reference_sources),
         inspiration_url: id ? `/inspiration/user_design/${id}` : null,
         owner_display: ownerDisplayMap[p.owner_id] || null,
         category_key: p.category || null,
