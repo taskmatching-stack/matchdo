@@ -16439,7 +16439,7 @@ app.get('/api/me/embed-simulator-instances', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, res)) return;
         const protoId = (req.query.prototype_asset_id || '').trim();
         if (!protoId) return res.status(400).json({ error: '請提供 prototype_asset_id' });
 
@@ -16497,7 +16497,7 @@ app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) =
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, res)) return;
 
         const body = req.body || {};
         const protoId = (body.prototype_asset_id || '').trim();
@@ -16543,7 +16543,7 @@ app.patch('/api/me/embed-simulator-instances/:id', express.json(), async (req, r
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWrite(req, manufacturerId, res)) return;
+        if (await rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, res)) return;
 
         const instanceId = (req.params.id || '').trim();
         if (!instanceId) return res.status(400).json({ error: '缺少 id' });
@@ -20917,6 +20917,13 @@ async function rejectSeedManufacturerWrite(req, manufacturerId, res) {
     const user = await getRequestUserFromAuthHeader(req);
     if (!user) return false;
     return rejectSeedVendorSelfServiceWrite(user.id, manufacturerId, res);
+}
+
+/** 種子廠商自助鎖不擋付費會員取得 Embed 嵌入碼（種子僅為過渡上架期） */
+async function rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, res) {
+    const user = await getRequestUserFromAuthHeader(req);
+    if (user && await hasActivePaidSubscription(user.id)) return false;
+    return rejectSeedManufacturerWrite(req, manufacturerId, res);
 }
 
 // POST /api/me/manufacturer/collections — 建立資料夾（需登入且為廠商）；種子廠商不得建立

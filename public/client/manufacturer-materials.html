@@ -640,7 +640,7 @@
                             </div>
                             <div class="mt-3 pt-3 border-top" id="edit-share-embed-block">
                                 <p class="small fw-semibold text-secondary mb-1">② 嵌入官網 iframe（訪客<strong>免付點</strong>，只試<strong>此款</strong>主產品）</p>
-                                <p class="text-muted small mb-2">複製 <code>&lt;iframe&gt;</code> 貼到官網、活動頁或 Landing Page。訪客在您的頁面試做（不需 MatchDO 帳號）；生圖扣<strong>您的</strong>點數。嵌入碼僅付費方案可取得。</p>
+                                <p class="text-muted small mb-2">複製 <code>&lt;iframe&gt;</code> 貼到官網、活動頁或 Landing Page。訪客在您的頁面試做（不需 MatchDO 帳號）；生圖扣<strong>您的</strong>點數。<strong>付費會員</strong>可取得嵌入碼與預覽連結（後台會員等級進階以上，或有效付費訂閱）。</p>
                                 <div id="edit-share-embed-status" class="text-muted small mb-2">開啟編輯後自動載入…</div>
                                 <div id="edit-share-embed-fields" class="d-none">
                                     <label class="form-label small text-muted mb-1">iframe 網址</label>
@@ -826,7 +826,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'embed-preview-link-20260701c';
+        window.__MATCHDO_MATERIALS_BUILD = 'embed-paid-member-20260701d';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4816,7 +4816,7 @@
                     return;
                 }
                 if (data.error_code === 'embed_disabled') {
-                    statusEl.textContent = '取得嵌入碼需付費（訂閱 300／900／1800，或後台會員等級為進階以上）。';
+                    statusEl.textContent = '需為付費會員才可取得嵌入碼（後台會員等級進階以上，或有效付費訂閱）。';
                     statusEl.classList.add('text-danger');
                     return;
                 }
