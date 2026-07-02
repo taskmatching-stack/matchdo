@@ -840,7 +840,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'hints-collapsed-20260701h';
+        window.__MATCHDO_MATERIALS_BUILD = 'hints-collapsed-20260701i';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -886,20 +886,26 @@
             return wrap;
         }
 
+        function insertMatchdoHintGroup(parent, nodes) {
+            if (!parent || !nodes || !nodes.length) return null;
+            var anchor = nodes[nodes.length - 1];
+            var insertBeforeNode = anchor ? anchor.nextSibling : null;
+            var wrap = createMatchdoHintGroup(nodes);
+            parent.insertBefore(wrap, insertBeforeNode);
+            return wrap;
+        }
+
         function wrapConsecutiveHintsInContainer(container) {
             if (!container || container.dataset.matchdoHintsWrapped === '1') return;
             var kids = Array.from(container.children);
             var batch = [];
-            var insertRef = null;
             function flush() {
                 if (!batch.length) return;
-                container.insertBefore(createMatchdoHintGroup(batch), insertRef);
+                insertMatchdoHintGroup(container, batch);
                 batch = [];
-                insertRef = null;
             }
             kids.forEach(function (el) {
                 if (isMatchdoCollapsibleHintEl(el)) {
-                    if (!insertRef) insertRef = el;
                     batch.push(el);
                 } else {
                     flush();
@@ -912,18 +918,15 @@
         function wrapConsecutiveHintsAmongSiblings(parent, skipEl) {
             if (!parent || parent.dataset.matchdoHintsWrapped === '1') return;
             var batch = [];
-            var insertRef = null;
             function flush() {
                 if (!batch.length) return;
-                parent.insertBefore(createMatchdoHintGroup(batch), insertRef);
+                insertMatchdoHintGroup(parent, batch);
                 batch = [];
-                insertRef = null;
             }
             Array.from(parent.children).forEach(function (el) {
                 if (el === skipEl) return;
                 if (skipEl && skipEl.contains && skipEl.contains(el)) return;
                 if (isMatchdoCollapsibleHintEl(el)) {
-                    if (!insertRef) insertRef = el;
                     batch.push(el);
                 } else {
                     flush();
@@ -940,7 +943,7 @@
                 if (!isMatchdoCollapsibleHintEl(el)) return;
                 var parent = el.parentNode;
                 if (!parent || el.closest('.matchdo-hint-group')) return;
-                parent.insertBefore(createMatchdoHintGroup([el]), el);
+                insertMatchdoHintGroup(parent, [el]);
             });
             ['prototype', 'part', 'material'].forEach(function (kind) {
                 var panel = document.getElementById('panel-' + kind);
