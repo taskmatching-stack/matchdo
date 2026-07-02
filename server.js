@@ -16348,6 +16348,21 @@ function embedSchemaMissingResponse(res) {
     });
 }
 
+function isEmbedInstanceOptionalColumnError(err, colName) {
+    if (!err) return false;
+    const code = String(err.code || '');
+    const msg = String(err.message || '');
+    if (code === '42703' || code === 'PGRST204') {
+        if (!colName) return /show_powered_by|show_on_media_wall/i.test(msg);
+        return msg.includes(colName);
+    }
+    if (/schema cache|could not find the/i.test(msg)) {
+        if (!colName) return /show_powered_by|show_on_media_wall/i.test(msg);
+        return msg.includes(colName);
+    }
+    return false;
+}
+
 async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, prototypeAssetId, instanceName, vendorUserId) {
     const protoId = String(prototypeAssetId || '').trim();
     if (!protoId) return { error: 'missing_prototype' };
@@ -16377,7 +16392,7 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-    if (existingRes.error && existingRes.error.code === '42703') {
+    if (existingRes.error && isEmbedInstanceOptionalColumnError(existingRes.error)) {
         existingRes = await supabase
             .from('manufacturer_embed_instances')
             .select(embedSelectBase)
@@ -16421,7 +16436,7 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         .insert(insertPayload)
         .select(insertSelectFull)
         .single();
-    if (insertRes.error && insertRes.error.code === '42703') {
+    if (insertRes.error && isEmbedInstanceOptionalColumnError(insertRes.error)) {
         delete insertPayload.show_powered_by;
         delete insertPayload.show_on_media_wall;
         insertRes = await supabase
@@ -16481,7 +16496,7 @@ app.get('/api/me/embed-simulator-instances', async (req, res) => {
             .maybeSingle();
         if (error) {
             if (error.code === '42P01') return embedSchemaMissingResponse(res);
-            if (error.code === '42703') {
+            if (isEmbedInstanceOptionalColumnError(error)) {
                 const fallback = await supabase
                     .from('manufacturer_embed_instances')
                     .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active')
