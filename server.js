@@ -16366,15 +16366,29 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         return { error: 'not_public' };
     }
 
+    const embedSelectFull = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall';
+    const embedSelectBase = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active';
     let existingRes = await supabase
         .from('manufacturer_embed_instances')
-        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
+        .select(embedSelectFull)
         .eq('manufacturer_id', manufacturerId)
         .eq('prototype_asset_id', protoId)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+    if (existingRes.error && existingRes.error.code === '42703') {
+        existingRes = await supabase
+            .from('manufacturer_embed_instances')
+            .select(embedSelectBase)
+            .eq('manufacturer_id', manufacturerId)
+            .eq('prototype_asset_id', protoId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (!existingRes.error && existingRes.data) existingRes.data.show_on_media_wall = true;
+    }
     if (existingRes.error) {
         if (existingRes.error.code === '42P01') return { error: 'schema' };
         throw existingRes.error;
@@ -16383,8 +16397,7 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         return { instance: existingRes.data, created: false, prototype_title: row.title || '' };
     }
 
-    const tier = await embedSimulator.assertEmbedFeatureEnabled(supabase, vendorUserId);
-    await embedSimulator.assertEmbedInstanceQuota(supabase, manufacturerId, vendorUserId);
+    const tier = await resolveVendorEmbedTier(vendorUserId);
     const tierBranding = embedSimulator.embedBrandingForTier(tier);
 
     const embedKey = embedSimulator.randomEmbedKey();
@@ -16401,31 +16414,38 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         show_powered_by: tierBranding.show_powered_by !== false,
         updated_at: new Date().toISOString()
     };
+    const insertSelectFull = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall, show_powered_by';
+    const insertSelectBase = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active';
     let insertRes = await supabase
         .from('manufacturer_embed_instances')
         .insert(insertPayload)
-        .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall, show_powered_by')
+        .select(insertSelectFull)
         .single();
     if (insertRes.error && insertRes.error.code === '42703') {
         delete insertPayload.show_powered_by;
+        delete insertPayload.show_on_media_wall;
         insertRes = await supabase
             .from('manufacturer_embed_instances')
             .insert(insertPayload)
-            .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
+            .select(insertSelectBase)
             .single();
-        if (!insertRes.error && insertRes.data) insertRes.data.show_powered_by = tierBranding.show_powered_by !== false;
+        if (!insertRes.error && insertRes.data) {
+            insertRes.data.show_on_media_wall = true;
+            insertRes.data.show_powered_by = tierBranding.show_powered_by !== false;
+        }
     }
     if (insertRes.error) {
         if (insertRes.error.code === '42P01') return { error: 'schema' };
         if (insertRes.error.code === '23505') {
             existingRes = await supabase
                 .from('manufacturer_embed_instances')
-                .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
+                .select(embedSelectBase)
                 .eq('manufacturer_id', manufacturerId)
                 .eq('prototype_asset_id', protoId)
                 .eq('is_active', true)
                 .maybeSingle();
             if (existingRes.data) {
+                if (existingRes.data.show_on_media_wall === undefined) existingRes.data.show_on_media_wall = true;
                 return { instance: existingRes.data, created: false, prototype_title: row.title || '' };
             }
         }
@@ -16434,12 +16454,19 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
     return { instance: insertRes.data, created: true, prototype_title: row.title || '' };
 }
 
+/** 廠商 embed 方案等級（用於 Powered by、媒體牆等；取得嵌入碼不另做付費限制） */
+async function resolveVendorEmbedTier(vendorUserId) {
+    if (!vendorUserId) return '300';
+    let tier = await embedSimulator.resolveEmbedPlanTier(supabase, vendorUserId);
+    if (!tier && await hasActivePaidSubscription(vendorUserId)) tier = '300';
+    return tier || '300';
+}
+
 // GET /api/me/embed-simulator-instances?prototype_asset_id= — 廠商：查此款 iframe
 app.get('/api/me/embed-simulator-instances', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, res)) return;
         const protoId = (req.query.prototype_asset_id || '').trim();
         if (!protoId) return res.status(400).json({ error: '請提供 prototype_asset_id' });
 
@@ -16467,19 +16494,19 @@ app.get('/api/me/embed-simulator-instances', async (req, res) => {
                 if (fallback.error) throw fallback.error;
                 if (!fallback.data) {
                     const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
-                    const tier = mfrRow && mfrRow.user_id ? await embedSimulator.resolveEmbedPlanTier(supabase, mfrRow.user_id) : null;
+                    const tier = mfrRow && mfrRow.user_id ? await resolveVendorEmbedTier(mfrRow.user_id) : '300';
                     return res.json({ instance: null, embed_tier: tier });
                 }
                 const origin = embedSimulator.publicOriginFromRequest(req);
                 const mapped = embedSimulator.mapEmbedInstanceForVendor(fallback.data, origin, { title: '產品試做' });
                 const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
-                const tier = mfrRow && mfrRow.user_id ? await embedSimulator.resolveEmbedPlanTier(supabase, mfrRow.user_id) : null;
+                const tier = mfrRow && mfrRow.user_id ? await resolveVendorEmbedTier(mfrRow.user_id) : '300';
                 return res.json({ instance: mapped, embed_tier: tier });
             }
             throw error;
         }
         const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
-        const tier = mfrRow && mfrRow.user_id ? await embedSimulator.resolveEmbedPlanTier(supabase, mfrRow.user_id) : null;
+        const tier = mfrRow && mfrRow.user_id ? await resolveVendorEmbedTier(mfrRow.user_id) : '300';
         const tierCfg = tier ? embedSimulator.getEmbedTierConfig(tier) : null;
         const activeCount = await embedSimulator.countActiveEmbedInstances(supabase, manufacturerId);
         if (!row) return res.json({ instance: null, embed_tier: tier, embed_tier_config: tierCfg, active_instance_count: activeCount });
@@ -16497,7 +16524,6 @@ app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) =
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, res)) return;
 
         const body = req.body || {};
         const protoId = (body.prototype_asset_id || '').trim();
@@ -16518,11 +16544,14 @@ app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) =
             return res.status(400).json({ error: '請先上架主產品，才能產生官網 iframe' });
         }
 
-        const tier = vendorUserId ? await embedSimulator.resolveEmbedPlanTier(supabase, vendorUserId) : null;
+        const tier = vendorUserId ? await resolveVendorEmbedTier(vendorUserId) : '300';
         const origin = embedSimulator.publicOriginFromRequest(req);
         const mapped = embedSimulator.mapEmbedInstanceForVendor(pack.instance, origin, {
             title: (pack.prototype_title || '產品試做').slice(0, 80)
         });
+        if (!mapped) {
+            return res.status(500).json({ error: '建立失敗：無法產生嵌入連結' });
+        }
         return res.json(Object.assign({}, mapped, {
             created: !!pack.created,
             embed_tier: tier,
@@ -16534,7 +16563,12 @@ app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) =
             return res.status(e.httpStatus || 403).json({ error: e.message, error_code: e.code });
         }
         console.error('POST /api/me/embed-simulator-instances:', e);
-        return res.status(500).json({ error: '建立失敗' });
+        const detail = e && e.message ? String(e.message).slice(0, 240) : '';
+        const hint = e && e.code === '42P01' ? '（請執行 docs/add-embed-simulator-schema.sql）' : '';
+        return res.status(500).json({
+            error: '建立失敗' + hint,
+            error_detail: detail || undefined
+        });
     }
 });
 
@@ -16543,14 +16577,13 @@ app.patch('/api/me/embed-simulator-instances/:id', express.json(), async (req, r
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
-        if (await rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, res)) return;
 
         const instanceId = (req.params.id || '').trim();
         if (!instanceId) return res.status(400).json({ error: '缺少 id' });
 
         const { data: mfrRow } = await supabase.from('manufacturers').select('user_id').eq('id', manufacturerId).maybeSingle();
         const vendorUserId = mfrRow && mfrRow.user_id ? mfrRow.user_id : null;
-        const tier = vendorUserId ? await embedSimulator.resolveEmbedPlanTier(supabase, vendorUserId) : null;
+        const tier = vendorUserId ? await resolveVendorEmbedTier(vendorUserId) : null;
         const tierCfg = tier ? embedSimulator.getEmbedTierConfig(tier) : null;
         if (!tierCfg || tierCfg.wallMode !== 'configurable') {
             return res.status(403).json({ error: '僅 1800 方案可設定 embed 成圖是否上首頁媒體牆' });
@@ -20926,7 +20959,7 @@ async function rejectSeedManufacturerWriteUnlessPaidMember(req, manufacturerId, 
     return rejectSeedManufacturerWrite(req, manufacturerId, res);
 }
 
-// POST /api/me/manufacturer/collections — 建立資料夾（需登入且為廠商）；種子廠商不得建立
+// POST /api/me/manufacturer/collections
 app.post('/api/me/manufacturer/collections', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
