@@ -25,7 +25,13 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 
 （末尾 `update-traffic --to-latest`：避免流量釘在舊 revision、deploy 顯示 Done 卻沒換程式。）
 
-**單行失敗時（上傳卡住、`Container import failed`、Shell 中斷）**：改 **§三 方式 C 兩段式**（`gcloud builds submit --config=cloudbuild.yaml` → `deploy --image` → `update-traffic`）。詳見 `docs/deploy-matchdo-push-and-deploy.md`。
+**單行 `--source` 失敗時**（上傳卡住、`Container import failed`、Shell 中斷）— Cloud Shell **整行**：
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
+```
+
+詳見 `docs/deploy-matchdo-push-and-deploy.md` §三 方式 C。
 
 **本機 PowerShell（Shell 額度滿時）：** 與 Cloud Shell **同一套 `gcloud run deploy` 參數**（含 `--clear-base-image`）。先 `gcloud config set account taskmatching@gmail.com`、`gcloud config set project matchdo`，再於專案目錄 `git fetch` + `reset --hard origin/main` + 部署（見 `docs/deploy-matchdo-push-and-deploy.md` 方式 B）。
 

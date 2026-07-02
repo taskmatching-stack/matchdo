@@ -17672,7 +17672,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 if (!description && sem.description) description = sem.description;
             } catch (semErr) {
                 console.error('vendor-assets semantics:', semErr);
-                return res.status(503).json({ error: semErr.message || 'AI 標籤產生失敗，請稍後重試' });
+                return respondVendorAssetUploadFailure(res, 503, ownerId, body, {
+                    error: semErr.message || 'AI 標籤產生失敗，請稍後重試'
+                });
             }
         } else {
             tagsSource = semanticsJson ? 'gemini' : 'manual';

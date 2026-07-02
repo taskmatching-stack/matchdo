@@ -96,45 +96,28 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 | `Container import failed` | source deploy 映像匯入失敗（本機 PowerShell 亦常見） |
 | 單行跑不完、但需上線 | 建置改走 repo 根目錄 **`cloudbuild.yaml`**（手動 docker build，避開上述匯入問題） |
 
-> **說明**：兩段式**不會比單行少傳檔**（第一步仍要上傳 tarball）；慢的是上傳＋建置。Shell 斷線後請先查 build 是否已在 GCP 跑完，勿盲目重跑（見下方「Shell 中斷」）。  
+> **說明**：兩段式**不會比單行少傳檔**（第一步仍要上傳 tarball）；慢的是上傳＋建置。Shell 斷線後見下方「Shell 中斷」。  
 > 終端機若刷 `Regional Access Boundary … Account not found for email: …taskmatchlng…`，多為 **gcloud 警告噪音**，build／deploy 仍可能成功，可忽略。
 
-**前置**（與方式 A 相同，確保程式為 GitHub `main`）：
+**Cloud Shell 整行貼上**（含 `fetch`／`reset`；`BUILD_ID` 由 `--async` 自動取得，勿手貼 UUID）：
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
 
-**① 建映像**（約 5～15 分鐘；可開 [Cloud Build 記錄](https://console.cloud.google.com/cloud-build/builds?project=matchdo) 看進度）：
+> **勿用** `--format='value(id)'` **不帶 `--async`**：同步 submit 會把整段 build log 灌進 `BUILD_ID`，導致 `gcloud run deploy` 報 `unrecognized arguments`。
 
-```bash
-gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1
-```
+等待約 **5～15 分鐘**（上傳＋建置＋部署）；可開 [Cloud Build 記錄](https://console.cloud.google.com/cloud-build/builds?project=matchdo) 看進度。成功時會出現 `revision [...] has been deployed`。
 
-成功時記下輸出中的 **BUILD_ID**（UUID，例如 `09bbd5be-7189-4339-828b-82b85dc74943`）。
-
-**② 部署映像**（不用再上傳原始碼，通常 1～3 分鐘）：
-
-```bash
-export BUILD_ID=貼上①的_BUILD_ID
-
-gcloud run deploy matchdo \
-  --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID \
-  --region=asia-northeast1 \
-  --allow-unauthenticated
-
-gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
-```
-
-**Shell 中斷**：重連後先查，不要馬上重跑 submit：
+**Shell 中斷**：重連後先查，不要馬上重跑整行：
 
 ```bash
 gcloud builds list --region=asia-northeast1 --limit=3
 ```
 
-- **SUCCESS** → 只做 ②（用該筆 `ID` 當 `BUILD_ID`）
+- **SUCCESS** 且尚未 deploy → 只補 deploy（把 `ID` 代入）：`gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest`
 - **WORKING** / **QUEUED** → 在 Console 等完成
-- 無紀錄或 **FAILURE** → 再執行 ①
+- 無紀錄或 **FAILURE** → 再貼上方整行
 
 驗收同 §5.1（`spec.traffic` 應指向新 revision）。
 

@@ -822,7 +822,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'embed-plan-tiers-20260627a';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-draft-20260701a';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1313,9 +1313,314 @@
         }
 
         function previewDataUrlFromResponse(data) {
-            if (data.preview_base64) return 'data:image/jpeg;base64,' + data.preview_base64;
-            return data.preview_url || '';
+            if (data && data.preview_url) return data.preview_url;
+            if (data && data.preview_base64) return 'data:image/jpeg;base64,' + data.preview_base64;
+            return '';
         }
+
+        async function ensurePendingDerivedFile(item, kind) {
+            if (kind === 'redraw') {
+                if (item.redrawFile || !item.uploadRedraw) return;
+                var rdUrl = item.redrawPreviewStorageUrl
+                    || (item.redrawPreviewUrl && String(item.redrawPreviewUrl).indexOf('http') === 0 ? item.redrawPreviewUrl : '');
+                if (!rdUrl) throw new Error('重繪預覽圖已遺失，請重新按 AI 重繪');
+                item.redrawFile = await blobUrlToRedrawFile(rdUrl, 'redraw-' + (item.id || '0') + '.jpg');
+                return;
+            }
+            if (kind === 'upscale') {
+                if (item.upscaleFile || !item.uploadUpscale) return;
+                var upUrl = item.upscalePreviewStorageUrl
+                    || (item.upscalePreviewUrl && String(item.upscalePreviewUrl).indexOf('http') === 0 ? item.upscalePreviewUrl : '');
+                if (!upUrl) throw new Error('AI 放大預覽圖已遺失，請重新按 AI 放大');
+                item.upscaleFile = await blobUrlToRedrawFile(upUrl, 'upscale-' + (item.id || '0') + '.jpg');
+            }
+        }
+
+        async function ensureAllPendingDerivedFiles(form) {
+            var list = getPendingImages(form);
+            for (var i = 0; i < list.length; i++) {
+                try {
+                    await ensurePendingDerivedFile(list[i], 'redraw');
+                    await ensurePendingDerivedFile(list[i], 'upscale');
+                } catch (e) {
+                    return e.message || '預覽圖遺失';
+                }
+            }
+            return '';
+        }
+
+        var pendingDraftDbPromise = null;
+        var pendingDraftSaveTimer = null;
+        var PENDING_DRAFT_DB = 'matchdo-materials-pending-v1';
+
+        function pendingDraftBlobKey(kind, itemId, slot) {
+            return kind + ':' + itemId + ':' + slot;
+        }
+
+        function pendingDraftMetaKey(kind) {
+            return 'matchdo-materials-pending-draft:' + kind;
+        }
+
+        function openPendingDraftDb() {
+            if (!window.indexedDB) return Promise.resolve(null);
+            if (pendingDraftDbPromise) return pendingDraftDbPromise;
+            pendingDraftDbPromise = new Promise(function (resolve) {
+                var req = indexedDB.open(PENDING_DRAFT_DB, 1);
+                req.onupgradeneeded = function (e) {
+                    e.target.result.createObjectStore('blobs', { keyPath: 'key' });
+                };
+                req.onsuccess = function (e) { resolve(e.target.result); };
+                req.onerror = function () { resolve(null); };
+            });
+            return pendingDraftDbPromise;
+        }
+
+        function idbPutPendingBlob(key, file) {
+            return openPendingDraftDb().then(function (db) {
+                if (!db || !file) return;
+                return new Promise(function (resolve) {
+                    var tx = db.transaction('blobs', 'readwrite');
+                    tx.objectStore('blobs').put({ key: key, blob: file, name: file.name || 'image.jpg', type: file.type || 'image/jpeg' });
+                    tx.oncomplete = function () { resolve(); };
+                    tx.onerror = function () { resolve(); };
+                });
+            });
+        }
+
+        function idbGetPendingBlob(key) {
+            return openPendingDraftDb().then(function (db) {
+                if (!db) return null;
+                return new Promise(function (resolve) {
+                    var tx = db.transaction('blobs', 'readonly');
+                    var req = tx.objectStore('blobs').get(key);
+                    req.onsuccess = function () {
+                        var row = req.result;
+                        if (!row || !row.blob) { resolve(null); return; }
+                        resolve(new File([row.blob], row.name || 'image.jpg', { type: row.type || 'image/jpeg' }));
+                    };
+                    req.onerror = function () { resolve(null); };
+                });
+            });
+        }
+
+        function idbClearPendingDraftKind(kind) {
+            return openPendingDraftDb().then(function (db) {
+                if (!db) return;
+                return new Promise(function (resolve) {
+                    var tx = db.transaction('blobs', 'readwrite');
+                    var store = tx.objectStore('blobs');
+                    var req = store.openCursor();
+                    req.onsuccess = function (e) {
+                        var cursor = e.target.result;
+                        if (!cursor) return;
+                        if (String(cursor.key).indexOf(kind + ':') === 0) cursor.delete();
+                        cursor.continue();
+                    };
+                    tx.oncomplete = function () { resolve(); };
+                    tx.onerror = function () { resolve(); };
+                });
+            });
+        }
+
+        function serializePendingItemMeta(item) {
+            return {
+                id: item.id,
+                label: item.label || '',
+                optimize: !!item.optimize,
+                uploadOriginal: item.uploadOriginal !== false,
+                uploadRedraw: item.uploadRedraw !== false,
+                uploadUpscale: item.uploadUpscale !== false,
+                redrawPreviewStorageUrl: item.redrawPreviewStorageUrl || '',
+                upscalePreviewStorageUrl: item.upscalePreviewStorageUrl || '',
+                redrawChargedPts: item.redrawChargedPts || 0,
+                upscaleChargedPts: item.upscaleChargedPts || 0,
+                previewCreditTxId: item.previewCreditTxId || null,
+                blobs: {
+                    original: !!(item.file),
+                    redraw: !!(item.redrawFile),
+                    upscale: !!(item.upscaleFile)
+                }
+            };
+        }
+
+        function readAddFormDraftFields(form) {
+            var kind = form.getAttribute('data-kind') || 'prototype';
+            var out = {
+                category: (form.querySelector('.add-category') && form.querySelector('.add-category').value) || '',
+                subcategory: (form.querySelector('.add-subcategory') && form.querySelector('.add-subcategory').value) || '',
+                title: (form.querySelector('.add-title') && form.querySelector('.add-title').value) || '',
+                description: (form.querySelector('.add-description') && form.querySelector('.add-description').value) || ''
+            };
+            if (kind === 'prototype') {
+                var moqEl = form.querySelector('.add-min-order-qty');
+                out.min_order_quantity = moqEl ? moqEl.value : '';
+                var clBox = form.querySelector('.add-customization-levels');
+                out.customization_levels = clBox ? getSelectedCustomizationLevels(clBox) : [];
+            }
+            if (kind === 'material') {
+                out.material_surface_type = getMaterialSurfaceTypeFromAddForm(form) || '';
+            }
+            return out;
+        }
+
+        function applyAddFormDraftFields(form, fields) {
+            if (!fields) return;
+            var catSel = form.querySelector('.add-category');
+            var subSel = form.querySelector('.add-subcategory');
+            if (catSel && fields.category) {
+                catSel.value = fields.category;
+                if (subSel) fillSubcategorySelect(subSel, fields.category, fields.subcategory || '');
+            }
+            var titleEl = form.querySelector('.add-title');
+            var descEl = form.querySelector('.add-description');
+            if (titleEl && fields.title != null) titleEl.value = fields.title;
+            if (descEl && fields.description != null) descEl.value = fields.description;
+            if (form.getAttribute('data-kind') === 'prototype') {
+                var moqEl = form.querySelector('.add-min-order-qty');
+                if (moqEl && fields.min_order_quantity != null) moqEl.value = fields.min_order_quantity;
+                var clBox = form.querySelector('.add-customization-levels');
+                if (clBox && fields.customization_levels && fields.customization_levels.length) {
+                    clBox.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+                        cb.checked = fields.customization_levels.indexOf(cb.value) >= 0;
+                    });
+                }
+            }
+            if (form.getAttribute('data-kind') === 'material' && fields.material_surface_type) {
+                var surf = form.querySelector('.add-material-surface-type');
+                if (surf) surf.value = fields.material_surface_type;
+            }
+        }
+
+        function schedulePendingDraftSave(form) {
+            if (!form) return;
+            if (pendingDraftSaveTimer) clearTimeout(pendingDraftSaveTimer);
+            pendingDraftSaveTimer = setTimeout(function () {
+                pendingDraftSaveTimer = null;
+                savePendingDraft(form);
+            }, 400);
+        }
+
+        async function savePendingDraft(form) {
+            if (!form || !window.sessionStorage) return;
+            var kind = form.getAttribute('data-kind') || 'prototype';
+            if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') return;
+            var list = getPendingImages(form);
+            if (!list.length) {
+                try { sessionStorage.removeItem(pendingDraftMetaKey(kind)); } catch (_) {}
+                await idbClearPendingDraftKind(kind);
+                return;
+            }
+            var itemsMeta = [];
+            for (var i = 0; i < list.length; i++) {
+                var item = list[i];
+                itemsMeta.push(serializePendingItemMeta(item));
+                if (item.file) await idbPutPendingBlob(pendingDraftBlobKey(kind, item.id, 'original'), item.file);
+                if (item.redrawFile) await idbPutPendingBlob(pendingDraftBlobKey(kind, item.id, 'redraw'), item.redrawFile);
+                if (item.upscaleFile) await idbPutPendingBlob(pendingDraftBlobKey(kind, item.id, 'upscale'), item.upscaleFile);
+            }
+            var fp = getFormPending(form);
+            try {
+                sessionStorage.setItem(pendingDraftMetaKey(kind), JSON.stringify({
+                    v: 1,
+                    savedAt: Date.now(),
+                    form: readAddFormDraftFields(form),
+                    items: itemsMeta,
+                    tags: fp.tags || []
+                }));
+            } catch (_) { /* quota */ }
+        }
+
+        async function restorePendingDraft(form) {
+            if (!form || !window.sessionStorage) return false;
+            var kind = form.getAttribute('data-kind') || 'prototype';
+            if (getPendingImages(form).length) return false;
+            var raw;
+            try { raw = sessionStorage.getItem(pendingDraftMetaKey(kind)); } catch (_) { return false; }
+            if (!raw) return false;
+            var draft;
+            try { draft = JSON.parse(raw); } catch (_) { return false; }
+            if (!draft || !draft.items || !draft.items.length) return false;
+            var list = getPendingImages(form);
+            var restored = 0;
+            for (var i = 0; i < draft.items.length; i++) {
+                var meta = draft.items[i];
+                if (!meta || !meta.id) continue;
+                var item = {
+                    id: meta.id,
+                    label: meta.label || '',
+                    optimize: !!meta.optimize,
+                    uploadOriginal: meta.uploadOriginal !== false,
+                    uploadRedraw: meta.uploadRedraw !== false,
+                    uploadUpscale: meta.uploadUpscale !== false,
+                    redrawPreviewStorageUrl: meta.redrawPreviewStorageUrl || '',
+                    upscalePreviewStorageUrl: meta.upscalePreviewStorageUrl || '',
+                    redrawChargedPts: meta.redrawChargedPts || 0,
+                    upscaleChargedPts: meta.upscaleChargedPts || 0,
+                    previewCreditTxId: meta.previewCreditTxId || null,
+                    upscaleProbeDone: false,
+                    upscaleNeeded: true,
+                    file: null,
+                    redrawFile: null,
+                    upscaleFile: null,
+                    redrawPreviewUrl: meta.redrawPreviewStorageUrl || '',
+                    upscalePreviewUrl: meta.upscalePreviewStorageUrl || ''
+                };
+                if (meta.blobs && meta.blobs.original) {
+                    item.file = await idbGetPendingBlob(pendingDraftBlobKey(kind, meta.id, 'original'));
+                }
+                if (meta.blobs && meta.blobs.redraw) {
+                    item.redrawFile = await idbGetPendingBlob(pendingDraftBlobKey(kind, meta.id, 'redraw'));
+                }
+                if (meta.blobs && meta.blobs.upscale) {
+                    item.upscaleFile = await idbGetPendingBlob(pendingDraftBlobKey(kind, meta.id, 'upscale'));
+                }
+                if (!item.file && !item.redrawFile && !item.upscaleFile) {
+                    try {
+                        await ensurePendingDerivedFile(item, 'redraw');
+                        await ensurePendingDerivedFile(item, 'upscale');
+                    } catch (_) {}
+                }
+                if (!item.file && !item.redrawFile && !item.upscaleFile) continue;
+                if (!item.file && (item.redrawFile || item.upscaleFile)) item.uploadOriginal = false;
+                list.push(item);
+                restored++;
+            }
+            if (!restored) return false;
+            applyAddFormDraftFields(form, draft.form);
+            var fp = getFormPending(form);
+            fp.tags = draft.tags || [];
+            if (fp.tags.length) renderEditableTags(form);
+            renderPendingImages(form);
+            updateAddFormPointsEstimate(form);
+            list.forEach(function (item) {
+                if (vendorUpscaleEnabledForKind(kind)) probePendingItemUpscale(form, item, function () { renderPendingImages(form); });
+            });
+            showToast('已恢復上次未完成的草稿（含已付費預覽圖）', 'info');
+            return true;
+        }
+
+        async function clearPendingDraft(kind) {
+            if (!kind) return;
+            try { sessionStorage.removeItem(pendingDraftMetaKey(kind)); } catch (_) {}
+            await idbClearPendingDraftKind(kind);
+        }
+
+        function pendingDraftHasPaidPreview() {
+            var found = false;
+            document.querySelectorAll('.add-form').forEach(function (form) {
+                if (found) return;
+                getPendingImages(form).forEach(function (p) {
+                    if (p.previewCreditTxId || (p.redrawChargedPts || 0) + (p.upscaleChargedPts || 0) > 0) found = true;
+                });
+            });
+            return found;
+        }
+
+        window.addEventListener('beforeunload', function (e) {
+            if (!pendingDraftHasPaidPreview()) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
 
         function calcRedrawPointsForUrl(m, url) {
             var extra = uploadPricing.points_optimize_extra != null ? uploadPricing.points_optimize_extra : 5;
@@ -1355,6 +1660,8 @@
             revokePendingImageUrls(wrap);
             if (wrap) wrap.innerHTML = '';
             form._pendingImages = [];
+            var kind = form.getAttribute('data-kind') || 'prototype';
+            clearPendingDraft(kind);
             updateAddFormPointsEstimate(form);
         }
 
@@ -2043,6 +2350,7 @@
                 item.imageBusy = false;
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
+                schedulePendingDraftSave(form);
             }
         }
 
@@ -2094,11 +2402,13 @@
                 item.imageBusy = false;
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
+                schedulePendingDraftSave(form);
             }
         }
 
         function clearPendingRedrawPreview(form, item) {
             item.redrawPreviewUrl = null;
+            item.redrawPreviewStorageUrl = '';
             item.redrawFile = null;
             item.redrawChargedPts = 0;
             item.optimize = false;
@@ -2107,10 +2417,12 @@
             item.imageBusy = false;
             renderPendingImages(form);
             updateAddFormPointsEstimate(form);
+            schedulePendingDraftSave(form);
         }
 
         function clearPendingUpscalePreview(form, item) {
             item.upscalePreviewUrl = null;
+            item.upscalePreviewStorageUrl = '';
             item.upscaleFile = null;
             item.upscaleChargedPts = 0;
             item.uploadUpscale = false;
@@ -2118,6 +2430,7 @@
             item.imageBusy = false;
             renderPendingImages(form);
             updateAddFormPointsEstimate(form);
+            schedulePendingDraftSave(form);
         }
 
         function renderPendingImages(form) {
@@ -2134,11 +2447,22 @@
                 var card = document.createElement('div');
                 card.className = 'pending-image-card' + (idx === 0 ? ' is-cover' : '') + ((item.redrawPreviewUrl || item.upscalePreviewUrl) ? ' is-new-redraw' : '');
                 card.dataset.pendingId = item.id;
-                var url = URL.createObjectURL(item.file);
+                var url = '';
+                var objectUrl = '';
+                if (item.file) {
+                    objectUrl = URL.createObjectURL(item.file);
+                    url = objectUrl;
+                } else if (item.redrawPreviewUrl) {
+                    url = item.redrawPreviewUrl;
+                } else if (item.upscalePreviewUrl) {
+                    url = item.upscalePreviewUrl;
+                }
                 var coverBadge = idx === 0 ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var imgHtml = item.imageBusy
                     ? '<div class="text-muted small text-center py-4">處理中…</div>'
-                    : '<img src="' + esc(url) + '" data-object-url="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">';
+                    : (url
+                        ? '<img src="' + esc(url) + '"' + (objectUrl ? ' data-object-url="' + esc(objectUrl) + '"' : '') + ' class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">'
+                        : '<div class="text-muted small text-center py-4">無預覽</div>');
                 var upscaleBtnHtml = upscaleOn
                     ? ('<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
                         pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
@@ -2178,6 +2502,7 @@
                 if (labelIn) {
                     labelIn.addEventListener('input', function () {
                         item.label = (this.value || '').trim();
+                        schedulePendingDraftSave(form);
                     });
                 }
                 card.querySelector('.pending-remove').addEventListener('click', function () {
@@ -2185,6 +2510,7 @@
                     if (i >= 0) list.splice(i, 1);
                     renderPendingImages(form);
                     updateAddFormPointsEstimate(form);
+                    schedulePendingDraftSave(form);
                 });
                 var setCoverBtn = card.querySelector('.pending-set-cover');
                 if (setCoverBtn) {
@@ -2290,6 +2616,7 @@
                 clearSupplierRefForManualUpload(form);
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
+                schedulePendingDraftSave(form);
                 if (vendorUpscaleEnabledForKind(form.getAttribute('data-kind') || 'prototype')) {
                     list.slice(-added).forEach(function (item) {
                         probePendingItemUpscale(form, item, function () { renderPendingImages(form); });
@@ -3241,11 +3568,14 @@
         }
 
         async function getToken() {
-            if (typeof AuthService === 'undefined') return null;
+            if (typeof AuthService === 'undefined') return token || null;
             try {
-                var s = await AuthService.getSession();
-                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
-            } catch (e) { return null; }
+                var getter = AuthService.getSessionForApi || AuthService.getSession;
+                var s = await getter.call(AuthService);
+                var tok = (s && (s.access_token || (s.session && s.session.access_token))) || null;
+                if (tok) token = tok;
+                return tok || token;
+            } catch (e) { return token || null; }
         }
 
         function getUiLocaleForUpload() {
@@ -4844,6 +5174,8 @@
             renderGrid();
             updateSupplierImportUi();
             renderAllAddFormLinkSections();
+            var activeForm = document.querySelector('.add-form[data-kind="' + activeKind + '"]');
+            if (activeForm) restorePendingDraft(activeForm);
         }
 
         document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
@@ -4889,6 +5221,11 @@
             var uploadLabels = [];
             var uploadDerived = [];
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+                var deriveErr = await ensureAllPendingDerivedFiles(form);
+                if (deriveErr) {
+                    msgEl.textContent = deriveErr;
+                    return;
+                }
                 var pendingSelErr = validatePendingUploadList(pending);
                 if (pendingSelErr) {
                     msgEl.textContent = pendingSelErr;
@@ -4953,11 +5290,27 @@
             if (previewCreditTxIds.length) {
                 fd.append('preview_credit_tx_ids', JSON.stringify(previewCreditTxIds));
             }
+            var formPending = getFormPending(form);
+            if (formPending.tags && formPending.tags.length) {
+                fd.append('ai_tags', JSON.stringify(formPending.tags));
+            }
+            if (formPending.semantics) {
+                fd.append('image_semantics_json', JSON.stringify(formPending.semantics));
+            }
+            var tok = await getToken();
+            if (!tok) {
+                msgEl.textContent = '請先登入';
+                return;
+            }
             var btns = form.querySelectorAll('.btn-add-submit-only, .btn-add-submit');
             btns.forEach(function (b) { b.disabled = true; });
             try {
-                var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                var r = await fetch('/api/me/vendor-assets', { method: 'POST', headers: { Authorization: 'Bearer ' + tok }, body: fd });
                 var data = await r.json().catch(function () { return {}; });
+                if (r.status === 401) {
+                    msgEl.textContent = '登入已過期，請重新整理頁面後再發布';
+                    return;
+                }
                 if (r.status === 402) {
                     msgEl.textContent = (data.error || tr('baseModels.insufficientPoints', '點數不足')) +
                         ' (' + tr('baseModels.needPoints', '需要') + ' ' + (data.required || '') + ')';
@@ -5000,8 +5353,18 @@
             var imgInput = form.querySelector('.add-image');
             wireOptimizeBackgroundForm(form);
 
-            if (kind === 'prototype' && subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); });
+            if (kind === 'prototype' && subSel) catSel.addEventListener('change', function () { fillSubcategorySelect(subSel, catSel.value); schedulePendingDraftSave(form); });
             wireTaxonomySelectsOnForm(form);
+            form.addEventListener('input', function (e) {
+                if (e.target && e.target.closest && e.target.closest('.add-title, .add-description, .add-min-order-qty, .add-material-surface-type, .add-customization-levels')) {
+                    schedulePendingDraftSave(form);
+                }
+            });
+            form.addEventListener('change', function (e) {
+                if (e.target && e.target.closest && e.target.closest('.add-category, .add-subcategory, .add-optimize-bg, .add-optimize-bg-custom')) {
+                    schedulePendingDraftSave(form);
+                }
+            });
 
             var previewWrap = form.querySelector('.add-image-preview');
             if (imgInput) {
