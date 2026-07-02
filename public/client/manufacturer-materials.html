@@ -648,6 +648,10 @@
                                         <input type="text" class="form-control font-monospace" id="edit-share-embed-url" readonly>
                                         <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-embed-url">複製</button>
                                     </div>
+                                    <div class="mb-2">
+                                        <a class="btn btn-outline-success btn-sm disabled" id="btn-edit-open-share-embed-preview" href="#" target="_blank" rel="noopener" aria-disabled="true" tabindex="-1"><i class="bi bi-box-arrow-up-right me-1"></i>測試／預覽嵌入頁</a>
+                                        <span class="text-muted small ms-1">新分頁開啟，與訪客在官網 iframe 內相同</span>
+                                    </div>
                                     <label class="form-label small text-muted mb-1">嵌入程式碼</label>
                                     <textarea class="form-control form-control-sm font-monospace mb-2" id="edit-share-embed-snippet" rows="4" readonly></textarea>
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-copy-share-embed-snippet"><i class="bi bi-clipboard me-1"></i>複製嵌入程式碼</button>
@@ -822,7 +826,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-draft-20260701a';
+        window.__MATCHDO_MATERIALS_BUILD = 'embed-preview-link-20260701c';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -4753,6 +4757,23 @@
             loadEditEmbedSimulator(m, isPub);
         }
 
+        function syncEditShareEmbedPreviewLink(pageUrl) {
+            var previewBtn = document.getElementById('btn-edit-open-share-embed-preview');
+            if (!previewBtn) return;
+            var url = (pageUrl || '').trim();
+            if (url) {
+                previewBtn.href = url;
+                previewBtn.classList.remove('disabled');
+                previewBtn.removeAttribute('aria-disabled');
+                previewBtn.removeAttribute('tabindex');
+            } else {
+                previewBtn.href = '#';
+                previewBtn.classList.add('disabled');
+                previewBtn.setAttribute('aria-disabled', 'true');
+                previewBtn.setAttribute('tabindex', '-1');
+            }
+        }
+
         async function loadEditEmbedSimulator(m, isPub) {
             var statusEl = document.getElementById('edit-share-embed-status');
             var fieldsEl = document.getElementById('edit-share-embed-fields');
@@ -4762,6 +4783,7 @@
             var mediaWallChk = document.getElementById('edit-share-embed-media-wall');
             if (!statusEl || !fieldsEl) return;
             fieldsEl.classList.add('d-none');
+            syncEditShareEmbedPreviewLink('');
             if (mediaWallWrap) mediaWallWrap.classList.add('d-none');
             if (!m || !m.id) {
                 statusEl.textContent = '';
@@ -4794,7 +4816,7 @@
                     return;
                 }
                 if (data.error_code === 'embed_disabled') {
-                    statusEl.textContent = '取得嵌入碼需付費方案（300／900／1800）；訪客 iframe 試做介面不受此限。';
+                    statusEl.textContent = '取得嵌入碼需付費（訂閱 300／900／1800，或後台會員等級為進階以上）。';
                     statusEl.classList.add('text-danger');
                     return;
                 }
@@ -4818,6 +4840,7 @@
                 }
                 if (urlInp) urlInp.value = data.page_url || '';
                 if (snipTa) snipTa.value = data.iframe_snippet || '';
+                syncEditShareEmbedPreviewLink(data.page_url || '');
                 fieldsEl.classList.remove('d-none');
                 if (mediaWallWrap && mediaWallChk && tierCfg && tierCfg.wallMode === 'configurable' && data.id) {
                     mediaWallWrap.classList.remove('d-none');
@@ -5720,6 +5743,15 @@
         var btnEditCopyShareEmbedSnippet = document.getElementById('btn-edit-copy-share-embed-snippet');
         if (btnEditCopyShareEmbedSnippet) {
             btnEditCopyShareEmbedSnippet.addEventListener('click', function () { copyEditShareInput('edit-share-embed-snippet'); });
+        }
+        var btnEditOpenShareEmbedPreview = document.getElementById('btn-edit-open-share-embed-preview');
+        if (btnEditOpenShareEmbedPreview) {
+            btnEditOpenShareEmbedPreview.addEventListener('click', function (e) {
+                if (btnEditOpenShareEmbedPreview.classList.contains('disabled')) {
+                    e.preventDefault();
+                    showToast('尚無嵌入頁網址', 'warning');
+                }
+            });
         }
         var editShareEmbedMediaWall = document.getElementById('edit-share-embed-media-wall');
         if (editShareEmbedMediaWall) {
