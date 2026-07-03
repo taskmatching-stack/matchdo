@@ -329,8 +329,19 @@ async function manufacturerEligibleForProfilePage(mfr, { internalPreview = false
 }
 
 function hasVendorAssetReferenceInSources(refSourcesRaw) {
-    const list = Array.isArray(refSourcesRaw) ? refSourcesRaw : [];
-    return list.some((s) => s && s.vendor_asset_id);
+    return parseReferenceSourcesList(refSourcesRaw).some((s) => s && s.vendor_asset_id);
+}
+
+function stripMediaWallHeavyFields(item) {
+    if (!item || typeof item !== 'object') return item;
+    delete item.image_semantics_json;
+    delete item.analysis_json;
+    delete item.reference_sources;
+    delete item.ai_generated_image_url;
+    delete item.reference_image_url;
+    delete item.owner_id;
+    delete item.show_on_homepage;
+    return item;
 }
 
 function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
@@ -338,16 +349,15 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
     if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
     const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
     const id = p.id;
-    const refMfrId = pickManufacturerIdFromReferenceSources(p.reference_sources);
-    const refProtoId = pickPrototypeAssetIdFromReferenceSources(p.reference_sources);
+    const refSources = parseReferenceSourcesList(p.reference_sources);
+    const refMfrId = pickManufacturerIdFromReferenceSources(refSources);
+    const refProtoId = pickPrototypeAssetIdFromReferenceSources(refSources);
     let link = '/custom/gallery.html';
     if (refMfrId) {
         link = '/vendor-profile.html?id=' + encodeURIComponent(refMfrId);
     }
-    return attachDisplayTags({
-        ...p,
-        analysis_json: aj || null,
-        generation_seed: seed != null && seed !== '' ? seed : null,
+    return stripMediaWallHeavyFields(attachDisplayTags({
+        id,
         type: 'user_design',
         size: '1x1',
         title: p.title || '未命名',
@@ -355,12 +365,18 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
         link,
         ref_manufacturer_id: refMfrId || null,
         ref_prototype_asset_id: refProtoId || null,
-        has_vendor_reference: hasVendorAssetReferenceInSources(p.reference_sources),
+        has_vendor_reference: hasVendorAssetReferenceInSources(refSources),
         inspiration_url: id ? `/inspiration/user_design/${id}` : null,
         owner_display: ownerDisplayMap[p.owner_id] || null,
         category_key: p.category || null,
-        subcategory_key: p.subcategory_key || null
-    });
+        subcategory_key: p.subcategory_key || null,
+        generation_prompt: p.generation_prompt || (aj && aj.generation_prompt) || null,
+        generation_seed: seed != null && seed !== '' ? seed : null,
+        ai_tags: Array.isArray(p.ai_tags) ? p.ai_tags : [],
+        tags: Array.isArray(p.tags) ? p.tags : [],
+        created_at: p.created_at || null,
+        image_semantics_json: p.image_semantics_json || null
+    }));
 }
 
 function mapPortfolioRowToMediaWallItem(p, compMfrMap) {
@@ -394,7 +410,7 @@ function mapPortfolioRowToMediaWallItem(p, compMfrMap) {
     });
     if (itemType === 'comparison') item.image_url_before = imageUrlBefore;
     if (itemType === 'series' && seriesUrls.length) item.series_image_urls = seriesUrls;
-    return item;
+    return stripMediaWallHeavyFields(item);
 }
 
 /** 站內搜尋：查已公開作品池（非僅首頁最新一頁），含標題／提示詞／AI 標籤 */
@@ -11769,7 +11785,7 @@ app.get('/api/media-wall', async (req, res) => {
                 if (itemType === 'series' && seriesUrls.length) payload.series_image_urls = seriesUrls;
                 // 篩選「對照圖」時只回傳真正的對照圖（有設計圖），不把系列圖塞進對照圖區
                 if (layoutOnly === 'comparison' && itemType !== 'comparison') return;
-                out.push(payload);
+                out.push(stripMediaWallHeavyFields(payload));
             });
         }
         // 沒有對比圖時不顯示對比（不塞 demo），每種類型都要有分類
@@ -11842,7 +11858,7 @@ app.get('/api/media-wall', async (req, res) => {
                 const imageUrl = seriesExpired ? null : (p.image_url || null);
                 const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? (seriesExpired ? [] : p.series_image_urls) : (imageUrl ? [imageUrl] : []);
                 const mfrUserId = seriesMfrMap[p.manufacturer_id] || null;
-                out.push(attachDisplayTags({
+                out.push(stripMediaWallHeavyFields(attachDisplayTags({
                     type: 'series',
                     size: '1x2',
                     id: p.id,
@@ -11861,7 +11877,7 @@ app.get('/api/media-wall', async (req, res) => {
                     inspiration_url: p.id ? `/inspiration/series/${p.id}` : null,
                     created_at: p.created_at || null,
                     series_image_urls: seriesUrls
-                }));
+                })));
             });
         }
 

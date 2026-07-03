@@ -899,7 +899,7 @@
                     var typeBadge = '';
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
                     else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
-                    else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時參考了廠商公開素材">實品參考</span>';
+                    else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時使用了廠商公開素材">實品素材</span>';
                     var itemId = String(p.id || (p.title + p.type));
                     var inspirationHref = (p.inspiration_url && String(p.inspiration_url).trim())
                         || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(itemId));
@@ -1283,25 +1283,42 @@
             }
             function loadMediaWall(page, q, append, opts) {
                 opts = opts || adminOpts;
-                if (isLoading) return;
+                if (isLoading && append) return;
+                if (isLoading && !append) loadMediaWallRequestId++;
                 isLoading = true;
                 var thisRequestId = ++loadMediaWallRequestId;
-                var layoutFilter = currentLayoutType; // 此請求要篩選的類型（setLayoutType 已先設好 currentLayoutType）
+                var layoutFilter = currentLayoutType;
                 if (!append) { grid.innerHTML = ''; loading.classList.remove('d-none'); empty.classList.add('d-none'); }
                 var url = buildMediaWallUrl(page, q);
                 var fetchOpts = layoutFilter ? { cache: 'no-store' } : {};
-                fetch(url, fetchOpts).then(function (r) { return r.json(); }).then(function (data) {
+                function showMediaWallLoadError() {
+                    loading.classList.add('d-none');
+                    if (!append) {
+                        empty.classList.remove('d-none');
+                        empty.innerHTML = '無法載入作品牆，請稍後再試。<button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="media-wall-retry-btn">重試</button>';
+                        var retryBtn = document.getElementById('media-wall-retry-btn');
+                        if (retryBtn) retryBtn.addEventListener('click', function () { reloadMediaWall(1, false); });
+                    }
+                }
+                function renderMediaWallItems(data) {
                     if (thisRequestId !== loadMediaWallRequestId) return;
                     loading.classList.add('d-none');
-                    if (data.error) { if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '無法載入作品牆，請稍後再試。'; } return; }
+                    if (data.error) { showMediaWallLoadError(); return; }
                     var items = data.items || [];
                     if (layoutFilter) items = items.filter(function (p) { return (p.type || '') === layoutFilter; });
                     if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
                     empty.classList.add('d-none');
                     var listForLD = [];
+                    function appendRenderedItem(p) {
+                        try { grid.appendChild(renderOne(p, opts)); return p; }
+                        catch (renderErr) { console.warn('media-wall render skip', p && p.id, renderErr); return null; }
+                    }
                     if (layoutFilter) {
-                        listForLD = items;
-                        items.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
+                        listForLD = [];
+                        items.forEach(function (p) {
+                            var rendered = appendRenderedItem(p);
+                            if (rendered) listForLD.push(rendered);
+                        });
                     } else {
                         var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
                         var collections = items.filter(is1x2);
@@ -1318,9 +1335,13 @@
                             if (iComp < comparisons.length) displayOrder.push(comparisons[iComp++]);
                             for (var k = 0; k < maxDesignPerBlock && iDesign < designs.length; k++) displayOrder.push(designs[iDesign++]);
                         }
-                        listForLD = displayOrder;
-                        displayOrder.forEach(function (p) { grid.appendChild(renderOne(p, opts)); });
+                        listForLD = [];
+                        displayOrder.forEach(function (p) {
+                            var rendered = appendRenderedItem(p);
+                            if (rendered) listForLD.push(rendered);
+                        });
                     }
+                    if (!append && items.length > 0 && listForLD.length === 0) { showMediaWallLoadError(); return; }
                     if (!append && listForLD.length > 0) updateMediaWallItemListLD(listForLD);
                     if (!layoutFilter) {
                         var twoRows = grid.querySelectorAll('.media-wall-1x2');
@@ -1343,11 +1364,31 @@
                     renderFavSection();
                     renderActiveFilterChips();
                     if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', page < 2 || items.length < perPage);
-                }).catch(function () {
-                    if (thisRequestId !== loadMediaWallRequestId) return;
-                    loading.classList.add('d-none');
-                    if (!append) { empty.classList.remove('d-none'); empty.innerHTML = '無法載入作品牆，請稍後再試。'; }
-                }).finally(function () { if (thisRequestId === loadMediaWallRequestId) isLoading = false; });
+                }
+                function attemptFetch(retryCount) {
+                    var retryScheduled = false;
+                    fetch(url, fetchOpts).then(function (r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    }).then(function (data) {
+                        renderMediaWallItems(data);
+                    }).catch(function (err) {
+                        if (thisRequestId !== loadMediaWallRequestId) return;
+                        console.warn('media-wall fetch failed', retryCount, err && err.message);
+                        if (!append && retryCount < 2) {
+                            retryScheduled = true;
+                            setTimeout(function () {
+                                if (thisRequestId !== loadMediaWallRequestId) return;
+                                attemptFetch(retryCount + 1);
+                            }, retryCount === 0 ? 600 : 1500);
+                            return;
+                        }
+                        showMediaWallLoadError();
+                    }).finally(function () {
+                        if (thisRequestId === loadMediaWallRequestId && !retryScheduled) isLoading = false;
+                    });
+                }
+                attemptFetch(0);
             }
             // 立即載入靈感牆，不等待 Auth / 分類 API，避免首次進入頁面時因非同步延遲而空白
             reloadMediaWall(1, false);
