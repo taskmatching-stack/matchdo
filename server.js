@@ -17023,7 +17023,9 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         const user = await getCurrentUser(req, res);
         if (!user) return;
         try {
-            await syncMembershipCatalogVisibility(user.id);
+            syncMembershipCatalogVisibility(user.id).catch((syncErr) => {
+                console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
+            });
         } catch (syncErr) {
             console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
         }

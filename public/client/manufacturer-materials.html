@@ -588,7 +588,7 @@
                 </div>
             </div>
             <p id="materials-list-range" class="text-muted small mb-2 d-none"></p>
-            <div id="materials-grid" class="row g-3"></div>
+            <div id="materials-grid" class="row g-3"><div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div><span>載入素材…</span></div></div>
             <div id="materials-list-pager" class="d-flex flex-wrap align-items-center justify-content-center gap-2 mt-2 d-none">
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="materials-list-prev" data-i18n="baseModels.listPrev">上一頁</button>
                 <div id="materials-list-page-nums" class="d-flex flex-wrap align-items-center gap-1" role="navigation" aria-label="Pagination"></div>
@@ -840,7 +840,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'embed-restore-20260701j';
+        window.__MATCHDO_MATERIALS_BUILD = 'materials-priority-load-20260704a';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -5052,9 +5052,15 @@
             });
         }
 
+        function showMaterialsListLoading() {
+            var grid = document.getElementById('materials-grid');
+            if (!grid) return;
+            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div><span>載入素材…</span></div>';
+        }
+
         async function loadMaterials() {
             var grid = document.getElementById('materials-grid');
-            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div></div>';
+            showMaterialsListLoading();
             try {
                 var r = await fetch('/api/me/vendor-assets', { headers: { Authorization: 'Bearer ' + token } });
                 var d = await r.json().catch(function () { return {}; });
@@ -6447,10 +6453,7 @@
         async function init() {
             bindAllPageModalsScrollUnlock();
             initPrototypeMetaFields();
-            var localeReady = (window.i18n && window.i18n.ready) ? window.i18n.ready : Promise.resolve();
-            await localeReady;
-            if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
-            document.title = tr('baseModels.pageTitle', document.title);
+            showMaterialsListLoading();
 
             token = await getToken();
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
@@ -6464,15 +6467,26 @@
                 document.getElementById('main-content').classList.remove('d-none');
                 initMatchdoCollapsibleHints();
                 markProductionTypeSelectsLoading();
-                await Promise.all([
-                    loadCategories(),
+
+                /* 素材列表優先：與表單／分類／taxonomy 設定並行，不再等前面全部完成 */
+                var materialsTask = loadMaterials();
+                var setupTask = Promise.all([
+                    (window.i18n && window.i18n.ready ? window.i18n.ready : Promise.resolve()).then(function () {
+                        if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
+                        document.title = tr('baseModels.pageTitle', document.title);
+                    }),
+                    loadCategories().then(function () {
+                        if (materialsAll && materialsAll.length) renderGrid();
+                    }),
                     loadCatalogGroups(),
                     loadCapabilities(),
-                    loadTaxonomy()
+                    loadTaxonomy(),
+                    loadUploadPricing(),
+                    applySeedVendorInfoBanner(mfrData.vendor_source)
                 ]);
-                await applySeedVendorInfoBanner(mfrData.vendor_source);
-                await loadUploadPricing();
-                await loadMaterials();
+
+                await Promise.all([materialsTask, setupTask]);
+
                 var hashKind = kindFromLocationHash();
                 if (hashKind) activeKind = hashKind;
                 var urlParams = new URLSearchParams(window.location.search);
