@@ -17,18 +17,20 @@ alwaysApply: true
 
 ## 正確部署指令（Cloud Shell 或本機 PowerShell 相同邏輯）
 
-**Cloud Shell：**
+**Cloud Shell（安靜版，預設用這個 — 過濾 `Regional Access Boundary` / `taskmatchlng` 噪音，見 deploy 文件 §3.1）：**
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
+gcloud config set account taskmatching@gmail.com
+gcloud config set project matchdo
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
 ```
 
-（末尾 `update-traffic --to-latest`：避免流量釘在舊 revision、deploy 顯示 Done 卻沒換程式。）
+（末尾 `update-traffic --to-latest`：避免流量釘在舊 revision、deploy 顯示 Done 卻沒換程式。成功以 **`Done.`** 为准。）
 
-**單行 `--source` 失敗時**（上傳卡住、`Container import failed`、Shell 中斷）— Cloud Shell **整行**：
+**單行 `--source` 失敗時**（上傳卡住、`Container import failed`、Shell 中斷）— Cloud Shell **安靜版整行**：
 
 ```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
 ```
 
 詳見 `docs/deploy-matchdo-push-and-deploy.md` §三 方式 C。

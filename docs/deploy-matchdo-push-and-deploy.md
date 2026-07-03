@@ -52,18 +52,67 @@ git log -1 --oneline
 ### 方式 A：Google Cloud Shell（慣用）
 
 1. 開啟 [Google Cloud Shell](https://shell.cloud.google.com)，專案選 **matchdo**。
-2. 若額度未滿、Shell 能開，**整行貼上執行**：
+2. **（建議）** 每次重開 Shell 或第一次看到怪訊息時，先貼兩行（只需幾秒）：
+
+```bash
+gcloud config set account taskmatching@gmail.com
+gcloud config set project matchdo
+```
+
+看到 `Updated property [core/account].` / `[core/project].` 即成功。**中間仍可能刷** `Regional Access Boundary` / `taskmatchlng` — 見下方 **§3.1**，可忽略。
+
+3. **整行貼上部署**（**建議用「安靜版」**，自動過濾上述噪音；邏輯與舊版相同）：
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
+```
+
+> 同一行末尾加 `update-traffic --to-latest`，避免流量釘死舊 revision（2026-06-09 實測）。  
+> `grep` 只藏已知噪音，**`Done.`、`revision [...] has been deployed`、錯誤訊息仍會顯示**。
+
+4. 等待約 **5～10 分鐘**（上傳、建置、部署）。
+5. 成功時會出現 **`Done.`**、`revision [...] has been deployed and is serving 100 percent of traffic` 與 `Service URL`。
+
+**若不想用 grep（除錯用）**，可改貼無過濾版（會一直看到 `taskmatchlng` 警告）：
 
 ```bash
 cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
 
-> 同一行末尾加 `update-traffic --to-latest`，避免流量釘死舊 revision（2026-06-09 實測）。
+**若 Shell 顯示「超過 Cloud Shell 用量上限」**：改用法 B，或等額度重置後再貼安靜版那一行。
 
-3. 等待約 **5～10 分鐘**（上傳、建置、部署）。
-4. 成功時會出現 `Done.`、`revision [...] has been deployed and is serving 100 percent of traffic` 與 `Service URL`。
+### 3.1 Cloud Shell：`Regional Access Boundary` / `taskmatchlng`（困擾很久的紅字）
 
-**若 Shell 顯示「超過 Cloud Shell 用量上限」**：改用法 B，或等額度重置後再貼同一行。
+**這是什麼？**  
+執行 `gcloud` 時終端機反覆出現：
+
+```text
+Regional Access Boundary HTTP request failed ...
+Account not found for email: ...taskmatchlng@gmail.com
+```
+
+這是 **Google Cloud Shell 內建 gcloud 的已知警告**（帳號字串誤成 `taskmatchlng`，不是你的 Gmail 打錯）。**不代表部署失敗。**
+
+| 你看到的 | 要不要緊？ |
+|----------|------------|
+| 上面紅字，但後面有 `Uploading sources...done`、`Building Container...` | **不要緊**，繼續等 |
+| 最後出現 **`Done.`** | **部署成功**，網站已更新 |
+| **`TokenRefreshError`** 或長時間無 `Done.`、建置中斷 | **要緊**，見下方「真的失敗」 |
+
+**怎麼少看到紅字？**  
+§三 方式 A 的 **安靜版** 部署指令（含 `grep -v`）— **請預設用這個**。
+
+**真的失敗時（不是 taskmatchlng 噪音）：**
+
+```bash
+gcloud auth login
+gcloud config set account taskmatching@gmail.com
+gcloud config set project matchdo
+```
+
+仍不行 → Cloud Shell 右上角 **⋮ → Restart**，重開後再跑安靜版部署。
+
+**禁止：** 為了消紅字去改 GitHub 帳號、亂刪 GCP 專案，或以為 `taskmatchlng` 是你的第二個 Google 帳號。
 
 ### 方式 B：本機 PowerShell（Cloud Shell 無法使用時）
 
@@ -97,9 +146,15 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 | 單行跑不完、但需上線 | 建置改走 repo 根目錄 **`cloudbuild.yaml`**（手動 docker build，避開上述匯入問題） |
 
 > **說明**：兩段式**不會比單行少傳檔**（第一步仍要上傳 tarball）；慢的是上傳＋建置。Shell 斷線後見下方「Shell 中斷」。  
-> 終端機若刷 `Regional Access Boundary … Account not found for email: …taskmatchlng…`，多為 **gcloud 警告噪音**，build／deploy 仍可能成功，可忽略。
+> Cloud Shell 若刷 `Regional Access Boundary` / `taskmatchlng`，見 **§3.1**；建議用下方 **安靜版**（與 §三 方式 A 相同 `grep` 過濾）。
 
-**Cloud Shell 整行貼上**（含 `fetch`／`reset`；`BUILD_ID` 由 `--async` 自動取得，勿手貼 UUID）：
+**Cloud Shell 安靜版整行貼上**（含 `fetch`／`reset`；`BUILD_ID` 由 `--async` 自動取得，勿手貼 UUID）：
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
+```
+
+**Cloud Shell 整行貼上（無過濾，除錯用）**：
 
 ```bash
 cd ~/matchdo && git fetch origin main && git reset --hard origin/main && BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
@@ -230,6 +285,8 @@ gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spe
 | 「從 GitHub 部署」 | 部署前先 `fetch` + `reset --hard origin/main`，來源是 GitHub `main` |
 | 「本機部署」 | 在本機終端機執行 `gcloud run deploy`；若**有**先 reset 到 `origin/main`，仍等同從 GitHub 部署 |
 | 「push 就會上線」 | **僅在**已設 Cloud Build 觸發時成立 |
+| `taskmatchlng` / `Regional Access Boundary` 紅字 | Cloud Shell **gcloud 噪音**，見 **§3.1**；用 **安靜版** 部署指令可過濾 |
+| 部署有沒有成功？ | 看有沒有 **`Done.`** 與新 revision（§5.1），不是看有沒有紅字 |
 
 ---
 
