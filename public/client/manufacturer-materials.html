@@ -77,7 +77,13 @@
             border-color: var(--mat-primary);
             box-shadow: 0 8px 24px rgba(13, 148, 136, 0.12);
         }
-        .add-form .col-md-6:has(> label > .text-danger),
+        .add-form .col-md-6:has(> label > .text-danger) {
+            background: var(--mat-required-bg);
+            border-left: 4px solid var(--mat-required-border);
+            border-radius: 8px;
+            padding-left: calc(1rem - 4px);
+            padding-right: 1rem;
+        }
         .add-form .col-12:has(> label > .text-danger) {
             background: var(--mat-required-bg);
             border-left: 4px solid var(--mat-required-border);
@@ -827,7 +833,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-reorder-20260704c';
+        window.__MATCHDO_MATERIALS_BUILD = 'form-align-fix-20260704d';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
