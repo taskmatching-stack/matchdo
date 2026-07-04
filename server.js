@@ -21894,6 +21894,103 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images/upscale', e
     }
 });
 
+// PATCH /api/me/industry-supplier/catalog-items/:id/image-labels — 更新封面／各張圖顯示名稱
+app.patch('/api/me/industry-supplier/catalog-items/:id/image-labels', express.json(), async (req, res) => {
+    try {
+        if (!(await supplierCatalogTablesReady())) {
+            return res.status(503).json({ error: '請先執行 docs/add-industry-supplier-catalog.sql' });
+        }
+        const ctx = await getMeIndustrySupplier(req, res);
+        if (!ctx) return;
+        const itemId = (req.params.id || '').trim();
+        const body = req.body || {};
+        if (!itemId) return res.status(400).json({ error: '缺少 id' });
+        const { data: row, error: rowErr } = await supabase
+            .from('supplier_catalog_items')
+            .select('id, cover_image_url, cover_image_label, gallery_images, spec_json, item_kind')
+            .eq('id', itemId)
+            .eq('industry_supplier_id', ctx.supplier.id)
+            .maybeSingle();
+        if (rowErr) return res.status(500).json({ error: '查詢失敗' });
+        if (!row) return res.status(404).json({ error: '找不到該品項' });
+        if (!supplierCatalogSupportsGallery(row.item_kind) && body.entries && body.entries.length) {
+            return res.status(400).json({ error: '此品項類型不支援多角度圖名稱' });
+        }
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.cover_label !== undefined) {
+            updates.cover_image_label = String(body.cover_label || '').trim() || null;
+        }
+        if (Array.isArray(body.entries) && body.entries.length) {
+            const byUrl = {};
+            body.entries.forEach(function (ent) {
+                if (!ent || !ent.url) return;
+                const key = String(ent.url).trim();
+                if (!byUrl[key]) byUrl[key] = {};
+                if (ent.label !== undefined) byUrl[key].label = String(ent.label != null ? ent.label : '').trim();
+            });
+            const gallery = parseGalleryImages(row.gallery_images).map(function (g) {
+                const patch = byUrl[g.url];
+                if (!patch) return g;
+                const next = {
+                    url: g.url,
+                    sort_order: g.sort_order,
+                    label: patch.label !== undefined ? patch.label : g.label
+                };
+                if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') next.ai_derived = g.ai_derived;
+                if (g.source_url) next.source_url = g.source_url;
+                return next;
+            });
+            updates.gallery_images = gallery;
+        }
+        if (Object.keys(updates).length <= 1) {
+            return res.status(400).json({ error: '請提供 cover_label 或 entries' });
+        }
+        const coverLabelRequested = body.cover_label !== undefined;
+        let coverLabelSkipped = false;
+        let { data: updated, error } = await supabase
+            .from('supplier_catalog_items')
+            .update(updates)
+            .eq('id', itemId)
+            .select(SUPPLIER_CATALOG_ITEM_SELECT)
+            .single();
+        if (error && error.code === '42703') {
+            if (String(error.message || '').includes('cover_image_label')) {
+                delete updates.cover_image_label;
+                coverLabelSkipped = coverLabelRequested;
+            }
+            if (String(error.message || '').includes('gallery_images')) {
+                delete updates.gallery_images;
+            }
+            if (Object.keys(updates).length <= 1) {
+                return res.status(503).json({
+                    error: '資料庫尚未支援圖片名稱欄位',
+                    code: 'IMAGE_LABELS_SCHEMA',
+                    hint: '請至 Supabase 執行 docs/add-supplier-catalog-gallery-images.sql'
+                });
+            }
+            ({ data: updated, error } = await supabase
+                .from('supplier_catalog_items')
+                .update(updates)
+                .eq('id', itemId)
+                .select(SUPPLIER_CATALOG_ITEM_LEGACY_SELECT)
+                .single());
+        }
+        if (error) {
+            console.error('PATCH supplier catalog image-labels:', error);
+            return res.status(500).json({ error: error.message || '更新失敗' });
+        }
+        const payload = { item: mapSupplierCatalogItemForApi(updated) };
+        if (coverLabelSkipped) {
+            payload.cover_label_skipped = true;
+            payload.warning = '多角度圖名稱已儲存；封面名稱需執行 docs/add-supplier-catalog-gallery-images.sql';
+        }
+        res.json(payload);
+    } catch (e) {
+        console.error('PATCH /api/me/industry-supplier/catalog-items/:id/image-labels:', e);
+        res.status(500).json({ error: e.message || '系統錯誤' });
+    }
+});
+
 // DELETE /api/me/industry-supplier/catalog-items/:id/gallery-images — 刪除封面或某一張多角度圖（body.url）
 app.delete('/api/me/industry-supplier/catalog-items/:id/gallery-images', express.json(), async (req, res) => {
     try {

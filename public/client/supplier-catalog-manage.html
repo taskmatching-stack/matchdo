@@ -486,7 +486,7 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
-        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704m';
+        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704n';
         var Pending = window.MatchdoVendorAssetPending;
         var EditGallery = window.MatchdoSupplierCatalogEditGallery;
         var editItemCache = null;
@@ -583,6 +583,64 @@
 
         function renderEditGalleryGrid(item) {
             if (EditGallery && EditGallery.render) EditGallery.render(item);
+        }
+
+        var editImageLabelSaveTimer = null;
+        function scheduleSaveImageLabels(itemId) {
+            if (!itemId) return;
+            clearTimeout(editImageLabelSaveTimer);
+            editImageLabelSaveTimer = setTimeout(function () { saveImageLabels(itemId); }, 600);
+        }
+        function imageLabelsSchemaHint(data) {
+            if (data && data.hint) return data.hint;
+            return '請至 Supabase 執行 docs/add-supplier-catalog-gallery-images.sql';
+        }
+        async function saveImageLabels(itemId) {
+            if (!itemId) return;
+            var coverIn = document.getElementById('edit-cover-label');
+            var byUrl = {};
+            document.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
+                var url = inp.getAttribute('data-url');
+                if (!url) return;
+                if (!byUrl[url]) byUrl[url] = { url: url };
+                byUrl[url].label = (inp.value || '').trim();
+            });
+            var entries = Object.keys(byUrl).map(function (u) { return byUrl[u]; });
+            if (!coverIn && !entries.length) return;
+            try {
+                var tok = token || (await getToken());
+                if (!tok) return;
+                var body = { entries: entries };
+                if (coverIn) body.cover_label = (coverIn.value || '').trim();
+                var r = await fetch('/api/me/industry-supplier/catalog-items/' + encodeURIComponent(itemId) + '/image-labels', {
+                    method: 'PATCH',
+                    headers: authH(true),
+                    body: JSON.stringify(body)
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    var errMsg = data.error || tr('supplierManage.imageLabelSaveFailed', '圖片名稱儲存失敗');
+                    if (r.status === 503 || data.code === 'IMAGE_LABELS_SCHEMA') {
+                        errMsg += ' — ' + imageLabelsSchemaHint(data);
+                    }
+                    toast(errMsg, 'danger');
+                    return false;
+                }
+                if (data.item) {
+                    editItemCache = data.item;
+                    var kind = normalizeKind(document.getElementById('edit-kind').value || activeKind);
+                    itemsCache[kind] = (itemsCache[kind] || []).map(function (x) {
+                        return x.id === data.item.id ? data.item : x;
+                    });
+                }
+                if (data.warning && data.cover_label_skipped) {
+                    toast(data.warning, 'warning');
+                }
+                return true;
+            } catch (err) {
+                toast(err.message || tr('supplierManage.imageLabelSaveFailed', '圖片名稱儲存失敗'), 'danger');
+                return false;
+            }
         }
 
         async function deleteEditGalleryImage(url, silent) {
@@ -1428,6 +1486,9 @@
                 );
                 if (editSubErr) { toast(editSubErr, 'warning'); return; }
             }
+            clearTimeout(editImageLabelSaveTimer);
+            var labelsOk = await saveImageLabels(id);
+            if (labelsOk === false) return;
             if (EditGallery && EditGallery.flushBeforeSave) {
                 var flushed = await EditGallery.flushBeforeSave();
                 if (!flushed) return;
@@ -1622,7 +1683,9 @@
                     return x.id === item.id ? item : x;
                 });
             },
-            deleteGalleryImage: deleteEditGalleryImage
+            deleteGalleryImage: deleteEditGalleryImage,
+            scheduleSaveImageLabels: scheduleSaveImageLabels,
+            saveImageLabels: saveImageLabels
         };
         if (EditGallery && EditGallery.wire) EditGallery.wire();
 

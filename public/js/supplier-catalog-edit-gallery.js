@@ -249,6 +249,14 @@
       var card = grid.children[idx] && grid.children[idx].querySelector('.pending-image-card');
       if (card) wireSlotUploadCheckboxes(card, slot, 'egslot-' + idx, function () { renderEditGallery(getCfg().getEditItem()); });
     });
+    var scheduleLabels = getCfg().scheduleSaveImageLabels;
+    if (typeof scheduleLabels === 'function') {
+      var coverLabelIn = document.getElementById('edit-cover-label');
+      if (coverLabelIn) coverLabelIn.addEventListener('input', function () { scheduleLabels(editId); });
+      grid.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
+        inp.addEventListener('input', function () { scheduleLabels(editId); });
+      });
+    }
     syncEditGalleryRedrawSettings();
   }
   async function previewGallerySlotRedraw(item, sourceUrl) {
@@ -393,7 +401,8 @@
     return { ok: true, data: newItem };
   }
   async function flushEditGallerySlotPreviewsBeforeSave() {
-    var item = getCfg().getEditItem();
+    var getItemFn = getCfg().getEditItem;
+    var item = typeof getItemFn === 'function' ? getItemFn() : null;
     if (!item) return true;
     var urls = Object.keys(editGallerySlotPreview).filter(function (u) {
       var s = editGallerySlotPreview[u];
