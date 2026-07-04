@@ -99,7 +99,6 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold" for="add-image" data-i18n="portfolio.seriesImages">系列圖（可多張）</label>
                                     <input type="file" class="form-control" id="add-image" accept="image/*" multiple>
-                                    <div class="text-muted small mt-1" id="add-series-hint">建議比例 1:1，JPEG/PNG/WEBP，總容量 5MB。1800／測試員或付 600 點可上傳（付點數可顯示一個月）。</div>
                                     <div id="add-image-preview" class="mt-2 d-flex flex-wrap gap-2"></div>
                                 </div>
                             </div>
@@ -110,7 +109,6 @@
                                     <div class="col-md-6" id="add-before-block">
                                         <label class="form-label fw-semibold" id="add-before-label" data-i18n="portfolio.beforeOptional">設計圖（可選）</label>
                                         <input type="file" class="form-control" id="add-image-before" accept="image/*">
-                                        <div class="text-muted small mt-1" id="add-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
                                         <div id="add-image-before-preview" class="mt-2"></div>
                                     </div>
                                     <div class="col-md-6" id="add-after-block">
@@ -125,33 +123,20 @@
                                 <label class="form-label fw-semibold" data-i18n="portfolio.workName">作品名稱</label>
                                 <input type="text" class="form-control" id="add-title" data-i18n-placeholder="portfolio.addTitlePlaceholder" placeholder="例：精品牛皮手提包 A 款">
                             </div>
-                            <div class="col-12">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.categoryType">分類類型</label>
-                                <div class="d-flex gap-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="add-category-type" id="add-type-custom" value="custom" checked>
-                                        <label class="form-check-label" for="add-type-custom" data-i18n="portfolio.categoryTypeCustom">訂製</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="add-category-type" id="add-type-remake" value="remake">
-                                        <label class="form-check-label" for="add-type-remake" data-i18n="portfolio.categoryTypeRemake">再製</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.mainCategory">主分類</label>
                                 <select class="form-select" id="add-category">
                                     <option value="" data-i18n="portfolio.selectMainCategory">— 選擇主分類 —</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.subcategory">子分類</label>
                                 <select class="form-select" id="add-subcategory">
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品亮點</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品特色</label>
                                 <input type="text" class="form-control" id="add-highlight" data-i18n-placeholder="portfolio.highlightPlaceholder" placeholder="例：手工縫線、義大利皮革、防水處理">
                             </div>
                             <div class="col-12">
@@ -204,14 +189,12 @@
                             <div class="col-md-6" id="edit-series-block">
                                 <label class="form-label fw-semibold" id="edit-series-label" data-i18n="portfolio.editSeriesLabel">系列圖（主圖，留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image" accept="image/*">
-                                <div class="text-muted small mt-1" id="edit-series-hint">僅 1800 方案可更換。</div>
                                 <div id="edit-image-preview" class="mt-2"></div>
                                 <div id="edit-current-series-wrap" class="mt-2 d-flex flex-wrap gap-2 d-none"><!-- 目前系列圖：多張縮圖由 JS 填入 --></div>
                             </div>
                             <div class="col-md-6" id="edit-before-block">
                                 <label class="form-label fw-semibold" id="edit-before-label" data-i18n="portfolio.editBeforeLabel">對照圖 - 設計圖（留空保持原圖）</label>
                                 <input type="file" class="form-control" id="edit-image-before" accept="image/*">
-                                <div class="text-muted small mt-1" id="edit-before-pts-hint">300/900/1800 方案或測試員可上傳；或付 400 點，可顯示一個月。</div>
                                 <div id="edit-image-before-preview" class="mt-2"></div>
                                 <img id="edit-current-before-img" src="" class="img-preview mt-2 d-none" data-i18n-alt="portfolio.currentBeforeImg" alt="目前設計圖">
                             </div>
@@ -225,33 +208,20 @@
                                 <label class="form-label fw-semibold" data-i18n="portfolio.workName">作品名稱</label>
                                 <input type="text" class="form-control" id="edit-title">
                             </div>
-                            <div class="col-12">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.categoryType">分類類型</label>
-                                <div class="d-flex gap-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="edit-category-type" id="edit-type-custom" value="custom">
-                                        <label class="form-check-label" for="edit-type-custom" data-i18n="portfolio.categoryTypeCustom">訂製</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="edit-category-type" id="edit-type-remake" value="remake">
-                                        <label class="form-check-label" for="edit-type-remake" data-i18n="portfolio.categoryTypeRemake">再製</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.mainCategory">主分類</label>
                                 <select class="form-select" id="edit-category">
                                     <option value="" data-i18n="portfolio.selectMainCategory">— 選擇主分類 —</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-6">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.subcategory">子分類</label>
                                 <select class="form-select" id="edit-subcategory">
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
                             <div class="col-12">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品亮點</label>
+                                <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品特色</label>
                                 <input type="text" class="form-control" id="edit-highlight">
                             </div>
                             <div class="col-12">
@@ -327,7 +297,6 @@
             if (btnAdd) btnAdd.classList.remove('d-none');
         }
         var customCategories = [];
-        var remakeCategories = [];
         var portfolioItems = [];
         var canUploadSeries = false;
         var seriesPayPoints = 0;
@@ -335,6 +304,8 @@
         var beforePayPoints = 0;
         var beforeQuotaLimit = 0;
         var beforeQuotaUsed = 0;
+        var setAddUploadModeBlocks = null;
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705a';
         var deleteTargetId = null;
         var editModal = null;
         var deleteModal = null;
@@ -407,8 +378,7 @@
                     beforeQuotaLimit = bd.quotaLimit != null ? bd.quotaLimit : 0;
                     beforeQuotaUsed = bd.quotaUsed != null ? bd.quotaUsed : 0;
                 } catch (e) { canUploadBefore = true; beforePayPoints = 0; beforeQuotaLimit = 0; beforeQuotaUsed = 0; }
-                applySeriesRestriction();
-                applyBeforeHint();
+                applyUploadModeLocks();
                 await loadCategories();
                 await loadPortfolio();
                 bindEvents();
@@ -436,28 +406,19 @@
         async function loadCategories() {
             try {
                 var lang = getPageLang();
-                var [customRes, remakeRes] = await Promise.all([
-                    fetch('/api/custom-product-categories?lang=' + (lang === 'en' ? 'en' : '')),
-                    fetch('/api/remake-categories?lang=' + (lang === 'en' ? 'en' : ''))
-                ]);
+                var customRes = await fetch('/api/custom-product-categories?lang=' + (lang === 'en' ? 'en' : ''));
                 var customD = await customRes.json();
-                var remakeD = await remakeRes.json();
                 customCategories = customD.categories || [];
-                remakeCategories = remakeD.categories || [];
-                fillMainCategorySelect('add-category', 'custom');
-                fillMainCategorySelect('edit-category', 'custom');
+                fillMainCategorySelect('add-category');
+                fillMainCategorySelect('edit-category');
             } catch (e) { /* ignore */ }
         }
 
-        function getCategoriesByType(type) {
-            return (type === 'remake') ? remakeCategories : customCategories;
-        }
-
-        function fillMainCategorySelect(selectId, type) {
+        function fillMainCategorySelect(selectId) {
             var sel = document.getElementById(selectId);
-            var list = getCategoriesByType(type);
+            if (!sel) return;
             sel.innerHTML = '<option value="">' + tr('portfolio.selectMainCategory') + '</option>';
-            list.forEach(function (c) {
+            customCategories.forEach(function (c) {
                 var opt = document.createElement('option');
                 opt.value = c.key;
                 opt.textContent = c.name || c.key;
@@ -465,54 +426,63 @@
             });
         }
 
-        function applySeriesRestriction() {
+        function applyUploadModeLocks() {
+            var modeSeries = document.getElementById('add-mode-series');
+            var modeComparison = document.getElementById('add-mode-comparison');
+            var addImage = document.getElementById('add-image');
+            var addBefore = document.getElementById('add-image-before');
+            var addAfter = document.getElementById('add-image-after');
+            var editImage = document.getElementById('edit-image');
+            var editBefore = document.getElementById('edit-image-before');
+            var editAfter = document.getElementById('edit-image-after');
             var addBeforeLabel = document.getElementById('add-before-label');
             var addAfterLabelText = document.getElementById('add-after-label-text');
             var addAfterMarker = document.getElementById('add-after-marker');
             var addAfterHint = document.getElementById('add-after-hint');
-            var addSeriesHint = document.getElementById('add-series-hint');
-            var editSeriesHint = document.getElementById('edit-series-hint');
-            var ratio = tr('portfolio.seriesHintRatio');
-            var hint600 = tr('portfolio.seriesHint600');
-            var hint1800 = tr('portfolio.seriesHint1800');
-            var hintNoSeries = tr('portfolio.seriesHintNoSeries');
-            var editNo = tr('portfolio.editSeriesHintNo');
-            var editPlan = tr('portfolio.editSeriesHintPlan');
+
+            if (modeSeries) {
+                modeSeries.disabled = !canUploadSeries;
+                var seriesLbl = modeSeries.closest('.form-check');
+                if (seriesLbl) seriesLbl.classList.toggle('opacity-50', !canUploadSeries);
+            }
+            if (addImage) addImage.disabled = !canUploadSeries;
+
+            if (modeComparison) {
+                modeComparison.disabled = !canUploadBefore;
+                var compLbl = modeComparison.closest('.form-check');
+                if (compLbl) compLbl.classList.toggle('opacity-50', !canUploadBefore);
+            }
+            if (addBefore) addBefore.disabled = !canUploadBefore;
+            if (addAfter) addAfter.disabled = !canUploadBefore;
+            if (editImage) editImage.disabled = !canUploadSeries;
+            if (editBefore) editBefore.disabled = !canUploadBefore;
+            if (editAfter) editAfter.disabled = !canUploadBefore;
+
+            if (!canUploadSeries && canUploadBefore && modeComparison) {
+                modeComparison.checked = true;
+            } else if (canUploadSeries && !canUploadBefore && modeSeries) {
+                modeSeries.checked = true;
+            }
+            if (setAddUploadModeBlocks) setAddUploadModeBlocks();
+
             if (addAfterHint) addAfterHint.textContent = tr('portfolio.addAfterHint');
             if (canUploadSeries) {
                 if (addBeforeLabel) addBeforeLabel.textContent = tr('portfolio.beforeOptional');
                 if (addAfterLabelText) addAfterLabelText.textContent = tr('portfolio.afterLabel');
                 if (addAfterMarker) { addAfterMarker.textContent = (document.documentElement.lang === 'en' ? ' (optional)' : '（可選）'); addAfterMarker.className = 'text-muted'; }
-                var seriesHintText = seriesPayPoints === 600 ? hint600 : hint1800;
-                if (addSeriesHint) addSeriesHint.textContent = ratio + ' ' + seriesHintText;
-                if (editSeriesHint) editSeriesHint.textContent = seriesPayPoints === 600 ? hint600 : hint1800;
             } else {
                 if (addBeforeLabel) addBeforeLabel.textContent = tr('portfolio.beforeLabel') + ' *';
                 if (addAfterLabelText) addAfterLabelText.textContent = tr('portfolio.afterLabel');
                 if (addAfterMarker) { addAfterMarker.textContent = '*'; addAfterMarker.className = 'text-danger'; }
-                if (addSeriesHint) addSeriesHint.textContent = ratio + ' ' + hintNoSeries;
-                if (editSeriesHint) editSeriesHint.textContent = editNo;
             }
         }
 
-        function applyBeforeHint() {
-            var addHint = document.getElementById('add-before-pts-hint');
-            var editHint = document.getElementById('edit-before-pts-hint');
-            var msg = !canUploadBefore
-                ? tr('portfolio.beforeHintNoPoints')
-                : (beforePayPoints === 400
-                    ? tr('portfolio.beforeHint400')
-                    : tr('portfolio.beforeHintPlan') + (beforeQuotaLimit > 0 ? ' ' + (tr('portfolio.beforeHintUsed') || '已使用 {used}／{limit} 組。').replace('{used}', beforeQuotaUsed).replace('{limit}', beforeQuotaLimit) : ''));
-            if (addHint) addHint.textContent = msg;
-            if (editHint) editHint.textContent = msg;
-        }
-
-        function fillSubcategorySelect(selectId, categoryKey, type) {
+        function fillSubcategorySelect(selectId, categoryKey) {
             var sel = document.getElementById(selectId);
+            if (!sel) return;
             sel.innerHTML = '<option value="">' + tr('portfolio.selectSubcategory') + '</option>';
             if (!categoryKey) return;
-            var list = getCategoriesByType(type);
-            var cat = list.find(function (c) { return c.key === categoryKey; });
+            var cat = customCategories.find(function (c) { return c.key === categoryKey; });
             var subs = (cat && cat.subcategories) ? cat.subcategories : [];
             subs.forEach(function (s) {
                 var opt = document.createElement('option');
@@ -632,10 +602,8 @@
         }
 
         function openAddForm() {
-            document.getElementById('add-type-custom').checked = true;
-            document.getElementById('add-type-remake').checked = false;
-            fillMainCategorySelect('add-category', 'custom');
-            fillSubcategorySelect('add-subcategory', '', 'custom');
+            fillMainCategorySelect('add-category');
+            fillSubcategorySelect('add-subcategory', '');
             document.getElementById('add-form-panel').classList.remove('d-none');
             document.getElementById('add-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -655,33 +623,11 @@
                 if (deleteEl && typeof bootstrap !== 'undefined') deleteModal = new bootstrap.Modal(deleteEl);
             } catch (e) { console.warn('Modal init:', e); }
 
-            function addCategoryType() {
-                return document.querySelector('input[name="add-category-type"]:checked');
-            }
-            function editCategoryType() {
-                return document.querySelector('input[name="edit-category-type"]:checked');
-            }
             document.getElementById('add-category').addEventListener('change', function () {
-                var t = (addCategoryType() && addCategoryType().value) || 'custom';
-                fillSubcategorySelect('add-subcategory', this.value, t);
+                fillSubcategorySelect('add-subcategory', this.value);
             });
             document.getElementById('edit-category').addEventListener('change', function () {
-                var t = (editCategoryType() && editCategoryType().value) || 'custom';
-                fillSubcategorySelect('edit-subcategory', this.value, t);
-            });
-            document.querySelectorAll('input[name="add-category-type"]').forEach(function (radio) {
-                radio.addEventListener('change', function () {
-                    var t = this.value;
-                    fillMainCategorySelect('add-category', t);
-                    fillSubcategorySelect('add-subcategory', '', t);
-                });
-            });
-            document.querySelectorAll('input[name="edit-category-type"]').forEach(function (radio) {
-                radio.addEventListener('change', function () {
-                    var t = this.value;
-                    fillMainCategorySelect('edit-category', t);
-                    fillSubcategorySelect('edit-subcategory', '', t);
-                });
+                fillSubcategorySelect('edit-subcategory', this.value);
             });
 
             // 上傳類型切換：一次只能一種，切換時隱藏另一區並清空其檔案
@@ -689,7 +635,7 @@
                 var r = document.querySelector('input[name="add-upload-mode"]:checked');
                 return (r && r.value) || 'series';
             }
-            function setAddUploadModeBlocks() {
+            function setAddUploadModeBlocksLocal() {
                 var mode = addUploadMode();
                 var seriesBlock = document.getElementById('add-mode-series-block');
                 var comparisonBlock = document.getElementById('add-mode-comparison-block');
@@ -705,10 +651,11 @@
                     document.getElementById('add-image-preview').innerHTML = '';
                 }
             }
+            setAddUploadModeBlocks = setAddUploadModeBlocksLocal;
             document.querySelectorAll('input[name="add-upload-mode"]').forEach(function (radio) {
-                radio.addEventListener('change', setAddUploadModeBlocks);
+                radio.addEventListener('change', setAddUploadModeBlocksLocal);
             });
-            setAddUploadModeBlocks();
+            applyUploadModeLocks();
 
             // Image preview helpers
             function makePreview(inputId, previewId) {
@@ -765,8 +712,7 @@
                     fd.append('min_order_quantity', document.getElementById('add-moq').value.trim());
                     fd.append('category_key', document.getElementById('add-category').value);
                     fd.append('subcategory_key', document.getElementById('add-subcategory').value);
-                    var addType = addCategoryType();
-                    fd.append('category_type', (addType && addType.value) || 'custom');
+                    fd.append('category_type', 'custom');
                     fd.append('show_on_media_wall', document.getElementById('add-show-on-media-wall').checked ? 'true' : 'false');
                     const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
                     const d = await r.json();
@@ -774,11 +720,9 @@
                     showToast(tr('portfolio.added'));
                     document.getElementById('add-form').reset();
                     document.getElementById('add-mode-series').checked = true;
-                    setAddUploadModeBlocks();
-                    document.getElementById('add-type-custom').checked = true;
-                    document.getElementById('add-type-remake').checked = false;
-                    fillMainCategorySelect('add-category', 'custom');
-                    fillSubcategorySelect('add-subcategory', '', 'custom');
+                    applyUploadModeLocks();
+                    fillMainCategorySelect('add-category');
+                    fillSubcategorySelect('add-subcategory', '');
                     document.getElementById('add-image-preview').innerHTML = '';
                     document.getElementById('add-image-before-preview').innerHTML = '';
                     document.getElementById('add-image-after-preview').innerHTML = '';
@@ -816,8 +760,7 @@
                     fd.append('min_order_quantity', document.getElementById('edit-moq').value.trim());
                     fd.append('category_key', document.getElementById('edit-category').value);
                     fd.append('subcategory_key', document.getElementById('edit-subcategory').value);
-                    var editType = editCategoryType();
-                    fd.append('category_type', (editType && editType.value) || 'custom');
+                    fd.append('category_type', 'custom');
                     fd.append('show_on_media_wall', document.getElementById('edit-show-on-media-wall').checked ? 'true' : 'false');
                     const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                     const d = await r.json();
@@ -854,12 +797,9 @@
             document.getElementById('edit-tags').value = (p.tags || []).join(', ');
             var editMoq = document.getElementById('edit-moq');
             if (editMoq) editMoq.value = (p.min_order_quantity != null && p.min_order_quantity !== '') ? String(p.min_order_quantity) : '';
-            var catType = (p.category_type === 'remake') ? 'remake' : 'custom';
-            document.getElementById('edit-type-custom').checked = (catType === 'custom');
-            document.getElementById('edit-type-remake').checked = (catType === 'remake');
-            fillMainCategorySelect('edit-category', catType);
+            fillMainCategorySelect('edit-category');
             document.getElementById('edit-category').value = p.category_key || '';
-            fillSubcategorySelect('edit-subcategory', p.category_key || '', catType);
+            fillSubcategorySelect('edit-subcategory', p.category_key || '');
             document.getElementById('edit-subcategory').value = p.subcategory_key || '';
             document.getElementById('edit-image-preview').innerHTML = '';
             document.getElementById('edit-image-before-preview').innerHTML = '';
@@ -905,6 +845,7 @@
             document.getElementById('edit-image').value = '';
             document.getElementById('edit-image-before').value = '';
             document.getElementById('edit-image-after').value = '';
+            applyUploadModeLocks();
             if (editModal) editModal.show();
         };
 
