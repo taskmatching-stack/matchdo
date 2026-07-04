@@ -298,11 +298,7 @@ feat: extend /api/me/capabilities with zones; header additive nav
 [ ] https://matchdo.cc/vendor-profile.html?id={uuid} — 動態 title
 ```
 
-**部署指令**（Cloud Shell）：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
-```
+**部署指令**（Cloud Shell）：**只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。
 
 ---
 
@@ -354,7 +350,7 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud 
 
 主線程式已 merge 至 `main`（約 `5a7d97d`～`605dca4` 一帶）。上線後請勾：
 
-- [ ] Cloud Shell 部署（§六指令）
+- [ ] Cloud Shell 部署（[`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**）
 - [ ] 首頁靈感牆 + `/inspiration/user_design/{id}`
 - [ ] `/sitemap.xml` 僅 5 個子 sitemap
 - [ ] 「我的功能」無重複的設計風向／客製連結

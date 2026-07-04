@@ -218,9 +218,7 @@
 
 ### 部署（唯一正確 — Google Cloud Shell）
 
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
-```
+**只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。
 
 ### 驗收清單
 

@@ -139,11 +139,7 @@
 
 1. Supabase：`docs/add-vendor-asset-gallery-images.sql`（若尚未執行）。
 2. Agent：**先 `git push origin main`**，再請使用者在 Cloud Shell 部署。
-3. **一行部署**（與 `docs/deploy-matchdo-push-and-deploy.md` 相同）：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
-```
+3. Cloud Shell **只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。勿貼本文件舊版無 grep 指令。
 
 4. 編輯窗底部版本應為 **`vendor-materials-audit-fix-20260605`** 或更新。
 

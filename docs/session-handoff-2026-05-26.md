@@ -17,11 +17,7 @@
 | `0c497eb` / `dedf992` / `081fbcb` | 還原並固定 **③ 產業供應商** 獨立導覽區（勿併入 ②） |
 | `285ffc3` | B 線頁移除無關的「製造商控制台」按鈕 |
 
-**部署（唯一正確方式）** — Google Cloud Shell：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
-```
+**部署（唯一正確方式）** — Google Cloud Shell：**只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。
 
 ### 本輪對話「尚未寫程式」的議題
 

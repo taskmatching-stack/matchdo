@@ -144,8 +144,6 @@ Guide 端：`vendor-product-link-tree.js` → `persistGuideSelectionForDesign`�
 
 ## 部署
 
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
-```
+Cloud Shell **只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。
 
 新對話可說：「請讀 `docs/PROGRESS-custom-product-generate-flux.md` 繼續。」

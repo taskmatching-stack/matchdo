@@ -16,11 +16,7 @@
 | **Cloud Run（2026-06-03）** | 使用者曾部署到 `e718384`（revision `matchdo-00344-n8b`）— **可能仍比 git 舊一版** |
 | **本機未 push** | 進度檔更新（本檔、`PROGRESS-*`、`matchdo-todo.md`）— 部署前請先 push |
 
-**部署（唯一正確方式）** — Google Cloud Shell：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && git log -1 --oneline && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image
-```
+**部署（唯一正確方式）** — Google Cloud Shell：**只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。部署前可先 `git log -1 --oneline` 確認 commit。
 
 確認 `git log -1` 為 **`02a834b` 或更新** 再 deploy。
 

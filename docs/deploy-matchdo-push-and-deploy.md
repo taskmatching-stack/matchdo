@@ -68,6 +68,23 @@ Account not found for email: ...taskmatchlng@gmail.com
 
 **怎麼避免滿屏紅字？** 下面 **§3.1 整行複製**（含 `grep -v` 過濾）。**禁止**貼不含 `grep` 的舊版單行——邏輯相同，只會多洗幾十行假錯誤。
 
+#### ⛔ 禁止的部署尾綴（Agent／文件屢犯，對 `Regional Access Boundary` **完全無效**）
+
+| ❌ 錯誤寫法 | 為何不行 |
+|------------|----------|
+| **不含 `grep`** 的 `gcloud run deploy … && update-traffic` | 滿屏 `taskmatchlng` 假錯誤 |
+| `\| grep -v -E 'Downloading\|Extracting\|Verifying\|Already exists\|Pull complete\|Status:'` | 只過濾 Docker 層訊息，**過濾不了** `Regional Access Boundary` |
+| `deploy … 2>&1 \| grep … && update-traffic`（grep 只接在 deploy 上） | `update-traffic` 在 grep **外**，且括號結構錯 |
+| 刪掉末尾 `grep`「讓輸出乾淨一點」 | 會以為部署失敗 |
+
+**Cloud Shell 唯一合法尾綴（整段 deploy 必須包在括號內再 pipe）：**
+
+```bash
+) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
+```
+
+完整可貼指令見 **§3.1**（含前面的 `gcloud config set account` 與 `( gcloud run deploy … && gcloud run services update-traffic … )`）。
+
 **真的失敗時（不是 taskmatchlng 噪音）：**
 
 ```bash
@@ -109,6 +126,8 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gclou
 ---
 
 ### 3.2 方式 B：本機 PowerShell（Cloud Shell 無法使用時）
+
+> **勿將本節指令貼到 Cloud Shell。** Cloud Shell 必用 **§3.1**（含 `grep` 過濾 `Regional Access Boundary|taskmatchlng`）。
 
 與方式 A **同一套邏輯**，只是終端機改在本機。需已安裝 [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)（`gcloud --version` 有版本即可）。
 
@@ -171,6 +190,8 @@ gcloud builds list --region=asia-northeast1 --limit=3
 | ❌ 錯誤 | 說明 |
 |--------|------|
 | Cloud Shell 貼**不含 `grep -v`** 的 deploy 單行 | 會滿屏 `taskmatchlng` 假錯誤；**一律用 §3.1 整行** |
+| 用 `grep` 過濾 **`Downloading\|Extracting\|…`** | **無效**；須過濾 `Regional Access Boundary\|taskmatchlng`（見 §三禁止表） |
+| `deploy … \| grep … && update-traffic`（grep 未包整段） | 結構錯；須 `( deploy && update-traffic ) 2>&1 \| grep …` |
 | 平常用 `update-traffic` **代替**部署 | 只切流量、**不會**重新建置映像 |
 | 拆掉 `fetch` + `reset --hard` 直接 deploy | 可能部署本機未 push 的舊檔 |
 | 自行改 `gcloud run deploy` 參數 | §3.1／§3.2 須一致：`--source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image`；**備援**見 §3.3 |
@@ -276,7 +297,8 @@ gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spe
 | 「push 就會上線」 | **僅在**已設 Cloud Build 觸發時成立 |
 | `taskmatchlng` / `Regional Access Boundary` 紅字 | Cloud Shell **gcloud 噪音**（見 §三開頭）；**用 §3.1 含 `grep` 的整行**可過濾 |
 | 部署有沒有成功？ | 看有沒有 **`Done.`** 與新 revision（§5.1），**不是**看有沒有紅字 |
-| Agent／文件給的 Cloud Shell 指令 | **必須**含 `grep --line-buffered -v -E 'Regional Access Boundary\|taskmatchlng'` |
+| Agent／文件給的 Cloud Shell 指令 | **必須**含 `grep --line-buffered -v -E 'Regional Access Boundary\|taskmatchlng'`，且 deploy+update-traffic **同在括號內**（§3.1） |
+| 曾誤用的 Docker 關鍵字 `grep` | **禁止**；見 §三「禁止的部署尾綴」 |
 
 ---
 

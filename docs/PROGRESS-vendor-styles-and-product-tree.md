@@ -157,11 +157,7 @@ product-tree.html（guide，2026-06-04 現況）
 
 ## 部署（唯一正確方式）
 
-在 **Google Cloud Shell**（本機無 gcloud）：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
-```
+在 **Google Cloud Shell**（本機無 gcloud）：**只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。勿貼本文件舊版無 grep 指令。
 
 ---
 

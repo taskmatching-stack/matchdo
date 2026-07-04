@@ -28,11 +28,7 @@
 feat(embed): header 廠商 logo 與名稱連結至廠商首頁
 ```
 
-**推送後部署**（Cloud Shell，見 [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md)）：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
-```
+**推送後部署**（Cloud Shell）：**只貼** [`deploy-matchdo-push-and-deploy.md`](deploy-matchdo-push-and-deploy.md) **§3.1 整行**（含 `gcloud config set` 與 `grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'`）。勿貼本文件舊版無 grep 指令。
 
 ---
 
