@@ -82,8 +82,7 @@
     });
     var hint = document.getElementById('edit-gallery-ai-vs-preview-hint');
     if (hint) {
-      var trFn = getCfg().tr || function (_k, fb) { return fb; };
-      hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">' + upscale + '</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。';
+      syncEditGalleryUpscaleHint();
     }
     var settings = document.getElementById('edit-gallery-redraw-settings');
     var grid = document.getElementById('edit-gallery-grid');
@@ -93,6 +92,20 @@
   function trLocal(k, fb) {
     var trFn = getCfg().tr;
     return trFn ? trFn(k, fb) : fb;
+  }
+  function syncEditGalleryUpscaleHint() {
+    var hint = document.getElementById('edit-gallery-ai-vs-preview-hint');
+    if (!hint) return;
+    var kindEl = document.getElementById('edit-kind');
+    var isMaterial = kindEl && kindEl.value === 'material';
+    var up = uploadPricing();
+    var extra = up.points_optimize_extra != null ? up.points_optimize_extra : 5;
+    var upscale = up.points_upscale != null ? up.points_upscale : 5;
+    if (isMaterial) {
+      hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起。';
+    } else {
+      hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">' + upscale + '</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。';
+    }
   }
   function pendingUpscaleAiEditHelpHtml() {
     return Pending.pendingUpscaleAiEditHelpHtml ? Pending.pendingUpscaleAiEditHelpHtml(false) : '';
@@ -716,7 +729,8 @@
   global.MatchdoSupplierCatalogEditGallery = {
     reset: resetEditGalleryState,
     render: renderEditGallery,
-    syncRedrawSettings: syncEditGalleryRedrawSettings,
+    syncEditGalleryRedrawSettings: syncEditGalleryRedrawSettings,
+    syncUpscaleHint: syncEditGalleryUpscaleHint,
     flushBeforeSave: flushEditGallerySlotPreviewsBeforeSave,
     uploadPending: uploadEditGalleryPending,
     wire: wireEditGalleryPendingInput,

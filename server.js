@@ -19600,8 +19600,6 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
         if (!manufacturerId) return;
         const catalogItemId = (req.body && req.body.catalog_item_id || '').trim();
         if (!catalogItemId) return res.status(400).json({ error: '請提供 catalog_item_id' });
-        const importTitle = parseTruthyBody(req.body && req.body.import_title);
-        const importDescription = parseTruthyBody(req.body && req.body.import_description);
 
         const { data: existingImp } = await supabase
             .from('manufacturer_supplier_imports')
@@ -19645,51 +19643,18 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
 
         const sup = catalogItem.industry_suppliers;
         const supplier = Array.isArray(sup) ? sup[0] : sup;
-        const spec = catalogItem.spec_json && typeof catalogItem.spec_json === 'object' ? catalogItem.spec_json : {};
-        const categoryKey = (catalogItem.category_key || '').trim() || 'other';
-        const targetKind = catalogItem.item_kind === 'prototype_set'
-            ? 'prototype'
-            : (catalogItem.item_kind === 'part' ? 'part' : 'material');
+        const { fields: catalogFields, targetKind } = buildVendorAssetFieldsFromSupplierCatalog(catalogItem, { copyText: true });
 
         const insertPayload = {
             manufacturer_id: manufacturerId,
-            category_key: categoryKey,
-            title: importTitle ? String(catalogItem.title || '').trim() : '',
-            description: importDescription ? (catalogItem.description || null) : null,
-            image_url: catalogItem.cover_image_url,
             usage_type: 'reference_only',
             is_public: true,
             sort_order: 0,
-            asset_kind: targetKind,
             source_catalog_item_id: catalogItem.id,
-            tags_source: 'import'
+            tags_source: 'import',
+            ...catalogFields
         };
-        if (Array.isArray(catalogItem.ai_tags) && catalogItem.ai_tags.length) {
-            insertPayload.ai_tags = catalogItem.ai_tags;
-            insertPayload.ai_tags_generated_at = new Date().toISOString();
-        }
-        if (catalogItem.image_semantics_json) {
-            insertPayload.image_semantics_json = catalogItem.image_semantics_json;
-        }
-        const catalogGallery = parseGalleryImages(catalogItem.gallery_images);
-        if (!catalogGallery.length && catalogItem.spec_json && typeof catalogItem.spec_json === 'object') {
-            const specGallery = parseGalleryImages(catalogItem.spec_json.gallery_images);
-            if (specGallery.length) insertPayload.gallery_images = specGallery;
-        } else if (catalogGallery.length) {
-            insertPayload.gallery_images = catalogGallery;
-        }
-        const coverLabel = catalogItem.cover_image_label
-            || (catalogItem.spec_json && catalogItem.spec_json.cover_image_label);
-        if (coverLabel) {
-            insertPayload.cover_image_label = coverLabel;
-        }
-        if (targetKind === 'prototype') {
-            insertPayload.min_order_quantity = null;
-            insertPayload.customization_levels = [];
-        }
-        if (targetKind === 'prototype' && spec.subcategory_key) {
-            insertPayload.subcategory_key = String(spec.subcategory_key).trim();
-        }
+        const spec = catalogItem.spec_json && typeof catalogItem.spec_json === 'object' ? catalogItem.spec_json : {};
 
         let inserted;
         let insErr;
@@ -20016,36 +19981,77 @@ function buildSupplierCatalogImportSnapshot(catalogItem, supplier) {
     };
 }
 
-function buildVendorAssetSyncPatchFromSupplierCatalogItem(catalogItem) {
+function mergeSupplierCatalogSpecIntoSemantics(semanticsJson, itemKind, spec) {
+    const base = (semanticsJson && typeof semanticsJson === 'object') ? { ...semanticsJson } : {};
+    const s = spec && typeof spec === 'object' ? spec : {};
+    const kind = normalizeSupplierCatalogItemKind(itemKind);
+    const sub = {};
+    if (kind === 'material') {
+        if (s.material_type) sub.material_type = String(s.material_type).trim();
+        if (s.composition) sub.composition = String(s.composition).trim();
+        if (s.finish) sub.finish = String(s.finish).trim();
+        if (s.width_cm != null && String(s.width_cm).trim() !== '') sub.width_cm = s.width_cm;
+    } else if (kind === 'part') {
+        ['part_type', 'finish', 'material', 'dimensions'].forEach(function (k) {
+            if (s[k]) sub[k] = String(s[k]).trim();
+        });
+    } else if (kind === 'prototype_set') {
+        ['style', 'fit', 'moq_hint', 'customization_notes'].forEach(function (k) {
+            if (s[k]) sub[k] = String(s[k]).trim();
+        });
+        if (s.subcategory_key) sub.subcategory_key = String(s.subcategory_key).trim();
+    }
+    if (Object.keys(sub).length) base.supplier_catalog_spec = sub;
+    else delete base.supplier_catalog_spec;
+    return Object.keys(base).length ? base : null;
+}
+
+/** 供應商目錄 → 製造商 vendor_assets 欄位（匯入與同步共用） */
+function buildVendorAssetFieldsFromSupplierCatalog(catalogItem, opts) {
+    opts = opts || {};
+    const copyText = opts.copyText !== false;
     const spec = catalogItem.spec_json && typeof catalogItem.spec_json === 'object' ? catalogItem.spec_json : {};
     const targetKind = catalogItem.item_kind === 'prototype_set'
         ? 'prototype'
         : (catalogItem.item_kind === 'part' ? 'part' : 'material');
-    const patch = {
-        updated_at: new Date().toISOString(),
+    const fields = {
         category_key: (catalogItem.category_key || '').trim() || 'other',
-        asset_kind: targetKind
+        asset_kind: targetKind,
+        updated_at: new Date().toISOString()
     };
-    if (catalogItem.cover_image_url) patch.image_url = catalogItem.cover_image_url;
+    if (copyText) {
+        fields.title = String(catalogItem.title || '').trim();
+        fields.description = catalogItem.description || null;
+    }
+    if (catalogItem.cover_image_url) fields.image_url = catalogItem.cover_image_url;
     if (Array.isArray(catalogItem.ai_tags)) {
-        patch.ai_tags = catalogItem.ai_tags;
-        patch.ai_tags_generated_at = new Date().toISOString();
+        fields.ai_tags = catalogItem.ai_tags;
+        fields.ai_tags_generated_at = new Date().toISOString();
     }
-    if (catalogItem.image_semantics_json) {
-        patch.image_semantics_json = catalogItem.image_semantics_json;
-    }
+    const mergedSem = mergeSupplierCatalogSpecIntoSemantics(
+        catalogItem.image_semantics_json,
+        catalogItem.item_kind,
+        spec
+    );
+    if (mergedSem) fields.image_semantics_json = mergedSem;
     const catalogGallery = parseGalleryImages(catalogItem.gallery_images);
     if (!catalogGallery.length && spec.gallery_images) {
-        patch.gallery_images = parseGalleryImages(spec.gallery_images);
+        fields.gallery_images = parseGalleryImages(spec.gallery_images);
     } else {
-        patch.gallery_images = catalogGallery;
+        fields.gallery_images = catalogGallery;
     }
     const coverLabel = catalogItem.cover_image_label || spec.cover_image_label;
-    if (coverLabel) patch.cover_image_label = String(coverLabel).trim() || null;
-    if (targetKind === 'prototype' && spec.subcategory_key) {
-        patch.subcategory_key = String(spec.subcategory_key).trim();
+    if (coverLabel) fields.cover_image_label = String(coverLabel).trim() || null;
+    if (targetKind === 'prototype') {
+        fields.min_order_quantity = null;
+        fields.customization_levels = [];
+        if (spec.subcategory_key) fields.subcategory_key = String(spec.subcategory_key).trim();
     }
-    return patch;
+    return { fields, targetKind, spec };
+}
+
+function buildVendorAssetSyncPatchFromSupplierCatalogItem(catalogItem) {
+    return buildVendorAssetFieldsFromSupplierCatalog(catalogItem, { copyText: true }).fields;
 }
 
 async function syncImportedVendorAssetsFromCatalogItem(catalogItemId) {
@@ -21706,6 +21712,12 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
         if (body.spec_json != null || body.material_type != null || body.subcategory_key != null) {
             const baseSpec = (existing.spec_json && typeof existing.spec_json === 'object') ? existing.spec_json : {};
             patch.spec_json = parseSupplierCatalogSpecJson(itemKind, { ...baseSpec, ...body, spec_json: body.spec_json || baseSpec });
+        }
+        if (itemKind === 'material' && body.material_surface_type !== undefined) {
+            const baseSem = patch.image_semantics_json !== undefined
+                ? patch.image_semantics_json
+                : (existing.image_semantics_json || null);
+            patch.image_semantics_json = mergeMaterialSurfaceIntoSemantics(baseSem, body.material_surface_type);
         }
         if (body.ai_tags !== undefined) {
             const manualTags = parseAiTagsFromBody(body);

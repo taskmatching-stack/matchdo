@@ -230,7 +230,7 @@
                                     <label class="form-label fw-semibold">產品圖片 <span class="text-danger">*</span></label>
                                     <input type="file" class="form-control add-image-multi" accept="image/*" multiple title="可一次選多張">
                                     <div class="add-pending-images row g-2 mt-2"></div>
-                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.prototypeMultiImageHint">在上方「選擇檔案」可一次選多張（第一張為封面，最多 12 張）；選完會出現在下方待傳清單。點圖片＝預覽放大；圖下方可按「AI 重繪」或「AI 放大」後再發布。</p>
+                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.partMultiImageHint">多張圖請用於同一零件的不同角度或細節；圖片名稱可註記角度（例：正面、側面）。選完可逐張 AI 重繪或放大後再發布。</p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
                                     <div class="add-optimize-bg-wrap d-none mb-2">
@@ -344,7 +344,7 @@
                             <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="btn-edit-gen-desc"><i class="bi bi-magic me-1"></i><span data-i18n="baseModels.generateDescription">AI 產生說明</span> — <span id="edit-points-desc" class="fw-semibold">1</span> <span data-i18n="baseModels.pointsUnit">點</span></button>
                         </div>
                         <div class="mb-3" id="edit-images-gallery-wrap">
-                            <label class="form-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
+                            <label class="form-label" id="edit-gallery-images-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.galleryOrderHint">拖曳或使用 ← → 調整順序；第一張為列表封面。</p>
                             <div id="edit-material-surface-wrap" class="mb-2 d-none">
                                 <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
@@ -379,6 +379,7 @@
                             <p class="form-text text-muted small mb-1">選檔後可逐張按「AI 重繪」或「AI 放大」；按「<strong>上傳所選</strong>」或下方「<strong>儲存</strong>」都會把待傳圖寫入圖庫。<strong>已上傳的圖</strong>按「AI 重繪」後請勾選要上傳的圖，再按「<strong>儲存</strong>」。<strong>點圖片＝預覽放大</strong>。</p>
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
+                            <p id="edit-gallery-hint-material" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.materialImageHint">一筆材料＝一種主產品用材質（例：14oz 丹寧藍）。標題請寫材質名稱，勿寫配件名＋顏色。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
                             <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面順序，或於下方「更換封面」上傳新圖。</p>
                             <label class="form-label small text-muted mb-1">更換封面（選填）</label>
@@ -494,7 +495,7 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
-        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704o';
+        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704p';
         var Pending = window.MatchdoVendorAssetPending;
         var EditGallery = window.MatchdoSupplierCatalogEditGallery;
         var editItemCache = null;
@@ -524,6 +525,8 @@
                 var comp = document.getElementById('edit-composition'); if (comp && comp.value.trim()) fd.append('composition', comp.value.trim());
                 var fin = document.getElementById('edit-finish-material'); if (fin && fin.value.trim()) fd.append('finish', fin.value.trim());
                 var w = document.getElementById('edit-width-cm'); if (w && w.value.trim()) fd.append('width_cm', w.value.trim());
+                var surf = document.getElementById('edit-material-surface-type');
+                if (surf && surf.value.trim()) fd.append('material_surface_type', surf.value.trim());
             } else if (kind === 'part') {
                 var pt = document.getElementById('edit-part-type'); if (pt && pt.value.trim()) fd.append('part_type', pt.value.trim());
                 var fp = document.getElementById('edit-finish-part'); if (fp && fp.value.trim()) fd.append('finish', fp.value.trim());
@@ -1271,6 +1274,36 @@
             return '';
         }
 
+        function syncSupplierEditGalleryUi(kind, item) {
+            kind = normalizeKind(kind);
+            var isProto = kind === 'prototype';
+            var isPart = kind === 'part';
+            var isMaterial = kind === 'material';
+            var hintProto = document.getElementById('edit-gallery-hint-prototype');
+            var hintPart = document.getElementById('edit-gallery-hint-part');
+            var hintMat = document.getElementById('edit-gallery-hint-material');
+            if (hintProto) hintProto.classList.toggle('d-none', !isProto);
+            if (hintPart) hintPart.classList.toggle('d-none', !isPart);
+            if (hintMat) hintMat.classList.toggle('d-none', !isMaterial);
+            var galLabel = document.getElementById('edit-gallery-images-label');
+            if (galLabel) {
+                galLabel.textContent = isMaterial
+                    ? tr('baseModels.materialGalleryLabel', '材料圖片（多角度／細節）')
+                    : tr('baseModels.productImagesGalleryLabel', '產品圖片（多角度／多色款）');
+            }
+            var subWrap = document.getElementById('edit-subcategory-wrap');
+            if (subWrap) subWrap.classList.toggle('d-none', !isProto);
+            var editImgOpts = document.getElementById('edit-image-options');
+            if (editImgOpts) editImgOpts.classList.add('d-none');
+            Pending.syncEditGalleryMaterialUi(isMaterial);
+            if (EditGallery && EditGallery.syncUpscaleHint) EditGallery.syncUpscaleHint();
+            var surfEl = document.getElementById('edit-material-surface-type');
+            if (surfEl && item) {
+                var sem = item.image_semantics_json;
+                surfEl.value = (sem && sem.material_surface_type) ? String(sem.material_surface_type) : materialSurfaceFromItem(item);
+            }
+        }
+
         function openEditModal(item) {
             editItemCache = item;
             document.getElementById('edit-id').value = item.id;
@@ -1286,10 +1319,7 @@
             document.getElementById('edit-description').value = item.description || '';
             document.getElementById('edit-image').value = '';
             showLocalImagePreview(document.getElementById('edit-new-image-preview'), null);
-            var hintProto = document.getElementById('edit-gallery-hint-prototype');
-            var hintPart = document.getElementById('edit-gallery-hint-part');
-            if (hintProto) hintProto.classList.toggle('d-none', kindNorm !== 'prototype');
-            if (hintPart) hintPart.classList.toggle('d-none', kindNorm !== 'part');
+            syncSupplierEditGalleryUi(kindNorm, item);
             document.getElementById('edit-optimize-image').checked = false;
             editPending.tags = Array.isArray(item.ai_tags) ? item.ai_tags.slice() : [];
             renderEditTags();
