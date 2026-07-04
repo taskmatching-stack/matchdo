@@ -80,10 +80,181 @@
     document.querySelectorAll('.edit-gallery-upscale-points').forEach(function (el) {
       el.textContent = String(upscale);
     });
+    var hint = document.getElementById('edit-gallery-ai-vs-preview-hint');
+    if (hint) {
+      var trFn = getCfg().tr || function (_k, fb) { return fb; };
+      hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">' + upscale + '</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。';
+    }
     var settings = document.getElementById('edit-gallery-redraw-settings');
     var grid = document.getElementById('edit-gallery-grid');
     var hasItems = grid && grid.querySelector('.pending-image-card');
     if (settings) settings.classList.toggle('d-none', !hasItems);
+  }
+  function trLocal(k, fb) {
+    var trFn = getCfg().tr;
+    return trFn ? trFn(k, fb) : fb;
+  }
+  function pendingUpscaleAiEditHelpHtml() {
+    return Pending.pendingUpscaleAiEditHelpHtml ? Pending.pendingUpscaleAiEditHelpHtml(false) : '';
+  }
+  function gridDisableEditGalleryActions(disabled) {
+    var inputMulti = document.getElementById('edit-gallery-add');
+    var btnPendingOnly = document.getElementById('btn-edit-upload-pending-only');
+    var btnPendingClear = document.getElementById('btn-edit-clear-pending');
+    if (inputMulti) inputMulti.disabled = disabled;
+    if (btnPendingOnly) btnPendingOnly.disabled = disabled;
+    if (btnPendingClear) btnPendingClear.disabled = disabled;
+    var grid = document.getElementById('edit-gallery-grid');
+    if (grid) {
+      grid.querySelectorAll('.btn-gallery-redraw-one, .btn-gallery-upscale-one, .btn-gallery-del, .btn-gallery-set-cover, .btn-gallery-move-left, .btn-gallery-move-right').forEach(function (el) {
+        el.disabled = disabled;
+      });
+      grid.querySelectorAll('.edit-gallery-col').forEach(function (col) {
+        col.draggable = !disabled;
+      });
+    }
+  }
+  var editGalleryDragUrl = null;
+  function collectEditGalleryOrderFromGrid(grid) {
+    if (!grid) return [];
+    return Array.from(grid.querySelectorAll('.edit-gallery-col')).map(function (el) {
+      return el.getAttribute('data-gallery-url');
+    }).filter(Boolean);
+  }
+  function applyEditItemFromApi(item) {
+    if (item && getCfg().updateEditItem) getCfg().updateEditItem(item);
+    return item;
+  }
+  async function persistGalleryOrderFromUrls(orderedUrls) {
+    var id = document.getElementById('edit-id').value;
+    if (!id || !orderedUrls || !orderedUrls.length) return;
+    if (editGalleryUploading) {
+      setEditGalleryStatus('上一批仍在處理中，請稍候', 'warning');
+      return;
+    }
+    editGalleryUploading = true;
+    gridDisableEditGalleryActions(true);
+    setEditGalleryStatus('儲存順序中…', 'info');
+    try {
+      var tok = getToken();
+      if (!tok) { setEditGalleryStatus('請先登入', 'danger'); return; }
+      var getItemFn = getCfg().getEditItem;
+      var prevItem = typeof getItemFn === 'function' ? getItemFn() : null;
+      var r = await fetch(apiItemBase(id) + '/gallery-images/order', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: orderedUrls })
+      });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        var errMsg = data.error || data.message || ('排序儲存失敗 (HTTP ' + r.status + ')');
+        setEditGalleryStatus(errMsg, 'danger');
+        showToast(errMsg, 'danger');
+        if (prevItem) renderEditGallery(prevItem);
+        return;
+      }
+      var item = applyEditItemFromApi(data.item);
+      renderEditGallery(item);
+      setEditGalleryStatus('已更新順序', 'success');
+    } catch (err) {
+      setEditGalleryStatus(err.message || '排序儲存失敗', 'danger');
+      showToast(err.message, 'danger');
+    } finally {
+      editGalleryUploading = false;
+      gridDisableEditGalleryActions(false);
+    }
+  }
+  async function moveGalleryImage(url, delta) {
+    var getItemFn = getCfg().getEditItem;
+    var item = typeof getItemFn === 'function' ? getItemFn() : null;
+    if (!item || !url) return;
+    var urls = catalogImageUrls(item);
+    var idx = urls.indexOf(url);
+    if (idx < 0) return;
+    var newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= urls.length) return;
+    var next = urls.slice();
+    var tmp = next[idx];
+    next[idx] = next[newIdx];
+    next[newIdx] = tmp;
+    await persistGalleryOrderFromUrls(next);
+  }
+  async function setGalleryCover(url) {
+    var id = document.getElementById('edit-id').value;
+    if (!id || !url) return;
+    if (editGalleryUploading) {
+      setEditGalleryStatus('上一批仍在處理中，請稍候', 'warning');
+      return;
+    }
+    editGalleryUploading = true;
+    gridDisableEditGalleryActions(true);
+    setEditGalleryStatus('設定封面中…', 'info');
+    try {
+      var tok = getToken();
+      if (!tok) { setEditGalleryStatus('請先登入', 'danger'); return; }
+      var r = await fetch(apiItemBase(id) + '/gallery-images/cover', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+      });
+      var data = await r.json().catch(function () { return {}; });
+      if (!r.ok) {
+        var errMsg = data.error || data.message || ('設定封面失敗 (HTTP ' + r.status + ')');
+        setEditGalleryStatus(errMsg, 'danger');
+        showToast(errMsg, 'danger');
+        return;
+      }
+      var item = applyEditItemFromApi(data.item);
+      renderEditGallery(item);
+      setEditGalleryStatus('已設為封面', 'success');
+      showToast(trLocal('baseModels.coverSet', '已設為封面'), 'success');
+    } catch (err) {
+      setEditGalleryStatus(err.message || '設定封面失敗', 'danger');
+      showToast(err.message, 'danger');
+    } finally {
+      editGalleryUploading = false;
+      gridDisableEditGalleryActions(false);
+    }
+  }
+  function bindEditGalleryReorder(grid) {
+    if (!grid) return;
+    grid.querySelectorAll('.edit-gallery-col').forEach(function (col) {
+      col.addEventListener('dragstart', function (e) {
+        if (editGalleryUploading) { e.preventDefault(); return; }
+        editGalleryDragUrl = col.getAttribute('data-gallery-url');
+        col.classList.add('dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', editGalleryDragUrl); } catch (_) {}
+        }
+      });
+      col.addEventListener('dragend', function () {
+        col.classList.remove('dragging');
+        editGalleryDragUrl = null;
+      });
+      col.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        if (!editGalleryDragUrl || editGalleryDragUrl === col.getAttribute('data-gallery-url')) return;
+        var dragEl = null;
+        grid.querySelectorAll('.edit-gallery-col').forEach(function (el) {
+          if (el.getAttribute('data-gallery-url') === editGalleryDragUrl) dragEl = el;
+        });
+        if (!dragEl || dragEl === col) return;
+        var rect = col.getBoundingClientRect();
+        var after = (e.clientX - rect.left) > rect.width / 2;
+        if (after) grid.insertBefore(dragEl, col.nextSibling);
+        else grid.insertBefore(dragEl, col);
+      });
+      col.addEventListener('drop', function (e) {
+        e.preventDefault();
+        var getItemFn = getCfg().getEditItem;
+        var item = typeof getItemFn === 'function' ? getItemFn() : null;
+        var prev = item ? catalogImageUrls(item) : [];
+        var next = collectEditGalleryOrderFromGrid(grid);
+        if (!next.length || prev.join('\0') === next.join('\0')) return;
+        persistGalleryOrderFromUrls(next);
+      });
+    });
   }
   function getEditGalleryOptimizeBackground() {
     var sel = document.getElementById('edit-gallery-optimize-bg');
@@ -195,53 +366,93 @@
       return;
     }
     var upscaleOn = vendorUpscaleEnabledForEdit();
+    var lightboxItemsJson = esc(JSON.stringify(items.map(function (x) {
+      return { url: x.url, label: x.label || '' };
+    }))).replace(/"/g, '&quot;');
     grid.innerHTML = items.map(function (it, idx) {
       var url = it.url;
       var slot = getEditGallerySlot(url);
       var hasPreview = slot && pendingHasDerivedPreview(slot);
       var isCover = !!(it.is_cover || idx === 0);
-      var coverBadge = isCover ? '<span class="badge bg-success" style="font-size:0.65rem">封面</span>' : '';
+      var isNew = editGalleryHighlightUrls.has(url);
+      var coverBadge = isCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(trLocal('baseModels.coverImage', '封面')) + '</span>' : '';
+      var newBadge = (isNew && !hasPreview) ? '<span class="badge bg-success" style="font-size:0.65rem">新上傳</span>' : '';
       var labelField = isCover
         ? '<input type="text" class="form-control form-control-sm mt-1 pending-card-label" id="edit-cover-label" placeholder="封面名稱" value="' + esc(it.label || '') + '">'
         : '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-gallery-label-input" data-url="' + esc(url) + '" placeholder="圖片名稱" value="' + esc(it.label || '') + '">';
       var slotPrefix = 'egslot-' + idx;
       var imgHtml = (slot && slot.imageBusy)
         ? '<div class="text-muted small text-center py-4">處理中…</div>'
-        : ('<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="">');
+        : ('<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="預覽放大" data-image-items="' + lightboxItemsJson + '">');
       var previewBlock = hasPreview ? editGalleryPreviewBlock(slot, slotPrefix) : '';
       var upscaleBtn = upscaleOn
-        ? '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
+        ? ('<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml())
         : '';
       var actions = '<div class="pending-actions">' +
+        (items.length > 1
+          ? ('<div class="d-flex align-items-center gap-1 mb-1 edit-gallery-move-row w-100">' +
+            '<span class="text-muted edit-gallery-drag" title="' + esc(trLocal('baseModels.catalogGroupsDrag', '拖曳排序')) + '"><i class="bi bi-grip-vertical"></i></span>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-move-left py-0 px-1"' + (idx > 0 ? '' : ' disabled') + ' data-url="' + esc(url) + '" title="' + esc(trLocal('baseModels.galleryMoveLeft', '往前')) + '"><i class="bi bi-chevron-left"></i></button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-move-right py-0 px-1"' + (idx < items.length - 1 ? '' : ' disabled') + ' data-url="' + esc(url) + '" title="' + esc(trLocal('baseModels.galleryMoveRight', '往後')) + '"><i class="bi bi-chevron-right"></i></button>' +
+            '</div>')
+          : '') +
         '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
         upscaleBtn +
         (hasPreview ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-preview" data-url="' + esc(url) + '">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
         (!isCover
-          ? '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
+          ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(trLocal('baseModels.setAsCover', '設為封面')) + '</button>' +
+            '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
           : pendingCardActionSpacer()) +
         '</div>';
-      return '<div class="col-6 col-sm-4 col-md-3"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
-        pendingCardBadgeRow(coverBadge, '') +
+      return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="true" data-gallery-url="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
+        pendingCardBadgeRow(coverBadge, newBadge) +
         '<div class="pending-card-media">' + imgHtml + '</div>' +
         (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
         labelField + actions + '</div></div>';
     }).join('');
     grid.querySelectorAll('.btn-gallery-redraw-one').forEach(function (btn) {
-      btn.addEventListener('click', function () { previewGallerySlotRedraw(item, btn.getAttribute('data-url')); });
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        previewGallerySlotRedraw(item, btn.getAttribute('data-url'));
+      });
     });
     grid.querySelectorAll('.btn-gallery-clear-preview').forEach(function (btn) {
-      btn.addEventListener('click', function () {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
         delete editGallerySlotPreview[btn.getAttribute('data-url')];
-        renderEditGallery(getCfg().getEditItem());
+        var getItemFn = getCfg().getEditItem;
+        renderEditGallery(typeof getItemFn === 'function' ? getItemFn() : item);
       });
     });
     grid.querySelectorAll('.btn-gallery-del').forEach(function (btn) {
-      btn.addEventListener('click', function () {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
         if (getCfg().deleteGalleryImage) getCfg().deleteGalleryImage(btn.getAttribute('data-url'));
       });
     });
+    grid.querySelectorAll('.btn-gallery-set-cover').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setGalleryCover(btn.getAttribute('data-url'));
+      });
+    });
+    grid.querySelectorAll('.btn-gallery-move-left').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        moveGalleryImage(btn.getAttribute('data-url'), -1);
+      });
+    });
+    grid.querySelectorAll('.btn-gallery-move-right').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        moveGalleryImage(btn.getAttribute('data-url'), 1);
+      });
+    });
     grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
-      btn.addEventListener('click', function () { upscaleGalleryImage(item, btn.getAttribute('data-url')); });
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        upscaleGalleryImage(item, btn.getAttribute('data-url'));
+      });
     });
     items.forEach(function (it, idx) {
       var slot = editGallerySlotPreview[it.url];
@@ -257,6 +468,7 @@
         inp.addEventListener('input', function () { scheduleLabels(editId); });
       });
     }
+    bindEditGalleryReorder(grid);
     syncEditGalleryRedrawSettings();
   }
   async function previewGallerySlotRedraw(item, sourceUrl) {
