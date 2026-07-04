@@ -144,9 +144,7 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold">子分類 <span class="text-danger">*</span></label><select class="form-select add-subcategory" required><option value="">— 請選擇 —</option></select></div>
                                 <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.platformCategoryPrototypeHint">數位原型必選平台子分類（影響製造商匯入後設計端生圖提示詞）；「我的分類」僅供瀏覽排序。</p></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="baseModels.minOrderQty">最小訂購量（件） <span class="text-danger">*</span></label><input type="number" class="form-control add-min-order-qty" min="1" step="1" inputmode="numeric" required data-i18n-placeholder="baseModels.minOrderQtyPlaceholder" placeholder="例：50"></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.style">款式（選填）</label><input type="text" class="form-control add-style" name="style" data-i18n-placeholder="supplierManage.style" placeholder="款式"></div>
-                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">至少一項。單色與彩色表面圖文只能擇一（點選即互斥）。主體顏色／材質、尺寸／零件、造型／結構可複選。</p><div class="add-customization-levels border rounded p-2"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
@@ -310,10 +308,8 @@
                         <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-subcategory" required><option value="">— 請選擇 —</option></select></div>
                         <div id="edit-spec-prototype" class="d-none">
                             <div class="row g-2 mb-3">
-                                <div class="col-md-6"><label class="form-label" data-i18n="baseModels.minOrderQty">最小訂購量（件）</label><input type="number" class="form-control" id="edit-min-order-qty" min="1" step="1"></div>
                                 <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.style">款式（選填）</label><input type="text" class="form-control" id="edit-style"></div>
                                 <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.fit">版型（選填）</label><input type="text" class="form-control" id="edit-fit"></div>
-                                <div class="col-12"><label class="form-label" data-i18n="baseModels.customizationLevels">訂製程度</label><div id="edit-customization-levels" class="border rounded p-2"></div></div>
                             </div>
                         </div>
                         <div id="edit-spec-material" class="d-none">
@@ -442,109 +438,17 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
-        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704b';
+        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704c';
         var referencesModal = null;
         var CATALOG_MAX_IMAGES = 12;
-        var CUSTOMIZATION_LEVEL_OPTIONS = [
-            { key: 'mono_graphic', i18n: 'baseModels.customLevelMonoGraphic', fb: '單色表面圖文' },
-            { key: 'color_graphic', i18n: 'baseModels.customLevelColorGraphic', fb: '彩色表面圖文' },
-            { key: 'color_material', i18n: 'baseModels.customLevelColorMaterial', fb: '主體顏色／材質' },
-            { key: 'size_part', i18n: 'baseModels.customLevelSizePart', fb: '尺寸／零件' },
-            { key: 'form_structure', i18n: 'baseModels.customLevelFormStructure', fb: '造型／結構' }
-        ];
-        var GRAPHIC_CUSTOMIZATION_LEVELS = ['mono_graphic', 'color_graphic'];
-        var CUSTOMIZATION_LEVEL_LABELS = {
-            mono_graphic: '單色表面圖文',
-            color_graphic: '彩色表面圖文',
-            color_material: '主體顏色／材質',
-            size_part: '尺寸／零件',
-            form_structure: '造型／結構'
-        };
-        function hasBothGraphicLevels(keys) {
-            var out = keys || [];
-            return out.indexOf('mono_graphic') >= 0 && out.indexOf('color_graphic') >= 0;
-        }
-        function sanitizeGraphicLevelsClient(keys) {
-            var out = (keys || []).slice();
-            if (hasBothGraphicLevels(out)) out = out.filter(function (k) { return k !== 'mono_graphic'; });
-            return out;
-        }
-        function renderLevelButton(opt, selected) {
-            var label = tr(opt.i18n, opt.fb);
-            var on = !!selected[opt.key];
-            var graphicAttr = GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(opt.key) >= 0 ? ' data-graphic-mutex="1"' : '';
-            return '<button type="button" class="btn btn-sm btn-outline-secondary customization-level-btn' + (on ? ' active' : '') + '" data-level="' + esc(opt.key) + '"' + graphicAttr + ' aria-pressed="' + (on ? 'true' : 'false') + '">' + esc(label) + '</button>';
-        }
-        function bindCustomizationLevelButtons(container) {
-            if (!container || container._clBtnBound) return;
-            container._clBtnBound = true;
-            container.addEventListener('click', function (e) {
-                var btn = e.target.closest('.customization-level-btn');
-                if (!btn || !container.contains(btn)) return;
-                var isGraphic = btn.getAttribute('data-graphic-mutex') === '1';
-                if (isGraphic) {
-                    var willActivate = !btn.classList.contains('active');
-                    if (willActivate) {
-                        container.querySelectorAll('.customization-level-btn[data-graphic-mutex="1"]').forEach(function (gBtn) {
-                            gBtn.classList.remove('active');
-                            gBtn.setAttribute('aria-pressed', 'false');
-                        });
-                        btn.classList.add('active');
-                        btn.setAttribute('aria-pressed', 'true');
-                    } else {
-                        btn.classList.remove('active');
-                        btn.setAttribute('aria-pressed', 'false');
-                    }
-                    return;
-                }
-                btn.classList.toggle('active');
-                btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
-            });
-        }
-        function renderCustomizationLevelButtons(container, selectedKeys) {
-            if (!container) return;
-            bindCustomizationLevelButtons(container);
-            var selected = {};
-            sanitizeGraphicLevelsClient(selectedKeys || []).forEach(function (k) { selected[String(k)] = true; });
-            var graphicOpts = CUSTOMIZATION_LEVEL_OPTIONS.filter(function (o) { return GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(o.key) >= 0; });
-            var otherOpts = CUSTOMIZATION_LEVEL_OPTIONS.filter(function (o) { return GRAPHIC_CUSTOMIZATION_LEVELS.indexOf(o.key) < 0; });
-            container.innerHTML =
-                '<div class="w-100"><span class="small text-muted">' + esc(tr('baseModels.surfaceGraphicPickOne', '表面圖文（擇一，可不選）')) + '</span></div>' +
-                '<div class="d-flex flex-wrap gap-2 mb-2 pt-1">' + graphicOpts.map(function (opt) { return renderLevelButton(opt, selected); }).join('') + '</div>' +
-                '<div class="d-flex flex-wrap gap-2">' + otherOpts.map(function (opt) { return renderLevelButton(opt, selected); }).join('') + '</div>';
-        }
-        function getSelectedCustomizationLevels(container) {
-            if (!container) return [];
-            var out = [];
-            container.querySelectorAll('.customization-level-btn.active').forEach(function (btn) {
-                var v = btn.getAttribute('data-level');
-                if (v && out.indexOf(v) < 0) out.push(v);
-            });
-            return out;
-        }
-        function validateCustomizationLevelsSelection(levels) {
-            if (!levels || !levels.length) return tr('baseModels.needCustomizationLevel', '請至少選擇一項訂製程度');
-            if (hasBothGraphicLevels(levels)) return tr('baseModels.graphicMutexError', '單色表面圖文與彩色表面圖文只能擇一');
-            return '';
-        }
-        function initPrototypeMetaFields() {
-            document.querySelectorAll('.add-customization-levels').forEach(function (el) {
-                renderCustomizationLevelButtons(el, []);
-            });
-            renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), []);
-        }
         function itemSpecJson(item) {
             return (item && item.spec_json && typeof item.spec_json === 'object') ? item.spec_json : {};
         }
         function appendSpecFieldsToFormData(fd, form, kind) {
             kind = normalizeKind(kind);
             if (kind === 'prototype') {
-                var moqEl = form.querySelector('.add-min-order-qty');
-                if (moqEl) fd.append('min_order_quantity', (moqEl.value || '').trim());
                 var styleEl = form.querySelector('.add-style');
                 if (styleEl && styleEl.value.trim()) fd.append('style', styleEl.value.trim());
-                var clBox = form.querySelector('.add-customization-levels');
-                fd.append('customization_levels', JSON.stringify(getSelectedCustomizationLevels(clBox)));
             } else if (kind === 'material') {
                 [['add-material-type', 'material_type'], ['add-color', 'color'], ['add-composition', 'composition'], ['add-finish', 'finish'], ['add-width-cm', 'width_cm']].forEach(function (pair) {
                     var el = form.querySelector('.' + pair[0]);
@@ -560,12 +464,10 @@
         function appendEditSpecToFormData(fd, kind) {
             kind = normalizeKind(kind);
             if (kind === 'prototype') {
-                fd.append('min_order_quantity', (document.getElementById('edit-min-order-qty').value || '').trim());
                 var styleV = (document.getElementById('edit-style').value || '').trim();
                 if (styleV) fd.append('style', styleV);
                 var fitV = (document.getElementById('edit-fit').value || '').trim();
                 if (fitV) fd.append('fit', fitV);
-                fd.append('customization_levels', JSON.stringify(getSelectedCustomizationLevels(document.getElementById('edit-customization-levels'))));
             } else if (kind === 'material') {
                 var mt = document.getElementById('edit-material-type'); if (mt && mt.value.trim()) fd.append('material_type', mt.value.trim());
                 var col = document.getElementById('edit-color'); if (col && col.value.trim()) fd.append('color', col.value.trim());
@@ -586,12 +488,8 @@
             document.getElementById('edit-spec-material').classList.toggle('d-none', kind !== 'material');
             document.getElementById('edit-spec-part').classList.toggle('d-none', kind !== 'part');
             if (kind === 'prototype') {
-                var moq = item.min_order_quantity != null ? item.min_order_quantity : spec.min_order_quantity;
-                document.getElementById('edit-min-order-qty').value = (moq != null && moq !== '') ? String(moq) : '';
                 document.getElementById('edit-style').value = spec.style || '';
                 document.getElementById('edit-fit').value = spec.fit || '';
-                var levels = item.customization_levels || spec.customization_levels || [];
-                renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), levels);
             } else if (kind === 'material') {
                 document.getElementById('edit-material-type').value = spec.material_type || '';
                 document.getElementById('edit-color').value = spec.color || '';
@@ -609,18 +507,10 @@
             kind = normalizeKind(kind);
             var spec = itemSpecJson(item);
             if (kind === 'prototype') {
-                var html = '';
-                var moq = item.min_order_quantity != null ? item.min_order_quantity : spec.min_order_quantity;
-                if (moq != null && Number(moq) >= 1) {
-                    html += '<div class="text-muted small mb-1">' + esc(String(tr('baseModels.moqLine', 'MOQ：{n} 件')).replace(/\{n\}/g, String(moq))) + '</div>';
+                if (spec.style) {
+                    return '<div class="text-muted small mb-1">' + esc(spec.style) + '</div>';
                 }
-                var levels = item.customization_levels || spec.customization_levels || [];
-                if (levels.length) {
-                    html += '<div class="mb-1">' + levels.map(function (k) {
-                        return '<span class="badge bg-light text-dark border me-1">' + esc(CUSTOMIZATION_LEVEL_LABELS[k] || k) + '</span>';
-                    }).join('') + '</div>';
-                }
-                return html;
+                return '';
             }
             var parts = [];
             if (kind === 'material') {
@@ -1462,13 +1352,6 @@
                 if (kind === 'prototype') {
                     var subErr = validatePrototypeSubcategory(subSel, catSel.value);
                     if (subErr) { msgEl.textContent = subErr; return; }
-                    var moqEl = form.querySelector('.add-min-order-qty');
-                    if (!moqEl || !String(moqEl.value || '').trim() || parseInt(moqEl.value, 10) < 1) {
-                        msgEl.textContent = tr('baseModels.needMinOrderQty', '請填寫最小訂購量');
-                        return;
-                    }
-                    var clErr = validateCustomizationLevelsSelection(getSelectedCustomizationLevels(form.querySelector('.add-customization-levels')));
-                    if (clErr) { msgEl.textContent = clErr; return; }
                 }
                 var payload = collectPendingUploadPayload(form);
                 if (!payload.uploadFiles.length) {
@@ -1619,13 +1502,6 @@
                     document.getElementById('edit-category').value
                 );
                 if (editSubErr) { toast(editSubErr, 'warning'); return; }
-                var moqEdit = (document.getElementById('edit-min-order-qty').value || '').trim();
-                if (!moqEdit || parseInt(moqEdit, 10) < 1) {
-                    toast(tr('baseModels.needMinOrderQty', '請填寫最小訂購量'), 'warning');
-                    return;
-                }
-                var clEditErr = validateCustomizationLevelsSelection(getSelectedCustomizationLevels(document.getElementById('edit-customization-levels')));
-                if (clEditErr) { toast(clEditErr, 'warning'); return; }
             }
             var fd = new FormData();
             fd.append('title', document.getElementById('edit-title').value.trim());
@@ -1715,7 +1591,6 @@
                 renderSupplierBar();
                 document.getElementById('main-content').classList.remove('d-none');
                 await Promise.all([loadCategories(), loadUploadPricing(), loadCatalogGroups()]);
-                initPrototypeMetaFields();
                 switchKind('prototype');
                 toast(tr('supplierManage.setupDone', '公司已建立，可以開始上架'), 'success');
             } catch (err) {
@@ -1822,7 +1697,6 @@
                 renderSupplierBar();
                 document.getElementById('main-content').classList.remove('d-none');
                 await Promise.all([loadCategories(), loadUploadPricing(), loadCatalogGroups()]);
-                initPrototypeMetaFields();
                 switchKind('prototype');
             } catch (e) {
                 toast(e.message || '頁面初始化失敗', 'danger');

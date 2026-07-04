@@ -19601,12 +19601,9 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
         if (catalogItem.cover_image_label) {
             insertPayload.cover_image_label = catalogItem.cover_image_label;
         }
-        if (targetKind === 'prototype' || targetKind === 'part') {
-            const protoMeta = supplierCatalogPrototypeMetaFromSpec(spec);
-            insertPayload.min_order_quantity = protoMeta.min_order_quantity || 1;
-            insertPayload.customization_levels = protoMeta.customization_levels.length
-                ? protoMeta.customization_levels
-                : ['color_material'];
+        if (targetKind === 'prototype') {
+            insertPayload.min_order_quantity = null;
+            insertPayload.customization_levels = [];
         }
         if (targetKind === 'prototype' && spec.subcategory_key) {
             insertPayload.subcategory_key = String(spec.subcategory_key).trim();
@@ -19818,19 +19815,6 @@ function parseSupplierCatalogSpecJson(itemKind, body) {
         pickStr('moq_hint');
         pickStr('customization_notes');
         if (body && body.subcategory_key) specJson.subcategory_key = String(body.subcategory_key).trim();
-        if (body && body.min_order_quantity != null && String(body.min_order_quantity).trim() !== '') {
-            const moq = parseInt(body.min_order_quantity, 10);
-            if (Number.isFinite(moq) && moq >= 1) specJson.min_order_quantity = moq;
-        }
-        let cl = body && body.customization_levels;
-        if (typeof cl === 'string') {
-            try { cl = JSON.parse(cl); } catch (_) {
-                cl = cl.split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
-            }
-        }
-        if (Array.isArray(cl) && cl.length) {
-            specJson.customization_levels = normalizeCustomizationLevels(cl);
-        }
     } else if (itemKind === 'part') {
         pickStr('part_type');
         pickStr('finish');
@@ -19840,24 +19824,10 @@ function parseSupplierCatalogSpecJson(itemKind, body) {
     return specJson;
 }
 
-function supplierCatalogPrototypeMetaFromSpec(specRaw) {
-    const spec = specRaw && typeof specRaw === 'object' ? specRaw : {};
-    const moq = spec.min_order_quantity != null ? parseInt(spec.min_order_quantity, 10) : null;
-    return {
-        min_order_quantity: Number.isFinite(moq) && moq >= 1 ? moq : null,
-        customization_levels: normalizeCustomizationLevels(spec.customization_levels || [])
-    };
-}
-
 function mapSupplierCatalogItemForApi(row) {
     if (!row) return row;
     const spec = row.spec_json && typeof row.spec_json === 'object' ? row.spec_json : {};
     const out = { ...row, subcategory_key: spec.subcategory_key || null };
-    if (row.item_kind === 'prototype_set') {
-        const meta = supplierCatalogPrototypeMetaFromSpec(spec);
-        out.min_order_quantity = meta.min_order_quantity;
-        out.customization_levels = meta.customization_levels;
-    }
     let gallery = parseGalleryImages(row.gallery_images);
     if (!gallery.length && spec.gallery_images) gallery = parseGalleryImages(spec.gallery_images);
     out.gallery_images = gallery;
@@ -20876,15 +20846,6 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
             }
         }
         const specJson = parseSupplierCatalogSpecJson(itemKind, body);
-        if (itemKind === 'prototype_set') {
-            const protoMeta = supplierCatalogPrototypeMetaFromSpec(specJson);
-            if (!protoMeta.min_order_quantity) {
-                return res.status(400).json({ error: '請填寫最小訂購量（件）' });
-            }
-            if (!protoMeta.customization_levels.length) {
-                return res.status(400).json({ error: '請至少選擇一項訂製程度' });
-            }
-        }
         const sortOrder = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
         const insertPayload = {
             industry_supplier_id: ctx.supplier.id,
@@ -21095,15 +21056,6 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             }
             if (!subKeyFinal) {
                 return res.status(400).json({ error: '請選擇子分類（數位原型必填，會影響設計端生圖提示詞）' });
-            }
-            const protoMeta = supplierCatalogPrototypeMetaFromSpec(mergedSpec);
-            if (body.min_order_quantity !== undefined || body.customization_levels !== undefined) {
-                if (!protoMeta.min_order_quantity) {
-                    return res.status(400).json({ error: '請填寫最小訂購量（件）' });
-                }
-                if (!protoMeta.customization_levels.length) {
-                    return res.status(400).json({ error: '請至少選擇一項訂製程度' });
-                }
             }
         }
         patch.updated_at = new Date().toISOString();
