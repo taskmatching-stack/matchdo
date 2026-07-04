@@ -10,7 +10,7 @@
 ```text
 ① 本機改程式 → commit
 ② git push origin main        ← 推到 GitHub（版本庫）
-③ 部署指令                    ← 從 GitHub 拉 main 再建置上線
+③ 部署指令                    ← 從 GitHub 拉 main 再建置上線（Cloud Shell 見 **§3.1 整行**，必含 `grep`）
 ```
 
 | 步驟 | 會不會讓 matchdo.cc 變新？ |
@@ -45,53 +45,20 @@ git log -1 --oneline
 
 ---
 
-## 三、部署（三擇一：優先單行，失敗改兩段式）
+## 三、部署
 
 部署前都會 **`git fetch origin main` + `git reset --hard origin/main`**，代表**只部署 GitHub 上的 main**，不是本機未 commit 的檔案。
 
-### 方式 A：Google Cloud Shell（慣用）
+### ⚠️ Cloud Shell 必讀（貼錯指令 = 滿屏紅字，但多半仍會成功）
 
-1. 開啟 [Google Cloud Shell](https://shell.cloud.google.com)，專案選 **matchdo**。
-2. **（建議）** 每次重開 Shell 或第一次看到怪訊息時，先貼兩行（只需幾秒）：
-
-```bash
-gcloud config set account taskmatching@gmail.com
-gcloud config set project matchdo
-```
-
-看到 `Updated property [core/account].` / `[core/project].` 即成功。**中間仍可能刷** `Regional Access Boundary` / `taskmatchlng` — 見下方 **§3.1**，可忽略。
-
-3. **整行貼上部署**（**建議用「安靜版」**，自動過濾上述噪音；邏輯與舊版相同）：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
-```
-
-> 同一行末尾加 `update-traffic --to-latest`，避免流量釘死舊 revision（2026-06-09 實測）。  
-> `grep` 只藏已知噪音，**`Done.`、`revision [...] has been deployed`、錯誤訊息仍會顯示**。
-
-4. 等待約 **5～10 分鐘**（上傳、建置、部署）。
-5. 成功時會出現 **`Done.`**、`revision [...] has been deployed and is serving 100 percent of traffic` 與 `Service URL`。
-
-**若不想用 grep（除錯用）**，可改貼無過濾版（會一直看到 `taskmatchlng` 警告）：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
-```
-
-**若 Shell 顯示「超過 Cloud Shell 用量上限」**：改用法 B，或等額度重置後再貼安靜版那一行。
-
-### 3.1 Cloud Shell：`Regional Access Boundary` / `taskmatchlng`（困擾很久的紅字）
-
-**這是什麼？**  
-執行 `gcloud` 時終端機反覆出現：
+在 Cloud Shell 執行 `gcloud` 時，**未過濾版**會反覆刷：
 
 ```text
 Regional Access Boundary HTTP request failed ...
 Account not found for email: ...taskmatchlng@gmail.com
 ```
 
-這是 **Google Cloud Shell 內建 gcloud 的已知警告**（帳號字串誤成 `taskmatchlng`，不是你的 Gmail 打錯）。**不代表部署失敗。**
+這是 **Google Cloud Shell 內建 gcloud 的已知噪音**（`taskmatchlng` 是 Google 端字串錯誤，**不是你的 Gmail 打錯**）。**不代表部署失敗。**
 
 | 你看到的 | 要不要緊？ |
 |----------|------------|
@@ -99,8 +66,7 @@ Account not found for email: ...taskmatchlng@gmail.com
 | 最後出現 **`Done.`** | **部署成功**，網站已更新 |
 | **`TokenRefreshError`** 或長時間無 `Done.`、建置中斷 | **要緊**，見下方「真的失敗」 |
 
-**怎麼少看到紅字？**  
-§三 方式 A 的 **安靜版** 部署指令（含 `grep -v`）— **請預設用這個**。
+**怎麼避免滿屏紅字？** 下面 **§3.1 整行複製**（含 `grep -v` 過濾）。**禁止**貼不含 `grep` 的舊版單行——邏輯相同，只會多洗幾十行假錯誤。
 
 **真的失敗時（不是 taskmatchlng 噪音）：**
 
@@ -110,11 +76,39 @@ gcloud config set account taskmatching@gmail.com
 gcloud config set project matchdo
 ```
 
-仍不行 → Cloud Shell 右上角 **⋮ → Restart**，重開後再跑安靜版部署。
+仍不行 → Cloud Shell 右上角 **⋮ → Restart**，重開後再跑 **§3.1 安靜版**。
 
 **禁止：** 為了消紅字去改 GitHub 帳號、亂刪 GCP 專案，或以為 `taskmatchlng` 是你的第二個 Google 帳號。
 
-### 方式 B：本機 PowerShell（Cloud Shell 無法使用時）
+---
+
+### 3.1 方式 A：Google Cloud Shell — **唯一預設指令（整行複製）**
+
+1. 開啟 [Google Cloud Shell](https://shell.cloud.google.com)，專案選 **matchdo**。
+2. **（建議）** 每次重開 Shell 先貼兩行：
+
+```bash
+gcloud config set account taskmatching@gmail.com
+gcloud config set project matchdo
+```
+
+3. **整行貼上（這就是正式部署指令，不要改、不要刪末尾 `grep`）：**
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
+```
+
+> 末尾 `update-traffic --to-latest`：避免流量釘死舊 revision。  
+> `grep` 只藏已知噪音；**`Done.`、`revision [...] has been deployed`、真正錯誤仍會顯示**。
+
+4. 等待約 **5～10 分鐘**（上傳、建置、部署）。
+5. 成功時會出現 **`Done.`**、`revision [...] has been deployed and is serving 100 percent of traffic` 與 `Service URL`。
+
+**若 Shell 顯示「超過 Cloud Shell 用量上限」**：改 **§3.2 方式 B（本機 PowerShell）**，或等額度重置後再貼 §3.1 那一行。
+
+---
+
+### 3.2 方式 B：本機 PowerShell（Cloud Shell 無法使用時）
 
 與方式 A **同一套邏輯**，只是終端機改在本機。需已安裝 [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)（`gcloud --version` 有版本即可）。
 
@@ -133,11 +127,11 @@ gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenti
 gcloud config set account taskmatching@gmail.com; gcloud config set project matchdo; cd "d:\AI建站\ai-matching"; git fetch origin main; git reset --hard origin/main; gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image; gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
 
-成功／失敗訊息與方式 A 相同。
+成功／失敗訊息與 §3.1 相同（本機 gcloud **通常不會**刷 `taskmatchlng` 紅字）。
 
-### 方式 C：兩段式部署（§三 單行 `--source` 無法完成時）
+### 3.3 方式 C：兩段式部署（§3.1 單行 `--source` 無法完成時）
 
-**優先仍用方式 A 那一行**；僅在下列情況改本節：
+**優先仍用 §3.1 那一行**；僅在下列情況改本節：
 
 | 症狀 | 說明 |
 |------|------|
@@ -146,18 +140,12 @@ gcloud config set account taskmatching@gmail.com; gcloud config set project matc
 | 單行跑不完、但需上線 | 建置改走 repo 根目錄 **`cloudbuild.yaml`**（手動 docker build，避開上述匯入問題） |
 
 > **說明**：兩段式**不會比單行少傳檔**（第一步仍要上傳 tarball）；慢的是上傳＋建置。Shell 斷線後見下方「Shell 中斷」。  
-> Cloud Shell 若刷 `Regional Access Boundary` / `taskmatchlng`，見 **§3.1**；建議用下方 **安靜版**（與 §三 方式 A 相同 `grep` 過濾）。
+> 同樣**必須用下方整行（含 `grep`）**，勿貼無過濾版。
 
-**Cloud Shell 安靜版整行貼上**（含 `fetch`／`reset`；`BUILD_ID` 由 `--async` 自動取得，勿手貼 UUID）：
+**Cloud Shell 整行貼上（含 `grep`，與 §3.1 相同過濾）：**
 
 ```bash
 cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
-```
-
-**Cloud Shell 整行貼上（無過濾，除錯用）**：
-
-```bash
-cd ~/matchdo && git fetch origin main && git reset --hard origin/main && BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest
 ```
 
 > **勿用** `--format='value(id)'` **不帶 `--async`**：同步 submit 會把整段 build log 灌進 `BUILD_ID`，導致 `gcloud run deploy` 報 `unrecognized arguments`。
@@ -182,9 +170,10 @@ gcloud builds list --region=asia-northeast1 --limit=3
 
 | ❌ 錯誤 | 說明 |
 |--------|------|
+| Cloud Shell 貼**不含 `grep -v`** 的 deploy 單行 | 會滿屏 `taskmatchlng` 假錯誤；**一律用 §3.1 整行** |
 | 平常用 `update-traffic` **代替**部署 | 只切流量、**不會**重新建置映像 |
 | 拆掉 `fetch` + `reset --hard` 直接 deploy | 可能部署本機未 push 的舊檔 |
-| 自行改 `gcloud run deploy` 參數 | 方式 A／B 須一致：`--source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image`；**備援**見 §三 方式 C |
+| 自行改 `gcloud run deploy` 參數 | §3.1／§3.2 須一致：`--source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image`；**備援**見 §3.3 |
 
 ---
 
@@ -241,16 +230,16 @@ gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spe
 
 `traffic` 應指向**新 revision**（含 tag 或新 `revisionName`），不應再只有舊的 `00374-c7d`。
 
-釘子拔掉後，**§三 那一行 `--source` deploy 應可恢復正常**（新版本會自動接流量）。
+釘子拔掉後，**§3.1 那一行 `--source` deploy 應可恢復正常**（新版本會自動接流量）。
 
-> **說明**：`update-traffic` 在此僅用於**排除流量釘死**；平常上線仍用 §三 建置＋部署，不要只用 `update-traffic` 當部署。
+> **說明**：`update-traffic` 在此僅用於**排除流量釘死**；平常上線仍用 §3.1 建置＋部署，不要只用 `update-traffic` 當部署。
 
 ---
 
 ## 六、日後選用：GitHub push 自動部署 Cloud Run（**現階段不啟用**）
 
 > **決策（2026-06-06）**：計畫日後改設 **Cloud Build 觸發**（push `main` 即建置並部署），但**現在不適合啟用**——擔心每次 push 會自動上線**非預期或尚未驗收的版本**。  
-> **目前正式流程維持 §一～§三**：先 push，再**手動**於 Cloud Shell 部署；**禁止**現在去 GCP 建立觸發條件，也**禁止** Agent 代為設定。
+> **目前正式流程維持 §一～§3.1**：先 push，再**手動**於 Cloud Shell 貼 **§3.1 整行**；**禁止**現在去 GCP 建立觸發條件，也**禁止** Agent 代為設定。
 
 ### 為何日後仍值得做
 
@@ -274,7 +263,7 @@ gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spe
 
 啟用後流程才變成：**改程式 → commit → `git push origin main`** 即自動上線。
 
-**現狀**：未建立觸發條件，**僅 push 不會上線**（見 §一）。
+**現狀**：未建立觸發條件，**僅 push 不會上線**（見 §一）。正式部署指令見 **§3.1**（Cloud Shell 整行含 `grep`）。
 
 ---
 
@@ -285,8 +274,9 @@ gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spe
 | 「從 GitHub 部署」 | 部署前先 `fetch` + `reset --hard origin/main`，來源是 GitHub `main` |
 | 「本機部署」 | 在本機終端機執行 `gcloud run deploy`；若**有**先 reset 到 `origin/main`，仍等同從 GitHub 部署 |
 | 「push 就會上線」 | **僅在**已設 Cloud Build 觸發時成立 |
-| `taskmatchlng` / `Regional Access Boundary` 紅字 | Cloud Shell **gcloud 噪音**，見 **§3.1**；用 **安靜版** 部署指令可過濾 |
-| 部署有沒有成功？ | 看有沒有 **`Done.`** 與新 revision（§5.1），不是看有沒有紅字 |
+| `taskmatchlng` / `Regional Access Boundary` 紅字 | Cloud Shell **gcloud 噪音**（見 §三開頭）；**用 §3.1 含 `grep` 的整行**可過濾 |
+| 部署有沒有成功？ | 看有沒有 **`Done.`** 與新 revision（§5.1），**不是**看有沒有紅字 |
+| Agent／文件給的 Cloud Shell 指令 | **必須**含 `grep --line-buffered -v -E 'Regional Access Boundary\|taskmatchlng'` |
 
 ---
 
@@ -298,7 +288,7 @@ gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spe
 gcloud builds list --region=asia-northeast1 --limit=1
 ```
 
-若為 `gcloud run deploy --source` 的 **`Container import failed`** 或上傳卡住，改 **§三 方式 C（兩段式）**。
+若為 `gcloud run deploy --source` 的 **`Container import failed`** 或上傳卡住，改 **§3.3 方式 C（兩段式）**。
 
 ---
 

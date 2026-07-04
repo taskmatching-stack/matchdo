@@ -15,9 +15,9 @@ alwaysApply: true
 
 禁止未 push 就叫使用者部署。
 
-## 正確部署指令（Cloud Shell 或本機 PowerShell 相同邏輯）
+## Cloud Shell 部署指令（Agent 給使用者時必用此整行）
 
-**Cloud Shell（安靜版，預設用這個 — 過濾 `Regional Access Boundary` / `taskmatchlng` 噪音，見 deploy 文件 §3.1）：**
+**禁止**提供不含 `grep -v` 的 Cloud Shell 單行——會滿屏 `Regional Access Boundary` / `taskmatchlng` 假錯誤（Google 已知噪音，見 deploy 文件 §三開頭）。
 
 ```bash
 gcloud config set account taskmatching@gmail.com
@@ -25,17 +25,17 @@ gcloud config set project matchdo
 cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
 ```
 
-（末尾 `update-traffic --to-latest`：避免流量釘在舊 revision、deploy 顯示 Done 卻沒換程式。成功以 **`Done.`** 为准。）
+（末尾 `update-traffic --to-latest`：避免流量釘在舊 revision。成功以 **`Done.`** 為準。）
 
-**單行 `--source` 失敗時**（上傳卡住、`Container import failed`、Shell 中斷）— Cloud Shell **安靜版整行**：
+**§3.1 單行 `--source` 失敗時**（上傳卡住、`Container import failed`、Shell 中斷）— Cloud Shell **整行（同樣含 grep）**：
 
 ```bash
 cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( BUILD_ID=$(gcloud builds submit --config=cloudbuild.yaml --region=asia-northeast1 --async --format='value(id)') && gcloud builds log $BUILD_ID --region=asia-northeast1 --stream && gcloud run deploy matchdo --image=asia-northeast1-docker.pkg.dev/matchdo/cloud-run-source-deploy/matchdo:$BUILD_ID --region=asia-northeast1 --allow-unauthenticated && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
 ```
 
-詳見 `docs/deploy-matchdo-push-and-deploy.md` §三 方式 C。
+詳見 `docs/deploy-matchdo-push-and-deploy.md` §3.3。
 
-**本機 PowerShell（Shell 額度滿時）：** 與 Cloud Shell **同一套 `gcloud run deploy` 參數**（含 `--clear-base-image`）。先 `gcloud config set account taskmatching@gmail.com`、`gcloud config set project matchdo`，再於專案目錄 `git fetch` + `reset --hard origin/main` + 部署（見 `docs/deploy-matchdo-push-and-deploy.md` 方式 B）。
+**本機 PowerShell（Shell 額度滿時）：** 與 Cloud Shell **同一套 `gcloud run deploy` 參數**（含 `--clear-base-image`）。先 `gcloud config set account taskmatching@gmail.com`、`gcloud config set project matchdo`，再於專案目錄 `git fetch` + `reset --hard origin/main` + 部署（見 deploy 文件 §3.2）。本機通常不會刷 `taskmatchlng` 紅字。
 
 ## 部署後自查
 
@@ -43,11 +43,12 @@ cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( BUILD
 gcloud run services describe matchdo --region=asia-northeast1 --format='yaml(spec.traffic,status.latestReadyRevisionName)'
 ```
 
-`spec.traffic` 應指向**本次新 revision**；若永遠釘在同一個舊 `revisionName`，見 `docs/deploy-matchdo-push-and-deploy.md` **§五**（tag + `update-traffic` 排除流量釘死）。
+`spec.traffic` 應指向**本次新 revision**；若永遠釘在同一個舊 `revisionName`，見 `docs/deploy-matchdo-push-and-deploy.md` **§5.2**（tag + `update-traffic` 排除流量釘死）。
 
 ## 禁止
 
-- ❌ 平常用 `update-traffic` **代替**部署（僅 §五 排除流量釘死時可用）
+- ❌ **Cloud Shell 給使用者不含 `grep -v` 的 deploy 指令**（會誤以為部署失敗）
+- ❌ 平常用 `update-traffic` **代替**部署（僅 §5.2 排除流量釘死時可用）
 - ❌ 未 push 就部署
 - ❌ 未設觸發卻說「push 就好」
 - ❌ 跳過 `git fetch` + `reset --hard` 直接 deploy 本機未同步目錄
