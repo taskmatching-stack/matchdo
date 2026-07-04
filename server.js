@@ -19999,6 +19999,169 @@ function reorderSupplierCatalogCoverFromUrl(row, targetUrl) {
     return reorderSupplierCatalogGalleryFromUrls(row, reordered);
 }
 
+const SUPPLIER_CATALOG_SYNC_SELECT =
+    'id, item_kind, title, description, cover_image_url, cover_image_label, gallery_images, spec_json, category_key, ai_tags, image_semantics_json, tags_source, industry_supplier_id, industry_suppliers(id, name, contact_json)';
+
+function buildSupplierCatalogImportSnapshot(catalogItem, supplier) {
+    const spec = catalogItem.spec_json && typeof catalogItem.spec_json === 'object' ? catalogItem.spec_json : {};
+    return {
+        supplier_id: catalogItem.industry_supplier_id,
+        supplier_name: supplier ? supplier.name : null,
+        supplier_contact: supplier ? supplier.contact_json : null,
+        catalog_item_id: catalogItem.id,
+        title: catalogItem.title,
+        description: catalogItem.description,
+        cover_image_url: catalogItem.cover_image_url,
+        spec_json: spec
+    };
+}
+
+function buildVendorAssetSyncPatchFromSupplierCatalogItem(catalogItem) {
+    const spec = catalogItem.spec_json && typeof catalogItem.spec_json === 'object' ? catalogItem.spec_json : {};
+    const targetKind = catalogItem.item_kind === 'prototype_set'
+        ? 'prototype'
+        : (catalogItem.item_kind === 'part' ? 'part' : 'material');
+    const patch = {
+        updated_at: new Date().toISOString(),
+        category_key: (catalogItem.category_key || '').trim() || 'other',
+        asset_kind: targetKind
+    };
+    if (catalogItem.cover_image_url) patch.image_url = catalogItem.cover_image_url;
+    if (Array.isArray(catalogItem.ai_tags)) {
+        patch.ai_tags = catalogItem.ai_tags;
+        patch.ai_tags_generated_at = new Date().toISOString();
+    }
+    if (catalogItem.image_semantics_json) {
+        patch.image_semantics_json = catalogItem.image_semantics_json;
+    }
+    const catalogGallery = parseGalleryImages(catalogItem.gallery_images);
+    if (!catalogGallery.length && spec.gallery_images) {
+        patch.gallery_images = parseGalleryImages(spec.gallery_images);
+    } else {
+        patch.gallery_images = catalogGallery;
+    }
+    const coverLabel = catalogItem.cover_image_label || spec.cover_image_label;
+    if (coverLabel) patch.cover_image_label = String(coverLabel).trim() || null;
+    if (targetKind === 'prototype' && spec.subcategory_key) {
+        patch.subcategory_key = String(spec.subcategory_key).trim();
+    }
+    return patch;
+}
+
+async function syncImportedVendorAssetsFromCatalogItem(catalogItemId) {
+    if (!catalogItemId || !(await supplierCatalogTablesReady())) return 0;
+    let { data: catalogItem, error: catErr } = await supabase
+        .from('supplier_catalog_items')
+        .select(SUPPLIER_CATALOG_SYNC_SELECT)
+        .eq('id', catalogItemId)
+        .maybeSingle();
+    if (catErr && isSupabaseMissingColumnError(catErr)) {
+        ({ data: catalogItem, error: catErr } = await supabase
+            .from('supplier_catalog_items')
+            .select(SUPPLIER_CATALOG_ITEM_LEGACY_SELECT + ', ai_tags, image_semantics_json, tags_source, industry_supplier_id, industry_suppliers(id, name, contact_json)')
+            .eq('id', catalogItemId)
+            .maybeSingle());
+    }
+    if (catErr || !catalogItem) return 0;
+    const { data: imports, error: impErr } = await supabase
+        .from('manufacturer_supplier_imports')
+        .select('id, vendor_asset_id')
+        .eq('catalog_item_id', catalogItemId);
+    if (impErr || !imports || !imports.length) return 0;
+
+    const sup = catalogItem.industry_suppliers;
+    const supplier = Array.isArray(sup) ? sup[0] : sup;
+    const snapshot = buildSupplierCatalogImportSnapshot(catalogItem, supplier);
+    const basePatch = buildVendorAssetSyncPatchFromSupplierCatalogItem(catalogItem);
+    let synced = 0;
+
+    for (const imp of imports) {
+        if (!imp.vendor_asset_id) continue;
+        const { data: asset } = await supabase
+            .from('vendor_assets')
+            .select('id, tags_source')
+            .eq('id', imp.vendor_asset_id)
+            .maybeSingle();
+        if (!asset) continue;
+        const patch = { ...basePatch };
+        if (asset.tags_source && asset.tags_source !== 'import') {
+            delete patch.ai_tags;
+            delete patch.ai_tags_generated_at;
+            delete patch.image_semantics_json;
+        }
+        let { error: upErr } = await supabase
+            .from('vendor_assets')
+            .update(patch)
+            .eq('id', imp.vendor_asset_id);
+        if (upErr && upErr.code === '42703') {
+            const fallback = { ...patch };
+            delete fallback.cover_image_label;
+            delete fallback.gallery_images;
+            delete fallback.subcategory_key;
+            delete fallback.asset_kind;
+            delete fallback.image_semantics_json;
+            delete fallback.ai_tags;
+            delete fallback.ai_tags_generated_at;
+            ({ error: upErr } = await supabase
+                .from('vendor_assets')
+                .update(fallback)
+                .eq('id', imp.vendor_asset_id));
+        }
+        if (!upErr) synced += 1;
+        await supabase
+            .from('manufacturer_supplier_imports')
+            .update({ snapshot_json: snapshot })
+            .eq('id', imp.id);
+    }
+    return synced;
+}
+
+function queueSyncImportedVendorAssetsFromCatalogItem(catalogItemId) {
+    syncImportedVendorAssetsFromCatalogItem(catalogItemId).catch(function (e) {
+        console.error('syncImportedVendorAssetsFromCatalogItem:', catalogItemId, e.message || e);
+    });
+}
+
+async function syncImportSnapshotsForSupplier(supplierId) {
+    if (!supplierId || !(await supplierCatalogTablesReady())) return 0;
+    const { data: supplier } = await supabase
+        .from('industry_suppliers')
+        .select('id, name, contact_json')
+        .eq('id', supplierId)
+        .maybeSingle();
+    if (!supplier) return 0;
+    const { data: catalogRows } = await supabase
+        .from('supplier_catalog_items')
+        .select('id')
+        .eq('industry_supplier_id', supplierId);
+    const catalogIds = (catalogRows || []).map(function (r) { return r.id; }).filter(Boolean);
+    if (!catalogIds.length) return 0;
+    const { data: imports } = await supabase
+        .from('manufacturer_supplier_imports')
+        .select('id, catalog_item_id, snapshot_json')
+        .in('catalog_item_id', catalogIds);
+    if (!imports || !imports.length) return 0;
+    let updated = 0;
+    for (const imp of imports) {
+        const snap = imp.snapshot_json && typeof imp.snapshot_json === 'object' ? { ...imp.snapshot_json } : {};
+        snap.supplier_id = supplier.id;
+        snap.supplier_name = supplier.name;
+        snap.supplier_contact = supplier.contact_json;
+        const { error } = await supabase
+            .from('manufacturer_supplier_imports')
+            .update({ snapshot_json: snap })
+            .eq('id', imp.id);
+        if (!error) updated += 1;
+    }
+    return updated;
+}
+
+function queueSyncImportSnapshotsForSupplier(supplierId) {
+    syncImportSnapshotsForSupplier(supplierId).catch(function (e) {
+        console.error('syncImportSnapshotsForSupplier:', supplierId, e.message || e);
+    });
+}
+
 function supplierCatalogSupportsGallery(itemKind) {
     const k = normalizeSupplierCatalogItemKind(itemKind);
     return k === 'prototype_set' || k === 'material' || k === 'part';
@@ -20416,6 +20579,7 @@ app.patch('/api/me/industry-supplier', express.json(), async (req, res) => {
             console.error('PATCH industry-supplier profile:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
+        queueSyncImportSnapshotsForSupplier(ctx.supplier.id);
         res.json({ supplier: updated });
     } catch (e) {
         console.error('PATCH /api/me/industry-supplier:', e);
@@ -21655,6 +21819,7 @@ app.patch('/api/me/industry-supplier/catalog-items/:id', supplierCatalogItemUplo
             const withGroups = await attachCatalogGroupsToSupplierItems([updated]);
             if (withGroups && withGroups[0]) itemOut = withGroups[0];
         } catch (_) {}
+        queueSyncImportedVendorAssetsFromCatalogItem(itemId);
         res.json({
             item: mapSupplierCatalogItemForApi(itemOut),
             points_deducted: pointsMeta.points_deducted,
@@ -21793,6 +21958,7 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images', supplierC
             ctx.supplier.id,
             itemId
         );
+        queueSyncImportedVendorAssetsFromCatalogItem(itemId);
         res.json({
             item: mapSupplierCatalogItemForApi(updated),
             points_deducted: pointsMeta.points_deducted,
@@ -21925,6 +22091,7 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images/upscale', e
             );
             if (consumed.ok) balanceAfter = consumed.balance_after;
         }
+        queueSyncImportedVendorAssetsFromCatalogItem(itemId);
         res.json({
             item: mapSupplierCatalogItemForApi(updated),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
@@ -22027,6 +22194,7 @@ app.patch('/api/me/industry-supplier/catalog-items/:id/image-labels', express.js
             payload.cover_label_skipped = true;
             payload.warning = '多角度圖名稱已儲存；封面名稱需執行 docs/add-supplier-catalog-gallery-images.sql';
         }
+        queueSyncImportedVendorAssetsFromCatalogItem(itemId);
         res.json(payload);
     } catch (e) {
         console.error('PATCH /api/me/industry-supplier/catalog-items/:id/image-labels:', e);
@@ -22090,6 +22258,7 @@ app.patch('/api/me/industry-supplier/catalog-items/:id/gallery-images/cover', ex
             console.error('PATCH supplier catalog gallery-images/cover:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
+        queueSyncImportedVendorAssetsFromCatalogItem(itemId);
         res.json({ item: mapSupplierCatalogItemForApi(updated) });
     } catch (e) {
         console.error('PATCH /api/me/industry-supplier/catalog-items/:id/gallery-images/cover:', e);
@@ -22155,6 +22324,7 @@ app.patch('/api/me/industry-supplier/catalog-items/:id/gallery-images/order', ex
             console.error('PATCH supplier catalog gallery-images/order:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
+        queueSyncImportedVendorAssetsFromCatalogItem(itemId);
         res.json({ item: mapSupplierCatalogItemForApi(updated) });
     } catch (e) {
         console.error('PATCH /api/me/industry-supplier/catalog-items/:id/gallery-images/order:', e);
@@ -22231,6 +22401,7 @@ app.delete('/api/me/industry-supplier/catalog-items/:id/gallery-images', express
             console.error('DELETE supplier catalog gallery-images:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
+        queueSyncImportedVendorAssetsFromCatalogItem(itemId);
         res.json({ item: mapSupplierCatalogItemForApi(updated) });
     } catch (e) {
         console.error('DELETE /api/me/industry-supplier/catalog-items/:id/gallery-images:', e);
