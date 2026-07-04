@@ -3,7 +3,9 @@
  */
 (function (global) {
   'use strict';
-  var CFG = global.MatchdoSupplierCatalogEditGalleryConfig || {};
+  function getCfg() {
+    return global.MatchdoSupplierCatalogEditGalleryConfig || {};
+  }
   var Pending = global.MatchdoVendorAssetPending;
   var editGallerySlotPreview = {};
   var editGalleryUploading = false;
@@ -15,9 +17,9 @@
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-  function showToast(m, t) { if (CFG.showToast) CFG.showToast(m, t); }
-  function getToken() { return CFG.getToken ? CFG.getToken() : null; }
-  function uploadPricing() { return CFG.uploadPricing || {}; }
+  function showToast(m, t) { if (getCfg().showToast) getCfg().showToast(m, t); }
+  function getToken() { return getCfg().getToken ? getCfg().getToken() : null; }
+  function uploadPricing() { return getCfg().uploadPricing || {}; }
   function catalogItemAssetKind(item) {
     if (!item) return 'prototype';
     var k = item.item_kind || '';
@@ -230,12 +232,12 @@
     grid.querySelectorAll('.btn-gallery-clear-preview').forEach(function (btn) {
       btn.addEventListener('click', function () {
         delete editGallerySlotPreview[btn.getAttribute('data-url')];
-        renderEditGallery(CFG.getEditItem());
+        renderEditGallery(getCfg().getEditItem());
       });
     });
     grid.querySelectorAll('.btn-gallery-del').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        if (CFG.deleteGalleryImage) CFG.deleteGalleryImage(btn.getAttribute('data-url'));
+        if (getCfg().deleteGalleryImage) getCfg().deleteGalleryImage(btn.getAttribute('data-url'));
       });
     });
     grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
@@ -245,7 +247,7 @@
       var slot = editGallerySlotPreview[it.url];
       if (!slot || !pendingHasDerivedPreview(slot)) return;
       var card = grid.children[idx] && grid.children[idx].querySelector('.pending-image-card');
-      if (card) wireSlotUploadCheckboxes(card, slot, 'egslot-' + idx, function () { renderEditGallery(CFG.getEditItem()); });
+      if (card) wireSlotUploadCheckboxes(card, slot, 'egslot-' + idx, function () { renderEditGallery(getCfg().getEditItem()); });
     });
     syncEditGalleryRedrawSettings();
   }
@@ -309,7 +311,7 @@
     } finally {
       slot.imageBusy = false;
       editGallerySlotPreview[sourceUrl] = slot;
-      renderEditGallery(CFG.getEditItem());
+      renderEditGallery(getCfg().getEditItem());
     }
   }
   async function upscaleGalleryImage(item, sourceUrl) {
@@ -331,8 +333,8 @@
       var data = await r.json().catch(function () { return {}; });
       if (r.status === 402) { showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger'); return; }
       if (!r.ok) { showToast(data.error || 'AI 放大失敗', 'danger'); return; }
-      if (data.item && CFG.updateEditItem) CFG.updateEditItem(data.item);
-      renderEditGallery(data.item || CFG.getEditItem());
+      if (data.item && getCfg().updateEditItem) getCfg().updateEditItem(data.item);
+      renderEditGallery(data.item || getCfg().getEditItem());
       setEditGalleryStatus('已追加放大新圖', 'success');
       showToast('已追加放大新圖' + (data.points_deducted ? ' · -' + data.points_deducted + ' 點' : ''));
     } catch (err) {
@@ -383,15 +385,15 @@
     var urlsBefore = catalogImageUrls(item);
     var data = await postGalleryImageFiles(id, [slot.redrawFile], [label], ['redraw'], []);
     var newItem = data.item;
-    if (CFG.updateEditItem) CFG.updateEditItem(newItem);
-    if (!keepOrig && CFG.deleteGalleryImage) {
-      await CFG.deleteGalleryImage(sourceUrl, true);
+    if (getCfg().updateEditItem) getCfg().updateEditItem(newItem);
+    if (!keepOrig && getCfg().deleteGalleryImage) {
+      await getCfg().deleteGalleryImage(sourceUrl, true);
     }
     delete editGallerySlotPreview[sourceUrl];
     return { ok: true, data: newItem };
   }
   async function flushEditGallerySlotPreviewsBeforeSave() {
-    var item = CFG.getEditItem();
+    var item = getCfg().getEditItem();
     if (!item) return true;
     var urls = Object.keys(editGallerySlotPreview).filter(function (u) {
       var s = editGallerySlotPreview[u];
@@ -415,7 +417,7 @@
           setEditGalleryStatus(applied.error || '寫入失敗', 'danger');
           return false;
         }
-        item = CFG.getEditItem();
+        item = getCfg().getEditItem();
       }
       setEditGalleryStatus('已依勾選寫入圖庫', 'success');
       renderEditGallery(item);
@@ -430,7 +432,7 @@
   async function uploadEditGalleryPending(id) {
     var form = getEditGalleryPendingForm();
     if (!form) return;
-    syncEditGalleryPendingMirrors(CFG.getEditItem());
+    syncEditGalleryPendingMirrors(getCfg().getEditItem());
     var deriveErr = await Pending.ensureAllPendingDerivedFiles(form);
     if (deriveErr) throw new Error(deriveErr);
     var pending = Pending.getPendingImages(form);
@@ -441,11 +443,11 @@
     var data = await postGalleryImageFiles(
       id, payload.uploadFiles, payload.uploadLabels, payload.uploadDerived, payload.optIdx
     );
-    if (data.item && CFG.updateEditItem) CFG.updateEditItem(data.item);
+    if (data.item && getCfg().updateEditItem) getCfg().updateEditItem(data.item);
     Pending.clearPendingImages(form);
     var actions = document.getElementById('edit-gallery-pending-actions');
     if (actions) actions.classList.add('d-none');
-    renderEditGallery(data.item || CFG.getEditItem());
+    renderEditGallery(data.item || getCfg().getEditItem());
     if (data.gallery_migration_required) showToast('請執行 docs/add-supplier-catalog-gallery-images.sql', 'warning');
   }
   function wireEditGalleryPendingInput() {
@@ -455,7 +457,7 @@
     input._wired = true;
     input.addEventListener('change', function () {
       if (!input.files || !input.files.length) return;
-      syncEditGalleryPendingMirrors(CFG.getEditItem());
+      syncEditGalleryPendingMirrors(getCfg().getEditItem());
       Pending.appendFilesToPending(form, input.files);
       var actions = document.getElementById('edit-gallery-pending-actions');
       if (actions) actions.classList.remove('d-none');
