@@ -20066,50 +20066,71 @@ async function respondSupplierCatalogUploadFailure(res, status, userId, body, js
     return res.status(status).json(out);
 }
 
-/** 供應商 catalog insert：依缺欄分批重試（對稱 vendor_assets POST） */
+/** 供應商 catalog insert：依缺欄分批重試（含 PGRST204／schema cache） */
 async function insertSupplierCatalogItemRow(insertPayload, galleryImagesForSpecFallback) {
-    const legacySelect = 'id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at';
     let aiMigrationRequired = false;
     let galleryMigrationRequired = false;
     let inserted = null;
     let insertError = null;
+    let selectCols = SUPPLIER_CATALOG_ITEM_SELECT;
 
-    async function tryInsert(selectCols) {
-        return supabase.from('supplier_catalog_items').insert(insertPayload).select(selectCols).single();
-    }
+    for (let attempt = 0; attempt < 10; attempt++) {
+        ({ data: inserted, error: insertError } = await supabase
+            .from('supplier_catalog_items')
+            .insert(insertPayload)
+            .select(selectCols)
+            .single());
+        if (!insertError) break;
 
-    ({ data: inserted, error: insertError } = await tryInsert(SUPPLIER_CATALOG_ITEM_SELECT));
-
-    if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('cover_image_label')) {
-        delete insertPayload.cover_image_label;
-        ({ data: inserted, error: insertError } = await tryInsert(SUPPLIER_CATALOG_ITEM_SELECT));
-    }
-    if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('gallery_images')) {
-        delete insertPayload.gallery_images;
-        delete insertPayload.cover_image_label;
-        if (galleryImagesForSpecFallback && galleryImagesForSpecFallback.length) {
-            insertPayload.spec_json = { ...(insertPayload.spec_json || {}), gallery_images: galleryImagesForSpecFallback };
-            galleryMigrationRequired = true;
+        if (isSupabaseMissingColumnError(insertError, 'cover_image_label')) {
+            delete insertPayload.cover_image_label;
+            if (selectCols.indexOf('cover_image_label') >= 0) selectCols = SUPPLIER_CATALOG_ITEM_LEGACY_SELECT;
+            continue;
         }
-        ({ data: inserted, error: insertError } = await tryInsert(SUPPLIER_CATALOG_ITEM_SELECT));
-    }
-    if (insertError && insertError.code === '42703') {
-        delete insertPayload.ai_tags;
-        delete insertPayload.image_semantics_json;
-        delete insertPayload.tags_source;
-        delete insertPayload.ai_tags_generated_at;
-        aiMigrationRequired = true;
-        ({ data: inserted, error: insertError } = await tryInsert(SUPPLIER_CATALOG_ITEM_SELECT));
-    }
-    if (insertError && insertError.code === '42703') {
-        delete insertPayload.gallery_images;
-        delete insertPayload.cover_image_label;
-        aiMigrationRequired = true;
-        if (galleryImagesForSpecFallback && galleryImagesForSpecFallback.length) {
-            insertPayload.spec_json = { ...(insertPayload.spec_json || {}), gallery_images: galleryImagesForSpecFallback };
-            galleryMigrationRequired = true;
+        if (isSupabaseMissingColumnError(insertError, 'gallery_images')) {
+            delete insertPayload.gallery_images;
+            delete insertPayload.cover_image_label;
+            if (galleryImagesForSpecFallback && galleryImagesForSpecFallback.length) {
+                insertPayload.spec_json = { ...(insertPayload.spec_json || {}), gallery_images: galleryImagesForSpecFallback };
+                galleryMigrationRequired = true;
+            }
+            selectCols = SUPPLIER_CATALOG_ITEM_LEGACY_SELECT;
+            continue;
         }
-        ({ data: inserted, error: insertError } = await tryInsert(legacySelect));
+        if (isSupabaseMissingColumnError(insertError, 'ai_tags')
+            || isSupabaseMissingColumnError(insertError, 'image_semantics_json')
+            || isSupabaseMissingColumnError(insertError, 'tags_source')
+            || isSupabaseMissingColumnError(insertError, 'ai_tags_generated_at')) {
+            delete insertPayload.ai_tags;
+            delete insertPayload.image_semantics_json;
+            delete insertPayload.tags_source;
+            delete insertPayload.ai_tags_generated_at;
+            aiMigrationRequired = true;
+            if (selectCols.indexOf('ai_tags') >= 0) {
+                selectCols = selectCols.split(',').map(function (s) { return s.trim(); })
+                    .filter(function (c) {
+                        return c && c !== 'ai_tags' && c !== 'image_semantics_json' && c !== 'tags_source'
+                            && c !== 'ai_tags_generated_at' && c !== 'updated_at';
+                    }).join(', ');
+            }
+            continue;
+        }
+        if (isSupabaseMissingColumnError(insertError)) {
+            delete insertPayload.cover_image_label;
+            delete insertPayload.gallery_images;
+            delete insertPayload.ai_tags;
+            delete insertPayload.image_semantics_json;
+            delete insertPayload.tags_source;
+            delete insertPayload.ai_tags_generated_at;
+            aiMigrationRequired = true;
+            if (galleryImagesForSpecFallback && galleryImagesForSpecFallback.length) {
+                insertPayload.spec_json = { ...(insertPayload.spec_json || {}), gallery_images: galleryImagesForSpecFallback };
+                galleryMigrationRequired = true;
+            }
+            selectCols = SUPPLIER_CATALOG_ITEM_LEGACY_SELECT;
+            continue;
+        }
+        break;
     }
 
     return { inserted, error: insertError, aiMigrationRequired, galleryMigrationRequired };
@@ -20334,6 +20355,23 @@ function isSupabaseMissingTableError(error) {
     const msg = String(error.message || '').toLowerCase();
     return /does not exist|schema cache|could not find the table/.test(msg);
 }
+
+/** PostgREST schema cache／42703：缺欄位（insert payload 或 .select() 都會觸發） */
+function isSupabaseMissingColumnError(err, colName) {
+    if (!err) return false;
+    const code = String(err.code || '');
+    const msg = String(err.message || '');
+    if (code === '42703' || code === 'PGRST204') {
+        return colName ? msg.includes(colName) : true;
+    }
+    if (/schema cache|could not find the/i.test(msg)) {
+        return colName ? msg.includes(colName) : /column/i.test(msg);
+    }
+    return false;
+}
+
+const SUPPLIER_CATALOG_ITEM_LEGACY_SELECT =
+    'id, item_kind, title, description, cover_image_url, spec_json, category_key, is_active, sort_order, created_at';
 
 function supplierCatalogGroupRowAssetKind(row) {
     if (!row || row.asset_kind == null || String(row.asset_kind).trim() === '') return 'prototype';
@@ -21278,9 +21316,9 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
             if (error.code === '23514') {
                 return res.status(400).json({ error: '資料庫尚未支援此品項類型，請執行 docs/add-supplier-catalog-item-kind-part.sql' });
             }
-            if (error.code === '42703') {
+            if (error.code === '42703' || error.code === 'PGRST204' || isSupabaseMissingColumnError(error)) {
                 return respondSupplierCatalogUploadFailure(res, 500, ownerId, body, {
-                    error: '請執行 docs/add-supplier-catalog-ai-fields.sql 與 docs/add-supplier-catalog-gallery-images.sql 後再上架',
+                    error: '資料庫缺欄位：請在 Supabase SQL Editor 執行 docs/add-supplier-catalog-gallery-images.sql 與 docs/add-supplier-catalog-ai-fields.sql',
                     ai_migration_required: true,
                     gallery_migration_required: true
                 });
