@@ -261,19 +261,18 @@
                             <div class="row g-3">
                                 <div class="col-12"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select><p class="form-text text-muted small mb-0" data-i18n="baseModels.materialMatchHint">媒合僅用平台主分類；材質類型請用上方「材料參考」專用自訂分類。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料參考」專用分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldMaterial">材質（選填）</label><input type="text" class="form-control add-material-type" name="material_type" placeholder="例：全棉斜紋"></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldColor">顏色（選填）</label><input type="text" class="form-control add-color" name="color" placeholder="例：藏青"></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.composition">成分（選填）</label><input type="text" class="form-control add-composition" name="composition" placeholder="例：棉 100%"></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.finish">表面／織法（選填）</label><input type="text" class="form-control add-finish" name="finish" placeholder="例：平織"></div>
-                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldWidth">幅寬 cm（選填）</label><input type="number" class="form-control add-width-cm" name="width_cm" min="0" step="1" inputmode="numeric" placeholder="例：150"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" name="title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required placeholder="材質名稱，如：PU 膜布料、全棉斜紋"></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label>
                                     <input type="file" class="form-control add-image-multi" accept="image/*" multiple title="可一次選多張">
                                     <div class="add-pending-images row g-2 mt-2"></div>
-                                    <p class="form-text text-muted small mb-0" data-i18n="baseModels.materialMultiImageHint">在上方可一次選多張（第一張為封面，最多 12 張）。</p>
+                                    <p class="form-text text-muted small mb-0" data-i18n="supplierManage.materialMultiColorHint">一張卡片可傳多色：一次選多張圖，待傳清單每張可填色名（如藏青、米白）；第一張為封面，最多 12 張。</p>
                                 </div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldMaterial">材質（選填）</label><input type="text" class="form-control add-material-type" name="material_type" placeholder="例：全棉斜紋"></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.composition">成分（選填）</label><input type="text" class="form-control add-composition" name="composition" placeholder="例：棉 100%"></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.finishMaterial">表面／織法（選填）</label><input type="text" class="form-control add-finish" name="finish" placeholder="例：平織"></div>
+                                <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldWidth">幅寬 cm（選填）</label><input type="number" class="form-control add-width-cm" name="width_cm" min="0" step="1" inputmode="numeric" placeholder="例：150"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
                                     <div class="form-check mb-1">
                                         <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
@@ -307,11 +306,10 @@
                         <div class="mb-3" id="edit-subcategory-wrap"><label class="form-label">子分類 <span class="text-danger">*</span></label><select class="form-select" id="edit-subcategory" required><option value="">— 請選擇 —</option></select></div>
                         <div id="edit-spec-material" class="d-none">
                             <div class="row g-2 mb-3">
-                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.fieldMaterial">材質</label><input type="text" class="form-control" id="edit-material-type"></div>
-                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.fieldColor">顏色</label><input type="text" class="form-control" id="edit-color"></div>
-                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.composition">成分</label><input type="text" class="form-control" id="edit-composition"></div>
-                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.finish">表面／織法</label><input type="text" class="form-control" id="edit-finish-material"></div>
-                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.fieldWidth">幅寬 cm</label><input type="number" class="form-control" id="edit-width-cm" min="0" step="1"></div>
+                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.fieldMaterial">材質（選填）</label><input type="text" class="form-control" id="edit-material-type"></div>
+                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.composition">成分（選填）</label><input type="text" class="form-control" id="edit-composition"></div>
+                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.finishMaterial">表面／織法（選填）</label><input type="text" class="form-control" id="edit-finish-material"></div>
+                                <div class="col-md-6"><label class="form-label" data-i18n="supplierManage.fieldWidth">幅寬 cm（選填）</label><input type="number" class="form-control" id="edit-width-cm" min="0" step="1"></div>
                             </div>
                         </div>
                         <div id="edit-spec-part" class="d-none">
@@ -431,7 +429,7 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
-        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704d';
+        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704e';
         var referencesModal = null;
         var CATALOG_MAX_IMAGES = 12;
         function itemSpecJson(item) {
@@ -440,7 +438,7 @@
         function appendSpecFieldsToFormData(fd, form, kind) {
             kind = normalizeKind(kind);
             if (kind === 'material') {
-                [['add-material-type', 'material_type'], ['add-color', 'color'], ['add-composition', 'composition'], ['add-finish', 'finish'], ['add-width-cm', 'width_cm']].forEach(function (pair) {
+                [['add-material-type', 'material_type'], ['add-composition', 'composition'], ['add-finish', 'finish'], ['add-width-cm', 'width_cm']].forEach(function (pair) {
                     var el = form.querySelector('.' + pair[0]);
                     if (el && String(el.value || '').trim()) fd.append(pair[1], String(el.value).trim());
                 });
@@ -455,7 +453,6 @@
             kind = normalizeKind(kind);
             if (kind === 'material') {
                 var mt = document.getElementById('edit-material-type'); if (mt && mt.value.trim()) fd.append('material_type', mt.value.trim());
-                var col = document.getElementById('edit-color'); if (col && col.value.trim()) fd.append('color', col.value.trim());
                 var comp = document.getElementById('edit-composition'); if (comp && comp.value.trim()) fd.append('composition', comp.value.trim());
                 var fin = document.getElementById('edit-finish-material'); if (fin && fin.value.trim()) fd.append('finish', fin.value.trim());
                 var w = document.getElementById('edit-width-cm'); if (w && w.value.trim()) fd.append('width_cm', w.value.trim());
@@ -473,7 +470,6 @@
             document.getElementById('edit-spec-part').classList.toggle('d-none', kind !== 'part');
             if (kind === 'material') {
                 document.getElementById('edit-material-type').value = spec.material_type || '';
-                document.getElementById('edit-color').value = spec.color || '';
                 document.getElementById('edit-composition').value = spec.composition || '';
                 document.getElementById('edit-finish-material').value = spec.finish || '';
                 document.getElementById('edit-width-cm').value = spec.width_cm != null ? String(spec.width_cm) : '';
@@ -490,7 +486,7 @@
             if (kind === 'prototype') return '';
             var parts = [];
             if (kind === 'material') {
-                [spec.material_type, spec.color, spec.composition, spec.finish, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).forEach(function (v) { parts.push(String(v)); });
+                [spec.material_type, spec.composition, spec.finish, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).forEach(function (v) { parts.push(String(v)); });
             } else if (kind === 'part') {
                 [spec.part_type, spec.material, spec.finish, spec.dimensions].filter(Boolean).forEach(function (v) { parts.push(String(v)); });
             }
@@ -551,6 +547,9 @@
                 if (u) { try { URL.revokeObjectURL(u); } catch (_) {} }
             });
             wrap.innerHTML = '';
+            var labelPh = (form.getAttribute('data-kind') === 'material')
+                ? tr('supplierManage.materialImageLabelPh', '色名（如藏青）')
+                : tr('baseModels.imageLabelPh', '圖片名稱');
             list.forEach(function (item, idx) {
                 var col = document.createElement('div');
                 col.className = 'col-6 col-sm-4 col-md-3';
@@ -560,7 +559,7 @@
                 card.innerHTML =
                     (idx === 0 ? '<span class="badge bg-primary mb-1" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '') +
                     '<img src="' + esc(objectUrl) + '" data-object-url="' + esc(objectUrl) + '" class="matchdo-enlarge-trigger" alt="">' +
-                    '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file.name)) + '">' +
+                    '<input type="text" class="form-control form-control-sm mt-1 pending-image-label" placeholder="' + esc(labelPh) + '" value="' + esc(item.label || labelFromFilename(item.file.name)) + '">' +
                     '<div class="d-flex flex-wrap gap-1 mt-1">' +
                     (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';

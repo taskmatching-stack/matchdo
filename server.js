@@ -19802,7 +19802,6 @@ function parseSupplierCatalogSpecJson(itemKind, body) {
     };
     if (itemKind === 'material') {
         pickStr('material_type');
-        pickStr('color');
         pickStr('composition');
         pickStr('finish');
         if (body && body.width_cm != null && String(body.width_cm).trim() !== '') {
