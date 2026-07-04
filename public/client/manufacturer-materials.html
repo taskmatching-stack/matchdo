@@ -833,7 +833,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'form-align-fix-20260704d';
+        window.__MATCHDO_MATERIALS_BUILD = 'prototype-link-group-20260704e';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1551,6 +1551,7 @@
             return {
                 id: item.id,
                 label: item.label || '',
+                link_group: item.link_group || '',
                 optimize: !!item.optimize,
                 uploadOriginal: item.uploadOriginal !== false,
                 uploadRedraw: item.uploadRedraw !== false,
@@ -1673,6 +1674,7 @@
                 var item = {
                     id: meta.id,
                     label: meta.label || '',
+                    link_group: meta.link_group || '',
                     optimize: !!meta.optimize,
                     uploadOriginal: meta.uploadOriginal !== false,
                     uploadRedraw: meta.uploadRedraw !== false,
@@ -1847,6 +1849,47 @@
                 out.push({ file: item.upscaleFile, label: baseLabel || '放大', aiDerived: 'upscale' });
             }
             return out;
+        }
+
+        function collectPendingUploadPayload(pendingList) {
+            var uploadFiles = [];
+            var uploadLabels = [];
+            var uploadLinkGroups = [];
+            var uploadDerived = [];
+            var optIdx = [];
+            (pendingList || []).forEach(function (p) {
+                var lg = (p.link_group || '').trim();
+                var entries = pendingUploadEntries(p);
+                var startIdx = uploadFiles.length;
+                entries.forEach(function (ent) {
+                    uploadFiles.push(ent.file);
+                    uploadLabels.push(ent.label);
+                    uploadLinkGroups.push(lg);
+                    uploadDerived.push(ent.aiDerived || '');
+                });
+                if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
+                    optIdx.push(startIdx);
+                }
+            });
+            return {
+                uploadFiles: uploadFiles,
+                uploadLabels: uploadLabels,
+                uploadLinkGroups: uploadLinkGroups,
+                uploadDerived: uploadDerived,
+                optIdx: optIdx
+            };
+        }
+
+        function prototypeShowsLinkGroup(kindOrAsset) {
+            if (!kindOrAsset) return false;
+            if (typeof kindOrAsset === 'string') return normalizeKind(kindOrAsset) === 'prototype';
+            return normalizeKind(kindOrAsset.asset_kind) === 'prototype';
+        }
+
+        function pendingLinkGroupFieldHtml(item) {
+            return '<input type="text" class="form-control form-control-sm mt-1 pending-link-group" placeholder="' +
+                esc(tr('baseModels.linkGroupPlaceholder', '連動組（同色同款填相同，例：black）')) + '" value="' +
+                esc(item.link_group || '') + '">';
         }
 
         function validatePendingUploadList(list) {
@@ -2597,6 +2640,7 @@
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, 'pending') + pendingDerivedThumbsHtml(item, 'pending', upscaleOn) + '</div>' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-card-label pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
+                    (formKind === 'prototype' ? pendingLinkGroupFieldHtml(item) : '') +
                     '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     upscaleBtnHtml +
@@ -2627,6 +2671,13 @@
                 if (labelIn) {
                     labelIn.addEventListener('input', function () {
                         item.label = (this.value || '').trim();
+                        schedulePendingDraftSave(form);
+                    });
+                }
+                var linkGroupIn = card.querySelector('.pending-link-group');
+                if (linkGroupIn) {
+                    linkGroupIn.addEventListener('input', function () {
+                        item.link_group = (this.value || '').trim();
                         schedulePendingDraftSave(form);
                     });
                 }
@@ -2729,6 +2780,7 @@
                     file: fileList[i],
                     optimize: false,
                     label: labelFromFilename(fileList[i].name),
+                    link_group: '',
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,
@@ -2901,6 +2953,9 @@
             wrap.classList.remove('d-none');
             if (actions) actions.classList.remove('d-none');
             var upscaleOn = vendorUpscaleEnabledForEditAsset();
+            var editId = document.getElementById('edit-id').value;
+            var editAsset = materialsAll.find(function (x) { return x.id === editId; });
+            var showLinkGroup = prototypeShowsLinkGroup(editAsset);
             list.forEach(function (item, idx) {
                 var col = document.createElement('div');
                 col.className = 'col-6 col-sm-4 col-md-3';
@@ -2918,6 +2973,8 @@
                 card.innerHTML = pendingCardBadgeRow('', '') +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, 'edit-pending') + pendingDerivedThumbsHtml(item, 'edit-pending', upscaleOn) + '</div>' +
+                    '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
+                    (showLinkGroup ? pendingLinkGroupFieldHtml(item) : '') +
                     '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     upscaleBtnHtml +
@@ -2936,6 +2993,18 @@
                     });
                 }
                 wirePendingUploadCheckboxes(card, item, 'edit-pending');
+                var editLabelIn = card.querySelector('.edit-pending-image-label');
+                if (editLabelIn) {
+                    editLabelIn.addEventListener('input', function () {
+                        item.label = (this.value || '').trim();
+                    });
+                }
+                var editLinkGroupIn = card.querySelector('.pending-link-group');
+                if (editLinkGroupIn) {
+                    editLinkGroupIn.addEventListener('input', function () {
+                        item.link_group = (this.value || '').trim();
+                    });
+                }
                 var clr = card.querySelector('.edit-pending-clear-redraw');
                 if (clr) {
                     clr.addEventListener('click', function () {
@@ -2983,6 +3052,8 @@
                     id: 'ep' + Date.now() + '-' + i,
                     file: fileList[i],
                     optimize: false,
+                    label: labelFromFilename(fileList[i].name),
+                    link_group: '',
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,
@@ -3611,6 +3682,7 @@
             var usePending = pendingList.length === fileList.length;
             var uploadFiles = [];
             var uploadLabels = [];
+            var uploadLinkGroups = [];
             var optIdx = [];
             var uploadDerived = [];
             if (usePending) {
@@ -3620,18 +3692,12 @@
                     showToast(pendingErr, 'danger');
                     return false;
                 }
-                pendingList.forEach(function (p) {
-                    var entries = pendingUploadEntries(p);
-                    var startIdx = uploadFiles.length;
-                    entries.forEach(function (ent) {
-                        uploadFiles.push(ent.file);
-                        uploadLabels.push(ent.label);
-                        uploadDerived.push(ent.aiDerived || '');
-                    });
-                    if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
-                        optIdx.push(startIdx);
-                    }
-                });
+                var payload = collectPendingUploadPayload(pendingList);
+                uploadFiles = payload.uploadFiles;
+                uploadLabels = payload.uploadLabels;
+                uploadLinkGroups = payload.uploadLinkGroups;
+                uploadDerived = payload.uploadDerived;
+                optIdx = payload.optIdx;
             } else {
                 uploadFiles = Array.prototype.slice.call(fileList);
                 optIdx = optimizeIndices || [];
@@ -3655,6 +3721,9 @@
                 fd.append('images', uploadFiles[ui]);
             }
             if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
+            if (prototypeShowsLinkGroup(mBefore) && uploadLinkGroups.length) {
+                fd.append('image_link_groups', JSON.stringify(uploadLinkGroups));
+            }
             if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
                 fd.append('image_ai_derived', JSON.stringify(uploadDerived));
             }
@@ -5476,6 +5545,7 @@
             var optIdx = [];
             var uploadFiles = [];
             var uploadLabels = [];
+            var uploadLinkGroups = [];
             var uploadDerived = [];
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
                 var deriveErr = await ensureAllPendingDerivedFiles(form);
@@ -5488,18 +5558,12 @@
                     msgEl.textContent = pendingSelErr;
                     return;
                 }
-                pending.forEach(function (p) {
-                    var entries = pendingUploadEntries(p);
-                    var startIdx = uploadFiles.length;
-                    entries.forEach(function (ent) {
-                        uploadFiles.push(ent.file);
-                        uploadLabels.push(ent.label);
-                        uploadDerived.push(ent.aiDerived || '');
-                    });
-                    if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
-                        optIdx.push(startIdx);
-                    }
-                });
+                var payload = collectPendingUploadPayload(pending);
+                uploadFiles = payload.uploadFiles;
+                uploadLabels = payload.uploadLabels;
+                uploadLinkGroups = payload.uploadLinkGroups;
+                uploadDerived = payload.uploadDerived;
+                optIdx = payload.optIdx;
             }
             msgEl.textContent = '';
             var fd = new FormData();
@@ -5518,6 +5582,9 @@
                 fd.append('image', uploadFiles[0]);
                 for (var pi = 1; pi < uploadFiles.length; pi++) fd.append('gallery', uploadFiles[pi]);
                 fd.append('image_labels', JSON.stringify(uploadLabels));
+                if (kind === 'prototype' && uploadLinkGroups.length) {
+                    fd.append('image_link_groups', JSON.stringify(uploadLinkGroups));
+                }
                 if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
                     fd.append('image_ai_derived', JSON.stringify(uploadDerived));
                 }

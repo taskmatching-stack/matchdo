@@ -58,6 +58,7 @@
   "baseModels.galleryMoveLeft": "往前",
   "baseModels.galleryMoveRight": "往後",
   "baseModels.galleryOrderSaved": "圖片順序已儲存",
+  "baseModels.linkGroupPlaceholder": "連動組（同色同款填相同，例：black）",
   "baseModels.coverImage": "封面",
   "baseModels.addGalleryImages": "新增產品圖",
   "baseModels.editGalleryHint": "第一張為封面。新增角度圖不另扣點；更換封面或 AI 重繪仍依下方選項扣點。",

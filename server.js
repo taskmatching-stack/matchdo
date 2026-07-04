@@ -651,6 +651,22 @@ function labelFromImageUrl(url) {
     }
 }
 
+function parseImageLinkGroupsBody(body, count) {
+    const out = [];
+    if (!body || count <= 0) return out;
+    let raw = body.image_link_groups;
+    if (raw == null || raw === '') return out;
+    if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (_) { return out; }
+    }
+    if (!Array.isArray(raw)) return out;
+    for (let i = 0; i < count; i++) {
+        const v = raw[i];
+        out.push(v != null ? normalizeImageLinkGroup(v) : '');
+    }
+    return out;
+}
+
 function parseImageLabelsBody(body, count) {
     const out = [];
     if (!body || count <= 0) return out;
@@ -1913,11 +1929,12 @@ function mapVendorAssetForApi(row, lang) {
     };
 }
 
-async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds) {
+async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds, linkGroupOverrides) {
     const entries = [];
     const list = Array.isArray(files) ? files : [];
     const labels = Array.isArray(labelOverrides) ? labelOverrides : [];
     const derived = Array.isArray(derivedKinds) ? derivedKinds : [];
+    const linkGroups = Array.isArray(linkGroupOverrides) ? linkGroupOverrides : [];
     for (let i = 0; i < list.length; i++) {
         const normalized = await vendorAssetFileFromMulter(list[i]);
         if (!normalized) continue;
@@ -1928,6 +1945,8 @@ async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrd
         const entry = { url: publicUrl, sort_order: startSortOrder + i, label: lab || labelFromImageUrl(publicUrl) };
         const dk = derived[i] != null ? String(derived[i]).trim() : '';
         if (dk === 'redraw' || dk === 'upscale') entry.ai_derived = dk;
+        const lg = linkGroups[i] != null ? normalizeImageLinkGroup(linkGroups[i]) : '';
+        if (lg) entry.link_group = lg;
         entries.push(entry);
     }
     return entries;
@@ -17727,6 +17746,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const imageLabels = supportsGallery
             ? parseImageLabelsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
             : parseImageLabelsBody(body, 1);
+        const imageLinkGroups = (assetKind === 'prototype' && supportsGallery)
+            ? parseImageLinkGroupsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
+            : (assetKind === 'prototype' ? parseImageLinkGroupsBody(body, 1) : []);
         if (!tags || !tags.length) {
             try {
                 const semanticsFiles = [{
@@ -17838,7 +17860,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             if (galleryToUpload.length) {
                 const galleryDerived = parseImageAiDerivedBody(body, 1 + galleryToUpload.length).slice(1, 1 + galleryToUpload.length);
                 galleryImages = await uploadVendorAssetGalleryFiles(
-                    manufacturerId, galleryToUpload, 1, imageLabels.slice(1, 1 + galleryToUpload.length), galleryDerived
+                    manufacturerId, galleryToUpload, 1, imageLabels.slice(1, 1 + galleryToUpload.length), galleryDerived,
+                    imageLinkGroups.slice(1, 1 + galleryToUpload.length)
                 );
             }
         }
@@ -17859,6 +17882,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             tags_source: tagsSource
         };
         if (semanticsJson) insertPayload.image_semantics_json = semanticsJson;
+        if (assetKind === 'prototype' && imageLinkGroups[0]) {
+            insertPayload.cover_link_group = imageLinkGroups[0];
+        }
         if (styleKey) insertPayload.style_key = normalizeVendorStyleKey(styleKey);
         if (assetKind !== 'material') {
             const materialKey = (body.material_key || '').trim() || null;
@@ -17894,6 +17920,12 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             .single());
         if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('cover_image_label')) {
             delete insertPayload.cover_image_label;
+            ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
+                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
+                .single());
+        }
+        if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('cover_link_group')) {
+            delete insertPayload.cover_link_group;
             ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
                 .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
                 .single());
@@ -18410,7 +18442,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
         const uploadLabels = parseImageLabelsBody(body, sliceCount);
         const uploadDerived = parseImageAiDerivedBody(body, sliceCount);
-        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived);
+        const uploadLinkGroups = assetKind === 'prototype' ? parseImageLinkGroupsBody(body, sliceCount) : [];
+        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups);
         const merged = existing.concat(newEntries);
         const { data: updated, error } = await supabase.from('vendor_assets')
             .update({ gallery_images: merged, updated_at: new Date().toISOString() })

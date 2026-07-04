@@ -58,6 +58,7 @@
   "baseModels.galleryMoveLeft": "Move earlier",
   "baseModels.galleryMoveRight": "Move later",
   "baseModels.galleryOrderSaved": "Image order saved",
+  "baseModels.linkGroupPlaceholder": "Link group (same code for same color/style, e.g. black)",
   "baseModels.coverImage": "Cover",
   "baseModels.addGalleryImages": "Add product image",
   "baseModels.editGalleryHint": "First image is the cover. Extra angles are free; replacing cover or AI redraw uses points below.",
