@@ -2488,23 +2488,7 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
         return null;
     }
     if (requirePortfolio) {
-        if (mfr.vendor_source === 'seed') {
-            res.status(403).json({ error: '種子廠商無法匯入產業供應商材料', code: 'SEED_VENDOR' });
-            return null;
-        }
-        const staffBypass = await isStaffProfileUserId(user.id);
-        if (!staffBypass) {
-            const hasWork = await hasEnabledPortfolioWork(mfr.id);
-            if (!hasWork) {
-                res.status(403).json({
-                    error: '請先上傳至少 1 件展示案例（我的廠商作品）或至少 1 筆數位版型／材料（上傳數位版型頁），才可匯入產業供應商材料',
-                    code: 'PORTFOLIO_REQUIRED',
-                    active_portfolio_count: 0,
-                    portfolio_count: 0
-                });
-                return null;
-            }
-        }
+        /* 匯入／瀏覽 B 線：僅需有效廠商資料，不再要求 portfolio／vendor_assets 門檻 */
     }
     return mfr.id;
 }
@@ -19422,19 +19406,16 @@ app.get('/api/me/capabilities', async (req, res) => {
             portfolioTotalCount = await countManufacturerPortfolioRows(mfr.id);
             vendorAssetsCount = await countManufacturerVendorAssets(mfr.id);
         }
-        let qualifiesForSupplierImport = false;
         if (mfr && mfr.is_active !== false) {
-            if (staffBypassPortfolio) qualifiesForSupplierImport = true;
-            else qualifiesForSupplierImport = await manufacturerQualifiesForSupplierImport(mfr.id);
-            activePortfolioCount = portfolioTotalCount > 0 ? portfolioTotalCount : 0;
+            activePortfolioCount = portfolioTotalCount;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
         const seedSelfServiceLocked = isSeed && !manufacturerSeedSelfServiceEnabled(mfr);
         const canEditVendorContent = !seedSelfServiceLocked;
-        const isQualifiedManufacturer = !!mfr && mfr.is_active !== false
-            && (qualifiesForSupplierImport || staffBypassPortfolio);
-        const canBrowseCatalog = catalogReady && !!mfr && mfr.is_active !== false;
-        const canImport = catalogReady && isQualifiedManufacturer && !isSeed;
+        const isQualifiedManufacturer = !!mfr && mfr.is_active !== false;
+        const canBrowseCatalog = catalogReady && isQualifiedManufacturer;
+        const canImport = catalogReady && isQualifiedManufacturer;
+        const qualifiesForSupplierImport = isQualifiedManufacturer;
         const canUploadProductsAndAssets = await canUploadProductsAndAssetsUserId(user.id);
         let isIndustrySupplier = false;
         let industrySupplierId = null;

@@ -43,6 +43,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
+    window.__MATCHDO_INDUSTRY_CATALOG_BUILD = 'supplier-import-open-20260704k';
     (function () {
         var supplierId = new URLSearchParams(window.location.search).get('id') || '';
         var activeKind = 'material';
@@ -95,11 +96,12 @@
                     document.getElementById('supplier-title').textContent = data.supplier.name || '—';
                     document.getElementById('supplier-desc').textContent = data.supplier.description || '';
                 }
-                var canImport = capabilities && capabilities.can_import_supplier_catalog && !capabilities.is_seed_vendor;
-                if (!canImport) {
-                    gateEl.innerHTML = esc(tr('baseModels.portfolioRequiredImportOnly', '可瀏覽產業供應商目錄；匯入須先有展示案例或廠商素材')) +
-                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>' +
-                        ' · <a href="/client/manufacturer-materials.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredAssetsLink', '上傳數位版型')) + '</a>';
+                var canImport = capabilities && capabilities.can_import_supplier_catalog;
+                if (!canImport && capabilities && !capabilities.has_manufacturer) {
+                    gateEl.innerHTML = esc(tr('baseModels.needManufacturerForImport', '請先建立廠商資料'));
+                    gateEl.classList.remove('d-none');
+                } else if (!canImport && capabilities && capabilities.manufacturer_is_active === false) {
+                    gateEl.textContent = tr('baseModels.manufacturerInactive', '廠商資料已停用，無法匯入');
                     gateEl.classList.remove('d-none');
                 }
                 var items = data.items || [];

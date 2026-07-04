@@ -833,7 +833,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'supplier-import-vendor-assets-20260704h';
+        window.__MATCHDO_MATERIALS_BUILD = 'supplier-import-open-20260704k';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -6326,22 +6326,11 @@
 
         function supplierImportLockedMessage() {
             if (!capabilities.supplier_catalog_ready) return tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
-            if (isSeedVendor) return tr('baseModels.seedNoImport', '種子廠商無法匯入');
             if (capabilities.manufacturer_is_active === false) {
                 return tr('baseModels.manufacturerInactive', '廠商資料已停用，無法匯入；請至控制台確認或聯絡管理員');
             }
-            if (((capabilities.portfolio_total_count || 0) > 0 || (capabilities.vendor_assets_count || 0) > 0) && !capabilities.can_import_supplier_catalog) {
-                return tr('baseModels.portfolioCountMismatch', '系統已偵測到展示案例或廠商素材，但匯入尚未解鎖；請重新整理頁面');
-            }
-            if (capabilities.can_browse_supplier_catalog && !capabilities.can_import_supplier_catalog) {
-                return tr('baseModels.portfolioRequiredImportOnly', '可瀏覽產業供應商目錄；匯入須先有展示案例或廠商素材')
-                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>'
-                    + ' · <a href="/client/manufacturer-materials.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredAssetsLink', '上傳數位版型')) + '</a>';
-            }
-            if (!capabilities.can_import_supplier_catalog) {
-                return tr('baseModels.portfolioRequired', '匯入產業供應商材料前，請先上傳展示案例或廠商素材')
-                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>'
-                    + ' · <a href="/client/manufacturer-materials.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredAssetsLink', '上傳數位版型')) + '</a>';
+            if (!capabilities.has_manufacturer) {
+                return tr('baseModels.needManufacturerForImport', '請先建立廠商資料');
             }
             return tr('baseModels.importLocked', '目前無法匯入');
         }
@@ -6421,21 +6410,15 @@
 
         function updateSupplierImportUi() {
             if (!capabilities) return;
-            var canImport = capabilities.can_import_supplier_catalog && !isSeedVendor;
-            var canBrowse = capabilities.can_browse_supplier_catalog && !isSeedVendor;
+            var canImport = !!capabilities.can_import_supplier_catalog;
+            var canBrowse = !!capabilities.can_browse_supplier_catalog;
             document.querySelectorAll('.ref-image-block').forEach(function (block) {
                 block.querySelectorAll('.btn-open-supplier-import').forEach(function (btn) { btn.disabled = !canBrowse; });
                 var locked = block.querySelector('.supplier-import-locked-line');
                 if (!locked) return;
                 if (canImport) {
                     locked.classList.add('d-none');
-                    if (capabilities.bypass_supplier_portfolio_gate) {
-                        locked.innerHTML = tr('baseModels.portfolioBypassStaff', '管理員／測試員：無需作品即可測試匯入。');
-                        locked.classList.remove('d-none');
-                    }
-                } else if (canBrowse) {
-                    locked.classList.remove('d-none');
-                    locked.innerHTML = supplierImportLockedMessage();
+                    locked.innerHTML = '';
                 } else {
                     locked.classList.remove('d-none');
                     locked.innerHTML = supplierImportLockedMessage();
@@ -6487,7 +6470,7 @@
                     return;
                 }
                 var items = data.items || [];
-                var canImport = capabilities && capabilities.can_import_supplier_catalog && !isSeedVendor;
+                var canImport = capabilities && capabilities.can_import_supplier_catalog;
                 if (!items.length) {
                     empty.classList.remove('d-none');
                     return;
@@ -6594,7 +6577,7 @@
         if (mainContent) {
             mainContent.addEventListener('click', function (e) {
                 if (!e.target.closest('.btn-open-supplier-import')) return;
-                if (!capabilities || !capabilities.can_browse_supplier_catalog || isSeedVendor) {
+                if (!capabilities || !capabilities.can_browse_supplier_catalog) {
                     updateSupplierImportUi();
                     return;
                 }
@@ -6686,7 +6669,7 @@
                 var urlParams = new URLSearchParams(window.location.search);
                 supplierImportFilterId = urlParams.get('supplier_id') || null;
                 switchKind(activeKind);
-                if (urlParams.get('open_import') === '1' && capabilities && capabilities.can_browse_supplier_catalog && !isSeedVendor) {
+                if (urlParams.get('open_import') === '1' && capabilities && capabilities.can_browse_supplier_catalog) {
                     setTimeout(function () { openSupplierImportModal(); }, 400);
                 }
             } catch (e) { showToast(e.message, 'danger'); }
