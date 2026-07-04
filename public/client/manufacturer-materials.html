@@ -833,7 +833,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'supplier-portfolio-count-fix-20260704g';
+        window.__MATCHDO_MATERIALS_BUILD = 'supplier-import-vendor-assets-20260704h';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -6330,17 +6330,18 @@
             if (capabilities.manufacturer_is_active === false) {
                 return tr('baseModels.manufacturerInactive', '廠商資料已停用，無法匯入；請至控制台確認或聯絡管理員');
             }
-            if ((capabilities.portfolio_total_count || 0) > 0 && !capabilities.can_import_supplier_catalog) {
-                return tr('baseModels.portfolioCountMismatch', '系統已偵測到展示案例，但匯入資格尚未生效；請重新整理，或確認作品圖片仍有效')
-                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>';
+            if (((capabilities.portfolio_total_count || 0) > 0 || (capabilities.vendor_assets_count || 0) > 0) && !capabilities.can_import_supplier_catalog) {
+                return tr('baseModels.portfolioCountMismatch', '系統已偵測到展示案例或廠商素材，但匯入尚未解鎖；請重新整理頁面');
             }
             if (capabilities.can_browse_supplier_catalog && !capabilities.can_import_supplier_catalog) {
-                return tr('baseModels.portfolioRequiredImportOnly', '可瀏覽目錄；匯入須先至「我的廠商作品」上傳至少 1 件展示案例')
-                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '前往我的廠商作品')) + '</a>';
+                return tr('baseModels.portfolioRequiredImportOnly', '可瀏覽產業供應商目錄；匯入須先有展示案例或廠商素材')
+                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>'
+                    + ' · <a href="/client/manufacturer-materials.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredAssetsLink', '上傳數位版型')) + '</a>';
             }
             if (!capabilities.can_import_supplier_catalog) {
-                return tr('baseModels.portfolioRequired', '請先至「我的廠商作品」上傳至少 1 件展示案例，才可匯入產業供應商材料')
-                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '前往我的廠商作品')) + '</a>';
+                return tr('baseModels.portfolioRequired', '匯入產業供應商材料前，請先上傳展示案例或廠商素材')
+                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>'
+                    + ' · <a href="/client/manufacturer-materials.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredAssetsLink', '上傳數位版型')) + '</a>';
             }
             return tr('baseModels.importLocked', '目前無法匯入');
         }

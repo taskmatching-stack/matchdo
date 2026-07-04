@@ -95,10 +95,11 @@
                     document.getElementById('supplier-title').textContent = data.supplier.name || '—';
                     document.getElementById('supplier-desc').textContent = data.supplier.description || '';
                 }
-                var canImport = capabilities && capabilities.can_import_supplier_catalog;
+                var canImport = capabilities && capabilities.can_import_supplier_catalog && !capabilities.is_seed_vendor;
                 if (!canImport) {
-                    gateEl.innerHTML = esc(tr('baseModels.portfolioRequiredImportOnly', '可瀏覽目錄；匯入須先至「我的廠商作品」上傳至少 1 件公開的展示案例')) +
-                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '前往我的廠商作品')) + '</a>';
+                    gateEl.innerHTML = esc(tr('baseModels.portfolioRequiredImportOnly', '可瀏覽產業供應商目錄；匯入須先有展示案例或廠商素材')) +
+                        ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>' +
+                        ' · <a href="/client/manufacturer-materials.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredAssetsLink', '上傳數位版型')) + '</a>';
                     gateEl.classList.remove('d-none');
                 }
                 var items = data.items || [];

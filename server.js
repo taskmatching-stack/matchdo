@@ -2434,8 +2434,36 @@ async function countEnabledPortfolioWorks(manufacturerId) {
     return n > 0 ? n : total;
 }
 
-async function hasEnabledPortfolioWork(manufacturerId) {
+/** 廠商素材庫筆數（vendor_assets：數位原型／材料／零件，非 supplier_catalog_items） */
+async function countManufacturerVendorAssets(manufacturerId) {
+    if (!manufacturerId) return 0;
+    const { count, error } = await supabase
+        .from('vendor_assets')
+        .select('id', { count: 'exact', head: true })
+        .eq('manufacturer_id', manufacturerId);
+    if (error) {
+        if (error.code !== '42P01') console.error('countManufacturerVendorAssets:', error);
+        return 0;
+    }
+    return typeof count === 'number' ? count : 0;
+}
+
+/**
+ * B 線匯入資格：至少 1 件展示案例（manufacturer_portfolio）或 1 筆廠商素材（vendor_assets）。
+ * 勿與 supplier_catalog_items（產業供應商上架）混淆。
+ */
+async function manufacturerQualifiesForSupplierImport(manufacturerId) {
+    if (!manufacturerId) return false;
+    const [portfolioTotal, vendorAssetCount] = await Promise.all([
+        countManufacturerPortfolioRows(manufacturerId),
+        countManufacturerVendorAssets(manufacturerId)
+    ]);
+    if (portfolioTotal > 0 || vendorAssetCount > 0) return true;
     return (await countEnabledPortfolioWorks(manufacturerId)) > 0;
+}
+
+async function hasEnabledPortfolioWork(manufacturerId) {
+    return manufacturerQualifiesForSupplierImport(manufacturerId);
 }
 
 async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } = {}) {
@@ -2460,12 +2488,16 @@ async function getMeManufacturerB2BAccess(req, res, { requirePortfolio = true } 
         return null;
     }
     if (requirePortfolio) {
+        if (mfr.vendor_source === 'seed') {
+            res.status(403).json({ error: '種子廠商無法匯入產業供應商材料', code: 'SEED_VENDOR' });
+            return null;
+        }
         const staffBypass = await isStaffProfileUserId(user.id);
         if (!staffBypass) {
             const hasWork = await hasEnabledPortfolioWork(mfr.id);
             if (!hasWork) {
                 res.status(403).json({
-                    error: '請先上傳至少 1 件啟用中（公開）的作品後，才可瀏覽並導入產業供應商材料',
+                    error: '請先上傳至少 1 件展示案例（我的廠商作品）或至少 1 筆數位版型／材料（上傳數位版型頁），才可匯入產業供應商材料',
                     code: 'PORTFOLIO_REQUIRED',
                     active_portfolio_count: 0,
                     portfolio_count: 0
@@ -19384,22 +19416,25 @@ app.get('/api/me/capabilities', async (req, res) => {
         }
         const hasManufacturer = !!mfr;
         let portfolioTotalCount = 0;
+        let vendorAssetsCount = 0;
         let activePortfolioCount = 0;
         if (mfr && mfr.id) {
             portfolioTotalCount = await countManufacturerPortfolioRows(mfr.id);
+            vendorAssetsCount = await countManufacturerVendorAssets(mfr.id);
         }
+        let qualifiesForSupplierImport = false;
         if (mfr && mfr.is_active !== false) {
-            if (staffBypassPortfolio) activePortfolioCount = Math.max(1, portfolioTotalCount);
-            else activePortfolioCount = await countEnabledPortfolioWorks(mfr.id);
+            if (staffBypassPortfolio) qualifiesForSupplierImport = true;
+            else qualifiesForSupplierImport = await manufacturerQualifiesForSupplierImport(mfr.id);
+            activePortfolioCount = portfolioTotalCount > 0 ? portfolioTotalCount : 0;
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
         const seedSelfServiceLocked = isSeed && !manufacturerSeedSelfServiceEnabled(mfr);
         const canEditVendorContent = !seedSelfServiceLocked;
-        // 廠商資格：至少 1 件啟用中作品（種子亦同，供平台維護期匯入材料）
         const isQualifiedManufacturer = !!mfr && mfr.is_active !== false
-            && (activePortfolioCount >= 1 || staffBypassPortfolio);
+            && (qualifiesForSupplierImport || staffBypassPortfolio);
         const canBrowseCatalog = catalogReady && !!mfr && mfr.is_active !== false;
-        const canImport = catalogReady && isQualifiedManufacturer;
+        const canImport = catalogReady && isQualifiedManufacturer && !isSeed;
         const canUploadProductsAndAssets = await canUploadProductsAndAssetsUserId(user.id);
         let isIndustrySupplier = false;
         let industrySupplierId = null;
@@ -19422,8 +19457,10 @@ app.get('/api/me/capabilities', async (req, res) => {
             manufacturer_id: mfr ? mfr.id : null,
             manufacturer_is_active: mfr ? mfr.is_active !== false : null,
             portfolio_total_count: portfolioTotalCount,
+            vendor_assets_count: vendorAssetsCount,
             active_portfolio_count: activePortfolioCount,
             portfolio_count: activePortfolioCount,
+            qualifies_for_supplier_import: qualifiesForSupplierImport,
             bypass_supplier_portfolio_gate: staffBypassPortfolio,
             vendor_source: mfr ? mfr.vendor_source : null,
             is_seed_vendor: !!isSeed,
