@@ -266,12 +266,29 @@
     let selAreaCodes = [];  // 空=全部，否則為城市 code 列表
     let scopeMfrId = '';    // 從廠商頁帶入時僅顯示該廠商作品
     let scopeMfrName = '';
+    let selCustomizationLevels = []; // URL customization_levels（如 form_structure）
+
+    const CUSTOMIZATION_LEVEL_LABELS = {
+        form_structure: '造型／結構',
+        color_material: '顏色／材質',
+        graphic_print: '圖案／印刷'
+    };
 
     const $loading  = document.getElementById('galleryLoading');
     const $empty    = document.getElementById('galleryEmpty');
     const $grid     = document.getElementById('galleryGrid');
     const $cats     = document.getElementById('galleryCategories');
     const $keyword  = document.getElementById('galleryKeyword');
+
+    function applyCustomizationFilterBanner() {
+        const banner = document.getElementById('galleryVendorScopeBanner');
+        if (!banner || !selCustomizationLevels.length) return;
+        const labels = selCustomizationLevels.map(function (k) {
+            return CUSTOMIZATION_LEVEL_LABELS[k] || k;
+        }).join('、');
+        banner.innerHTML = '目前僅顯示訂製程度含「' + esc(labels) + '」的廠商作品與素材。';
+        banner.classList.remove('d-none');
+    }
 
     function applyScopedGalleryUi(vendorLabel) {
         const label = vendorLabel || '此廠商';
@@ -348,11 +365,12 @@
         return false;
     }
 
-    function filterPortfolioItems() {
+    function filterPortfolioItems(mfrIdSet) {
         const kw = ($keyword ? $keyword.value : '').trim().toLowerCase();
         let list = _rawItems;
         if (list.some(x => x && x.id !== 'demo-1')) list = list.filter(x => x && x.id !== 'demo-1');
         if (scopeMfrId) list = list.filter(p => (p.manufacturer_id || '') === scopeMfrId);
+        if (mfrIdSet && mfrIdSet.size) list = list.filter(p => mfrIdSet.has(p.manufacturer_id));
         if (selCat || selSub) list = list.filter(portfolioMatchesCategory);
         if (selAreaCodes.length) {
             list = list.filter(p => locMatchArea(p.manufacturer_location));
@@ -419,12 +437,45 @@
     }
 
     async function fetchVendorAssetsForGallery() {
-        if (!selCat) return [];
+        if (!selCat && !selCustomizationLevels.length) return [];
         const catKey = categoryKeyForUiActive() || String(selCat).split('&')[0].trim() || selCat;
-        const url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
+        if (!catKey) return [];
+        let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
+        if (selCustomizationLevels.length) {
+            url += '&customization_levels=' + encodeURIComponent(selCustomizationLevels.join(','));
+            url += '&asset_kind=prototype';
+        }
         const r = await fetch(url, await galleryVendorAssetsFetchOpts());
         const d = await r.json();
         return (d.items || []).filter(x => x && x.image_url);
+    }
+
+    async function fetchVendorAssetsForCustomizationFilter() {
+        if (!selCustomizationLevels.length) return [];
+        const levels = selCustomizationLevels.join(',');
+        const opts = await galleryVendorAssetsFetchOpts();
+        async function fetchOne(baseUrl) {
+            let url = baseUrl + '&customization_levels=' + encodeURIComponent(levels) + '&asset_kind=prototype';
+            const r = await fetch(url, opts);
+            const d = await r.json();
+            return (d.items || []).filter(x => x && x.image_url);
+        }
+        if (scopeMfrId) return fetchOne('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(scopeMfrId));
+        const catKeys = selCat
+            ? [categoryKeyForUiActive() || String(selCat).split('&')[0].trim() || selCat]
+            : categoryList.map(c => c.key).filter(Boolean);
+        if (!catKeys.length) return [];
+        const batches = await Promise.all(catKeys.map(function (key) {
+            return fetchOne('/api/vendor-assets?category_key=' + encodeURIComponent(key));
+        }));
+        const seen = new Set();
+        const merged = [];
+        batches.flat().forEach(function (a) {
+            if (!a || !a.id || seen.has(a.id)) return;
+            seen.add(a.id);
+            merged.push(a);
+        });
+        return merged;
     }
 
     function updateFilterUi(portCount, assetCount) {
@@ -445,31 +496,48 @@
         if ($empty) $empty.classList.toggle('d-none', total > 0);
     }
 
-    // 作品篩選不變；僅在無作品且已選大分類時，額外顯示素材庫
+    // 作品篩選不變；訂製程度篩選時一併顯示符合廠商之作品與素材
     async function applyFilters() {
         const gen = ++_applyFiltersGen;
-        const portList = filterPortfolioItems();
+        let portList;
         let assetList = [];
 
-        if (portList.length === 0 && (selCat || scopeMfrId)) {
+        if (selCustomizationLevels.length) {
             try {
-                const raw = scopeMfrId && !selCat
-                    ? await fetchVendorAssetsForManufacturer(scopeMfrId)
-                    : await fetchVendorAssetsForGallery();
+                const rawAssets = await fetchVendorAssetsForCustomizationFilter();
                 if (gen !== _applyFiltersGen) return;
-                assetList = filterAssetItems(raw);
+                const mfrSet = new Set(rawAssets.map(a => a.manufacturer_id).filter(Boolean));
+                portList = filterPortfolioItems(mfrSet);
+                assetList = filterAssetItems(rawAssets);
                 _lastAssetItems = assetList;
             } catch (_) {
+                portList = filterPortfolioItems(new Set());
+                assetList = [];
                 _lastAssetItems = [];
             }
         } else {
-            _lastAssetItems = [];
+            portList = filterPortfolioItems();
+            if (portList.length === 0 && (selCat || scopeMfrId)) {
+                try {
+                    const raw = scopeMfrId && !selCat
+                        ? await fetchVendorAssetsForManufacturer(scopeMfrId)
+                        : await fetchVendorAssetsForGallery();
+                    if (gen !== _applyFiltersGen) return;
+                    assetList = filterAssetItems(raw);
+                    _lastAssetItems = assetList;
+                } catch (_) {
+                    _lastAssetItems = [];
+                }
+            } else {
+                _lastAssetItems = [];
+            }
         }
 
         if (gen !== _applyFiltersGen) return;
 
         if (portList.length) {
             renderGrid(portList);
+            if (assetList.length && selCustomizationLevels.length) appendAssetCardsToGrid(assetList);
         } else if (assetList.length) {
             renderAssetGrid(assetList);
         } else {
@@ -636,6 +704,42 @@
         });
     }
 
+    function buildAssetCardHtml(a) {
+        const title = esc(a.title || T.modalAssetTitle);
+        const mfr = esc(a.manufacturer_name || '');
+        const loc = esc(a.manufacturer_location || '');
+        const img = a.image_url ? esc(a.image_url) : '';
+        const kindLabel = a.asset_kind === 'material' ? T.assetMaterial : T.assetPrototype;
+        const tags = (a.ai_tags || []).slice(0, 3).map(t => `<span class="badge bg-light text-dark me-1">${esc(t)}</span>`).join('');
+        return `<div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm gallery-card gallery-card-asset" data-id="${esc(a.id)}" style="cursor:pointer;">
+                <div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">
+                    ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt='無圖';" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
+                </div>
+                <div class="card-body py-2">
+                    <span class="badge bg-success-subtle text-success border mb-1">${esc(kindLabel)}</span>
+                    <h6 class="card-title small text-truncate mb-0">${title}</h6>
+                    <p class="card-text small text-muted mb-0">${mfr}${loc ? ' <span class="text-secondary">· ' + loc + '</span>' : ''}</p>
+                    ${tags ? `<div class="mt-1">${tags}</div>` : ''}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function bindAssetCardClicks(root) {
+        (root || $grid).querySelectorAll('.gallery-card-asset').forEach(el => {
+            if (el.dataset.assetBound === '1') return;
+            el.dataset.assetBound = '1';
+            el.addEventListener('click', () => openAssetModal(el.dataset.id));
+        });
+    }
+
+    function appendAssetCardsToGrid(items) {
+        if (!$grid || !items || !items.length) return;
+        $grid.insertAdjacentHTML('beforeend', items.map(buildAssetCardHtml).join(''));
+        bindAssetCardClicks($grid);
+    }
+
     // ── 圖牆渲染 ──────────────────────────────────────────────────────────
     function renderGrid(items) {
         if (!$grid) return;
@@ -666,31 +770,9 @@
     function renderAssetGrid(items) {
         if (!$grid) return;
         const intro = `<div class="col-12"><div class="alert alert-info py-2 small mb-2">${esc(T.assetsOnlyIntro)}</div></div>`;
-        const cards = (items || []).map(a => {
-            const title = esc(a.title || T.modalAssetTitle);
-            const mfr = esc(a.manufacturer_name || '');
-            const loc = esc(a.manufacturer_location || '');
-            const img = a.image_url ? esc(a.image_url) : '';
-            const kindLabel = a.asset_kind === 'material' ? T.assetMaterial : T.assetPrototype;
-            const tags = (a.ai_tags || []).slice(0, 3).map(t => `<span class="badge bg-light text-dark me-1">${esc(t)}</span>`).join('');
-            return `<div class="col-sm-6 col-md-4 col-lg-3">
-                <div class="card h-100 border-0 shadow-sm gallery-card gallery-card-asset" data-id="${esc(a.id)}" style="cursor:pointer;">
-                    <div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">
-                        ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt='無圖';" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
-                    </div>
-                    <div class="card-body py-2">
-                        <span class="badge bg-success-subtle text-success border mb-1">${esc(kindLabel)}</span>
-                        <h6 class="card-title small text-truncate mb-0">${title}</h6>
-                        <p class="card-text small text-muted mb-0">${mfr}${loc ? ' <span class="text-secondary">· ' + loc + '</span>' : ''}</p>
-                        ${tags ? `<div class="mt-1">${tags}</div>` : ''}
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
+        const cards = (items || []).map(buildAssetCardHtml).join('');
         $grid.innerHTML = intro + cards;
-        $grid.querySelectorAll('.gallery-card-asset').forEach(el => {
-            el.addEventListener('click', () => openAssetModal(el.dataset.id));
-        });
+        bindAssetCardClicks($grid);
     }
 
     // ── Modal ─────────────────────────────────────────────────────────────
@@ -866,18 +948,17 @@
         const params = new URLSearchParams(window.location.search);
         scopeMfrId = (params.get('manufacturer_id') || '').trim();
         try { scopeMfrName = decodeURIComponent(params.get('vendor_name') || ''); } catch (_) { scopeMfrName = params.get('vendor_name') || ''; }
-        const scopeBanner = document.getElementById('galleryVendorScopeBanner');
-        if (scopeMfrId) applyScopedGalleryUi(scopeMfrName);
-        await Promise.all([loadPortfolio(), loadCategories(), loadAndBindAreaButtons()]);
+        selCustomizationLevels = (params.get('customization_levels') || '').trim().split(/[,，]/).map(s => s.trim()).filter(Boolean);
         const urlCat = params.get('category_key') || '';
         const urlSub = params.get('subcategory_key') || '';
-        if (urlCat || urlSub) {
-            selCat = urlCat;
-            selSub = urlSub;
-            renderCategoryButtons();
-            renderSubcategoryRow();
-            await applyFilters();
-        }
+        if (urlCat) selCat = urlCat;
+        if (urlSub) selSub = urlSub;
+        if (scopeMfrId) applyScopedGalleryUi(scopeMfrName);
+        else if (selCustomizationLevels.length) applyCustomizationFilterBanner();
+        await Promise.all([loadPortfolio(), loadCategories(), loadAndBindAreaButtons()]);
+        renderCategoryButtons();
+        renderSubcategoryRow();
+        await applyFilters();
     }
 
     if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);

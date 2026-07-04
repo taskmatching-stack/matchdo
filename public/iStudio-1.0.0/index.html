@@ -275,6 +275,8 @@
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-row { margin-bottom: 0.15rem; }
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-row:last-child { margin-bottom: 0; }
                 #media-wall-lightbox .modal-footer { padding: 0.6rem 1rem; background: #fff; border-top: 1px solid rgba(68,93,126,.2); }
+                #media-wall-lightbox-vendor-ref img { width: 28px; height: 28px; object-fit: contain; background: #fff; border: 1px solid rgba(68,93,126,.15); }
+                #media-wall-lightbox-vendor-ref a { color: #445D7E; max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 /* lightbox 固定覆蓋整個視窗，不參與背後版面排版 */
                 #media-wall-lightbox { position: fixed; inset: 0; z-index: 1055; overflow-x: hidden; overflow-y: auto; }
                 #media-wall-lightbox .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
@@ -339,6 +341,10 @@
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item mw-share-btn" data-platform="copy" href="#"><i class="bi bi-link-45deg me-2"></i><span data-i18n="home.shareCopy">複製連結</span></a></li>
                             </ul>
+                        </div>
+                        <div id="media-wall-lightbox-vendor-ref" class="d-none d-flex align-items-center gap-2 ps-2 ms-1 border-start">
+                            <img id="media-wall-lightbox-vendor-logo" src="" alt="" class="rounded">
+                            <a id="media-wall-lightbox-vendor-name" href="#" class="small fw-semibold text-decoration-none"></a>
                         </div>
                     </div>
                     <!-- 廠商作品專用：站內聯絡按鈕（comparison 類型才顯示） -->
@@ -629,61 +635,9 @@
                 var mfrId = item.manufacturer_id || null;
 
                 if (linkEl) {
-                    linkEl.onclick = null;
-                    if (isVendorItem && mfrId) {
-                        // 對照圖、系列圖 → 連到廠商詳情頁
-                        var destUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
-                        var viewVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.viewVendorDetail') : '廠商詳情';
-                        linkEl.innerHTML = '<i class="bi bi-person-badge me-1"></i>' + viewVendorText;
-                        linkEl.onclick = function() { window.location.href = destUrl; };
-                        linkEl.style.display = 'inline-block';
-                    } else if (isVendorItem && item.link && item.link.indexOf('collection.html') !== -1) {
-                        // 有 slug 的資料夾但無廠商 ID → 查看系列
-                        var collUrl = item.link;
-                        linkEl.innerHTML = '<i class="bi bi-images me-1"></i>查看系列圖片';
-                        linkEl.onclick = function() { window.location.href = collUrl; };
-                        linkEl.style.display = 'inline-block';
-                    } else if (item.type === 'user_design') {
-                        var findVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
-                        var destUrl;
-                        if (item.ref_manufacturer_id) {
-                            destUrl = '/vendor-profile.html?id=' + encodeURIComponent(item.ref_manufacturer_id);
-                        } else if (item.link && item.link.indexOf('vendor-profile') !== -1) {
-                            destUrl = item.link;
-                        } else {
-                            var mainKey = (item.category_key || item.category || '').trim();
-                            var subKey = (item.subcategory_key || '').trim();
-                            var q = [];
-                            if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
-                            if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
-                            destUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
-                        }
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + findVendorText;
-                        linkEl.onclick = (function(u){ return function(){ window.location.href = u; }; })(destUrl);
-                        linkEl.style.display = 'inline-block';
-                    } else if (item.link) {
-                        var base = (item.link.indexOf('gallery') !== -1) ? item.link.split('?')[0] : '/custom/gallery.html';
-                        var mainKey = (item.category_key || item.category || '').trim();
-                        var subKey = (item.subcategory_key || '').trim();
-                        var q = [];
-                        if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
-                        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
-                        var fallUrl = base + (q.length ? '?' + q.join('&') : '');
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
-                        linkEl.onclick = function() { window.location.href = fallUrl; };
-                        linkEl.style.display = 'inline-block';
-                    } else {
-                        var mainKey = (item.category_key || item.category || '').trim();
-                        var subKey = (item.subcategory_key || '').trim();
-                        var q = [];
-                        if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
-                        if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
-                        var galleryUrl = '/custom/gallery.html' + (q.length ? '?' + q.join('&') : '');
-                        linkEl.innerHTML = '<i class="bi bi-building me-1"></i>找廠商訂製';
-                        linkEl.onclick = function() { window.location.href = galleryUrl; };
-                        linkEl.style.display = 'inline-block';
-                    }
+                    configureLightboxFindVendorLink(item, linkEl);
                 }
+                syncLightboxVendorRef(item);
 
                 var imgUrl = item.image_url || item.cover_image_url || '';
                 if (bodyEl) bodyEl.innerHTML = imgUrl ? '<img src="' + imgUrl.replace(/"/g,'&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">無圖</p>';
@@ -813,6 +767,86 @@
                 if (!Array.isArray(list)) return false;
                 return list.some(function (s) { return s && s.vendor_asset_id; });
             }
+            function resolveUserDesignFindVendorUrl(item) {
+                if (!item) return '/custom/gallery.html';
+                if (hasVendorReference(item) && item.ref_manufacturer_id) {
+                    return '/vendor-profile.html?id=' + encodeURIComponent(item.ref_manufacturer_id);
+                }
+                if (item.link && item.link.indexOf('vendor-profile') !== -1) return item.link;
+                var q = [];
+                var mainKey = (item.category_key || item.category || '').trim();
+                var subKey = (item.subcategory_key || '').trim();
+                if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
+                if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
+                q.push('customization_levels=' + encodeURIComponent('form_structure'));
+                return '/custom/gallery.html?' + q.join('&');
+            }
+            function syncLightboxVendorRef(item) {
+                var wrap = document.getElementById('media-wall-lightbox-vendor-ref');
+                var logoEl = document.getElementById('media-wall-lightbox-vendor-logo');
+                var nameEl = document.getElementById('media-wall-lightbox-vendor-name');
+                if (!wrap || !logoEl || !nameEl) return;
+                var show = item && item.type === 'user_design' && item.ref_manufacturer_id && hasVendorReference(item);
+                if (!show) {
+                    wrap.classList.add('d-none');
+                    wrap.classList.remove('d-flex');
+                    logoEl.src = '';
+                    logoEl.alt = '';
+                    nameEl.textContent = '';
+                    nameEl.href = '#';
+                    return;
+                }
+                var profileUrl = '/vendor-profile.html?id=' + encodeURIComponent(item.ref_manufacturer_id);
+                var mfrName = (item.ref_manufacturer_name || '').trim() || '廠商';
+                nameEl.textContent = mfrName;
+                nameEl.href = profileUrl;
+                nameEl.title = mfrName;
+                var logo = (item.ref_manufacturer_logo_url || '').trim();
+                if (logo) {
+                    logoEl.src = imageSrcForShare(logo);
+                    logoEl.alt = mfrName;
+                    logoEl.classList.remove('d-none');
+                } else {
+                    logoEl.src = '';
+                    logoEl.alt = '';
+                    logoEl.classList.add('d-none');
+                }
+                wrap.classList.remove('d-none');
+                wrap.classList.add('d-flex');
+            }
+            function configureLightboxFindVendorLink(item, linkEl) {
+                if (!linkEl || !item) return;
+                linkEl.onclick = null;
+                var isVendorItem = (item.type === 'comparison' || item.type === 'collection' || item.type === 'series');
+                var mfrId = item.manufacturer_id || null;
+                if (isVendorItem && mfrId) {
+                    var destUrl = '/vendor-profile.html?id=' + encodeURIComponent(mfrId);
+                    var viewVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.viewVendorDetail') : '廠商詳情';
+                    linkEl.innerHTML = '<i class="bi bi-person-badge me-1"></i>' + viewVendorText;
+                    linkEl.onclick = function () { window.location.href = destUrl; };
+                    linkEl.style.display = 'inline-block';
+                    return;
+                }
+                if (isVendorItem && item.link && item.link.indexOf('collection.html') !== -1) {
+                    linkEl.innerHTML = '<i class="bi bi-images me-1"></i>查看系列圖片';
+                    linkEl.onclick = function () { window.location.href = item.link; };
+                    linkEl.style.display = 'inline-block';
+                    return;
+                }
+                if (item.type === 'user_design') {
+                    var findVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
+                    var destUrl = resolveUserDesignFindVendorUrl(item);
+                    linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + findVendorText;
+                    linkEl.onclick = function () { window.location.href = destUrl; };
+                    linkEl.style.display = 'inline-block';
+                    return;
+                }
+                var findVendorText2 = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
+                var fallUrl = resolveUserDesignFindVendorUrl(item);
+                linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + findVendorText2;
+                linkEl.onclick = function () { window.location.href = fallUrl; };
+                linkEl.style.display = 'inline-block';
+            }
             function renderOne(p, opts) {
                     var wrap = document.createElement('div');
                     var cls = 'media-wall-item';
@@ -887,6 +921,10 @@
                         dataItem.owner_display = p.owner_display || null;
                         dataItem.category_key = p.category_key || p.category || null;
                         dataItem.subcategory_key = p.subcategory_key || null;
+                        dataItem.ref_manufacturer_id = p.ref_manufacturer_id || null;
+                        dataItem.ref_manufacturer_name = p.ref_manufacturer_name || null;
+                        dataItem.ref_manufacturer_logo_url = p.ref_manufacturer_logo_url || null;
+                        dataItem.has_vendor_reference = p.has_vendor_reference === true;
                         dataItem.ai_tags = Array.isArray(p.ai_tags) ? p.ai_tags : [];
                     }
                     var displayTags = getDisplayTags(p);
@@ -1548,30 +1586,8 @@
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
                 var linkEl = document.getElementById('media-wall-lightbox-link');
                 if (titleEl) titleEl.textContent = item.title || '';
-                if (linkEl) {
-                    linkEl.onclick = null;
-                    var _findVendor = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
-                    var _dest;
-                    if (item.ref_manufacturer_id) {
-                        _dest = '/vendor-profile.html?id=' + encodeURIComponent(item.ref_manufacturer_id);
-                    } else if (item.link && item.link.indexOf('vendor-profile') !== -1) {
-                        _dest = item.link;
-                    } else {
-                        var mainKey = (item.category_key || item.category || '').trim();
-                        var subKey = (item.subcategory_key || '').trim();
-                        if (mainKey || subKey) {
-                            var q = [];
-                            if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
-                            if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
-                            _dest = '/custom/gallery.html?' + q.join('&');
-                        } else {
-                            _dest = item.link || '/custom/gallery.html';
-                        }
-                    }
-                    linkEl.innerHTML = '<i class="bi bi-building me-1"></i>' + _findVendor;
-                    linkEl.onclick = (function(d){ return function(){ window.location.href = d; }; })(_dest);
-                    linkEl.style.display = 'inline-block';
-                }
+                if (linkEl) configureLightboxFindVendorLink(item, linkEl);
+                syncLightboxVendorRef(item);
                 var rBtn = document.getElementById('media-wall-lightbox-redesign');
                 if (rBtn) {
                     var imgForBtn = (item.type === 'comparison' && item.image_url_before) ? (item.image_url_before || '').trim() : (item.image_url || item.cover_image_url || '').trim();

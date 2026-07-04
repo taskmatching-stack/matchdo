@@ -285,6 +285,47 @@ function pickManufacturerIdFromReferenceSources(refSourcesRaw) {
     return null;
 }
 
+function refManufacturerMetaFromSources(refSourcesRaw) {
+    const list = parseReferenceSourcesList(refSourcesRaw);
+    const id = pickManufacturerIdFromReferenceSources(list);
+    if (!id) return { id: null, name: '' };
+    let name = '';
+    list.forEach(function (s) {
+        if (s && String(s.manufacturer_id || '') === id && s.manufacturer_name) {
+            name = String(s.manufacturer_name).trim();
+        }
+    });
+    return { id: id, name: name };
+}
+
+async function enrichMediaWallRefManufacturers(items) {
+    if (!Array.isArray(items) || !items.length) return;
+    const ids = [...new Set(items.filter(function (i) { return i && i.ref_manufacturer_id; }).map(function (i) { return i.ref_manufacturer_id; }))];
+    if (!ids.length) return;
+    try {
+        const { data: mfrs } = await supabase
+            .from('manufacturers')
+            .select('id, name, name_en, logo_url, contact_json')
+            .in('id', ids)
+            .eq('is_active', true);
+        const map = {};
+        (mfrs || []).forEach(function (m) {
+            map[m.id] = {
+                name: (m.name || '').trim(),
+                logo_url: manufacturerLogoFromRow(m) || null
+            };
+        });
+        items.forEach(function (item) {
+            if (!item || !item.ref_manufacturer_id || !map[item.ref_manufacturer_id]) return;
+            const m = map[item.ref_manufacturer_id];
+            if (!item.ref_manufacturer_name) item.ref_manufacturer_name = m.name || null;
+            item.ref_manufacturer_logo_url = m.logo_url || null;
+        });
+    } catch (e) {
+        console.warn('enrichMediaWallRefManufacturers:', e && e.message);
+    }
+}
+
 function pickPrototypeAssetIdFromReferenceSources(refSourcesRaw) {
     const list = Array.isArray(refSourcesRaw) ? refSourcesRaw : [];
     const protos = list.filter((s) => s && s.vendor_asset_id && (s.asset_kind || 'prototype') === 'prototype');
@@ -350,7 +391,8 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
     const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
     const id = p.id;
     const refSources = parseReferenceSourcesList(p.reference_sources);
-    const refMfrId = pickManufacturerIdFromReferenceSources(refSources);
+    const refMeta = refManufacturerMetaFromSources(refSources);
+    const refMfrId = refMeta.id || pickManufacturerIdFromReferenceSources(refSources);
     const refProtoId = pickPrototypeAssetIdFromReferenceSources(refSources);
     let link = '/custom/gallery.html';
     if (refMfrId) {
@@ -364,6 +406,8 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
         image_url: p.ai_generated_image_url || p.reference_image_url,
         link,
         ref_manufacturer_id: refMfrId || null,
+        ref_manufacturer_name: refMeta.name || null,
+        ref_manufacturer_logo_url: null,
         ref_prototype_asset_id: refProtoId || null,
         has_vendor_reference: hasVendorAssetReferenceInSources(refSources),
         inspiration_url: id ? `/inspiration/user_design/${id}` : null,
@@ -12018,6 +12062,8 @@ app.get('/api/media-wall', async (req, res) => {
             items = items.slice(offset, offset + perPage);
         }
 
+        await enrichMediaWallRefManufacturers(items);
+
         res.set('Cache-Control', 'public, max-age=120');
         res.json({ items: items, page, per_page: perPage, filtered: clientFilterActive, tags: tagFilters });
     } catch (e) {
@@ -12175,33 +12221,18 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
         if (type === 'user_design') {
             const { data: row, error } = await supabase
                 .from('custom_products')
-                .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json')
+                .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources')
                 .eq('id', id)
                 .maybeSingle();
             if (error || !row) return res.status(404).json({ error: '找不到該作品' });
             if (!row.ai_generated_image_url && !row.reference_image_url) return res.status(404).json({ error: '找不到該作品' });
-            let ownerDisplay = '';
+            let ownerDisplayMap = {};
             if (row.owner_id) {
                 const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.owner_id).maybeSingle();
-                if (prof) ownerDisplay = (prof.full_name && prof.full_name.trim()) || prof.email || '';
+                if (prof) ownerDisplayMap[row.owner_id] = (prof.full_name && prof.full_name.trim()) || prof.email || '';
             }
-            let aj = row.analysis_json;
-            if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
-            const seed = row.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
-            const item = attachDisplayTags({
-                ...row,
-                analysis_json: aj || null,
-                generation_seed: seed != null && seed !== '' ? seed : null,
-                type: 'user_design',
-                size: '1x1',
-                title: row.title || '未命名',
-                image_url: row.ai_generated_image_url || row.reference_image_url,
-                link: '/custom/gallery.html',
-                inspiration_url: `/inspiration/user_design/${id}`,
-                owner_display: ownerDisplay || null,
-                category_key: row.category || null,
-                subcategory_key: row.subcategory_key || null
-            });
+            const item = mapUserRowToMediaWallItem(row, ownerDisplayMap);
+            await enrichMediaWallRefManufacturers([item]);
             return res.set('Cache-Control', 'public, max-age=120').json({ item });
         }
         if (type === 'comparison' || type === 'series') {
