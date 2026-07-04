@@ -56,9 +56,9 @@
                 return (s && (s.access_token || (s.session && s.session.access_token))) || null;
             } catch (e) { return null; }
         }
-        function showPortfolioGate(gate) {
-            gate.innerHTML = esc(tr('baseModels.portfolioRequired', '請先上傳至少 1 件啟用中（公開）的作品')) +
-                ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('industrySuppliers.goPortfolio', '我的廠商作品')) + '</a>';
+        function showPortfolioImportGate(gate) {
+            gate.innerHTML = esc(tr('baseModels.portfolioRequiredImportOnly', '可瀏覽目錄；匯入須先至「我的廠商作品」上傳至少 1 件公開的展示案例')) +
+                ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '前往我的廠商作品')) + '</a>';
             gate.classList.remove('d-none');
         }
         async function init() {
@@ -79,8 +79,9 @@
                 if (window.i18n && window.i18n.applyPage) window.i18n.applyPage();
                 var r = await listP;
                 var data = await r.json().catch(function () { return {}; });
-                if (r.status === 403 && data.code === 'PORTFOLIO_REQUIRED') {
-                    showPortfolioGate(gate);
+                if (r.status === 404 && data.code === 'NO_MANUFACTURER') {
+                    gate.textContent = data.error || tr('industrySuppliers.noManufacturer', '尚未建立廠商資料');
+                    gate.classList.remove('d-none');
                     return;
                 }
                 if (!r.ok) {

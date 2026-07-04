@@ -833,7 +833,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'prototype-link-group-20260704e';
+        window.__MATCHDO_MATERIALS_BUILD = 'supplier-portfolio-count-fix-20260704g';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -6327,8 +6327,20 @@
         function supplierImportLockedMessage() {
             if (!capabilities.supplier_catalog_ready) return tr('baseModels.supplierDbMissing', '請先執行 docs/add-industry-supplier-catalog.sql');
             if (isSeedVendor) return tr('baseModels.seedNoImport', '種子廠商無法匯入');
+            if (capabilities.manufacturer_is_active === false) {
+                return tr('baseModels.manufacturerInactive', '廠商資料已停用，無法匯入；請至控制台確認或聯絡管理員');
+            }
+            if ((capabilities.portfolio_total_count || 0) > 0 && !capabilities.can_import_supplier_catalog) {
+                return tr('baseModels.portfolioCountMismatch', '系統已偵測到展示案例，但匯入資格尚未生效；請重新整理，或確認作品圖片仍有效')
+                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '我的廠商作品')) + '</a>';
+            }
+            if (capabilities.can_browse_supplier_catalog && !capabilities.can_import_supplier_catalog) {
+                return tr('baseModels.portfolioRequiredImportOnly', '可瀏覽目錄；匯入須先至「我的廠商作品」上傳至少 1 件展示案例')
+                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '前往我的廠商作品')) + '</a>';
+            }
             if (!capabilities.can_import_supplier_catalog) {
-                return tr('baseModels.portfolioRequired', '請先至「我的廠商作品」上傳至少 1 件啟用中（公開）的作品');
+                return tr('baseModels.portfolioRequired', '請先至「我的廠商作品」上傳至少 1 件展示案例，才可匯入產業供應商材料')
+                    + ' <a href="/client/manufacturer-portfolio.html" class="alert-link">' + esc(tr('baseModels.portfolioRequiredLink', '前往我的廠商作品')) + '</a>';
             }
             return tr('baseModels.importLocked', '目前無法匯入');
         }
@@ -6408,20 +6420,24 @@
 
         function updateSupplierImportUi() {
             if (!capabilities) return;
-            var can = capabilities.can_import_supplier_catalog && !isSeedVendor;
+            var canImport = capabilities.can_import_supplier_catalog && !isSeedVendor;
+            var canBrowse = capabilities.can_browse_supplier_catalog && !isSeedVendor;
             document.querySelectorAll('.ref-image-block').forEach(function (block) {
-                block.querySelectorAll('.btn-open-supplier-import').forEach(function (btn) { btn.disabled = !can; });
+                block.querySelectorAll('.btn-open-supplier-import').forEach(function (btn) { btn.disabled = !canBrowse; });
                 var locked = block.querySelector('.supplier-import-locked-line');
                 if (!locked) return;
-                if (can) {
+                if (canImport) {
                     locked.classList.add('d-none');
                     if (capabilities.bypass_supplier_portfolio_gate) {
-                        locked.textContent = tr('baseModels.portfolioBypassStaff', '管理員／測試員：無需作品即可測試匯入。');
+                        locked.innerHTML = tr('baseModels.portfolioBypassStaff', '管理員／測試員：無需作品即可測試匯入。');
                         locked.classList.remove('d-none');
                     }
+                } else if (canBrowse) {
+                    locked.classList.remove('d-none');
+                    locked.innerHTML = supplierImportLockedMessage();
                 } else {
                     locked.classList.remove('d-none');
-                    locked.textContent = supplierImportLockedMessage();
+                    locked.innerHTML = supplierImportLockedMessage();
                 }
             });
         }
@@ -6470,6 +6486,7 @@
                     return;
                 }
                 var items = data.items || [];
+                var canImport = capabilities && capabilities.can_import_supplier_catalog && !isSeedVendor;
                 if (!items.length) {
                     empty.classList.remove('d-none');
                     return;
@@ -6479,9 +6496,14 @@
                     var spec = item.spec_json && typeof item.spec_json === 'object' ? item.spec_json : {};
                     var specLine = [spec.material_type, spec.color, spec.width_cm ? (spec.width_cm + 'cm') : ''].filter(Boolean).join(' · ');
                     var importLabel = tr('baseModels.importToMyLibrary', '匯入並設為參考圖');
-                    var btn = item.already_imported
-                        ? '<button type="button" class="btn btn-sm btn-outline-success btn-show-imported-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(tr('baseModels.showInRefImage', '顯示於參考圖')) + '</button>'
-                        : '<button type="button" class="btn btn-sm btn-success btn-import-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(importLabel) + '</button>';
+                    var btn;
+                    if (item.already_imported) {
+                        btn = '<button type="button" class="btn btn-sm btn-outline-success btn-show-imported-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(tr('baseModels.showInRefImage', '顯示於參考圖')) + '</button>';
+                    } else if (canImport) {
+                        btn = '<button type="button" class="btn btn-sm btn-success btn-import-supplier" data-id="' + esc(item.id) + '" data-cover="' + esc(item.cover_image_url || '') + '" data-title="' + esc(item.title || '') + '" data-desc="' + esc(item.description || '') + '" data-supplier="' + esc(item.supplier_name || '') + '">' + esc(importLabel) + '</button>';
+                    } else {
+                        btn = '<button type="button" class="btn btn-sm btn-outline-secondary" disabled title="' + esc(tr('baseModels.importNeedsPortfolio', '需先上傳展示案例才可匯入')) + '">' + esc(importLabel) + '</button>';
+                    }
                     return '<div class="col-md-6"><div class="card h-100">' +
                         (item.cover_image_url ? '<img src="' + esc(item.cover_image_url) + '" class="card-img-top matchdo-enlarge-trigger" style="height:140px;object-fit:cover;cursor:zoom-in" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">' : '') +
                         '<div class="card-body p-3"><div class="text-muted small mb-1">' + esc(item.supplier_name || '') + '</div>' +
@@ -6571,7 +6593,7 @@
         if (mainContent) {
             mainContent.addEventListener('click', function (e) {
                 if (!e.target.closest('.btn-open-supplier-import')) return;
-                if (!capabilities || !capabilities.can_import_supplier_catalog || isSeedVendor) {
+                if (!capabilities || !capabilities.can_browse_supplier_catalog || isSeedVendor) {
                     updateSupplierImportUi();
                     return;
                 }
@@ -6663,7 +6685,7 @@
                 var urlParams = new URLSearchParams(window.location.search);
                 supplierImportFilterId = urlParams.get('supplier_id') || null;
                 switchKind(activeKind);
-                if (urlParams.get('open_import') === '1' && capabilities && capabilities.can_import_supplier_catalog && !isSeedVendor) {
+                if (urlParams.get('open_import') === '1' && capabilities && capabilities.can_browse_supplier_catalog && !isSeedVendor) {
                     setTimeout(function () { openSupplierImportModal(); }, 400);
                 }
             } catch (e) { showToast(e.message, 'danger'); }

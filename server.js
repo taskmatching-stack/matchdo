@@ -2363,35 +2363,75 @@ async function supplierCatalogTablesReady() {
     return ready;
 }
 
-function portfolioRowIsEnabled(p, nowIso) {
-    if (p.show_on_media_wall === false) return false;
+function portfolioRowQualifiesForSupplierImport(p, nowIso) {
+    if (!p) return false;
     const seriesExpired = p.series_image_valid_until && p.series_image_valid_until < nowIso;
-    const hasSeries = !seriesExpired && Array.isArray(p.series_image_urls) && p.series_image_urls.length > 0;
-    return !!(p.image_url || p.image_url_before || hasSeries);
+    const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length)
+        ? p.series_image_urls
+        : (p.image_url ? [p.image_url] : []);
+    const hasSeries = !seriesExpired && seriesUrls.length > 0;
+    const hasMain = !!(p.image_url && String(p.image_url).trim());
+    const hasBefore = !!(p.image_url_before && String(p.image_url_before).trim());
+    return hasMain || hasBefore || hasSeries;
 }
 
-/** 廠商資格：至少 1 件「啟用中」作品（公開且仍有可顯示圖，未過期）。 */
-async function countEnabledPortfolioWorks(manufacturerId) {
-    if (!manufacturerId) return 0;
-    const nowIso = new Date().toISOString();
-    const { data: items, error } = await supabase
-        .from('manufacturer_portfolio')
-        .select('id, image_url, image_url_before, series_image_urls, series_image_valid_until, show_on_media_wall')
-        .eq('manufacturer_id', manufacturerId)
-        .or('show_on_media_wall.is.null,show_on_media_wall.eq.true')
-        .limit(40);
-    if (error) {
-        if (error.code !== '42P01') console.error('countEnabledPortfolioWorks:', error);
-        return 0;
-    }
+function countEnabledPortfolioRows(items, nowIso) {
     let n = 0;
     for (const p of items || []) {
-        if (portfolioRowIsEnabled(p, nowIso)) {
+        if (portfolioRowQualifiesForSupplierImport(p, nowIso)) {
             n += 1;
             if (n >= 1) return n;
         }
     }
     return n;
+}
+
+/** 廠商作品總筆數（與「我的廠商作品」列表同源，不篩公開／私有） */
+async function countManufacturerPortfolioRows(manufacturerId) {
+    if (!manufacturerId) return 0;
+    const { count, error } = await supabase
+        .from('manufacturer_portfolio')
+        .select('id', { count: 'exact', head: true })
+        .eq('manufacturer_id', manufacturerId);
+    if (error) {
+        if (error.code !== '42P01') console.error('countManufacturerPortfolioRows:', error);
+        return 0;
+    }
+    return typeof count === 'number' ? count : 0;
+}
+
+/** 廠商資格：至少 1 件可展示的作品（與 manufacturer-portfolio 頁一致，不以 show_on_media_wall 排除） */
+async function countEnabledPortfolioWorks(manufacturerId) {
+    if (!manufacturerId) return 0;
+    const total = await countManufacturerPortfolioRows(manufacturerId);
+    if (total <= 0) return 0;
+    const nowIso = new Date().toISOString();
+    const fullSelect = 'id, image_url, image_url_before, series_image_urls, series_image_valid_until';
+    let { data: items, error } = await supabase
+        .from('manufacturer_portfolio')
+        .select(fullSelect)
+        .eq('manufacturer_id', manufacturerId)
+        .limit(40);
+    if (error) {
+        if (error.code === '42P01') return 0;
+        if (isSupabaseMissingColumnError(error)) {
+            const fb = await supabase
+                .from('manufacturer_portfolio')
+                .select('id, image_url, image_url_before')
+                .eq('manufacturer_id', manufacturerId)
+                .limit(40);
+            if (fb.error) {
+                if (fb.error.code !== '42P01') console.error('countEnabledPortfolioWorks fallback:', fb.error);
+                return total;
+            }
+            const n = countEnabledPortfolioRows(fb.data, nowIso);
+            return n > 0 ? n : total;
+        }
+        console.error('countEnabledPortfolioWorks:', error);
+        return total;
+    }
+    const n = countEnabledPortfolioRows(items, nowIso);
+    return n > 0 ? n : total;
 }
 
 async function hasEnabledPortfolioWork(manufacturerId) {
@@ -19343,10 +19383,14 @@ app.get('/api/me/capabilities', async (req, res) => {
             return res.status(500).json({ error: '查詢失敗' });
         }
         const hasManufacturer = !!mfr;
+        let portfolioTotalCount = 0;
         let activePortfolioCount = 0;
+        if (mfr && mfr.id) {
+            portfolioTotalCount = await countManufacturerPortfolioRows(mfr.id);
+        }
         if (mfr && mfr.is_active !== false) {
-            if (staffBypassPortfolio) activePortfolioCount = 1;
-            else activePortfolioCount = (await hasEnabledPortfolioWork(mfr.id)) ? 1 : 0;
+            if (staffBypassPortfolio) activePortfolioCount = Math.max(1, portfolioTotalCount);
+            else activePortfolioCount = await countEnabledPortfolioWorks(mfr.id);
         }
         const isSeed = mfr && mfr.vendor_source === 'seed';
         const seedSelfServiceLocked = isSeed && !manufacturerSeedSelfServiceEnabled(mfr);
@@ -19354,6 +19398,7 @@ app.get('/api/me/capabilities', async (req, res) => {
         // 廠商資格：至少 1 件啟用中作品（種子亦同，供平台維護期匯入材料）
         const isQualifiedManufacturer = !!mfr && mfr.is_active !== false
             && (activePortfolioCount >= 1 || staffBypassPortfolio);
+        const canBrowseCatalog = catalogReady && !!mfr && mfr.is_active !== false;
         const canImport = catalogReady && isQualifiedManufacturer;
         const canUploadProductsAndAssets = await canUploadProductsAndAssetsUserId(user.id);
         let isIndustrySupplier = false;
@@ -19375,6 +19420,8 @@ app.get('/api/me/capabilities', async (req, res) => {
             industry_supplier_id: industrySupplierId,
             is_qualified_manufacturer: isQualifiedManufacturer,
             manufacturer_id: mfr ? mfr.id : null,
+            manufacturer_is_active: mfr ? mfr.is_active !== false : null,
+            portfolio_total_count: portfolioTotalCount,
             active_portfolio_count: activePortfolioCount,
             portfolio_count: activePortfolioCount,
             bypass_supplier_portfolio_gate: staffBypassPortfolio,
@@ -19384,6 +19431,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             can_edit_vendor_content: canEditVendorContent,
             supplier_catalog_ready: catalogReady,
             can_upload_products_and_assets: canUploadProductsAndAssets,
+            can_browse_supplier_catalog: canBrowseCatalog,
             can_use_supplier_catalog: canImport,
             can_import_supplier_catalog: canImport,
             can_manage_supplier_catalog: catalogReady && isIndustrySupplier,
@@ -19408,7 +19456,7 @@ app.get('/api/me/industry-suppliers', async (req, res) => {
         if (!(await supplierCatalogTablesReady())) {
             return res.json({ items: [], message: '請先執行 docs/add-industry-supplier-catalog.sql' });
         }
-        const manufacturerId = await getMeManufacturerB2BAccess(req, res);
+        const manufacturerId = await getMeManufacturerB2BAccess(req, res, { requirePortfolio: false });
         if (!manufacturerId) return;
         const { data: suppliers, error: supErr } = await supabase
             .from('industry_suppliers')
@@ -19459,7 +19507,7 @@ app.get('/api/me/supplier-catalog-items', async (req, res) => {
         if (!(await supplierCatalogTablesReady())) {
             return res.json({ items: [], message: '請先執行 docs/add-industry-supplier-catalog.sql' });
         }
-        const manufacturerId = await getMeManufacturerB2BAccess(req, res);
+        const manufacturerId = await getMeManufacturerB2BAccess(req, res, { requirePortfolio: false });
         if (!manufacturerId) return;
         const itemKind = (req.query.item_kind || 'material').trim();
         if (itemKind !== 'material' && itemKind !== 'prototype_set' && itemKind !== 'part') {
@@ -19552,12 +19600,23 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
             });
         }
 
-        const { data: catalogItem, error: itemErr } = await supabase
+        let catalogItem = null;
+        let itemErr = null;
+        const catalogSelectFull = 'id, item_kind, title, description, cover_image_url, cover_image_label, gallery_images, spec_json, category_key, ai_tags, image_semantics_json, tags_source, industry_supplier_id, industry_suppliers(id, name, contact_json)';
+        ({ data: catalogItem, error: itemErr } = await supabase
             .from('supplier_catalog_items')
-            .select('id, item_kind, title, description, cover_image_url, cover_image_label, gallery_images, spec_json, category_key, ai_tags, image_semantics_json, tags_source, industry_supplier_id, industry_suppliers(id, name, contact_json)')
+            .select(catalogSelectFull)
             .eq('id', catalogItemId)
             .eq('is_active', true)
-            .single();
+            .single());
+        if (itemErr && isSupabaseMissingColumnError(itemErr)) {
+            ({ data: catalogItem, error: itemErr } = await supabase
+                .from('supplier_catalog_items')
+                .select(SUPPLIER_CATALOG_ITEM_LEGACY_SELECT + ', ai_tags, image_semantics_json, tags_source, industry_supplier_id, industry_suppliers(id, name, contact_json)')
+                .eq('id', catalogItemId)
+                .eq('is_active', true)
+                .single());
+        }
         if (itemErr || !catalogItem) return res.status(404).json({ error: '找不到該目錄品項' });
         if (catalogItem.item_kind !== 'material' && catalogItem.item_kind !== 'prototype_set' && catalogItem.item_kind !== 'part') {
             return res.status(400).json({ error: '不支援的品項類型' });
@@ -19595,11 +19654,16 @@ app.post('/api/me/supplier-catalog-imports', express.json(), async (req, res) =>
             insertPayload.image_semantics_json = catalogItem.image_semantics_json;
         }
         const catalogGallery = parseGalleryImages(catalogItem.gallery_images);
-        if (catalogGallery.length) {
+        if (!catalogGallery.length && catalogItem.spec_json && typeof catalogItem.spec_json === 'object') {
+            const specGallery = parseGalleryImages(catalogItem.spec_json.gallery_images);
+            if (specGallery.length) insertPayload.gallery_images = specGallery;
+        } else if (catalogGallery.length) {
             insertPayload.gallery_images = catalogGallery;
         }
-        if (catalogItem.cover_image_label) {
-            insertPayload.cover_image_label = catalogItem.cover_image_label;
+        const coverLabel = catalogItem.cover_image_label
+            || (catalogItem.spec_json && catalogItem.spec_json.cover_image_label);
+        if (coverLabel) {
+            insertPayload.cover_image_label = coverLabel;
         }
         if (targetKind === 'prototype') {
             insertPayload.min_order_quantity = null;
