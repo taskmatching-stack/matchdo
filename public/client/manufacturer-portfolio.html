@@ -305,12 +305,13 @@
         var beforeQuotaLimit = 0;
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705a';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705c';
         var deleteTargetId = null;
         var editModal = null;
         var deleteModal = null;
         var initDone = false;
         var initInProgress = false;
+        var addFormSubmitting = false;
 
         function tr(key) {
             if (window.i18n && typeof window.i18n.t === 'function') {
@@ -321,11 +322,29 @@
         }
 
         async function getToken() {
-            if (typeof AuthService === 'undefined') return null;
+            if (typeof AuthService === 'undefined') return token || null;
             try {
-                var s = await AuthService.getSession();
-                return (s && (s.access_token || (s.session && s.session.access_token))) || null;
-            } catch (e) { return null; }
+                var getter = AuthService.getSessionForApi || AuthService.getSession;
+                var s = await getter.call(AuthService);
+                var tok = (s && (s.access_token || (s.session && s.session.access_token))) || null;
+                if (tok) token = tok;
+                return tok || token;
+            } catch (e) { return token || null; }
+        }
+
+        async function fetchWithAuth(url, options) {
+            options = options || {};
+            var headers = Object.assign({}, options.headers || {});
+            var tok = await getToken();
+            if (!tok) throw new Error('no_token');
+            headers.Authorization = 'Bearer ' + tok;
+            var r = await fetch(url, Object.assign({}, options, { headers: headers }));
+            if (r.status !== 401) return r;
+            await new Promise(function (resolve) { setTimeout(resolve, 400); });
+            tok = await getToken();
+            if (!tok) return r;
+            headers.Authorization = 'Bearer ' + tok;
+            return fetch(url, Object.assign({}, options, { headers: headers }));
         }
 
         function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -351,7 +370,7 @@
             token = await getToken();
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
             try {
-                const r = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
+                const r = await fetchWithAuth('/api/me/manufacturer');
                 if (r.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
                 if (!r.ok) {
                     var errBody = await r.json().catch(function () { return {}; });
@@ -365,13 +384,13 @@
                 document.getElementById('main-content').classList.remove('d-none');
                 document.title = tr('portfolio.pageTitle') + (isEn ? ' - MatchDO' : ' - MatchDO 合做');
                 try {
-                    var cr = await fetch('/api/me/can-upload-portfolio-series', { headers: { Authorization: 'Bearer ' + token } });
+                    var cr = await fetchWithAuth('/api/me/can-upload-portfolio-series');
                     var cd = await cr.json();
                     canUploadSeries = !!cd.allowed;
                     seriesPayPoints = (cd.payPoints === 600) ? 600 : 0;
                 } catch (e) { canUploadSeries = false; seriesPayPoints = 0; }
                 try {
-                    var br = await fetch('/api/me/can-upload-portfolio-before', { headers: { Authorization: 'Bearer ' + token } });
+                    var br = await fetchWithAuth('/api/me/can-upload-portfolio-before');
                     var bd = await br.json();
                     canUploadBefore = !!bd.allowed;
                     beforePayPoints = (bd.payPoints === 400) ? 400 : 0;
@@ -589,9 +608,9 @@
             var tok = await getToken();
             if (!tok) return;
             try {
-                var r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/reorder', {
+                var r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/reorder', {
                     method: 'POST',
-                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order: order })
                 });
                 var d = await r.json().catch(function () { return {}; });
@@ -678,7 +697,6 @@
             makePreview('edit-image-before', 'edit-image-before-preview');
             makePreview('edit-image-after', 'edit-image-after-preview');
 
-            var addFormSubmitting = false;
             document.getElementById('add-form').addEventListener('submit', async function (e) {
                 e.preventDefault();
                 if (addFormSubmitting) return;
@@ -714,7 +732,7 @@
                     fd.append('subcategory_key', document.getElementById('add-subcategory').value);
                     fd.append('category_type', 'custom');
                     fd.append('show_on_media_wall', document.getElementById('add-show-on-media-wall').checked ? 'true' : 'false');
-                    const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                    const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.addFailed'));
                     showToast(tr('portfolio.added'));
@@ -762,7 +780,7 @@
                     fd.append('subcategory_key', document.getElementById('edit-subcategory').value);
                     fd.append('category_type', 'custom');
                     fd.append('show_on_media_wall', document.getElementById('edit-show-on-media-wall').checked ? 'true' : 'false');
-                    const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
+                    const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.updateFailed'));
                     showToast(tr('portfolio.saved'));
@@ -776,7 +794,7 @@
                 var btn = this;
                 btn.disabled = true; btn.textContent = tr('portfolio.deleting');
                 try {
-                    const r = await fetch('/api/manufacturers/' + mfrId + '/portfolio/' + deleteTargetId, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+                    const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + deleteTargetId, { method: 'DELETE' });
                     if (!r.ok) { var d = await r.json(); throw new Error(d.error || tr('portfolio.deleteFailed')); }
                     showToast(tr('portfolio.deleted'));
                     deleteModal.hide();
@@ -859,8 +877,19 @@
         document.addEventListener('DOMContentLoaded', function () {
             if (typeof AuthService !== 'undefined') {
                 AuthService.onAuthStateChange(function (event, session) {
-                    if (session && session.user) { if (!token) init(); }
-                    else if (event === 'SIGNED_OUT') document.getElementById('auth-alert').classList.remove('d-none');
+                    if (session && (session.access_token || (session.session && session.session.access_token))) {
+                        token = session.access_token || (session.session && session.session.access_token) || token;
+                    }
+                    if (event === 'SIGNED_OUT') {
+                        document.getElementById('auth-alert').classList.remove('d-none');
+                        return;
+                    }
+                    // 頁面已載入或正在填表／上傳：只更新 token，不重跑 init（避免清空表單、與 custom-product 一致）
+                    if (initDone || addFormSubmitting || initInProgress) return;
+                    if (session && session.user && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED')) {
+                        initInProgress = false;
+                        init();
+                    }
                 });
                 init();
             } else {
