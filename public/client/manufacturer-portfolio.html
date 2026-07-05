@@ -242,10 +242,10 @@
                                 <input type="text" class="form-control" id="edit-tags">
                                 <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btn-edit-regenerate-tags">
                                     <i class="bi bi-tags me-1"></i><span data-i18n="portfolio.regenerateTags">AI 重生標籤</span>
-                                    — <span id="edit-points-regenerate-tags" class="fw-semibold text-primary">5</span> <span data-i18n="baseModels.pointsUnit">點</span>
+                                    — <span id="edit-points-regenerate-tags" class="fw-semibold text-primary">1</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
                                 <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsEditHint">上傳時已含 AI 標籤；換圖後可手動重生標籤或填寫上方標籤。</p>
-                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.aiPointsDescriptionHint">產生說明僅跑描述（1 點）；重生標籤含完整讀圖語意（5 點，與上傳 AI 標籤同額）。</p>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.aiPointsDescriptionHint">上傳含 AI 標籤 5 點；AI 產生說明與重生標籤各 1 點。</p>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold" for="edit-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
@@ -320,8 +320,8 @@
         var beforeQuotaLimit = 0;
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
-        var uploadPricing = { points_upload: 5, points_description: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705i';
+        var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705j';
 
         function validatePortfolioCategoryFields(mainSelectId, subSelectId) {
             var main = document.getElementById(mainSelectId);
@@ -355,10 +355,11 @@
             var editRegen = document.getElementById('edit-points-regenerate-tags');
             var descPts = uploadPricing.points_description != null ? uploadPricing.points_description : 1;
             var uploadPts = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
+            var regenPts = uploadPricing.points_regenerate_tags != null ? uploadPricing.points_regenerate_tags : 1;
             if (addDesc) addDesc.textContent = String(descPts);
             if (editDesc) editDesc.textContent = String(descPts);
             if (addUpload) addUpload.textContent = String(uploadPts);
-            if (editRegen) editRegen.textContent = String(uploadPts);
+            if (editRegen) editRegen.textContent = String(regenPts);
         }
 
         async function loadUploadPricing() {
@@ -368,6 +369,7 @@
                 if (r.ok) {
                     uploadPricing.points_upload = d.points_upload != null ? d.points_upload : 5;
                     uploadPricing.points_description = d.points_description != null ? d.points_description : 1;
+                    uploadPricing.points_regenerate_tags = d.points_regenerate_tags != null ? d.points_regenerate_tags : 1;
                 }
             } catch (_) {}
             applyUploadPricingToForms();

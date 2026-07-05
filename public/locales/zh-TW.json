@@ -450,7 +450,7 @@
   "portfolio.mainCategory": "主分類",
   "portfolio.mainCategoryRequired": "主分類（必選）",
   "portfolio.subcategoryRequired": "子分類（必選）",
-  "portfolio.aiPointsDescriptionHint": "產生說明僅跑描述（1 點）；重生標籤含完整讀圖語意（5 點，與上傳 AI 標籤同額）。",
+  "portfolio.aiPointsDescriptionHint": "上傳含 AI 標籤 5 點；AI 產生說明與重生標籤各 1 點。",
   "portfolio.subcategory": "子分類",
   "portfolio.highlight": "作品特色",
   "portfolio.description": "作品描述",

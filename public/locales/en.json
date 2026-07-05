@@ -412,7 +412,7 @@
   "portfolio.mainCategory": "Main category",
   "portfolio.mainCategoryRequired": "Main category (required)",
   "portfolio.subcategoryRequired": "Subcategory (required)",
-  "portfolio.aiPointsDescriptionHint": "Generate description runs text only (1 pt). Regenerate tags runs full image semantics (5 pts, same as upload AI tags).",
+  "portfolio.aiPointsDescriptionHint": "Upload with AI tags: 5 pts. Generate description and regenerate tags: 1 pt each.",
   "portfolio.subcategory": "Subcategory",
   "portfolio.highlight": "Work features",
   "portfolio.description": "Description",

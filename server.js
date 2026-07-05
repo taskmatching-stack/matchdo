@@ -9749,6 +9749,13 @@ async function getPointsVendorAssetDescription() {
     return Number.isFinite(v) && v >= 0 ? v : 1;
 }
 
+/** 編輯區 AI 重生標籤（預設 1 點；上傳含 AI 標籤仍用 points_vendor_asset_upload 預設 5 點） */
+async function getPointsVendorAssetRegenerateTags() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_regenerate_tags');
+    const v = rows && rows[0] && rows[0].value != null ? parseInt(rows[0].value, 10) : NaN;
+    return Number.isFinite(v) && v >= 0 ? v : 1;
+}
+
 async function checkUserCreditsBalance(userId, required) {
     const { data: credRow } = await supabase.from('user_credits').select('balance').eq('user_id', userId).maybeSingle();
     const balance = (credRow && credRow.balance != null) ? credRow.balance : 0;
@@ -14907,7 +14914,7 @@ app.post('/api/manufacturers/:manufacturerId/portfolio/:portfolioId/regenerate-t
             .select('id, image_url, image_url_before, category_key, subcategory_key, title, description, design_highlight, tags')
             .eq('id', portfolioId).eq('manufacturer_id', manufacturerId).maybeSingle();
         if (!row || !row.image_url) return res.status(404).json({ error: '找不到該作品或無圖片' });
-        const pointsRequired = await getPointsVendorAssetUpload();
+        const pointsRequired = await getPointsVendorAssetRegenerateTags();
         if (!isAdmin && pointsRequired > 0) {
             const { balance, sufficient } = await checkUserCreditsBalance(user.id, pointsRequired);
             if (!sufficient) return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
@@ -17816,6 +17823,7 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
             points_upscale: await getPointsVendorAssetUpscale(),
             points_description: await getPointsVendorAssetDescription(),
+            points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
             optimize_includes_tags: true
         });
     } catch (e) {
@@ -18069,7 +18077,7 @@ app.post('/api/me/vendor-assets/generate-tags', upload.single('image'), async (r
     }
 });
 
-// POST /api/me/vendor-assets/:id/regenerate-tags — 依目前已上傳的全部圖片重算 AI 標籤（扣點，與上傳產標籤同額）
+// POST /api/me/vendor-assets/:id/regenerate-tags — 依目前已上傳的全部圖片重算 AI 標籤（扣點預設 1）
 app.post('/api/me/vendor-assets/:id/regenerate-tags', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
@@ -18079,7 +18087,7 @@ app.post('/api/me/vendor-assets/:id/regenerate-tags', async (req, res) => {
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const ownerId = seedUser.id;
-        const pointsRequired = await getPointsVendorAssetUpload();
+        const pointsRequired = await getPointsVendorAssetRegenerateTags();
         let isAdmin = false;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
         isAdmin = profile?.role === 'admin';
@@ -21607,6 +21615,7 @@ app.get('/api/me/industry-supplier/catalog-items/upload-pricing', async (req, re
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
             points_upscale: await getPointsVendorAssetUpscale(),
             points_description: await getPointsVendorAssetDescription(),
+            points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
             optimize_includes_tags: true
         });
     } catch (e) {
