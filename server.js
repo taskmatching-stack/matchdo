@@ -14259,7 +14259,8 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         const categoryType = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
 
         const files = req.files || {};
-        const mainFiles = (files.image && Array.isArray(files.image)) ? files.image : [];
+        const rawImages = files.image;
+        const mainFiles = Array.isArray(rawImages) ? rawImages : (rawImages ? [rawImages] : []);
         const mainFile = mainFiles[0] || null;
         const beforeFile = (files.image_before && files.image_before[0]) || null;
 
@@ -14348,25 +14349,6 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
 
         if (!imageUrl) return res.status(400).json({ error: '請上傳作品圖' });
 
-        const semContext = {
-            category_key: categoryKey || '',
-            subcategory_key: subcategoryKey || '',
-            title: title || '',
-            description: description || '',
-            design_highlight: design_highlight || '',
-            image_url: imageUrl,
-            image_label: beforeFileUsedAsBefore ? '作品圖' : '系列圖'
-        };
-        const workFileForSem = (mainFiles.length > 0 ? mainFiles[0] : null);
-        let semResult = workFileForSem
-            ? await tryPortfolioSemanticsFromUploadFile(workFileForSem, semContext, user.id, null)
-            : await tryPortfolioSemanticsFromUrls(imageUrl, imageUrlBefore, semContext, user.id, null);
-        if (semResult) {
-            Object.assign(insertPayload, portfolioSemanticsPatchFromResult(semResult));
-            if (!insertPayload.description && semResult.description) insertPayload.description = semResult.description;
-            if (!tags.length && semResult.tags && semResult.tags.length) insertPayload.tags = semResult.tags;
-        }
-
         const { data: inserted, error } = await insertManufacturerPortfolioRow(insertPayload);
 
         if (error) {
@@ -14376,6 +14358,42 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
                 : '';
             return res.status(500).json({ error: '新增作品圖失敗' + hint });
         }
+
+        // AI 標籤／描述：上傳成功後再補（不阻塞 insert；與先前健康行為一致，Gemini 失敗不影響儲存）
+        try {
+            const semContext = {
+                category_key: categoryKey || '',
+                subcategory_key: subcategoryKey || '',
+                title: title || '',
+                description: description || inserted.description || '',
+                design_highlight: design_highlight || '',
+                image_url: imageUrl,
+                image_label: beforeFileUsedAsBefore ? '作品圖' : '系列圖'
+            };
+            const workFileForSem = mainFiles.length > 0 ? mainFiles[0] : null;
+            const semResult = workFileForSem
+                ? await tryPortfolioSemanticsFromUploadFile(workFileForSem, semContext, user.id, inserted.id)
+                : await tryPortfolioSemanticsFromUrls(imageUrl, imageUrlBefore, semContext, user.id, inserted.id);
+            if (semResult) {
+                const aiPatch = {
+                    ...portfolioSemanticsPatchFromResult(semResult),
+                    updated_at: new Date().toISOString()
+                };
+                if (!inserted.description && semResult.description) aiPatch.description = semResult.description;
+                if (!tags.length && semResult.tags && semResult.tags.length) aiPatch.tags = semResult.tags;
+                const { data: withAi } = await supabase.from('manufacturer_portfolio')
+                    .update(aiPatch)
+                    .eq('id', inserted.id)
+                    .select(MANUFACTURER_PORTFOLIO_INSERT_SELECT)
+                    .single();
+                if (withAi) {
+                    return res.status(201).json(withAi);
+                }
+            }
+        } catch (semErr) {
+            console.warn('POST portfolio AI enrich (non-fatal):', semErr.message || semErr);
+        }
+
         res.status(201).json(inserted);
     } catch (e) {
         console.error('POST /api/manufacturers/:id/portfolio 異常:', e);
