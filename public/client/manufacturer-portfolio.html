@@ -321,7 +321,7 @@
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705j';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705k';
 
         function validatePortfolioCategoryFields(mainSelectId, subSelectId) {
             var main = document.getElementById(mainSelectId);
@@ -339,12 +339,35 @@
             return true;
         }
 
+        function ensureSelectOption(selectEl, value, label) {
+            if (!selectEl || !value) return;
+            var found = false;
+            for (var i = 0; i < selectEl.options.length; i++) {
+                if (selectEl.options[i].value === value) { found = true; break; }
+            }
+            if (!found) {
+                var opt = document.createElement('option');
+                opt.value = value;
+                opt.textContent = label || value;
+                selectEl.appendChild(opt);
+            }
+        }
+
         function setPortfolioCategorySelects(mainSelectId, subSelectId, categoryKey, subcategoryKey) {
             fillMainCategorySelect(mainSelectId);
             var mainEl = document.getElementById(mainSelectId);
-            var subEl = document.getElementById(subSelectId);
+            ensureSelectOption(mainEl, categoryKey, categoryKey);
             if (mainEl) mainEl.value = categoryKey || '';
             fillSubcategorySelect(subSelectId, categoryKey || '');
+            var subEl = document.getElementById(subSelectId);
+            var subLabel = subcategoryKey || '';
+            if (categoryKey && subcategoryKey) {
+                var cat = customCategories.find(function (c) { return c.key === categoryKey; });
+                var subs = (cat && cat.subcategories) ? cat.subcategories : [];
+                var subRow = subs.find(function (s) { return s.key === subcategoryKey; });
+                if (subRow && subRow.name) subLabel = subRow.name;
+            }
+            ensureSelectOption(subEl, subcategoryKey, subLabel);
             if (subEl) subEl.value = subcategoryKey || '';
         }
 
@@ -649,8 +672,9 @@
             var grid = document.getElementById('portfolio-grid');
             grid.innerHTML = '<div class="col-12 text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>' + tr('portfolio.loading') + '</div>';
             try {
-                const r = await fetch('/api/manufacturer-portfolio?manufacturer_id=' + mfrId);
-                const d = await r.json();
+                const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/items');
+                const d = await r.json().catch(function () { return {}; });
+                if (!r.ok) throw new Error(d.error || tr('portfolio.loadFailed'));
                 portfolioItems = d.items || [];
                 renderGrid();
             } catch (e) {
@@ -939,6 +963,8 @@
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.updateFailed'));
+                    var idxSave = portfolioItems.findIndex(function (x) { return x.id == pid; });
+                    if (idxSave >= 0) portfolioItems[idxSave] = Object.assign({}, portfolioItems[idxSave], d);
                     showToast(tr('portfolio.saved'));
                     editModal.hide();
                     await loadPortfolio();

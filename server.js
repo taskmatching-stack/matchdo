@@ -14034,8 +14034,15 @@ function parseManufacturerPortfolioMinOrderQty(raw, opts) {
 }
 
 const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, ai_tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity';
-const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at';
+const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type';
 const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity';
+const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_ONLY = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type';
+const MANUFACTURER_PORTFOLIO_LIST_SELECT_FALLBACKS = [
+    MANUFACTURER_PORTFOLIO_SELECT_FULL,
+    MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN,
+    MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_ONLY,
+    MANUFACTURER_PORTFOLIO_SELECT_BASE
+];
 const MANUFACTURER_PORTFOLIO_INSERT_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order, category_key, subcategory_key, created_at, min_order_quantity, ai_tags';
 
 const MANUFACTURER_PORTFOLIO_OPTIONAL_INSERT_COLS = [
@@ -14063,6 +14070,51 @@ function portfolioCategoryColumnHint(error) {
     return '';
 }
 
+/** 列表查詢：依序嘗試含 category_key 的 select，避免缺 ai_tags/series 欄位時 fallback 掉分類 */
+async function queryManufacturerPortfolioRows(buildQuery) {
+    let lastError = null;
+    for (const selectCols of MANUFACTURER_PORTFOLIO_LIST_SELECT_FALLBACKS) {
+        const { data, error } = await buildQuery(supabase.from('manufacturer_portfolio').select(selectCols));
+        if (!error) return { data: data || [], error: null, selectCols };
+        if (!isSupabaseMissingColumnError(error)) return { data: null, error, selectCols: null };
+        lastError = error;
+        console.warn('manufacturer_portfolio list select fallback:', error.message);
+    }
+    return { data: null, error: lastError || new Error('queryManufacturerPortfolioRows failed'), selectCols: null };
+}
+
+function mapManufacturerPortfolioListItems(list, mfrMap) {
+    const now = new Date();
+    return (list || []).map((p) => {
+        const seriesExpired = p.series_image_valid_until && now > new Date(p.series_image_valid_until);
+        const beforeExpired = p.before_image_valid_until && now > new Date(p.before_image_valid_until);
+        const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls : (p.image_url ? [p.image_url] : []);
+        return {
+            id: p.id,
+            manufacturer_id: p.manufacturer_id,
+            manufacturer_name: mfrMap[p.manufacturer_id]?.name || '',
+            manufacturer_location: mfrMap[p.manufacturer_id]?.location || '',
+            manufacturer_contact: mfrMap[p.manufacturer_id]?.contact_json || null,
+            manufacturer_user_id: mfrMap[p.manufacturer_id]?.user_id || null,
+            categories: mfrMap[p.manufacturer_id]?.categories || [],
+            title: p.title,
+            description: p.description,
+            image_url: seriesExpired ? null : (p.image_url || null),
+            series_image_urls: seriesExpired ? [] : seriesUrls,
+            image_url_before: beforeExpired ? null : (p.image_url_before || null),
+            design_highlight: p.design_highlight || null,
+            tags: p.tags || [],
+            ai_tags: p.ai_tags || [],
+            sort_order: p.sort_order,
+            category_key: p.category_key || null,
+            subcategory_key: p.subcategory_key || null,
+            category_type: p.category_type || null,
+            show_on_media_wall: p.show_on_media_wall !== false,
+            min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null
+        };
+    });
+}
+
 async function insertManufacturerPortfolioRow(payload) {
     const row = { ...payload };
     let selectCols = MANUFACTURER_PORTFOLIO_INSERT_SELECT;
@@ -14079,6 +14131,10 @@ async function insertManufacturerPortfolioRow(payload) {
             }
         }
         if (!stripped) {
+            const msg = String(error.message || '');
+            if (['category_key', 'subcategory_key', 'category_type'].some((c) => msg.includes(c) && Object.prototype.hasOwnProperty.call(row, c))) {
+                return { data: null, error };
+            }
             const parts = selectCols.split(',').map((c) => c.trim()).filter(Boolean);
             const badSel = parts.find((c) => msg.includes(c));
             if (badSel) {
@@ -14112,6 +14168,10 @@ async function updateManufacturerPortfolioRow(portfolioId, manufacturerId, updat
             }
         }
         if (!stripped) {
+            const msg = String(error.message || '');
+            if (['category_key', 'subcategory_key', 'category_type'].some((c) => msg.includes(c) && Object.prototype.hasOwnProperty.call(row, c))) {
+                return { data: null, error };
+            }
             const parts = selectCols.split(',').map((c) => c.trim()).filter(Boolean);
             const badSel = parts.find((c) => msg.includes(c));
             if (badSel) {
@@ -14392,59 +14452,26 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
         const { manufacturer_id, category, keyword, q } = req.query;
         const search = keyword || q;
 
-        let portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_FULL);
-        if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
+        let manufacturerIdsFilter = null;
         if (category && category !== 'default') {
             let mfrQ = supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
             try { mfrQ = mfrQ.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
             const { data: mfrIds } = await mfrQ;
-            const ids = (mfrIds || []).map(m => m.id);
-            if (ids.length === 0) return res.json({ items: [] });
-            portfolioQuery = portfolioQuery.in('manufacturer_id', ids);
+            manufacturerIdsFilter = (mfrIds || []).map(m => m.id);
+            if (manufacturerIdsFilter.length === 0) return res.json({ items: [] });
         }
-        portfolioQuery = portfolioQuery.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
 
-        let { data: items, error } = await portfolioQuery;
-
-        if (error) {
-            console.warn('GET /api/manufacturer-portfolio 完整欄位失敗，改查含分類欄位（請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql 補齊）:', error.message);
-            portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN);
-            if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
-            if (category && category !== 'default') {
-                let mfrQ2 = supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
-                try { mfrQ2 = mfrQ2.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
-                const { data: mfrIds2 } = await mfrQ2;
-                const ids2 = (mfrIds2 || []).map(m => m.id);
-                if (ids2.length === 0) return res.json({ items: [] });
-                portfolioQuery = portfolioQuery.in('manufacturer_id', ids2);
-            }
-            portfolioQuery = portfolioQuery.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
-            const retCat = await portfolioQuery;
-            if (!retCat.error) {
-                items = retCat.data || [];
-                error = null;
-            } else {
-                console.warn('GET /api/manufacturer-portfolio 含分類欄位仍失敗，改查基礎欄位:', retCat.error.message);
-                portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_BASE);
-            if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
-            if (category && category !== 'default') {
-                let mfrQ2 = supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
-                try { mfrQ2 = mfrQ2.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
-                const { data: mfrIds2 } = await mfrQ2;
-                const ids2 = (mfrIds2 || []).map(m => m.id);
-                if (ids2.length === 0) return res.json({ items: [] });
-                portfolioQuery = portfolioQuery.in('manufacturer_id', ids2);
-            }
-            portfolioQuery = portfolioQuery.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
-            const ret = await portfolioQuery;
-            error = ret.error;
-            items = ret.data || [];
-            }
-        }
+        const { data: items, error } = await queryManufacturerPortfolioRows((q) => {
+            let query = q;
+            if (manufacturer_id) query = query.eq('manufacturer_id', manufacturer_id);
+            if (manufacturerIdsFilter) query = query.in('manufacturer_id', manufacturerIdsFilter);
+            return query.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+        });
 
         if (error) {
             console.error('GET /api/manufacturer-portfolio 失敗:', error);
-            return res.status(500).json({ error: '查詢作品圖失敗' });
+            const hint = portfolioCategoryColumnHint(error);
+            return res.status(500).json({ error: '查詢作品圖失敗' + hint });
         }
 
         let list = items || [];
@@ -14465,34 +14492,7 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
             (mfrs || []).forEach(m => { mfrMap[m.id] = m; });
         }
 
-        const now = new Date();
-        const result = list.map(p => {
-            const seriesExpired = p.series_image_valid_until && now > new Date(p.series_image_valid_until);
-            const beforeExpired = p.before_image_valid_until && now > new Date(p.before_image_valid_until);
-            const seriesUrls = (Array.isArray(p.series_image_urls) && p.series_image_urls.length) ? p.series_image_urls : (p.image_url ? [p.image_url] : []);
-            return {
-                id: p.id,
-                manufacturer_id: p.manufacturer_id,
-                manufacturer_name: mfrMap[p.manufacturer_id]?.name || '',
-                manufacturer_location: mfrMap[p.manufacturer_id]?.location || '',
-                manufacturer_contact: mfrMap[p.manufacturer_id]?.contact_json || null,
-                manufacturer_user_id: mfrMap[p.manufacturer_id]?.user_id || null,
-                categories: mfrMap[p.manufacturer_id]?.categories || [],
-                title: p.title,
-                description: p.description,
-                image_url: seriesExpired ? null : (p.image_url || null),
-                series_image_urls: seriesExpired ? [] : seriesUrls,
-                image_url_before: beforeExpired ? null : (p.image_url_before || null),
-                design_highlight: p.design_highlight || null,
-                tags: p.tags || [],
-                sort_order: p.sort_order,
-                category_key: p.category_key || null,
-                subcategory_key: p.subcategory_key || null,
-                category_type: p.category_type || null,
-                show_on_media_wall: p.show_on_media_wall !== false,
-                min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null
-            };
-        });
+        const result = mapManufacturerPortfolioListItems(list, mfrMap);
 
         if (result.length === 0) {
             console.warn('GET /api/manufacturer-portfolio 回傳 0 筆。若首頁媒體牆有廠商作品，請確認 .env 已設 SUPABASE_SERVICE_ROLE_KEY 並在 Supabase 執行過 docs/seed-manufacturers-and-portfolio.sql');
@@ -14500,6 +14500,34 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
         res.json({ items: result });
     } catch (e) {
         console.error('GET /api/manufacturer-portfolio 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/manufacturers/:manufacturerId/portfolio/items — 廠商後台作品列表（必含 category_key）
+app.get('/api/manufacturers/:manufacturerId/portfolio/items', async (req, res) => {
+    try {
+        const user = await getCurrentUser(req, res);
+        if (!user) return;
+        const { manufacturerId } = req.params;
+        const { data: mfr } = await supabase.from('manufacturers').select('id, user_id').eq('id', manufacturerId).single();
+        if (!mfr) return res.status(404).json({ error: '找不到該廠商' });
+        const isAdmin = await isAdminUserId(user.id);
+        if (mfr.user_id !== user.id && !isAdmin) return res.status(403).json({ error: '僅廠商本人或管理員可檢視' });
+
+        const { data, error } = await queryManufacturerPortfolioRows((q) =>
+            q.eq('manufacturer_id', manufacturerId)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false })
+        );
+        if (error) {
+            console.error('GET portfolio/items:', error);
+            const hint = portfolioCategoryColumnHint(error);
+            return res.status(500).json({ error: '讀取作品失敗' + hint });
+        }
+        res.json({ items: mapManufacturerPortfolioListItems(data || [], {}) });
+    } catch (e) {
+        console.error('GET /api/manufacturers/:manufacturerId/portfolio/items:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
