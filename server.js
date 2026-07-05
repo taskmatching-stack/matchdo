@@ -14028,16 +14028,33 @@ function parseManufacturerPortfolioMinOrderQty(raw, opts) {
 
 const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, ai_tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity';
 const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at';
+const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity';
 const MANUFACTURER_PORTFOLIO_INSERT_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, sort_order, category_key, subcategory_key, created_at, min_order_quantity, ai_tags';
 
 const MANUFACTURER_PORTFOLIO_OPTIONAL_INSERT_COLS = [
-    'category_key', 'subcategory_key', 'category_type',
     'series_image_urls', 'series_image_valid_until', 'before_image_valid_until',
     'show_on_media_wall', 'min_order_quantity',
     'ai_tags', 'image_semantics_json', 'tags_source', 'ai_tags_generated_at'
 ];
 
 const MANUFACTURER_PORTFOLIO_UPDATE_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, ai_tags, sort_order, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity';
+
+function validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey) {
+    const ck = (categoryKey != null ? String(categoryKey) : '').trim();
+    const sk = (subcategoryKey != null ? String(subcategoryKey) : '').trim();
+    if (!ck) return '請選擇主分類';
+    if (!sk) return '請選擇子分類';
+    return null;
+}
+
+function portfolioCategoryColumnHint(error) {
+    if (!isSupabaseMissingColumnError(error)) return '';
+    const msg = String(error.message || '');
+    if (msg.includes('category_key') || msg.includes('subcategory_key') || msg.includes('category_type')) {
+        return '（資料庫缺少分類欄位，請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql）';
+    }
+    return '';
+}
 
 async function insertManufacturerPortfolioRow(payload) {
     const row = { ...payload };
@@ -14383,8 +14400,25 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
         let { data: items, error } = await portfolioQuery;
 
         if (error) {
-            console.warn('GET /api/manufacturer-portfolio 完整欄位失敗，改查基礎欄位（請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql 補齊）:', error.message);
-            portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_BASE);
+            console.warn('GET /api/manufacturer-portfolio 完整欄位失敗，改查含分類欄位（請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql 補齊）:', error.message);
+            portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN);
+            if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
+            if (category && category !== 'default') {
+                let mfrQ2 = supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
+                try { mfrQ2 = mfrQ2.or(manufacturerVisibleExpiresFilter()); } catch (_) {}
+                const { data: mfrIds2 } = await mfrQ2;
+                const ids2 = (mfrIds2 || []).map(m => m.id);
+                if (ids2.length === 0) return res.json({ items: [] });
+                portfolioQuery = portfolioQuery.in('manufacturer_id', ids2);
+            }
+            portfolioQuery = portfolioQuery.order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+            const retCat = await portfolioQuery;
+            if (!retCat.error) {
+                items = retCat.data || [];
+                error = null;
+            } else {
+                console.warn('GET /api/manufacturer-portfolio 含分類欄位仍失敗，改查基礎欄位:', retCat.error.message);
+                portfolioQuery = supabase.from('manufacturer_portfolio').select(MANUFACTURER_PORTFOLIO_SELECT_BASE);
             if (manufacturer_id) portfolioQuery = portfolioQuery.eq('manufacturer_id', manufacturer_id);
             if (category && category !== 'default') {
                 let mfrQ2 = supabase.from('manufacturers').select('id').eq('is_active', true).contains('categories', [category]);
@@ -14398,6 +14432,7 @@ app.get('/api/manufacturer-portfolio', async (req, res) => {
             const ret = await portfolioQuery;
             error = ret.error;
             items = ret.data || [];
+            }
         }
 
         if (error) {
@@ -14475,6 +14510,8 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
         const categoryKey = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
         const subcategoryKey = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
+        const categoryErr = validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey);
+        if (categoryErr) return res.status(400).json({ error: categoryErr });
         const categoryType = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
 
         const files = req.files || {};
@@ -14572,9 +14609,10 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
 
         if (error) {
             console.error('POST /api/manufacturers/:id/portfolio 失敗:', error);
-            const hint = isSupabaseMissingColumnError(error)
+            const catHint = portfolioCategoryColumnHint(error);
+            const hint = catHint || (isSupabaseMissingColumnError(error)
                 ? '（資料庫欄位未齊，請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql 與 docs/add-digital-prototype-ai-tags.sql）'
-                : '';
+                : '');
             return res.status(500).json({ error: '新增作品圖失敗' + hint });
         }
 
@@ -14680,6 +14718,8 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         const moqPut = parseManufacturerPortfolioMinOrderQty(body.min_order_quantity, { forUpdate: true });
         if (moqPut.error) return res.status(400).json({ error: moqPut.error });
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
+        const categoryErrPut = validateManufacturerPortfolioCategoryKeys(bodyCategoryKey, bodySubcategoryKey);
+        if (categoryErrPut) return res.status(400).json({ error: categoryErrPut });
 
         const files = req.files || {};
         const mainFile = (files.image && files.image[0]) || null;
@@ -14756,9 +14796,10 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         const { data: updated, error } = await updateManufacturerPortfolioRow(portfolioId, manufacturerId, updates);
         if (error) {
             console.error('PUT /api/manufacturers/:id/portfolio/:portfolioId 失敗:', error);
-            const hint = isSupabaseMissingColumnError(error)
+            const catHint = portfolioCategoryColumnHint(error);
+            const hint = catHint || (isSupabaseMissingColumnError(error)
                 ? '（資料庫欄位未齊，請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql）'
-                : '';
+                : '');
             return res.status(500).json({ error: '更新失敗' + hint });
         }
         res.json(updated);

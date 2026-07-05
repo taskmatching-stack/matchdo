@@ -124,14 +124,14 @@
                                 <input type="text" class="form-control" id="add-title" data-i18n-placeholder="portfolio.addTitlePlaceholder" placeholder="例：精品牛皮手提包 A 款">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.mainCategory">主分類</label>
-                                <select class="form-select" id="add-category">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.mainCategoryRequired">主分類（必選）</label>
+                                <select class="form-select" id="add-category" required>
                                     <option value="" data-i18n="portfolio.selectMainCategory">— 選擇主分類 —</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategory">子分類</label>
-                                <select class="form-select" id="add-subcategory">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategoryRequired">子分類（必選）</label>
+                                <select class="form-select" id="add-subcategory" required>
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
@@ -214,14 +214,14 @@
                                 <input type="text" class="form-control" id="edit-title">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.mainCategory">主分類</label>
-                                <select class="form-select" id="edit-category">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.mainCategoryRequired">主分類（必選）</label>
+                                <select class="form-select" id="edit-category" required>
                                     <option value="" data-i18n="portfolio.selectMainCategory">— 選擇主分類 —</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategory">子分類</label>
-                                <select class="form-select" id="edit-subcategory">
+                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategoryRequired">子分類（必選）</label>
+                                <select class="form-select" id="edit-subcategory" required>
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
@@ -245,6 +245,7 @@
                                     — <span id="edit-points-regenerate-tags" class="fw-semibold text-primary">5</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
                                 <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsEditHint">上傳時已含 AI 標籤；換圖後可手動重生標籤或填寫上方標籤。</p>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.aiPointsDescriptionHint">產生說明僅跑描述（1 點）；重生標籤含完整讀圖語意（5 點，與上傳 AI 標籤同額）。</p>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold" for="edit-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
@@ -320,7 +321,32 @@
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705h';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705i';
+
+        function validatePortfolioCategoryFields(mainSelectId, subSelectId) {
+            var main = document.getElementById(mainSelectId);
+            var sub = document.getElementById(subSelectId);
+            if (!main || !main.value) {
+                showToast(tr('portfolio.mainCategoryRequired') || '請選擇主分類', 'warning');
+                if (main) main.focus();
+                return false;
+            }
+            if (!sub || !sub.value) {
+                showToast(tr('portfolio.subcategoryRequired') || '請選擇子分類', 'warning');
+                if (sub) sub.focus();
+                return false;
+            }
+            return true;
+        }
+
+        function setPortfolioCategorySelects(mainSelectId, subSelectId, categoryKey, subcategoryKey) {
+            fillMainCategorySelect(mainSelectId);
+            var mainEl = document.getElementById(mainSelectId);
+            var subEl = document.getElementById(subSelectId);
+            if (mainEl) mainEl.value = categoryKey || '';
+            fillSubcategorySelect(subSelectId, categoryKey || '');
+            if (subEl) subEl.value = subcategoryKey || '';
+        }
 
         function applyUploadPricingToForms() {
             var addDesc = document.getElementById('add-points-description');
@@ -811,6 +837,9 @@
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
                     var mode = addUploadMode();
+                    if (!validatePortfolioCategoryFields('add-category', 'add-subcategory')) {
+                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
+                    }
                     var fd = new FormData();
                     var addImageInput = document.getElementById('add-image');
                     var afterFile = document.getElementById('add-image-after').files[0];
@@ -879,6 +908,9 @@
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
                     var pid = document.getElementById('edit-id').value;
+                    if (!validatePortfolioCategoryFields('edit-category', 'edit-subcategory')) {
+                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); return;
+                    }
                     var fd = new FormData();
                     var editSeriesBlock = document.getElementById('edit-series-block');
                     var seriesVisible = editSeriesBlock && !editSeriesBlock.classList.contains('d-none');
@@ -958,9 +990,10 @@
             });
         }
 
-        window._editPortfolio = function (pid) {
+        window._editPortfolio = async function (pid) {
             var p = portfolioItems.find(function (x) { return x.id == pid; });
             if (!p) return;
+            if (!customCategories.length) await loadCategories();
             document.getElementById('edit-id').value = p.id;
             document.getElementById('edit-title').value = p.title || '';
             document.getElementById('edit-highlight').value = p.design_highlight || '';
@@ -969,10 +1002,7 @@
             document.getElementById('edit-tags').value = portfolioTagsForDisplay(p).join(', ');
             var editMoq = document.getElementById('edit-moq');
             if (editMoq) editMoq.value = (p.min_order_quantity != null && p.min_order_quantity !== '') ? String(p.min_order_quantity) : '';
-            fillMainCategorySelect('edit-category');
-            document.getElementById('edit-category').value = p.category_key || '';
-            fillSubcategorySelect('edit-subcategory', p.category_key || '');
-            document.getElementById('edit-subcategory').value = p.subcategory_key || '';
+            setPortfolioCategorySelects('edit-category', 'edit-subcategory', p.category_key || '', p.subcategory_key || '');
             document.getElementById('edit-image-preview').innerHTML = '';
             document.getElementById('edit-image-before-preview').innerHTML = '';
             document.getElementById('edit-image-after-preview').innerHTML = '';
