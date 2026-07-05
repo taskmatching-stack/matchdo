@@ -144,8 +144,9 @@
                                 <textarea class="form-control" id="add-desc" rows="2" data-i18n-placeholder="portfolio.descPlaceholder" placeholder="作品背景、製作方式等說明…"></textarea>
                                 <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-add-generate-description">
                                     <i class="bi bi-card-text me-1"></i><span data-i18n="portfolio.generateDescription">AI 產生說明</span>
+                                    — <span id="add-points-description" class="fw-semibold text-primary">1</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
-                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsHint">上傳時會自動產生 AI 標籤；亦可手動填寫下方標籤。</p>
+                                <p class="text-muted small mb-0 mt-1"><span data-i18n="portfolio.uploadAiTagsHint">上傳成功後會自動產生 AI 標籤與描述（扣</span> <strong id="add-points-upload">5</strong> <span data-i18n="baseModels.pointsUnit">點</span>）；<span data-i18n="portfolio.uploadAiTagsHintManual">亦可手動填寫下方標籤。</span></p>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
@@ -233,6 +234,7 @@
                                 <textarea class="form-control" id="edit-desc" rows="2"></textarea>
                                 <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-generate-description">
                                     <i class="bi bi-card-text me-1"></i><span data-i18n="portfolio.generateDescription">AI 產生說明</span>
+                                    — <span id="edit-points-description" class="fw-semibold text-primary">1</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
                             </div>
                             <div class="col-12">
@@ -240,8 +242,9 @@
                                 <input type="text" class="form-control" id="edit-tags">
                                 <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btn-edit-regenerate-tags">
                                     <i class="bi bi-tags me-1"></i><span data-i18n="portfolio.regenerateTags">AI 重生標籤</span>
+                                    — <span id="edit-points-regenerate-tags" class="fw-semibold text-primary">5</span> <span data-i18n="baseModels.pointsUnit">點</span>
                                 </button>
-                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsHint">上傳時會自動產生 AI 標籤；亦可手動填寫上方標籤。</p>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsEditHint">上傳時已含 AI 標籤；換圖後可手動重生標籤或填寫上方標籤。</p>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold" for="edit-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
@@ -316,7 +319,41 @@
         var beforeQuotaLimit = 0;
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705f';
+        var uploadPricing = { points_upload: 5, points_description: 1 };
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705h';
+
+        function applyUploadPricingToForms() {
+            var addDesc = document.getElementById('add-points-description');
+            var editDesc = document.getElementById('edit-points-description');
+            var addUpload = document.getElementById('add-points-upload');
+            var editRegen = document.getElementById('edit-points-regenerate-tags');
+            var descPts = uploadPricing.points_description != null ? uploadPricing.points_description : 1;
+            var uploadPts = uploadPricing.points_upload != null ? uploadPricing.points_upload : 5;
+            if (addDesc) addDesc.textContent = String(descPts);
+            if (editDesc) editDesc.textContent = String(descPts);
+            if (addUpload) addUpload.textContent = String(uploadPts);
+            if (editRegen) editRegen.textContent = String(uploadPts);
+        }
+
+        async function loadUploadPricing() {
+            try {
+                var r = await fetchWithAuth('/api/me/vendor-assets/upload-pricing');
+                var d = await r.json().catch(function () { return {}; });
+                if (r.ok) {
+                    uploadPricing.points_upload = d.points_upload != null ? d.points_upload : 5;
+                    uploadPricing.points_description = d.points_description != null ? d.points_description : 1;
+                }
+            } catch (_) {}
+            applyUploadPricingToForms();
+        }
+
+        function toastWithPoints(baseKey, fallback, pointsDeducted) {
+            var msg = tr(baseKey) || fallback;
+            if (pointsDeducted > 0) {
+                msg += '（-' + pointsDeducted + ' ' + (tr('baseModels.pointsUnit') || '點') + '）';
+            }
+            showToast(msg);
+        }
 
         function portfolioTagsForDisplay(p) {
             var manual = Array.isArray(p.tags) ? p.tags : [];
@@ -366,7 +403,7 @@
                 var d = await r.json().catch(function () { return {}; });
                 if (!r.ok) throw new Error(d.error || tr('portfolio.generateDescriptionFailed') || 'AI 產生說明失敗');
                 if (d.description) document.getElementById(targetDescId).value = d.description;
-                showToast(tr('portfolio.generateDescriptionDone') || '已產生說明');
+                toastWithPoints('portfolio.generateDescriptionDone', '已產生說明', d.points_deducted || 0);
             } catch (e) { showToast(e.message, 'danger'); }
             finally { if (btn) btn.disabled = false; }
         }
@@ -462,6 +499,7 @@
                     beforeQuotaUsed = bd.quotaUsed != null ? bd.quotaUsed : 0;
                 } catch (e) { canUploadBefore = true; beforePayPoints = 0; beforeQuotaLimit = 0; beforeQuotaUsed = 0; }
                 applyUploadModeLocks();
+                await loadUploadPricing();
                 await loadCategories();
                 await loadPortfolio();
                 bindEvents();
@@ -803,7 +841,13 @@
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.addFailed'));
-                    showToast(tr('portfolio.added'));
+                    if (d.ai_applied) {
+                        toastWithPoints('portfolio.addedWithAi', '作品已儲存，AI 標籤與描述已產生', d.points_deducted || 0);
+                    } else if (d.ai_skip_reason === 'insufficient_points') {
+                        showToast(tr('portfolio.aiSkippedInsufficientPoints') || '作品已儲存，但點數不足未產生 AI 內容', 'warning');
+                    } else {
+                        showToast(tr('portfolio.added'));
+                    }
                     document.getElementById('add-form').reset();
                     document.getElementById('add-mode-series').checked = true;
                     applyUploadModeLocks();
@@ -895,7 +939,7 @@
                     document.getElementById('edit-tags').value = tags.join(', ');
                     var idx = portfolioItems.findIndex(function (x) { return x.id == pid; });
                     if (idx >= 0) portfolioItems[idx] = Object.assign({}, portfolioItems[idx], item);
-                    showToast(tr('portfolio.regenerateTagsDone') || '已更新 AI 標籤');
+                    toastWithPoints('portfolio.regenerateTagsDone', '已更新 AI 標籤', d.points_deducted || 0);
                 } catch (e) { showToast(e.message, 'danger'); }
                 finally { btn.disabled = false; }
             });
