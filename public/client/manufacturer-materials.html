@@ -186,6 +186,7 @@
                 <div class="d-flex gap-2 flex-wrap">
                     <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
                     <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
+                    <button type="button" class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i><span id="btn-add-open-label" data-i18n="baseModels.addUpload">新增</span></button>
                 </div>
             </div>
         </div>
@@ -271,7 +272,11 @@
                 </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供設計者選用。</p>
                 <div class="alert alert-info border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuidePrototype">「材料參考」請用<strong>材料</strong>分頁（主產品布料／色卡）。<strong>配件</strong>的材質、顏色請在<strong>配件／零件</strong>分頁<strong>各建一筆獨立產品</strong>，不要與材料或原型混在同一筆，以免訂製者 AI 參考混亂。</div>
-                <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4 upload-panel">
+                <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4 upload-panel d-none">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i><span data-i18n="baseModels.addPrototypeTitle">新增數位原型</span></span>
+                        <button type="button" class="btn-close btn-add-panel-close" aria-label="關閉"></button>
+                    </div>
                     <div class="card-body">
                         <form class="add-form" data-kind="prototype" enctype="multipart/form-data">
                             <div class="row g-3">
@@ -338,6 +343,7 @@
                                     <p class="add-prototype-links-empty text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                                 </div>
                                 <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-add-panel-cancel" data-i18n="baseModels.cancelUpload">取消</button>
                                     <button type="button" class="btn btn-primary btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">上傳並發布</span></button>
                                     <span class="small text-danger add-form-msg"></span>
                                 </div>
@@ -387,7 +393,11 @@
             </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintPart">扣具、拉鍊、標章等局部零件參考，供設計者選用（無 MOQ）。</p>
                 <div class="alert alert-warning border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuidePart"><strong>重要：</strong>配件的<strong>每一種顏色、每一種表面材質</strong>請<strong>各建一筆獨立產品</strong>（標題例：「D扣／金色」「D扣／黑色」），不要多色混在同一筆或多張圖當成「一個配件」。布料色卡請用「材料參考」，不要放在這裡。</div>
-                <div id="add-form-panel-part" class="card border-0 shadow-sm mb-4 upload-panel">
+                <div id="add-form-panel-part" class="card border-0 shadow-sm mb-4 upload-panel d-none">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-warning"></i><span data-i18n="baseModels.addPartTitle">新增配件／零件</span></span>
+                        <button type="button" class="btn-close btn-add-panel-close" aria-label="關閉"></button>
+                    </div>
                     <div class="card-body">
                         <form class="add-form" data-kind="part" enctype="multipart/form-data">
                             <div class="row g-3">
@@ -450,6 +460,7 @@
                                     <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無主產品可選（選填，略過不影響發布）。</p>
                                 </div>
                                 <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-add-panel-cancel" data-i18n="baseModels.cancelUpload">取消</button>
                                     <button type="button" class="btn btn-warning btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">上傳並發布</span></button>
                                     <span class="small text-danger add-form-msg"></span>
                                 </div>
@@ -499,7 +510,11 @@
             </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本，供設計者選用。</p>
                 <div class="alert alert-success border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuideMaterial"><strong>材料參考</strong>給<strong>主產品</strong>用（整件衣服的布料、皮革色卡、織紋滿版圖）。<strong>不要</strong>把配件的顏色變體當材料上傳；配件請到「配件／零件」分頁，每種顏色／材質各建一筆。</div>
-                <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel">
+                <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel d-none">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i><span data-i18n="baseModels.addMaterialTitle">新增材料參考</span></span>
+                        <button type="button" class="btn-close btn-add-panel-close" aria-label="關閉"></button>
+                    </div>
                     <div class="card-body">
                         <form class="add-form" data-kind="material" enctype="multipart/form-data">
                             <div class="row g-3">
@@ -556,6 +571,7 @@
                                     <p class="add-linked-prototypes-empty text-muted small mb-0 d-none" data-i18n="baseModels.linkedPrototypesEmpty">尚無主產品可選（選填，略過不影響發布）。</p>
                                 </div>
                                 <div class="col-12 d-flex flex-wrap align-items-center gap-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-add-panel-cancel" data-i18n="baseModels.cancelUpload">取消</button>
                                     <button type="button" class="btn btn-success btn-add-submit-only"><i class="bi bi-cloud-upload me-1"></i><span data-i18n="baseModels.uploadPublishOnly">上傳並發布</span></button>
                                     <span class="small text-danger add-form-msg"></span>
                                 </div>
@@ -833,7 +849,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'regen-tags-1pt-20260705';
+        window.__MATCHDO_MATERIALS_BUILD = 'add-panel-collapsed-20260705';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -965,7 +981,6 @@
             banner.classList.remove('d-none');
             banner.className = 'alert alert-warning border-0 rounded-0 mb-0';
             banner.innerHTML = '<i class="bi bi-seedling me-2"></i>種子展示期：請完成素材上架；轉正式廠商後再交付帳密予廠商。';
-            document.querySelectorAll('.upload-panel').forEach(function (el) { el.classList.remove('d-none'); });
         }
         var categories = [];
         var productionTypes = [];
@@ -5310,7 +5325,7 @@
                 return;
             }
             if (!list.length && !isSeedVendor) {
-                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + esc(tr('baseModels.listEmptyKind', '尚無素材，請使用上方表單上傳。')) + '</p></div>';
+                grid.innerHTML = '<div class="col-12"><p class="text-muted mb-0">' + esc(tr('baseModels.listEmptyKind', '尚無素材，請按上方「新增」開始上傳。')) + '</p></div>';
                 return;
             }
             if (!list.length) {
@@ -5443,15 +5458,54 @@
             requestAnimationFrame(renderBatch);
         }
 
+        function addFormPanelIdForKind(kind) {
+            var k = normalizeKind(kind || activeKind);
+            if (k === 'material') return 'add-form-panel-material';
+            if (k === 'part') return 'add-form-panel-part';
+            return 'add-form-panel-prototype';
+        }
+
+        function openAddFormPanel(kind) {
+            var panelId = addFormPanelIdForKind(kind);
+            var panel = document.getElementById(panelId);
+            if (!panel) return;
+            panel.classList.remove('d-none');
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function closeAddFormPanel(kind) {
+            var panelId = addFormPanelIdForKind(kind);
+            var panel = document.getElementById(panelId);
+            if (panel) panel.classList.add('d-none');
+        }
+
+        function updateAddOpenButtonLabel() {
+            var labelEl = document.getElementById('btn-add-open-label');
+            if (!labelEl) return;
+            var key = activeKind === 'material' ? 'baseModels.addMaterialShort'
+                : (activeKind === 'part' ? 'baseModels.addPartShort' : 'baseModels.addPrototypeShort');
+            var fb = activeKind === 'material' ? '新增材料'
+                : (activeKind === 'part' ? '新增配件' : '新增原型');
+            labelEl.textContent = tr(key, fb);
+        }
+
+        function bindAddFormPanelControls() {
+            var btnOpen = document.getElementById('btn-add-open');
+            if (btnOpen) {
+                btnOpen.addEventListener('click', function () { openAddFormPanel(activeKind); });
+            }
+            document.querySelectorAll('.btn-add-panel-close, .btn-add-panel-cancel').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var panel = btn.closest('.upload-panel');
+                    if (panel) panel.classList.add('d-none');
+                });
+            });
+        }
+
         function bindGridAddCard() {
             var card = document.querySelector('.grid-add-card');
             if (!card || isSeedVendor) return;
-            function go() {
-                var panelId = activeKind === 'material' ? 'add-form-panel-material'
-                    : (activeKind === 'part' ? 'add-form-panel-part' : 'add-form-panel-prototype');
-                var panel = document.getElementById(panelId);
-                if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+            function go() { openAddFormPanel(activeKind); }
             card.addEventListener('click', go);
             card.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
         }
@@ -5503,6 +5557,7 @@
             renderAllAddFormLinkSections();
             var activeForm = document.querySelector('.add-form[data-kind="' + activeKind + '"]');
             if (activeForm) restorePendingDraft(activeForm);
+            updateAddOpenButtonLabel();
         }
 
         document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
@@ -5657,6 +5712,7 @@
                 applyUploadPricingToForms();
                 await loadMaterials();
                 switchKind(kind);
+                closeAddFormPanel(kind);
                 if (newAssetId) {
                     editGalleryHighlightUrls.clear();
                     highlightImportedAsset(newAssetId);
@@ -6630,6 +6686,7 @@
 
         async function init() {
             bindAllPageModalsScrollUnlock();
+            bindAddFormPanelControls();
             initPrototypeMetaFields();
             showMaterialsListLoading();
 
