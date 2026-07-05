@@ -142,6 +142,10 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.description">作品描述</label>
                                 <textarea class="form-control" id="add-desc" rows="2" data-i18n-placeholder="portfolio.descPlaceholder" placeholder="作品背景、製作方式等說明…"></textarea>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-add-generate-description">
+                                    <i class="bi bi-card-text me-1"></i><span data-i18n="portfolio.generateDescription">AI 產生說明</span>
+                                </button>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsHint">上傳時會自動產生 AI 標籤；亦可手動填寫下方標籤。</p>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
@@ -227,10 +231,17 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.description">作品描述</label>
                                 <textarea class="form-control" id="edit-desc" rows="2"></textarea>
+                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btn-edit-generate-description">
+                                    <i class="bi bi-card-text me-1"></i><span data-i18n="portfolio.generateDescription">AI 產生說明</span>
+                                </button>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="edit-tags">
+                                <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btn-edit-regenerate-tags">
+                                    <i class="bi bi-tags me-1"></i><span data-i18n="portfolio.regenerateTags">AI 重生標籤</span>
+                                </button>
+                                <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsHint">上傳時會自動產生 AI 標籤；亦可手動填寫上方標籤。</p>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-semibold" for="edit-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
@@ -305,7 +316,60 @@
         var beforeQuotaLimit = 0;
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705d';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705e';
+
+        function portfolioTagsForDisplay(p) {
+            var manual = Array.isArray(p.tags) ? p.tags : [];
+            var ai = Array.isArray(p.ai_tags) ? p.ai_tags : [];
+            var seen = {};
+            var out = [];
+            manual.concat(ai).forEach(function (t) {
+                var s = String(t || '').trim();
+                if (!s || seen[s]) return;
+                seen[s] = true;
+                out.push(s);
+            });
+            return out;
+        }
+
+        function pickAddFormImageFile() {
+            var mode = (document.querySelector('input[name="add-upload-mode"]:checked') || {}).value || 'series';
+            if (mode === 'comparison') {
+                var after = document.getElementById('add-image-after');
+                return (after && after.files && after.files[0]) || null;
+            }
+            var series = document.getElementById('add-image');
+            return (series && series.files && series.files[0]) || null;
+        }
+
+        async function callPortfolioGenerateDescription(targetDescId, opts) {
+            opts = opts || {};
+            var btn = opts.button;
+            if (btn) { btn.disabled = true; }
+            try {
+                var fd = new FormData();
+                fd.append('category_key', document.getElementById(opts.categoryEl || 'add-category').value || '');
+                fd.append('subcategory_key', document.getElementById(opts.subcategoryEl || 'add-subcategory').value || '');
+                fd.append('title', document.getElementById(opts.titleEl || 'add-title').value.trim());
+                fd.append('description', document.getElementById(targetDescId).value.trim());
+                fd.append('design_highlight', document.getElementById(opts.highlightEl || 'add-highlight').value.trim());
+                if (opts.portfolioId) fd.append('portfolio_id', opts.portfolioId);
+                else {
+                    var imgFile = pickAddFormImageFile();
+                    if (!imgFile) {
+                        showToast(tr('portfolio.generateDescriptionNeedImage') || '請先選擇作品圖', 'warning');
+                        return;
+                    }
+                    fd.append('image', imgFile);
+                }
+                var r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/generate-description', { method: 'POST', body: fd });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok) throw new Error(d.error || tr('portfolio.generateDescriptionFailed') || 'AI 產生說明失敗');
+                if (d.description) document.getElementById(targetDescId).value = d.description;
+                showToast(tr('portfolio.generateDescriptionDone') || '已產生說明');
+            } catch (e) { showToast(e.message, 'danger'); }
+            finally { if (btn) btn.disabled = false; }
+        }
         var deleteTargetId = null;
         var editModal = null;
         var deleteModal = null;
@@ -756,6 +820,16 @@
                 finally { addFormSubmitting = false; btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); }
             });
 
+            document.getElementById('btn-add-generate-description').addEventListener('click', function () {
+                callPortfolioGenerateDescription('add-desc', {
+                    button: this,
+                    categoryEl: 'add-category',
+                    subcategoryEl: 'add-subcategory',
+                    titleEl: 'add-title',
+                    highlightEl: 'add-highlight'
+                });
+            });
+
             document.getElementById('btn-edit-save').addEventListener('click', async function () {
                 var btn = this;
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
@@ -794,6 +868,38 @@
                 finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); }
             });
 
+            document.getElementById('btn-edit-generate-description').addEventListener('click', function () {
+                var pid = document.getElementById('edit-id').value;
+                if (!pid) return;
+                callPortfolioGenerateDescription('edit-desc', {
+                    button: this,
+                    portfolioId: pid,
+                    categoryEl: 'edit-category',
+                    subcategoryEl: 'edit-subcategory',
+                    titleEl: 'edit-title',
+                    highlightEl: 'edit-highlight'
+                });
+            });
+
+            document.getElementById('btn-edit-regenerate-tags').addEventListener('click', async function () {
+                var btn = this;
+                var pid = document.getElementById('edit-id').value;
+                if (!pid) return;
+                btn.disabled = true;
+                try {
+                    var r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + pid + '/regenerate-tags', { method: 'POST' });
+                    var d = await r.json().catch(function () { return {}; });
+                    if (!r.ok) throw new Error(d.error || tr('portfolio.regenerateTagsFailed') || 'AI 重生標籤失敗');
+                    var item = d.item || {};
+                    var tags = portfolioTagsForDisplay(item);
+                    document.getElementById('edit-tags').value = tags.join(', ');
+                    var idx = portfolioItems.findIndex(function (x) { return x.id == pid; });
+                    if (idx >= 0) portfolioItems[idx] = Object.assign({}, portfolioItems[idx], item);
+                    showToast(tr('portfolio.regenerateTagsDone') || '已更新 AI 標籤');
+                } catch (e) { showToast(e.message, 'danger'); }
+                finally { btn.disabled = false; }
+            });
+
             document.getElementById('btn-delete-confirm').addEventListener('click', async function () {
                 var btn = this;
                 btn.disabled = true; btn.textContent = tr('portfolio.deleting');
@@ -816,7 +922,7 @@
             document.getElementById('edit-highlight').value = p.design_highlight || '';
             document.getElementById('edit-desc').value = p.description || '';
             document.getElementById('edit-show-on-media-wall').checked = p.show_on_media_wall !== false;
-            document.getElementById('edit-tags').value = (p.tags || []).join(', ');
+            document.getElementById('edit-tags').value = portfolioTagsForDisplay(p).join(', ');
             var editMoq = document.getElementById('edit-moq');
             if (editMoq) editMoq.value = (p.min_order_quantity != null && p.min_order_quantity !== '') ? String(p.min_order_quantity) : '';
             fillMainCategorySelect('edit-category');
