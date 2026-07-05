@@ -29,4 +29,9 @@ ALTER TABLE public.manufacturer_portfolio ADD COLUMN IF NOT EXISTS before_image_
 
 COMMENT ON COLUMN public.manufacturer_portfolio.before_image_valid_until IS '付 400 點上傳的對照圖有效期限；NULL=無期限';
 
-SELECT 'manufacturer_portfolio 已補齊所有欄位（category_key, subcategory_key, category_type, series_image_urls, series_image_valid_until, before_image_valid_until）' AS message;
+-- 4. 最小可訂製數量（MOQ）
+ALTER TABLE public.manufacturer_portfolio ADD COLUMN IF NOT EXISTS min_order_quantity INTEGER;
+
+COMMENT ON COLUMN public.manufacturer_portfolio.min_order_quantity IS '此作品最小可訂製數量（件）；NULL 表示未填寫';
+
+SELECT 'manufacturer_portfolio 已補齊所有欄位（category_key, subcategory_key, category_type, series_image_urls, series_image_valid_until, before_image_valid_until, min_order_quantity）' AS message;

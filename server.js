@@ -14034,9 +14034,9 @@ function parseManufacturerPortfolioMinOrderQty(raw, opts) {
 }
 
 const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, ai_tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity';
-const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type';
+const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity';
 const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity';
-const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_ONLY = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type';
+const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_ONLY = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity';
 const MANUFACTURER_PORTFOLIO_LIST_SELECT_FALLBACKS = [
     MANUFACTURER_PORTFOLIO_SELECT_FULL,
     MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN,
@@ -14047,9 +14047,11 @@ const MANUFACTURER_PORTFOLIO_INSERT_SELECT = 'id, manufacturer_id, title, descri
 
 const MANUFACTURER_PORTFOLIO_OPTIONAL_INSERT_COLS = [
     'series_image_urls', 'series_image_valid_until', 'before_image_valid_until',
-    'show_on_media_wall', 'min_order_quantity',
+    'show_on_media_wall',
     'ai_tags', 'image_semantics_json', 'tags_source', 'ai_tags_generated_at'
 ];
+
+const MANUFACTURER_PORTFOLIO_REQUIRED_COLS = ['category_key', 'subcategory_key', 'category_type', 'min_order_quantity'];
 
 const MANUFACTURER_PORTFOLIO_UPDATE_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, ai_tags, sort_order, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity';
 
@@ -14066,6 +14068,9 @@ function portfolioCategoryColumnHint(error) {
     const msg = String(error.message || '');
     if (msg.includes('category_key') || msg.includes('subcategory_key') || msg.includes('category_type')) {
         return '（資料庫缺少分類欄位，請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql）';
+    }
+    if (msg.includes('min_order_quantity')) {
+        return '（資料庫缺少 min_order_quantity 欄位，請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql）';
     }
     return '';
 }
@@ -14132,7 +14137,7 @@ async function insertManufacturerPortfolioRow(payload) {
         }
         if (!stripped) {
             const msg = String(error.message || '');
-            if (['category_key', 'subcategory_key', 'category_type'].some((c) => msg.includes(c) && Object.prototype.hasOwnProperty.call(row, c))) {
+            if (MANUFACTURER_PORTFOLIO_REQUIRED_COLS.some((c) => msg.includes(c) && Object.prototype.hasOwnProperty.call(row, c))) {
                 return { data: null, error };
             }
             const parts = selectCols.split(',').map((c) => c.trim()).filter(Boolean);
@@ -14169,7 +14174,7 @@ async function updateManufacturerPortfolioRow(portfolioId, manufacturerId, updat
         }
         if (!stripped) {
             const msg = String(error.message || '');
-            if (['category_key', 'subcategory_key', 'category_type'].some((c) => msg.includes(c) && Object.prototype.hasOwnProperty.call(row, c))) {
+            if (MANUFACTURER_PORTFOLIO_REQUIRED_COLS.some((c) => msg.includes(c) && Object.prototype.hasOwnProperty.call(row, c))) {
                 return { data: null, error };
             }
             const parts = selectCols.split(',').map((c) => c.trim()).filter(Boolean);
@@ -14782,7 +14787,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (mfrPut.user_id !== user.id && !isAdminPut) return res.status(403).json({ error: '僅廠商本人或管理員可編輯作品' });
         if (await rejectSeedVendorSelfServiceWrite(user.id, mfrPut, res)) return;
 
-        const { data: row } = await supabase.from('manufacturer_portfolio').select('id, image_url, image_url_before').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
+        const { data: row } = await supabase.from('manufacturer_portfolio').select('id, image_url, image_url_before, series_image_urls').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該作品' });
 
         if (beforeFile && canUploadBeforeFree && !bypassPortfolioPaywall && !row.image_url_before) {
@@ -14813,6 +14818,18 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (mainFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, mainFile);
             updates.image_url = publicUrl;
+            const uploadTypeSeries = String(bodyUploadType || '').toLowerCase() === 'series';
+            if (uploadTypeSeries) {
+                const existingSeries = (Array.isArray(row.series_image_urls) && row.series_image_urls.length)
+                    ? row.series_image_urls.slice()
+                    : (row.image_url ? [row.image_url] : []);
+                if (existingSeries.length > 0) {
+                    existingSeries[0] = publicUrl;
+                    updates.series_image_urls = existingSeries;
+                } else {
+                    updates.series_image_urls = [publicUrl];
+                }
+            }
             if (!canUploadSeriesFree && !bypassPortfolioPaywall) {
                 updates.series_image_valid_until = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
             }
