@@ -9494,6 +9494,13 @@ async function isSeedManufacturerAccountUserId(userId) {
     return !!(data && data.vendor_source === 'seed');
 }
 
+/** 種子展示期代維護、管理員／測試員：作品系列圖／對照圖免方案與點數（與素材上傳 canUploadProductsAndAssets 一致） */
+async function canUploadPortfolioBypassPlanAndPoints(userId) {
+    if (!userId) return false;
+    if (await isStaffProfileUserId(userId)) return true;
+    return isSeedManufacturerAccountUserId(userId);
+}
+
 /** 限制 A：免費帳號不可上傳（種子展示期平台代維護、管理員／測試員除外） */
 async function canUploadProductsAndAssetsUserId(userId) {
     if (!userId) return false;
@@ -12421,6 +12428,9 @@ app.get('/api/me/can-upload-portfolio-series', async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (await canUploadPortfolioBypassPlanAndPoints(user.id)) {
+            return res.json({ allowed: true, payPoints: 0 });
+        }
         const free = await canEditMediaCollections(user.id);
         if (free) return res.json({ allowed: true, payPoints: 0 });
         const { data: cred } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
@@ -12503,6 +12513,9 @@ app.get('/api/me/can-upload-portfolio-before', async (req, res) => {
     try {
         const user = await getCurrentUser(req, res);
         if (!user) return;
+        if (await canUploadPortfolioBypassPlanAndPoints(user.id)) {
+            return res.json({ allowed: true, payPoints: 0, quotaLimit: 999, quotaUsed: 0 });
+        }
         const free = await canUploadPortfolioBeforeFree(user.id);
         const { limit: quotaLimit, planKey } = await getPortfolioBeforeQuota(user.id);
         let quotaUsed = 0;
@@ -14141,9 +14154,10 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         if (mfr.user_id !== user.id && !isAdmin) return res.status(403).json({ error: '僅廠商本人或管理員可上傳作品' });
         if (await rejectSeedVendorSelfServiceWrite(user.id, mfr, res)) return;
 
+        const bypassPortfolioPaywall = isAdmin || await canUploadPortfolioBypassPlanAndPoints(user.id);
         const canUploadSeriesFree = await canEditMediaCollections(user.id);
         const canUploadBeforeFree = await canUploadPortfolioBeforeFree(user.id);
-        if (!isAdmin && mainFile && !canUploadSeriesFree && !beforeFile) {
+        if (!bypassPortfolioPaywall && mainFile && !canUploadSeriesFree && !beforeFile) {
             const balanceAfter = await deductPortfolioSeriesPoints(user.id);
             if (balanceAfter === null) {
                 return res.status(403).json({ error: '系列圖需 1800 方案、測試員或付 600 點（點數不足）' });
@@ -14177,13 +14191,13 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
             imageUrlBefore = publicUrl;
             beforeFileUsedAsBefore = true;
         }
-        if (!isAdmin && beforeFileUsedAsBefore && !canUploadBeforeFree) {
+        if (!bypassPortfolioPaywall && beforeFileUsedAsBefore && !canUploadBeforeFree) {
             const balanceAfter = await deductPortfolioBeforePoints(user.id);
             if (balanceAfter === null) {
                 return res.status(403).json({ error: '對照圖需 300/900/1800 方案、測試員或付 400 點（點數不足）' });
             }
         }
-        if (beforeFileUsedAsBefore && canUploadBeforeFree) {
+        if (beforeFileUsedAsBefore && canUploadBeforeFree && !bypassPortfolioPaywall) {
             const { limit: quotaLimit } = await getPortfolioBeforeQuota(user.id);
             const { count } = await supabase.from('manufacturer_portfolio')
                 .select('*', { count: 'exact', head: true })
@@ -14211,11 +14225,11 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
             show_on_media_wall: bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0,
             min_order_quantity: moqPost.value
         };
-        if (mainFiles.length > 0 && !canUploadSeriesFree) insertPayload.series_image_valid_until = oneMonthFromNow;
+        if (mainFiles.length > 0 && !canUploadSeriesFree && !bypassPortfolioPaywall) insertPayload.series_image_valid_until = oneMonthFromNow;
         // 健康邏輯：純系列才寫 series_image_urls，且 image_url_before 必為 null；對照圖不寫 series_image_urls
         if (seriesImageUrls.length > 0 && !beforeFileUsedAsBefore) insertPayload.series_image_urls = seriesImageUrls;
         if (!beforeFileUsedAsBefore) insertPayload.image_url_before = null;
-        if (beforeFileUsedAsBefore && !canUploadBeforeFree) insertPayload.before_image_valid_until = oneMonthFromNow;
+        if (beforeFileUsedAsBefore && !canUploadBeforeFree && !bypassPortfolioPaywall) insertPayload.before_image_valid_until = oneMonthFromNow;
 
         const { data: inserted, error } = await supabase
             .from('manufacturer_portfolio')
@@ -14298,13 +14312,14 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
 
         const canUploadSeriesFree = await canEditMediaCollections(user.id);
         const canUploadBeforeFree = await canUploadPortfolioBeforeFree(user.id);
-        if (mainFile && !canUploadSeriesFree) {
+        const bypassPortfolioPaywall = (await isAdminUserId(user.id)) || await canUploadPortfolioBypassPlanAndPoints(user.id);
+        if (mainFile && !canUploadSeriesFree && !bypassPortfolioPaywall) {
             const balanceAfter = await deductPortfolioSeriesPoints(user.id);
             if (balanceAfter === null) {
                 return res.status(403).json({ error: '系列圖（主圖）需 1800 方案、測試員或付 600 點（點數不足）' });
             }
         }
-        if (beforeFile && !canUploadBeforeFree) {
+        if (beforeFile && !canUploadBeforeFree && !bypassPortfolioPaywall) {
             const balanceAfter = await deductPortfolioBeforePoints(user.id);
             if (balanceAfter === null) {
                 return res.status(403).json({ error: '對照圖需 300/900/1800 方案、測試員或付 400 點（點數不足）' });
@@ -14320,7 +14335,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         const { data: row } = await supabase.from('manufacturer_portfolio').select('id, image_url, image_url_before').eq('id', portfolioId).eq('manufacturer_id', manufacturerId).single();
         if (!row) return res.status(404).json({ error: '找不到該作品' });
 
-        if (beforeFile && canUploadBeforeFree && !row.image_url_before) {
+        if (beforeFile && canUploadBeforeFree && !bypassPortfolioPaywall && !row.image_url_before) {
             const { limit: quotaLimit } = await getPortfolioBeforeQuota(user.id);
             const { count } = await supabase.from('manufacturer_portfolio')
                 .select('*', { count: 'exact', head: true })
@@ -14348,7 +14363,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (mainFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, mainFile);
             updates.image_url = publicUrl;
-            if (!canUploadSeriesFree) {
+            if (!canUploadSeriesFree && !bypassPortfolioPaywall) {
                 updates.series_image_valid_until = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
             }
         } else if (bodyImageUrl !== undefined) updates.image_url = bodyImageUrl || row.image_url;
@@ -14356,7 +14371,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (beforeFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, beforeFile);
             updates.image_url_before = publicUrl;
-            if (!canUploadBeforeFree) {
+            if (!canUploadBeforeFree && !bypassPortfolioPaywall) {
                 updates.before_image_valid_until = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
             }
         } else if (bodyImageUrlBefore !== undefined) updates.image_url_before = bodyImageUrlBefore || null;

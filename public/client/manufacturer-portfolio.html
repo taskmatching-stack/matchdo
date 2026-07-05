@@ -305,7 +305,7 @@
         var beforeQuotaLimit = 0;
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705c';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705d';
         var deleteTargetId = null;
         var editModal = null;
         var deleteModal = null;
@@ -458,29 +458,33 @@
             var addAfterLabelText = document.getElementById('add-after-label-text');
             var addAfterMarker = document.getElementById('add-after-marker');
             var addAfterHint = document.getElementById('add-after-hint');
+            var lockSeries = !isSeedVendor && !canUploadSeries;
+            var lockBefore = !isSeedVendor && !canUploadBefore;
 
             if (modeSeries) {
-                modeSeries.disabled = !canUploadSeries;
+                modeSeries.disabled = lockSeries;
                 var seriesLbl = modeSeries.closest('.form-check');
-                if (seriesLbl) seriesLbl.classList.toggle('opacity-50', !canUploadSeries);
+                if (seriesLbl) seriesLbl.classList.toggle('opacity-50', lockSeries);
             }
-            if (addImage) addImage.disabled = !canUploadSeries;
+            if (addImage) addImage.disabled = lockSeries;
 
             if (modeComparison) {
-                modeComparison.disabled = !canUploadBefore;
+                modeComparison.disabled = lockBefore;
                 var compLbl = modeComparison.closest('.form-check');
-                if (compLbl) compLbl.classList.toggle('opacity-50', !canUploadBefore);
+                if (compLbl) compLbl.classList.toggle('opacity-50', lockBefore);
             }
-            if (addBefore) addBefore.disabled = !canUploadBefore;
-            if (addAfter) addAfter.disabled = !canUploadBefore;
-            if (editImage) editImage.disabled = !canUploadSeries;
-            if (editBefore) editBefore.disabled = !canUploadBefore;
-            if (editAfter) editAfter.disabled = !canUploadBefore;
+            if (addBefore) addBefore.disabled = lockBefore;
+            if (addAfter) addAfter.disabled = lockBefore;
+            if (editImage) editImage.disabled = lockSeries;
+            if (editBefore) editBefore.disabled = lockBefore;
+            if (editAfter) editAfter.disabled = lockBefore;
 
-            if (!canUploadSeries && canUploadBefore && modeComparison) {
-                modeComparison.checked = true;
-            } else if (canUploadSeries && !canUploadBefore && modeSeries) {
-                modeSeries.checked = true;
+            if (!isSeedVendor) {
+                if (!canUploadSeries && canUploadBefore && modeComparison) {
+                    modeComparison.checked = true;
+                } else if (canUploadSeries && !canUploadBefore && modeSeries) {
+                    modeSeries.checked = true;
+                }
             }
             if (setAddUploadModeBlocks) setAddUploadModeBlocks();
 
