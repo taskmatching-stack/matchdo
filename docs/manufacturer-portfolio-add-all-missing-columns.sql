@@ -34,4 +34,9 @@ ALTER TABLE public.manufacturer_portfolio ADD COLUMN IF NOT EXISTS min_order_qua
 
 COMMENT ON COLUMN public.manufacturer_portfolio.min_order_quantity IS '此作品最小可訂製數量（件）；NULL 表示未填寫';
 
-SELECT 'manufacturer_portfolio 已補齊所有欄位（category_key, subcategory_key, category_type, series_image_urls, series_image_valid_until, before_image_valid_until, min_order_quantity）' AS message;
+-- 5. 訂製程度（與數位原型一致）
+ALTER TABLE public.manufacturer_portfolio ADD COLUMN IF NOT EXISTS customization_levels text[] NOT NULL DEFAULT '{}';
+
+COMMENT ON COLUMN public.manufacturer_portfolio.customization_levels IS '訂製程度多選：mono_graphic, color_graphic, color_material, size_part, form_structure';
+
+SELECT 'manufacturer_portfolio 已補齊所有欄位（category_key, subcategory_key, category_type, series_image_urls, series_image_valid_until, before_image_valid_until, min_order_quantity, customization_levels）' AS message;

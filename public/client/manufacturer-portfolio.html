@@ -30,6 +30,9 @@
         .portfolio-sort-col.dragging { opacity: 0.55; }
         .portfolio-sort-handle { cursor: grab; user-select: none; }
         .portfolio-sort-handle:active { cursor: grabbing; }
+        .customization-level-btn { border-radius: 999px; font-weight: 500; }
+        .customization-level-btn.active { color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
+        .customization-level-btn.active:hover { color: #fff; background-color: #0b5ed7; border-color: #0a58ca; }
     </style>
 </head>
 <body>
@@ -135,6 +138,16 @@
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold" for="add-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
+                                <input type="number" class="form-control" id="add-moq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="portfolio.minOrderQtyPlaceholder" placeholder="例：50">
+                                <p class="text-muted small mt-1 mb-0" data-i18n="portfolio.minOrderQtyHint">此作品接單的起訂件數；留空表示未填寫（訪客將不顯示）。</p>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label>
+                                <p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p>
+                                <div class="add-customization-levels border rounded p-2" id="add-customization-levels"></div>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品特色</label>
                                 <input type="text" class="form-control" id="add-highlight" data-i18n-placeholder="portfolio.highlightPlaceholder" placeholder="例：手工縫線、義大利皮革、防水處理">
@@ -151,11 +164,6 @@
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.tags">標籤（用逗號或空格分隔）</label>
                                 <input type="text" class="form-control" id="add-tags" data-i18n-placeholder="portfolio.tagsPlaceholder" placeholder="例：皮革, 手工, 訂製">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold" for="add-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
-                                <input type="number" class="form-control" id="add-moq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="portfolio.minOrderQtyPlaceholder" placeholder="例：50">
-                                <p class="text-muted small mt-1 mb-0" data-i18n="portfolio.minOrderQtyHint">此作品接單的起訂件數；留空表示未填寫（訪客將不顯示）。</p>
                             </div>
                             <div class="col-12">
                                 <div class="form-check">
@@ -225,6 +233,16 @@
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold" for="edit-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
+                                <input type="number" class="form-control" id="edit-moq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="portfolio.minOrderQtyPlaceholder" placeholder="例：50">
+                                <p class="text-muted small mt-1 mb-0" data-i18n="portfolio.minOrderQtyHint">此作品接單的起訂件數；留空表示未填寫（訪客將不顯示）。</p>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label>
+                                <p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p>
+                                <div class="add-customization-levels border rounded p-2" id="edit-customization-levels"></div>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold" data-i18n="portfolio.highlight">作品特色</label>
                                 <input type="text" class="form-control" id="edit-highlight">
@@ -246,11 +264,6 @@
                                 </button>
                                 <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.uploadAiTagsEditHint">上傳時已含 AI 標籤；換圖後可手動重生標籤或填寫上方標籤。</p>
                                 <p class="text-muted small mb-0 mt-1" data-i18n="portfolio.aiPointsDescriptionHint">上傳含 AI 標籤 5 點；AI 產生說明與重生標籤各 1 點。</p>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold" for="edit-moq" data-i18n="portfolio.minOrderQty">最小可訂製數量（件）</label>
-                                <input type="number" class="form-control" id="edit-moq" min="1" step="1" inputmode="numeric" data-i18n-placeholder="portfolio.minOrderQtyPlaceholder" placeholder="例：50">
-                                <p class="text-muted small mt-1 mb-0" data-i18n="portfolio.minOrderQtyHint">此作品接單的起訂件數；留空表示未填寫（訪客將不顯示）。</p>
                             </div>
                             <div class="col-12">
                                 <div class="form-check">
@@ -291,6 +304,7 @@
     <div id="toast-area"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/manufacturer-customization-levels-ui.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
@@ -321,7 +335,7 @@
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-20260705l';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-custom-levels-20260707';
 
         function validatePortfolioCategoryFields(mainSelectId, subSelectId) {
             var main = document.getElementById(mainSelectId);
@@ -552,6 +566,10 @@
                 applyUploadModeLocks();
                 await loadUploadPricing();
                 await loadCategories();
+                if (window.MatchdoCustomizationLevelsUi) {
+                    window.MatchdoCustomizationLevelsUi.renderButtons(document.getElementById('add-customization-levels'), []);
+                    window.MatchdoCustomizationLevelsUi.renderButtons(document.getElementById('edit-customization-levels'), []);
+                }
                 await loadPortfolio();
                 bindEvents();
                 initDone = true;
@@ -703,6 +721,10 @@
                 var moqLine = (moqN != null && moqN !== '' && Number(moqN) >= 1)
                     ? esc(String(tr('portfolio.moqLine')).replace(/\{n\}/g, String(moqN)))
                     : '';
+                var clHtml = '';
+                if (window.MatchdoCustomizationLevelsUi && p.customization_levels && p.customization_levels.length) {
+                    clHtml = '<div class="mb-2">' + window.MatchdoCustomizationLevelsUi.renderBadgesHtml(p.customization_levels) + '</div>';
+                }
                 var sortAttrs = (!isSeedVendor && portfolioItems.length > 1)
                     ? ' class="col-sm-6 col-md-4 col-lg-3 portfolio-sort-col" draggable="true" data-id="' + esc(p.id) + '"'
                     : ' class="col-sm-6 col-md-4 col-lg-3"';
@@ -715,6 +737,7 @@
                     '<div class="p-3">' +
                     '<div class="fw-semibold text-truncate mb-1">' + pubBadge + esc(p.title || unnamed) + '</div>' +
                     (moqLine ? '<div class="text-muted small mb-1">' + moqLine + '</div>' : '') +
+                    clHtml +
                     (p.design_highlight ? '<div class="text-muted small text-truncate mb-2">' + esc(p.design_highlight) + '</div>' : '') +
                     ((p.tags || []).length ? '<div class="mb-2">' + p.tags.slice(0,3).map(function(t){ return '<span class="badge bg-light text-secondary border me-1">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
                     '<div class="d-flex gap-2 mt-2">' +
@@ -866,6 +889,13 @@
                     if (!validatePortfolioCategoryFields('add-category', 'add-subcategory')) {
                         btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
                     }
+                    var addClBox = document.getElementById('add-customization-levels');
+                    var addLevels = window.MatchdoCustomizationLevelsUi ? window.MatchdoCustomizationLevelsUi.getSelected(addClBox) : [];
+                    var addClErr = window.MatchdoCustomizationLevelsUi ? window.MatchdoCustomizationLevelsUi.validateSelection(addLevels) : '';
+                    if (addClErr) {
+                        showToast(addClErr, 'warning');
+                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
+                    }
                     var fd = new FormData();
                     var addImageInput = document.getElementById('add-image');
                     var afterFile = document.getElementById('add-image-after').files[0];
@@ -893,6 +923,7 @@
                     fd.append('subcategory_key', document.getElementById('add-subcategory').value);
                     fd.append('category_type', 'custom');
                     fd.append('show_on_media_wall', document.getElementById('add-show-on-media-wall').checked ? 'true' : 'false');
+                    fd.append('customization_levels', JSON.stringify(addLevels));
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio', { method: 'POST', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.addFailed'));
@@ -904,6 +935,9 @@
                         showToast(tr('portfolio.added'));
                     }
                     document.getElementById('add-form').reset();
+                    if (window.MatchdoCustomizationLevelsUi) {
+                        window.MatchdoCustomizationLevelsUi.renderButtons(document.getElementById('add-customization-levels'), []);
+                    }
                     document.getElementById('add-mode-series').checked = true;
                     applyUploadModeLocks();
                     fillMainCategorySelect('add-category');
@@ -937,6 +971,13 @@
                     if (!validatePortfolioCategoryFields('edit-category', 'edit-subcategory')) {
                         btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); return;
                     }
+                    var editClBox = document.getElementById('edit-customization-levels');
+                    var editLevels = window.MatchdoCustomizationLevelsUi ? window.MatchdoCustomizationLevelsUi.getSelected(editClBox) : [];
+                    var editClErr = window.MatchdoCustomizationLevelsUi ? window.MatchdoCustomizationLevelsUi.validateSelection(editLevels) : '';
+                    if (editClErr) {
+                        showToast(editClErr, 'warning');
+                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); return;
+                    }
                     var fd = new FormData();
                     var editSeriesBlock = document.getElementById('edit-series-block');
                     var seriesVisible = editSeriesBlock && !editSeriesBlock.classList.contains('d-none');
@@ -960,6 +1001,7 @@
                     fd.append('subcategory_key', document.getElementById('edit-subcategory').value);
                     fd.append('category_type', 'custom');
                     fd.append('show_on_media_wall', document.getElementById('edit-show-on-media-wall').checked ? 'true' : 'false');
+                    fd.append('customization_levels', JSON.stringify(editLevels));
                     const r = await fetchWithAuth('/api/manufacturers/' + mfrId + '/portfolio/' + pid, { method: 'PUT', body: fd });
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.updateFailed'));
@@ -1031,6 +1073,9 @@
             var editMoq = document.getElementById('edit-moq');
             if (editMoq) editMoq.value = (p.min_order_quantity != null && p.min_order_quantity !== '') ? String(p.min_order_quantity) : '';
             setPortfolioCategorySelects('edit-category', 'edit-subcategory', p.category_key || '', p.subcategory_key || '');
+            if (window.MatchdoCustomizationLevelsUi) {
+                window.MatchdoCustomizationLevelsUi.renderButtons(document.getElementById('edit-customization-levels'), p.customization_levels || []);
+            }
             document.getElementById('edit-image-preview').innerHTML = '';
             document.getElementById('edit-image-before-preview').innerHTML = '';
             document.getElementById('edit-image-after-preview').innerHTML = '';

@@ -14033,10 +14033,10 @@ function parseManufacturerPortfolioMinOrderQty(raw, opts) {
     return { value: n };
 }
 
-const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, ai_tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity';
-const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity';
-const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity';
-const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_ONLY = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity';
+const MANUFACTURER_PORTFOLIO_SELECT_FULL = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, ai_tags, sort_order, created_at, category_key, subcategory_key, category_type, series_image_valid_until, before_image_valid_until, series_image_urls, show_on_media_wall, min_order_quantity, customization_levels';
+const MANUFACTURER_PORTFOLIO_SELECT_BASE = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity, customization_levels';
+const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity, customization_levels';
+const MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_ONLY = 'id, manufacturer_id, title, description, image_url, image_url_before, design_highlight, tags, sort_order, created_at, category_key, subcategory_key, category_type, min_order_quantity, customization_levels';
 const MANUFACTURER_PORTFOLIO_LIST_SELECT_FALLBACKS = [
     MANUFACTURER_PORTFOLIO_SELECT_FULL,
     MANUFACTURER_PORTFOLIO_SELECT_CATEGORY_MIN,
@@ -14047,13 +14047,13 @@ const MANUFACTURER_PORTFOLIO_INSERT_SELECT = 'id, manufacturer_id, title, descri
 
 const MANUFACTURER_PORTFOLIO_OPTIONAL_INSERT_COLS = [
     'series_image_urls', 'series_image_valid_until', 'before_image_valid_until',
-    'show_on_media_wall',
+    'show_on_media_wall', 'customization_levels',
     'ai_tags', 'image_semantics_json', 'tags_source', 'ai_tags_generated_at'
 ];
 
 const MANUFACTURER_PORTFOLIO_REQUIRED_COLS = ['category_key', 'subcategory_key', 'category_type', 'min_order_quantity'];
 
-const MANUFACTURER_PORTFOLIO_UPDATE_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, ai_tags, sort_order, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity';
+const MANUFACTURER_PORTFOLIO_UPDATE_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, ai_tags, sort_order, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity, customization_levels';
 
 function validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey) {
     const ck = (categoryKey != null ? String(categoryKey) : '').trim();
@@ -14071,6 +14071,9 @@ function portfolioCategoryColumnHint(error) {
     }
     if (msg.includes('min_order_quantity')) {
         return '（資料庫缺少 min_order_quantity 欄位，請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql）';
+    }
+    if (msg.includes('customization_levels')) {
+        return '（資料庫缺少 customization_levels 欄位，請執行 docs/manufacturer-portfolio-add-all-missing-columns.sql）';
     }
     return '';
 }
@@ -14115,7 +14118,8 @@ function mapManufacturerPortfolioListItems(list, mfrMap) {
             subcategory_key: p.subcategory_key || null,
             category_type: p.category_type || null,
             show_on_media_wall: p.show_on_media_wall !== false,
-            min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null
+            min_order_quantity: (p.min_order_quantity != null && Number.isFinite(Number(p.min_order_quantity))) ? Number(p.min_order_quantity) : null,
+            customization_levels: sanitizeCustomizationLevelsForStorage(p.customization_levels)
         };
     });
 }
@@ -14552,6 +14556,8 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         const subcategoryKey = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
         const categoryErr = validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey);
         if (categoryErr) return res.status(400).json({ error: categoryErr });
+        const clValidPost = validatePrototypeCustomizationLevels(body.customization_levels);
+        if (clValidPost.error) return res.status(400).json({ error: clValidPost.error });
         const categoryType = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
 
         const files = req.files || {};
@@ -14635,7 +14641,8 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
             subcategory_key: subcategoryKey,
             category_type: categoryType,
             show_on_media_wall: bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0,
-            min_order_quantity: moqPost.value
+            min_order_quantity: moqPost.value,
+            customization_levels: clValidPost.levels
         };
         if (mainFiles.length > 0 && !canUploadSeriesFree && !bypassPortfolioPaywall) insertPayload.series_image_valid_until = oneMonthFromNow;
         // 健康邏輯：純系列才寫 series_image_urls，且 image_url_before 必為 null；對照圖不寫 series_image_urls
@@ -14682,6 +14689,7 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         if (enrichResult.item) {
             return res.status(201).json({
                 ...enrichResult.item,
+                customization_levels: clValidPost.levels,
                 ai_applied: true,
                 points_deducted: enrichResult.points_deducted || 0,
                 balance_after: enrichResult.balance_after
@@ -14760,6 +14768,8 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
         const categoryErrPut = validateManufacturerPortfolioCategoryKeys(bodyCategoryKey, bodySubcategoryKey);
         if (categoryErrPut) return res.status(400).json({ error: categoryErrPut });
+        const clValidPut = validatePrototypeCustomizationLevels(body.customization_levels);
+        if (clValidPut.error) return res.status(400).json({ error: clValidPut.error });
 
         const files = req.files || {};
         const mainFile = (files.image && files.image[0]) || null;
@@ -14814,6 +14824,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         if (bodyCategoryType !== undefined) updates.category_type = (bodyCategoryType === 'remake') ? 'remake' : 'custom';
         if (bodyShowOnMediaWall !== undefined) updates.show_on_media_wall = (bodyShowOnMediaWall !== false && bodyShowOnMediaWall !== 'false' && bodyShowOnMediaWall !== 0);
         if (!moqPut.omit) updates.min_order_quantity = moqPut.value;
+        updates.customization_levels = clValidPut.levels;
 
         if (mainFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, mainFile);
@@ -14854,7 +14865,7 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
                 : '');
             return res.status(500).json({ error: '更新失敗' + hint });
         }
-        res.json(updated);
+        res.json({ ...updated, customization_levels: clValidPut.levels });
     } catch (e) {
         console.error('PUT /api/manufacturers/:id/portfolio/:portfolioId 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
