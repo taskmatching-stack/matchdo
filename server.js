@@ -18624,10 +18624,10 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 semanticsFromThisFile = true;
                 if (!description && sem.description) description = sem.description;
             } catch (semErr) {
-                console.error('vendor-assets semantics:', semErr);
-                return respondVendorAssetUploadFailure(res, 503, ownerId, body, {
-                    error: semErr.message || 'AI 標籤產生失敗，請稍後重試'
-                });
+                // Gemini 標籤失敗不中斷上傳，繼續用空標籤上傳
+                console.warn('vendor-assets semantics skipped (non-fatal):', semErr && semErr.message);
+                tags = [];
+                semanticsJson = null;
             }
         } else {
             tagsSource = semanticsJson ? 'gemini' : 'manual';
