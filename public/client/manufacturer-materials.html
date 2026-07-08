@@ -1674,6 +1674,8 @@
         async function restorePendingDraft(form) {
             if (!form || !window.sessionStorage) return false;
             var kind = form.getAttribute('data-kind') || 'prototype';
+            // 禁用草稿自動恢復，避免載入錯誤的舊草稿
+            return false;
             if (getPendingImages(form).length) return false;
             var raw;
             try { raw = sessionStorage.getItem(pendingDraftMetaKey(kind)); } catch (_) { return false; }
