@@ -849,7 +849,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'always-show-upload-checkbox-20260708b';
+        window.__MATCHDO_MATERIALS_BUILD = 'debug-upload-files-20260708c';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -5610,6 +5610,17 @@
             var uploadLinkGroups = [];
             var uploadDerived = [];
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+                console.log('[DEBUG] pending items:', pending.length);
+                pending.forEach(function(p, i) {
+                    console.log('[DEBUG] item ' + i + ':', {
+                        hasFile: !!p.file,
+                        fileName: p.file && p.file.name,
+                        fileSize: p.file && p.file.size,
+                        uploadOriginal: p.uploadOriginal,
+                        hasRedraw: !!p.redrawFile,
+                        hasUpscale: !!p.upscaleFile
+                    });
+                });
                 var pendingSelErr = validatePendingUploadList(pending);
                 if (pendingSelErr) {
                     msgEl.textContent = pendingSelErr;
@@ -5621,6 +5632,9 @@
                 uploadLinkGroups = payload.uploadLinkGroups;
                 uploadDerived = payload.uploadDerived;
                 optIdx = payload.optIdx;
+                console.log('[DEBUG] uploadFiles collected:', uploadFiles.length, uploadFiles.map(function(f) { 
+                    return { name: f && f.name, size: f && f.size, type: f && f.type }; 
+                }));
             }
             msgEl.textContent = '';
             var fd = new FormData();
