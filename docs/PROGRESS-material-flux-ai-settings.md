@@ -3,7 +3,7 @@
 > **新對話請先讀本檔**（材料 AI 優化、FLUX 模型後台、Gemini 標籤分工）。  
 > 複製貼上：「請讀 `docs/PROGRESS-material-flux-ai-settings.md` 接續。」
 
-**最後更新：** 2026-06-18  
+**最後更新：** 2026-07-09  
 **頁面：** [`/client/manufacturer-materials.html`](../public/client/manufacturer-materials.html)（僅 `public/client/`）  
 **後台：** [`/admin/ai-settings.html`](../public/admin/ai-settings.html)
 
@@ -76,6 +76,15 @@
 | `45b7927` | min 256、固定保真句、曾硬編碼 max |
 | `46897d0` | 後台四槽 FLUX（當時 UI 為**下拉**） |
 
+### 1.6 2026-07-09 上傳穩定性修復
+
+| 項目 | 說明 |
+|------|------|
+| 材料欄位文案 | `AI 重繪材質類型 *` 保持必填；補充說明「原圖上傳時也會提供給 Gemini 解讀材質」 |
+| 原圖格式相容 | `lib/resize-upload-image.js`：廠商素材原圖若為 **`image/avif`**，即使尺寸未超過 1024，也先轉成 `JPEG` 再上傳 |
+| 根因 | Cloud Run `stderr` 明確為 `StorageApiError: mime type image/avif is not supported`；AI 重繪預覽回傳的是 JPEG，所以重繪圖可上傳、原圖 AVIF 直傳會失敗 |
+| 修復 commit | `df11f8c` `fix(upload): convert AVIF vendor originals to JPEG before storage` |
+
 ---
 
 ## 二、尚未解決（主問題 — 新對話優先）
@@ -118,6 +127,12 @@
 ### P3 — DB 若已存舊值
 
 若先前在後台存過 `bfl_flux_model_vendor_material=flux-2-max`，載入後台會顯示 max；要改回 pro 須**手動改欄位**再「儲存 FLUX 模型」。
+
+### P4 — 材料欄位必填文案需維持一致
+
+- `public/client/manufacturer-materials.html` 新增／編輯兩處都應保留：`AI 重繪材質類型 *`
+- 文案需明確寫出：**即使只傳原圖，也會提供給 Gemini 解讀材質**
+- 不要再改成「選填」
 
 ---
 
@@ -236,6 +251,7 @@
 
 | 日期 | 說明 |
 |------|------|
+| 2026-07-09 | 修正廠商素材原圖為 AVIF 時上傳 500：先轉 JPEG 再上傳；材料欄位文案維持必填並註明 Gemini 也會用 |
 | 2026-06-18 | 材料 optimize 改 **gemini-2.5-flash-image**（使用者實測保真較穩）；FLUX 材料路徑停用 |
 | 2026-06-18 | 恢復 Gemini material_flux_edit_prompt 管線（後續又改 Gemini 生圖） |
 | 2026-06-05 | 初版：材料 FLUX 管線、後台手填模型、未解決保真問題、本機未 push 清單 |
