@@ -14055,11 +14055,12 @@ const MANUFACTURER_PORTFOLIO_REQUIRED_COLS = ['category_key', 'subcategory_key',
 
 const MANUFACTURER_PORTFOLIO_UPDATE_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, ai_tags, sort_order, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity, customization_levels';
 
-function validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey) {
+function validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey, opts) {
+    const allowEmptySubcategory = !!(opts && opts.allowEmptySubcategory);
     const ck = (categoryKey != null ? String(categoryKey) : '').trim();
     const sk = (subcategoryKey != null ? String(subcategoryKey) : '').trim();
     if (!ck) return '請選擇主分類';
-    if (!sk) return '請選擇子分類';
+    if (!allowEmptySubcategory && !sk) return '請選擇子分類';
     return null;
 }
 
@@ -14548,13 +14549,14 @@ app.post('/api/manufacturers/:id/portfolio', upload.fields([{ name: 'image', max
         if (!user) return;
         const manufacturerId = req.params.id;
         const body = req.body || {};
-        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall } = body;
+        const { title, description, design_highlight, tags: tagsParam, image_url: bodyImageUrl, image_url_before: bodyImageUrlBefore, category_key: bodyCategoryKey, subcategory_key: bodySubcategoryKey, category_type: bodyCategoryType, show_on_media_wall: bodyShowOnMediaWall, upload_type: bodyUploadType } = body;
         const moqPost = parseManufacturerPortfolioMinOrderQty(body.min_order_quantity);
         if (moqPost.error) return res.status(400).json({ error: moqPost.error });
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
         const categoryKey = (bodyCategoryKey != null && String(bodyCategoryKey).trim()) ? String(bodyCategoryKey).trim() : null;
         const subcategoryKey = (bodySubcategoryKey != null && String(bodySubcategoryKey).trim()) ? String(bodySubcategoryKey).trim() : null;
-        const categoryErr = validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey);
+        const allowEmptySubcategory = String(bodyUploadType || '').toLowerCase() === 'series';
+        const categoryErr = validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey, { allowEmptySubcategory });
         if (categoryErr) return res.status(400).json({ error: categoryErr });
         const clValidPost = validatePrototypeCustomizationLevels(body.customization_levels);
         if (clValidPost.error) return res.status(400).json({ error: clValidPost.error });
@@ -14766,7 +14768,8 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
         const moqPut = parseManufacturerPortfolioMinOrderQty(body.min_order_quantity, { forUpdate: true });
         if (moqPut.error) return res.status(400).json({ error: moqPut.error });
         const tags = Array.isArray(tagsParam) ? tagsParam : (typeof tagsParam === 'string' && tagsParam ? tagsParam.split(/[,，\s]+/).filter(Boolean) : []);
-        const categoryErrPut = validateManufacturerPortfolioCategoryKeys(bodyCategoryKey, bodySubcategoryKey);
+        const allowEmptySubcategoryPut = String(bodyUploadType || '').toLowerCase() === 'series';
+        const categoryErrPut = validateManufacturerPortfolioCategoryKeys(bodyCategoryKey, bodySubcategoryKey, { allowEmptySubcategory: allowEmptySubcategoryPut });
         if (categoryErrPut) return res.status(400).json({ error: categoryErrPut });
         const clValidPut = validatePrototypeCustomizationLevels(body.customization_levels);
         if (clValidPut.error) return res.status(400).json({ error: clValidPut.error });

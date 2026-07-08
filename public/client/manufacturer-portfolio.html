@@ -133,8 +133,8 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategoryRequired">子分類（必選）</label>
-                                <select class="form-select" id="add-subcategory" required>
+                                <label class="form-label fw-semibold" id="add-subcategory-label" data-i18n="portfolio.subcategoryRequired">子分類（必選）</label>
+                                <select class="form-select" id="add-subcategory">
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
@@ -228,8 +228,8 @@
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold" data-i18n="portfolio.subcategoryRequired">子分類（必選）</label>
-                                <select class="form-select" id="edit-subcategory" required>
+                                <label class="form-label fw-semibold" id="edit-subcategory-label" data-i18n="portfolio.subcategoryRequired">子分類（必選）</label>
+                                <select class="form-select" id="edit-subcategory">
                                     <option value="" data-i18n="portfolio.selectSubcategory">— 選擇子分類 —</option>
                                 </select>
                             </div>
@@ -337,7 +337,8 @@
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
         window.__MATCHDO_PORTFOLIO_BUILD = 'portfolio-custom-levels-20260707';
 
-        function validatePortfolioCategoryFields(mainSelectId, subSelectId) {
+        function validatePortfolioCategoryFields(mainSelectId, subSelectId, opts) {
+            var allowEmptySubcategory = !!(opts && opts.allowEmptySubcategory);
             var main = document.getElementById(mainSelectId);
             var sub = document.getElementById(subSelectId);
             if (!main || !main.value) {
@@ -345,7 +346,7 @@
                 if (main) main.focus();
                 return false;
             }
-            if (!sub || !sub.value) {
+            if (!sub || (!sub.value && !allowEmptySubcategory)) {
                 showToast(tr('portfolio.subcategoryRequired') || '請選擇子分類', 'warning');
                 if (sub) sub.focus();
                 return false;
@@ -841,6 +842,8 @@
                 var comparisonBlock = document.getElementById('add-mode-comparison-block');
                 if (seriesBlock) seriesBlock.classList.toggle('d-none', mode !== 'series');
                 if (comparisonBlock) comparisonBlock.classList.toggle('d-none', mode !== 'comparison');
+                var addSubLabel = document.getElementById('add-subcategory-label');
+                if (addSubLabel) addSubLabel.textContent = (mode === 'series') ? '子分類（選填）' : '子分類（必選）';
                 if (mode === 'series') {
                     document.getElementById('add-image-before').value = '';
                     document.getElementById('add-image-after').value = '';
@@ -886,7 +889,7 @@
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
                     var mode = addUploadMode();
-                    if (!validatePortfolioCategoryFields('add-category', 'add-subcategory')) {
+                    if (!validatePortfolioCategoryFields('add-category', 'add-subcategory', { allowEmptySubcategory: mode === 'series' })) {
                         btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
                     }
                     var addClBox = document.getElementById('add-customization-levels');
@@ -906,6 +909,7 @@
                             btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveWork'); addFormSubmitting = false; return;
                         }
                         for (var i = 0; i < addImageInput.files.length; i++) fd.append('image', addImageInput.files[i]);
+                        fd.append('upload_type', 'series');
                     } else {
                         if (!beforeFile || !afterFile) {
                             showToast(tr('portfolio.addBeforeAfterRequired'), 'warning');
@@ -913,6 +917,7 @@
                         }
                         fd.append('image', afterFile);
                         fd.append('image_before', beforeFile);
+                        fd.append('upload_type', 'comparison');
                     }
                     fd.append('title', document.getElementById('add-title').value.trim());
                     fd.append('design_highlight', document.getElementById('add-highlight').value.trim());
@@ -968,9 +973,6 @@
                 btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + tr('portfolio.saving');
                 try {
                     var pid = document.getElementById('edit-id').value;
-                    if (!validatePortfolioCategoryFields('edit-category', 'edit-subcategory')) {
-                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); return;
-                    }
                     var editClBox = document.getElementById('edit-customization-levels');
                     var editLevels = window.MatchdoCustomizationLevelsUi ? window.MatchdoCustomizationLevelsUi.getSelected(editClBox) : [];
                     var editClErr = window.MatchdoCustomizationLevelsUi ? window.MatchdoCustomizationLevelsUi.validateSelection(editLevels) : '';
@@ -981,6 +983,9 @@
                     var fd = new FormData();
                     var editSeriesBlock = document.getElementById('edit-series-block');
                     var seriesVisible = editSeriesBlock && !editSeriesBlock.classList.contains('d-none');
+                    if (!validatePortfolioCategoryFields('edit-category', 'edit-subcategory', { allowEmptySubcategory: !!seriesVisible })) {
+                        btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-upload me-1"></i>' + tr('portfolio.saveChanges'); return;
+                    }
                     var seriesFile = document.getElementById('edit-image').files[0];
                     var afterFile = document.getElementById('edit-image-after').files[0];
                     var beforeFile = document.getElementById('edit-image-before').files[0];
@@ -1080,6 +1085,8 @@
             document.getElementById('edit-image-before-preview').innerHTML = '';
             document.getElementById('edit-image-after-preview').innerHTML = '';
             var isComparison = !!(p.image_url_before);
+            var editSubLabel = document.getElementById('edit-subcategory-label');
+            if (editSubLabel) editSubLabel.textContent = isComparison ? '子分類（必選）' : '子分類（選填）';
             var seriesWrap = document.getElementById('edit-current-series-wrap');
             var cb = document.getElementById('edit-current-before-img');
             var ca = document.getElementById('edit-current-after-img');
