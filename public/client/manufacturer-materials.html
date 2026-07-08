@@ -849,7 +849,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'remove-derive-blocking-20260708a';
+        window.__MATCHDO_MATERIALS_BUILD = 'add-panel-collapsed-20260705';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1633,8 +1633,6 @@
         }
 
         function schedulePendingDraftSave(form) {
-            // 禁用草稿自動保存，避免保存錯誤數據
-            return;
             if (!form) return;
             if (pendingDraftSaveTimer) clearTimeout(pendingDraftSaveTimer);
             pendingDraftSaveTimer = setTimeout(function () {
@@ -1644,8 +1642,6 @@
         }
 
         async function savePendingDraft(form) {
-            // 禁用草稿保存
-            return;
             if (!form || !window.sessionStorage) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
             if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') return;
@@ -1678,8 +1674,6 @@
         async function restorePendingDraft(form) {
             if (!form || !window.sessionStorage) return false;
             var kind = form.getAttribute('data-kind') || 'prototype';
-            // 禁用草稿自動恢復，避免載入錯誤的舊草稿
-            return false;
             if (getPendingImages(form).length) return false;
             var raw;
             try { raw = sessionStorage.getItem(pendingDraftMetaKey(kind)); } catch (_) { return false; }
@@ -5610,6 +5604,11 @@
             var uploadLinkGroups = [];
             var uploadDerived = [];
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+                var deriveErr = await ensureAllPendingDerivedFiles(form);
+                if (deriveErr) {
+                    msgEl.textContent = deriveErr;
+                    return;
+                }
                 var pendingSelErr = validatePendingUploadList(pending);
                 if (pendingSelErr) {
                     msgEl.textContent = pendingSelErr;
@@ -5631,7 +5630,7 @@
             fd.append('description', form.querySelector('.add-description').value || '');
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
-            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+            if (kind === 'prototype' || kind === 'part') {
                 if (!uploadFiles.length) {
                     msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                     return;
