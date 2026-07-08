@@ -5578,7 +5578,11 @@
             if (!catSel.value) { msgEl.textContent = '—'; return; }
             var pending = getPendingImages(form);
             var file = imgInput && imgInput.files && imgInput.files[0];
-            if ((kind === 'prototype' || kind === 'part' || kind === 'material') && !pending.length) {
+            if ((kind === 'prototype' || kind === 'part') && !pending.length) {
+                msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+                return;
+            }
+            if (kind === 'material' && !pending.length) {
                 msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                 return;
             }
@@ -5603,7 +5607,7 @@
             var uploadLabels = [];
             var uploadLinkGroups = [];
             var uploadDerived = [];
-            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+            if (kind === 'prototype' || kind === 'part') {
                 var deriveErr = await ensureAllPendingDerivedFiles(form);
                 if (deriveErr) {
                     msgEl.textContent = deriveErr;
@@ -5620,6 +5624,18 @@
                 uploadLinkGroups = payload.uploadLinkGroups;
                 uploadDerived = payload.uploadDerived;
                 optIdx = payload.optIdx;
+            } else if (kind === 'material') {
+                var firstPending = pending[0] || null;
+                var materialFile = firstPending && firstPending.file ? firstPending.file : null;
+                if (!materialFile) {
+                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+                    return;
+                }
+                uploadFiles = [materialFile];
+                uploadLabels = [String((firstPending && firstPending.label) || labelFromFilename(materialFile.name) || '').trim()];
+                uploadLinkGroups = [];
+                uploadDerived = [];
+                optIdx = [];
             }
             msgEl.textContent = '';
             var fd = new FormData();
@@ -5630,7 +5646,7 @@
             fd.append('description', form.querySelector('.add-description').value || '');
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
-            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+            if (kind === 'prototype' || kind === 'part') {
                 if (!uploadFiles.length) {
                     msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                     return;
@@ -5648,6 +5664,19 @@
                     fd.append('optimize_image_indices', JSON.stringify(optIdx));
                     fd.append('optimize_background', getOptimizeBackgroundValue(form));
                 }
+            } else if (kind === 'material') {
+                if (!uploadFiles.length) {
+                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+                    return;
+                }
+                fd.append('image', uploadFiles[0]);
+                fd.append('image_labels', JSON.stringify(uploadLabels));
+                // 材料仍保留「材質圖 AI 優化」：只在勾選時送 optimize_product_image。
+                var optimizeChk = form.querySelector('.add-optimize-product');
+                if (optimizeChk && optimizeChk.checked) {
+                    fd.append('optimize_product_image', '1');
+                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                }
             }
             var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-' + kind));
             if (grpIds.length) fd.append('catalog_group_ids', JSON.stringify(grpIds));
@@ -5658,15 +5687,9 @@
             } else if (kind === 'material' || kind === 'part') {
                 fd.append('linked_prototype_ids', JSON.stringify(readAddFormLinkSelections(form, kind)));
             }
-            if (kind === 'material') {
-                appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromAddForm(form));
-                if (optIdx.length && !getMaterialSurfaceTypeFromAddForm(form)) {
-                    msgEl.textContent = validateMaterialSurfaceTypeForRedraw('');
-                    return;
-                }
-            }
+            if (kind === 'material') appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromAddForm(form));
             appendTaxonomyToFormData(fd, form);
-            var previewCreditTxIds = collectPreviewCreditTxIds(form);
+            var previewCreditTxIds = kind === 'material' ? [] : collectPreviewCreditTxIds(form);
             if (previewCreditTxIds.length) {
                 fd.append('preview_credit_tx_ids', JSON.stringify(previewCreditTxIds));
             }
