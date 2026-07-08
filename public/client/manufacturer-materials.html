@@ -849,7 +849,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'debug-upload-files-20260708c';
+        window.__MATCHDO_MATERIALS_BUILD = 'force-original-when-no-ai-20260708d';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1989,7 +1989,8 @@
         }
 
         function pendingOriginalUploadCheckHtml(item, prefix) {
-            // 始終顯示「上傳原圖」勾選框，讓用戶明確知道會上傳
+            // 只在有 AI 重繪/放大時才顯示「上傳原圖」勾選框，否則自動上傳原圖
+            if (!pendingHasDerivedPreview(item)) return '';
             return pendingUploadCheckHtml(item.uploadOriginal !== false, prefix + '-upload-original', '上傳原圖');
         }
 
@@ -5610,21 +5611,22 @@
             var uploadLinkGroups = [];
             var uploadDerived = [];
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
-                console.log('[DEBUG] pending items:', pending.length);
-                pending.forEach(function(p, i) {
-                    console.log('[DEBUG] item ' + i + ':', {
-                        hasFile: !!p.file,
-                        fileName: p.file && p.file.name,
-                        fileSize: p.file && p.file.size,
-                        uploadOriginal: p.uploadOriginal,
-                        hasRedraw: !!p.redrawFile,
-                        hasUpscale: !!p.upscaleFile
-                    });
-                });
-                var pendingSelErr = validatePendingUploadList(pending);
-                if (pendingSelErr) {
-                    msgEl.textContent = pendingSelErr;
+                if (!pending.length) {
+                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                     return;
+                }
+                // 簡化邏輯：確保每個待傳項目至少有原圖或衍生圖
+                for (var pi = 0; pi < pending.length; pi++) {
+                    var item = pending[pi];
+                    // 沒有 AI 重繪/放大時，強制上傳原圖
+                    if (!item.redrawFile && !item.upscaleFile) {
+                        item.uploadOriginal = true;
+                    }
+                    // 確保至少有一種圖片被選中
+                    if (!item.file && !item.redrawFile && !item.upscaleFile) {
+                        msgEl.textContent = '第 ' + (pi + 1) + ' 張圖片：找不到檔案';
+                        return;
+                    }
                 }
                 var payload = collectPendingUploadPayload(pending);
                 uploadFiles = payload.uploadFiles;
@@ -5632,9 +5634,10 @@
                 uploadLinkGroups = payload.uploadLinkGroups;
                 uploadDerived = payload.uploadDerived;
                 optIdx = payload.optIdx;
-                console.log('[DEBUG] uploadFiles collected:', uploadFiles.length, uploadFiles.map(function(f) { 
-                    return { name: f && f.name, size: f && f.size, type: f && f.type }; 
-                }));
+                if (!uploadFiles.length) {
+                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+                    return;
+                }
             }
             msgEl.textContent = '';
             var fd = new FormData();
