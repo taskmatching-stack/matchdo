@@ -420,6 +420,7 @@
   "portfolio.mainCategory": "Main category",
   "portfolio.mainCategoryRequired": "Main category (required)",
   "portfolio.subcategoryRequired": "Subcategory (required)",
+  "portfolio.subcategoryOptional": "Subcategory (optional)",
   "portfolio.aiPointsDescriptionHint": "Upload with AI tags: 5 pts. Generate description and regenerate tags: 1 pt each.",
   "portfolio.subcategory": "Subcategory",
   "portfolio.highlight": "Work features",

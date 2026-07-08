@@ -843,7 +843,7 @@
                 if (seriesBlock) seriesBlock.classList.toggle('d-none', mode !== 'series');
                 if (comparisonBlock) comparisonBlock.classList.toggle('d-none', mode !== 'comparison');
                 var addSubLabel = document.getElementById('add-subcategory-label');
-                if (addSubLabel) addSubLabel.textContent = (mode === 'series') ? '子分類（選填）' : '子分類（必選）';
+                if (addSubLabel) addSubLabel.textContent = (mode === 'series') ? tr('portfolio.subcategoryOptional') : tr('portfolio.subcategoryRequired');
                 if (mode === 'series') {
                     document.getElementById('add-image-before').value = '';
                     document.getElementById('add-image-after').value = '';
@@ -1086,7 +1086,7 @@
             document.getElementById('edit-image-after-preview').innerHTML = '';
             var isComparison = !!(p.image_url_before);
             var editSubLabel = document.getElementById('edit-subcategory-label');
-            if (editSubLabel) editSubLabel.textContent = isComparison ? '子分類（必選）' : '子分類（選填）';
+            if (editSubLabel) editSubLabel.textContent = isComparison ? tr('portfolio.subcategoryRequired') : tr('portfolio.subcategoryOptional');
             var seriesWrap = document.getElementById('edit-current-series-wrap');
             var cb = document.getElementById('edit-current-before-img');
             var ca = document.getElementById('edit-current-after-img');

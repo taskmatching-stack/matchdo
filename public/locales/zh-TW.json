@@ -458,6 +458,7 @@
   "portfolio.mainCategory": "主分類",
   "portfolio.mainCategoryRequired": "主分類（必選）",
   "portfolio.subcategoryRequired": "子分類（必選）",
+  "portfolio.subcategoryOptional": "子分類（選填）",
   "portfolio.aiPointsDescriptionHint": "上傳含 AI 標籤 5 點；AI 產生說明與重生標籤各 1 點。",
   "portfolio.subcategory": "子分類",
   "portfolio.highlight": "作品特色",
