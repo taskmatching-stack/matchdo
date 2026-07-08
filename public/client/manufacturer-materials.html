@@ -849,7 +849,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'final-fix-upload-original-20260709a';
+        window.__MATCHDO_MATERIALS_BUILD = 'force-original-in-entries-20260709b';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1860,7 +1860,9 @@
         function pendingUploadEntries(item) {
             var baseLabel = (item.label || labelFromFilename(item.file && item.file.name)).trim().slice(0, 120);
             var out = [];
-            if (item.file && item.uploadOriginal !== false) {
+            // 關鍵修復：沒有 AI 重繪/放大時，強制上傳原圖（與有 AI 重繪時相同邏輯）
+            var hasAiDerived = (item.redrawFile && item.uploadRedraw !== false) || (item.upscaleFile && item.uploadUpscale !== false);
+            if (item.file && (item.uploadOriginal !== false || !hasAiDerived)) {
                 out.push({ file: item.file, label: baseLabel, aiDerived: '' });
             }
             if (item.redrawFile && item.uploadRedraw !== false) {
