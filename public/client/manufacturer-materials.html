@@ -536,26 +536,20 @@
                                             <a href="/client/industry-suppliers.html" class="btn btn-outline-secondary btn-sm" data-i18n="baseModels.browseAllSuppliers">全部供應商</a>
                                         </div>
                                     </div>
+                                    <div class="add-image-preview mt-2 d-none"></div>
                                     <div class="supplier-ref-status alert alert-success border-0 small py-2 d-none mb-2"></div>
                                     <div class="supplier-import-locked-line alert alert-warning small py-2 mb-2 d-none"></div>
-                                    <input type="file" class="form-control add-image" accept="image/*" title="選擇材料參考圖">
-                                    <div class="add-image-preview mt-2"></div>
+                                    <input type="file" class="form-control add-image-multi" accept="image/*" multiple title="可一次選多張圖片">
+                                    <div class="add-pending-images row g-2 mt-2"></div>
                                     <p class="form-text text-muted small mb-1 mt-2" data-i18n="baseModels.refImageOrSupplierHint">可從供應商選取（即為參考圖）或自行上傳；匯入後會出現在下方清單。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.materialMultiImageHint">在上方「選擇檔案」可一次選多張（第一張為封面，最多 12 張）；選完會出現在下方待傳清單。點圖片＝預覽放大；圖下方可按「AI 重繪」，勾選要上傳的圖後再發布。</p>
+                                    <p class="form-text text-muted small mb-1" data-i18n="baseModels.materialImageHint">一筆材料＝一種主產品用材質（例：14oz 丹寧藍）。標題請寫材質名稱，勿寫配件名＋顏色。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
                                     <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
-                                <div class="col-12">
-                                    <div class="form-check mb-1">
-                                        <input class="form-check-input add-optimize-product" type="checkbox" id="add-optimize-material">
-                                        <label class="form-check-label" for="add-optimize-material">
-                                            <span data-i18n="baseModels.optimizeMaterial">材質圖 AI 優化（含 AI 標籤）</span> · 
-                                            <span class="add-points-optimize fw-semibold text-primary">10</span> 
-                                            <span data-i18n="baseModels.pointsUnit">點</span>
-                                        </label>
-                                    </div>
-                                    <p class="form-text text-muted small mb-2" data-i18n="baseModels.optimizeMaterialHint">強化滿版色卡／布料織紋／木紋、金屬質感，去雜物背景。微距圖請在標題註明，避免強化單一紋路小區域。</p>
+                                <div class="col-12 add-per-image-optimize-wrap">
                                     <div class="add-optimize-bg-wrap d-none mb-2">
-                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 優化底色</label>
+                                        <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.optimizeBackgroundLabel">AI 重繪底色</label>
                                         <div class="d-flex flex-wrap gap-2 align-items-center">
                                             <select class="form-select form-select-sm add-optimize-bg" style="max-width:11rem">
                                                 <option value="white" data-i18n="baseModels.optimizeBgWhite">白</option>
@@ -567,6 +561,8 @@
                                             <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
                                         </div>
                                     </div>
+                                    <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 重繪，不另收上傳費）</span></p>
+                                    <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
                                 </div>
                                 <div class="col-12 add-linked-prototypes-block">
                                     <label class="form-label fw-semibold"><span data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</span> <span class="text-muted fw-normal small">（選填）</span></label>
@@ -1648,8 +1644,7 @@
         async function savePendingDraft(form) {
             if (!form || !window.sessionStorage) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
-            // 材料不使用待傳清單草稿
-            if (kind !== 'prototype' && kind !== 'part') return;
+            if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') return;
             var list = getPendingImages(form);
             if (!list.length) {
                 try { sessionStorage.removeItem(pendingDraftMetaKey(kind)); } catch (_) {}
@@ -1679,8 +1674,6 @@
         async function restorePendingDraft(form) {
             if (!form || !window.sessionStorage) return false;
             var kind = form.getAttribute('data-kind') || 'prototype';
-            // 材料不使用待傳清單草稿
-            if (kind === 'material') return false;
             if (getPendingImages(form).length) return false;
             var raw;
             try { raw = sessionStorage.getItem(pendingDraftMetaKey(kind)); } catch (_) { return false; }
@@ -2827,8 +2820,7 @@
 
         function wirePendingImageUpload(form) {
             var kind = form.getAttribute('data-kind');
-            // 材料不使用待傳清單，只有 prototype/part 使用
-            if (kind !== 'prototype' && kind !== 'part') return;
+            if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') return;
             var multiInput = form.querySelector('.add-image-multi');
             if (multiInput) {
                 multiInput.addEventListener('change', function () {
@@ -4453,12 +4445,11 @@
             var wrap = form.querySelector('.add-optimize-bg-wrap');
             if (!wrap) return;
             var kind = form.getAttribute('data-kind');
-            if (kind === 'prototype' || kind === 'part') {
+            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
                 var list = getPendingImages(form);
                 wrap.classList.toggle('d-none', !list.some(function (p) { return p.optimize; }));
                 return;
             }
-            // 材料使用簡單的 checkbox
             var chk = form.querySelector('.add-optimize-product');
             if (!chk) return;
             wrap.classList.toggle('d-none', !chk.checked);
@@ -5587,12 +5578,8 @@
             if (!catSel.value) { msgEl.textContent = '—'; return; }
             var pending = getPendingImages(form);
             var file = imgInput && imgInput.files && imgInput.files[0];
-            if ((kind === 'prototype' || kind === 'part') && !pending.length) {
+            if ((kind === 'prototype' || kind === 'part' || kind === 'material') && !pending.length) {
                 msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
-                return;
-            }
-            if (kind === 'material' && !file) {
-                msgEl.textContent = tr('baseModels.needImage', '請至少選擇一張圖片');
                 return;
             }
             if (kind === 'prototype') {
@@ -5616,7 +5603,7 @@
             var uploadLabels = [];
             var uploadLinkGroups = [];
             var uploadDerived = [];
-            if (kind === 'prototype' || kind === 'part') {
+            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
                 var deriveErr = await ensureAllPendingDerivedFiles(form);
                 if (deriveErr) {
                     msgEl.textContent = deriveErr;
@@ -5659,17 +5646,6 @@
                 }
                 if (optIdx.length) {
                     fd.append('optimize_image_indices', JSON.stringify(optIdx));
-                    fd.append('optimize_background', getOptimizeBackgroundValue(form));
-                }
-            } else if (kind === 'material') {
-                // 材料上傳：直接從 file input 讀取，不使用待傳清單
-                var matLabel = labelFromFilename(file && file.name);
-                if (matLabel) fd.append('image_labels', JSON.stringify([matLabel]));
-                fd.append('image', file);
-                // 材料 AI 優化：通過簡單的 checkbox
-                var optimizeChk = form.querySelector('.add-optimize-product');
-                if (optimizeChk && optimizeChk.checked) {
-                    fd.append('optimize_product_image', '1');
                     fd.append('optimize_background', getOptimizeBackgroundValue(form));
                 }
             }
