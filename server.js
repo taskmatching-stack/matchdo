@@ -4421,6 +4421,25 @@ async function attachAdminUserSummaries(users) {
     });
 }
 
+async function attachAdminAuthStates(users) {
+    const now = Date.now();
+    return Promise.all((users || []).map(async (u) => {
+        try {
+            const { data, error } = await supabase.auth.admin.getUserById(u.id);
+            if (error) {
+                console.warn('attachAdminAuthStates getUserById:', u.id, error.message);
+                return { ...u, is_disabled: false, banned_until: null };
+            }
+            const bannedUntil = data?.user?.banned_until || null;
+            const isDisabled = !!(bannedUntil && Date.parse(bannedUntil) > now);
+            return { ...u, is_disabled: isDisabled, banned_until: bannedUntil };
+        } catch (err) {
+            console.warn('attachAdminAuthStates exception:', u.id, err && err.message);
+            return { ...u, is_disabled: false, banned_until: null };
+        }
+    }));
+}
+
 // GET /api/admin/users — 用戶管理：列出所有用戶（含會員等級、點數），僅管理員（註冊於 static 前以確保不被靜態攔截）
 app.get('/api/admin/users', async (req, res) => {
     try {
@@ -4482,6 +4501,9 @@ app.get('/api/admin/users', async (req, res) => {
         const wantEnriched = req.query.enriched === '1' || req.query.enriched === 'true';
         if (wantEnriched && users.length > 0) {
             users = await attachAdminUserSummaries(users);
+        }
+        if (users.length > 0) {
+            users = await attachAdminAuthStates(users);
         }
         if (users.length > 0) {
             users = await attachAdminFollowupSummaries(users, 'user', 'id');
@@ -5524,6 +5546,130 @@ app.patch('/api/admin/users/:id', express.json(), async (req, res) => {
         res.json({ success: true });
     } catch (e) {
         console.error('PATCH /api/admin/users 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+async function getAdminManagedUserGuard(userId) {
+    const { data: profile, error: profErr } = await supabase
+        .from('profiles')
+        .select('id, email, role')
+        .eq('id', userId)
+        .maybeSingle();
+    if (profErr) return { error: profErr };
+    if (!profile) return { notFound: true };
+
+    const { data: manufacturer } = await supabase
+        .from('manufacturers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (manufacturer) {
+        return { blocked: '此帳號仍綁定廠商資料，請先至廠商管理處理後再刪除帳號。', profile };
+    }
+
+    const { data: supplier } = await supabase
+        .from('industry_suppliers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (supplier) {
+        return { blocked: '此帳號仍綁定產業供應商資料，請先至產業供應商管理處理後再刪除帳號。', profile };
+    }
+
+    return { profile };
+}
+
+// PATCH /api/admin/users/:id/disable — 停用帳號（Supabase Auth ban）
+app.patch('/api/admin/users/:id/disable', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const userId = (req.params.id || '').trim();
+        if (!userId) return res.status(400).json({ error: '缺少用戶 id' });
+        if (userId === adminUser.id) return res.status(400).json({ error: '不可停用目前登入中的管理員帳號' });
+
+        const guard = await getAdminManagedUserGuard(userId);
+        if (guard.error) {
+            console.error('PATCH /api/admin/users/:id/disable guard:', guard.error);
+            return res.status(500).json({ error: '查詢用戶失敗' });
+        }
+        if (guard.notFound) return res.status(404).json({ error: '找不到該用戶' });
+
+        const { error } = await supabase.auth.admin.updateUserById(userId, { ban_duration: '876000h' });
+        if (error) {
+            console.error('PATCH /api/admin/users/:id/disable auth:', error);
+            return res.status(500).json({ error: error.message || '停用帳號失敗' });
+        }
+        res.json({ success: true, is_disabled: true });
+    } catch (e) {
+        console.error('PATCH /api/admin/users/:id/disable 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PATCH /api/admin/users/:id/enable — 啟用帳號（解除 ban）
+app.patch('/api/admin/users/:id/enable', express.json(), async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const userId = (req.params.id || '').trim();
+        if (!userId) return res.status(400).json({ error: '缺少用戶 id' });
+
+        const guard = await getAdminManagedUserGuard(userId);
+        if (guard.error) {
+            console.error('PATCH /api/admin/users/:id/enable guard:', guard.error);
+            return res.status(500).json({ error: '查詢用戶失敗' });
+        }
+        if (guard.notFound) return res.status(404).json({ error: '找不到該用戶' });
+
+        const { error } = await supabase.auth.admin.updateUserById(userId, { ban_duration: 'none' });
+        if (error) {
+            console.error('PATCH /api/admin/users/:id/enable auth:', error);
+            return res.status(500).json({ error: error.message || '啟用帳號失敗' });
+        }
+        res.json({ success: true, is_disabled: false });
+    } catch (e) {
+        console.error('PATCH /api/admin/users/:id/enable 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/users/:id — 刪除帳號（僅一般會員；若綁定廠商/供應商需先清理）
+app.delete('/api/admin/users/:id', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const userId = (req.params.id || '').trim();
+        if (!userId) return res.status(400).json({ error: '缺少用戶 id' });
+        if (userId === adminUser.id) return res.status(400).json({ error: '不可刪除目前登入中的管理員帳號' });
+
+        const guard = await getAdminManagedUserGuard(userId);
+        if (guard.error) {
+            console.error('DELETE /api/admin/users/:id guard:', guard.error);
+            return res.status(500).json({ error: '查詢用戶失敗' });
+        }
+        if (guard.notFound) return res.status(404).json({ error: '找不到該用戶' });
+        if (guard.blocked) return res.status(400).json({ error: guard.blocked });
+
+        if ((guard.profile.role || 'user') === 'admin') {
+            const { count } = await supabase
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .eq('role', 'admin');
+            if ((count || 0) <= 1) {
+                return res.status(400).json({ error: '不可刪除最後一位管理員帳號' });
+            }
+        }
+
+        const { error } = await supabase.auth.admin.deleteUser(userId, true);
+        if (error) {
+            console.error('DELETE /api/admin/users/:id auth:', error);
+            return res.status(500).json({ error: error.message || '刪除帳號失敗' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/users/:id 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

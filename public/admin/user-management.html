@@ -331,6 +331,7 @@
                     for (var i = 0; i < list.length; i++) {
                         var u = list[i];
                         var roleBadge = u.role === 'admin' ? '<span class="badge bg-danger">管理員</span>' : (u.role === 'tester' ? '<span class="badge bg-info">測試員</span>' : '<span class="badge bg-secondary">用戶</span>');
+                        if (u.is_disabled) roleBadge += ' <span class="badge bg-dark">已停用</span>';
                         var level = escapeHtml(u.member_level || '一般');
                         var pts = typeof u.points === 'number' ? u.points : (parseInt(u.points, 10) || 0);
                         var roleVal = (u.role === 'admin' || u.role === 'tester') ? u.role : 'user';
@@ -343,6 +344,8 @@
                             '<button type="button" class="btn btn-sm btn-outline-warning btn-followup-user me-1">備註</button>' +
                             '<a class="btn btn-sm btn-outline-secondary me-1" href="' + monthlyUrl + '">月消耗</a>' +
                             '<button type="button" class="btn btn-sm btn-outline-success btn-sub-user me-1">訂閱</button>' +
+                            '<button type="button" class="btn btn-sm ' + (u.is_disabled ? 'btn-outline-success btn-enable-user' : 'btn-outline-dark btn-disable-user') + ' me-1">' + (u.is_disabled ? '啟用' : '停用') + '</button>' +
+                            '<button type="button" class="btn btn-sm btn-outline-danger btn-delete-user me-1">刪除</button>' +
                             '<button class="btn btn-sm btn-primary btn-edit-user" data-id="' + escapeHtml(u.id) + '" data-email="' + escapeHtml(u.email) + '" data-role="' + escapeHtml(roleVal) + '" data-level="' + escapeHtml(u.member_level || '一般') + '" data-points="' + pts + '">編輯</button></td></tr>';
                     }
                     $('#usersTable').html(html || '<tr><td colspan="10" class="text-center text-muted">尚無用戶（或篩選後無符合）</td></tr>');
@@ -363,6 +366,65 @@
                         var uid = $(this).closest('tr').data('user-id');
                         var u = allUsers.filter(function (x) { return x.id === uid; })[0];
                         if (u) openUserSubModal(u);
+                    });
+                    $('.btn-disable-user').on('click', async function () {
+                        var uid = $(this).closest('tr').data('user-id');
+                        var u = allUsers.filter(function (x) { return x.id === uid; })[0];
+                        if (!u) return;
+                        if (!confirm('確定停用帳號「' + (u.email || uid) + '」？停用後將無法登入。')) return;
+                        try {
+                            var res = await fetch('/api/admin/users/' + encodeURIComponent(uid) + '/disable', {
+                                method: 'PATCH',
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            var result = await res.json().catch(function () { return {}; });
+                            if (!res.ok) { alert(result.error || '停用失敗'); return; }
+                            var refreshed = await loadUsers();
+                            if (!refreshed.error) { allUsers = refreshed.users || []; applyFilter(); }
+                        } catch (e) {
+                            alert('停用失敗：' + (e.message || e));
+                        }
+                    });
+                    $('.btn-enable-user').on('click', async function () {
+                        var uid = $(this).closest('tr').data('user-id');
+                        var u = allUsers.filter(function (x) { return x.id === uid; })[0];
+                        if (!u) return;
+                        if (!confirm('確定啟用帳號「' + (u.email || uid) + '」？')) return;
+                        try {
+                            var res = await fetch('/api/admin/users/' + encodeURIComponent(uid) + '/enable', {
+                                method: 'PATCH',
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            var result = await res.json().catch(function () { return {}; });
+                            if (!res.ok) { alert(result.error || '啟用失敗'); return; }
+                            var refreshed = await loadUsers();
+                            if (!refreshed.error) { allUsers = refreshed.users || []; applyFilter(); }
+                        } catch (e) {
+                            alert('啟用失敗：' + (e.message || e));
+                        }
+                    });
+                    $('.btn-delete-user').on('click', async function () {
+                        var uid = $(this).closest('tr').data('user-id');
+                        var u = allUsers.filter(function (x) { return x.id === uid; })[0];
+                        if (!u) return;
+                        if (!confirm('確定永久刪除帳號「' + (u.email || uid) + '」？此操作無法還原。')) return;
+                        try {
+                            var res = await fetch('/api/admin/users/' + encodeURIComponent(uid), {
+                                method: 'DELETE',
+                                headers: { 'Authorization': 'Bearer ' + token }
+                            });
+                            var result = await res.json().catch(function () { return {}; });
+                            if (!res.ok) { alert(result.error || '刪除失敗'); return; }
+                            var refreshed = await loadUsers();
+                            if (!refreshed.error) {
+                                allUsers = refreshed.users || [];
+                                $('#totalUsers').text(allUsers.length);
+                                $('#adminUsers').text(allUsers.filter(function (row) { return row.role === 'admin'; }).length);
+                                applyFilter();
+                            }
+                        } catch (e) {
+                            alert('刪除失敗：' + (e.message || e));
+                        }
                     });
                 }
                 function userMatchesIdentityFilter(u, identityVal) {
