@@ -80,7 +80,7 @@ const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
-const { normalizeVendorUploadFile, prepareVendorMaterialFluxImage } = require('./lib/resize-upload-image');
+const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage } = require('./lib/resize-upload-image');
 const {
     stabilityFastUpscale,
     vendorMaterialUpscale,
@@ -3300,11 +3300,16 @@ async function getPaymentConfig() {
 
 /** Phase 1.6: 上傳單檔至 Supabase Storage，回傳 { path, publicUrl } */
 async function uploadToSupabaseStorage(bucket, pathPrefix, file, options = {}) {
-    const ext = (options.ext || path.extname(file.originalname || '') || '.jpg').replace(/^\./, '') || 'jpg';
+    if (file && file.buffer && file.buffer.length) {
+        const normalized = await normalizeVendorUploadFile(file);
+        if (normalized) file = normalized;
+    }
+    const contentType = options.contentType || file.mimetype || 'image/jpeg';
+    let ext = (options.ext || path.extname(file.originalname || '') || '.jpg').replace(/^\./, '') || 'jpg';
+    if (contentType === 'image/jpeg' && /^(avif|heif|heic)$/i.test(ext)) ext = 'jpg';
     const filename = `${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
     const objectPath = pathPrefix ? `${pathPrefix}/${filename}` : filename;
     const buffer = file.buffer || (file instanceof Buffer ? file : Buffer.from(file.data || ''));
-    const contentType = options.contentType || file.mimetype || 'image/jpeg';
     const { data, error } = await supabase.storage
         .from(bucket)
         .upload(objectPath, buffer, { contentType, upsert: false });
@@ -8847,7 +8852,8 @@ async function composeGeneratePromptWithReferences(opts) {
         return { fullPrompt: fullPrompt.trim(), fluxReferenceImages: [], fluxReferenceSources: [] };
     }
 
-    const ordered = reorderFluxReferenceInputs(referenceImages, referenceSources);
+    const normalizedReferenceImages = await normalizeReferenceImagesForFlux(referenceImages);
+    const ordered = reorderFluxReferenceInputs(normalizedReferenceImages, referenceSources);
     const styleReferenceLead = buildFluxStyleReferenceLead(ordered.sources);
     const refFacts = buildFluxReferenceFactsAppendix(ordered.sources, uiLang);
     if (refFacts) fullPrompt = (fullPrompt || '').trim() + refFacts;
@@ -8928,7 +8934,8 @@ async function resolveImageToBase64(img) {
     if (!img || typeof img !== 'string') return null;
     const s = img.trim();
     if (s.startsWith('data:image/')) {
-        const m = s.match(/^data:image\/\w+;base64,(.+)$/);
+        const normalized = await normalizeImageDataUrl(s);
+        const m = normalized.match(/^data:image\/\w+;base64,(.+)$/);
         return m ? m[1] : null;
     }
     if (s.startsWith('http://') || s.startsWith('https://')) {
@@ -8936,7 +8943,13 @@ async function resolveImageToBase64(img) {
             const resp = await fetch(s, { headers: { 'Accept': 'image/*' } });
             if (!resp.ok) return null;
             const buf = Buffer.from(await resp.arrayBuffer());
-            return buf.toString('base64');
+            const mime = ((resp.headers.get('content-type') || 'image/jpeg').split(';')[0] || 'image/jpeg').trim().toLowerCase();
+            const normalized = await normalizeVendorUploadFile({
+                buffer: buf,
+                mimetype: mime,
+                originalname: 'image.jpg'
+            });
+            return (normalized && normalized.buffer ? normalized.buffer : buf).toString('base64');
         } catch (e) {
             console.warn('resolveImageToBase64 fetch:', e.message);
             return null;
@@ -9442,7 +9455,7 @@ app.post('/api/admin/playground-generate', express.json(), async (req, res) => {
         let refList = Array.isArray(referenceImages) && referenceImages.length > 0
             ? referenceImages
             : (referenceImage && typeof referenceImage === 'string' && referenceImage.length > 0 ? [referenceImage] : []);
-        refList = refList.slice(0, 8).filter(Boolean);
+        refList = (await normalizeReferenceImagesForFlux(refList.slice(0, 8).filter(Boolean)));
 
         let buffer;
         if (refList.length > 0) {
@@ -11622,14 +11635,22 @@ app.post('/api/custom-products', async (req, res) => {
         }
         const promptVal = (generation_prompt != null && String(generation_prompt).trim()) ? String(generation_prompt).trim() : null;
         const seedVal = (generation_seed != null && generation_seed !== '' && Number.isInteger(Number(generation_seed))) ? Number(generation_seed) : null;
+        let refImageUrl = reference_image_url || null;
+        let genImageUrl = ai_generated_image_url || null;
+        if (typeof refImageUrl === 'string' && refImageUrl.startsWith('data:image/')) {
+            refImageUrl = await normalizeImageDataUrl(refImageUrl);
+        }
+        if (typeof genImageUrl === 'string' && genImageUrl.startsWith('data:image/')) {
+            genImageUrl = await normalizeImageDataUrl(genImageUrl);
+        }
         const insertPayload = {
             owner_id: user.id,
             title,
             description,
             category: mainCategoryVal,
             subcategory_key: subCategoryVal,
-            reference_image_url: reference_image_url || null,
-            ai_generated_image_url: ai_generated_image_url || null,
+            reference_image_url: refImageUrl,
+            ai_generated_image_url: genImageUrl,
             analysis_json: finalAnalysisJson && Object.keys(finalAnalysisJson).length ? finalAnalysisJson : null,
             status: 'draft',
             generation_prompt: promptVal,
@@ -11657,9 +11678,9 @@ app.post('/api/custom-products', async (req, res) => {
             ({ data, error } = await doInsert(stripInternalCustomProductInsertColumns(insertPayload)));
         }
 
-        if (!error && data && data.id && ai_generated_image_url) {
+        if (!error && data && data.id && genImageUrl) {
             enrichCustomProductSemantics(data.id, user.id, {
-                imageUrl: ai_generated_image_url,
+                imageUrl: genImageUrl,
                 generationPrompt: promptVal,
                 title,
                 categoryKey: mainCategoryVal
