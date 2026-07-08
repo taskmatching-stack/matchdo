@@ -849,7 +849,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'force-original-when-no-ai-20260708d';
+        window.__MATCHDO_MATERIALS_BUILD = 'final-fix-upload-original-20260709a';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -5615,17 +5615,20 @@
                     msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                     return;
                 }
-                // 簡化邏輯：確保每個待傳項目至少有原圖或衍生圖
+                // 確保每個待傳項目都能上傳
                 for (var pi = 0; pi < pending.length; pi++) {
                     var item = pending[pi];
-                    // 沒有 AI 重繪/放大時，強制上傳原圖
+                    if (!item.file && !item.redrawFile && !item.upscaleFile) {
+                        msgEl.textContent = '第 ' + (pi + 1) + ' 張圖片：找不到檔案（請重新選擇）';
+                        return;
+                    }
+                    // 關鍵修復：沒有 AI 重繪/放大時，強制上傳原圖
                     if (!item.redrawFile && !item.upscaleFile) {
                         item.uploadOriginal = true;
                     }
-                    // 確保至少有一種圖片被選中
-                    if (!item.file && !item.redrawFile && !item.upscaleFile) {
-                        msgEl.textContent = '第 ' + (pi + 1) + ' 張圖片：找不到檔案';
-                        return;
+                    // 最後檢查：確保至少有一種會被上傳
+                    if (item.uploadOriginal === false && !item.redrawFile && !item.upscaleFile) {
+                        item.uploadOriginal = true; // 強制修正
                     }
                 }
                 var payload = collectPendingUploadPayload(pending);
