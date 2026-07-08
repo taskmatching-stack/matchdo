@@ -7,6 +7,25 @@ alwaysApply: true
 
 完整說明見 **`docs/deploy-matchdo-push-and-deploy.md`**（繁體中文）。
 
+## ⛔ 使用者一再提醒（Agent 必守，違反 = 嚴重失誤）
+
+**Cloud Shell 部署指令：只能給下方「靜音版整行」，禁止給任何不含 `grep` 的簡化版。**
+
+使用者已知 `Regional Access Boundary` / `taskmatchlng` 是假錯誤；他們要的是**靜音輸出**，不是再解釋一次「沒關係」。**不要再忽略此要求。**
+
+**給使用者時，原樣貼下面兩段（先 account，再整行 deploy）：**
+
+```bash
+gcloud config set account taskmatching@gmail.com
+gcloud config set project matchdo
+```
+
+```bash
+cd ~/matchdo && git fetch origin main && git reset --hard origin/main && ( gcloud run deploy matchdo --source . --region=asia-northeast1 --allow-unauthenticated --clear-base-image && gcloud run services update-traffic matchdo --region=asia-northeast1 --to-latest ) 2>&1 | grep --line-buffered -v -E 'Regional Access Boundary|taskmatchlng'
+```
+
+**禁止**在回覆中改寫、縮短、或刪掉末尾 `grep`（含「為了簡潔」）。
+
 ## 部署前必做（Agent 責任）
 
 1. 本機 commit → **`git push origin main`** 成功
