@@ -2820,7 +2820,8 @@
 
         function wirePendingImageUpload(form) {
             var kind = form.getAttribute('data-kind');
-            if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') return;
+            // 材料不使用待傳清單，只有 prototype/part 使用
+            if (kind !== 'prototype' && kind !== 'part') return;
             var multiInput = form.querySelector('.add-image-multi');
             if (multiInput) {
                 multiInput.addEventListener('change', function () {
@@ -4445,11 +4446,12 @@
             var wrap = form.querySelector('.add-optimize-bg-wrap');
             if (!wrap) return;
             var kind = form.getAttribute('data-kind');
-            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+            if (kind === 'prototype' || kind === 'part') {
                 var list = getPendingImages(form);
                 wrap.classList.toggle('d-none', !list.some(function (p) { return p.optimize; }));
                 return;
             }
+            // 材料使用簡單的 checkbox
             var chk = form.querySelector('.add-optimize-product');
             if (!chk) return;
             wrap.classList.toggle('d-none', !chk.checked);
@@ -5582,8 +5584,8 @@
                 msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                 return;
             }
-            if (kind === 'material' && !pending.length) {
-                msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
+            if (kind === 'material' && !file) {
+                msgEl.textContent = tr('baseModels.needImage', '請至少選擇一張圖片');
                 return;
             }
             if (kind === 'prototype') {
@@ -5624,18 +5626,6 @@
                 uploadLinkGroups = payload.uploadLinkGroups;
                 uploadDerived = payload.uploadDerived;
                 optIdx = payload.optIdx;
-            } else if (kind === 'material') {
-                var firstPending = pending[0] || null;
-                var materialFile = firstPending && firstPending.file ? firstPending.file : null;
-                if (!materialFile) {
-                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
-                    return;
-                }
-                uploadFiles = [materialFile];
-                uploadLabels = [String((firstPending && firstPending.label) || labelFromFilename(materialFile.name) || '').trim()];
-                uploadLinkGroups = [];
-                uploadDerived = [];
-                optIdx = [];
             }
             msgEl.textContent = '';
             var fd = new FormData();
@@ -5665,13 +5655,11 @@
                     fd.append('optimize_background', getOptimizeBackgroundValue(form));
                 }
             } else if (kind === 'material') {
-                if (!uploadFiles.length) {
-                    msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
-                    return;
-                }
-                fd.append('image', uploadFiles[0]);
-                fd.append('image_labels', JSON.stringify(uploadLabels));
-                // 材料仍保留「材質圖 AI 優化」：只在勾選時送 optimize_product_image。
+                // 材料上傳：直接從 file input 讀取，不使用待傳清單
+                var matLabel = labelFromFilename(file && file.name);
+                if (matLabel) fd.append('image_labels', JSON.stringify([matLabel]));
+                fd.append('image', file);
+                // 材料 AI 優化：通過簡單的 checkbox
                 var optimizeChk = form.querySelector('.add-optimize-product');
                 if (optimizeChk && optimizeChk.checked) {
                     fd.append('optimize_product_image', '1');
