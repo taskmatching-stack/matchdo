@@ -849,7 +849,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'remove-derive-blocking-20260708a';
+        window.__MATCHDO_MATERIALS_BUILD = 'always-show-upload-checkbox-20260708b';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1989,7 +1989,7 @@
         }
 
         function pendingOriginalUploadCheckHtml(item, prefix) {
-            if (!pendingHasDerivedPreview(item)) return '';
+            // 始終顯示「上傳原圖」勾選框，讓用戶明確知道會上傳
             return pendingUploadCheckHtml(item.uploadOriginal !== false, prefix + '-upload-original', '上傳原圖');
         }
 
