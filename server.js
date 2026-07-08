@@ -15223,6 +15223,11 @@ async function vendorCatalogGroupsTableReady() {
     return !error || error.code !== '42P01';
 }
 
+async function vendorAssetGroupLinksTableReady() {
+    const { error } = await supabase.from('vendor_asset_group_links').select('asset_id').limit(1);
+    return !error || error.code !== '42P01';
+}
+
 async function vendorPrototypeLinksTableReady() {
     const { error } = await supabase.from('vendor_asset_prototype_links').select('id').limit(1);
     return !error || error.code !== '42P01';
@@ -16301,7 +16306,7 @@ async function buildVendorCatalogGroupsPayload(manufacturerId, assetKindFilter, 
 }
 
 async function setVendorAssetCatalogGroups(assetId, manufacturerId, groupIds) {
-    if (!(await vendorCatalogGroupsTableReady())) return;
+    if (!(await vendorCatalogGroupsTableReady()) || !(await vendorAssetGroupLinksTableReady())) return;
     const ids = [...new Set((groupIds || []).map((id) => String(id).trim()).filter(Boolean))];
     if (ids.length) {
         const { data: assetRow } = await supabase.from('vendor_assets').select('asset_kind').eq('id', assetId).maybeSingle();
@@ -16330,7 +16335,7 @@ async function setVendorAssetCatalogGroups(assetId, manufacturerId, groupIds) {
 }
 
 async function attachCatalogGroupIdsToAssets(items) {
-    if (!(await vendorCatalogGroupsTableReady()) || !items || !items.length) return items;
+    if (!(await vendorCatalogGroupsTableReady()) || !(await vendorAssetGroupLinksTableReady()) || !items || !items.length) return items;
     const assetIds = items.map((r) => r.id).filter(Boolean);
     if (!assetIds.length) return items;
     const { data: links, error: linkErr } = await supabase
@@ -18819,7 +18824,11 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             console.error('POST /api/me/vendor-assets 失敗:', insertError);
             return respondVendorAssetUploadFailure(res, 500, ownerId, body, { error: '新增素材失敗' });
         }
-        await setVendorAssetCatalogGroups(inserted.id, manufacturerId, parseCatalogGroupIdsFromBody(body));
+        try {
+            await setVendorAssetCatalogGroups(inserted.id, manufacturerId, parseCatalogGroupIdsFromBody(body));
+        } catch (groupErr) {
+            console.warn('setVendorAssetCatalogGroups:', groupErr && groupErr.message);
+        }
         const taxonomyWriteErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, inserted.id, body);
         if (taxonomyWriteErr) return res.status(400).json({ error: taxonomyWriteErr });
         if (assetKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
@@ -18883,7 +18892,12 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             ...inserted,
             production_type_key: insertPayload.production_type_key != null ? insertPayload.production_type_key : null
         });
-        const createEnriched = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, [createMapped]);
+        let createEnriched = [createMapped];
+        try {
+            createEnriched = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, [createMapped]);
+        } catch (taxEnrichErr) {
+            console.warn('enrichVendorAssetItems(create):', taxEnrichErr && taxEnrichErr.message);
+        }
         res.status(201).json({
             ...(createEnriched[0] || createMapped),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,

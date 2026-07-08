@@ -523,9 +523,9 @@
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料參考」專用的我的素材分類新增名稱，再於此勾選（與數位原型分開）。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12">
-                                    <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
+                                    <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-muted fw-normal small">（選填）</span></label>
                                     <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32">
-                                    <p class="form-text text-muted small mb-0">送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                    <p class="form-text text-muted small mb-0">只有在要做 AI 重繪時才需要填寫；送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                                 </div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12 ref-image-block">
@@ -718,9 +718,9 @@
                             <label class="form-label" id="edit-gallery-images-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.galleryOrderHint">拖曳或使用 ← → 調整順序；第一張為列表封面。</p>
                             <div id="edit-material-surface-wrap" class="mb-2 d-none">
-                                <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-muted fw-normal small">（選填）</span></label>
                                 <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
-                                <p class="form-text text-muted small mb-0">送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                <p class="form-text text-muted small mb-0">只有在要做 AI 重繪時才需要填寫；送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                             </div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
