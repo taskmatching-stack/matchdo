@@ -18832,26 +18832,36 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const taxonomyWriteErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, inserted.id, body);
         if (taxonomyWriteErr) return res.status(400).json({ error: taxonomyWriteErr });
         if (assetKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
-            let linkEntries = parseLinkedLinksFromBody(body);
-            if (linkEntries === undefined) {
-                const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
-                if (linkedIds === null) {
-                    return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+            try {
+                let linkEntries = parseLinkedLinksFromBody(body);
+                if (linkEntries === undefined) {
+                    const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+                    if (linkedIds === null) {
+                        return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
+                    }
+                    linkEntries = normalizePrototypeLinkEntries(linkedIds);
+                } else if (linkEntries === null) {
+                    return res.status(400).json({ error: 'linked_links 格式錯誤' });
                 }
-                linkEntries = normalizePrototypeLinkEntries(linkedIds);
-            } else if (linkEntries === null) {
-                return res.status(400).json({ error: 'linked_links 格式錯誤' });
+                const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, inserted.id, linkEntries);
+                if (linkErr) return res.status(400).json({ error: linkErr });
+            } catch (linkWriteErr) {
+                // 關聯圖可選；避免 link 表/欄位狀態異常導致整個上傳 500。
+                console.warn('vendor-assets prototype linked_links write skipped:', linkWriteErr && linkWriteErr.message);
             }
-            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, inserted.id, linkEntries);
-            if (linkErr) return res.status(400).json({ error: linkErr });
         }
         if ((assetKind === 'material' || assetKind === 'part') && body.linked_prototype_ids !== undefined) {
-            const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
-            if (protoIds === null) {
-                return res.status(400).json({ error: 'linked_prototype_ids 須為 UUID 陣列' });
+            try {
+                const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
+                if (protoIds === null) {
+                    return res.status(400).json({ error: 'linked_prototype_ids 須為 UUID 陣列' });
+                }
+                const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, inserted.id, protoIds);
+                if (linkErr) return res.status(400).json({ error: linkErr });
+            } catch (linkWriteErr) {
+                // 關聯圖可選；避免 link 表/欄位狀態異常導致整個上傳 500。
+                console.warn('vendor-assets material linked_prototype_ids write skipped:', linkWriteErr && linkWriteErr.message);
             }
-            const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, inserted.id, protoIds);
-            if (linkErr) return res.status(400).json({ error: linkErr });
         }
         await recordVisualSemanticsEvent({
             source_type: 'vendor_asset',
