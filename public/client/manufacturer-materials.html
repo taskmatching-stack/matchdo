@@ -5636,7 +5636,7 @@
             fd.append('description', form.querySelector('.add-description').value || '');
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
-            if (kind === 'prototype' || kind === 'part') {
+            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
                 if (!uploadFiles.length) {
                     msgEl.textContent = tr('baseModels.needImage', '請至少新增一張圖片');
                     return;
