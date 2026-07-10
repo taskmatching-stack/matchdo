@@ -2659,9 +2659,9 @@ async function maybeOptimizeVendorAssetMulterFile(
 }
 
 const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
-    white: 'clean pure white seamless studio background',
-    light_gray: 'clean light gray seamless studio background',
-    gray: 'neutral medium gray seamless studio background',
+    white: 'perfectly flat uniform white seamless infinity cove (#FFFFFF), evenly lit, no gradient',
+    light_gray: 'perfectly flat uniform light gray seamless infinity cove, evenly lit, no gradient',
+    gray: 'perfectly flat uniform medium gray seamless infinity cove, evenly lit, no gradient',
     black: 'deep black seamless studio background with subtle rim lighting on the product edges'
 };
 
@@ -2682,25 +2682,30 @@ function normalizeVendorOptimizeBackground(raw) {
 }
 
 /**
- * 數位原型／零件「AI 重繪」：img2img 以參考圖為準，只換背景與棚拍光。
- * 保留「產品本體上」的印刷／壓印字樣與 Logo；不保留背景上的文字；不新增任何文字。
+ * 數位原型／零件「AI 重繪」：專業棚拍重繪（可調姿態／呈現），非單純去背。
+ * 保留產品本體可見細節與本體印刷；禁止腦補參考圖未出現的結構（尤其服飾背面、肩帶）。
  */
 function buildVendorAssetProductOptimizePrompt(title, backgroundColor) {
     const bg = normalizeVendorOptimizeBackground(backgroundColor);
     const productHint = (title || '').trim();
     const parts = [
-        'Using the provided reference image as the only source, perform a minimal product photo cleanup.',
-        'Keep the same camera angle, framing, and scale. The product must remain the only subject.',
-        'Preserve the product body exactly: shape, proportions, hardware, straps, clips, seams, materials, surface patterns, and every color region on the product.',
+        'Using the provided reference image as the primary source, produce professional e-commerce catalog product photography—not a simple background cutout.',
+        'You may improve studio staging, lighting, and presentation pose for a clean catalog shot. The product must remain the only subject.',
+        'Preserve every visible detail from the reference: shape, proportions, hardware, visible straps, clips, seams, materials, surface patterns, and every color region that is actually shown.',
         'Preserve only text, numbers, logos, icons, and graphics that are physically ON the product surface in the reference (printed, labeled, embroidered, molded, or engraved on the product itself).',
         'Do not change, translate, invent, or remove any markings that belong on the product.',
+        'Visibility fidelity (mandatory): Do NOT invent, extrapolate, or render construction that is not visible in the reference—hidden backs, undersides, interiors, reverse panels, extra strap routing, closures, or openings. If only one side or angle is shown, do not guess or "complete" unseen structure.',
+        'Wearable apparel presentation: When the reference shows clothing (tops, dresses, coats, camisoles, etc.) and the back or inner structure is not visible, present the garment on a neutral invisible ghost mannequin, dress form, garment hanger, or clean display stand so occluded areas stay naturally hidden instead of hallucinated. This is especially critical for thin-strap, spaghetti-strap, off-shoulder, and delicate women\'s tops and dresses—unsupported straps must not float in mid-air and must not cause invented back panels or strap layouts.',
+        'Match all visible necklines, strap positions, hem lines, and front details exactly to the reference; improve presentation only through legitimate studio support (mannequin/hanger/stand), not by inventing unseen garment geometry.',
         'Remove or replace everything that is NOT part of the product: old background, floor, props, hands, people, packaging behind the product, and any text or graphics that appear only in the background or scene—not on the product.',
         `Set the background to ${bg.prompt} with soft even studio lighting on the product and a subtle natural contact shadow.`,
+        'Background fidelity (mandatory): The backdrop must be perfectly uniform seamless with NO gradient, NO texture, NO floor line, NO horizon, NO vignette, and NO color cast—only one minimal soft contact shadow directly beneath the product.',
+        'Light-product separation: If the product is white, off-white, cream, silver, or very light-toned, keep crisp edge separation from the background using subtle rim lighting or a faint edge outline. Do NOT let the product melt into the backdrop. Do NOT recolor the product.',
         'Do not add captions, watermarks, price tags, brand slogans, or any new text anywhere in the image.',
         'Photorealistic, sharp focus, accurate product colors.'
     ];
     if (productHint) {
-        parts.splice(2, 0, `Product context (do not redesign; match the reference): ${productHint}.`);
+        parts.splice(2, 0, `Product context (preserve visible design; do not redesign): ${productHint}.`);
     }
     return parts.join(' ');
 }
