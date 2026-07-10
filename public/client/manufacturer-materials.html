@@ -883,7 +883,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'optimize-product-name-hint-20260710d';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-meta-preserve-gallery-20260710e';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1050,7 +1050,8 @@
                 'production_type_label', 'capabilities', 'capability_keys', 'capability_labels',
                 'capability_custom_labels', 'catalog_group_ids', 'catalog_groups',
                 'min_order_quantity', 'customization_levels', 'customization_level_labels',
-                'ai_tags', 'image_semantics_json', 'material_key', 'part_key', 'usage_type'
+                'ai_tags', 'image_semantics_json', 'material_key', 'part_key', 'usage_type',
+                'style_key', 'color_key'
             ];
             metaKeys.forEach(function (k) {
                 var nv = incoming[k];
@@ -1077,6 +1078,18 @@
             }
             var merged = mergeMaterialsAllRecord(materialsAll[idx], incoming);
             materialsAll[idx] = merged;
+            return merged;
+        }
+
+        /** 圖庫增刪改／重繪後：merge 清單並同步編輯區（MOQ、訂製程度、分類、工藝等） */
+        function afterEditGalleryMutation(id, apiData, opts) {
+            opts = opts || {};
+            if (!id || !apiData) return apiData;
+            var merged = patchMaterialsAllItem(id, apiData) || apiData;
+            var editId = document.getElementById('edit-id').value;
+            if (editId && String(editId) === String(id)) {
+                refreshEditModalAfterSave(merged, opts);
+            }
             return merged;
         }
 
@@ -1435,7 +1448,7 @@
                     showToast(errMsg, 'danger');
                     return;
                 }
-                patchMaterialsAllItem(assetId, data);
+                afterEditGalleryMutation(assetId, data);
                 if (data.warning && (data.cover_label_skipped || data.cover_link_group_skipped)) {
                     showToast(data.warning, 'warning');
                 }
@@ -2543,7 +2556,7 @@
                 renderGrid();
                 var id = document.getElementById('edit-id').value;
                 var refreshed = materialsAll.find(function (x) { return x.id === id; }) || lastData;
-                if (refreshed) renderEditGallery(refreshed);
+                if (refreshed) afterEditGalleryMutation(id, refreshed);
                 setEditGalleryStatus('已依勾選寫入圖庫', 'success');
                 showToast('已依勾選寫入圖庫');
                 return true;
@@ -3510,10 +3523,9 @@
                     showToast(errMsg, 'danger');
                     return false;
                 }
-                patchMaterialsAllItem(id, data);
-                var lastNew = markNewGalleryUrls(urlsBefore, data);
-                renderEditGallery(data);
-                var urlCount = assetImageUrls(data).length;
+                var merged = afterEditGalleryMutation(id, data);
+                var lastNew = markNewGalleryUrls(urlsBefore, merged);
+                var urlCount = assetImageUrls(merged).length;
                 var okMsg = '已新增 AI 放大新圖（' + VENDOR_UPSCALE_RULE_TEXT + '，原圖保留，共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
@@ -3522,7 +3534,7 @@
                 if (!opts.skipReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
-                    if (refreshed) renderEditGallery(refreshed);
+                    if (refreshed) afterEditGalleryMutation(id, refreshed);
                     if (lastNew) scrollEditGalleryToUrl(lastNew);
                 }
                 return true;
@@ -3603,10 +3615,9 @@
                     showToast(errMsg, 'danger');
                     return false;
                 }
-                patchMaterialsAllItem(id, data);
-                var lastNew = markNewGalleryUrls(urlsBeforeRedraw, data);
-                renderEditGallery(data);
-                var urlCount = assetImageUrls(data).length;
+                var mergedRedraw = afterEditGalleryMutation(id, data);
+                var lastNew = markNewGalleryUrls(urlsBeforeRedraw, mergedRedraw);
+                var urlCount = assetImageUrls(mergedRedraw).length;
                 var okMsg = '已新增重繪新圖（原圖保留，共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
@@ -3615,7 +3626,7 @@
                 if (!opts.skipReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
-                    if (refreshed) renderEditGallery(refreshed);
+                    if (refreshed) afterEditGalleryMutation(id, refreshed);
                     if (lastNew) scrollEditGalleryToUrl(lastNew);
                 }
                 return true;
@@ -3769,8 +3780,7 @@
                     if (m0) renderEditGallery(m0);
                     return;
                 }
-                patchMaterialsAllItem(id, data);
-                if (!opts.skipRenderOnSuccess) renderEditGallery(data);
+                afterEditGalleryMutation(id, data, { skipGalleryRender: !!opts.skipRenderOnSuccess });
                 if (!opts.silent) {
                     setEditGalleryStatus(tr('baseModels.galleryOrderSaved', '圖片順序已儲存'), 'success');
                     showToast(tr('baseModels.galleryOrderSaved', '圖片順序已儲存'));
@@ -3778,7 +3788,7 @@
                 if (!opts.skipReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
-                    if (refreshed && !opts.skipRenderOnSuccess) renderEditGallery(refreshed);
+                    if (refreshed) afterEditGalleryMutation(id, refreshed, { skipGalleryRender: !!opts.skipRenderOnSuccess });
                 }
             } catch (err) {
                 if (!opts.silent) {
@@ -3821,8 +3831,7 @@
                     showToast(errMsg, 'danger');
                     return;
                 }
-                patchMaterialsAllItem(id, data);
-                renderEditGallery(data);
+                afterEditGalleryMutation(id, data);
                 setEditGalleryStatus('已設為封面', 'success');
                 showToast(tr('baseModels.coverSet', '已設為封面'));
             } catch (err) {
@@ -3846,10 +3855,11 @@
                 });
                 var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
-                patchMaterialsAllItem(id, data);
-                renderEditGallery(data);
+                afterEditGalleryMutation(id, data);
                 showToast(tr('baseModels.imageRemoved', '已移除圖片'));
                 await loadMaterials();
+                var refreshedDel = materialsAll.find(function (x) { return x.id === id; });
+                if (refreshedDel) afterEditGalleryMutation(id, refreshedDel);
             } catch (err) { showToast(err.message, 'danger'); }
         }
 
@@ -3990,13 +4000,12 @@
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 var urlsBeforeUpload = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]) : [];
-                patchMaterialsAllItem(id, data);
+                var mergedUpload = afterEditGalleryMutation(id, data);
                 var lastNew = '';
-                assetImageUrls(data).forEach(function (u) {
+                assetImageUrls(mergedUpload).forEach(function (u) {
                     if (urlsBeforeUpload.indexOf(u) === -1) lastNew = u;
                 });
-                renderEditGallery(data);
-                var urlCount = assetImageUrls(data).length;
+                var urlCount = assetImageUrls(mergedUpload).length;
                 if (urlCount <= countBefore) {
                     var migHint = '圖片可能未寫入資料庫。請在 Supabase 執行 docs/add-vendor-asset-gallery-images.sql，或開 F12 → Network 查看 gallery-images 回應。';
                     setEditGalleryStatus(migHint, 'danger');
@@ -4011,7 +4020,7 @@
                 showToast(okMsg);
                 await loadMaterials();
                 var refreshed = materialsAll.find(function (x) { return x.id === id; });
-                if (refreshed) renderEditGallery(refreshed);
+                if (refreshed) afterEditGalleryMutation(id, refreshed);
                 if (lastNew) scrollEditGalleryToUrl(lastNew);
                 syncEditGalleryOptimizeBgWrap();
                 return true;
@@ -6408,20 +6417,28 @@
             return true;
         }
 
-        function refreshEditModalAfterSave(m) {
+        function refreshEditModalAfterSave(m, opts) {
+            opts = opts || {};
             if (!m) return;
             editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : (editPending.tags || []);
             editPending.semantics = m.image_semantics_json || editPending.semantics;
             renderEditTags(true);
             var kindNorm = normalizeKind(m.asset_kind);
-            if (kindNorm === 'prototype' || kindNorm === 'part' || kindNorm === 'material') {
+            if (!opts.skipGalleryRender && (kindNorm === 'prototype' || kindNorm === 'part' || kindNorm === 'material')) {
                 renderEditGallery(m);
             }
             fillCategorySelect(document.getElementById('edit-category'), m.category_key);
             var hideSubcategoryEdit = kindNorm === 'material' || kindNorm === 'part';
             var subWrap = document.getElementById('edit-subcategory-wrap');
             if (subWrap) subWrap.classList.toggle('d-none', hideSubcategoryEdit);
-            if (kindNorm === 'prototype') fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
+            if (kindNorm === 'prototype') {
+                fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
+                var moqEdit = document.getElementById('edit-min-order-qty');
+                if (moqEdit) {
+                    moqEdit.value = (m.min_order_quantity != null && m.min_order_quantity !== '') ? String(m.min_order_quantity) : '';
+                }
+                renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), m.customization_levels || []);
+            }
             renderEditCatalogCheckboxes(m.asset_kind, m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; }));
             populateEditTaxonomyFields(m);
             syncEditGalleryRedrawSettings();

@@ -1541,15 +1541,17 @@ function vendorAssetMatchesCustomizationFilter(row, filterKeys) {
 
 function enrichVendorAssetPrototypeFields(row, lang) {
     const kind = normalizeVendorAssetKind(row.asset_kind);
-    const moq = (kind === 'prototype' && row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity)))
-        ? Number(row.min_order_quantity) : null;
-    const levels = kind === 'prototype' ? sanitizeCustomizationLevelsForStorage(row.customization_levels) : [];
-    const levelLabels = vendorAssetCustomizationLevelLabels(levels, lang);
-    return {
-        min_order_quantity: moq,
-        customization_levels: levels,
-        customization_level_labels: levelLabels.map(function (x) { return x.label; })
-    };
+    if (kind !== 'prototype') return {};
+    const out = {};
+    if (row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity))) {
+        out.min_order_quantity = Number(row.min_order_quantity);
+    }
+    if (row.customization_levels !== undefined && row.customization_levels !== null) {
+        const levels = sanitizeCustomizationLevelsForStorage(row.customization_levels);
+        out.customization_levels = levels;
+        out.customization_level_labels = vendorAssetCustomizationLevelLabels(levels, lang).map(function (x) { return x.label; });
+    }
+    return out;
 }
 
 function resolveVendorAssetApiLang(req) {
@@ -2319,6 +2321,8 @@ function manufacturerMatchesServiceArea(mfr, areaCode) {
 }
 
 const VENDOR_ASSET_SELECT_ME = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, created_at, updated_at';
+/** 圖庫增刪改／重繪 API 回傳：須含 MOQ、訂製程度、工藝、我的分類等（避免前端被空陣列覆寫） */
+const VENDOR_ASSET_SELECT_GALLERY_API = VENDOR_ASSET_SELECT_ME;
 const VENDOR_ASSET_SELECT_ME_LEGACY = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, is_public, sort_order, style_key, material_key, color_key, asset_kind, part_key, source_catalog_item_id, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at, updated_at';
 const VENDOR_ASSET_SELECT_ME_MINIMAL = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, is_public, sort_order, style_key, material_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
 
@@ -3188,7 +3192,7 @@ async function mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, 
     const sem = await tryRefreshVendorAssetTagsFromAllImages(updated, context, ownerId);
     const patch = vendorAssetSemanticsPatchFromResult(sem);
     if (!Object.keys(patch).length) return updated;
-    const tagSelect = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at';
+    const tagSelect = VENDOR_ASSET_SELECT_GALLERY_API;
     const { data: withTags, error } = await supabase.from('vendor_assets')
         .update({ ...patch, updated_at: new Date().toISOString() })
         .eq('id', assetId)
@@ -18588,7 +18592,7 @@ app.post('/api/me/vendor-assets/:id/regenerate-tags', async (req, res) => {
             .update({ ...patch, updated_at: new Date().toISOString() })
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
             .single();
         if (error) return res.status(500).json({ error: '更新失敗' });
         let balanceAfter = null;
@@ -19316,7 +19320,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             .update(updatePayload)
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
             .single();
         if (error) {
             if (error.code === '42703') {
@@ -19448,7 +19452,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
             .update(updatePayload)
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
             .single();
         if (error) {
             if (error.code === '42703') {
@@ -19575,7 +19579,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
             .update({ gallery_images: merged, updated_at: new Date().toISOString() })
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
             .single();
         if (error) {
             if (error.code === '42703') {
@@ -19766,7 +19770,7 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/cover', express.json(), asyn
             .update(coverUpdate)
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
             .single();
         if (error && error.code === '42703' && String(error.message || '').includes('cover_image_label')) {
             delete coverUpdate.cover_image_label;
@@ -19774,7 +19778,7 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/cover', express.json(), asyn
                 .update(coverUpdate)
                 .eq('id', id)
                 .eq('manufacturer_id', manufacturerId)
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+                .select(VENDOR_ASSET_SELECT_GALLERY_API)
                 .single());
         }
         if (error) {
@@ -19836,7 +19840,7 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/order', express.json(), asyn
             .update(orderUpdate)
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
             .single();
         if (error && error.code === '42703') {
             const msg = String(error.message || '');
@@ -19849,7 +19853,7 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/order', express.json(), asyn
                 .update(orderUpdate)
                 .eq('id', id)
                 .eq('manufacturer_id', manufacturerId)
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+                .select(VENDOR_ASSET_SELECT_GALLERY_API)
                 .single());
         }
         if (error) {
@@ -19916,7 +19920,7 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
             })
             .eq('id', id)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at, updated_at')
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
             .single();
         if (error) {
             if (error.code === '42703') {
