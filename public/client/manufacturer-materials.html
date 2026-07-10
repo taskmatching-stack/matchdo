@@ -872,7 +872,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'optimize-upload-bg-stand-20260710';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-save-preserve-meta-20260710';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1011,6 +1011,51 @@
         var taxonomyApiReady = false;
         var taxonomyProductionReady = false;
         var materialsAll = [];
+
+        function mergeMaterialsAllRecord(prev, incoming) {
+            if (!incoming) return prev;
+            if (!prev || String(prev.id) !== String(incoming.id)) return incoming;
+            var merged = Object.assign({}, prev, incoming);
+            var metaKeys = [
+                'category_key', 'subcategory_key', 'title', 'description', 'production_type_key',
+                'production_type_label', 'capabilities', 'capability_keys', 'capability_labels',
+                'capability_custom_labels', 'catalog_group_ids', 'catalog_groups',
+                'min_order_quantity', 'customization_levels', 'customization_level_labels',
+                'ai_tags', 'image_semantics_json', 'material_key', 'part_key', 'usage_type'
+            ];
+            metaKeys.forEach(function (k) {
+                var nv = incoming[k];
+                var pv = prev[k];
+                if (nv == null || nv === '') merged[k] = pv;
+                else if (Array.isArray(nv) && !nv.length && Array.isArray(pv) && pv.length) merged[k] = pv;
+            });
+            if (incoming.image_url != null) merged.image_url = incoming.image_url;
+            if (incoming.gallery_images != null) merged.gallery_images = incoming.gallery_images;
+            if (incoming.image_urls != null) merged.image_urls = incoming.image_urls;
+            if (incoming.image_items != null) merged.image_items = incoming.image_items;
+            if (incoming.image_count != null) merged.image_count = incoming.image_count;
+            if (incoming.cover_image_label !== undefined) merged.cover_image_label = incoming.cover_image_label;
+            if (incoming.cover_link_group !== undefined) merged.cover_link_group = incoming.cover_link_group;
+            return merged;
+        }
+
+        function patchMaterialsAllItem(id, incoming) {
+            if (!id || !incoming) return incoming;
+            var idx = materialsAll.findIndex(function (x) { return x.id === id; });
+            if (idx < 0) {
+                materialsAll.push(incoming);
+                return incoming;
+            }
+            var merged = mergeMaterialsAllRecord(materialsAll[idx], incoming);
+            materialsAll[idx] = merged;
+            return merged;
+        }
+
+        function getCurrentEditAssetRecord() {
+            var id = document.getElementById('edit-id').value;
+            if (!id) return null;
+            return materialsAll.find(function (x) { return x.id === id; }) || null;
+        }
         var viewerManufacturerId = null;
         var activeKind = 'prototype';
         var deleteTargetId = null;
@@ -1380,7 +1425,7 @@
                     return;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === assetId; });
-                if (idx >= 0) materialsAll[idx] = data;
+                if (idx >= 0) patchMaterialsAllItem(assetId, data);
                 if (data.warning && (data.cover_label_skipped || data.cover_link_group_skipped)) {
                     showToast(data.warning, 'warning');
                 }
@@ -2385,7 +2430,7 @@
             var data = await r.json().catch(function () { return {}; });
             if (!r.ok) throw new Error(data.error || '移除圖片失敗');
             var idx = materialsAll.findIndex(function (x) { return x.id === id; });
-            if (idx >= 0) materialsAll[idx] = data;
+            if (idx >= 0) patchMaterialsAllItem(id, data);
             return data;
         }
 
@@ -2408,7 +2453,7 @@
             if (r.status === 402) throw new Error((data.error || '點數不足') + ' (' + (data.required || '') + ')');
             if (!r.ok) throw new Error(data.error || data.message || '上傳失敗');
             var idx = materialsAll.findIndex(function (x) { return x.id === id; });
-            if (idx >= 0) materialsAll[idx] = data;
+            if (idx >= 0) patchMaterialsAllItem(id, data);
             return data;
         }
 
@@ -2447,7 +2492,7 @@
                     if (cr.ok) {
                         data = coverData;
                         var idx2 = materialsAll.findIndex(function (x) { return x.id === id; });
-                        if (idx2 >= 0) materialsAll[idx2] = data;
+                        if (idx2 >= 0) patchMaterialsAllItem(id, data);
                     }
                 }
                 data = await deleteGalleryImageSilent(sourceUrl) || data;
@@ -3466,7 +3511,7 @@
                     return false;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
-                if (idx >= 0) materialsAll[idx] = data;
+                if (idx >= 0) patchMaterialsAllItem(id, data);
                 var lastNew = markNewGalleryUrls(urlsBefore, data);
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
@@ -3552,7 +3597,7 @@
                     return false;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
-                if (idx >= 0) materialsAll[idx] = data;
+                if (idx >= 0) patchMaterialsAllItem(id, data);
                 var lastNew = markNewGalleryUrls(urlsBeforeRedraw, data);
                 renderEditGallery(data);
                 var urlCount = assetImageUrls(data).length;
@@ -3719,7 +3764,7 @@
                     return;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
-                if (idx >= 0) materialsAll[idx] = data;
+                if (idx >= 0) patchMaterialsAllItem(id, data);
                 if (!opts.skipRenderOnSuccess) renderEditGallery(data);
                 if (!opts.silent) {
                     setEditGalleryStatus(tr('baseModels.galleryOrderSaved', '圖片順序已儲存'), 'success');
@@ -3772,7 +3817,7 @@
                     return;
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
-                if (idx >= 0) materialsAll[idx] = data;
+                if (idx >= 0) patchMaterialsAllItem(id, data);
                 renderEditGallery(data);
                 setEditGalleryStatus('已設為封面', 'success');
                 showToast(tr('baseModels.coverSet', '已設為封面'));
@@ -3798,7 +3843,7 @@
                 var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
-                if (idx >= 0) materialsAll[idx] = data;
+                if (idx >= 0) patchMaterialsAllItem(id, data);
                 renderEditGallery(data);
                 showToast(tr('baseModels.imageRemoved', '已移除圖片'));
                 await loadMaterials();
@@ -3954,7 +3999,7 @@
                 }
                 var idx = materialsAll.findIndex(function (x) { return x.id === id; });
                 var urlsBeforeUpload = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]) : [];
-                if (idx >= 0) materialsAll[idx] = data;
+                if (idx >= 0) patchMaterialsAllItem(id, data);
                 var lastNew = '';
                 assetImageUrls(data).forEach(function (u) {
                     if (urlsBeforeUpload.indexOf(u) === -1) lastNew = u;
@@ -4486,16 +4531,35 @@
             refreshCapabilityBlockUi(wrap);
         }
 
-        function appendTaxonomyToFormData(fd, formOrId) {
+        function appendTaxonomyToFormData(fd, formOrId, fallbackAsset) {
             if (!fd) return;
             var form = typeof formOrId === 'string' ? document.getElementById(formOrId) : formOrId;
             if (!form) return;
             var kind = form.getAttribute('data-kind') || (document.getElementById('edit-asset-kind') && document.getElementById('edit-asset-kind').value) || '';
             if (normalizeKind(kind) !== 'prototype' && normalizeKind(kind) !== 'part') return;
             var ptSel = form.querySelector('.add-production-type') || document.getElementById('edit-production-type');
-            if (ptSel) fd.append('production_type_key', ptSel.value || '');
             var block = findCapabilityBlock(form);
+            var attrState = readCapabilityState(block);
             var state = syncCapabilityStateFromRows(block);
+            if (fallbackAsset) {
+                if (!state.keys.length) {
+                    state.keys = (fallbackAsset.capability_keys || []).slice();
+                    if (!state.keys.length && fallbackAsset.capabilities) {
+                        state.keys = fallbackAsset.capabilities.map(function (c) { return c.key || c; }).filter(Boolean);
+                    }
+                    if (!state.keys.length && attrState.keys.length) state.keys = attrState.keys.slice();
+                }
+                if (!state.custom.length) {
+                    if (fallbackAsset.capability_custom_labels && fallbackAsset.capability_custom_labels.length) {
+                        state.custom = fallbackAsset.capability_custom_labels.slice();
+                    } else if (attrState.custom.length) {
+                        state.custom = attrState.custom.slice();
+                    }
+                }
+            }
+            var ptVal = ptSel ? ptSel.value : '';
+            if (!ptVal && fallbackAsset && fallbackAsset.production_type_key) ptVal = fallbackAsset.production_type_key;
+            if (ptSel) fd.append('production_type_key', ptVal || '');
             fd.append('capability_keys', JSON.stringify(state.keys));
             fd.append('capability_custom_labels', JSON.stringify(state.custom));
         }
@@ -6298,6 +6362,25 @@
             return true;
         }
 
+        function refreshEditModalAfterSave(m) {
+            if (!m) return;
+            editPending.tags = Array.isArray(m.ai_tags) ? m.ai_tags.slice() : (editPending.tags || []);
+            editPending.semantics = m.image_semantics_json || editPending.semantics;
+            renderEditTags(true);
+            var kindNorm = normalizeKind(m.asset_kind);
+            if (kindNorm === 'prototype' || kindNorm === 'part' || kindNorm === 'material') {
+                renderEditGallery(m);
+            }
+            fillCategorySelect(document.getElementById('edit-category'), m.category_key);
+            var hideSubcategoryEdit = kindNorm === 'material' || kindNorm === 'part';
+            var subWrap = document.getElementById('edit-subcategory-wrap');
+            if (subWrap) subWrap.classList.toggle('d-none', hideSubcategoryEdit);
+            if (kindNorm === 'prototype') fillSubcategorySelect(document.getElementById('edit-subcategory'), m.category_key, m.subcategory_key);
+            renderEditCatalogCheckboxes(m.asset_kind, m.catalog_group_ids || (m.catalog_groups || []).map(function (g) { return g.id; }));
+            populateEditTaxonomyFields(m);
+            syncEditGalleryRedrawSettings();
+        }
+
         function openEditModal(id) {
             if (!populateEditModal(id)) return;
             showEditModal();
@@ -6479,8 +6562,13 @@
                 if (editSubErr) { showToast(editSubErr, 'warning'); return; }
             }
             var fd = new FormData();
-            fd.append('category_key', document.getElementById('edit-category').value);
-            if (editKind === 'prototype') fd.append('subcategory_key', document.getElementById('edit-subcategory').value);
+            var editAssetRecord = getCurrentEditAssetRecord();
+            var catKey = document.getElementById('edit-category').value || (editAssetRecord && editAssetRecord.category_key) || '';
+            fd.append('category_key', catKey);
+            if (editKind === 'prototype') {
+                var subKey = document.getElementById('edit-subcategory').value || (editAssetRecord && editAssetRecord.subcategory_key) || '';
+                fd.append('subcategory_key', subKey);
+            }
             fd.append('title', document.getElementById('edit-title').value || '');
             fd.append('description', document.getElementById('edit-description').value || '');
             fd.append('ui_locale', getUiLocaleForUpload());
@@ -6496,6 +6584,9 @@
                 fd.append('image', file);
             }
             var editGrpIds = getSelectedCatalogGroupIds(document.getElementById('edit-catalog-groups'));
+            if (!editGrpIds.length && editAssetRecord) {
+                editGrpIds = editAssetRecord.catalog_group_ids || (editAssetRecord.catalog_groups || []).map(function (g) { return g.id; });
+            }
             fd.append('catalog_group_ids', JSON.stringify(editGrpIds));
             if (editKind === 'prototype') {
                 var moqSave = document.getElementById('edit-min-order-qty');
@@ -6523,7 +6614,7 @@
             if (editKind === 'material') {
                 appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromEdit());
             }
-            appendTaxonomyToFormData(fd, document.getElementById('edit-form'));
+            appendTaxonomyToFormData(fd, document.getElementById('edit-form'), editAssetRecord);
             try {
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id), { method: 'PUT', headers: { Authorization: 'Bearer ' + token }, body: fd });
                 var data = await r.json().catch(function () { return {}; });
@@ -6537,12 +6628,11 @@
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
                 showToast(okMsg);
                 await loadMaterials();
-                var saved = materialsAll.find(function (x) { return x.id === id; }) || data;
-                var savedKind = normalizeKind(saved.asset_kind);
+                var saved = patchMaterialsAllItem(id, data);
+                var latest = materialsAll.find(function (x) { return x.id === id; }) || saved;
+                var savedKind = normalizeKind((latest && latest.asset_kind) || editKind);
                 if (savedKind === 'prototype' || savedKind === 'part' || savedKind === 'material') {
-                    var latest = materialsAll.find(function (x) { return x.id === id; }) || saved;
-                    populateEditModal(id);
-                    if (latest && latest.image_items) renderEditGallery(latest);
+                    refreshEditModalAfterSave(latest);
                     renderGrid();
                     unlockPageScroll(false);
                     var nImg = assetImageUrls(latest).length;

@@ -1973,6 +1973,23 @@ function mapVendorAssetForApi(row, lang) {
     };
 }
 
+/** 圖庫／重繪等局部更新後仍帶回分類、工藝、我的分類等完整欄位（避免前端 materialsAll 被瘦回應覆蓋） */
+async function mapVendorAssetForApiEnriched(row, lang) {
+    const mapped = mapVendorAssetForApi(row, lang);
+    if (!mapped || !mapped.id) return mapped;
+    try {
+        let items = [mapped];
+        if (await vendorCatalogGroupsTableReady()) {
+            items = await attachCatalogGroupIdsToAssets(items);
+        }
+        items = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, items);
+        return items[0] || mapped;
+    } catch (e) {
+        console.warn('mapVendorAssetForApiEnriched:', e && e.message);
+        return mapped;
+    }
+}
+
 async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds, linkGroupOverrides) {
     const entries = [];
     const list = Array.isArray(files) ? files : [];
@@ -2665,10 +2682,10 @@ async function maybeOptimizeVendorAssetMulterFile(
 }
 
 const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
-    white: 'perfectly flat uniform white seamless infinity cove (#FFFFFF), evenly lit, no gradient',
-    light_gray: 'perfectly flat uniform light gray seamless infinity cove, evenly lit, no gradient',
-    gray: 'perfectly flat uniform medium gray seamless infinity cove, evenly lit, no gradient',
-    black: 'deep black seamless studio background with subtle rim lighting on the product edges'
+    white: 'perfectly clean flat uniform pure white seamless infinity cove (#FFFFFF), noise-free, grain-free, speckle-free, evenly lit, no gradient, no dirt, no stains, no JPEG compression blocks',
+    light_gray: 'perfectly clean flat uniform light gray seamless infinity cove, noise-free, grain-free, speckle-free, evenly lit, no gradient, no mottling',
+    gray: 'perfectly clean flat uniform medium gray seamless infinity cove, noise-free, grain-free, speckle-free, evenly lit, no gradient, no mottling',
+    black: 'deep clean black seamless studio background, noise-free, grain-free, with subtle rim lighting on the product edges only'
 };
 
 /** 勾選「展示台／人台」時追加的一句；與底色相同——預設不送，僅使用者明確要求才注入。 */
@@ -2685,7 +2702,7 @@ function normalizeVendorOptimizeBackground(raw) {
         const color = `#${hex[1].toLowerCase()}`;
         return {
             key: 'custom',
-            prompt: `seamless solid studio background in exact color ${color}, evenly lit, no gradient or texture`
+            prompt: `perfectly clean seamless solid studio background in exact color ${color}, noise-free, grain-free, speckle-free, evenly lit, no gradient, no texture, no mottling, no JPEG artifacts`
         };
     }
     return { key: 'white', prompt: VENDOR_OPTIMIZE_BACKGROUND_PROMPTS.white };
@@ -2707,7 +2724,8 @@ function buildVendorAssetProductOptimizePrompt(title, backgroundColor, useDispla
         'Visibility fidelity (mandatory): Do NOT invent, extrapolate, or render construction that is not visible in the reference—hidden backs, undersides, interiors, reverse panels, extra strap routing, closures, or openings. If only one side or angle is shown, do not guess or "complete" unseen structure.',
         'Remove or replace everything that is NOT part of the product: old background, floor, props, hands, people, packaging behind the product, and any text or graphics that appear only in the background or scene—not on the product.',
         `Set the background to ${bg.prompt} with soft even studio lighting on the product and a subtle natural contact shadow.`,
-        'Background fidelity (mandatory): The backdrop must be perfectly uniform seamless with NO gradient, NO texture, NO floor line, NO horizon, NO vignette, and NO color cast—only one minimal soft contact shadow directly beneath the product.',
+        'Background fidelity (mandatory): The backdrop must be perfectly uniform seamless with NO gradient, NO texture, NO grain, NO noise, NO speckles, NO dirt, NO stains, NO floor line, NO horizon, NO vignette, and NO color cast—only one minimal soft contact shadow directly beneath the product.',
+        'Background cleanliness (mandatory): Do NOT ghost, recycle, or carry over any background pixels from the reference—including gray patches, halos, compression blocks, wall shadows, or uneven mottling. Paint a brand-new perfectly clean seamless studio backdrop as if shot on fresh seamless paper.',
         'Light-product separation: If the product is white, off-white, cream, silver, or very light-toned, keep crisp edge separation from the background using subtle rim lighting or a faint edge outline. Do NOT let the product melt into the backdrop. Do NOT recolor the product.',
         'Do not add captions, watermarks, price tags, brand slogans, or any new text anywhere in the image.',
         'Photorealistic, sharp focus, accurate product colors.'
@@ -19292,7 +19310,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
             balanceAfter = consumed.balance_after;
         }
         res.json({
-            ...mapVendorAssetForApi(updated),
+            ...(await mapVendorAssetForApiEnriched(updated)),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             redraw_from_url: sourceUrl,
@@ -19424,7 +19442,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
             balanceAfter = consumed.balance_after;
         }
         res.json({
-            ...mapVendorAssetForApi(updated),
+            ...(await mapVendorAssetForApiEnriched(updated)),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             upscale_from_url: sourceUrl
@@ -19552,7 +19570,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         };
         const withTags = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, tagContext, ownerId);
         res.json({
-            ...mapVendorAssetForApi(withTags),
+            ...(await mapVendorAssetForApiEnriched(withTags)),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             ai_tags_refreshed: withTags !== updated
@@ -19667,7 +19685,7 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             console.error('PATCH image-labels:', error);
             return res.status(500).json({ error: error.message || '更新失敗' });
         }
-        const payload = mapVendorAssetForApi(updated);
+        const payload = await mapVendorAssetForApiEnriched(updated);
         if (coverLabelSkipped && coverLinkGroupSkipped) {
             payload.warning = '資料庫尚未支援連動組；請執行 docs/add-vendor-asset-image-link-groups.sql';
         } else if (coverLinkGroupSkipped) {
@@ -19744,7 +19762,7 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/cover', express.json(), asyn
             description: updated.description,
             material_catalog_hint: materialHintCover || undefined
         }, seedUser.id);
-        res.json(mapVendorAssetForApi(withTagsCover));
+        res.json(await mapVendorAssetForApiEnriched(withTagsCover));
     } catch (e) {
         console.error('PATCH /api/me/vendor-assets/:id/gallery-images/cover:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -19819,7 +19837,7 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/order', express.json(), asyn
             description: updated.description,
             material_catalog_hint: materialHintOrder || undefined
         }, seedUser.id);
-        res.json(mapVendorAssetForApi(withTagsOrder));
+        res.json(await mapVendorAssetForApiEnriched(withTagsOrder));
     } catch (e) {
         console.error('PATCH /api/me/vendor-assets/:id/gallery-images/order:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -19885,7 +19903,7 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
             description: updated.description,
             material_catalog_hint: materialHintDel || undefined
         }, seedUser.id);
-        res.json(mapVendorAssetForApi(withTagsDel));
+        res.json(await mapVendorAssetForApiEnriched(withTagsDel));
     } catch (e) {
         console.error('DELETE /api/me/vendor-assets/:id/gallery-images:', e);
         res.status(500).json({ error: '系統錯誤' });
