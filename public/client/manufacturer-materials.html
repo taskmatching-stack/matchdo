@@ -333,6 +333,10 @@
                                             </select>
                                             <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
                                         </div>
+                                        <div class="form-check mt-2 add-optimize-stand-wrap">
+                                            <input class="form-check-input add-optimize-use-stand" type="checkbox">
+                                            <label class="form-check-label small">使用展示台／人台呈現</label>
+                                        </div>
                                         <p class="form-text text-muted small mb-0" data-i18n="baseModels.optimizeBackgroundHint">以原圖只換背景；保留產品本體上的字樣／Logo，不保留背景文字、不新增文字。自訂色請選「自訂色」後點色票。</p>
                                     </div>
                                     <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 重繪，不另收上傳費）</span></p>
@@ -450,6 +454,10 @@
                                                 <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
                                             </select>
                                             <input type="color" class="form-control form-control-color add-optimize-bg-custom d-none" value="#ffffff" title="自訂底色">
+                                        </div>
+                                        <div class="form-check mt-2 add-optimize-stand-wrap">
+                                            <input class="form-check-input add-optimize-use-stand" type="checkbox">
+                                            <label class="form-check-label small">使用展示台／人台呈現</label>
                                         </div>
                                     </div>
                                     <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 重繪，不另收上傳費）</span></p>
@@ -744,6 +752,10 @@
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-gallery-optimize-bg-custom" value="#ffffff" title="自訂底色">
                                 </div>
+                                <div class="form-check mt-2 mb-0" id="edit-gallery-optimize-stand-wrap">
+                                    <input class="form-check-input" type="checkbox" id="edit-gallery-optimize-use-stand">
+                                    <label class="form-check-label small" for="edit-gallery-optimize-use-stand">使用展示台／人台呈現</label>
+                                </div>
                                 </div>
                                 <p class="form-text text-muted small mb-0" id="edit-gallery-ai-vs-preview-hint">「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">5</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">5</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。</p>
                             </div>
@@ -791,6 +803,10 @@
                                         <option value="custom" data-i18n="baseModels.optimizeBgCustom">自訂色</option>
                                     </select>
                                     <input type="color" class="form-control form-control-color d-none" id="edit-optimize-bg-custom" value="#ffffff" title="自訂底色">
+                                </div>
+                                <div class="form-check mt-2 mb-0" id="edit-optimize-stand-wrap">
+                                    <input class="form-check-input" type="checkbox" id="edit-optimize-use-stand">
+                                    <label class="form-check-label small" for="edit-optimize-use-stand">使用展示台／人台呈現</label>
                                 </div>
                             </div>
                             <p class="text-muted small mb-0"><span data-i18n="baseModels.uploadOnlyPoints">僅上傳並產生標籤：</span> <strong id="edit-points-base">5</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
@@ -856,7 +872,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'embed-scene-sim-product-20260710';
+        window.__MATCHDO_MATERIALS_BUILD = 'optimize-display-stand-20260710';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2251,8 +2267,10 @@
 
         function syncEditGalleryMaterialUi(isMaterial) {
             var bgWrap = document.getElementById('edit-gallery-optimize-bg-wrap');
+            var standWrap = document.getElementById('edit-gallery-optimize-stand-wrap');
             var surfWrap = document.getElementById('edit-material-surface-wrap');
             if (bgWrap) bgWrap.classList.toggle('d-none', !!isMaterial);
+            if (standWrap) standWrap.classList.toggle('d-none', !!isMaterial);
             if (surfWrap) surfWrap.classList.toggle('d-none', !isMaterial);
         }
 
@@ -2302,6 +2320,7 @@
                 fd.append('asset_kind', m ? m.asset_kind : 'prototype');
                 fd.append('is_cover', isCover ? '1' : '0');
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
+                appendUseDisplayStandToFormData(fd);
                 if (m && m.title) fd.append('title', m.title);
                 if (srcItem && srcItem.label) fd.append('image_label', displayGalleryImageLabel(srcItem));
                 appendMaterialCatalogHintToRedrawFormData(fd, m);
@@ -2503,6 +2522,7 @@
                 fd.append('asset_kind', kind);
                 fd.append('is_cover', idx === 0 ? '1' : '0');
                 fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                appendUseDisplayStandToFormData(fd, form);
                 var titleIn = form.querySelector('.add-title');
                 if (titleIn && titleIn.value) fd.append('title', titleIn.value.trim());
                 if (item.label) fd.append('image_label', item.label);
@@ -2990,6 +3010,7 @@
                 fd.append('asset_kind', m ? m.asset_kind : 'prototype');
                 fd.append('is_cover', '0');
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
+                appendUseDisplayStandToFormData(fd);
                 if (m && m.title) fd.append('title', m.title);
                 appendMaterialCatalogHintToRedrawFormData(fd, m);
                 if (m && normalizeKind(m.asset_kind) === 'material') {
@@ -3502,6 +3523,7 @@
                         replace: false,
                         optimize_background: getEditGalleryOptimizeBackground()
                     };
+                if (getOptimizeUseDisplayStand()) redrawBody.use_display_stand = true;
                 if (m && normalizeKind(m.asset_kind) === 'material') {
                     redrawBody.material_surface_type = getMaterialSurfaceTypeFromEdit();
                 }
@@ -3796,6 +3818,19 @@
             return sel.value || 'white';
         }
 
+        function getOptimizeUseDisplayStand(scopeEl) {
+            var root = scopeEl && scopeEl.querySelector ? scopeEl : document;
+            var chk = root.querySelector ? root.querySelector('.add-optimize-use-stand') : null;
+            if (!chk) chk = document.getElementById('edit-gallery-optimize-use-stand');
+            if (!chk) chk = document.getElementById('edit-optimize-use-stand');
+            return !!(chk && chk.checked);
+        }
+
+        function appendUseDisplayStandToFormData(fd, scopeEl) {
+            if (!fd) return;
+            if (getOptimizeUseDisplayStand(scopeEl)) fd.append('use_display_stand', 'true');
+        }
+
         function setEditGalleryStatus(msg, type) {
             var el = document.getElementById('edit-gallery-status');
             if (!el) return;
@@ -3881,6 +3916,7 @@
             if (optIdx.length) {
                 fd.append('optimize_image_indices', JSON.stringify(optIdx));
                 fd.append('optimize_background', getEditGalleryOptimizeBackground());
+                appendUseDisplayStandToFormData(fd);
             }
             setEditGalleryStatus((optIdx.length ? '上傳並重繪中 ' : '上傳原圖中 ') + uploadFiles.length + ' 張…', 'info');
             try {
@@ -4581,6 +4617,8 @@
             var wrap = form.querySelector('.add-optimize-bg-wrap');
             if (!wrap) return;
             var kind = form.getAttribute('data-kind');
+            var standWrap = form.querySelector('.add-optimize-stand-wrap');
+            if (standWrap) standWrap.classList.toggle('d-none', kind === 'material');
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
                 var list = getPendingImages(form);
                 wrap.classList.toggle('d-none', !list.some(function (p) { return p.optimize; }));
@@ -4594,8 +4632,11 @@
         function syncEditOptimizeBgWrap() {
             var chk = document.getElementById('edit-optimize-image');
             var wrap = document.getElementById('edit-optimize-bg-wrap');
-            if (!chk || !wrap) return;
-            wrap.classList.toggle('d-none', !chk.checked);
+            var standWrap = document.getElementById('edit-optimize-stand-wrap');
+            var kind = normalizeKind(document.getElementById('edit-asset-kind').value);
+            var showProduct = !!(chk && chk.checked && kind !== 'material');
+            if (wrap) wrap.classList.toggle('d-none', !showProduct);
+            if (standWrap) standWrap.classList.toggle('d-none', !showProduct);
         }
 
         function wireOptimizeBackgroundForm(form) {
@@ -5822,6 +5863,7 @@
                 if (optIdx.length) {
                     fd.append('optimize_image_indices', JSON.stringify(optIdx));
                     fd.append('optimize_background', getOptimizeBackgroundValue(form));
+                    appendUseDisplayStandToFormData(fd, form);
                 }
             }
             var grpIds = getSelectedCatalogGroupIds(form.querySelector('.add-catalog-groups-' + kind));

@@ -2573,6 +2573,10 @@ function parseTruthyBody(val) {
     return s === '1' || s === 'true' || s === 'yes' || s === 'on';
 }
 
+function parseUseDisplayStandFromBody(body) {
+    return parseTruthyBody(body && body.use_display_stand);
+}
+
 /** 上傳時各圖是否 AI 重繪：0=封面，1+=gallery 順序；相容舊版 optimize_product_image=僅封面 */
 function parseOptimizeImageIndices(body, totalFileCount) {
     const raw = body && body.optimize_image_indices;
@@ -2618,15 +2622,16 @@ function fluxSeedFromImageBuffer(buffer) {
     return n === 0 ? 1 : n;
 }
 
-function createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType) {
+function createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStand) {
     let jobIndex = 0;
     const surfaceType = normalizeMaterialSurfaceType(materialSurfaceType);
+    const displayStand = !!useDisplayStand;
     return {
         async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint) {
             if (jobIndex > 0) await sleepMs(VENDOR_FLUX_BATCH_GAP_MS);
             const out = await maybeOptimizeVendorAssetMulterFile(
                 file, title, assetKind, materialHint, optimizeBackground, filenameHint,
-                undefined, surfaceType, ownerId
+                undefined, surfaceType, ownerId, displayStand
             );
             jobIndex += 1;
             return out;
@@ -2636,7 +2641,7 @@ function createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType) {
 
 async function maybeOptimizeVendorAssetMulterFile(
     file, title, assetKind, materialHint, optimizeBackground, filenameHintOverride,
-    materialFluxEditPrompt, materialSurfaceType, ownerId
+    materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand
 ) {
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
     const seed = fluxSeedFromImageBuffer(file.buffer);
@@ -2649,7 +2654,8 @@ async function maybeOptimizeVendorAssetMulterFile(
         filenameHint,
         materialFluxEditPrompt,
         materialSurfaceType,
-        ownerId
+        ownerId,
+        useDisplayStand
     );
     return {
         buffer: optimizedBuf,
@@ -2664,6 +2670,10 @@ const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
     gray: 'perfectly flat uniform medium gray seamless infinity cove, evenly lit, no gradient',
     black: 'deep black seamless studio background with subtle rim lighting on the product edges'
 };
+
+/** 勾選「展示台／人台」時追加的一句；與底色相同——預設不送，僅使用者明確要求才注入。 */
+const VENDOR_OPTIMIZE_DISPLAY_STAND_LINE =
+    'Studio display support (requested): Use a neutral studio display support if helpful so unseen areas stay naturally hidden rather than invented. Match all visible details to the reference.';
 
 /** 廠商 AI 重繪底色：white|light_gray|gray|black 或 #RRGGBB */
 function normalizeVendorOptimizeBackground(raw) {
@@ -2683,9 +2693,9 @@ function normalizeVendorOptimizeBackground(raw) {
 
 /**
  * 數位原型／零件「AI 重繪」：專業棚拍重繪（可調姿態／呈現），非單純去背。
- * 保留產品本體可見細節與本體印刷；禁止腦補參考圖未出現的結構（尤其服飾背面、肩帶）。
+ * useDisplayStand 僅在使用者勾選時追加展示台／人台句，預設不套產品類型專用描述。
  */
-function buildVendorAssetProductOptimizePrompt(title, backgroundColor) {
+function buildVendorAssetProductOptimizePrompt(title, backgroundColor, useDisplayStand) {
     const bg = normalizeVendorOptimizeBackground(backgroundColor);
     const productHint = (title || '').trim();
     const parts = [
@@ -2695,8 +2705,6 @@ function buildVendorAssetProductOptimizePrompt(title, backgroundColor) {
         'Preserve only text, numbers, logos, icons, and graphics that are physically ON the product surface in the reference (printed, labeled, embroidered, molded, or engraved on the product itself).',
         'Do not change, translate, invent, or remove any markings that belong on the product.',
         'Visibility fidelity (mandatory): Do NOT invent, extrapolate, or render construction that is not visible in the reference—hidden backs, undersides, interiors, reverse panels, extra strap routing, closures, or openings. If only one side or angle is shown, do not guess or "complete" unseen structure.',
-        'Wearable apparel presentation: When the reference shows clothing (tops, dresses, coats, camisoles, etc.) and the back or inner structure is not visible, present the garment on a neutral invisible ghost mannequin, dress form, garment hanger, or clean display stand so occluded areas stay naturally hidden instead of hallucinated. This is especially critical for thin-strap, spaghetti-strap, off-shoulder, and delicate women\'s tops and dresses—unsupported straps must not float in mid-air and must not cause invented back panels or strap layouts.',
-        'Match all visible necklines, strap positions, hem lines, and front details exactly to the reference; improve presentation only through legitimate studio support (mannequin/hanger/stand), not by inventing unseen garment geometry.',
         'Remove or replace everything that is NOT part of the product: old background, floor, props, hands, people, packaging behind the product, and any text or graphics that appear only in the background or scene—not on the product.',
         `Set the background to ${bg.prompt} with soft even studio lighting on the product and a subtle natural contact shadow.`,
         'Background fidelity (mandatory): The backdrop must be perfectly uniform seamless with NO gradient, NO texture, NO floor line, NO horizon, NO vignette, and NO color cast—only one minimal soft contact shadow directly beneath the product.',
@@ -2704,6 +2712,9 @@ function buildVendorAssetProductOptimizePrompt(title, backgroundColor) {
         'Do not add captions, watermarks, price tags, brand slogans, or any new text anywhere in the image.',
         'Photorealistic, sharp focus, accurate product colors.'
     ];
+    if (useDisplayStand) {
+        parts.splice(7, 0, VENDOR_OPTIMIZE_DISPLAY_STAND_LINE);
+    }
     if (productHint) {
         parts.splice(2, 0, `Product context (preserve visible design; do not redesign): ${productHint}.`);
     }
@@ -8701,7 +8712,7 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
 /** 廠商素材：材料＝FLUX img2img；數位原型／零件＝FLUX 重繪 */
 async function optimizeVendorAssetImageWithFlux(
     fileBuffer, mimeType, title, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint,
-    materialFluxEditPrompt, materialSurfaceType, ownerId
+    materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand
 ) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
@@ -8719,7 +8730,7 @@ async function optimizeVendorAssetImageWithFlux(
         if (!buf || !buf.length) throw new Error('圖片優化服務未設定或暫時無法使用（BFL_API_KEY）');
         return buf;
     }
-    const prompt = buildVendorAssetProductOptimizePrompt(title, backgroundColor);
+    const prompt = buildVendorAssetProductOptimizePrompt(title, backgroundColor, !!useDisplayStand);
     const fluxBuffer = fileBuffer;
     const fluxMime = mimeType || 'image/jpeg';
     const fluxOpts = {
@@ -18264,6 +18275,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         }
         const isCover = parseTruthyBody(body.is_cover);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const useDisplayStand = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
         const titleForPrompt = (body.title || '').trim() || null;
         const imageLabelHint = (body.image_label || body.filename_hint || '').trim();
         let materialCatalogHint = '';
@@ -18292,7 +18304,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
         let aiPromptUsed = assetKind === 'material'
             ? buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType)
-            : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground);
+            : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground, useDisplayStand);
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
                 file,
@@ -18303,7 +18315,8 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 filenameHint,
                 undefined,
                 materialSurfaceType,
-                ownerId
+                ownerId,
+                useDisplayStand
             );
         } catch (optErr) {
             console.error('preview-image-redraw optimize:', optErr);
@@ -18746,6 +18759,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const optimizeIndices = parseOptimizeImageIndices(body, totalUploadFiles);
         const pointsRequired = await computeVendorAssetCreatePoints(assetKind, optimizeIndices, totalUploadFiles);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const useDisplayStandCreate = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
         const materialHintForOptimize = assetKind === 'material'
             ? materialCatalogHint
             : ((body.material_key || '').trim() || null);
@@ -18853,7 +18867,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             semanticsJson = mergeMaterialSurfaceIntoSemantics(semanticsJson, materialSurfaceCreate);
         }
 
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate, useDisplayStandCreate);
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
@@ -19149,6 +19163,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         if (!vendorAssetSupportsGalleryImages(assetKind)) {
             return res.status(400).json({ error: '此素材類型不支援多角度圖重繪' });
         }
+        const useDisplayStand = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
         const allUrls = getVendorAssetAllImageUrls(row);
         if (allUrls.indexOf(sourceUrl) < 0) {
             return res.status(400).json({ error: '來源圖片不屬於此素材' });
@@ -19204,7 +19219,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
                 filenameHint,
                 undefined,
                 materialSurfaceType,
-                ownerId
+                ownerId,
+                useDisplayStand
             );
         } catch (optErr) {
             console.error('gallery-images/redraw optimize:', optErr);
@@ -19442,10 +19458,12 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         const body = req.body || {};
         const optimizeIndices = parseOptimizeImageIndices(body, files.length);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const useDisplayStandGallery = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
         const titleForPrompt = (row.title || '').trim() || null;
         const materialCatalogHint = assetKind === 'material'
             ? await materialCatalogHintForVendorAsset(manufacturerId, id)
             : '';
+        const materialSurfaceGallery = assetKind === 'material' ? resolveMaterialSurfaceType(body, row) : '';
         const imageLabels = parseImageLabelsBody(body, files.length);
         let pointsRequired = 0;
         if (optimizeIndices.length) {
@@ -19469,7 +19487,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         }
         const sliceCount = Math.min(files.length, room);
         const galleryToUpload = [];
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceGallery, useDisplayStandGallery);
         for (let gi = 0; gi < sliceCount; gi++) {
             let gf = await vendorAssetFileFromMulter(files[gi]);
             if (!gf) continue;
@@ -20197,6 +20215,7 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                     if (assetKind === 'material' && !materialSurfacePut) {
                         return res.status(400).json({ error: '請填材質類型（例：皮革、丹寧）' });
                     }
+                    const useDisplayStandPut = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
                     const optimizedBuf = await optimizeVendorAssetImageWithFlux(
                         file.buffer, file.mimetype, titleForPrompt, assetKind,
                         assetKind === 'material' ? materialCatalogHintPut : ((updates.material_key != null ? updates.material_key : row.material_key) || ''),
@@ -20205,7 +20224,8 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
                         labelFromOriginalFilename(file.originalname),
                         undefined,
                         materialSurfacePut,
-                        ownerId
+                        ownerId,
+                        useDisplayStandPut
                     );
                     uploadFile = {
                         buffer: optimizedBuf,
@@ -21261,13 +21281,15 @@ async function processSupplierCatalogImagePipeline({
         try {
             const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
             const materialSurfaceCat = assetKind === 'material' ? resolveMaterialSurfaceType(body, null) : '';
+            const useDisplayStandCat = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
             const optimizedBuf = await optimizeVendorAssetImageWithFlux(
                 file.buffer, file.mimetype, tit, assetKind, null, optimizeBackground,
                 fluxSeedFromImageBuffer(file.buffer),
                 labelFromOriginalFilename(file.originalname),
                 undefined,
                 materialSurfaceCat,
-                ownerId
+                ownerId,
+                useDisplayStandCat
             );
             uploadFile = {
                 buffer: optimizedBuf,
@@ -22065,6 +22087,7 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-redraw', upload.
         }
         const isCover = parseTruthyBody(body.is_cover);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const useDisplayStand = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
         const titleForPrompt = (body.title || '').trim() || null;
         const imageLabelHint = (body.image_label || body.filename_hint || '').trim();
         let materialCatalogHint = '';
@@ -22093,7 +22116,7 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-redraw', upload.
         const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
         let aiPromptUsed = assetKind === 'material'
             ? buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType)
-            : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground);
+            : buildVendorAssetProductOptimizePrompt(titleForPrompt, optimizeBackground, useDisplayStand);
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
                 file,
@@ -22104,7 +22127,8 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-redraw', upload.
                 filenameHint,
                 undefined,
                 materialSurfaceType,
-                ownerId
+                ownerId,
+                useDisplayStand
             );
         } catch (optErr) {
             console.error('supplier preview-image-redraw optimize:', optErr);
@@ -22416,6 +22440,7 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
         const optimizeIndices = parseOptimizeImageIndices(body, totalUploadFiles);
         const pointsRequired = await computeVendorAssetCreatePoints(assetKind, optimizeIndices, totalUploadFiles);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
+        const useDisplayStandCreate = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
         const catalogGroupIdsEarly = parseCatalogGroupIdsFromBody(body);
         let materialCatalogHint = '';
         if (assetKind === 'material' && catalogGroupIdsEarly.length) {
@@ -22490,7 +22515,7 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
         if (!title) return res.status(400).json({ error: '請填寫產品名稱，或上傳可辨識的圖片以自動產生標題' });
         if (!description) return res.status(400).json({ error: '請填寫產品說明，或留空由 AI 產生（需可讀圖）' });
 
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate, useDisplayStandCreate);
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
@@ -22871,7 +22896,8 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images', supplierC
         }
         const sliceCount = Math.min(files.length, room);
         const imageLabels = parseImageLabelsBody(body, sliceCount);
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType);
+        const useDisplayStandSupGallery = assetKind !== 'material' && parseUseDisplayStandFromBody(body);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStandSupGallery);
         const galleryToUpload = [];
         for (let gi = 0; gi < sliceCount; gi++) {
             let gf = await vendorAssetFileFromMulter(files[gi]);
