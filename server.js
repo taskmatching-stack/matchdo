@@ -2705,15 +2705,19 @@ async function maybeOptimizeVendorAssetMulterFile(
 }
 
 const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
-    white: 'perfectly clean pure white seamless studio background, uniform and noise-free, no texture grain speckles or vignette',
-    light_gray: 'perfectly clean light gray seamless studio background, uniform and noise-free, no texture grain speckles or vignette',
-    gray: 'neutral medium gray seamless studio background, uniform and noise-free, no texture grain speckles or vignette',
-    black: 'deep black seamless studio background, uniform and noise-free, with subtle rim lighting on the product edges only'
+    white: 'perfectly clean pure white seamless studio backdrop, uniform and noise-free, no texture grain speckles or vignette',
+    light_gray: 'perfectly clean light gray seamless studio backdrop, uniform and noise-free, no texture grain speckles or vignette',
+    gray: 'neutral medium gray seamless studio backdrop, uniform and noise-free, no texture grain speckles or vignette',
+    black: 'deep black seamless studio backdrop, uniform and noise-free, with subtle rim lighting on the product edges only'
 };
 
-/** 產品重繪：禁止沿用原圖背景像素，要求全新均勻無縫棚拍紙背景（政策 §4.1 棚拍規則） */
+/** 產品重繪：全新均勻無縫 backdrop（不假定地面、不寫接觸陰影；顏色由 optimize_background 另句指定） */
 const VENDOR_OPTIMIZE_BACKGROUND_CLEANLINESS =
-    'Background cleanliness (mandatory): Paint a brand-new perfectly uniform seamless studio backdrop—no gradient, texture, grain, noise, speckles, dirt, floor line, horizon, or vignette, only one minimal soft contact shadow beneath the product. Do not ghost, recycle, or carry over any background pixels from the reference (no gray patches, halos, compression blocks, wall shadows, or uneven mottling).';
+    'Background cleanliness: Paint a brand-new perfectly uniform seamless studio backdrop only—no gradient, texture, grain, noise, speckles, dirt, floor line, horizon, or vignette. Do not recycle or carry over any background pixels from the reference (no gray patches, halos, compression blocks, wall shadows, or uneven mottling).';
+
+/** 產品重繪：自然棚拍光影（獨立於底色／人台；不假定地面、不寫接觸陰影） */
+const VENDOR_OPTIMIZE_PRODUCT_STUDIO_LIGHTING_LINE =
+    'Studio lighting: Soft natural directional light with gentle form shadows and realistic highlights on the product surfaces, consistent with the product pose and how it is staged.';
 
 /** 勾選 use_display_stand 時才追加（一 flag → 一句；僅描述台／人台；不提角度、不重複保色） */
 const VENDOR_OPTIMIZE_DISPLAY_STAND_LINE =
@@ -2721,6 +2725,19 @@ const VENDOR_OPTIMIZE_DISPLAY_STAND_LINE =
 
 function vendorOptimizeDisplayStandSegment(useDisplayStand) {
     return useDisplayStand ? [VENDOR_OPTIMIZE_DISPLAY_STAND_LINE] : [];
+}
+
+/** 使用者選擇的底色（white|light_gray|gray|black|#RRGGBB）；與人台、保色線獨立 */
+function vendorOptimizeBackgroundColorSegment(backgroundColor) {
+    const bg = normalizeVendorOptimizeBackground(backgroundColor);
+    return `Background color (requested): ${bg.prompt}`;
+}
+
+function vendorOptimizeBackgroundSegment(backgroundColor) {
+    return [
+        vendorOptimizeBackgroundColorSegment(backgroundColor),
+        VENDOR_OPTIMIZE_BACKGROUND_CLEANLINESS
+    ];
 }
 
 /** 產品重繪：顏色與結構以 reference 像素為準（正向表述；FLUX 不堆負面句） */
@@ -2737,7 +2754,7 @@ function normalizeVendorOptimizeBackground(raw) {
         const color = `#${hex[1].toLowerCase()}`;
         return {
             key: 'custom',
-            prompt: `perfectly clean seamless solid studio background in exact color ${color}, uniform noise-free evenly lit, no gradient texture grain speckles mottling or JPEG artifacts`
+            prompt: `perfectly clean seamless solid studio backdrop in exact color ${color}, uniform noise-free evenly lit, no gradient texture grain speckles mottling or JPEG artifacts`
         };
     }
     return { key: 'white', prompt: VENDOR_OPTIMIZE_BACKGROUND_PROMPTS.white };
@@ -2748,7 +2765,6 @@ function normalizeVendorOptimizeBackground(raw) {
  * productNameHint 僅在使用者填寫 optimize_product_name 時傳入，輔助識別品項。
  */
 function buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand) {
-    const bg = normalizeVendorOptimizeBackground(backgroundColor);
     const nameHint = String(productNameHint || '').trim();
     const parts = [
         'Edit the provided reference image in place: keep the complete product faithful to the reference pixels; replace only the background and remove non-product scene elements.',
@@ -2756,8 +2772,9 @@ function buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor,
         VENDOR_OPTIMIZE_PRODUCT_COLOR_STRUCTURE_LINE,
         'Preserve on-product text, numbers, logos, icons, and graphics exactly as shown on the product surface in the reference.',
         'Remove or replace everything that is NOT part of the product: old background, floor, props, hands, people, packaging behind the product, and any text or graphics that appear only in the background or scene—not on the product.',
-        `Set the background to ${bg.prompt} with a subtle natural contact shadow beneath the product. Keep the product surface hue, saturation, and brightness matching the reference.`,
-        VENDOR_OPTIMIZE_BACKGROUND_CLEANLINESS,
+        'Keep the product surface hue, saturation, and brightness matching the reference.',
+        VENDOR_OPTIMIZE_PRODUCT_STUDIO_LIGHTING_LINE,
+        ...vendorOptimizeBackgroundSegment(backgroundColor),
         ...vendorOptimizeDisplayStandSegment(useDisplayStand),
         'Photorealistic, sharp focus.'
     ];
