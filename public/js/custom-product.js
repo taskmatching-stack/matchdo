@@ -3810,6 +3810,7 @@ $(document).ready(function () {
                 if (lastGeneratedSeed != null) $('#generationSeed').val(lastGeneratedSeed);
                 addGeneratedThumbnailToGallery(result.imageData, prompt, lastGeneratedSeed);
                 var imgSrc = result.imageUrl || result.imageData || '';
+                if (imgSrc && typeof setSceneSimPreview === 'function') setSceneSimPreview(imgSrc);
                 var previewHtml = '';
                 if (imgSrc) {
                     previewHtml += '<div class="mb-2"><img src="' + String(imgSrc).replace(/"/g, '&quot;') + '" alt="Generated" class="rounded js-preview-enlarge" style="max-width:100%;height:auto;display:block;cursor:pointer;" title="點擊放大" /></div>';
@@ -4947,6 +4948,20 @@ $(document).ready(function () {
         var src = $('#sceneSimPreviewImg').attr('src');
         return (src && src.trim()) ? src.trim() : '';
     }
+    function getDesignedProductImageUrl() {
+        if (lastGeneratedImageUrl) return lastGeneratedImageUrl;
+        if (generatedImageData && typeof generatedImageData === 'string' && generatedImageData.indexOf('data:') === 0) {
+            return generatedImageData;
+        }
+        var previewImg = $('#generatedImagePreview img').attr('src');
+        if (previewImg && String(previewImg).trim()) return String(previewImg).trim();
+        return '';
+    }
+    function syncSceneSimProductFromDesign() {
+        if (getSceneSimPreviewUrl()) return;
+        var url = getDesignedProductImageUrl();
+        if (url) setSceneSimPreview(url);
+    }
     // 動態網址：?tab=product-design | scene-sim | pattern-extract
     function getTabParamFromButtonId(buttonId) {
         if (buttonId === 'tab-product-design') return 'product-design';
@@ -4970,6 +4985,9 @@ $(document).ready(function () {
         showBootstrapTab(tabEl);
         if (tabParam === 'vendor-styles' && typeof loadVendorStylesTabList === 'function') {
             setTimeout(loadVendorStylesTabList, 50);
+        }
+        if (tabParam === 'scene-sim') {
+            setTimeout(syncSceneSimProductFromDesign, 0);
         }
     }
     function updateUrlForTab(tabParam) {
@@ -4999,6 +5017,9 @@ $(document).ready(function () {
         if (tabParam === 'vendor-styles') {
             vendorStylesTabOffset = 0;
             loadVendorStylesTabList();
+        }
+        if (tabParam === 'scene-sim') {
+            syncSceneSimProductFromDesign();
         }
     });
     // 瀏覽器前進/後退時依網址切換 Tab

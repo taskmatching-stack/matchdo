@@ -714,6 +714,106 @@
       color: #64748b;
       margin: 0 0 0.75rem;
     }
+
+    /* === 模式切換（試做 / 實境模擬）=== */
+    .sim-mode-bar {
+      display: flex;
+      justify-content: center;
+      gap: 0.35rem;
+      padding: 0.5rem 0.75rem 0;
+      background: var(--sim-bg, #f8fafc);
+    }
+    .sim-mode-bar[hidden] { display: none !important; }
+    .sim-mode-btn {
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #475569;
+      font-size: 0.8125rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .sim-mode-btn.active {
+      background: var(--sim-primary, #445D7E);
+      border-color: var(--sim-primary, #445D7E);
+      color: #fff;
+    }
+    .sim-scene-panel {
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 0.75rem;
+    }
+    .sim-scene-panel[hidden] { display: none !important; }
+    .sim-scene-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    .sim-scene-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      margin-bottom: 0.85rem;
+    }
+    .sim-scene-thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid #e2e8f0;
+      background: #f1f5f9;
+      flex-shrink: 0;
+      display: block;
+    }
+    .sim-scene-product-wrap {
+      flex-shrink: 0;
+    }
+    .sim-scene-upload {
+      flex: 1;
+      min-height: 72px;
+      border: 1.5px dashed #94a3b8;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 0.8125rem;
+      color: #64748b;
+      cursor: pointer;
+      padding: 0.5rem;
+      background: #f8fafc;
+    }
+    .sim-scene-upload.has-image {
+      border-style: solid;
+      padding: 0;
+      overflow: hidden;
+    }
+    .sim-scene-upload img {
+      width: 100%;
+      height: 72px;
+      object-fit: cover;
+      display: block;
+    }
+    .sim-scene-prompt {
+      width: 100%;
+      min-height: 2.5rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 0.5rem 0.65rem;
+      font-size: 0.875rem;
+      resize: vertical;
+    }
+    .sim-scene-result {
+      margin-top: 1rem;
+      text-align: center;
+    }
+    .sim-scene-result img {
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+    }
   </style>
 </head>
 <body>
@@ -729,6 +829,11 @@
     <div class="sim-header-spacer"></div>
     <span class="sim-powered">Powered by <a href="https://matchdo.cc" target="_blank" rel="noopener noreferrer"><img src="/img/matchdo-logo.png" alt="MatchDO" class="sim-powered-logo"></a></span>
   </header>
+
+  <div id="simModeBar" class="sim-mode-bar" hidden>
+    <button type="button" id="btnModeTry" class="sim-mode-btn active">產品試做</button>
+    <button type="button" id="btnModeScene" class="sim-mode-btn">實境模擬</button>
+  </div>
   
   <div id="simSelectedDock" class="sim-selected-dock" hidden aria-label="已選參考圖">
     <span class="sim-selected-dock-label">已選</span>
@@ -736,7 +841,7 @@
   </div>
   
   <!-- 主版面（窄欄／寬欄自適應 iframe 寬度）-->
-  <div class="sim-container">
+  <div class="sim-container" id="simTryPanel">
     <div class="sim-layout">
     <div class="sim-main">
     <!-- Step 1: 選主產品 -->
@@ -875,8 +980,40 @@
     </aside>
     </div><!-- /.sim-layout -->
   </div>
+
+  <!-- 實境模擬（精簡版：情境圖 + 產品圖合成）-->
+  <div id="simScenePanel" class="sim-scene-panel" hidden>
+    <div class="sim-scene-card">
+      <p class="sim-label" style="margin-bottom:0.75rem;">請先於「產品試做」生成設計圖，再上傳情境照片合成（不可自行上傳產品圖）。</p>
+      <p id="sceneProductEmpty" class="sim-no-data" style="margin-bottom:0.75rem;">尚無試做成圖，請切換至「產品試做」完成生成。</p>
+      <div class="sim-scene-row">
+        <div id="sceneProductWrap" class="sim-scene-product-wrap" hidden>
+          <p class="sim-label" style="margin:0 0 0.25rem;font-size:0.75rem;">本次試做成圖</p>
+          <img id="sceneProductThumb" class="sim-scene-thumb" src="" alt="試做成圖">
+        </div>
+        <label id="sceneEnvUpload" class="sim-scene-upload" for="sceneEnvInput">
+          <span id="sceneEnvPlaceholder">點擊上傳情境／環境照片</span>
+          <img id="sceneEnvPreview" src="" alt="" hidden>
+        </label>
+        <input type="file" id="sceneEnvInput" accept="image/*" hidden>
+      </div>
+      <textarea id="scenePrompt" class="sim-scene-prompt" rows="2" placeholder="選填：例：放在木桌上、自然光"></textarea>
+      <button type="button" id="btnSceneGenerate" class="sim-generate-btn" style="margin-top:0.75rem;">合成情境圖</button>
+      <div id="sceneGenerateStatus" class="sim-loading" style="display:none;margin-top:0.75rem;">
+        <div class="sim-spinner"></div>
+        <span>合成中…</span>
+      </div>
+      <div id="sceneGenerateError" class="sim-error" style="display:none;margin-top:0.75rem;"></div>
+      <div id="sceneResult" class="sim-scene-result" hidden>
+        <img id="sceneResultImg" src="" alt="實境模擬結果">
+        <div class="sim-result-actions" style="margin-top:0.75rem;">
+          <a id="sceneResultDownload" class="btn btn-outline-primary" href="" download><i class="bi bi-download"></i> 下載</a>
+        </div>
+      </div>
+    </div>
+  </div>
   
   <script src="/js/vendor-asset-image-link-groups.js"></script>
-  <script src="/js/embed-simulator.js?v=20260630b"></script>
+  <script src="/js/embed-simulator.js?v=20260710b"></script>
 </body>
 </html>

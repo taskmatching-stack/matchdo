@@ -17010,6 +17010,8 @@ app.get('/api/embed/simulator/bootstrap', async (req, res) => {
         const ctx = await embedSimulator.resolveEmbedInstance(supabase, req.query.embed_id, req.query.sig);
         const proto = await resolveEmbedPrototypeForRequest(ctx, ctx.instance.prototype_asset_id);
         const mfrName = ctx.manufacturer.name || '廠商';
+        const embedTier = await embedSimulator.resolveEmbedPlanTier(supabase, ctx.vendorUserId);
+        const sceneSimEnabled = embedSimulator.resolveEmbedSceneSimFromInstance(ctx.instance, embedTier);
         res.json({
             manufacturer: {
                 id: ctx.manufacturer.id,
@@ -17020,6 +17022,7 @@ app.get('/api/embed/simulator/bootstrap', async (req, res) => {
             prototype: proto,
             prototype_asset_id: proto.id,
             embed_branding: embedSimulator.embedBrandingFromInstance(ctx.instance),
+            scene_sim_enabled: sceneSimEnabled,
             service_status: 'ok'
         });
     } catch (e) {
@@ -17269,6 +17272,137 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
     }
 });
 
+function embedProductImageUrlKey(url) {
+    const s = String(url || '').trim();
+    if (!s) return '';
+    if (s.indexOf('data:') === 0) return s;
+    try {
+        const u = new URL(s, 'https://matchdo.cc');
+        return u.origin + u.pathname;
+    } catch (_) {
+        return s.split('?')[0];
+    }
+}
+
+function embedProductImageMatches(clientUrl, storedUrl) {
+    if (!clientUrl || !storedUrl) return false;
+    const a = embedProductImageUrlKey(clientUrl);
+    const b = embedProductImageUrlKey(storedUrl);
+    if (a === b) return true;
+    return String(clientUrl).trim() === String(storedUrl).trim();
+}
+
+async function resolveLatestEmbedSessionDesign(supabase, instanceId, sessionId) {
+    const sid = String(sessionId || '').trim();
+    if (!instanceId || !sid) return null;
+    const { data, error } = await supabase
+        .from('vendor_embed_designs')
+        .select('id, ai_generated_image_url, created_at')
+        .eq('embed_instance_id', instanceId)
+        .eq('embed_session_id', sid)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    if (error) {
+        if (error.code === '42P01') return null;
+        throw error;
+    }
+    return data || null;
+}
+
+app.post('/api/embed/simulator/scene-simulate', express.json({ limit: '15mb' }), async (req, res) => {
+    let billing = null;
+    let ctx = null;
+    try {
+        const body = req.body || {};
+        ctx = await embedSimulator.resolveEmbedInstance(supabase, body.embed_id, body.sig);
+        const embedTier = await embedSimulator.resolveEmbedPlanTier(supabase, ctx.vendorUserId);
+        if (!embedSimulator.resolveEmbedSceneSimFromInstance(ctx.instance, embedTier)) {
+            throw new embedSimulator.EmbedSimulatorError('scene_sim_disabled', 403, '實境模擬未開啟');
+        }
+
+        const clientIp = embedSimulator.getRequestClientIp(req);
+        embedSimulator.checkIpHourlyLimit(ctx.instance.id, clientIp, ctx.instance.rate_limit_per_ip_hour);
+        const usage = await embedSimulator.getInstanceUsageCounts(supabase, ctx.instance.id);
+        embedSimulator.assertCaps(ctx.instance, usage);
+
+        const pointsRequired = await getPointsEmbedSimulatorGenerate();
+        billing = await embedSimulator.resolveEmbedBilling(supabase, ctx.vendorUserId, pointsRequired);
+
+        const { environmentImage, productImage, prompt } = body;
+        if (!environmentImage || typeof environmentImage !== 'string') {
+            return res.status(400).json({ error: '請上傳情境或環境照片', error_code: 'missing_environment' });
+        }
+        if (!productImage || typeof productImage !== 'string') {
+            return res.status(400).json({ error: '請先在「產品試做」生成設計圖', error_code: 'missing_product' });
+        }
+
+        const sessionId = (body.session_id || body.embed_session_id || '').trim();
+        const latestDesign = await resolveLatestEmbedSessionDesign(supabase, ctx.instance.id, sessionId);
+        if (!latestDesign || !latestDesign.ai_generated_image_url) {
+            return res.status(400).json({ error: '請先在「產品試做」生成設計圖', error_code: 'missing_product' });
+        }
+        if (!embedProductImageMatches(productImage, latestDesign.ai_generated_image_url)) {
+            return res.status(400).json({ error: '僅可使用本次試做成圖，請勿上傳其他產品圖', error_code: 'invalid_product' });
+        }
+        const envBase64 = await resolveImageToBase64(environmentImage);
+        const productBase64 = await resolveImageToBase64(productImage);
+        if (!envBase64) {
+            return res.status(400).json({ error: '情境圖片無法讀取，請重新上傳', error_code: 'invalid_environment' });
+        }
+        if (!productBase64) {
+            return res.status(400).json({ error: '產品圖片無法讀取', error_code: 'invalid_product' });
+        }
+        if (!process.env.BFL_API_KEY) {
+            throw new embedSimulator.EmbedSimulatorError('flux_error', 503, '實境模擬服務暫未設定，請稍後再試');
+        }
+
+        const seed = Math.floor(Math.random() * 2147483647);
+        const userPrompt = (prompt != null ? String(prompt) : '').trim();
+        const buffer = await generateSceneSimulateImage(envBase64, productBase64, userPrompt, seed);
+        if (!buffer) {
+            throw new embedSimulator.EmbedSimulatorError('flux_error', 500, '合成失敗，請稍後再試');
+        }
+
+        const imageData = buffer.toString('base64');
+        const mime = 'image/jpeg';
+        let imageUrl = null;
+        try {
+            const { publicUrl } = await uploadToSupabaseStorage('custom-products', 'embed-scene-sim', {
+                buffer,
+                mimetype: mime,
+                originalname: 'embed-scene-' + Date.now() + '.jpg'
+            }, { ext: 'jpg', contentType: mime });
+            imageUrl = publicUrl;
+        } catch (uploadErr) {
+            console.warn('embed scene-sim upload failed:', uploadErr.message);
+            imageUrl = 'data:' + mime + ';base64,' + imageData;
+        }
+
+        if (billing.points_charged > 0) {
+            await embedSimulator.chargeVendorCredits(
+                supabase,
+                ctx.vendorUserId,
+                billing.points_charged,
+                'Embed 實境模擬',
+                'embed_simulator_scene_simulate'
+            );
+        }
+
+        await embedSimulator.incrementDailyUsage(supabase, ctx.instance.id);
+
+        res.json({
+            success: true,
+            imageUrl,
+            billing_type: billing.billing_type,
+            points_charged: billing.points_charged || 0
+        });
+    } catch (e) {
+        const name = ctx && ctx.manufacturer ? ctx.manufacturer.name : null;
+        return embedSimulator.sendEmbedError(res, e, name);
+    }
+});
+
 function embedSchemaMissingResponse(res) {
     return res.status(503).json({
         error: '嵌入試做尚未啟用，請聯絡平台管理員',
@@ -17282,11 +17416,11 @@ function isEmbedInstanceOptionalColumnError(err, colName) {
     const code = String(err.code || '');
     const msg = String(err.message || '');
     if (code === '42703' || code === 'PGRST204') {
-        if (!colName) return /show_powered_by|show_on_media_wall/i.test(msg);
+        if (!colName) return /show_powered_by|show_on_media_wall|scene_sim_enabled/i.test(msg);
         return msg.includes(colName);
     }
     if (/schema cache|could not find the/i.test(msg)) {
-        if (!colName) return /show_powered_by|show_on_media_wall/i.test(msg);
+        if (!colName) return /show_powered_by|show_on_media_wall|scene_sim_enabled/i.test(msg);
         return msg.includes(colName);
     }
     return false;
@@ -17310,7 +17444,7 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         return { error: 'not_public' };
     }
 
-    const embedSelectFull = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall';
+    const embedSelectFull = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall, scene_sim_enabled';
     const embedSelectBase = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active';
     let existingRes = await supabase
         .from('manufacturer_embed_instances')
@@ -17331,7 +17465,10 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-        if (!existingRes.error && existingRes.data) existingRes.data.show_on_media_wall = true;
+        if (!existingRes.error && existingRes.data) {
+            existingRes.data.show_on_media_wall = true;
+            existingRes.data.scene_sim_enabled = true;
+        }
     }
     if (existingRes.error) {
         if (existingRes.error.code === '42P01') return { error: 'schema' };
@@ -17355,10 +17492,11 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         prototype_asset_id: protoId,
         is_active: true,
         show_on_media_wall: true,
+        scene_sim_enabled: true,
         show_powered_by: tierBranding.show_powered_by !== false,
         updated_at: new Date().toISOString()
     };
-    const insertSelectFull = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall, show_powered_by';
+    const insertSelectFull = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall, show_powered_by, scene_sim_enabled';
     const insertSelectBase = 'id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active';
     let insertRes = await supabase
         .from('manufacturer_embed_instances')
@@ -17368,6 +17506,7 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
     if (insertRes.error && isEmbedInstanceOptionalColumnError(insertRes.error)) {
         delete insertPayload.show_powered_by;
         delete insertPayload.show_on_media_wall;
+        delete insertPayload.scene_sim_enabled;
         insertRes = await supabase
             .from('manufacturer_embed_instances')
             .insert(insertPayload)
@@ -17376,6 +17515,7 @@ async function getOrCreateEmbedSimulatorInstance(supabase, manufacturerId, proto
         if (!insertRes.error && insertRes.data) {
             insertRes.data.show_on_media_wall = true;
             insertRes.data.show_powered_by = tierBranding.show_powered_by !== false;
+            insertRes.data.scene_sim_enabled = true;
         }
     }
     if (insertRes.error) {
@@ -17416,7 +17556,7 @@ app.get('/api/me/embed-simulator-instances', async (req, res) => {
 
         const { data: row, error } = await supabase
             .from('manufacturer_embed_instances')
-            .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall')
+            .select('id, manufacturer_id, name, embed_key, embed_secret, prototype_asset_id, is_active, show_on_media_wall, scene_sim_enabled')
             .eq('manufacturer_id', manufacturerId)
             .eq('prototype_asset_id', protoId)
             .eq('is_active', true)
@@ -17516,7 +17656,7 @@ app.post('/api/me/embed-simulator-instances', express.json(), async (req, res) =
     }
 });
 
-// PATCH /api/me/embed-simulator-instances/:id — 1800 方案：設定 embed 成圖是否上首頁媒體牆
+// PATCH /api/me/embed-simulator-instances/:id — 1800：媒體牆；900/1800：實境模擬開關
 app.patch('/api/me/embed-simulator-instances/:id', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
@@ -17529,28 +17669,56 @@ app.patch('/api/me/embed-simulator-instances/:id', express.json(), async (req, r
         const vendorUserId = mfrRow && mfrRow.user_id ? mfrRow.user_id : null;
         const tier = vendorUserId ? await resolveVendorEmbedTier(vendorUserId) : null;
         const tierCfg = tier ? embedSimulator.getEmbedTierConfig(tier) : null;
-        if (!tierCfg || tierCfg.wallMode !== 'configurable') {
-            return res.status(403).json({ error: '僅 1800 方案可設定 embed 成圖是否上首頁媒體牆' });
-        }
 
         const body = req.body || {};
-        const showOnWall = body.show_on_media_wall !== false && body.show_on_media_wall !== 'false' && body.show_on_media_wall !== 0;
+        const updatePayload = { updated_at: new Date().toISOString() };
+        const responsePayload = { success: true };
+
+        if (body.show_on_media_wall !== undefined) {
+            if (!tierCfg || tierCfg.wallMode !== 'configurable') {
+                return res.status(403).json({ error: '僅 1800 方案可設定 embed 成圖是否上首頁媒體牆' });
+            }
+            updatePayload.show_on_media_wall = body.show_on_media_wall !== false
+                && body.show_on_media_wall !== 'false'
+                && body.show_on_media_wall !== 0;
+            responsePayload.show_on_media_wall = updatePayload.show_on_media_wall;
+        }
+
+        if (body.scene_sim_enabled !== undefined) {
+            if (!tierCfg || tierCfg.sceneSimMode !== 'configurable') {
+                return res.status(403).json({ error: '僅 900／1800 方案可設定 embed 實境模擬開關' });
+            }
+            updatePayload.scene_sim_enabled = body.scene_sim_enabled !== false
+                && body.scene_sim_enabled !== 'false'
+                && body.scene_sim_enabled !== 0;
+            responsePayload.scene_sim_enabled = updatePayload.scene_sim_enabled;
+        }
+
+        if (Object.keys(updatePayload).length <= 1) {
+            return res.status(400).json({ error: '請提供 show_on_media_wall 或 scene_sim_enabled' });
+        }
 
         const { data: row, error } = await supabase
             .from('manufacturer_embed_instances')
-            .update({ show_on_media_wall: showOnWall, updated_at: new Date().toISOString() })
+            .update(updatePayload)
             .eq('id', instanceId)
             .eq('manufacturer_id', manufacturerId)
-            .select('id, show_on_media_wall')
+            .select('id, show_on_media_wall, scene_sim_enabled')
             .maybeSingle();
         if (error) {
             if (error.code === '42703') {
-                return res.status(503).json({ error: '請先執行 docs/add-embed-simulator-plan-tiers.sql' });
+                return res.status(503).json({ error: '請先執行 docs/add-embed-simulator-plan-tiers.sql 或 docs/add-embed-scene-sim-enabled.sql' });
             }
             throw error;
         }
         if (!row) return res.status(404).json({ error: '找不到 iframe 實例' });
-        return res.json({ success: true, show_on_media_wall: row.show_on_media_wall !== false });
+        if (responsePayload.show_on_media_wall === undefined && row.show_on_media_wall !== undefined) {
+            responsePayload.show_on_media_wall = row.show_on_media_wall !== false;
+        }
+        if (responsePayload.scene_sim_enabled === undefined && row.scene_sim_enabled !== undefined) {
+            responsePayload.scene_sim_enabled = row.scene_sim_enabled !== false;
+        }
+        return res.json(responsePayload);
     } catch (e) {
         console.error('PATCH /api/me/embed-simulator-instances/:id:', e);
         return res.status(500).json({ error: '更新失敗' });

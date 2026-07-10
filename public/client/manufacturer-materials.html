@@ -688,6 +688,11 @@
                                         <input class="form-check-input" type="checkbox" id="edit-share-embed-media-wall" checked>
                                         <label class="form-check-label small" for="edit-share-embed-media-wall">訪客試做成圖顯示於 MatchDO 首頁媒體牆</label>
                                     </div>
+                                    <div class="form-check mt-2 d-none" id="edit-share-embed-scene-sim-wrap">
+                                        <input class="form-check-input" type="checkbox" id="edit-share-embed-scene-sim" checked>
+                                        <label class="form-check-label small" for="edit-share-embed-scene-sim">Embed 訪客可使用實境模擬（上傳情境圖合成）</label>
+                                    </div>
+                                    <p class="small text-muted mb-0 mt-1 d-none" id="edit-share-embed-scene-sim-hint-300">300 方案預設開啟實境模擬，不可關閉。</p>
                                     <p class="small mb-0 mt-2"><a href="/client/embed-design-records.html" target="_blank" rel="noopener">查看 Embed 訪客生圖紀錄</a></p>
                                 </div>
                             </div>
@@ -851,7 +856,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-drag-fix-20260710';
+        window.__MATCHDO_MATERIALS_BUILD = 'embed-scene-sim-product-20260710';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -5231,10 +5236,15 @@
             var snipTa = document.getElementById('edit-share-embed-snippet');
             var mediaWallWrap = document.getElementById('edit-share-embed-media-wall-wrap');
             var mediaWallChk = document.getElementById('edit-share-embed-media-wall');
+            var sceneSimWrap = document.getElementById('edit-share-embed-scene-sim-wrap');
+            var sceneSimChk = document.getElementById('edit-share-embed-scene-sim');
+            var sceneSimHint300 = document.getElementById('edit-share-embed-scene-sim-hint-300');
             if (!statusEl || !fieldsEl) return;
             fieldsEl.classList.add('d-none');
             syncEditShareEmbedPreviewLink('');
             if (mediaWallWrap) mediaWallWrap.classList.add('d-none');
+            if (sceneSimWrap) sceneSimWrap.classList.add('d-none');
+            if (sceneSimHint300) sceneSimHint300.classList.add('d-none');
             if (!m || !m.id) {
                 statusEl.textContent = '';
                 return;
@@ -5293,6 +5303,18 @@
                 } else if (mediaWallChk) {
                     mediaWallChk.dataset.instanceId = '';
                 }
+                if (sceneSimHint300 && data.embed_tier === '300') {
+                    sceneSimHint300.classList.remove('d-none');
+                } else if (sceneSimHint300) {
+                    sceneSimHint300.classList.add('d-none');
+                }
+                if (sceneSimWrap && sceneSimChk && tierCfg && tierCfg.sceneSimMode === 'configurable' && data.id) {
+                    sceneSimWrap.classList.remove('d-none');
+                    sceneSimChk.checked = data.scene_sim_enabled !== false;
+                    sceneSimChk.dataset.instanceId = data.id;
+                } else if (sceneSimChk) {
+                    sceneSimChk.dataset.instanceId = '';
+                }
             } catch (err) {
                 statusEl.textContent = err.message || '載入失敗';
                 statusEl.classList.add('text-danger');
@@ -5318,6 +5340,28 @@
             } catch (e) {
                 showToast(e.message || '媒體牆設定儲存失敗', 'danger');
                 mediaWallChk.checked = !checked;
+            }
+        }
+
+        async function saveEditEmbedSceneSimSetting(checked) {
+            var sceneSimChk = document.getElementById('edit-share-embed-scene-sim');
+            if (!sceneSimChk || !sceneSimChk.dataset.instanceId) return;
+            try {
+                var tok = token || (await getToken());
+                if (!tok) return;
+                var r = await fetch('/api/me/embed-simulator-instances/' + encodeURIComponent(sceneSimChk.dataset.instanceId), {
+                    method: 'PATCH',
+                    headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scene_sim_enabled: !!checked })
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (!r.ok) {
+                    showToast(data.error || '實境模擬設定儲存失敗', 'danger');
+                    sceneSimChk.checked = !checked;
+                }
+            } catch (e) {
+                showToast(e.message || '實境模擬設定儲存失敗', 'danger');
+                sceneSimChk.checked = !checked;
             }
         }
 
@@ -6244,6 +6288,12 @@
         if (editShareEmbedMediaWall) {
             editShareEmbedMediaWall.addEventListener('change', function () {
                 saveEditEmbedMediaWallSetting(editShareEmbedMediaWall.checked);
+            });
+        }
+        var editShareEmbedSceneSim = document.getElementById('edit-share-embed-scene-sim');
+        if (editShareEmbedSceneSim) {
+            editShareEmbedSceneSim.addEventListener('change', function () {
+                saveEditEmbedSceneSimSetting(editShareEmbedSceneSim.checked);
             });
         }
         var editImageProto = document.getElementById('edit-image-prototype');

@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260630b';
+  const BUILD = 'embed-simulator-20260710b';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -38,7 +38,12 @@
     prompt: '',
     generating: false,
     sessionId: getOrCreateSessionId(),
-    embedBranding: { show_powered_by: true }
+    embedBranding: { show_powered_by: true },
+    sceneSimEnabled: false,
+    uiMode: 'try',
+    sceneEnvImage: null,
+    lastResultUrl: null,
+    sceneGenerating: false
   };
   
   UPLOAD_REF_SLOTS.forEach(function (slot) {
@@ -465,7 +470,9 @@
       }
       state.manufacturer = data.manufacturer;
       state.embedBranding = data.embed_branding || { show_powered_by: true };
+      state.sceneSimEnabled = data.scene_sim_enabled === true;
       renderHeader();
+      setupSceneSimIfEnabled();
       await initWithPrototype(pickBootstrapPrototype(data));
     } catch (e) {
       console.error('[Init Error]', e);
@@ -476,8 +483,184 @@
   // === Mock 資料初始化 ===
   function initWithMockData() {
     state.manufacturer = MOCK_DATA.manufacturer;
+    state.sceneSimEnabled = true;
     renderHeader();
+    setupSceneSimIfEnabled();
     initWithPrototype(MOCK_DATA.prototype);
+  }
+
+  function getSceneProductImageUrl() {
+    return state.lastResultUrl || '';
+  }
+
+  function refreshSceneProductThumb() {
+    var thumb = document.getElementById('sceneProductThumb');
+    var emptyHint = document.getElementById('sceneProductEmpty');
+    var productWrap = document.getElementById('sceneProductWrap');
+    if (!thumb) return;
+    var url = getSceneProductImageUrl();
+    if (url) {
+      thumb.src = url;
+      thumb.hidden = false;
+      if (emptyHint) emptyHint.hidden = true;
+      if (productWrap) productWrap.hidden = false;
+    } else {
+      thumb.removeAttribute('src');
+      thumb.hidden = true;
+      if (emptyHint) emptyHint.hidden = false;
+      if (productWrap) productWrap.hidden = true;
+    }
+    var btnGen = document.getElementById('btnSceneGenerate');
+    if (btnGen) btnGen.disabled = !url;
+  }
+
+  function setupSceneSimIfEnabled() {
+    if (!state.sceneSimEnabled) return;
+    var bar = document.getElementById('simModeBar');
+    if (bar) bar.hidden = false;
+
+    var btnTry = document.getElementById('btnModeTry');
+    var btnScene = document.getElementById('btnModeScene');
+    if (btnTry) btnTry.addEventListener('click', function () { setUiMode('try'); });
+    if (btnScene) btnScene.addEventListener('click', function () { setUiMode('scene'); });
+
+    var envInput = document.getElementById('sceneEnvInput');
+    if (envInput) {
+      envInput.addEventListener('change', function () {
+        var file = envInput.files && envInput.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          state.sceneEnvImage = reader.result;
+          renderSceneEnvPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    var btnSceneGen = document.getElementById('btnSceneGenerate');
+    if (btnSceneGen) btnSceneGen.addEventListener('click', handleSceneGenerate);
+
+    refreshSceneProductThumb();
+  }
+
+  function setUiMode(mode) {
+    state.uiMode = mode === 'scene' ? 'scene' : 'try';
+    var tryPanel = document.getElementById('simTryPanel');
+    var scenePanel = document.getElementById('simScenePanel');
+    var dock = document.getElementById('simSelectedDock');
+    var btnTry = document.getElementById('btnModeTry');
+    var btnScene = document.getElementById('btnModeScene');
+    if (tryPanel) tryPanel.hidden = state.uiMode === 'scene';
+    if (scenePanel) scenePanel.hidden = state.uiMode !== 'scene';
+    if (dock && state.uiMode === 'scene') dock.hidden = true;
+    if (btnTry) btnTry.classList.toggle('active', state.uiMode === 'try');
+    if (btnScene) btnScene.classList.toggle('active', state.uiMode === 'scene');
+    if (state.uiMode === 'scene') refreshSceneProductThumb();
+  }
+
+  function renderSceneEnvPreview() {
+    var upload = document.getElementById('sceneEnvUpload');
+    var placeholder = document.getElementById('sceneEnvPlaceholder');
+    var preview = document.getElementById('sceneEnvPreview');
+    if (!upload || !placeholder || !preview) return;
+    if (state.sceneEnvImage) {
+      upload.classList.add('has-image');
+      placeholder.hidden = true;
+      preview.hidden = false;
+      preview.src = state.sceneEnvImage;
+    } else {
+      upload.classList.remove('has-image');
+      placeholder.hidden = false;
+      preview.hidden = true;
+      preview.removeAttribute('src');
+    }
+  }
+
+  async function handleSceneGenerate() {
+    if (state.sceneGenerating) return;
+    var productUrl = getSceneProductImageUrl();
+    if (!productUrl) {
+      alert('請先在「產品試做」完成生成，再使用實境模擬');
+      setUiMode('try');
+      return;
+    }
+    if (!state.sceneEnvImage) {
+      alert('請上傳情境或環境照片');
+      return;
+    }
+
+    var btn = document.getElementById('btnSceneGenerate');
+    var status = document.getElementById('sceneGenerateStatus');
+    var error = document.getElementById('sceneGenerateError');
+    var resultWrap = document.getElementById('sceneResult');
+    if (btn) btn.disabled = true;
+    if (status) status.style.display = 'flex';
+    if (error) error.style.display = 'none';
+    if (resultWrap) resultWrap.hidden = true;
+    state.sceneGenerating = true;
+
+    try {
+      if (useMockData) {
+        await new Promise(function (resolve) { setTimeout(resolve, 2500); });
+        showSceneResult('https://via.placeholder.com/1024x1024/445D7E/FFFFFF?text=Scene+Sim');
+      } else {
+        var promptEl = document.getElementById('scenePrompt');
+        var payload = {
+          embed_id: embedId,
+          sig: sig,
+          environmentImage: state.sceneEnvImage,
+          productImage: productUrl,
+          prompt: promptEl ? promptEl.value.trim() : '',
+          session_id: state.sessionId
+        };
+        var res = await fetch('/api/embed/simulator/scene-simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok) {
+          var code = data.error_code || '';
+          if (code === 'daily_cap_reached' || code === 'monthly_cap_reached' || code === 'rate_limit_ip_hour') {
+            throw new Error(data.error || '試做次數已達上限，請稍後再試');
+          }
+          if (code === 'insufficient_credits' || code === 'plan_quota_exhausted_no_credits') {
+            throw new Error(data.error || '試做暫停，請聯絡廠商');
+          }
+          if (code === 'invalid_product' || code === 'missing_product') {
+            throw new Error(data.error || '請先在「產品試做」生成設計圖');
+          }
+          throw new Error(embedErrorMessage(data, '合成失敗'));
+        }
+        showSceneResult(data.imageUrl);
+      }
+    } catch (e) {
+      if (error) {
+        error.textContent = e.message || '合成失敗';
+        error.style.display = 'block';
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+      if (status) status.style.display = 'none';
+      state.sceneGenerating = false;
+    }
+  }
+
+  function showSceneResult(imageUrl) {
+    var resultWrap = document.getElementById('sceneResult');
+    var img = document.getElementById('sceneResultImg');
+    var dl = document.getElementById('sceneResultDownload');
+    if (!resultWrap || !img) return;
+    img.src = imageUrl;
+    if (dl) {
+      dl.href = imageUrl;
+      dl.download = 'matchdo-scene-' + Date.now() + '.jpg';
+    }
+    resultWrap.hidden = false;
+    setTimeout(function () {
+      resultWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
   }
   
   // === Header 渲染 ===
@@ -1012,6 +1195,8 @@
   
   // === 顯示結果 ===
   function showResult(imageUrl) {
+    state.lastResultUrl = imageUrl;
+    refreshSceneProductThumb();
     // 顯示結果區
     const section = document.getElementById('resultSection');
     section.style.display = 'block';
