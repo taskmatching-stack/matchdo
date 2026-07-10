@@ -59,8 +59,8 @@
         .edit-gallery-col.dragging { opacity: 0.55; }
         .edit-gallery-col { cursor: default; }
         .pending-list-col.dragging { opacity: 0.55; }
-        .pending-list-drag, .edit-gallery-drag { cursor: grab; user-select: none; touch-action: none; }
-        .pending-list-drag:active, .edit-gallery-drag:active { cursor: grabbing; }
+        .pending-list-drag, .edit-gallery-drag { cursor: grab; user-select: none; touch-action: none; display: inline-flex; align-items: center; padding: 6px 10px; margin: -6px -4px 0; border-radius: 4px; }
+        .pending-list-drag:active, .edit-gallery-drag:active { cursor: grabbing; background: #eef2f6; }
         .catalog-groups-panel.catalog-groups-panel--collapsed { display: none !important; }
         ul[id^="catalog-groups-list-"].catalog-groups-list--scroll {
             max-height: 16rem;
@@ -851,7 +851,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-drag-reorder-20260710';
+        window.__MATCHDO_MATERIALS_BUILD = 'gallery-drag-fix-20260710';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2679,11 +2679,15 @@
             wrap.querySelectorAll(':scope > [class*="col-"]').forEach(function (col) {
                 col.classList.add('pending-list-col');
                 col.setAttribute('draggable', 'true');
+                col.addEventListener('mousedown', function (e) {
+                    col._dragFromHandle = !!(e.target && e.target.closest && e.target.closest('.pending-list-drag'));
+                });
                 col.addEventListener('dragstart', function (e) {
-                    if (!e.target.closest('.pending-list-drag')) {
+                    if (!col._dragFromHandle) {
                         e.preventDefault();
                         return;
                     }
+                    col._dragFromHandle = false;
                     col.classList.add('dragging');
                     if (e.dataTransfer) {
                         e.dataTransfer.effectAllowed = 'move';
@@ -3589,15 +3593,19 @@
         function bindEditGalleryReorder(grid) {
             if (!grid) return;
             grid.querySelectorAll('.edit-gallery-col').forEach(function (col) {
+                col.addEventListener('mousedown', function (e) {
+                    col._dragFromHandle = !!(e.target && e.target.closest && e.target.closest('.edit-gallery-drag'));
+                });
                 col.addEventListener('dragstart', function (e) {
                     if (editGalleryUploading) {
                         e.preventDefault();
                         return;
                     }
-                    if (!e.target.closest('.edit-gallery-drag')) {
+                    if (!col._dragFromHandle) {
                         e.preventDefault();
                         return;
                     }
+                    col._dragFromHandle = false;
                     editGalleryDragUrl = col.getAttribute('data-gallery-url');
                     col.classList.add('dragging');
                     if (e.dataTransfer) {
