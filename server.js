@@ -2692,13 +2692,17 @@ const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
 const VENDOR_OPTIMIZE_BACKGROUND_CLEANLINESS =
     'Background cleanliness (mandatory): Paint a brand-new perfectly uniform seamless studio backdrop—no gradient, texture, grain, noise, speckles, dirt, floor line, horizon, or vignette, only one minimal soft contact shadow beneath the product. Do not ghost, recycle, or carry over any background pixels from the reference (no gray patches, halos, compression blocks, wall shadows, or uneven mottling).';
 
-/** 勾選 use_display_stand 時才追加（與 optimize_background 同模式：一 flag → 一句通用話） */
+/** 勾選 use_display_stand 時才追加（一 flag → 一句；僅台／人台） */
 const VENDOR_OPTIMIZE_DISPLAY_STAND_LINE =
-    'Display staging (requested): Present the product on a simple neutral studio display stand or mannequin form for catalog photography; preserve every visible product detail from the reference and treat this staging as intentional (not a prop to remove).';
+    'Display staging (requested): Present the complete product on a neutral studio display stand or seamless faceless mannequin with no visible joint seams or segmented parts; intentional staging, not a prop to remove.';
 
 function vendorOptimizeDisplayStandSegment(useDisplayStand) {
     return useDisplayStand ? [VENDOR_OPTIMIZE_DISPLAY_STAND_LINE] : [];
 }
+
+/** 每次產品重繪皆有：商業棚拍＋嚴格保結構保色（與展示台勾選無關；不提角度） */
+const VENDOR_OPTIMIZE_PRODUCT_FIDELITY_LINE =
+    'Product fidelity (mandatory): Preserve the product exactly as in the reference—same silhouette, construction, proportions, hardware, surface patterns, and exact colors; do not recolor, lighten, darken, or redesign any element.';
 
 /** 廠商 AI 重繪底色：white|light_gray|gray|black 或 #RRGGBB */
 function normalizeVendorOptimizeBackground(raw) {
@@ -2724,9 +2728,9 @@ function buildVendorAssetProductOptimizePrompt(title, backgroundColor, useDispla
     const bg = normalizeVendorOptimizeBackground(backgroundColor);
     const productHint = (title || '').trim();
     const parts = [
-        'Using the provided reference image as the only source, perform a minimal product photo cleanup.',
-        'Keep the same camera angle, framing, and scale. The product must remain the only subject.',
-        'Preserve the product body exactly: shape, proportions, hardware, straps, clips, seams, materials, surface patterns, and every color region on the product.',
+        'Using the provided reference image as the only source, produce professional e-commerce catalog product photography of the complete product—not a simple background cutout.',
+        'The complete product must be clearly visible and remain the only subject.',
+        VENDOR_OPTIMIZE_PRODUCT_FIDELITY_LINE,
         'Preserve only text, numbers, logos, icons, and graphics that are physically ON the product surface in the reference (printed, labeled, embroidered, molded, or engraved on the product itself).',
         'Do not change, translate, invent, or remove any markings that belong on the product.',
         'Remove or replace everything that is NOT part of the product: old background, floor, props, hands, people, packaging behind the product, and any text or graphics that appear only in the background or scene—not on the product.',

@@ -770,12 +770,8 @@
                             <p id="edit-gallery-hint-prototype" class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>同色、同款</strong>各角度建議歸為同一<strong>連動組</strong>（例：black），消費端點一張會同組一起選，之後仍可個別取消。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                             <p id="edit-gallery-hint-part" class="form-text text-muted small mb-1 d-none" data-i18n="baseModels.partImageHint">多張圖請用於<strong>同一顏色、同一材質</strong>的不同角度或細節；<strong>換顏色請另建一筆產品</strong>，圖片名稱註記角度即可（例：側面、俯視），勿把黑／金放在同一筆。</p>
                             <p class="form-text text-muted small mb-2">可編輯每張圖名稱（預設檔名）。<strong>AI 重繪</strong>：以原圖為準只換背景；會盡量保留<strong>產品本體上</strong>的印刷字／Logo，背景上的字樣不保留，也不會新增文字。</p>
-                            <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面順序，或於下方「更換封面」上傳新圖。</p>
+                            <p class="form-text text-muted small mb-2">可點角度圖「設為封面」調整封面與順序。</p>
                             <p id="edit-gallery-build-hint" class="form-text text-muted mb-0" style="font-size:0.7rem;opacity:0.65"></p>
-                            <label class="form-label small text-muted mb-1">更換封面（選填）</label>
-                            <input type="file" class="form-control" id="edit-image-prototype" accept="image/*">
-                            <div id="edit-new-image-preview-proto" class="add-image-preview mt-2 d-none"></div>
-                            <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。</p>
                         </div>
                         <div id="edit-tags-panel" class="mb-3">
                             <label class="form-label fw-semibold small mb-1" data-i18n="baseModels.tagsEditable">AI 標籤（可增刪）</label>
@@ -872,7 +868,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'stand-ui-always-20260710';
+        window.__MATCHDO_MATERIALS_BUILD = 'remove-edit-cover-upload-20260710';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -6280,10 +6276,7 @@
                 renderCustomizationLevelButtons(document.getElementById('edit-customization-levels'), m.customization_levels || []);
             }
             document.getElementById('edit-image').value = '';
-            var editProtoInput = document.getElementById('edit-image-prototype');
-            if (editProtoInput) editProtoInput.value = '';
             showLocalImagePreview(document.getElementById('edit-new-image-preview'), null);
-            showLocalImagePreview(document.getElementById('edit-new-image-preview-proto'), null);
             var editImgWrap = document.getElementById('edit-current-image-wrap');
             var editImg = document.getElementById('edit-current-image');
             if (!isGalleryLike && m.image_url && editImgWrap && editImg) {
@@ -6373,15 +6366,14 @@
             showEditModal();
         }
 
-        function onEditCoverFileChange(isPrototype) {
-            var input = isPrototype ? document.getElementById('edit-image-prototype') : document.getElementById('edit-image');
-            var previewId = isPrototype ? 'edit-new-image-preview-proto' : 'edit-new-image-preview';
+        function onEditCoverFileChange() {
+            var input = document.getElementById('edit-image');
             var file = input && input.files && input.files[0];
             var hasFile = !!file;
-            showLocalImagePreview(document.getElementById(previewId), file);
-            toggleEditImageOptions(hasFile && !isPrototype);
+            showLocalImagePreview(document.getElementById('edit-new-image-preview'), file);
+            toggleEditImageOptions(hasFile);
         }
-        document.getElementById('edit-image').addEventListener('change', function () { onEditCoverFileChange(false); });
+        document.getElementById('edit-image').addEventListener('change', onEditCoverFileChange);
         var btnEditCopyShareDesign = document.getElementById('btn-edit-copy-share-design');
         if (btnEditCopyShareDesign) {
             btnEditCopyShareDesign.addEventListener('click', function () { copyEditShareInput('edit-share-design-url'); });
@@ -6419,8 +6411,6 @@
                 saveEditEmbedSceneSimSetting(editShareEmbedSceneSim.checked);
             });
         }
-        var editImageProto = document.getElementById('edit-image-prototype');
-        if (editImageProto) editImageProto.addEventListener('change', function () { onEditCoverFileChange(true); });
         bindEditGalleryUpload();
         var editGalleryBgSel = document.getElementById('edit-gallery-optimize-bg');
         if (editGalleryBgSel) {
@@ -6438,9 +6428,8 @@
             var id = document.getElementById('edit-id').value;
             var isProto = normalizeKind(document.getElementById('edit-asset-kind').value) === 'prototype';
             var editKindNorm = normalizeKind(document.getElementById('edit-asset-kind').value);
-            var fileInput = (editKindNorm === 'prototype' || editKindNorm === 'part' || editKindNorm === 'material')
-                ? document.getElementById('edit-image-prototype')
-                : document.getElementById('edit-image');
+            var isGalleryLikeKind = editKindNorm === 'prototype' || editKindNorm === 'part' || editKindNorm === 'material';
+            var fileInput = isGalleryLikeKind ? null : document.getElementById('edit-image');
             var file = fileInput && fileInput.files && fileInput.files[0];
             var cat = document.getElementById('edit-category').value;
             if (file && !cat) {
@@ -6561,9 +6550,8 @@
             fd.append('ui_locale', getUiLocaleForUpload());
             fd.append('usage_type', 'reference_only');
             fd.append('asset_kind', document.getElementById('edit-asset-kind').value);
-            var fileInput = (editKind === 'prototype' || editKind === 'part' || editKind === 'material')
-                ? document.getElementById('edit-image-prototype')
-                : document.getElementById('edit-image');
+            var isGalleryLikeSave = editKind === 'prototype' || editKind === 'part' || editKind === 'material';
+            var fileInput = isGalleryLikeSave ? null : document.getElementById('edit-image');
             var file = fileInput && fileInput.files && fileInput.files[0];
             fd.append('ai_tags', JSON.stringify(editPending.tags || []));
             if (editPending.semantics) fd.append('image_semantics_json', JSON.stringify(editPending.semantics));
