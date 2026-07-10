@@ -872,7 +872,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'optimize-display-stand-20260710';
+        window.__MATCHDO_MATERIALS_BUILD = 'optimize-upload-bg-stand-20260710';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2854,6 +2854,7 @@
                 updateAddFormPointsEstimate(form);
                 schedulePendingDraftSave(form);
             });
+            syncAddFormOptimizeBgWrap(form);
         }
 
         function collectPreviewCreditTxIds(form) {
@@ -2988,6 +2989,7 @@
             window._editGalleryPending = [];
             var actions = document.getElementById('edit-gallery-pending-actions');
             if (actions) actions.classList.add('d-none');
+            syncEditGalleryRedrawSettings();
         }
 
         async function previewEditPendingRedraw(item, idx) {
@@ -3192,6 +3194,7 @@
                 });
             });
             bindPendingListReorder(wrap, list, function () {});
+            syncEditGalleryRedrawSettings();
         }
 
         function appendFilesToEditGalleryPending(fileList) {
@@ -3250,8 +3253,9 @@
             });
             var settings = document.getElementById('edit-gallery-redraw-settings');
             var grid = document.getElementById('edit-gallery-grid');
-            var hasItems = grid && grid.querySelector('.pending-image-card');
-            if (settings) settings.classList.toggle('d-none', !hasItems);
+            var hasGalleryItems = grid && grid.querySelector('.pending-image-card');
+            var hasPendingItems = getEditGalleryPendingImages().length > 0;
+            if (settings) settings.classList.toggle('d-none', !(hasGalleryItems || hasPendingItems));
         }
 
         function scrollEditGalleryToUrl(url) {
@@ -4618,15 +4622,22 @@
             if (!wrap) return;
             var kind = form.getAttribute('data-kind');
             var standWrap = form.querySelector('.add-optimize-stand-wrap');
-            if (standWrap) standWrap.classList.toggle('d-none', kind === 'material');
-            if (kind === 'prototype' || kind === 'part' || kind === 'material') {
+            if (kind === 'material') {
+                wrap.classList.add('d-none');
+                if (standWrap) standWrap.classList.add('d-none');
+                return;
+            }
+            if (kind === 'prototype' || kind === 'part') {
                 var list = getPendingImages(form);
-                wrap.classList.toggle('d-none', !list.some(function (p) { return p.optimize; }));
+                var show = list.length > 0;
+                wrap.classList.toggle('d-none', !show);
+                if (standWrap) standWrap.classList.toggle('d-none', !show);
                 return;
             }
             var chk = form.querySelector('.add-optimize-product');
             if (!chk) return;
             wrap.classList.toggle('d-none', !chk.checked);
+            if (standWrap) standWrap.classList.toggle('d-none', !chk.checked);
         }
 
         function syncEditOptimizeBgWrap() {
