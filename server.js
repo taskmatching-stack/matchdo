@@ -2711,9 +2711,9 @@ const VENDOR_OPTIMIZE_BACKGROUND_PROMPTS = {
 const VENDOR_OPTIMIZE_BACKGROUND_CLEANLINESS =
     'Background cleanliness (mandatory): Paint a brand-new perfectly uniform seamless studio backdrop—no gradient, texture, grain, noise, speckles, dirt, floor line, horizon, or vignette, only one minimal soft contact shadow beneath the product. Do not ghost, recycle, or carry over any background pixels from the reference (no gray patches, halos, compression blocks, wall shadows, or uneven mottling).';
 
-/** 勾選 use_display_stand 時才追加（一 flag → 一句；僅台／人台） */
+/** 勾選 use_display_stand 時才追加（一 flag → 一句；僅描述台／人台；不提角度、不重複保色） */
 const VENDOR_OPTIMIZE_DISPLAY_STAND_LINE =
-    'Display staging (requested): Present the complete product on a neutral studio display stand or seamless faceless mannequin with no visible joint seams or segmented parts; intentional staging, not a prop to remove.';
+    'Display staging (requested): Neutral studio display stand or seamless faceless mannequin with smooth continuous one-piece surfaces.';
 
 function vendorOptimizeDisplayStandSegment(useDisplayStand) {
     return useDisplayStand ? [VENDOR_OPTIMIZE_DISPLAY_STAND_LINE] : [];
