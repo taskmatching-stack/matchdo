@@ -6,7 +6,7 @@
 
 | 項目 | 鎖定值 |
 |------|--------|
-| 提示詞模板 | `保持顏色並優化此{材質}材質光影`（`{材質}` = UI「AI 重繪材質類型」） |
+| 提示詞模板 | `保持顏色並優化此{材質}材質光影`；若含產品／服裝外型則追加滿版色卡句（`buildVendorAssetMaterialFluxOptimizePrompt`） |
 | SEED | `3647440197`（`VENDOR_MATERIAL_FLUX_SEED`） |
 | 送 BFL | **中文原句**，`skipPromptTranslation: true`（勿改回 Gemini 翻譯） |
 | 輸出尺寸 | 1024×1024（材料 FLUX） |

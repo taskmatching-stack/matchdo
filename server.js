@@ -2797,7 +2797,7 @@ function normalizeMaterialSurfaceType(raw) {
 function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     const t = normalizeMaterialSurfaceType(surfaceType);
     if (!t) throw new Error('請填材質類型（例：皮革、丹寧）');
-    return `保持顏色並優化此${t}材質光影`;
+    return `保持顏色並優化此${t}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}材質色卡質感。`;
 }
 
 function resolveMaterialSurfaceType(body, row) {

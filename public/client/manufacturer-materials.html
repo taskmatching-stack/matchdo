@@ -883,7 +883,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-meta-preserve-gallery-20260710e';
+        window.__MATCHDO_MATERIALS_BUILD = 'material-product-swatch-hint-20260710g';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2292,7 +2292,7 @@
         function buildMaterialFluxPromptPreview(surfaceType) {
             var t = String(surfaceType || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
             if (!t) return '（填材質類型後顯示）';
-            return '保持顏色並優化此' + t + '材質光影';
+            return '保持顏色並優化此' + t + '材質光影；產品圖另去除版型滿版呈現此' + t + '材質色卡質感';
         }
 
         function syncMaterialFluxPromptPreviewEl(el, surfaceType) {
