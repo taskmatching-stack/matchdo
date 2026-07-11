@@ -2815,6 +2815,14 @@ function buildDesignToPhysicalPrompt(userExtra) {
     return extra ? (base + '。' + extra) : base;
 }
 
+/** 寫實化補充：明確 prompt → 產品名稱／標題（與重繪同一優先序） */
+function resolveDesignToPhysicalUserExtra(body, fallbackTitle) {
+    const b = body && typeof body === 'object' ? body : {};
+    const explicit = String(b.prompt || b.user_prompt || '').trim();
+    if (explicit) return explicit;
+    return resolveOptimizeProductNameForPrompt(b, fallbackTitle);
+}
+
 async function getPointsDesignToPhysical() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_design_to_physical');
     const v = (rows && rows[0]) ? rows[0].value : null;
@@ -19523,9 +19531,10 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
                 return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
             }
         }
+        const userExtra = resolveDesignToPhysicalUserExtra(body, null);
         let fluxResult;
         try {
-            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', body.prompt || body.user_prompt);
+            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', userExtra);
         } catch (optErr) {
             console.error('preview-design-to-physical:', optErr);
             return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
@@ -19563,7 +19572,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             credit_transaction_id: creditTransactionId,
-            ai_prompt: (fluxResult && fluxResult.prompt) || buildDesignToPhysicalPrompt(body.prompt || body.user_prompt)
+            ai_prompt: (fluxResult && fluxResult.prompt) || buildDesignToPhysicalPrompt(userExtra)
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/preview-design-to-physical:', e);
@@ -19626,9 +19635,10 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
             originalname: 'design-to-physical-source.jpg'
         });
         if (!file) return res.status(400).json({ error: '無法讀取圖片，請改用 JPG／PNG／WebP' });
+        const userExtra = resolveDesignToPhysicalUserExtra(body, row.title);
         let fluxResult;
         try {
-            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', body.prompt || body.user_prompt);
+            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', userExtra);
         } catch (optErr) {
             console.error('gallery-images/design-to-physical:', optErr);
             return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
@@ -19685,7 +19695,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             design_to_physical_from_url: sourceUrl,
-            ai_prompt: (fluxResult && fluxResult.prompt) || buildDesignToPhysicalPrompt(body.prompt || body.user_prompt)
+            ai_prompt: (fluxResult && fluxResult.prompt) || buildDesignToPhysicalPrompt(userExtra)
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/:id/gallery-images/design-to-physical:', e);
