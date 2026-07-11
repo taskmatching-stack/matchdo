@@ -878,7 +878,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-local-reorder-20260712h';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-order-cat-url-20260712i';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1039,6 +1039,8 @@
         var editGalleryLocalAdds = [];
         /** 新預覽圖設為封面（儲存上傳後再生效） */
         var editGalleryLocalAsCoverId = null;
+        /** 產品圖顯示順序（url 或 local:id）；null＝預設已上傳在前、新圖在後 */
+        var editGalleryDisplayOrder = null;
 
         function mergeMaterialsAllRecord(prev, incoming) {
             if (!incoming) return prev;
@@ -1110,6 +1112,57 @@
             });
             editGalleryLocalAdds = [];
             editGalleryLocalAsCoverId = null;
+            if (editGalleryDisplayOrder && editGalleryDisplayOrder.length) {
+                editGalleryDisplayOrder = editGalleryDisplayOrder.filter(function (k) {
+                    return k && String(k).indexOf('local:') !== 0;
+                });
+                if (!editGalleryDisplayOrder.length) editGalleryDisplayOrder = null;
+            }
+        }
+
+        function editGalleryLocalKey(id) {
+            return 'local:' + String(id || '');
+        }
+
+        function buildDefaultEditGalleryOrderKeys(m) {
+            var keys = [];
+            if (editGalleryLocalAsCoverId) {
+                var hasCov = editGalleryLocalAdds.some(function (it) { return it.id === editGalleryLocalAsCoverId; });
+                if (hasCov) keys.push(editGalleryLocalKey(editGalleryLocalAsCoverId));
+            }
+            assetImageUrls(m).forEach(function (u) {
+                if (u) keys.push(u);
+            });
+            editGalleryLocalAdds.forEach(function (it) {
+                var k = editGalleryLocalKey(it.id);
+                if (keys.indexOf(k) < 0) keys.push(k);
+            });
+            return keys;
+        }
+
+        function normalizeEditGalleryDisplayOrder(m) {
+            var valid = {};
+            assetImageUrls(m).forEach(function (u) { if (u) valid[u] = true; });
+            editGalleryLocalAdds.forEach(function (it) { valid[editGalleryLocalKey(it.id)] = true; });
+            var base = (editGalleryDisplayOrder && editGalleryDisplayOrder.length)
+                ? editGalleryDisplayOrder.slice()
+                : buildDefaultEditGalleryOrderKeys(m);
+            var next = [];
+            base.forEach(function (k) {
+                if (k && valid[k] && next.indexOf(k) < 0) next.push(k);
+            });
+            Object.keys(valid).forEach(function (k) {
+                if (next.indexOf(k) < 0) next.push(k);
+            });
+            editGalleryDisplayOrder = next.length ? next : null;
+            return editGalleryDisplayOrder || [];
+        }
+
+        function findEditLocalById(id) {
+            for (var i = 0; i < editGalleryLocalAdds.length; i++) {
+                if (editGalleryLocalAdds[i].id === id) return editGalleryLocalAdds[i];
+            }
+            return null;
         }
 
         function refreshCurrentEditGallery() {
@@ -1145,6 +1198,9 @@
                     upscaleProbeDone: false,
                     upscaleNeeded: true
                 });
+                var newKey = editGalleryLocalKey(editGalleryLocalAdds[editGalleryLocalAdds.length - 1].id);
+                if (!editGalleryDisplayOrder) editGalleryDisplayOrder = buildDefaultEditGalleryOrderKeys(m);
+                if (editGalleryDisplayOrder.indexOf(newKey) < 0) editGalleryDisplayOrder.push(newKey);
                 added++;
             }
             refreshCurrentEditGallery();
@@ -1305,30 +1361,68 @@
                 showToast(pendingErr, 'danger');
                 return false;
             }
-            var wantCoverId = editGalleryLocalAsCoverId;
-            if (wantCoverId) {
-                var covItem = null;
-                var rest = [];
-                editGalleryLocalAdds.forEach(function (it) {
-                    if (it.id === wantCoverId) covItem = it;
-                    else rest.push(it);
-                });
-                if (covItem) editGalleryLocalAdds = [covItem].concat(rest);
-            }
             var id = document.getElementById('edit-id').value;
             var mBefore = materialsAll.find(function (x) { return x.id === id; });
+            var orderKeys = normalizeEditGalleryDisplayOrder(mBefore || {});
+            var seenLocal = {};
+            var localsOrdered = [];
+            orderKeys.forEach(function (k) {
+                if (String(k).indexOf('local:') !== 0) return;
+                var lid = String(k).slice(6);
+                if (seenLocal[lid]) return;
+                seenLocal[lid] = true;
+                var it = findEditLocalById(lid);
+                if (it) localsOrdered.push(it);
+            });
+            editGalleryLocalAdds.forEach(function (it) {
+                if (!seenLocal[it.id]) localsOrdered.push(it);
+            });
+            var entryCounts = localsOrdered.map(function (it) {
+                return Math.max(1, pendingUploadEntries(it).length);
+            });
+            editGalleryLocalAdds = localsOrdered;
+            var wantCoverFirst = !!(orderKeys[0] && String(orderKeys[0]).indexOf('local:') === 0);
             var urlsBefore = mBefore ? assetImageUrls(mBefore) : [];
             var ok = await uploadEditGalleryFiles(null, [], { skipConfirm: true, pendingItems: editGalleryLocalAdds.slice() });
             if (ok) {
+                await loadMaterials();
+                var refreshed = materialsAll.find(function (x) { return x.id === id; });
+                if (refreshed) afterEditGalleryMutation(id, refreshed);
+                var newUrls = assetImageUrls(refreshed || {}).filter(function (u) {
+                    return urlsBefore.indexOf(u) === -1;
+                });
+                var urlByLocalId = {};
+                var ni = 0;
+                localsOrdered.forEach(function (it, idx) {
+                    var n = entryCounts[idx] || 1;
+                    urlByLocalId[it.id] = newUrls.slice(ni, ni + n);
+                    ni += n;
+                });
+                var finalOrder = [];
+                orderKeys.forEach(function (k) {
+                    if (String(k).indexOf('local:') === 0) {
+                        var urls = urlByLocalId[String(k).slice(6)] || [];
+                        urls.forEach(function (u) {
+                            if (u && finalOrder.indexOf(u) < 0) finalOrder.push(u);
+                        });
+                    } else if (k && finalOrder.indexOf(k) < 0) {
+                        finalOrder.push(k);
+                    }
+                });
                 clearEditGalleryLocalAdds();
-                if (wantCoverId) {
-                    await loadMaterials();
-                    var refreshed = materialsAll.find(function (x) { return x.id === id; });
-                    if (refreshed) afterEditGalleryMutation(id, refreshed);
-                    var newUrls = assetImageUrls(refreshed || {}).filter(function (u) {
-                        return urlsBefore.indexOf(u) === -1;
+                editGalleryDisplayOrder = finalOrder.length ? finalOrder.slice() : null;
+                if (finalOrder.length > 1) {
+                    await persistGalleryOrderFromUrls(finalOrder, {
+                        skipReload: true,
+                        skipBusyLock: true,
+                        skipRenderOnSuccess: true,
+                        silent: true
                     });
-                    if (newUrls[0]) await setGalleryCover(newUrls[0]);
+                }
+                if (wantCoverFirst && finalOrder[0]) {
+                    await setGalleryCover(finalOrder[0]);
+                } else if (refreshed) {
+                    renderEditGallery(refreshed);
                 }
             }
             return !!ok;
@@ -3584,31 +3678,26 @@
                 return;
             }
             var cards = galleryCardsFromItems(items);
-            var canReorder = (items.length + locals.length) > 1;
-            var coverLocalId = editGalleryLocalAsCoverId;
-            var coverLocal = null;
-            var restLocals = locals.slice();
-            if (coverLocalId) {
-                for (var cli = 0; cli < restLocals.length; cli++) {
-                    if (restLocals[cli].id === coverLocalId) {
-                        coverLocal = restLocals[cli];
-                        restLocals.splice(cli, 1);
-                        break;
-                    }
-                }
-                if (!coverLocal) editGalleryLocalAsCoverId = null;
+            var orderKeys = normalizeEditGalleryDisplayOrder(m);
+            var canReorder = orderKeys.length > 1;
+            if (orderKeys.length && String(orderKeys[0]).indexOf('local:') === 0) {
+                editGalleryLocalAsCoverId = String(orderKeys[0]).slice(6);
+            } else {
+                editGalleryLocalAsCoverId = null;
             }
             var showLinkGroup = m && normalizeKind(m.asset_kind) === 'prototype';
             var showDesignerSelectable = vendorDesignerSelectableEnabledForKind(m);
-            var lightboxItemsJson = esc(JSON.stringify(
-                (coverLocal ? [{ url: coverLocal.objectUrl, label: coverLocal.label || labelFromFilename(coverLocal.file && coverLocal.file.name) }] : [])
-                .concat(items.map(function (x) {
-                    return { url: x.url, label: displayGalleryImageLabel(x) };
-                }))
-                .concat(restLocals.map(function (loc) {
-                    return { url: loc.objectUrl, label: loc.label || labelFromFilename(loc.file && loc.file.name) };
-                }))
-            )).replace(/"/g, '&quot;');
+            var lightboxItems = [];
+            orderKeys.forEach(function (key) {
+                if (String(key).indexOf('local:') === 0) {
+                    var loc = findEditLocalById(String(key).slice(6));
+                    if (loc) lightboxItems.push({ url: loc.objectUrl, label: loc.label || labelFromFilename(loc.file && loc.file.name) });
+                } else {
+                    var it0 = cards.find(function (c) { return c.url === key; });
+                    if (it0) lightboxItems.push({ url: it0.url, label: displayGalleryImageLabel(it0) });
+                }
+            });
+            var lightboxItemsJson = esc(JSON.stringify(lightboxItems)).replace(/"/g, '&quot;');
             var upscaleOn = vendorUpscaleEnabledForEditAsset();
             function buildEditLocalCardHtml(item, lidx, asCover) {
                 var hasPreview = pendingHasAiPreview(item);
@@ -3651,16 +3740,10 @@
                     '<button type="button" class="btn btn-outline-danger btn-sm edit-local-remove" data-local-id="' + esc(item.id) + '">移除</button></div>' +
                     '</div></div>';
             }
-            var html = '';
-            var localIdxCounter = 0;
-            if (coverLocal) {
-                html += buildEditLocalCardHtml(coverLocal, localIdxCounter++, true);
-            }
-            html += cards.map(function (it, idx) {
+            function buildEditSavedCardHtml(it, idx, isCover) {
                 var url = it.url;
                 var slot = getEditGallerySlot(url);
                 var hasPreview = slot && pendingHasAiPreview(slot);
-                var isCover = !coverLocal && !!(it.is_cover || idx === 0);
                 var isNew = editGalleryHighlightUrls.has(url);
                 var coverBadge = isCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var newBadge = (isNew && !hasPreview) ? '<span class="badge bg-success" style="font-size:0.65rem">新上傳</span>' : '';
@@ -3715,9 +3798,19 @@
                     selectableField +
                     actions +
                     '</div></div>';
-            }).join('');
-            restLocals.forEach(function (item) {
-                html += buildEditLocalCardHtml(item, localIdxCounter++, false);
+            }
+            var html = '';
+            var localIdxCounter = 0;
+            var cardByUrl = {};
+            cards.forEach(function (c) { cardByUrl[c.url] = c; });
+            orderKeys.forEach(function (key, ordIdx) {
+                var isCover = ordIdx === 0;
+                if (String(key).indexOf('local:') === 0) {
+                    var locItem = findEditLocalById(String(key).slice(6));
+                    if (locItem) html += buildEditLocalCardHtml(locItem, localIdxCounter++, isCover);
+                } else if (cardByUrl[key]) {
+                    html += buildEditSavedCardHtml(cardByUrl[key], ordIdx, isCover);
+                }
             });
             grid.innerHTML = html;
             var coverLabelIn = document.getElementById('edit-cover-label');
@@ -3834,6 +3927,13 @@
                     setCoverBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
                         editGalleryLocalAsCoverId = item.id;
+                        var k = editGalleryLocalKey(item.id);
+                        var order = (editGalleryDisplayOrder && editGalleryDisplayOrder.length)
+                            ? editGalleryDisplayOrder.filter(function (x) { return x !== k; })
+                            : buildDefaultEditGalleryOrderKeys(materialsAll.find(function (x) { return x.id === document.getElementById('edit-id').value; }) || {});
+                        order = order.filter(function (x) { return x !== k; });
+                        order.unshift(k);
+                        editGalleryDisplayOrder = order;
                         var moved = [item].concat(editGalleryLocalAdds.filter(function (x) { return x.id !== item.id; }));
                         editGalleryLocalAdds = moved;
                         refreshCurrentEditGallery();
@@ -3908,10 +4008,15 @@
                             editGalleryLocalAdds.splice(i, 1);
                         }
                         if (editGalleryLocalAsCoverId === item.id) editGalleryLocalAsCoverId = null;
+                        var rk = editGalleryLocalKey(item.id);
+                        if (editGalleryDisplayOrder) {
+                            editGalleryDisplayOrder = editGalleryDisplayOrder.filter(function (x) { return x !== rk; });
+                            if (!editGalleryDisplayOrder.length) editGalleryDisplayOrder = null;
+                        }
                         var mid = document.getElementById('edit-id').value;
                         var cur = materialsAll.find(function (x) { return x.id === mid; });
                         if (cur) renderEditGallery(cur);
-                        setEditGalleryStatus(editGalleryLocalAdds.length ? ('尚有 ' + editGalleryLocalAdds.length + ' 張待儲存預覽') : '', editGalleryLocalAdds.length ? 'info' : null);
+                        setEditGalleryStatus(editGalleryLocalAdds.length ? ('尚有 ' + editGalleryLocalAdds.length + ' 張預覽，按「儲存」寫入') : '', editGalleryLocalAdds.length ? 'info' : null);
                     });
                 }
             });
@@ -4187,23 +4292,33 @@
         }
 
         function syncEditGalleryLocalOrderFromGrid(grid) {
-            if (!grid || !editGalleryLocalAdds.length) return;
+            if (!grid) return;
+            var keys = [];
+            grid.querySelectorAll('.edit-gallery-col').forEach(function (col) {
+                var k = editGalleryColKey(col);
+                if (k) keys.push(k);
+            });
+            if (keys.length) editGalleryDisplayOrder = keys;
+            if (!editGalleryLocalAdds.length) {
+                editGalleryLocalAsCoverId = null;
+                return;
+            }
             var byId = {};
             editGalleryLocalAdds.forEach(function (it) { byId[it.id] = it; });
             var next = [];
-            grid.querySelectorAll('.edit-gallery-col[data-local-id]').forEach(function (col) {
-                var id = col.getAttribute('data-local-id');
-                if (id && byId[id]) {
+            keys.forEach(function (k) {
+                if (String(k).indexOf('local:') !== 0) return;
+                var id = String(k).slice(6);
+                if (byId[id]) {
                     next.push(byId[id]);
                     delete byId[id];
                 }
             });
             Object.keys(byId).forEach(function (id) { next.push(byId[id]); });
             editGalleryLocalAdds = next;
-            var first = grid.querySelector('.edit-gallery-col');
-            if (first && first.getAttribute('data-local-id')) {
-                editGalleryLocalAsCoverId = first.getAttribute('data-local-id');
-            } else if (editGalleryLocalAsCoverId) {
+            if (keys[0] && String(keys[0]).indexOf('local:') === 0) {
+                editGalleryLocalAsCoverId = String(keys[0]).slice(6);
+            } else {
                 editGalleryLocalAsCoverId = null;
             }
         }
@@ -4220,12 +4335,10 @@
             if (next.length && prev.join('\0') !== next.join('\0')) {
                 var mIdx = materialsAll.findIndex(function (x) { return x.id === id; });
                 if (mIdx >= 0) materialsAll[mIdx] = reorderLocalAssetByUrls(materialsAll[mIdx], next);
-                if (prev[0] !== next[0]) renderEditGallery(materialsAll[mIdx]);
-                else if (opts.notify) renderEditGallery(materialsAll[mIdx] || m);
                 schedulePersistGalleryOrder(next, { notify: !!(opts && opts.notify) });
-            } else if (opts.notify) {
-                renderEditGallery(m);
             }
+            // 一律依 display order 重繪，保留新圖夾在已上傳圖中間的位置
+            renderEditGallery(materialsAll.find(function (x) { return x.id === id; }) || m);
         }
 
         function collectEditGalleryOrderFromGrid(grid) {
@@ -4237,6 +4350,9 @@
 
         function bindEditGalleryReorder(grid) {
             if (!grid) return;
+            grid.querySelectorAll('.edit-gallery-col img').forEach(function (img) {
+                img.setAttribute('draggable', 'false');
+            });
             grid.querySelectorAll('.edit-gallery-col').forEach(function (col) {
                 col.addEventListener('mousedown', function (e) {
                     col._dragFromHandle = !!(e.target && e.target.closest && e.target.closest('.edit-gallery-drag'));
@@ -4359,6 +4475,9 @@
             var id = document.getElementById('edit-id').value;
             if (!id || !url) return;
             editGalleryLocalAsCoverId = null;
+            if (editGalleryDisplayOrder && editGalleryDisplayOrder.length) {
+                editGalleryDisplayOrder = [url].concat(editGalleryDisplayOrder.filter(function (k) { return k !== url; }));
+            }
             if (editGalleryUploading) {
                 setEditGalleryStatus('上一批仍在處理中，請稍候', 'warning');
                 return;
@@ -6912,6 +7031,7 @@
             }
             clearEditGallerySlotPreviews();
             clearEditGalleryLocalAdds();
+            editGalleryDisplayOrder = null;
             if (isGalleryLike) {
                 renderEditGallery(m);
             }

@@ -3605,7 +3605,7 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '#bs-go-set-category', function () {
-        if (window.matchMedia('(max-width: 768px)').matches && typeof window.matchdoOpenCategorySheet === 'function') {
+        if (typeof window.matchdoOpenCategorySheet === 'function') {
             window.matchdoOpenCategorySheet();
             return;
         }
@@ -3613,8 +3613,27 @@ $(document).ready(function () {
         showBootstrapTab(tabEl);
     });
 
+    function syncCategoryKeysToUrl() {
+        try {
+            var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+            var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+            var base = window.location.pathname || '/custom-product.html';
+            var params = new URLSearchParams(window.location.search);
+            if (mainKey) params.set('category_key', mainKey);
+            else params.delete('category_key');
+            if (subKey) params.set('subcategory_key', subKey);
+            else params.delete('subcategory_key');
+            var q = params.toString();
+            var url = q ? base + '?' + q : base;
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState(window.history.state || {}, '', url);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
     document.addEventListener('matchdo:categoryChanged', function () {
         syncCategoriesDataFromPicker();
+        syncCategoryKeysToUrl();
         vendorStylesTabOffset = 0;
         updateVendorStylesCategorySummary();
         if (isVendorStylesTabActive()) {
@@ -4990,6 +5009,12 @@ $(document).ready(function () {
         var params = new URLSearchParams(window.location.search);
         if (tabParam === 'product-design') params.delete('tab');
         else params.set('tab', tabParam);
+        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
+        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
+        if (mainKey) params.set('category_key', mainKey);
+        else params.delete('category_key');
+        if (subKey) params.set('subcategory_key', subKey);
+        else params.delete('subcategory_key');
         var q = params.toString();
         var url = q ? base + '?' + q : base;
         if (window.history && window.history.replaceState) {
