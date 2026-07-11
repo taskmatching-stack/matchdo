@@ -883,7 +883,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'photorealize-title-20260711d';
+        window.__MATCHDO_MATERIALS_BUILD = 'photorealize-playground-align-20260711e';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2707,7 +2707,6 @@
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', kind);
-                appendAddFormOptimizeProductNameToFormData(fd, form);
                 var r = await fetch('/api/me/vendor-assets/preview-design-to-physical', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -3261,7 +3260,6 @@
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', m.asset_kind);
-                appendEditGalleryOptimizeProductNameToFormData(fd);
                 var r = await fetch('/api/me/vendor-assets/preview-design-to-physical', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -3779,14 +3777,6 @@
                 }
                 var urlsBefore = assetImageUrls(m);
                 var d2pBody = { source_url: sourceUrl };
-                var d2pProductName = getEditGalleryOptimizeProductName();
-                if (d2pProductName) {
-                    d2pBody.optimize_product_name = d2pProductName;
-                } else {
-                    var d2pTitleEl = document.getElementById('edit-title');
-                    var d2pTitleVal = d2pTitleEl && d2pTitleEl.value ? String(d2pTitleEl.value).trim() : '';
-                    if (d2pTitleVal) d2pBody.title = d2pTitleVal;
-                }
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/design-to-physical', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
