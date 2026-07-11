@@ -149,6 +149,11 @@
 
     function close() {
         if (!root) return;
+        // 關閉鈕若仍有焦點，不可立刻 aria-hidden（Chrome：Blocked aria-hidden on focused descendant）
+        var active = document.activeElement;
+        if (active && root.contains(active) && typeof active.blur === 'function') {
+            active.blur();
+        }
         root.classList.remove('is-open');
         root.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = prevOverflow || '';

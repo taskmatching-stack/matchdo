@@ -786,6 +786,8 @@ function buildVendorAssetImageItems(row) {
     }
     parseGalleryImages(row.gallery_images).forEach(function (g, idx) {
         if (!g.url) return;
+        // 與 getVendorAssetAllImageUrls 一致：已出現的 URL（含封面）勿重複計入，否則拖曳排序會誤判
+        if (items.some(function (it) { return it.url === g.url; })) return;
         const item = {
             url: g.url,
             sort_order: g.sort_order != null ? g.sort_order : idx + 1,
@@ -823,6 +825,7 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
         if (!urlSet.has(reordered[i])) return null;
     }
     if (new Set(reordered).size !== reordered.length) return null;
+    if (urlSet.size !== urls.length) return null;
     const metaByUrl = {};
     items.forEach(function (it) {
         metaByUrl[it.url] = {

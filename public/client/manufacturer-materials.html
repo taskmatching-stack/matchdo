@@ -883,7 +883,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-d2p-preview-same-as-redraw-20260712a';
+        window.__MATCHDO_MATERIALS_BUILD = 'fix-gallery-reorder-dedupe-20260712b';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -2903,17 +2903,25 @@
             var next = Object.assign({}, m);
             next.image_items = reordered;
             next.image_url = reordered[0] ? reordered[0].url : m.image_url;
-            if (Array.isArray(m.gallery_images)) {
-                next.gallery_images = reordered.map(function (it, idx) {
-                    var prev = (m.gallery_images || []).find(function (g) {
-                        var u = typeof g === 'string' ? g : (g && g.url);
-                        return u === it.url;
-                    });
-                    if (typeof prev === 'string') return prev;
-                    if (prev && typeof prev === 'object') return Object.assign({}, prev, { sort_order: idx, is_cover: idx === 0 });
-                    return { url: it.url, label: it.label || '', sort_order: idx, is_cover: idx === 0 };
+            if (reordered[0] && reordered[0].label != null) next.cover_image_label = reordered[0].label || '';
+            if (reordered[0] && reordered[0].link_group != null) next.cover_link_group = reordered[0].link_group || '';
+            // 封面在 image_url；gallery_images 只含其餘張（與後端 reorder 一致）
+            next.gallery_images = reordered.slice(1).map(function (it, idx) {
+                var prev = (m.gallery_images || []).find(function (g) {
+                    var u = typeof g === 'string' ? g : (g && g.url);
+                    return u === it.url;
                 });
-            }
+                if (typeof prev === 'string') return { url: prev, sort_order: idx + 1, label: it.label || '' };
+                if (prev && typeof prev === 'object') {
+                    return Object.assign({}, prev, {
+                        url: it.url,
+                        sort_order: idx + 1,
+                        label: it.label != null ? it.label : (prev.label || '')
+                    });
+                }
+                return { url: it.url, label: it.label || '', sort_order: idx + 1 };
+            });
+            next.image_count = reordered.length;
             return next;
         }
 
