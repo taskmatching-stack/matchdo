@@ -80,7 +80,7 @@ const visualSemantics = require('./lib/visual-semantics');
 const customProductLineage = require('./lib/custom-product-lineage');
 const designerRegionFromIp = require('./lib/designer-region-from-ip');
 const adminMigrations = require('./lib/admin-migrations');
-const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage } = require('./lib/resize-upload-image');
+const { normalizeVendorUploadFile, normalizeImageDataUrl, normalizeReferenceImagesForFlux, prepareVendorMaterialFluxImage, prepareDesignToPhysicalFluxImage } = require('./lib/resize-upload-image');
 const {
     stabilityFastUpscale,
     vendorMaterialUpscale,
@@ -2802,25 +2802,26 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     return `保持顏色並優化此${t}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}材質色卡質感。`;
 }
 
-/** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 將產品圖稿／示意圖寫實化 */
+/** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 固定保真底稿；使用者補充自行輸入 */
 const DESIGN_TO_PHYSICAL_PROMPT =
     '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致';
 const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20;
 const DESIGN_TO_PHYSICAL_SEED = 3647440197;
 
-/** 固定保真底稿；可選使用者補充（中文直送 FLUX） */
+/** 固定保真底稿；可選使用者補充（中文直送 FLUX）。若補充已含底稿全文則不再重複拼接。 */
 function buildDesignToPhysicalPrompt(userExtra) {
     const base = DESIGN_TO_PHYSICAL_PROMPT;
     const extra = String(userExtra || '').trim().replace(/\s+/g, ' ').slice(0, 500);
-    return extra ? (base + '。' + extra) : base;
+    if (!extra) return base;
+    if (extra.indexOf(base) === 0) return extra;
+    return base + '。' + extra;
 }
 
-/** 寫實化補充：明確 prompt → 產品名稱／標題（與重繪同一優先序） */
+/** 寫實化補充：只用使用者明確輸入（對齊 Playground 行為；不自動帶產品名） */
 function resolveDesignToPhysicalUserExtra(body, fallbackTitle) {
     const b = body && typeof body === 'object' ? body : {};
     const explicit = String(b.prompt || b.user_prompt || '').trim();
-    if (explicit) return explicit;
-    return resolveOptimizeProductNameForPrompt(b, fallbackTitle);
+    return explicit;
 }
 
 async function getPointsDesignToPhysical() {
@@ -2830,21 +2831,42 @@ async function getPointsDesignToPhysical() {
     return Number.isFinite(n) && n >= 0 ? n : DESIGN_TO_PHYSICAL_POINTS_DEFAULT;
 }
 
+/** 寫實化固定走官網同款 preview 端點（勿併入 bfl_flux_model_vendor_product，以免改到產品重繪） */
+const DESIGN_TO_PHYSICAL_BFL_MODEL = 'flux-2-pro';
+
 /**
  * 寫實化：FLUX img2img。
- * 與 optimizeVendorAssetImageWithFlux 分線；模型暫用 bfl_flux_model_vendor_product。
+ * 與 optimizeVendorAssetImageWithFlux 分線。
+ * 對齊 BFL 官網 playground：原圖直送（僅 AVIF/HEIC 轉 JPEG），不做任何尺寸處理。
  */
 async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
-    const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
+    const mime = String(mimeType || 'image/jpeg').toLowerCase().split(';')[0].trim();
+    let finalBuffer = fileBuffer;
+    let finalMime = mime;
+    // 只做格式轉換（AVIF/HEIC → JPEG），不做任何尺寸處理
+    if (mime === 'image/avif' || mime === 'image/heif' || mime === 'image/heic') {
+        try {
+            const sharp = require('sharp');
+            const converted = await sharp(fileBuffer, { failOn: 'none' })
+                .rotate()
+                .jpeg({ quality: 95, mozjpeg: true })
+                .toBuffer();
+            finalBuffer = converted;
+            finalMime = 'image/jpeg';
+        } catch (convErr) {
+            console.warn('runDesignToPhysicalFlux AVIF/HEIC 轉換失敗，用原圖:', convErr.message);
+        }
+    }
     const prompt = buildDesignToPhysicalPrompt(userExtra);
     const fluxOpts = {
-        endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_product'),
+        endpointUrl: getBflPlaygroundEndpoint(DESIGN_TO_PHYSICAL_BFL_MODEL),
         width: 1024,
         height: 1024,
-        skipPromptTranslation: true
+        skipPromptTranslation: true,
+        safetyTolerance: 2
     };
-    const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
+    const dataUrl = `data:${finalMime};base64,${finalBuffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], DESIGN_TO_PHYSICAL_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('寫實化服務未設定或暫時無法使用（BFL_API_KEY）');
     return { buffer: buf, prompt };
@@ -8679,6 +8701,7 @@ const BFL_FLUX_PRO = BFL_BASE + '/v1/flux-2-pro';
 const BFL_PLAYGROUND_MODELS = {
     'flux-2-max': '/v1/flux-2-max',
     'flux-2-pro': '/v1/flux-2-pro',
+    'flux-2-pro-preview': '/v1/flux-2-pro-preview',
     'flux-2-flex': '/v1/flux-2-flex',
     'flux-2-klein-9b': '/v1/flux-2-klein-9b',
     'flux-2-klein-4b': '/v1/flux-2-klein-4b'
@@ -8815,6 +8838,9 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     });
     const body = { prompt, output_format: fmt, width: outW, height: outH };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
+    if (opts.safetyTolerance != null && Number.isFinite(Number(opts.safetyTolerance))) {
+        body.safety_tolerance = Math.max(0, Math.min(6, Math.round(Number(opts.safetyTolerance))));
+    }
     body.input_image = images[0];
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
     const createRes = await fetch(endpoint, {
@@ -9097,6 +9123,48 @@ async function resolveImageToBase64(img) {
     return null;
 }
 
+/** 寫實化專用：保留原圖像素／MIME（僅 AVIF／HEIC 轉 JPEG），避免縮圖重壓導致同 seed 與 BFL 官網差很大 */
+async function resolveImageRawForDesignToPhysical(img) {
+    if (!img || typeof img !== 'string') return null;
+    const s = img.trim();
+    if (s.startsWith('data:image/')) {
+        const normalized = await normalizeImageDataUrl(s);
+        const m = String(normalized || '').match(/^data:(image\/[^;]+);base64,(.+)$/i);
+        if (!m) return null;
+        try {
+            const buffer = Buffer.from(m[2], 'base64');
+            if (!buffer.length) return null;
+            return { buffer, mime: m[1].toLowerCase() };
+        } catch (_) {
+            return null;
+        }
+    }
+    if (s.startsWith('http://') || s.startsWith('https://')) {
+        try {
+            const resp = await fetch(s, { headers: { 'Accept': 'image/*' } });
+            if (!resp.ok) return null;
+            const buffer = Buffer.from(await resp.arrayBuffer());
+            if (!buffer.length) return null;
+            let mime = ((resp.headers.get('content-type') || 'image/jpeg').split(';')[0] || 'image/jpeg').trim().toLowerCase();
+            if (mime === 'image/avif' || mime === 'image/heif' || mime === 'image/heic') {
+                const normalized = await normalizeVendorUploadFile({
+                    buffer,
+                    mimetype: mime,
+                    originalname: 'image.jpg'
+                });
+                if (normalized && normalized.buffer && normalized.buffer.length) {
+                    return { buffer: normalized.buffer, mime: normalized.mimetype || 'image/jpeg' };
+                }
+            }
+            return { buffer, mime: mime.startsWith('image/') ? mime : 'image/jpeg' };
+        } catch (e) {
+            console.warn('resolveImageRawForDesignToPhysical fetch:', e.message);
+            return null;
+        }
+    }
+    return null;
+}
+
 /** 實境模擬：環境圖 + 產品圖 + 提示詞，送 BFL Flux 2 Pro 圖生圖，回傳 PNG buffer */
 async function generateSceneSimulateImage(environmentImageBase64, productImageBase64, userPrompt, seed) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
@@ -9360,15 +9428,14 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
                 return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
             }
         }
-        const imageBase64 = await resolveImageToBase64(image);
-        if (!imageBase64) {
+        const resolved = await resolveImageRawForDesignToPhysical(image);
+        if (!resolved || !resolved.buffer) {
             return res.status(400).json({ success: false, error: '圖片無法讀取，請重新上傳' });
         }
         if (!process.env.BFL_API_KEY) {
             return res.status(503).json({ success: false, error: '寫實化服務暫未設定，請稍後再試' });
         }
-        const rawBuf = Buffer.from(imageBase64, 'base64');
-        const fluxResult = await runDesignToPhysicalFlux(rawBuf, 'image/jpeg', userPrompt);
+        const fluxResult = await runDesignToPhysicalFlux(resolved.buffer, resolved.mime || 'image/jpeg', userPrompt);
         if (!fluxResult || !fluxResult.buffer) {
             return res.status(500).json({ success: false, error: '轉換失敗，請稍後再試' });
         }
@@ -19513,8 +19580,8 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
         const seedUser = await getRequestUserFromAuthHeader(req);
         if (!seedUser) return res.status(401).json({ error: '請先登入' });
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
-        const file = await vendorAssetFileFromMulter(req.file);
-        if (!file) return res.status(400).json({ error: '請上傳圖片' });
+        const file = req.file;
+        if (!file || !file.buffer || !file.buffer.length) return res.status(400).json({ error: '請上傳圖片' });
         const body = req.body || {};
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
         if (assetKind !== 'prototype' && assetKind !== 'part') {
@@ -19534,6 +19601,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
         const userExtra = resolveDesignToPhysicalUserExtra(body, null);
         let fluxResult;
         try {
+            // 寫實化直送原圖（勿 vendorAssetFileFromMulter 縮圖重壓）
             fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', userExtra);
         } catch (optErr) {
             console.error('preview-design-to-physical:', optErr);
@@ -19628,24 +19696,20 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
         const resImg = await fetch(sourceUrl, { redirect: 'follow' });
         if (!resImg.ok) return res.status(503).json({ error: '無法讀取來源圖片' });
         const imgBuf = Buffer.from(await resImg.arrayBuffer());
-        const imgMime = (resImg.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
-        let file = await normalizeVendorUploadFile({
-            buffer: imgBuf,
-            mimetype: imgMime,
-            originalname: 'design-to-physical-source.jpg'
-        });
-        if (!file) return res.status(400).json({ error: '無法讀取圖片，請改用 JPG／PNG／WebP' });
+        if (!imgBuf.length) return res.status(400).json({ error: '無法讀取圖片，請改用 JPG／PNG／WebP' });
+        const imgMime = (resImg.headers.get('content-type') || 'image/jpeg').split(';')[0].trim() || 'image/jpeg';
         const userExtra = resolveDesignToPhysicalUserExtra(body, row.title);
         let fluxResult;
         try {
-            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', userExtra);
+            // 寫實化直送原圖（勿 normalizeVendorUploadFile 縮圖重壓）
+            fluxResult = await runDesignToPhysicalFlux(imgBuf, imgMime, userExtra);
         } catch (optErr) {
             console.error('gallery-images/design-to-physical:', optErr);
             return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
         }
         const outBuf = fluxResult && fluxResult.buffer;
         if (!outBuf) return res.status(503).json({ error: '寫實化失敗，請稍後重試' });
-        file = {
+        let file = {
             buffer: outBuf,
             mimetype: 'image/jpeg',
             originalname: 'design-to-physical.jpg'

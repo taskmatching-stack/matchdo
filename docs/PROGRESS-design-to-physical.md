@@ -29,7 +29,7 @@ Prompt（鎖定）：`將圖樣轉為實體寫實產品，圖樣、結構和顏�
 
 | 項目 | 位置 |
 |------|------|
-| Prompt／SEED | `DESIGN_TO_PHYSICAL_PROMPT`、`DESIGN_TO_PHYSICAL_SEED` |
+| Prompt／SEED | 固定保真底稿 + 使用者自訂補充；SEED `3647440197`；端點 **`/v1/flux-2-pro-preview`**（與 BFL 官網同款，不走 `flux-2-pro`）；小圖 Lanczos 放大；`safety_tolerance=2` |
 | 執行 | `runDesignToPhysicalFlux` |
 | 設計區 API | `POST /api/design-to-physical` |
 | 廠商預覽 | `POST /api/me/vendor-assets/preview-design-to-physical` |
