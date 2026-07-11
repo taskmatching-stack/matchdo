@@ -178,8 +178,11 @@ $(document).ready(function () {
         if (typeof CustomProductCatPicker === 'undefined') return Promise.resolve(null);
         if (catPickerReadyPromise) return catPickerReadyPromise;
         var pendingProto = urlParams && (urlParams.get('prototype_asset_id') || '').trim();
+        var urlCatKey = urlParams && (urlParams.get('category_key') || '').trim();
+        // 有 prototype_asset_id 時過去會 skip URL 分類 → 永遠落到第一個主分類。
+        // URL 已帶 category_key（廠商版型「用此款進行設計」）必須預填。
         catPickerReadyPromise = CustomProductCatPicker.init({
-            skipUrlCategoryPrefill: !!pendingProto
+            skipUrlCategoryPrefill: !!pendingProto && !urlCatKey
         }).then(function (vals) {
             syncCategoriesDataFromPicker();
             if (typeof updateVendorStylesCategorySummary === 'function') updateVendorStylesCategorySummary();
@@ -721,6 +724,10 @@ $(document).ready(function () {
         return true;
     }
 
+    function isDesignerSelectableImageItem(it) {
+        return !!(it && it.url) && it.designer_selectable !== false;
+    }
+
     function filterPrototypeVendorImageItems(imageItems) {
         var existing = {};
         (refSlots.prototype.items || []).forEach(function (it) {
@@ -729,7 +736,7 @@ $(document).ready(function () {
         });
         return (imageItems || []).filter(function (it) {
             var u = (it.url || '').trim();
-            return u && !existing[u];
+            return u && !existing[u] && isDesignerSelectableImageItem(it);
         });
     }
 
@@ -1520,10 +1527,12 @@ $(document).ready(function () {
     function prototypeImageItemsFromNode(p) {
         if (!p) return [];
         if (p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
-            return p.image_items.filter(function (it) { return it && it.url; });
+            return p.image_items.filter(function (it) {
+                return it && it.url && it.designer_selectable !== false;
+            });
         }
         var u = (p.image_url || '').trim();
-        return u ? [{ url: u, label: '', sort_order: 0, is_cover: true }] : [];
+        return u ? [{ url: u, label: '', sort_order: 0, is_cover: true, designer_selectable: true }] : [];
     }
 
     function applyPrototypeRefsFromLinkTreeNode(p) {
@@ -1659,7 +1668,6 @@ $(document).ready(function () {
         var pid = (urlParams.get('prototype_asset_id') || '').trim();
         var hasGuideSession = peekGuideSessionPending();
         if (!pid && !hasGuideSession) return;
-        if (pid && getPrototypeLockVendorAssetId() === pid && !hasGuideSession) return;
 
         function applyCategoryFromUrlParamsOnly() {
             var mainCat = (urlParams.get('category_key') || '').trim();
@@ -1668,10 +1676,21 @@ $(document).ready(function () {
             return syncCategorySelectionFromKeys(mainCat, subCat);
         }
 
+        // 已帶入同一原型時仍須同步分類（否則卡在 init 時的第一個主分類）
+        if (pid && getPrototypeLockVendorAssetId() === pid && !hasGuideSession) {
+            ensureCatPickerReady()
+                .then(applyCategoryFromUrlParamsOnly)
+                .then(function () {
+                    if (typeof updateVendorStylesCategorySummary === 'function') updateVendorStylesCategorySummary();
+                })
+                .then(scheduleStripDesignDeepLinkFromUrl);
+            return;
+        }
+
         function applyTreePayload(treeData) {
             var p = treeData.prototype;
-            var mainCat = (p.category_key || '').trim();
-            var subCat = (p.subcategory_key || '').trim();
+            var mainCat = (p.category_key || (urlParams.get('category_key') || '')).trim();
+            var subCat = (p.subcategory_key || (urlParams.get('subcategory_key') || '')).trim();
             var session = consumeGuideSessionFromStorage();
             return ensureCatPickerReady().then(function () {
                 return syncCategoryFromPrototypeAsset(p.id, mainCat, subCat).then(function () {
@@ -1707,7 +1726,9 @@ $(document).ready(function () {
                 return applyTreePayload(res.data);
             })
             .catch(function () {
-                ensureCatPickerReady().then(scheduleStripDesignDeepLinkFromUrl);
+                ensureCatPickerReady()
+                    .then(applyCategoryFromUrlParamsOnly)
+                    .then(scheduleStripDesignDeepLinkFromUrl);
             });
     }
 
@@ -2776,7 +2797,7 @@ $(document).ready(function () {
             }
             imageItems = filterPrototypeVendorImageItems(imageItems);
             if (!imageItems.length) {
-                alert(tr('customProduct.prototypeAnglesAlreadyAdded', '此原型的角度圖已全部加入。'));
+                alert(tr('customProduct.prototypeNoSelectableAngles', '此原型沒有可引用的角度圖（皆設為僅展示，或已全部加入）。'));
                 return;
             }
         }

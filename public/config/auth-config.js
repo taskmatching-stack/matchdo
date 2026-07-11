@@ -45,13 +45,12 @@ function getSessionFromStorage() {
 }
 window.getSessionFromStorage = getSessionFromStorage;
 
-/** Session 是否仍有效（預設提前 90 秒視為需刷新，避免送出 AI 時剛好過期） */
+/** Session 是否仍有效（預設提前 120 秒視為需刷新，避免長編輯／AI 送出時剛好過期） */
 function isAuthSessionFresh(session, skewSeconds) {
     if (!session || !session.access_token) return false;
-    var skew = (skewSeconds != null && Number.isFinite(Number(skewSeconds))) ? Number(skewSeconds) : 90;
+    var skew = (skewSeconds != null && Number.isFinite(Number(skewSeconds))) ? Number(skewSeconds) : 120;
     var exp = session.expires_at;
     if (exp == null && session.expires_in != null && session.expires_in > 0) {
-        // 無絕對時間時保守視為可用，交由後續 refresh 處理
         return true;
     }
     if (exp == null) return true;
@@ -63,7 +62,7 @@ window.isAuthSessionFresh = isAuthSessionFresh;
 
 async function fetchSupabaseSession(timeoutMs) {
     if (!supabaseClient || !supabaseClient.auth) return null;
-    var ms = timeoutMs != null ? timeoutMs : 2500;
+    var ms = timeoutMs != null ? timeoutMs : 4000;
     try {
         var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, ms); });
         var out = await Promise.race([supabaseClient.auth.getSession(), timeout]);
@@ -72,15 +71,53 @@ async function fetchSupabaseSession(timeoutMs) {
     return null;
 }
 
+/** 並行 refresh 共用同一 Promise，避免多請求同時 refresh 互踩 refresh_token */
+var __authRefreshInFlight = null;
 async function refreshSupabaseSession(timeoutMs) {
     if (!supabaseClient || !supabaseClient.auth || typeof supabaseClient.auth.refreshSession !== 'function') return null;
-    var ms = timeoutMs != null ? timeoutMs : 5000;
+    if (__authRefreshInFlight) {
+        try { return await __authRefreshInFlight; } catch (e) { return null; }
+    }
+    var ms = timeoutMs != null ? timeoutMs : 15000;
+    __authRefreshInFlight = (async function () {
+        try {
+            var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, ms); });
+            var out = await Promise.race([supabaseClient.auth.refreshSession(), timeout]);
+            if (out && out.data && out.data.session) return out.data.session;
+        } catch (e) { /* ignore */ }
+        return null;
+    })();
     try {
-        var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, ms); });
-        var out = await Promise.race([supabaseClient.auth.refreshSession(), timeout]);
-        if (out && out.data && out.data.session) return out.data.session;
-    } catch (e) { /* ignore */ }
-    return null;
+        return await __authRefreshInFlight;
+    } finally {
+        __authRefreshInFlight = null;
+    }
+}
+
+/** 分頁開啟時背景續期：勿等按儲存才發現過期 */
+var __authKeepAliveTimer = null;
+function ensureAuthSessionKeepAlive() {
+    if (typeof document === 'undefined' || __authKeepAliveTimer) return;
+    async function tick() {
+        try {
+            if (document.visibilityState === 'hidden') return;
+            var s = await fetchSupabaseSession(4000);
+            if (s && isAuthSessionFresh(s, 600)) return; // 還有 >10 分鐘則不動
+            await refreshSupabaseSession(15000);
+        } catch (e) { /* ignore */ }
+    }
+    __authKeepAliveTimer = setInterval(tick, 12 * 60 * 1000);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') tick();
+    });
+    setTimeout(tick, 8000);
+}
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ensureAuthSessionKeepAlive);
+    } else {
+        ensureAuthSessionKeepAlive();
+    }
 }
 
 /**
@@ -216,34 +253,37 @@ const AuthService = {
      */
     async getSession() {
         var fromStorage = getSessionFromStorage();
-        if (fromStorage && isAuthSessionFresh(fromStorage, 90)) return fromStorage;
-        var fromSdk = await fetchSupabaseSession(fromStorage ? 2500 : 1200);
-        if (fromSdk && isAuthSessionFresh(fromSdk, 90)) return fromSdk;
-        if (fromStorage && !isAuthSessionFresh(fromStorage, 90)) {
-            var refreshed = await refreshSupabaseSession(5000);
+        if (fromStorage && isAuthSessionFresh(fromStorage, 120)) return fromStorage;
+        var fromSdk = await fetchSupabaseSession(fromStorage ? 4000 : 2000);
+        if (fromSdk && isAuthSessionFresh(fromSdk, 120)) return fromSdk;
+        if ((fromStorage && !isAuthSessionFresh(fromStorage, 120)) || (fromSdk && !isAuthSessionFresh(fromSdk, 120))) {
+            var refreshed = await refreshSupabaseSession(15000);
             if (refreshed) return refreshed;
         }
-        if (fromSdk) return fromSdk;
-        // 最後才回傳 storage（可能已過期）；呼叫端打 API 請改用 getSessionForApi
-        return fromStorage || null;
+        if (fromSdk && isAuthSessionFresh(fromSdk, 0)) return fromSdk;
+        if (fromStorage && isAuthSessionFresh(fromStorage, 0)) return fromStorage;
+        return fromSdk || fromStorage || null;
     },
 
     /**
-     * 取得 Session 供打 API／AI 用：優先刷新有效 token，避免「送出後才說登入過期」。
+     * 取得 Session 供打 API／AI 用：優先刷新有效 token。
+     * 绝不回傳「已知已過期」的 token（避免編輯中途才出現「登入已過期或無效」）。
      */
     async getSessionForApi() {
-        var fromSdk = await fetchSupabaseSession(3000);
-        if (fromSdk && isAuthSessionFresh(fromSdk, 120)) return fromSdk;
-        var refreshed = await refreshSupabaseSession(8000);
-        if (refreshed) return refreshed;
-        if (fromSdk) return fromSdk;
+        var fromSdk = await fetchSupabaseSession(4000);
+        if (fromSdk && isAuthSessionFresh(fromSdk, 180)) return fromSdk;
+        var refreshed = await refreshSupabaseSession(15000);
+        if (refreshed && isAuthSessionFresh(refreshed, 0)) return refreshed;
+        if (fromSdk && isAuthSessionFresh(fromSdk, 0)) return fromSdk;
         var fromStorage = getSessionFromStorage();
-        if (fromStorage && isAuthSessionFresh(fromStorage, 30)) return fromStorage;
-        if (fromStorage && !isAuthSessionFresh(fromStorage, 30)) {
-            refreshed = await refreshSupabaseSession(8000);
-            if (refreshed) return refreshed;
+        if (fromStorage && isAuthSessionFresh(fromStorage, 60)) return fromStorage;
+        if (fromStorage && !isAuthSessionFresh(fromStorage, 0)) {
+            refreshed = await refreshSupabaseSession(15000);
+            if (refreshed && isAuthSessionFresh(refreshed, 0)) return refreshed;
+            return null;
         }
-        return fromStorage || null;
+        if (fromStorage && isAuthSessionFresh(fromStorage, 0)) return fromStorage;
+        return null;
     },
 
     /**

@@ -37,9 +37,10 @@
         } catch (e) { /* ignore */ }
     }
 
-    function updateSubList(mainKeyFromClick) {
+    function updateSubList(mainKeyFromClick, preferredSubKey) {
         if (!subListEl || !subHiddenEl) return;
         var mainKey = mainKeyFromClick != null ? mainKeyFromClick : (mainHiddenEl ? mainHiddenEl.value : '');
+        var preferSub = (preferredSubKey != null ? String(preferredSubKey) : '').trim();
         subListEl.classList.remove('empty');
         subListEl.innerHTML = '';
         subHiddenEl.value = '';
@@ -75,32 +76,28 @@
             });
             subListEl.appendChild(opt);
         });
-        var first = subListEl.querySelector('.cat-option');
-        if (first) {
-            first.classList.add('selected');
-            subHiddenEl.value = first.getAttribute('data-key') || '';
+        var chosen = preferSub
+            ? subListEl.querySelector('.cat-option[data-key="' + preferSub.replace(/"/g, '\\"') + '"]')
+            : null;
+        if (!chosen) chosen = subListEl.querySelector('.cat-option');
+        if (chosen) {
+            chosen.classList.add('selected');
+            subHiddenEl.value = chosen.getAttribute('data-key') || '';
         }
         fireChange();
     }
 
     function selectMain(mainKey, subKey) {
         if (!mainListEl || !mainHiddenEl) return;
+        mainKey = (mainKey != null ? String(mainKey) : '').trim();
+        if (!mainKey) return;
         mainListEl.querySelectorAll('.cat-option').forEach(function (el) { el.classList.remove('selected'); });
         var esc = mainKey.replace(/"/g, '\\"');
         var mainOpt = mainListEl.querySelector('.cat-option[data-key="' + esc + '"]');
         if (mainOpt) mainOpt.classList.add('selected');
         mainHiddenEl.value = mainKey;
-        updateSubList(mainKey);
-        if (subKey && subListEl) {
-            var subEsc = subKey.replace(/"/g, '\\"');
-            var subOpt = subListEl.querySelector('.cat-option[data-key="' + subEsc + '"]');
-            if (subOpt) {
-                subListEl.querySelectorAll('.cat-option').forEach(function (el) { el.classList.remove('selected'); });
-                subOpt.classList.add('selected');
-                subHiddenEl.value = subKey;
-                fireChange();
-            }
-        }
+        // 一次帶入 preferred 子分類，避免先鎖死「第一個子分類」再覆蓋失敗
+        updateSubList(mainKey, subKey);
     }
 
     function renderMainList() {

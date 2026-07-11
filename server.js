@@ -670,10 +670,65 @@ function parseGalleryImages(raw) {
                 const lg = normalizeImageLinkGroup(entry.link_group);
                 if (lg) row.link_group = lg;
             }
+            // 僅存 false；省略／true＝設計者可引用（勿新增 DB 欄位）
+            if (entry && typeof entry === 'object' && entry.designer_selectable !== undefined
+                && !normalizeDesignerSelectable(entry.designer_selectable)) {
+                row.designer_selectable = false;
+            }
             out.push(row);
         }
     });
     out.sort(function (a, b) { return a.sort_order - b.sort_order; });
+    return out;
+}
+
+/** 設計者可引用（預設 true）；false＝僅展示，不可帶入設計頁／embed 原型參考 */
+function normalizeDesignerSelectable(v) {
+    if (v === false || v === 0 || v === '0') return false;
+    if (typeof v === 'string' && v.trim().toLowerCase() === 'false') return false;
+    return true;
+}
+
+/** 封面僅展示旗標存在 gallery_images 陣列內無 url 的 meta（不加 DB 欄，避免 42703） */
+function readCoverDesignerSelectableMeta(raw) {
+    let arr = raw;
+    if (typeof raw === 'string') {
+        try { arr = JSON.parse(raw); } catch (_) { return true; }
+    }
+    if (!Array.isArray(arr)) return true;
+    for (let i = 0; i < arr.length; i++) {
+        const e = arr[i];
+        if (e && typeof e === 'object' && !e.url
+            && Object.prototype.hasOwnProperty.call(e, '__cover_designer_selectable')) {
+            return normalizeDesignerSelectable(e.__cover_designer_selectable);
+        }
+    }
+    return true;
+}
+
+function applyCoverDesignerSelectableMeta(galleryArr, selectable) {
+    const base = (Array.isArray(galleryArr) ? galleryArr : []).filter(function (e) {
+        return !(e && typeof e === 'object' && !e.url
+            && Object.prototype.hasOwnProperty.call(e, '__cover_designer_selectable'));
+    });
+    if (!normalizeDesignerSelectable(selectable)) {
+        base.push({ __cover_designer_selectable: false });
+    }
+    return base;
+}
+
+function parseImageDesignerSelectableBody(body, count) {
+    const out = [];
+    if (!body || count <= 0) return out;
+    let raw = body.image_designer_selectable;
+    if (raw == null || raw === '') return out;
+    if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (_) { return out; }
+    }
+    if (!Array.isArray(raw)) return out;
+    for (let i = 0; i < count; i++) {
+        out.push(raw[i] === undefined ? true : normalizeDesignerSelectable(raw[i]));
+    }
     return out;
 }
 
@@ -774,15 +829,18 @@ function buildVendorAssetImageItems(row) {
     }
     const items = [];
     const cover = String(row.image_url || '').trim();
+    const coverSelectable = readCoverDesignerSelectableMeta(row.gallery_images);
     if (cover) {
         const coverLinkGroup = normalizeImageLinkGroup(row.cover_link_group);
-        items.push({
+        const coverItem = {
             url: cover,
             sort_order: 0,
             label: String(row.cover_image_label || '').trim() || labelFromImageUrl(cover),
             is_cover: true,
-            ...(coverLinkGroup ? { link_group: coverLinkGroup } : {})
-        });
+            designer_selectable: coverSelectable
+        };
+        if (coverLinkGroup) coverItem.link_group = coverLinkGroup;
+        items.push(coverItem);
     }
     parseGalleryImages(row.gallery_images).forEach(function (g, idx) {
         if (!g.url) return;
@@ -792,11 +850,13 @@ function buildVendorAssetImageItems(row) {
             url: g.url,
             sort_order: g.sort_order != null ? g.sort_order : idx + 1,
             label: String(g.label || '').trim() || labelFromImageUrl(g.url),
-            is_cover: false
+            is_cover: false,
+            designer_selectable: g.designer_selectable !== false
         };
         if (normalizeVendorAiDerivedKind(g.ai_derived)) item.ai_derived = normalizeVendorAiDerivedKind(g.ai_derived);
         if (g.source_url) item.source_url = String(g.source_url).trim();
         if (g.link_group) item.link_group = g.link_group;
+        if (g.designer_selectable === false) item.designer_selectable = false;
         items.push(item);
     });
     return items;
@@ -832,21 +892,26 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
             label: it.label || '',
             ai_derived: normalizeVendorAiDerivedKind(it.ai_derived),
             source_url: it.source_url ? String(it.source_url).trim() : '',
-            link_group: it.link_group ? String(it.link_group).trim() : ''
+            link_group: it.link_group ? String(it.link_group).trim() : '',
+            designer_selectable: it.designer_selectable !== false
         };
     });
+    let gallery_images = reordered.slice(1).map(function (u, i) {
+        const meta = metaByUrl[u] || {};
+        const g = { url: u, sort_order: i + 1, label: meta.label || '' };
+        if (meta.ai_derived) g.ai_derived = meta.ai_derived;
+        if (meta.source_url) g.source_url = meta.source_url;
+        if (meta.link_group) g.link_group = meta.link_group;
+        if (meta.designer_selectable === false) g.designer_selectable = false;
+        return g;
+    });
+    const coverSel = metaByUrl[reordered[0]] ? metaByUrl[reordered[0]].designer_selectable !== false : true;
+    gallery_images = applyCoverDesignerSelectableMeta(gallery_images, coverSel);
     return {
         image_url: reordered[0],
         cover_image_label: (metaByUrl[reordered[0]] && metaByUrl[reordered[0]].label) || '',
         cover_link_group: (metaByUrl[reordered[0]] && metaByUrl[reordered[0]].link_group) || null,
-        gallery_images: reordered.slice(1).map(function (u, i) {
-            const meta = metaByUrl[u] || {};
-            const g = { url: u, sort_order: i + 1, label: meta.label || '' };
-            if (meta.ai_derived) g.ai_derived = meta.ai_derived;
-            if (meta.source_url) g.source_url = meta.source_url;
-            if (meta.link_group) g.link_group = meta.link_group;
-            return g;
-        })
+        gallery_images: gallery_images
     };
 }
 
@@ -1963,10 +2028,11 @@ function mapVendorAssetForApi(row, lang) {
     const kind = normalizeVendorAssetKind(row.asset_kind);
     const multiImageKind = vendorAssetSupportsGalleryImages(kind);
     const gallery = multiImageKind ? parseGalleryImages(row.gallery_images) : [];
+    // image_items 須讀 raw gallery_images（含封面 __cover_designer_selectable meta）
+    const imageItems = buildVendorAssetImageItems(row);
     const imageUrls = multiImageKind
-        ? getVendorAssetAllImageUrls({ ...row, gallery_images: gallery })
+        ? getVendorAssetAllImageUrls(row)
         : (row.image_url ? [row.image_url] : []);
-    const imageItems = buildVendorAssetImageItems({ ...row, gallery_images: gallery });
     return {
         ...row,
         asset_kind: kind,
@@ -1996,12 +2062,13 @@ async function mapVendorAssetForApiEnriched(row, lang) {
     }
 }
 
-async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds, linkGroupOverrides) {
+async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds, linkGroupOverrides, designerSelectableOverrides) {
     const entries = [];
     const list = Array.isArray(files) ? files : [];
     const labels = Array.isArray(labelOverrides) ? labelOverrides : [];
     const derived = Array.isArray(derivedKinds) ? derivedKinds : [];
     const linkGroups = Array.isArray(linkGroupOverrides) ? linkGroupOverrides : [];
+    const selectableList = Array.isArray(designerSelectableOverrides) ? designerSelectableOverrides : [];
     for (let i = 0; i < list.length; i++) {
         const normalized = await vendorAssetFileFromMulter(list[i]);
         if (!normalized) continue;
@@ -2015,6 +2082,9 @@ async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrd
         if (derivedNorm) entry.ai_derived = derivedNorm;
         const lg = linkGroups[i] != null ? normalizeImageLinkGroup(linkGroups[i]) : '';
         if (lg) entry.link_group = lg;
+        if (selectableList[i] !== undefined && !normalizeDesignerSelectable(selectableList[i])) {
+            entry.designer_selectable = false;
+        }
         entries.push(entry);
     }
     return entries;
@@ -17181,13 +17251,24 @@ async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
     const angleUrls = Array.isArray(body.prototype_angle_urls) ? body.prototype_angle_urls.slice(0, 3) : [];
     const validUrlSet = {};
     (proto.image_items || []).forEach(function (it) {
-        if (it && it.url) validUrlSet[String(it.url).trim()] = true;
+        if (!it || !it.url) return;
+        if (it.designer_selectable === false) return;
+        validUrlSet[String(it.url).trim()] = true;
     });
-    if (!Object.keys(validUrlSet).length && proto.image_url) {
-        validUrlSet[String(proto.image_url).trim()] = true;
+    if (!Object.keys(validUrlSet).length) {
+        const coverItem = (proto.image_items || []).find(function (it) { return it && it.is_cover && it.url; });
+        if (coverItem && coverItem.designer_selectable !== false) {
+            validUrlSet[String(coverItem.url).trim()] = true;
+        } else if (proto.image_url && readCoverDesignerSelectableMeta(proto.gallery_images) !== false) {
+            // 無 image_items 時：封面預設可選
+            validUrlSet[String(proto.image_url).trim()] = true;
+        }
     }
     let angles = angleUrls.filter(function (u) { return validUrlSet[String(u || '').trim()]; });
-    if (!angles.length && proto.image_url) angles = [proto.image_url];
+    if (!angles.length) {
+        const coverUrl = proto.image_url ? String(proto.image_url).trim() : '';
+        if (coverUrl && validUrlSet[coverUrl]) angles = [coverUrl];
+    }
 
     const linkPack = await getLinkedAssetIdsForPrototype(ctx.instance.manufacturer_id, prototypeId);
     const linkedSet = new Set((linkPack.ids || []).map(String));
@@ -19065,6 +19146,9 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const imageLinkGroups = (assetKind === 'prototype' && supportsGallery)
             ? parseImageLinkGroupsBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
             : (assetKind === 'prototype' ? parseImageLinkGroupsBody(body, 1) : []);
+        const imageDesignerSelectable = (supportsGallery && (assetKind === 'prototype' || assetKind === 'part'))
+            ? parseImageDesignerSelectableBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
+            : [];
         if (!tags || !tags.length) {
             try {
                 const semanticsFiles = [{
@@ -19179,9 +19263,13 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 const galleryDerived = parseImageAiDerivedBody(body, 1 + galleryToUpload.length).slice(1, 1 + galleryToUpload.length);
                 galleryImages = await uploadVendorAssetGalleryFiles(
                     manufacturerId, galleryToUpload, 1, imageLabels.slice(1, 1 + galleryToUpload.length), galleryDerived,
-                    imageLinkGroups.slice(1, 1 + galleryToUpload.length)
+                    imageLinkGroups.slice(1, 1 + galleryToUpload.length),
+                    imageDesignerSelectable.slice(1, 1 + galleryToUpload.length)
                 );
             }
+        }
+        if (supportsGallery && imageDesignerSelectable.length && imageDesignerSelectable[0] === false) {
+            galleryImages = applyCoverDesignerSelectableMeta(galleryImages, false);
         }
         const insertPayload = {
             manufacturer_id: manufacturerId,
@@ -19986,8 +20074,13 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         const uploadLabels = parseImageLabelsBody(body, sliceCount);
         const uploadDerived = parseImageAiDerivedBody(body, sliceCount);
         const uploadLinkGroups = assetKind === 'prototype' ? parseImageLinkGroupsBody(body, sliceCount) : [];
-        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups);
-        const merged = existing.concat(newEntries);
+        const uploadDesignerSelectable = (assetKind === 'prototype' || assetKind === 'part')
+            ? parseImageDesignerSelectableBody(body, sliceCount) : [];
+        const newEntries = await uploadVendorAssetGalleryFiles(
+            manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups, uploadDesignerSelectable
+        );
+        let merged = existing.concat(newEntries);
+        merged = applyCoverDesignerSelectableMeta(merged, readCoverDesignerSelectableMeta(row.gallery_images));
         const { data: updated, error } = await supabase.from('vendor_assets')
             .update({ gallery_images: merged, updated_at: new Date().toISOString() })
             .eq('id', id)
@@ -20057,6 +20150,7 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             const clg = normalizeImageLinkGroup(body.cover_link_group);
             updates.cover_link_group = clg || null;
         }
+        let galleryWorking = null;
         if (Array.isArray(body.entries) && body.entries.length) {
             const byUrl = {};
             body.entries.forEach(function (ent) {
@@ -20068,8 +20162,11 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                     const lg = normalizeImageLinkGroup(ent.link_group);
                     byUrl[key].link_group = lg || null;
                 }
+                if (ent.designer_selectable !== undefined) {
+                    byUrl[key].designer_selectable = normalizeDesignerSelectable(ent.designer_selectable);
+                }
             });
-            const gallery = parseGalleryImages(row.gallery_images).map(function (g) {
+            galleryWorking = parseGalleryImages(row.gallery_images).map(function (g) {
                 const patch = byUrl[g.url];
                 if (!patch) return g;
                 const next = { url: g.url, sort_order: g.sort_order, label: patch.label !== undefined ? patch.label : g.label };
@@ -20081,12 +20178,29 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 } else if (g.link_group) {
                     next.link_group = g.link_group;
                 }
+                const selectable = patch.designer_selectable !== undefined
+                    ? patch.designer_selectable
+                    : (g.designer_selectable === undefined ? true : normalizeDesignerSelectable(g.designer_selectable));
+                if (!selectable) next.designer_selectable = false;
                 return next;
             });
-            updates.gallery_images = gallery;
         }
+        if (body.cover_designer_selectable !== undefined) {
+            if (!galleryWorking) galleryWorking = parseGalleryImages(row.gallery_images);
+            galleryWorking = applyCoverDesignerSelectableMeta(
+                galleryWorking,
+                normalizeDesignerSelectable(body.cover_designer_selectable)
+            );
+        } else if (galleryWorking) {
+            // 保留既有封面 meta
+            galleryWorking = applyCoverDesignerSelectableMeta(
+                galleryWorking,
+                readCoverDesignerSelectableMeta(row.gallery_images)
+            );
+        }
+        if (galleryWorking) updates.gallery_images = galleryWorking;
         if (Object.keys(updates).length <= 1) {
-            return res.status(400).json({ error: '請提供 cover_label、cover_link_group 或 entries' });
+            return res.status(400).json({ error: '請提供 cover_label、cover_link_group、cover_designer_selectable 或 entries' });
         }
         const coverLabelRequested = body.cover_label !== undefined;
         const coverLinkGroupRequested = body.cover_link_group !== undefined;

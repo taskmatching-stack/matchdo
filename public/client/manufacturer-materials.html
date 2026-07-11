@@ -883,7 +883,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'fix-gallery-reorder-dedupe-20260712b';
+        window.__MATCHDO_MATERIALS_BUILD = 'designer-selectable-json-auth-keepalive-20260712c';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1427,6 +1427,12 @@
                 if (!byUrl[url]) byUrl[url] = { url: url };
                 byUrl[url].link_group = (inp.value || '').trim();
             });
+            document.querySelectorAll('.edit-gallery-designer-selectable').forEach(function (inp) {
+                var url = inp.getAttribute('data-url');
+                if (!url) return;
+                if (!byUrl[url]) byUrl[url] = { url: url };
+                byUrl[url].designer_selectable = !!inp.checked;
+            });
             var entries = Object.keys(byUrl).map(function (u) { return byUrl[u]; });
             try {
                 var tok = token || (await getToken());
@@ -1434,6 +1440,8 @@
                 var body = { entries: entries };
                 if (coverIn) body.cover_label = (coverIn.value || '').trim();
                 if (coverLgIn) body.cover_link_group = (coverLgIn.value || '').trim();
+                var coverSelectableIn = document.querySelector('.edit-cover-designer-selectable');
+                if (coverSelectableIn) body.cover_designer_selectable = !!coverSelectableIn.checked;
                 var r = await fetch('/api/me/vendor-assets/' + encodeURIComponent(assetId) + '/image-labels', {
                     method: 'PATCH',
                     headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
@@ -1972,16 +1980,19 @@
             var uploadFiles = [];
             var uploadLabels = [];
             var uploadLinkGroups = [];
+            var uploadDesignerSelectable = [];
             var uploadDerived = [];
             var optIdx = [];
             (pendingList || []).forEach(function (p) {
                 var lg = (p.link_group || '').trim();
+                var selectable = p.designer_selectable !== false;
                 var entries = pendingUploadEntries(p);
                 var startIdx = uploadFiles.length;
                 entries.forEach(function (ent) {
                     uploadFiles.push(ent.file);
                     uploadLabels.push(ent.label);
                     uploadLinkGroups.push(lg);
+                    uploadDesignerSelectable.push(selectable);
                     uploadDerived.push(ent.aiDerived || '');
                 });
                 if (p.optimize && !p.redrawFile && !p.upscaleFile && entries.length) {
@@ -1992,6 +2003,7 @@
                 uploadFiles: uploadFiles,
                 uploadLabels: uploadLabels,
                 uploadLinkGroups: uploadLinkGroups,
+                uploadDesignerSelectable: uploadDesignerSelectable,
                 uploadDerived: uploadDerived,
                 optIdx: optIdx
             };
@@ -2003,10 +2015,26 @@
             return normalizeKind(kindOrAsset.asset_kind) === 'prototype';
         }
 
+        /** 數位原型／配件：可勾選「設計者可選／僅展示」（材料不用） */
+        function vendorDesignerSelectableEnabledForKind(kindOrAsset) {
+            var k = typeof kindOrAsset === 'string' ? normalizeKind(kindOrAsset) : normalizeKind(kindOrAsset && kindOrAsset.asset_kind);
+            return k === 'prototype' || k === 'part';
+        }
+
         function pendingLinkGroupFieldHtml(item) {
             return '<input type="text" class="form-control form-control-sm mt-1 pending-link-group" placeholder="' +
                 esc(tr('baseModels.linkGroupPlaceholder', '連動組（同色同款填相同，例：black）')) + '" value="' +
                 esc(item.link_group || '') + '">';
+        }
+
+        function pendingDesignerSelectableFieldHtml(item, inputClass, dataUrl) {
+            var checked = item.designer_selectable !== false ? ' checked' : '';
+            var cls = inputClass || 'pending-designer-selectable';
+            var dataAttr = dataUrl ? (' data-url="' + esc(dataUrl) + '"') : '';
+            return '<div class="form-check mt-1 mb-0">' +
+                '<input class="form-check-input ' + cls + '" type="checkbox" value="1"' + dataAttr + checked + '>' +
+                '<label class="form-check-label small">' + esc(tr('baseModels.designerSelectable', '設計者可選（取消＝僅展示）')) + '</label>' +
+                '</div>';
         }
 
         function validatePendingUploadList(list) {
@@ -2911,16 +2939,28 @@
                     var u = typeof g === 'string' ? g : (g && g.url);
                     return u === it.url;
                 });
-                if (typeof prev === 'string') return { url: prev, sort_order: idx + 1, label: it.label || '' };
-                if (prev && typeof prev === 'object') {
-                    return Object.assign({}, prev, {
+                var row;
+                if (typeof prev === 'string') row = { url: prev, sort_order: idx + 1, label: it.label || '' };
+                else if (prev && typeof prev === 'object') {
+                    row = Object.assign({}, prev, {
                         url: it.url,
                         sort_order: idx + 1,
                         label: it.label != null ? it.label : (prev.label || '')
                     });
+                } else {
+                    row = { url: it.url, label: it.label || '', sort_order: idx + 1 };
                 }
-                return { url: it.url, label: it.label || '', sort_order: idx + 1 };
+                if (it.designer_selectable === false) row.designer_selectable = false;
+                else if (row.designer_selectable !== false) delete row.designer_selectable;
+                return row;
             });
+            // 本機保留封面僅展示 meta（無 url 物件）
+            next.gallery_images = (next.gallery_images || []).filter(function (g) {
+                return !(g && typeof g === 'object' && !g.url && g.__cover_designer_selectable !== undefined);
+            });
+            if (reordered[0] && reordered[0].designer_selectable === false) {
+                next.gallery_images.push({ __cover_designer_selectable: false });
+            }
             next.image_count = reordered.length;
             return next;
         }
@@ -3042,6 +3082,7 @@
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, 'pending') + pendingDerivedThumbsHtml(item, 'pending', upscaleOn) + '</div>' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-card-label pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     (formKind === 'prototype' ? pendingLinkGroupFieldHtml(item) : '') +
+                    (vendorDesignerSelectableEnabledForKind(formKind) ? pendingDesignerSelectableFieldHtml(item) : '') +
                     '<div class="pending-actions">' +
                     pendingDragRowHtml(list.length) +
                     '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
@@ -3102,6 +3143,13 @@
                 if (linkGroupIn) {
                     linkGroupIn.addEventListener('input', function () {
                         item.link_group = (this.value || '').trim();
+                        schedulePendingDraftSave(form);
+                    });
+                }
+                var selectableIn = card.querySelector('.pending-designer-selectable');
+                if (selectableIn) {
+                    selectableIn.addEventListener('change', function () {
+                        item.designer_selectable = !!this.checked;
                         schedulePendingDraftSave(form);
                     });
                 }
@@ -3211,6 +3259,7 @@
                     optimize: false,
                     label: labelFromFilename(fileList[i].name),
                     link_group: '',
+                    designer_selectable: true,
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,
@@ -3452,6 +3501,7 @@
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, 'edit-pending') + pendingDerivedThumbsHtml(item, 'edit-pending', upscaleOn) + '</div>' +
                     '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     (showLinkGroup ? pendingLinkGroupFieldHtml(item) : '') +
+                    (vendorDesignerSelectableEnabledForKind(editAsset) ? pendingDesignerSelectableFieldHtml(item) : '') +
                     '<div class="pending-actions">' +
                     pendingDragRowHtml(list.length) +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
@@ -3499,6 +3549,12 @@
                 if (editLinkGroupIn) {
                     editLinkGroupIn.addEventListener('input', function () {
                         item.link_group = (this.value || '').trim();
+                    });
+                }
+                var editSelectableIn = card.querySelector('.pending-designer-selectable');
+                if (editSelectableIn) {
+                    editSelectableIn.addEventListener('change', function () {
+                        item.designer_selectable = !!this.checked;
                     });
                 }
                 var clr = card.querySelector('.edit-pending-clear-redraw');
@@ -3551,6 +3607,7 @@
                     optimize: false,
                     label: labelFromFilename(fileList[i].name),
                     link_group: '',
+                    designer_selectable: true,
                     uploadOriginal: true,
                     uploadRedraw: false,
                     uploadUpscale: false,
@@ -3624,6 +3681,7 @@
             }
             var cards = galleryCardsFromItems(items);
             var showLinkGroup = m && normalizeKind(m.asset_kind) === 'prototype';
+            var showDesignerSelectable = vendorDesignerSelectableEnabledForKind(m);
             var lightboxItemsJson = esc(JSON.stringify(items.map(function (x) {
                 return { url: x.url, label: displayGalleryImageLabel(x) };
             }))).replace(/"/g, '&quot;');
@@ -3645,6 +3703,11 @@
                     ? (isCover
                         ? '<input type="text" class="form-control form-control-sm mt-1 edit-cover-link-group" id="edit-cover-link-group" placeholder="連動組（同色同款填相同，例：black）" value="' + esc(linkGroupVal) + '">'
                         : '<input type="text" class="form-control form-control-sm mt-1 edit-gallery-link-group-input" data-url="' + esc(url) + '" placeholder="連動組（同色同款填相同）" value="' + esc(linkGroupVal) + '">')
+                    : '';
+                var selectableField = showDesignerSelectable
+                    ? (isCover
+                        ? pendingDesignerSelectableFieldHtml(it, 'edit-cover-designer-selectable')
+                        : pendingDesignerSelectableFieldHtml(it, 'edit-gallery-designer-selectable', url))
                     : '';
                 var slotPrefix = 'egslot-' + idx;
                 var imgHtml = (slot && slot.imageBusy)
@@ -3679,6 +3742,7 @@
                     (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
                     labelField +
                     linkGroupField +
+                    selectableField +
                     actions +
                     '</div></div>';
             }).join('');
@@ -3690,6 +3754,13 @@
             if (coverLgIn) {
                 coverLgIn.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
             }
+            var coverSelectableIn = document.querySelector('.edit-cover-designer-selectable');
+            if (coverSelectableIn) {
+                coverSelectableIn.addEventListener('change', function () { scheduleSaveImageLabels(editId); });
+            }
+            document.querySelectorAll('.edit-gallery-designer-selectable').forEach(function (inp) {
+                inp.addEventListener('change', function () { scheduleSaveImageLabels(editId); });
+            });
             grid.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
                 inp.addEventListener('input', function () { scheduleSaveImageLabels(editId); });
             });
@@ -4271,6 +4342,7 @@
             var uploadFiles = [];
             var uploadLabels = [];
             var uploadLinkGroups = [];
+            var uploadDesignerSelectable = [];
             var optIdx = [];
             var uploadDerived = [];
             if (usePending) {
@@ -4284,6 +4356,7 @@
                 uploadFiles = payload.uploadFiles;
                 uploadLabels = payload.uploadLabels;
                 uploadLinkGroups = payload.uploadLinkGroups;
+                uploadDesignerSelectable = payload.uploadDesignerSelectable || [];
                 uploadDerived = payload.uploadDerived;
                 optIdx = payload.optIdx;
             } else {
@@ -4292,6 +4365,7 @@
                 uploadFiles.forEach(function (f) {
                     uploadLabels.push(labelFromFilename(f.name));
                     uploadDerived.push('');
+                    uploadDesignerSelectable.push(true);
                 });
             }
             if (!opts.skipConfirm) {
@@ -4311,6 +4385,9 @@
             if (uploadLabels.length) fd.append('image_labels', JSON.stringify(uploadLabels));
             if (prototypeShowsLinkGroup(mBefore) && uploadLinkGroups.length) {
                 fd.append('image_link_groups', JSON.stringify(uploadLinkGroups));
+            }
+            if (vendorDesignerSelectableEnabledForKind(mBefore) && uploadDesignerSelectable.length) {
+                fd.append('image_designer_selectable', JSON.stringify(uploadDesignerSelectable));
             }
             if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
                 fd.append('image_ai_derived', JSON.stringify(uploadDerived));
@@ -4469,9 +4546,16 @@
                 var getter = AuthService.getSessionForApi || AuthService.getSession;
                 var s = await getter.call(AuthService);
                 var tok = (s && (s.access_token || (s.session && s.session.access_token))) || null;
-                if (tok) token = tok;
-                return tok || token;
-            } catch (e) { return token || null; }
+                if (tok) {
+                    token = tok;
+                    return tok;
+                }
+                // 刷新失敗時勿回傳已知可能過期的快取 token（會觸發「登入已過期或無效」）
+                token = null;
+                return null;
+            } catch (e) {
+                return null;
+            }
         }
 
         function getUiLocaleForUpload() {
@@ -6302,6 +6386,7 @@
             var uploadFiles = [];
             var uploadLabels = [];
             var uploadLinkGroups = [];
+            var uploadDesignerSelectable = [];
             var uploadDerived = [];
             if (kind === 'prototype' || kind === 'part' || kind === 'material') {
                 var deriveErr = await ensureAllPendingDerivedFiles(form);
@@ -6318,6 +6403,7 @@
                 uploadFiles = payload.uploadFiles;
                 uploadLabels = payload.uploadLabels;
                 uploadLinkGroups = payload.uploadLinkGroups;
+                uploadDesignerSelectable = payload.uploadDesignerSelectable || [];
                 uploadDerived = payload.uploadDerived;
                 optIdx = payload.optIdx;
             }
@@ -6340,6 +6426,9 @@
                 fd.append('image_labels', JSON.stringify(uploadLabels));
                 if (kind === 'prototype' && uploadLinkGroups.length) {
                     fd.append('image_link_groups', JSON.stringify(uploadLinkGroups));
+                }
+                if ((kind === 'prototype' || kind === 'part') && uploadDesignerSelectable.length) {
+                    fd.append('image_designer_selectable', JSON.stringify(uploadDesignerSelectable));
                 }
                 if (uploadDerived.some(function (d) { return d === 'redraw' || d === 'upscale'; })) {
                     fd.append('image_ai_derived', JSON.stringify(uploadDerived));
