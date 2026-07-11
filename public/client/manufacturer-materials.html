@@ -878,7 +878,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-order-cat-url-20260712i';
+        window.__MATCHDO_MATERIALS_BUILD = 'save-speed-20260712j';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1385,7 +1385,6 @@
             var urlsBefore = mBefore ? assetImageUrls(mBefore) : [];
             var ok = await uploadEditGalleryFiles(null, [], { skipConfirm: true, pendingItems: editGalleryLocalAdds.slice() });
             if (ok) {
-                await loadMaterials();
                 var refreshed = materialsAll.find(function (x) { return x.id === id; });
                 if (refreshed) afterEditGalleryMutation(id, refreshed);
                 var newUrls = assetImageUrls(refreshed || {}).filter(function (u) {
@@ -1506,10 +1505,12 @@
             return editModalEl;
         }
 
-        function showEditModal() {
+        async function showEditModal() {
             var el = document.getElementById('edit-modal');
             if (!el) return;
             if (!el.classList.contains('show')) cleanupStrayModalBackdrops();
+            await ensureTokenFresh();
+            startTokenRefreshTimer();
             var modal = ensureEditModal();
             if (modal) modal.show();
         }
@@ -1521,6 +1522,13 @@
             } else {
                 unlockPageScroll(false);
             }
+            var hasPending = false;
+            try {
+                document.querySelectorAll('.add-form').forEach(function (f) {
+                    if (getPendingImages(f).length > 0) hasPending = true;
+                });
+            } catch (e) {}
+            if (!hasPending) stopTokenRefreshTimer();
         }
 
         var catalogGroupsFlat = [];
@@ -3031,9 +3039,9 @@
                     }
                     if (applied.data) lastData = applied.data;
                 }
-                await loadMaterials();
-                renderGrid();
                 var id = document.getElementById('edit-id').value;
+                if (lastData) afterEditGalleryMutation(id, lastData);
+                renderGrid();
                 var refreshed = materialsAll.find(function (x) { return x.id === id; }) || lastData;
                 if (refreshed) afterEditGalleryMutation(id, refreshed);
                 setEditGalleryStatus('已依勾選寫入圖庫', 'success');
@@ -4085,7 +4093,7 @@
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
                 if (lastNew) scrollEditGalleryToUrl(lastNew);
-                if (!opts.skipReload) {
+                if (opts.forceReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
                     if (refreshed) afterEditGalleryMutation(id, refreshed);
@@ -4156,7 +4164,7 @@
                 showToast(okMsg);
                 if (data.ai_prompt) showAiPromptAfterPreview(data);
                 if (lastNew) scrollEditGalleryToUrl(lastNew);
-                if (!opts.skipReload) {
+                if (opts.forceReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
                     if (refreshed) afterEditGalleryMutation(id, refreshed);
@@ -4248,7 +4256,7 @@
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
                 if (lastNew) scrollEditGalleryToUrl(lastNew);
-                if (!opts.skipReload) {
+                if (opts.forceReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
                     if (refreshed) afterEditGalleryMutation(id, refreshed);
@@ -4453,7 +4461,7 @@
                     setEditGalleryStatus(tr('baseModels.galleryOrderSaved', '圖片順序已儲存'), 'success');
                     showToast(tr('baseModels.galleryOrderSaved', '圖片順序已儲存'));
                 }
-                if (!opts.skipReload) {
+                if (opts.forceReload) {
                     await loadMaterials();
                     var refreshed = materialsAll.find(function (x) { return x.id === id; });
                     if (refreshed) afterEditGalleryMutation(id, refreshed, { skipGalleryRender: !!opts.skipRenderOnSuccess });
@@ -4528,10 +4536,8 @@
                 var data = await r.json().catch(function () { return {}; });
                 if (!r.ok) { showToast(data.error || 'failed', 'danger'); return; }
                 afterEditGalleryMutation(id, data);
+                renderGrid();
                 showToast(tr('baseModels.imageRemoved', '已移除圖片'));
-                await loadMaterials();
-                var refreshedDel = materialsAll.find(function (x) { return x.id === id; });
-                if (refreshedDel) afterEditGalleryMutation(id, refreshedDel);
             } catch (err) { showToast(err.message, 'danger'); }
         }
 
@@ -4578,6 +4584,7 @@
                 setEditGalleryStatus('上一批仍在傳送中，請稍候', 'warning');
                 return false;
             }
+            await ensureTokenFresh();
             var idxBefore = materialsAll.findIndex(function (x) { return x.id === id; });
             var countBefore = idxBefore >= 0 ? assetImageUrls(materialsAll[idxBefore]).length : 0;
             var mBefore = idxBefore >= 0 ? materialsAll[idxBefore] : null;
@@ -4694,9 +4701,6 @@
                 var okMsg = tr('baseModels.galleryAdded', '已新增角度圖') + '（共 ' + urlCount + ' 張）';
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 showToast(okMsg);
-                await loadMaterials();
-                var refreshed = materialsAll.find(function (x) { return x.id === id; });
-                if (refreshed) afterEditGalleryMutation(id, refreshed);
                 if (lastNew) scrollEditGalleryToUrl(lastNew);
                 syncEditGalleryOptimizeBgWrap();
                 return true;
@@ -4716,6 +4720,7 @@
                 inputEl.value = '';
                 return;
             }
+            startTokenRefreshTimer();
             var list = inputEl.multiple ? Array.prototype.slice.call(inputEl.files) : [inputEl.files[0]];
             inputEl.value = '';
             var added = appendFilesToEditGalleryLocal(list);
@@ -4743,6 +4748,9 @@
             setTimeout(function () { var el = document.getElementById(id); if (el) el.remove(); }, 3500);
         }
 
+        var tokenRefreshTimer = null;
+        var tokenLastChecked = 0;
+
         async function getToken() {
             if (typeof AuthService === 'undefined') return token || null;
             try {
@@ -4751,6 +4759,7 @@
                 var tok = (s && (s.access_token || (s.session && s.session.access_token))) || null;
                 if (tok) {
                     token = tok;
+                    tokenLastChecked = Date.now();
                     return tok;
                 }
                 // 刷新失敗時勿回傳已知可能過期的快取 token（會觸發「登入已過期或無效」）
@@ -4758,6 +4767,65 @@
                 return null;
             } catch (e) {
                 return null;
+            }
+        }
+
+        function parseJwtExp(tok) {
+            if (!tok || typeof tok !== 'string') return null;
+            try {
+                var parts = tok.split('.');
+                if (parts.length < 2) return null;
+                var payload = JSON.parse(atob(parts[1]));
+                return payload.exp ? payload.exp * 1000 : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function ensureTokenFresh() {
+            var now = Date.now();
+            if (!token) {
+                await getToken();
+                return !!token;
+            }
+            var exp = parseJwtExp(token);
+            if (!exp) {
+                if (now - tokenLastChecked > 60000) {
+                    await getToken();
+                }
+                return !!token;
+            }
+            var timeLeft = exp - now;
+            if (timeLeft < 300000) {
+                await getToken();
+                return !!token;
+            }
+            return true;
+        }
+
+        function startTokenRefreshTimer() {
+            if (tokenRefreshTimer) return;
+            tokenRefreshTimer = setInterval(async function () {
+                var editOpen = editModalEl && document.getElementById('edit-modal') && !document.getElementById('edit-modal').classList.contains('d-none');
+                var hasPending = false;
+                try {
+                    document.querySelectorAll('.add-form').forEach(function (f) {
+                        if (getPendingImages(f).length > 0) hasPending = true;
+                    });
+                } catch (e) {}
+                if (editOpen || hasPending) {
+                    var fresh = await ensureTokenFresh();
+                    if (!fresh) {
+                        showToast('登入即將過期，請重新整理頁面後繼續', 'warning');
+                    }
+                }
+            }, 120000);
+        }
+
+        function stopTokenRefreshTimer() {
+            if (tokenRefreshTimer) {
+                clearInterval(tokenRefreshTimer);
+                tokenRefreshTimer = null;
             }
         }
 
@@ -6563,6 +6631,7 @@
                 return;
             }
             if (!catSel.value) { msgEl.textContent = '—'; return; }
+            await ensureTokenFresh();
             var pending = getPendingImages(form);
             var file = imgInput && imgInput.files && imgInput.files[0];
             if ((kind === 'prototype' || kind === 'part' || kind === 'material') && !pending.length) {
@@ -6704,7 +6773,12 @@
                 clearPendingImages(form);
                 showLocalImagePreview(form.querySelector('.add-image-preview'), null);
                 applyUploadPricingToForms();
-                await loadMaterials();
+                if (newAssetId) {
+                    data.asset_kind = normalizeKind(data.asset_kind || kind);
+                    patchMaterialsAllItem(newAssetId, data);
+                    materialsListOffsetByKind[kind] = 0;
+                }
+                renderGrid();
                 switchKind(kind);
                 closeAddFormPanel(kind);
                 if (newAssetId) {
@@ -7255,6 +7329,7 @@
             var editKind = normalizeKind(document.getElementById('edit-asset-kind').value);
             if (saveBtn) saveBtn.disabled = true;
             try {
+            await ensureTokenFresh();
             if ((editKind === 'prototype' || editKind === 'part' || editKind === 'material')) {
                 var localOk = await flushEditGalleryLocalAddsBeforeSave();
                 if (!localOk) return;
@@ -7333,7 +7408,6 @@
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 if (data.balance_after != null) okMsg += ' · ' + tr('baseModels.balanceAfter', '餘額') + ' ' + data.balance_after;
                 showToast(okMsg);
-                await loadMaterials();
                 var saved = patchMaterialsAllItem(id, data);
                 var latest = materialsAll.find(function (x) { return x.id === id; }) || saved;
                 var savedKind = normalizeKind((latest && latest.asset_kind) || editKind);
@@ -7345,6 +7419,7 @@
                     setEditGalleryStatus('已儲存。圖庫共 ' + nImg + ' 張；若要白底請對各圖按「AI 重繪」', 'success');
                 } else {
                     hideEditModal();
+                    await loadMaterials();
                 }
             } catch (err) { showToast(err.message, 'danger'); }
             } finally {

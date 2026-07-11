@@ -2063,15 +2063,14 @@ async function mapVendorAssetForApiEnriched(row, lang) {
 }
 
 async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds, linkGroupOverrides, designerSelectableOverrides) {
-    const entries = [];
     const list = Array.isArray(files) ? files : [];
     const labels = Array.isArray(labelOverrides) ? labelOverrides : [];
     const derived = Array.isArray(derivedKinds) ? derivedKinds : [];
     const linkGroups = Array.isArray(linkGroupOverrides) ? linkGroupOverrides : [];
     const selectableList = Array.isArray(designerSelectableOverrides) ? designerSelectableOverrides : [];
-    for (let i = 0; i < list.length; i++) {
-        const normalized = await vendorAssetFileFromMulter(list[i]);
-        if (!normalized) continue;
+    const settled = await Promise.all(list.map(async (file, i) => {
+        const normalized = await vendorAssetFileFromMulter(file);
+        if (!normalized) return null;
         const { publicUrl } = await uploadToSupabaseStorage('custom-products', `vendor-assets/${manufacturerId}`, normalized);
         const lab = (labels[i] != null && String(labels[i]).trim())
             ? String(labels[i]).trim()
@@ -2085,9 +2084,9 @@ async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrd
         if (selectableList[i] !== undefined && !normalizeDesignerSelectable(selectableList[i])) {
             entry.designer_selectable = false;
         }
-        entries.push(entry);
-    }
-    return entries;
+        return entry;
+    }));
+    return settled.filter(Boolean);
 }
 
 function vendorAssetMatchesSearch(row, mfr, searchQ) {
@@ -3369,6 +3368,15 @@ async function mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, 
         return updated;
     }
     return withTags;
+}
+
+/** 圖庫寫入後背景重算標籤（不阻塞 API 回應；排序／換封面不需重標） */
+function scheduleVendorAssetTagRefreshInBackground(updated, manufacturerId, assetId, context, ownerId) {
+    if (!updated || !manufacturerId || !assetId) return;
+    setImmediate(() => {
+        mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, assetId, context || {}, ownerId)
+            .catch((e) => console.warn('scheduleVendorAssetTagRefreshInBackground:', e && e.message ? e.message : e));
+    });
 }
 
 function vendorAssetDescriptionFromSemantics(semanticsJson) {
@@ -19149,42 +19157,52 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const imageDesignerSelectable = (supportsGallery && (assetKind === 'prototype' || assetKind === 'part'))
             ? parseImageDesignerSelectableBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
             : [];
+        let deferVendorAssetTagRefresh = false;
         if (!tags || !tags.length) {
-            try {
-                const semanticsFiles = [{
-                    file,
-                    label: (imageLabels[0] && String(imageLabels[0]).trim())
-                        || labelFromOriginalFilename(file.originalname)
-                        || '封面'
-                }];
-                for (let gi = 0; gi < galleryUploadFiles.length; gi++) {
-                    const gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
-                    if (!gf) continue;
-                    semanticsFiles.push({
-                        file: gf,
-                        label: (imageLabels[gi + 1] && String(imageLabels[gi + 1]).trim())
-                            || labelFromOriginalFilename(gf.originalname)
-                            || (`圖 ${gi + 2}`)
-                    });
+            const needSemanticsBeforeUpload = !String(title || '').trim();
+            if (needSemanticsBeforeUpload) {
+                try {
+                    const semanticsFiles = [{
+                        file,
+                        label: (imageLabels[0] && String(imageLabels[0]).trim())
+                            || labelFromOriginalFilename(file.originalname)
+                            || '封面'
+                    }];
+                    for (let gi = 0; gi < galleryUploadFiles.length; gi++) {
+                        const gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
+                        if (!gf) continue;
+                        semanticsFiles.push({
+                            file: gf,
+                            label: (imageLabels[gi + 1] && String(imageLabels[gi + 1]).trim())
+                                || labelFromOriginalFilename(gf.originalname)
+                                || (`圖 ${gi + 2}`)
+                        });
+                    }
+                    const sem = await runVendorAssetImageSemanticsFromFiles(semanticsFiles, await vendorAssetSemanticsContextFields({
+                        asset_kind: assetKind,
+                        category_key: categoryKey,
+                        subcategory_key: subcategoryKey || '',
+                        title,
+                        description,
+                        material_catalog_hint: materialCatalogHint || undefined
+                    }), ownerId);
+                    tags = sem.tags;
+                    semanticsJson = sem.semantics;
+                    tagsSource = 'gemini';
+                    semanticsFromThisFile = true;
+                    if (!description && sem.description) description = sem.description;
+                } catch (semErr) {
+                    // Gemini 標籤失敗不中斷上傳，繼續用空標籤上傳
+                    console.warn('vendor-assets semantics skipped (non-fatal):', semErr && semErr.message);
+                    tags = [];
+                    semanticsJson = null;
                 }
-                const sem = await runVendorAssetImageSemanticsFromFiles(semanticsFiles, await vendorAssetSemanticsContextFields({
-                    asset_kind: assetKind,
-                    category_key: categoryKey,
-                    subcategory_key: subcategoryKey || '',
-                    title,
-                    description,
-                    material_catalog_hint: materialCatalogHint || undefined
-                }), ownerId);
-                tags = sem.tags;
-                semanticsJson = sem.semantics;
-                tagsSource = 'gemini';
-                semanticsFromThisFile = true;
-                if (!description && sem.description) description = sem.description;
-            } catch (semErr) {
-                // Gemini 標籤失敗不中斷上傳，繼續用空標籤上傳
-                console.warn('vendor-assets semantics skipped (non-fatal):', semErr && semErr.message);
+            } else {
+                // 已有標題：先上傳，標籤於寫入後背景重算（大幅縮短發布等待）
                 tags = [];
                 semanticsJson = null;
+                tagsSource = null;
+                deferVendorAssetTagRefresh = true;
             }
         } else {
             tagsSource = semanticsJson ? 'gemini' : 'manual';
@@ -19470,6 +19488,15 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         } catch (taxEnrichErr) {
             console.warn('enrichVendorAssetItems(create):', taxEnrichErr && taxEnrichErr.message);
         }
+        if (deferVendorAssetTagRefresh && inserted && inserted.id) {
+            scheduleVendorAssetTagRefreshInBackground(inserted, manufacturerId, inserted.id, {
+                asset_kind: assetKind,
+                category_key: categoryKey,
+                title: inserted.title || title,
+                description: inserted.description || description,
+                material_catalog_hint: materialCatalogHint || undefined
+            }, ownerId);
+        }
         res.status(201).json({
             ...(createEnriched[0] || createMapped),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
@@ -19477,7 +19504,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             product_optimized: optimizeCount > 0,
             optimize_image_indices: optimizeIndices,
             gallery_migration_required: galleryMigrationRequired,
-            prototype_meta_migration_required: prototypeMetaMigrationRequired
+            prototype_meta_migration_required: prototypeMetaMigrationRequired,
+            ai_tags_refresh_pending: !!deferVendorAssetTagRefresh
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets 異常:', e);
@@ -20111,12 +20139,14 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
             description: updated.description || row.description,
             material_catalog_hint: materialCatalogHint || undefined
         };
-        const withTags = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, tagContext, ownerId);
+        // 圖庫新增：先回應用戶，AI 標籤背景重算（避免每次儲存卡在 Gemini）
+        scheduleVendorAssetTagRefreshInBackground(updated, manufacturerId, id, tagContext, ownerId);
         res.json({
-            ...(await mapVendorAssetForApiEnriched(withTags)),
+            ...(await mapVendorAssetForApiEnriched(updated)),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
-            ai_tags_refreshed: withTags !== updated
+            ai_tags_refreshed: false,
+            ai_tags_refresh_pending: true
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/:id/gallery-images:', e);
@@ -20315,19 +20345,8 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/cover', express.json(), asyn
             }
             return res.status(500).json({ error: '更新失敗' });
         }
-        const assetKindCover = normalizeVendorAssetKind(updated.asset_kind);
-        let materialHintCover = '';
-        if (assetKindCover === 'material') {
-            materialHintCover = await materialCatalogHintForVendorAsset(manufacturerId, id);
-        }
-        const withTagsCover = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, {
-            asset_kind: assetKindCover,
-            category_key: updated.category_key,
-            title: updated.title,
-            description: updated.description,
-            material_catalog_hint: materialHintCover || undefined
-        }, seedUser.id);
-        res.json(await mapVendorAssetForApiEnriched(withTagsCover));
+        // 換封面僅重排既有圖，無需重跑 Gemini
+        res.json(await mapVendorAssetForApiEnriched(updated));
     } catch (e) {
         console.error('PATCH /api/me/vendor-assets/:id/gallery-images/cover:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -20390,19 +20409,8 @@ app.patch('/api/me/vendor-assets/:id/gallery-images/order', express.json(), asyn
             }
             return res.status(500).json({ error: '更新失敗' });
         }
-        const assetKindOrder = normalizeVendorAssetKind(updated.asset_kind);
-        let materialHintOrder = '';
-        if (assetKindOrder === 'material') {
-            materialHintOrder = await materialCatalogHintForVendorAsset(manufacturerId, id);
-        }
-        const withTagsOrder = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, {
-            asset_kind: assetKindOrder,
-            category_key: updated.category_key,
-            title: updated.title,
-            description: updated.description,
-            material_catalog_hint: materialHintOrder || undefined
-        }, seedUser.id);
-        res.json(await mapVendorAssetForApiEnriched(withTagsOrder));
+        // 排序僅重排既有圖，無需重跑 Gemini
+        res.json(await mapVendorAssetForApiEnriched(updated));
     } catch (e) {
         console.error('PATCH /api/me/vendor-assets/:id/gallery-images/order:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -20461,14 +20469,15 @@ app.delete('/api/me/vendor-assets/:id/gallery-images', express.json(), async (re
         if (assetKindDel === 'material') {
             materialHintDel = await materialCatalogHintForVendorAsset(manufacturerId, id);
         }
-        const withTagsDel = await mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, id, {
+        // 刪圖：先回應，標籤背景更新
+        scheduleVendorAssetTagRefreshInBackground(updated, manufacturerId, id, {
             asset_kind: assetKindDel,
             category_key: updated.category_key,
             title: updated.title,
             description: updated.description,
             material_catalog_hint: materialHintDel || undefined
         }, seedUser.id);
-        res.json(await mapVendorAssetForApiEnriched(withTagsDel));
+        res.json(await mapVendorAssetForApiEnriched(updated));
     } catch (e) {
         console.error('DELETE /api/me/vendor-assets/:id/gallery-images:', e);
         res.status(500).json({ error: '系統錯誤' });
