@@ -5909,7 +5909,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -5936,6 +5936,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_scene_simulate: parseInt(obj.points_scene_simulate, 10) || 20,
             points_pattern_extract: parseInt(obj.points_pattern_extract, 10) || 20,
             points_pattern_extract_per_extra_mp: parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10,
+            points_design_to_physical: parseInt(obj.points_design_to_physical, 10) || 20,
             points_translation: parseInt(obj.points_translation, 10) || 1,
             points_listing_per_category: parseInt(obj.points_listing_per_category, 10) || 200
         });
@@ -5969,6 +5970,7 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_scene_simulate !== undefined) await upsert('points_scene_simulate', body.points_scene_simulate);
         if (body.points_pattern_extract !== undefined) await upsert('points_pattern_extract', body.points_pattern_extract);
         if (body.points_pattern_extract_per_extra_mp !== undefined) await upsert('points_pattern_extract_per_extra_mp', body.points_pattern_extract_per_extra_mp);
+        if (body.points_design_to_physical !== undefined) await upsert('points_design_to_physical', body.points_design_to_physical);
         if (body.points_translation !== undefined) await upsert('points_translation', body.points_translation);
         if (body.points_listing_per_category !== undefined) await upsert('points_listing_per_category', body.points_listing_per_category);
         if (body.grant_welcome_points_on_register !== undefined) await upsert('grant_welcome_points_on_register', body.grant_welcome_points_on_register ? '1' : '0');
@@ -9366,7 +9368,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
                 currentUser.id,
                 pointsToDeduct,
                 'design_to_physical',
-                `設計圖轉實體（${pointsToDeduct} 點）`,
+                '設計圖轉實體',
                 {}
             );
             if (!consumed.ok) {
@@ -19541,7 +19543,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
                 ownerId,
                 pointsRequired,
                 'design_to_physical',
-                `上傳前設計圖轉實體預覽（${pointsRequired} 點）`,
+                '設計圖轉實體',
                 { manufacturer_id: manufacturerId, preview: true }
             );
             if (!consumed.ok) {
@@ -19663,7 +19665,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
                 ownerId,
                 pointsRequired,
                 'design_to_physical',
-                `單張設計圖轉實體（${pointsRequired} 點）`,
+                '設計圖轉實體',
                 { manufacturer_id: manufacturerId, asset_id: id, source_url: sourceUrl }
             );
             if (!consumed.ok) {

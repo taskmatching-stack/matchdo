@@ -2,7 +2,13 @@
 
 **最後更新：** 2026-07-11  
 **狀態：** 已實作（待部署驗收）  
-**點數：** 固定 **20 點／次**（`points_design_to_physical`，預設 20）
+**點數：** 固定 **20 點／次**（`points_design_to_physical`，預設 20；後台「會員／點數規則」可調）
+
+## 扣點統計（管理後台）
+
+- 寫入 `credit_transactions`：`source=design_to_physical`，`description=設計圖轉實體`
+- 後台「扣點統計」依 description 彙總次數／點數（與圖樣提取、實境模擬相同機制）
+- 三入口（設計區／廠商預覽／圖庫追加）皆用同一 description，方便合併統計
 
 ## 一句話
 
