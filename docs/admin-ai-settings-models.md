@@ -14,7 +14,7 @@
 | **語意提示詞 API** | `GET`／`PATCH` [`/api/admin/semantics-prompts`](../server.js) |
 | **儲存位置** | Supabase `payment_config` 表，鍵名見下表 |
 
-本頁涵蓋 **Gemini** 四槽與 **FLUX** 四槽，見 §2、§2.1。材料 AI 優化**現行走 FLUX**（`bfl_flux_model_vendor_material`）；`gemini_model_material_optimize` 後台欄位仍保留但 **optimize 路徑未使用**。
+本頁涵蓋 **Gemini** 四槽與 **FLUX** 五槽，見 §2、§2.1。材料 AI 優化**現行走 FLUX**（`bfl_flux_model_vendor_material`）；`gemini_model_material_optimize` 後台欄位仍保留但 **optimize 路徑未使用**。
 
 ---
 
@@ -28,6 +28,7 @@
 | 廠商產品 AI 重繪 | `bfl_flux_model_vendor_product` | `flux-2-pro` | 數位原型／零件白底重繪 |
 | 廠商材料 AI 優化 | `bfl_flux_model_vendor_material` | `flux-2-pro` | 廠商**材料色卡** img2img（`buildVendorAssetMaterialFluxOptimizePrompt`） |
 | 實境模擬／圖樣提取 | `bfl_flux_model_scene_pattern` | `flux-2-pro` | 實境合成、圖樣提取 |
+| 寫實化 | `bfl_flux_model_design_to_physical` | `flux-2-pro` | 設計頁／廠商寫實化（獨立槽） |
 
 可選 model id 與 Playground 相同（`flux-2-pro`、`flux-2-max` 等），亦支援**後台手填**新型號（`flux-2-*` → `POST /v1/{id}`），無需改程式或下拉枚舉。
 

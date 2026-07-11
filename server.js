@@ -2831,13 +2831,10 @@ async function getPointsDesignToPhysical() {
     return Number.isFinite(n) && n >= 0 ? n : DESIGN_TO_PHYSICAL_POINTS_DEFAULT;
 }
 
-/** 寫實化固定走官網同款 preview 端點（勿併入 bfl_flux_model_vendor_product，以免改到產品重繪） */
-const DESIGN_TO_PHYSICAL_BFL_MODEL = 'flux-2-pro';
-
 /**
  * 寫實化：FLUX img2img。
- * 與 optimizeVendorAssetImageWithFlux 分線。
- * 對齊 BFL 官網 playground：原圖直送（僅 AVIF/HEIC 轉 JPEG），不做任何尺寸處理。
+ * 與 optimizeVendorAssetImageWithFlux 分線（獨立槽 bfl_flux_model_design_to_physical）。
+ * 原圖直送（僅 AVIF/HEIC 轉 JPEG），不做任何尺寸處理。
  */
 async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
@@ -2860,7 +2857,7 @@ async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra) {
     }
     const prompt = buildDesignToPhysicalPrompt(userExtra);
     const fluxOpts = {
-        endpointUrl: getBflPlaygroundEndpoint(DESIGN_TO_PHYSICAL_BFL_MODEL),
+        endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_design_to_physical'),
         width: 1024,
         height: 1024,
         skipPromptTranslation: true,
@@ -8712,7 +8709,8 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_generate: 'flux-2-pro',
     bfl_flux_model_vendor_product: 'flux-2-pro',
     bfl_flux_model_vendor_material: 'flux-2-pro',
-    bfl_flux_model_scene_pattern: 'flux-2-pro'
+    bfl_flux_model_scene_pattern: 'flux-2-pro',
+    bfl_flux_model_design_to_physical: 'flux-2-pro'
 };
 
 /** 允許後台手填 BFL model id（含未來新型號），格式 flux-2-* */
