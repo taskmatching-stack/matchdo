@@ -421,6 +421,27 @@
             margin: 0 auto;
         }
         .cat-bottom-sheet.open .cat-bs-panel { transform: translateY(0); }
+        .cat-bs-header {
+            display: flex; align-items: center;
+            padding: 0.75rem 0.875rem; border-bottom: 1px solid #e5e7eb; gap: 0.25rem;
+        }
+        .cat-bs-title { flex: 1; font-weight: 600; font-size: 0.9375rem; text-align: center; color: #111; }
+        .cat-bs-nav-btn {
+            background: none; border: none; padding: 0.25rem 0.5rem;
+            font-size: 0.875rem; color: #6b7280; cursor: pointer; border-radius: 6px; min-width: 3rem;
+        }
+        .cat-bs-nav-btn:hover { background: #f3f4f6; }
+        .cat-bs-list { overflow-y: auto; flex: 1; min-height: 0; }
+        .cat-bs-item {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.875rem 1rem; font-size: 0.9375rem; color: #374151;
+            border-bottom: 1px solid #f3f4f6; cursor: pointer;
+        }
+        .cat-bs-item:hover { background: #f8fafc; }
+        .cat-bs-item.is-selected { color: #445D7E; font-weight: 600; }
+        .cat-bs-item .cat-bs-check { color: #445D7E; width: 1.1rem; flex-shrink: 0; }
+        .cat-bs-item .cat-bs-placeholder-icon { width: 1.1rem; flex-shrink: 0; }
+        .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #9ca3af; font-size: 0.75rem; }
         @media (max-width: 768px) {
             /* ── 手機版整體 ── */
             /* 外層容器 py-4 → 壓縮 */

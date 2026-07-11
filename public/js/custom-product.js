@@ -4017,8 +4017,9 @@ $(document).ready(function () {
             });
         }
 
-        function openSheet() {
-            if (!isMobileCategoryUi()) return;
+        function openSheet(force) {
+            if (!force && !isMobileCategoryUi()) return;
+            ensureCatSheetBound(!!force);
             showMainStep();
             var els = catSheetEls();
             els.$sheet.addClass('open').attr('aria-hidden', 'false');
@@ -4033,28 +4034,34 @@ $(document).ready(function () {
             updateBtnLabel();
         }
 
-        function bindMobileCategoryUi() {
-            if (catSheetInited || !isMobileCategoryUi()) return;
+        function ensureCatSheetBound(forceDesktop) {
+            if (catSheetInited) return;
+            if (!forceDesktop && !isMobileCategoryUi()) return;
             catSheetInited = true;
             var els = catSheetEls();
             els.$close.on('click', closeSheet);
             els.$back.on('click', showMainStep);
             els.$sheet.find('.cat-bs-backdrop').on('click', closeSheet);
-            $('#catMobileBtn').show();
-            $('#bs-cat-mobile-btn').removeClass('d-none').show();
-            setTimeout(updateBtnLabel, 600);
+            if (isMobileCategoryUi()) {
+                $('#catMobileBtn').show();
+                $('#bs-cat-mobile-btn').removeClass('d-none').show();
+                setTimeout(updateBtnLabel, 600);
+            }
+        }
+
+        function bindMobileCategoryUi() {
+            ensureCatSheetBound(false);
         }
 
         $(document).on('click', '#catMobileBtn, #bs-cat-mobile-btn', function (e) {
             if (!isMobileCategoryUi()) return;
             e.preventDefault();
-            bindMobileCategoryUi();
-            openSheet();
+            openSheet(false);
         });
 
+        /** 廠商版型「變更分類」等：桌機也開同一套分類 sheet */
         window.matchdoOpenCategorySheet = function () {
-            bindMobileCategoryUi();
-            openSheet();
+            openSheet(true);
         };
 
         bindMobileCategoryUi();
