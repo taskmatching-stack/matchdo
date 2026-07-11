@@ -2807,7 +2807,7 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
 
 /** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 固定保真底稿；使用者補充自行輸入 */
 const DESIGN_TO_PHYSICAL_PROMPT =
-    '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致';
+    '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致。若原圖有尺寸標註，須嚴格顯示原標註之尺寸數字與單位，不得新增、刪除或改寫任何尺寸';
 const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20;
 const DESIGN_TO_PHYSICAL_SEED = 3647440197;
 
