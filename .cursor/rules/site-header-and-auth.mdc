@@ -47,9 +47,15 @@ alwaysApply: false
 
 在 site-header.js 裡，`loginHref`（初次繪製與 renderHeader 內）都要帶 returnUrl 或呼叫 `AuthService.getLoginUrl(path)`。
 
-## 3. 修改後自檢
+## 3. Bootstrap 勿雙載入（否則頭像／個人選單點了沒反應）
 
-改動後確認：① 同一 function 內沒有重複宣告；② 搜尋 `loginHref` 與 `getLoginUrl`，確認登入連結有 returnUrl；③ 存檔後在瀏覽器重新整理，點選單與登入按鈕是否正常。
+- `site-header.js` **禁止**在 mid-body 同步注入 Bootstrap；長頁頁尾才有 `#bs-bundle-js` 時，提前注入會雙載入沖掉 Dropdown。
+- 長頁（如 `custom-product.html`）：在 **`<head>`** 先掛 `<script id="bs-bundle-js" … defer>`，再於 body 開頭載 `site-header.js`；頁尾**不要**再載一次。
+- 改設計頁 HTML／modal 時：全屏 `position:fixed; inset:0` 樣式必須綁在 `.modal.show`，關閉態不可擋導覽。
+
+## 4. 修改後自檢
+
+改動後確認：① 同一 function 內沒有重複宣告；② 搜尋 `loginHref` 與 `getLoginUrl`，確認登入連結有 returnUrl；③ 存檔後在瀏覽器重新整理，點選單與登入按鈕是否正常；④ 設計頁硬重新整理後頭像下拉可開。
 
 ## 參考
 

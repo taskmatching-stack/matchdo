@@ -1,6 +1,8 @@
 /* 首屏：保留高度，完整選單繪製完成前不顯示（避免半套版面閃爍） */
 #site-header {
   min-height: 60px;
+  position: relative;
+  z-index: 1030; /* 與 Bootstrap navbar 同層，避免頁面內容／關閉態 modal 蓋住個人選單 */
 }
 #site-header:not([data-header-ready="1"]) {
   visibility: hidden;

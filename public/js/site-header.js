@@ -4,13 +4,8 @@
  */
 
 (function injectSiteHeaderStyles() {
-    // Bootstrap JS 全站保底載入
-    if (typeof window.bootstrap === 'undefined' && !document.getElementById('bs-bundle-js')) {
-        var _bs = document.createElement('script');
-        _bs.id = 'bs-bundle-js';
-        _bs.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js';
-        document.head.appendChild(_bs);
-    }
+    // Bootstrap：禁止在 mid-body 同步注入（長頁雙載入會沖掉頭像 Dropdown）。
+    // 保底改由 ensureBootstrapScriptPresent（window.load）處理。
     // Space Grotesk 字型保底載入
     if (!document.getElementById('nb-font')) {
         var _f = document.createElement('link');
@@ -61,6 +56,17 @@ function markSiteHeaderReady(headerContainer) {
     if (headerContainer) headerContainer.setAttribute('data-header-ready', '1');
 }
 
+/** 若整頁都沒有 Bootstrap script，才在 load 後補一份（避免與頁尾 defer 雙載入） */
+function ensureBootstrapScriptPresent() {
+    if (typeof window.bootstrap !== 'undefined' && window.bootstrap.Dropdown) return;
+    if (document.getElementById('bs-bundle-js')) return;
+    if (document.querySelector('script[src*="bootstrap.bundle"]')) return;
+    var _bs = document.createElement('script');
+    _bs.id = 'bs-bundle-js';
+    _bs.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js';
+    document.head.appendChild(_bs);
+}
+
 /** 等 Bootstrap bundle 載入後初始化點擊下拉（頭像、我的功能） */
 function ensureBootstrapReady() {
     if (typeof window.bootstrap !== 'undefined' && window.bootstrap.Dropdown) {
@@ -75,7 +81,7 @@ function ensureBootstrapReady() {
                 resolve(window.bootstrap);
             }
         }
-        var bsTag = document.getElementById('bs-bundle-js');
+        var bsTag = document.getElementById('bs-bundle-js') || document.querySelector('script[src*="bootstrap.bundle"]');
         if (bsTag) {
             bsTag.addEventListener('load', finish);
         }
@@ -87,6 +93,11 @@ function ensureBootstrapReady() {
                 settled = true;
                 resolve(null);
                 return;
+            }
+            // 解析後期才出現的 #bs-bundle-js：補綁 load
+            if (!bsTag) {
+                bsTag = document.getElementById('bs-bundle-js') || document.querySelector('script[src*="bootstrap.bundle"]');
+                if (bsTag) bsTag.addEventListener('load', finish);
             }
             setTimeout(poll, 50);
         })();
@@ -245,6 +256,7 @@ if (document.getElementById('site-header')) {
 
 /** 頁尾 defer 載入 Bootstrap 的長頁（如 custom-product）：load 後再綁一次下拉 */
 window.addEventListener('load', function () {
+    ensureBootstrapScriptPresent();
     var root = document.getElementById('site-header');
     if (root) initSiteHeaderDropdowns(root);
 });
