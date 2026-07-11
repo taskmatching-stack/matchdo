@@ -1,12 +1,13 @@
 # 進度紀錄：廠商素材多角度圖（新增／編輯）
 
 > **新對話：** 先讀 **`docs/session-handoff-2026-06-03.md`**（單一入口），再讀本檔。  
-> **材料單圖 AI 優化／FLUX 保真／後台模型：** 讀 **`docs/PROGRESS-material-flux-ai-settings.md`**（含 §二 未解決問題）。  
+> **材料單圖 AI 優化／FLUX 保真／後台模型：** 讀 **`docs/PROGRESS-material-flux-ai-settings.md`**。
 > 若還要改 guide／廠商版型 Tab，另讀 `docs/PROGRESS-vendor-styles-and-product-tree.md`。
 
-**最後更新：** 2026-06-05  
-**狀態：** ✅ 逐張 AI 重繪**追加新圖**（原圖保留）+ 預覽重繪不重複收上傳費；部署後確認 `__MATCHDO_MATERIALS_BUILD=redraw-append-new-image-20260605`  
-**頁面：** [`/client/manufacturer-materials.html`](https://matchdo.cc/client/manufacturer-materials.html)（僅 `public/client/`，勿改根目錄同名檔）
+**最後更新：** 2026-07-10  
+**狀態：** ✅ 圖庫操作後編輯區 metadata 保留；產品重繪 segment 拆分；材料產品照→滿版色卡  
+**頁面：** [`/client/manufacturer-materials.html`](https://matchdo.cc/client/manufacturer-materials.html)（僅 `public/client/`，勿改根目錄同名檔）  
+**頁面 build：** `window.__MATCHDO_MATERIALS_BUILD` ≥ `material-product-swatch-hint-20260710g`
 
 **一句話：** 主產品／配件 = 多圖 + **AI 重繪**（雙按鈕分流）；材料 = 材質圖 AI 優化；展示底色只是重繪附帶參數。
 
@@ -22,6 +23,7 @@
 | git／部署／禁忌 | §五 |
 | **驗收 checkbox** | **§七** |
 | **待辦 T1～T6** | **§八** |
+| **2026-07-10 補充** | **§九** |
 | 全站入口＋P0 | `docs/session-handoff-2026-06-03.md` §3 |
 
 ---
@@ -184,14 +186,42 @@
 
 ---
 
-## 九、相關文件
+## 九、2026-07-10 補充（metadata 保留 ＋ 產品重繪）
+
+### 9.1 編輯區 metadata 圖庫操作後不再被清空
+
+| Commit | 內容 |
+|--------|------|
+| `57d5d11` | 後端圖庫 mutation API 回傳完整欄位（`VENDOR_ASSET_SELECT_GALLERY_API`）；前端 `afterEditGalleryMutation` + 擴充 `refreshEditModalAfterSave` |
+
+**涵蓋操作：** 圖庫 AI 重繪、放大、上傳、刪除、設封面、排序、slot 預覽 flush、圖片標籤。
+
+**修復欄位：** 訂製程度（`customization_levels`）、MOQ、taxonomy、catalog 等 — 先前 API 只回圖庫片段時 UI 會誤顯示空白。
+
+### 9.2 產品 AI 重繪 prompt（prototype／part）
+
+| Commit | 內容 |
+|--------|------|
+| `ae9d923` | `buildVendorAssetProductOptimizePrompt`：底色、棚拍光影、人台各獨立 segment；移除地面接觸陰影 |
+
+**勿擅自：** 角度鎖定、負面人台句、把底色規則併入人台句。
+
+### 9.3 材料 tab 產品照 → 滿版材質色卡
+
+| Commit | 內容 |
+|--------|------|
+| `b803ad9` | `buildVendorAssetMaterialFluxOptimizePrompt` 第二句；詳見 `PROGRESS-material-flux-ai-settings.md` |
+
+---
+
+## 十、相關文件
 
 | 文件 | 內容 |
 |------|------|
 | `docs/add-vendor-asset-gallery-images.sql` | DB migration |
 | `docs/vendor-asset-prototype-moq-customization-notes.md` | MOQ／訂製程度 + **§多角度圖** |
 | `docs/session-handoff-2026-06-03.md` | **新對話單一入口**（部署、P0、語意、檔案表） |
-| **`docs/PROGRESS-material-flux-ai-settings.md`** | **材料 FLUX 保真、後台 FLUX 手填模型、未解問題** |
+| **`docs/PROGRESS-material-flux-ai-settings.md`** | **材料 FLUX、後台 FLUX 手填模型、產品照色卡** |
 | `docs/PROGRESS-vendor-styles-and-product-tree.md` | 同後台之關聯樹／guide（與本檔並讀） |
 | `docs/matchdo-todo.md` | 全站總表「近期完成」 |
 | `docs/user-manual.md` §8.3 | 廠商操作說明 |
@@ -199,4 +229,4 @@
 
 ---
 
-（若再改編輯區 HTML，請同 PR 更新 `bindEditGalleryUpload` 與本檔 §三、§八。）
+（若再改編輯區 HTML，請同 PR 更新 `bindEditGalleryUpload` 與本檔 §三、§八、§九。）

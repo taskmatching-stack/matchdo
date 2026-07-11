@@ -1,6 +1,6 @@
 # 材料參考（色卡／圖樣）獨立規劃
 
-> 建立：2026-05-26｜**政策**：2026-06-05 對齊 `docs/flux-and-gemini-prompt-policy.md`（**嚴禁查表式硬編碼提示詞**）  
+> 建立：2026-05-26｜**政策**：2026-07-10 對齊 `docs/flux-and-gemini-prompt-policy.md`（**嚴禁查表式硬編碼提示詞**）  
 > **與數位原型分線**：原型 = 立體商品 + MOQ + 訂製程度 + 產品重繪；材料 = **平面圖樣／色卡** + Gemini 讀圖 + 設計端材質附錄。  
 > **不共用**：產品棚拍底色、訂製程度限制句、prototype_tagging 當材料讀圖標準（材料用 `material_tagging_prompt`）。
 
@@ -11,6 +11,8 @@
 | 目標 | 說明 |
 |------|------|
 | 視覺 | 滿版或近滿版的 **材質圖樣**（像 Pantone／布樣卡），不是小塊樣板浮在白底商品照上 |
+| 純色 + 材質類型 | 使用者填「AI 重繪材質類型」→ FLUX 生成該材質滿版質感（**預期行為**） |
+| 產品／服裝照 + 材質類型 | 同上材質語意，但 prompt 第二句去除版型，整張滿版色卡（2026-07-10） |
 | 上傳 | 可選 **AI 優化圖樣**：提清晰度、均勻光線、去雜物；**不強制**攝影棚白底 |
 | 設計生圖 | 只借 **色彩 + 表面紋理語意** 套到原型造型上；禁止整塊色卡貼圖 |
 | 尺度 | 滿板圖 **無法從像素 alone 推物理尺寸**；須用 **metadata + 文案** 輔助 |
@@ -71,10 +73,10 @@
 ┌─────────────────────────────────────────────────────────────┐
 │ A. 上傳管線（廠商素材庫）                                      │
 ├─────────────────────────────────────────────────────────────┤
-│ 原圖 ──► Gemini 讀圖 → image_semantics_json                  │
-│      ──► [可選] materialOptimize (FLUX)                      │
-│          · 短通用 img2img 底稿 + buildMaterialFluxFidelityLine │
-│          · 無底色；1024×1024                                  │
+│ 原圖 ──► Gemini 讀圖 → image_semantics_json（標籤；不進 optimize）      │
+│      ──► [可選] materialOptimize (FLUX)                              │
+│          · buildVendorAssetMaterialFluxOptimizePrompt(material_surface_type) │
+│          · 中文兩句；1024×1024；seed 3647440197；無底色                │
 │      ──► Storage URL                                         │
 └─────────────────────────────────────────────────────────────┘
 
@@ -93,16 +95,18 @@
 
 ---
 
-## 五、程式對照（現行 2026-06-05）
+## 五、程式對照（現行 2026-07-10）
 
 | 項目 | 檔案 | 現行 |
 |------|------|------|
 | 政策（必讀） | `docs/flux-and-gemini-prompt-policy.md` | 嚴禁查表式硬編碼 |
-| 材料優化 prompt | `buildVendorAssetMaterialOptimizePrompt` | 通用底稿 + Gemini JSON |
+| Prompt 鎖 | `.cursor/rules/material-flux-prompt-lock.mdc` | 中文兩句 |
+| 材料優化 prompt | `buildVendorAssetMaterialFluxOptimizePrompt` | `material_surface_type` → 中文 |
 | 材料 FLUX | `optimizeVendorAssetImageWithFlux` | 忽略 background；1024² |
-| 讀圖 | `material_tagging_prompt` | Gemini → `image_semantics_json` |
-| 生圖附錄 | `buildMaterialTexturePromptAppendix` | DB 語意轉寫 |
-| 廠商 UI | `manufacturer-materials.html` | 材料無底色區 |
+| 讀圖（標籤） | `material_tagging_prompt` | Gemini → `image_semantics_json` |
+| 生圖附錄 | `buildMaterialTexturePromptAppendix` | DB 語意轉寫（設計頁） |
+| 廠商 UI | `manufacturer-materials.html` | 材料無底色區；`buildMaterialFluxPromptPreview` |
+| **未接上線** | `resolveMaterialFluxEditPrompt` 等 | 勿當 optimize 現行 |
 
 **已刪除、勿復活**：`inferMaterialKeyFromHints`、`inferOptionalMaterialContextHints`、`materialTextureScaleRuleForKey`、`materialOptimizeTextureDirective`。
 
@@ -135,6 +139,9 @@
 
 **Q：滿板還要不要 AI 優化？**  
 A：圖已清晰可 **不勾**；雜光、模糊、手機隨拍可勾，目標是 **圖樣更乾淨**，不是換白底。
+
+**Q：產品照丟進材料 tab 會怎樣？**  
+A：與純色相同，依「AI 重繪材質類型」走 FLUX；第二句會去版型、整張滿版材質色卡（見 `material-flux-prompt-lock.mdc`）。
 
 **Q：和「提取圖樣」一樣嗎？**  
 A：Phase 1 仍是 FLUX img2img **強化**同一構圖；真・去背提取屬 Phase 3。設計端則用 prompt **語意提取** 紋理。

@@ -663,7 +663,8 @@ function parseGalleryImages(raw) {
         }
         if (url) {
             const row = { url: url, sort_order: sortOrder, label: label };
-            if (aiDerived === 'redraw' || aiDerived === 'upscale') row.ai_derived = aiDerived;
+            const derivedNorm = normalizeVendorAiDerivedKind(aiDerived);
+            if (derivedNorm) row.ai_derived = derivedNorm;
             if (sourceUrl) row.source_url = sourceUrl;
             if (entry && typeof entry === 'object' && entry.link_group != null) {
                 const lg = normalizeImageLinkGroup(entry.link_group);
@@ -738,7 +739,7 @@ function parseImageAiDerivedBody(body, count) {
     if (!Array.isArray(raw)) return out;
     for (let i = 0; i < count; i++) {
         const v = raw[i] != null ? String(raw[i]).trim() : '';
-        out.push(v === 'redraw' || v === 'upscale' ? v : '');
+        out.push(normalizeVendorAiDerivedKind(v));
     }
     return out;
 }
@@ -757,8 +758,8 @@ function legacyVendorImageDerivedKind(label) {
 
 function vendorImageDerivedKind(item) {
     if (!item) return '';
-    const d = item.ai_derived != null ? String(item.ai_derived).trim() : '';
-    if (d === 'redraw' || d === 'upscale') return d;
+    const d = normalizeVendorAiDerivedKind(item.ai_derived);
+    if (d) return d;
     return legacyVendorImageDerivedKind(item.label);
 }
 
@@ -791,7 +792,7 @@ function buildVendorAssetImageItems(row) {
             label: String(g.label || '').trim() || labelFromImageUrl(g.url),
             is_cover: false
         };
-        if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') item.ai_derived = g.ai_derived;
+        if (normalizeVendorAiDerivedKind(g.ai_derived)) item.ai_derived = normalizeVendorAiDerivedKind(g.ai_derived);
         if (g.source_url) item.source_url = String(g.source_url).trim();
         if (g.link_group) item.link_group = g.link_group;
         items.push(item);
@@ -826,7 +827,7 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
     items.forEach(function (it) {
         metaByUrl[it.url] = {
             label: it.label || '',
-            ai_derived: it.ai_derived === 'redraw' || it.ai_derived === 'upscale' ? it.ai_derived : '',
+            ai_derived: normalizeVendorAiDerivedKind(it.ai_derived),
             source_url: it.source_url ? String(it.source_url).trim() : '',
             link_group: it.link_group ? String(it.link_group).trim() : ''
         };
@@ -2007,7 +2008,8 @@ async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrd
             : labelFromOriginalFilename(normalized.originalname);
         const entry = { url: publicUrl, sort_order: startSortOrder + i, label: lab || labelFromImageUrl(publicUrl) };
         const dk = derived[i] != null ? String(derived[i]).trim() : '';
-        if (dk === 'redraw' || dk === 'upscale') entry.ai_derived = dk;
+        const derivedNorm = normalizeVendorAiDerivedKind(dk);
+        if (derivedNorm) entry.ai_derived = derivedNorm;
         const lg = linkGroups[i] != null ? normalizeImageLinkGroup(linkGroups[i]) : '';
         if (lg) entry.link_group = lg;
         entries.push(entry);
@@ -2798,6 +2800,49 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     const t = normalizeMaterialSurfaceType(surfaceType);
     if (!t) throw new Error('請填材質類型（例：皮革、丹寧）');
     return `保持顏色並優化此${t}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}材質色卡質感。`;
+}
+
+/** 設計圖轉實體（獨立管線；勿併入產品重繪／材料色卡） */
+const DESIGN_TO_PHYSICAL_PROMPT =
+    '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致';
+const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20;
+const DESIGN_TO_PHYSICAL_SEED = 2026071101;
+
+function buildDesignToPhysicalPrompt() {
+    return DESIGN_TO_PHYSICAL_PROMPT;
+}
+
+async function getPointsDesignToPhysical() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_design_to_physical');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= 0 ? n : DESIGN_TO_PHYSICAL_POINTS_DEFAULT;
+}
+
+/**
+ * 設計圖 → 寫實實體產品（FLUX img2img）。
+ * 與 optimizeVendorAssetImageWithFlux 分線；模型暫用 bfl_flux_model_vendor_product。
+ */
+async function runDesignToPhysicalFlux(fileBuffer, mimeType) {
+    if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
+    const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
+    const prompt = buildDesignToPhysicalPrompt();
+    const fluxOpts = {
+        endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_product'),
+        width: 1024,
+        height: 1024,
+        skipPromptTranslation: true
+    };
+    const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
+    const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], DESIGN_TO_PHYSICAL_SEED, 'jpeg', fluxOpts);
+    if (!buf || !buf.length) throw new Error('設計圖轉實體服務未設定或暫時無法使用（BFL_API_KEY）');
+    return buf;
+}
+
+function normalizeVendorAiDerivedKind(raw) {
+    const d = String(raw || '').trim();
+    if (d === 'redraw' || d === 'upscale' || d === 'design_to_physical') return d;
+    return '';
 }
 
 function resolveMaterialSurfaceType(body, row) {
@@ -9269,6 +9314,78 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message || '圖樣提取失敗，請稍後再試'
+        });
+    }
+});
+
+// API: 設計圖轉實體（獨立 FLUX 管線；固定 20 點；不併入產品重繪／材料／主生圖）
+app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        let isAdmin = false;
+        let currentUser = null;
+        if (authHeader) {
+            const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+            const { data: { user }, error } = await supabase.auth.getUser(token);
+            if (!error && user) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                isAdmin = profile?.role === 'admin';
+                currentUser = user;
+            }
+        }
+        if (!currentUser) {
+            return res.status(401).json({ success: false, error: '請先登入後再使用設計圖轉實體' });
+        }
+        const { image } = req.body || {};
+        if (!image || typeof image !== 'string') {
+            return res.status(400).json({ success: false, error: '請上傳一張設計圖' });
+        }
+        const pointsToDeduct = await getPointsDesignToPhysical();
+        if (!isAdmin && pointsToDeduct > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(currentUser.id, pointsToDeduct);
+            if (!sufficient) {
+                return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
+            }
+        }
+        const imageBase64 = await resolveImageToBase64(image);
+        if (!imageBase64) {
+            return res.status(400).json({ success: false, error: '圖片無法讀取，請重新上傳' });
+        }
+        if (!process.env.BFL_API_KEY) {
+            return res.status(503).json({ success: false, error: '設計圖轉實體服務暫未設定，請稍後再試' });
+        }
+        const rawBuf = Buffer.from(imageBase64, 'base64');
+        const buffer = await runDesignToPhysicalFlux(rawBuf, 'image/jpeg');
+        if (!buffer) {
+            return res.status(500).json({ success: false, error: '轉換失敗，請稍後再試' });
+        }
+        const imageData = buffer.toString('base64');
+        let balanceAfter = null;
+        if (!isAdmin && pointsToDeduct > 0) {
+            const consumed = await consumeUserCredits(
+                currentUser.id,
+                pointsToDeduct,
+                'design_to_physical',
+                `設計圖轉實體（${pointsToDeduct} 點）`,
+                {}
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
+            }
+            balanceAfter = consumed.balance_after;
+        }
+        res.json({
+            success: true,
+            imageData: `data:image/jpeg;base64,${imageData}`,
+            points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+            balance_after: balanceAfter,
+            ai_prompt: buildDesignToPhysicalPrompt()
+        });
+    } catch (error) {
+        console.error('設計圖轉實體錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || '設計圖轉實體失敗，請稍後再試'
         });
     }
 });
@@ -18302,6 +18419,7 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
             points_upscale: await getPointsVendorAssetUpscale(),
+            points_design_to_physical: await getPointsDesignToPhysical(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
             optimize_includes_tags: true
@@ -19372,6 +19490,200 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
     }
 });
 
+// POST /api/me/vendor-assets/preview-design-to-physical — 上傳前設計圖轉實體預覽（固定 20 點；僅 prototype／part）
+app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('image'), async (req, res) => {
+    try {
+        const uploadUser = await assertCanUploadProductsAndAssets(req, res);
+        if (!uploadUser) return;
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const file = await vendorAssetFileFromMulter(req.file);
+        if (!file) return res.status(400).json({ error: '請上傳圖片' });
+        const body = req.body || {};
+        const assetKind = normalizeVendorAssetKind(body.asset_kind);
+        if (assetKind !== 'prototype' && assetKind !== 'part') {
+            return res.status(400).json({ error: '設計圖轉實體僅適用於數位原型／配件' });
+        }
+        const pointsRequired = await getPointsDesignToPhysical();
+        let ownerId = seedUser.id;
+        let isAdmin = false;
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+        isAdmin = profile?.role === 'admin';
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        let outBuf;
+        try {
+            outBuf = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg');
+        } catch (optErr) {
+            console.error('preview-design-to-physical:', optErr);
+            return res.status(503).json({ error: (optErr && optErr.message) || '設計圖轉實體失敗，請稍後重試' });
+        }
+        const optimized = {
+            buffer: outBuf,
+            mimetype: 'image/jpeg',
+            originalname: 'design-to-physical.jpg'
+        };
+        const previewName = `preview-d2p-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
+        const { publicUrl } = await uploadToSupabaseStorage(
+            'custom-products', `vendor-assets-preview/${manufacturerId}`, { ...optimized, originalname: previewName }
+        );
+        let balanceAfter = null;
+        let creditTransactionId = null;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'design_to_physical',
+                `上傳前設計圖轉實體預覽（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, preview: true }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
+            }
+            balanceAfter = consumed.balance_after;
+            creditTransactionId = consumed.transaction_id || null;
+        }
+        res.json({
+            preview_url: publicUrl,
+            preview_base64: optimized.buffer.toString('base64'),
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter,
+            credit_transaction_id: creditTransactionId,
+            ai_prompt: buildDesignToPhysicalPrompt()
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/preview-design-to-physical:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/me/vendor-assets/:id/gallery-images/design-to-physical — 單張設計圖轉實體並追加新圖
+app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.json(), async (req, res) => {
+    try {
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
+        const seedUser = await getRequestUserFromAuthHeader(req);
+        if (!seedUser) return res.status(401).json({ error: '請先登入' });
+        if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
+        const id = (req.params.id || '').trim();
+        const body = req.body || {};
+        const sourceUrl = String(body.source_url || '').trim();
+        if (!sourceUrl) return res.status(400).json({ error: '請提供 source_url' });
+        const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label, image_semantics_json'
+        );
+        if (rowErr) return res.status(500).json({ error: '查詢失敗' });
+        if (!row) return res.status(404).json({ error: '找不到該素材' });
+        const assetKind = normalizeVendorAssetKind(row.asset_kind);
+        if (assetKind !== 'prototype' && assetKind !== 'part') {
+            return res.status(400).json({ error: '設計圖轉實體僅適用於數位原型／配件' });
+        }
+        if (!vendorAssetSupportsGalleryImages(assetKind)) {
+            return res.status(400).json({ error: '此素材類型不支援多角度圖' });
+        }
+        const allUrls = getVendorAssetAllImageUrls(row);
+        if (allUrls.indexOf(sourceUrl) < 0) {
+            return res.status(400).json({ error: '來源圖片不屬於此素材' });
+        }
+        const existing = parseGalleryImages(row.gallery_images);
+        const totalNow = allUrls.length;
+        const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
+        if (room <= 0) {
+            return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+        }
+        const pointsRequired = await getPointsDesignToPhysical();
+        let ownerId = seedUser.id;
+        let isAdmin = false;
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
+        isAdmin = profile?.role === 'admin';
+        if (!isAdmin && pointsRequired > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(ownerId, pointsRequired);
+            if (!sufficient) {
+                return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
+            }
+        }
+        const resImg = await fetch(sourceUrl, { redirect: 'follow' });
+        if (!resImg.ok) return res.status(503).json({ error: '無法讀取來源圖片' });
+        const imgBuf = Buffer.from(await resImg.arrayBuffer());
+        const imgMime = (resImg.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+        let file = await normalizeVendorUploadFile({
+            buffer: imgBuf,
+            mimetype: imgMime,
+            originalname: 'design-to-physical-source.jpg'
+        });
+        if (!file) return res.status(400).json({ error: '無法讀取圖片，請改用 JPG／PNG／WebP' });
+        let outBuf;
+        try {
+            outBuf = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg');
+        } catch (optErr) {
+            console.error('gallery-images/design-to-physical:', optErr);
+            return res.status(503).json({ error: (optErr && optErr.message) || '設計圖轉實體失敗，請稍後重試' });
+        }
+        file = {
+            buffer: outBuf,
+            mimetype: 'image/jpeg',
+            originalname: 'design-to-physical.jpg'
+        };
+        const sourceItems = buildVendorAssetImageItems(row);
+        const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
+        const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
+        const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
+        const outLabel = vendorImageLabelFromSource(srcLabel, labelFromImageUrl(sourceUrl) || '轉實體');
+        const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort, [outLabel], ['design_to_physical']);
+        if (!newEntries.length) {
+            return res.status(500).json({ error: '上傳轉實體結果失敗' });
+        }
+        newEntries.forEach(function (e) { e.source_url = sourceUrl; });
+        const updatePayload = {
+            gallery_images: existing.concat(newEntries),
+            updated_at: new Date().toISOString()
+        };
+        const { data: updated, error } = await supabase.from('vendor_assets')
+            .update(updatePayload)
+            .eq('id', id)
+            .eq('manufacturer_id', manufacturerId)
+            .select(VENDOR_ASSET_SELECT_GALLERY_API)
+            .single();
+        if (error) {
+            if (error.code === '42703') {
+                return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-gallery-images.sql 新增多角度圖欄位' });
+            }
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        let balanceAfter = null;
+        if (!isAdmin && pointsRequired > 0) {
+            const consumed = await consumeUserCredits(
+                ownerId,
+                pointsRequired,
+                'design_to_physical',
+                `單張設計圖轉實體（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, asset_id: id, source_url: sourceUrl }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
+            }
+            balanceAfter = consumed.balance_after;
+        }
+        res.json({
+            ...(await mapVendorAssetForApiEnriched(updated)),
+            points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
+            balance_after: balanceAfter,
+            design_to_physical_from_url: sourceUrl,
+            ai_prompt: buildDesignToPhysicalPrompt()
+        });
+    } catch (e) {
+        console.error('POST /api/me/vendor-assets/:id/gallery-images/design-to-physical:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // POST /api/me/vendor-assets/:id/gallery-images/upscale — 單張原圖 Fast 4× 放大並追加新圖（輸出 ≤1MP）
 app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), async (req, res) => {
     try {
@@ -19677,7 +19989,8 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 const patch = byUrl[g.url];
                 if (!patch) return g;
                 const next = { url: g.url, sort_order: g.sort_order, label: patch.label !== undefined ? patch.label : g.label };
-                if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') next.ai_derived = g.ai_derived;
+                const derivedKeep = normalizeVendorAiDerivedKind(g.ai_derived);
+                if (derivedKeep) next.ai_derived = derivedKeep;
                 if (g.source_url) next.source_url = g.source_url;
                 if (patch.link_group !== undefined) {
                     if (patch.link_group) next.link_group = patch.link_group;
@@ -21002,7 +21315,7 @@ function reorderSupplierCatalogGalleryFromUrls(row, orderedUrls) {
     items.forEach(function (it) {
         metaByUrl[it.url] = {
             label: it.label || '',
-            ai_derived: it.ai_derived === 'redraw' || it.ai_derived === 'upscale' ? it.ai_derived : '',
+            ai_derived: normalizeVendorAiDerivedKind(it.ai_derived),
             source_url: it.source_url ? String(it.source_url).trim() : ''
         };
     });
@@ -21256,7 +21569,8 @@ async function uploadSupplierCatalogGalleryFiles(supplierId, files, startSortOrd
             label: lab || labelFromImageUrl(publicUrl)
         };
         const dk = derived[i] != null ? String(derived[i]).trim() : '';
-        if (dk === 'redraw' || dk === 'upscale') entry.ai_derived = dk;
+        const derivedNorm = normalizeVendorAiDerivedKind(dk);
+        if (derivedNorm) entry.ai_derived = derivedNorm;
         entries.push(entry);
     }
     return entries;
@@ -22132,6 +22446,7 @@ app.get('/api/me/industry-supplier/catalog-items/upload-pricing', async (req, re
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
             points_upscale: await getPointsVendorAssetUpscale(),
+            points_design_to_physical: await getPointsDesignToPhysical(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
             optimize_includes_tags: true
@@ -23225,7 +23540,8 @@ app.patch('/api/me/industry-supplier/catalog-items/:id/image-labels', express.js
                     sort_order: g.sort_order,
                     label: patch.label !== undefined ? patch.label : g.label
                 };
-                if (g.ai_derived === 'redraw' || g.ai_derived === 'upscale') next.ai_derived = g.ai_derived;
+                const derivedKeep = normalizeVendorAiDerivedKind(g.ai_derived);
+                if (derivedKeep) next.ai_derived = derivedKeep;
                 if (g.source_url) next.source_url = g.source_url;
                 return next;
             });

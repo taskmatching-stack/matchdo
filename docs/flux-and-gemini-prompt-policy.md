@@ -1,8 +1,8 @@
 # FLUX／Gemini 提示詞政策 — 嚴禁查表式硬編碼
 
-**更新**：2026-06-05  
+**更新**：2026-07-10  
 **狀態**：**強制**（所有新功能、修 bug、AI 相關 PR 必守）  
-**相關**：`lib/visual-semantics.js`、`server.js`（`composeGeneratePromptWithReferences`、`buildVendorAssetMaterialOptimizePrompt`）、`docs/vendor-asset-material-swatch-plan.md`、`docs/custom-product-subcategory-prompt-guide.md`
+**相關**：`lib/visual-semantics.js`、`server.js`（`composeGeneratePromptWithReferences`、`buildVendorAssetMaterialFluxOptimizePrompt`、`buildVendorAssetProductOptimizePrompt`）、`docs/vendor-asset-material-swatch-plan.md`、`docs/custom-product-subcategory-prompt-guide.md`、`.cursor/rules/material-flux-prompt-lock.mdc`
 
 ---
 
@@ -17,36 +17,45 @@
 
 ## 2. 正確管線（唯一允許的動態內容來源）
 
-### 2.1 材料 — 兩條 Gemini 管線（不可混用）
+### 2.1 材料 — 兩條管線（不可混用）
 
-**A. 材料 AI 優化（廠商素材庫重繪）— Gemini 2.5 Flash Image img2img**
+**A. 材料 AI 重繪（廠商素材庫 `asset_kind = material`）— BFL FLUX img2img**
 
 ```
-原圖 → prepareVendorMaterialFluxImage（僅最長邊>1024 時縮小，**不放大**）
+原圖 → prepareVendorMaterialFluxImage（最長邊>1024 時縮小，不放大）
         ↓
-  buildVendorAssetMaterialGeminiOptimizePrompt() — 「維持材質的質感和顏色，並優化此圖」
+  buildVendorAssetMaterialFluxOptimizePrompt(material_surface_type)
         ↓
-  gemini-2.5-flash-image + inlineData 參考圖（responseModalities: ['Image']，只回圖；勿用 SDK 列舉 'IMAGE'）
+  bfl_flux_model_vendor_material（預設 flux-2-pro）· 1024×1024 · seed 3647440197
+        ↓
+  optimizeVendorAssetImageWithFlux（材料分支）
 ```
 
 | 步驟 | 檔案／函式 |
 |------|------------|
 | 解析度準備 | `lib/resize-upload-image.js` → `prepareVendorMaterialFluxImage` |
-| 組 prompt | `buildVendorAssetMaterialGeminiOptimizePrompt` |
-| 生圖 | `optimizeVendorAssetMaterialWithGemini`（model 預設 `gemini-2.5-flash-image`） |
-| 入口 | `optimizeVendorAssetImageWithFlux`（材料分支；產品仍走 FLUX） |
+| 組 prompt | `buildVendorAssetMaterialFluxOptimizePrompt`（**中文**，`skipPromptTranslation: true`） |
+| 生圖 | `generateImageWithFlux2Pro` + `VENDOR_MATERIAL_FLUX_SEED` |
+| 鎖定規則 | `.cursor/rules/material-flux-prompt-lock.mdc` |
 
-**禁止**把 `material_tagging_prompt` 的 **JSON 標籤**或 `material_key` 查表送進材料 optimize prompt。  
-`bfl_flux_model_vendor_material` 仍可在後台設定，**現行材料 optimize 不使用 FLUX**（legacy FLUX 編輯句函式保留）。
+**現行 prompt（兩句，2026-07-10）：**
 
-**B. 材料標籤／設計頁附錄**
+1. `保持顏色並優化此{材質}材質光影` — 純色／滿版材質圖：依使用者填的材質類型生成滿版質感（**預期行為**）。
+2. `若參考圖含產品、服裝或物件外型…整張滿版呈現此{材質}材質色卡質感` — 產品圖與純色走**同一套**材質類型語意。
+
+`{材質}` = UI「AI 重繪材質類型」（必填）；**不是** `material_key` 查表。
+
+**禁止**把 `material_tagging_prompt` 的 **JSON 標籤**送進材料 FLUX optimize prompt。  
+**未接上線**：`resolveMaterialFluxEditPrompt`／`buildVendorAssetMaterialOptimizePrompt`（英文 BFL 外殼）、`optimizeVendorAssetMaterialWithGemini`（Gemini Image 死碼）— **勿當現行管線**。
+
+**B. 材料標籤／設計頁附錄（Gemini 文字讀圖）**
 
 ```
 原圖 → Gemini material_tagging_prompt → image_semantics_json
 設計頁：buildMaterialTexturePromptAppendix（讀 DB JSON）
 ```
 
-**`material_tagging_prompt` 的 JSON 不送材料 FLUX optimize**（與 A 分線；上傳時可並行跑標籤與 optimize）。
+**`material_tagging_prompt` 的 JSON 不送材料 FLUX optimize**（與 A 分線；上傳時可並行跑標籤與重繪）。
 
 ### 2.2 訂製設計頁生圖 `POST /api/generate-product-image`
 
@@ -65,7 +74,12 @@
 
 ### 2.3 數位原型「產品重繪」（非材料）
 
-- `buildVendorAssetProductOptimizePrompt`：產品棚拍清理（保留本體、換背景）。
+- `buildVendorAssetProductOptimizePrompt`：產品棚拍（保本體、換背景）；**獨立 segment**（2026-07-10）：
+  - 保色／去雜物（固定）
+  - `vendorOptimizeBackgroundSegment` — 使用者選底色 + backdrop 清潔度（**不寫**地面接觸陰影）
+  - `VENDOR_OPTIMIZE_PRODUCT_STUDIO_LIGHTING_LINE` — 自然棚拍光影（不鎖地面）
+  - `vendorOptimizeDisplayStandSegment` — 勾選 `use_display_stand` 時一句
+  - `optimize_product_name`／標題 — 僅輔助識別（`translateOptimizeProductNameForFlux` 只翻譯名稱）
 - 與材料管線**分線**；材料 optimize **不得**呼叫 `normalizeVendorOptimizeBackground`。
 
 ### 2.4 其他獨立功能（可有自己的系統提示詞）
@@ -101,7 +115,7 @@
 ### 4.1 允許：與材質無關的固定英文
 
 - FLUX **通用** img2img 底稿（例如：enhance input_image、only clarity/lighting/noise）。
-- **材料 optimize 底稿**：須明訂 `input_image` 像素為唯一權威、禁止替換紋理族／色相等（`buildVendorAssetMaterialOptimizePrompt`）；此為保真規則，**不是** material_key 查表。
+- **材料 optimize**：`buildVendorAssetMaterialFluxOptimizePrompt`（中文兩句；鎖定見 `.cursor/rules/material-flux-prompt-lock.mdc`）；**不是** `material_key` 查表。
 - 參考圖 **角色** 說明（原型＝造型、材料＝表面、配件＝五金、**原圖印刷＝surface graphic 原樣套印**、**風格參考＝inspired only**）— 不列舉具體皮種／布種；**不得**寫成 Logo-only。
 - 產品重繪的棚拍／去背規則（原型專用）。
 
@@ -147,26 +161,29 @@
 - [ ] 原圖印刷是否用 **通用 surface graphic** 句，而非 Logo lockup 專用文？（見 `docs/custom-product-reference-pattern-prompt-policy.md`）
 - [ ] 是否出現 **regex 從檔名／title 推材質** 再送 FLUX？
 - [ ] 是否出現 **`material_key` / 枚舉 map → 英文表面句**？
-- [ ] 材料 FLUX 是否在 **無 `image_semantics_json`** 時仍靜默執行？
+- [ ] 材料 **設計頁生圖** 是否在 **無 `image_semantics_json`** 時仍靜默 append 材質附錄？（optimize 路徑不要求 JSON）
 - [ ] 是否擅自改 **1024×1024** 或其它未文件化輸出尺寸？
 - [ ] 矛盾形容是否在 **Gemini prompt** 用自洽規則處理，而非後端第二套分類？
 - [ ] 是否在 `server.js` 追加 **Split-view 1～4／四格視角劇本**（含「四格不得相同角度」等）？→ **禁止**，見 `docs/custom-product-subcategory-prompt-guide.md` §7
 
 ---
 
-## 8. 程式錨點（現行，2026-06-05）
+## 8. 程式錨點（現行，2026-07-10）
 
 | 項目 | 位置 |
 |------|------|
 | 政策本檔 | `docs/flux-and-gemini-prompt-policy.md` |
+| 材料 FLUX prompt 鎖 | `.cursor/rules/material-flux-prompt-lock.mdc` |
 | Gemini 材料讀圖 | `lib/visual-semantics.js` — `material_tagging_prompt`、`analyzeImageSemantics` |
-| JSON → FLUX 句 | `buildMaterialFluxFidelityLine` |
-| 材料 optimize | `buildVendorAssetMaterialOptimizePrompt`、`resolveMaterialFluxEditPrompt` |
+| 設計頁 JSON → FLUX 句 | `buildMaterialFluxFidelityLine` |
+| **材料 optimize（現行）** | `buildVendorAssetMaterialFluxOptimizePrompt`、`optimizeVendorAssetImageWithFlux` |
 | 材料標籤 JSON | `material_tagging_prompt`、`analyzeImageSemantics` |
+| 產品重繪 | `buildVendorAssetProductOptimizePrompt` |
 | 設計頁組 prompt | `composeGeneratePromptWithReferences`、`buildFluxReferenceFactsAppendix` |
 | **原圖印刷／風格 Tab 政策** | **`docs/custom-product-reference-pattern-prompt-policy.md`** |
 | 分類 prompt 指南 | `docs/custom-product-subcategory-prompt-guide.md` |
-| 材料色卡產品規格 | `docs/vendor-asset-material-swatch-plan.md`（已對齊本政策） |
+| 材料色卡產品規格 | `docs/vendor-asset-material-swatch-plan.md` |
+| **未接上線（勿當現行）** | `resolveMaterialFluxEditPrompt`、`buildVendorAssetMaterialOptimizePrompt`、`optimizeVendorAssetMaterialWithGemini` |
 
 ---
 
@@ -174,5 +191,6 @@
 
 | 日期 | 說明 |
 |------|------|
+| 2026-07-10 | §2.1 改回 **FLUX** 材料 optimize；產品重繪 segment 拆分；錨點表對齊 `buildVendorAssetMaterialFluxOptimizePrompt` |
 | 2026-06-18 | 連結 `custom-product-reference-pattern-prompt-policy.md`；原圖印刷通用性 |
 | 2026-06-05 | 初版：禁止查表式硬編碼；記錄正確 Gemini→FLUX 管線；標記已刪函式 |

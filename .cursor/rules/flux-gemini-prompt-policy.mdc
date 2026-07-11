@@ -15,9 +15,11 @@ alwaysApply: true
 - ❌ 無 `image_semantics_json` 仍靜默跑材料 FLUX
 - ❌ 擅自改 FLUX **1024×1024** 或未文件化輸出尺寸
 
-## 唯一正確（材料表面）
+## 唯一正確（材料表面 optimize）
 
-**原圖 → Gemini（`material_tagging_prompt`）→ `image_semantics_json` → `buildMaterialFluxFidelityLine` → FLUX**
+**原圖 → `buildVendorAssetMaterialFluxOptimizePrompt`（中文，`material_surface_type`）→ FLUX 1024²**
+
+標籤管線：**原圖 → Gemini（`material_tagging_prompt`）→ `image_semantics_json` → `buildMaterialFluxFidelityLine`**（僅設計頁生圖附錄）
 
 標題／檔名／分類只准作 **Gemini 補充**（以影像為準）。矛盾改 **Gemini prompt 自洽規則**，不加後端第二套表。
 
