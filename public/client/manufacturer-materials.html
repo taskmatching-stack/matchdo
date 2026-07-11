@@ -883,7 +883,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-redraw-align-upload-20260711g';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-gallery-preview-full-20260711h';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1572,6 +1572,14 @@
                     || (item.upscalePreviewUrl && String(item.upscalePreviewUrl).indexOf('http') === 0 ? item.upscalePreviewUrl : '');
                 if (!upUrl) throw new Error('AI 放大預覽圖已遺失，請重新按 AI 放大');
                 item.upscaleFile = await blobUrlToRedrawFile(upUrl, 'upscale-' + (item.id || '0') + '.jpg');
+                return;
+            }
+            if (kind === 'd2p' || kind === 'design_to_physical') {
+                if (item.d2pFile || !item.uploadD2p) return;
+                var d2pUrl = item.d2pPreviewStorageUrl
+                    || (item.d2pPreviewUrl && String(item.d2pPreviewUrl).indexOf('http') === 0 ? item.d2pPreviewUrl : '');
+                if (!d2pUrl) throw new Error(tr('baseModels.designToPhysicalPreviewLost', '寫實化預覽圖已遺失，請重新按寫實化'));
+                item.d2pFile = await blobUrlToRedrawFile(d2pUrl, 'd2p-' + (item.id || '0') + '.jpg');
             }
         }
 
@@ -2496,6 +2504,61 @@
             }
         }
 
+        /** 編輯圖庫寫實化：對齊上傳區／編輯待傳，先預覽再儲存（不立刻佔多角度名額） */
+        async function previewGallerySlotDesignToPhysical(sourceUrl) {
+            if (!sourceUrl || editGalleryUploading) return;
+            var slot = editGallerySlotPreview[sourceUrl] || {};
+            if (slot.imageBusy) return;
+            var id = document.getElementById('edit-id').value;
+            var m = materialsAll.find(function (x) { return x.id === id; });
+            if (!m || !vendorDesignToPhysicalEnabledForKind(m.asset_kind)) {
+                showToast(tr('baseModels.designToPhysicalOnlyProtoPart', '寫實化僅適用於數位原型／配件'), 'warning');
+                return;
+            }
+            var pts = designToPhysicalPoints();
+            if (!window.confirm(tr('baseModels.designToPhysicalConfirmGalleryPreview', '寫實化？（-{pts} 點；勾選要上傳的圖後按「儲存」）').replace('{pts}', String(pts)))) return;
+            slot.imageBusy = true;
+            editGallerySlotPreview[sourceUrl] = slot;
+            renderEditGallery(m);
+            try {
+                var tok = token || (await getToken());
+                if (!tok) { showToast('請先登入', 'danger'); return; }
+                var file = await fileFromImageUrl(sourceUrl, 'gallery-d2p-source.jpg');
+                var fd = new FormData();
+                fd.append('image', file);
+                fd.append('asset_kind', m.asset_kind);
+                var r = await fetch('/api/me/vendor-assets/preview-design-to-physical', {
+                    method: 'POST',
+                    headers: { Authorization: 'Bearer ' + tok },
+                    body: fd
+                });
+                var data = await r.json().catch(function () { return {}; });
+                if (r.status === 402) {
+                    showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
+                    return;
+                }
+                if (!r.ok) {
+                    showToast(data.error || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger');
+                    return;
+                }
+                slot.d2pPreviewUrl = previewDataUrlFromResponse(data);
+                slot.d2pPreviewStorageUrl = data.preview_url || '';
+                slot.d2pChargedPts = data.points_deducted || 0;
+                slot.uploadD2p = true;
+                slot.uploadOriginal = false;
+                slot.d2pFile = await fileFromPreviewResponse(data, 'd2p-gallery.jpg');
+                showToast(tr('baseModels.designToPhysicalDonePending', '已產生寫實化新圖，預設只上傳新圖（不保留原圖）') + (data.points_deducted ? ' · -' + data.points_deducted + ' ' + tr('baseModels.pointsUnit', '點') : ''));
+                showAiPromptAfterPreview(data);
+            } catch (err) {
+                showToast(err.message || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger');
+            } finally {
+                slot.imageBusy = false;
+                editGallerySlotPreview[sourceUrl] = slot;
+                var refreshed = materialsAll.find(function (x) { return x.id === id; }) || m;
+                if (refreshed) renderEditGallery(refreshed);
+            }
+        }
+
         function getEditGallerySlot(sourceUrl) {
             return editGallerySlotPreview[sourceUrl] || null;
         }
@@ -2565,8 +2628,9 @@
             try {
                 if (slot.uploadRedraw !== false) await ensurePendingDerivedFile(slot, 'redraw');
                 if (slot.uploadUpscale !== false) await ensurePendingDerivedFile(slot, 'upscale');
+                if (slot.uploadD2p !== false) await ensurePendingDerivedFile(slot, 'd2p');
             } catch (ensureErr) {
-                return { ok: false, error: ensureErr.message || '預覽圖遺失，請重新按 AI 重繪' };
+                return { ok: false, error: ensureErr.message || '預覽圖遺失，請重新產生' };
             }
             var srcItem = assetImageItems(m).find(function (it) { return it.url === sourceUrl; });
             var files = [];
@@ -2589,10 +2653,40 @@
             }
             if (!files.length) return { ok: false, error: '沒有可上傳的新圖' };
             var urlsBefore = assetImageUrls(m);
+            var room = PROTOTYPE_MAX_IMAGES - urlsBefore.length;
+            var freedSource = false;
+            // 預設只留新圖：滿額時先騰出原圖位置，避免「先加後刪」撞上限
+            if (!keepOrig && files.length > room) {
+                var coverNow = String((m && m.image_url) || '').trim();
+                var otherUrl = urlsBefore.find(function (u) { return u !== sourceUrl; });
+                if ((!coverNow || coverNow === sourceUrl) && otherUrl) {
+                    var tokCover = token || (await getToken());
+                    var cr0 = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/cover', {
+                        method: 'PATCH',
+                        headers: { Authorization: 'Bearer ' + tokCover, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: otherUrl })
+                    });
+                    var coverData0 = await cr0.json().catch(function () { return {}; });
+                    if (cr0.ok) {
+                        m = patchMaterialsAllItem(id, coverData0) || m;
+                    }
+                }
+                var delData = await deleteGalleryImageSilent(sourceUrl);
+                if (delData) m = patchMaterialsAllItem(id, delData) || m;
+                freedSource = true;
+                urlsBefore = assetImageUrls(m);
+                room = PROTOTYPE_MAX_IMAGES - urlsBefore.length;
+            }
+            if (files.length > room) {
+                return {
+                    ok: false,
+                    error: '已達多角度圖上限（封面＋' + (PROTOTYPE_MAX_IMAGES - 1) + ' 張）。請取消「上傳原圖」只留新圖，或先移除其他圖。'
+                };
+            }
             var data = await postGalleryImageFiles(files, labels, derived);
             var newUrl = assetImageUrls(data).find(function (u) { return urlsBefore.indexOf(u) < 0; });
             if (!newUrl) return { ok: false, error: '上傳新圖失敗' };
-            if (!keepOrig) {
+            if (!keepOrig && !freedSource) {
                 var coverUrl = String(data.image_url || '').trim();
                 if (!coverUrl || coverUrl === sourceUrl) {
                     var tok2 = token || (await getToken());
@@ -2608,6 +2702,22 @@
                     }
                 }
                 data = await deleteGalleryImageSilent(sourceUrl) || data;
+            } else if (!keepOrig && freedSource) {
+                // 原圖已刪，新圖設為封面（若目前封面不是新圖）
+                var coverAfter = String(data.image_url || '').trim();
+                if (coverAfter !== newUrl) {
+                    var tok3 = token || (await getToken());
+                    var cr2 = await fetch('/api/me/vendor-assets/' + encodeURIComponent(id) + '/gallery-images/cover', {
+                        method: 'PATCH',
+                        headers: { Authorization: 'Bearer ' + tok3, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: newUrl })
+                    });
+                    var coverData2 = await cr2.json().catch(function () { return {}; });
+                    if (cr2.ok) {
+                        data = coverData2;
+                        patchMaterialsAllItem(id, data);
+                    }
+                }
             }
             delete editGallerySlotPreview[sourceUrl];
             return { ok: true, data: data };
@@ -3703,7 +3813,7 @@
             grid.querySelectorAll('.btn-gallery-d2p-one').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
                     e.stopPropagation();
-                    designToPhysicalGalleryImage(btn.getAttribute('data-url'));
+                    previewGallerySlotDesignToPhysical(btn.getAttribute('data-url'));
                 });
             });
             grid.querySelectorAll('.btn-gallery-clear-preview').forEach(function (btn) {
