@@ -3321,8 +3321,8 @@ $(document).ready(function () {
             ? '<div class="bs-card-thumb-wrap position-relative" title="' + pickHint + '">' + multiBadge +
             '<button type="button" class="vendor-asset-zoom-btn" title="' + zoomTitle + '" aria-label="' + zoomTitle + '"><i class="bi bi-zoom-in"></i></button>' +
             '<a href="' + designUrl + '" class="text-decoration-none text-dark d-block bs-card-thumb-link" data-prototype-id="' +
-            escAttr(item.id || '') + '"><img src="' + imgUrl + '" alt="" class="bs-card-thumb-img" loading="lazy" style="height:140px;width:100%;object-fit:cover;"></a></div>'
-            : '<div class="d-flex align-items-center justify-content-center bg-light text-muted" style="height:140px;"><i class="bi bi-image fs-2"></i></div>';
+            escAttr(item.id || '') + '"><img src="' + imgUrl + '" alt="" class="bs-card-thumb-img" loading="lazy"></a></div>'
+            : '<div class="bs-card-thumb-placeholder"><i class="bi bi-image fs-2"></i></div>';
         var coverLabel = (imageItems[0] && imageItems[0].label) ? String(imageItems[0].label).trim() : '';
         var coverLabelHtml = coverLabel
             ? '<div class="small text-muted text-truncate" title="' + escAttr(coverLabel) + '">' +
