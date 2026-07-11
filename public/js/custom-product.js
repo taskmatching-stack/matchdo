@@ -1116,29 +1116,13 @@ $(document).ready(function () {
         }
         $panel.append($thumbs);
         var $actions = $('<div class="ref-intent-actions"></div>');
-        var pickUrl = buildRefSlotVendorPickUrl(slotKey);
-        var $pickEl;
-        if (pickUrl) {
-            $pickEl = $('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></a>')
-                .attr('href', pickUrl)
-                .attr('data-i18n', 'customProduct.refSlotPickVendor')
-                .on('click', function (e) {
-                    if (slotKey === 'prototype' || ((slotKey === 'material' || slotKey === 'part') && !hasVendorPrototypeLock())) {
-                        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
-                        if (!mainKey) {
-                            e.preventDefault();
-                            alert(tr('customProduct.selectCategoryFirstForVendorAssets', '請先選擇主分類，再前往廠商版型。'));
-                        }
-                    }
-                });
-        } else {
-            $pickEl = $('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--lib"></button>')
-                .attr('data-i18n', 'customProduct.refSlotPickVendor')
-                .on('click', function (e) {
-                    e.preventDefault();
-                    navigateRefSlotVendorPick(slotKey);
-                });
-        }
+        var $pickEl = $('<a class="btn btn-sm ref-intent-btn ref-intent-btn--lib" href="#"></a>')
+            .attr('data-i18n', 'customProduct.refSlotPickVendor')
+            .on('click', function (e) {
+                e.preventDefault();
+                // 必須在點擊當下組 URL，否則會沿用 render 時寫死的舊分類（常鎖在第一個主分類）
+                navigateRefSlotVendorPick(slotKey);
+            });
         $actions.append($pickEl);
         if (items.length) {
             $actions.append($('<button type="button" class="btn btn-sm ref-intent-btn ref-intent-btn--up"></button>')
@@ -3650,6 +3634,9 @@ $(document).ready(function () {
         updateVendorStylesCategorySummary();
         if (isVendorStylesTabActive()) {
             loadVendorStylesTabList();
+        }
+        if (typeof window.__renderIntentSlots === 'function') {
+            window.__renderIntentSlots();
         }
     });
 
