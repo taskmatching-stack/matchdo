@@ -2806,7 +2806,7 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
 const DESIGN_TO_PHYSICAL_PROMPT =
     '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致';
 const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20;
-const DESIGN_TO_PHYSICAL_SEED = 2026071101;
+const DESIGN_TO_PHYSICAL_SEED = 3647440197;
 
 /** 固定保真底稿；可選使用者補充（中文直送 FLUX） */
 function buildDesignToPhysicalPrompt(userExtra) {
