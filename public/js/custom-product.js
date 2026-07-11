@@ -721,6 +721,14 @@ $(document).ready(function () {
         return true;
     }
 
+    function isDesignerSelectableImageItem(it) {
+        if (!it) return false;
+        if (it.designer_selectable === false || it.designer_selectable === 0 || it.designer_selectable === '0' || it.designer_selectable === 'false') {
+            return false;
+        }
+        return !!(it.url || '').trim();
+    }
+
     function filterPrototypeVendorImageItems(imageItems) {
         var existing = {};
         (refSlots.prototype.items || []).forEach(function (it) {
@@ -729,7 +737,7 @@ $(document).ready(function () {
         });
         return (imageItems || []).filter(function (it) {
             var u = (it.url || '').trim();
-            return u && !existing[u];
+            return u && !existing[u] && isDesignerSelectableImageItem(it);
         });
     }
 
@@ -1519,11 +1527,14 @@ $(document).ready(function () {
 
     function prototypeImageItemsFromNode(p) {
         if (!p) return [];
+        var items = [];
         if (p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
-            return p.image_items.filter(function (it) { return it && it.url; });
+            items = p.image_items.filter(function (it) { return it && it.url; });
+        } else {
+            var u = (p.image_url || '').trim();
+            items = u ? [{ url: u, label: '', sort_order: 0, is_cover: true, designer_selectable: true }] : [];
         }
-        var u = (p.image_url || '').trim();
-        return u ? [{ url: u, label: '', sort_order: 0, is_cover: true }] : [];
+        return items.filter(isDesignerSelectableImageItem);
     }
 
     function applyPrototypeRefsFromLinkTreeNode(p) {
@@ -2774,9 +2785,15 @@ $(document).ready(function () {
                     '「原型」類別僅能加入數位原型素材。'));
                 return;
             }
+            var allPrototypeItems = imageItems.slice();
             imageItems = filterPrototypeVendorImageItems(imageItems);
             if (!imageItems.length) {
-                alert(tr('customProduct.prototypeAnglesAlreadyAdded', '此原型的角度圖已全部加入。'));
+                var hadDisplayOnly = (allPrototypeItems || []).some(function (it) {
+                    return (it.url || '').trim() && !isDesignerSelectableImageItem(it);
+                });
+                alert(hadDisplayOnly
+                    ? (tr('customProduct.prototypeNoSelectableAngles', '此原型目前沒有可供設計選用的角度圖（其餘為僅展示）。'))
+                    : (tr('customProduct.prototypeAnglesAlreadyAdded', '此原型的角度圖已全部加入。')));
                 return;
             }
         }
@@ -4140,8 +4157,11 @@ $(document).ready(function () {
 
     // 取得目前登入 token（優先用 AuthService 與站上一致，避免 session 尚未就緒拿不到 token）
     function getAuthToken(cb) {
-        if (typeof window.AuthService !== 'undefined' && window.AuthService.getSession) {
-            window.AuthService.getSession().then(function (session) {
+        var getter = (typeof window.AuthService !== 'undefined')
+            ? (window.AuthService.getSessionForApi || window.AuthService.getSession)
+            : null;
+        if (getter) {
+            getter.call(window.AuthService).then(function (session) {
                 cb(session && session.access_token ? session.access_token : null);
             }).catch(function () { cb(null); });
             return;
@@ -5205,8 +5225,9 @@ $(document).ready(function () {
         $wrap.html('<p class="text-muted small mb-0">' + t('home.loading') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + t('customProduct.sceneSimResultNote') + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
-            if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
-                return window.AuthService.getSession();
+            if (typeof window.AuthService !== 'undefined') {
+                var getter = window.AuthService.getSessionForApi || window.AuthService.getSession;
+                if (typeof getter === 'function') return getter.call(window.AuthService);
             }
             return null;
         }).then(function (session) {
@@ -5423,8 +5444,9 @@ $(document).ready(function () {
         $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p><p class="scene-sim-result-note text-muted small mt-2 mb-0">' + (t('customProduct.patternExtractResultNote') || '此圖不會存入數位資產，請自行下載保存。') + '</p>');
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
-            if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
-                return window.AuthService.getSession();
+            if (typeof window.AuthService !== 'undefined') {
+                var getter = window.AuthService.getSessionForApi || window.AuthService.getSession;
+                if (typeof getter === 'function') return getter.call(window.AuthService);
             }
             return null;
         }).then(function (session) {
@@ -5568,8 +5590,9 @@ $(document).ready(function () {
         $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p>' + noteHtml);
         var headers = { 'Content-Type': 'application/json' };
         Promise.resolve().then(function () {
-            if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
-                return window.AuthService.getSession();
+            if (typeof window.AuthService !== 'undefined') {
+                var getter = window.AuthService.getSessionForApi || window.AuthService.getSession;
+                if (typeof getter === 'function') return getter.call(window.AuthService);
             }
             return null;
         }).then(function (session) {
@@ -5584,7 +5607,7 @@ $(document).ready(function () {
                 $btn.prop('disabled', false);
                 var data = result.data;
                 if (result.status === 401) {
-                    $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginToSelectAssets') || '請先登入') + '</p>' + noteHtml);
+                    $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginExpiredRetry') || '登入已過期，請重新整理頁面後再試（此次未扣點）') + '</p>' + noteHtml);
                     return;
                 }
                 if (result.status === 402) {

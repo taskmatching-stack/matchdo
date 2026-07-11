@@ -34,7 +34,7 @@ function getSessionFromStorage() {
                 var data = JSON.parse(raw);
                 if (data && data.current_session && data.current_session.user) return data.current_session;
                 if (data && data.session && data.session.user) return data.session;
-                if (data && data.user && data.access_token) return { user: data.user, access_token: data.access_token, refresh_token: data.refresh_token };
+                if (data && data.user && data.access_token) return { user: data.user, access_token: data.access_token, refresh_token: data.refresh_token, expires_at: data.expires_at };
                 if (data && data.user && data.current_session && data.current_session.access_token) return data.current_session;
             } catch (e2) {}
         }
@@ -44,6 +44,44 @@ function getSessionFromStorage() {
     }
 }
 window.getSessionFromStorage = getSessionFromStorage;
+
+/** Session 是否仍有效（預設提前 90 秒視為需刷新，避免送出 AI 時剛好過期） */
+function isAuthSessionFresh(session, skewSeconds) {
+    if (!session || !session.access_token) return false;
+    var skew = (skewSeconds != null && Number.isFinite(Number(skewSeconds))) ? Number(skewSeconds) : 90;
+    var exp = session.expires_at;
+    if (exp == null && session.expires_in != null && session.expires_in > 0) {
+        // 無絕對時間時保守視為可用，交由後續 refresh 處理
+        return true;
+    }
+    if (exp == null) return true;
+    var expMs = Number(exp) > 1e12 ? Number(exp) : Number(exp) * 1000;
+    if (!Number.isFinite(expMs)) return true;
+    return expMs > Date.now() + skew * 1000;
+}
+window.isAuthSessionFresh = isAuthSessionFresh;
+
+async function fetchSupabaseSession(timeoutMs) {
+    if (!supabaseClient || !supabaseClient.auth) return null;
+    var ms = timeoutMs != null ? timeoutMs : 2500;
+    try {
+        var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, ms); });
+        var out = await Promise.race([supabaseClient.auth.getSession(), timeout]);
+        if (out && out.data && out.data.session) return out.data.session;
+    } catch (e) { /* ignore */ }
+    return null;
+}
+
+async function refreshSupabaseSession(timeoutMs) {
+    if (!supabaseClient || !supabaseClient.auth || typeof supabaseClient.auth.refreshSession !== 'function') return null;
+    var ms = timeoutMs != null ? timeoutMs : 5000;
+    try {
+        var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, ms); });
+        var out = await Promise.race([supabaseClient.auth.refreshSession(), timeout]);
+        if (out && out.data && out.data.session) return out.data.session;
+    } catch (e) { /* ignore */ }
+    return null;
+}
 
 /**
  * 認證服務
@@ -173,35 +211,39 @@ const AuthService = {
     },
 
     /**
-     * 取得當前 Session。先回傳 localStorage（啟動快），無本地時等 Supabase（登入後導回時給足時間）。
+     * 取得當前 Session。
+     * 本地有「未過期」session 時快速回傳；已過期／即將過期則走 Supabase 刷新，避免拿舊 token 打 API。
      */
     async getSession() {
         var fromStorage = getSessionFromStorage();
-        if (fromStorage) return fromStorage;
-        if (supabaseClient && supabaseClient.auth) {
-            try {
-                var timeoutMs = 1200;
-                var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, timeoutMs); });
-                var out = await Promise.race([supabaseClient.auth.getSession(), timeout]);
-                if (out && out.data && out.data.session) return out.data.session;
-            } catch (e) { /* fallback */ }
+        if (fromStorage && isAuthSessionFresh(fromStorage, 90)) return fromStorage;
+        var fromSdk = await fetchSupabaseSession(fromStorage ? 2500 : 1200);
+        if (fromSdk && isAuthSessionFresh(fromSdk, 90)) return fromSdk;
+        if (fromStorage && !isAuthSessionFresh(fromStorage, 90)) {
+            var refreshed = await refreshSupabaseSession(5000);
+            if (refreshed) return refreshed;
         }
-        return getSessionFromStorage() || null;
+        if (fromSdk) return fromSdk;
+        // 最後才回傳 storage（可能已過期）；呼叫端打 API 請改用 getSessionForApi
+        return fromStorage || null;
     },
 
     /**
-     * 取得 Session 供打 API 用（會優先取 Supabase 刷新後的 token，最多等約 1 秒，避免「token 無效」）。
-     * 後台 getAuthHeaders 建議用此方法。
+     * 取得 Session 供打 API／AI 用：優先刷新有效 token，避免「送出後才說登入過期」。
      */
     async getSessionForApi() {
-        if (supabaseClient && supabaseClient.auth) {
-            try {
-                var timeout = new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, 1000); });
-                var out = await Promise.race([supabaseClient.auth.getSession(), timeout]);
-                if (out && out.data && out.data.session) return out.data.session;
-            } catch (e) { /* fallback */ }
+        var fromSdk = await fetchSupabaseSession(3000);
+        if (fromSdk && isAuthSessionFresh(fromSdk, 120)) return fromSdk;
+        var refreshed = await refreshSupabaseSession(8000);
+        if (refreshed) return refreshed;
+        if (fromSdk) return fromSdk;
+        var fromStorage = getSessionFromStorage();
+        if (fromStorage && isAuthSessionFresh(fromStorage, 30)) return fromStorage;
+        if (fromStorage && !isAuthSessionFresh(fromStorage, 30)) {
+            refreshed = await refreshSupabaseSession(8000);
+            if (refreshed) return refreshed;
         }
-        return getSessionFromStorage() || null;
+        return fromStorage || null;
     },
 
     /**
@@ -224,7 +266,7 @@ const AuthService = {
         var work = (function (self) {
             return async function () {
                 try {
-                    var session = await self.getSession();
+                    var session = await self.getSessionForApi();
                     var user = session ? session.user : null;
                     if (!user) return null;
                     if (session && session.access_token) {

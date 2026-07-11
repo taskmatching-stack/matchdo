@@ -148,7 +148,8 @@ function getPublicConfig() {
 async function fetchMeCapabilities() {
     if (typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return null;
     try {
-        var session = await window.AuthService.getSession();
+        var getter = window.AuthService.getSessionForApi || window.AuthService.getSession;
+        var session = typeof getter === 'function' ? await getter.call(window.AuthService) : null;
         if (!session || !session.access_token) return null;
         var r = await fetch('/api/me/capabilities', {
             headers: { Authorization: 'Bearer ' + session.access_token }
