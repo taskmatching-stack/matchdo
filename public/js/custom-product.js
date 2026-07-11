@@ -370,59 +370,45 @@ $(document).ready(function () {
         return !!getPrototypeLockVendorAssetId();
     }
 
-    /** 跳轉到「廠商版型」Tab（與頂部 Tab 相同，非 modal） */
-    function buildVendorStylesTabUrl() {
-        var url = new URL(window.location.href);
-        url.searchParams.set('tab', 'vendor-styles');
-        var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
-        var subKey = ($('#imageCategorySubSelect').val() || '').trim();
-        if (mainKey) url.searchParams.set('category_key', mainKey);
-        else url.searchParams.delete('category_key');
-        if (subKey) url.searchParams.set('subcategory_key', subKey);
-        else url.searchParams.delete('subcategory_key');
-        if (refVendorMfrId) url.searchParams.set('manufacturer_id', refVendorMfrId);
-        else url.searchParams.delete('manufacturer_id');
-        if (refVendorName) url.searchParams.set('vendor_name', refVendorName);
-        else url.searchParams.delete('vendor_name');
-        return url.toString();
-    }
-
+    /** 與頂部「廠商版型」Tab 同一動作：就地切換（共用 #imageCategoryMainSelect／Sub），勿整頁重載另組 URL */
     function navigateToVendorStylesTab() {
         var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
         if (!mainKey) {
             alert(tr('customProduct.selectCategoryFirstForVendorAssets', '請先選擇主分類，再前往廠商版型。'));
             return;
         }
-        window.location.href = buildVendorStylesTabUrl();
-    }
-
-    /** 參考槽「廠商版型」連結：原型→廠商版型 Tab；材料／配件（已有原型）→看可搭配 */
-    function buildRefSlotVendorPickUrl(slotKey) {
-        if (slotKey === 'pattern_print' || slotKey === 'pattern_style') return null;
-        if (slotKey === 'prototype') return buildVendorStylesTabUrl();
-        if ((slotKey === 'material' || slotKey === 'part') && hasVendorPrototypeLock()) {
-            var anchorId = getPrototypeLockVendorAssetId();
-            var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-            return '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
+        if (refVendorMfrId) {
+            $('#bs-manufacturer-id').val(refVendorMfrId);
+            if (refVendorName) $('#bs-manufacturer-name').val(refVendorName);
         }
-        return buildVendorStylesTabUrl();
+        var tabEl = document.getElementById('tab-vendor-styles');
+        if (!tabEl) return;
+        var alreadyOn = isVendorStylesTabActive();
+        vendorStylesTabOffset = 0;
+        showBootstrapTab(tabEl);
+        // 已在該 Tab 時 Bootstrap 可能不觸發 shown.bs.tab，手動重載
+        if (alreadyOn && typeof loadVendorStylesTabList === 'function') {
+            loadVendorStylesTabList();
+        }
     }
 
+    /** 參考槽「廠商版型」：與頂部 Tab 相同；材料／配件且已鎖原型 → 看可搭配 */
     function navigateRefSlotVendorPick(slotKey) {
         if (slotKey === 'pattern_print' || slotKey === 'pattern_style') {
             openCategoryVendorPicker(slotKey);
             return;
         }
-        var url = buildRefSlotVendorPickUrl(slotKey);
-        if (!url) return;
-        if (slotKey === 'prototype' || slotKey === 'material' || slotKey === 'part') {
-            var mainKey = ($('#imageCategoryMainSelect').val() || '').trim();
-            if (!mainKey && !hasVendorPrototypeLock()) {
-                alert(tr('customProduct.selectCategoryFirstForVendorAssets', '請先選擇主分類，再前往廠商版型。'));
+        if ((slotKey === 'material' || slotKey === 'part') && hasVendorPrototypeLock()) {
+            var anchorId = getPrototypeLockVendorAssetId();
+            if (!anchorId) {
+                navigateToVendorStylesTab();
                 return;
             }
+            var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
+            return;
         }
-        window.location.href = url;
+        navigateToVendorStylesTab();
     }
 
     function getPrototypeLockLevelsSet() {
@@ -1120,7 +1106,6 @@ $(document).ready(function () {
             .attr('data-i18n', 'customProduct.refSlotPickVendor')
             .on('click', function (e) {
                 e.preventDefault();
-                // 必須在點擊當下組 URL，否則會沿用 render 時寫死的舊分類（常鎖在第一個主分類）
                 navigateRefSlotVendorPick(slotKey);
             });
         $actions.append($pickEl);
