@@ -878,7 +878,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'edit-local-preview-save-20260712g';
+        window.__MATCHDO_MATERIALS_BUILD = 'edit-local-reorder-20260712h';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1037,6 +1037,8 @@
         var editGallerySlotPreview = {};
         /** 編輯中新選的圖：只在上方產品圖預覽，按「儲存」才上傳（無第二套待傳／上傳鈕） */
         var editGalleryLocalAdds = [];
+        /** 新預覽圖設為封面（儲存上傳後再生效） */
+        var editGalleryLocalAsCoverId = null;
 
         function mergeMaterialsAllRecord(prev, incoming) {
             if (!incoming) return prev;
@@ -1107,6 +1109,7 @@
                 }
             });
             editGalleryLocalAdds = [];
+            editGalleryLocalAsCoverId = null;
         }
 
         function refreshCurrentEditGallery() {
@@ -1302,8 +1305,32 @@
                 showToast(pendingErr, 'danger');
                 return false;
             }
+            var wantCoverId = editGalleryLocalAsCoverId;
+            if (wantCoverId) {
+                var covItem = null;
+                var rest = [];
+                editGalleryLocalAdds.forEach(function (it) {
+                    if (it.id === wantCoverId) covItem = it;
+                    else rest.push(it);
+                });
+                if (covItem) editGalleryLocalAdds = [covItem].concat(rest);
+            }
+            var id = document.getElementById('edit-id').value;
+            var mBefore = materialsAll.find(function (x) { return x.id === id; });
+            var urlsBefore = mBefore ? assetImageUrls(mBefore) : [];
             var ok = await uploadEditGalleryFiles(null, [], { skipConfirm: true, pendingItems: editGalleryLocalAdds.slice() });
-            if (ok) clearEditGalleryLocalAdds();
+            if (ok) {
+                clearEditGalleryLocalAdds();
+                if (wantCoverId) {
+                    await loadMaterials();
+                    var refreshed = materialsAll.find(function (x) { return x.id === id; });
+                    if (refreshed) afterEditGalleryMutation(id, refreshed);
+                    var newUrls = assetImageUrls(refreshed || {}).filter(function (u) {
+                        return urlsBefore.indexOf(u) === -1;
+                    });
+                    if (newUrls[0]) await setGalleryCover(newUrls[0]);
+                }
+            }
             return !!ok;
         }
 
@@ -3557,19 +3584,83 @@
                 return;
             }
             var cards = galleryCardsFromItems(items);
+            var canReorder = (items.length + locals.length) > 1;
+            var coverLocalId = editGalleryLocalAsCoverId;
+            var coverLocal = null;
+            var restLocals = locals.slice();
+            if (coverLocalId) {
+                for (var cli = 0; cli < restLocals.length; cli++) {
+                    if (restLocals[cli].id === coverLocalId) {
+                        coverLocal = restLocals[cli];
+                        restLocals.splice(cli, 1);
+                        break;
+                    }
+                }
+                if (!coverLocal) editGalleryLocalAsCoverId = null;
+            }
             var showLinkGroup = m && normalizeKind(m.asset_kind) === 'prototype';
             var showDesignerSelectable = vendorDesignerSelectableEnabledForKind(m);
-            var lightboxItemsJson = esc(JSON.stringify(items.map(function (x) {
-                return { url: x.url, label: displayGalleryImageLabel(x) };
-            }).concat(locals.map(function (loc) {
-                return { url: loc.objectUrl, label: loc.label || labelFromFilename(loc.file && loc.file.name) };
-            })))).replace(/"/g, '&quot;');
+            var lightboxItemsJson = esc(JSON.stringify(
+                (coverLocal ? [{ url: coverLocal.objectUrl, label: coverLocal.label || labelFromFilename(coverLocal.file && coverLocal.file.name) }] : [])
+                .concat(items.map(function (x) {
+                    return { url: x.url, label: displayGalleryImageLabel(x) };
+                }))
+                .concat(restLocals.map(function (loc) {
+                    return { url: loc.objectUrl, label: loc.label || labelFromFilename(loc.file && loc.file.name) };
+                }))
+            )).replace(/"/g, '&quot;');
             var upscaleOn = vendorUpscaleEnabledForEditAsset();
-            var html = cards.map(function (it, idx) {
+            function buildEditLocalCardHtml(item, lidx, asCover) {
+                var hasPreview = pendingHasAiPreview(item);
+                var previewUrl = item.objectUrl;
+                var localPrefix = 'edit-local-' + lidx;
+                var imgHtml = item.imageBusy
+                    ? '<div class="text-muted small text-center py-4">處理中…</div>'
+                    : ('<img src="' + esc(previewUrl) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
+                        ' data-image-items="' + lightboxItemsJson + '">');
+                var upscaleBtnHtml = upscaleOn
+                    ? ('<button type="button" class="btn btn-outline-info btn-sm edit-local-upscale-btn" data-local-id="' + esc(item.id) + '"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
+                        pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
+                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-upscale" data-local-id="' + esc(item.id) + '">清除 AI 放大新圖</button>' : ''))
+                    : '';
+                var d2pOn = vendorDesignToPhysicalEnabledForKind(m && m.asset_kind);
+                var coverBadge = asCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
+                var moveHtml = canReorder
+                    ? ('<div class="d-flex align-items-center gap-1 mb-1 edit-gallery-move-row w-100">' +
+                        '<span class="text-muted edit-gallery-drag" title="' + esc(tr('baseModels.catalogGroupsDrag', '拖曳排序')) + '"><i class="bi bi-grip-vertical"></i></span>' +
+                        '</div>')
+                    : '';
+                var coverBtn = asCover
+                    ? pendingCardActionSpacer()
+                    : ('<button type="button" class="btn btn-outline-primary btn-sm edit-local-set-cover" data-local-id="' + esc(item.id) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>');
+                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col edit-gallery-local-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-local-id="' + esc(item.id) + '" data-gallery-key="local:' + esc(item.id) + '"><div class="pending-image-card' + (asCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
+                    pendingCardBadgeRow(coverBadge, '') +
+                    '<div class="pending-card-media">' + imgHtml + '</div>' +
+                    '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, localPrefix) + pendingDerivedThumbsHtml(item, localPrefix, upscaleOn) + '</div>' +
+                    '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-local-image-label" data-local-id="' + esc(item.id) + '" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
+                    (showLinkGroup ? pendingLinkGroupFieldHtml(item) : '') +
+                    (showDesignerSelectable ? pendingDesignerSelectableFieldHtml(item) : '') +
+                    '<div class="pending-actions">' +
+                    moveHtml +
+                    '<button type="button" class="btn btn-outline-secondary btn-sm edit-local-redraw-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    (d2pOn ? ('<button type="button" class="btn btn-outline-secondary btn-sm edit-local-d2p-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>') : '') +
+                    upscaleBtnHtml +
+                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-redraw" data-local-id="' + esc(item.id) + '">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
+                    (item.d2pPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-d2p" data-local-id="' + esc(item.id) + '">' + esc(tr('baseModels.designToPhysicalClear', '清除寫實化新圖')) + '</button>' : '') +
+                    coverBtn +
+                    '<button type="button" class="btn btn-outline-danger btn-sm edit-local-remove" data-local-id="' + esc(item.id) + '">移除</button></div>' +
+                    '</div></div>';
+            }
+            var html = '';
+            var localIdxCounter = 0;
+            if (coverLocal) {
+                html += buildEditLocalCardHtml(coverLocal, localIdxCounter++, true);
+            }
+            html += cards.map(function (it, idx) {
                 var url = it.url;
                 var slot = getEditGallerySlot(url);
                 var hasPreview = slot && pendingHasAiPreview(slot);
-                var isCover = !!(it.is_cover || idx === 0);
+                var isCover = !coverLocal && !!(it.is_cover || idx === 0);
                 var isNew = editGalleryHighlightUrls.has(url);
                 var coverBadge = isCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
                 var newBadge = (isNew && !hasPreview) ? '<span class="badge bg-success" style="font-size:0.65rem">新上傳</span>' : '';
@@ -3599,7 +3690,7 @@
                         pendingUpscaleAiEditHelpHtml(false))
                     : '';
                 var actions = '<div class="pending-actions">' +
-                    (items.length > 1
+                    (canReorder
                         ? ('<div class="d-flex align-items-center gap-1 mb-1 edit-gallery-move-row w-100">' +
                             '<span class="text-muted edit-gallery-drag" title="' + esc(tr('baseModels.catalogGroupsDrag', '拖曳排序')) + '"><i class="bi bi-grip-vertical"></i></span>' +
                             '</div>')
@@ -3615,7 +3706,7 @@
                         '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
                         : pendingCardActionSpacer()) +
                     '</div>';
-                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="' + (items.length > 1 ? 'true' : 'false') + '" data-gallery-url="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
+                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-gallery-url="' + esc(url) + '" data-gallery-key="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
                     pendingCardBadgeRow(coverBadge, newBadge) +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     (previewBlock ? '<div class="pending-card-preview">' + previewBlock + '</div>' : '') +
@@ -3625,36 +3716,9 @@
                     actions +
                     '</div></div>';
             }).join('');
-            html += locals.map(function (item, lidx) {
-                var hasPreview = pendingHasAiPreview(item);
-                var previewUrl = item.objectUrl;
-                var localPrefix = 'edit-local-' + lidx;
-                var imgHtml = item.imageBusy
-                    ? '<div class="text-muted small text-center py-4">處理中…</div>'
-                    : ('<img src="' + esc(previewUrl) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
-                        ' data-image-items="' + lightboxItemsJson + '">');
-                var upscaleBtnHtml = upscaleOn
-                    ? ('<button type="button" class="btn btn-outline-info btn-sm edit-local-upscale-btn" data-local-id="' + esc(item.id) + '"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
-                        pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
-                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-upscale" data-local-id="' + esc(item.id) + '">清除 AI 放大新圖</button>' : ''))
-                    : '';
-                var d2pOn = vendorDesignToPhysicalEnabledForKind(m && m.asset_kind);
-                return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col edit-gallery-local-col" data-local-id="' + esc(item.id) + '"><div class="pending-image-card' + (hasPreview ? ' is-new-redraw' : '') + '">' +
-                    pendingCardBadgeRow('', '') +
-                    '<div class="pending-card-media">' + imgHtml + '</div>' +
-                    '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, localPrefix) + pendingDerivedThumbsHtml(item, localPrefix, upscaleOn) + '</div>' +
-                    '<input type="text" class="form-control form-control-sm mt-1 pending-card-label edit-local-image-label" data-local-id="' + esc(item.id) + '" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
-                    (showLinkGroup ? pendingLinkGroupFieldHtml(item) : '') +
-                    (showDesignerSelectable ? pendingDesignerSelectableFieldHtml(item) : '') +
-                    '<div class="pending-actions">' +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm edit-local-redraw-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (d2pOn ? ('<button type="button" class="btn btn-outline-secondary btn-sm edit-local-d2p-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>') : '') +
-                    upscaleBtnHtml +
-                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-redraw" data-local-id="' + esc(item.id) + '">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
-                    (item.d2pPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-d2p" data-local-id="' + esc(item.id) + '">' + esc(tr('baseModels.designToPhysicalClear', '清除寫實化新圖')) + '</button>' : '') +
-                    '<button type="button" class="btn btn-outline-danger btn-sm edit-local-remove" data-local-id="' + esc(item.id) + '">移除</button></div>' +
-                    '</div></div>';
-            }).join('');
+            restLocals.forEach(function (item) {
+                html += buildEditLocalCardHtml(item, localIdxCounter++, false);
+            });
             grid.innerHTML = html;
             var coverLabelIn = document.getElementById('edit-cover-label');
             if (coverLabelIn) {
@@ -3765,6 +3829,17 @@
                         previewEditLocalRedraw(item);
                     });
                 }
+                var setCoverBtn = card.querySelector('.edit-local-set-cover');
+                if (setCoverBtn) {
+                    setCoverBtn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        editGalleryLocalAsCoverId = item.id;
+                        var moved = [item].concat(editGalleryLocalAdds.filter(function (x) { return x.id !== item.id; }));
+                        editGalleryLocalAdds = moved;
+                        refreshCurrentEditGallery();
+                        setEditGalleryStatus('已標為封面，按「儲存」後寫入', 'info');
+                    });
+                }
                 var d2pBtn = card.querySelector('.edit-local-d2p-btn');
                 if (d2pBtn) {
                     d2pBtn.addEventListener('click', function (e) {
@@ -3832,6 +3907,7 @@
                             }
                             editGalleryLocalAdds.splice(i, 1);
                         }
+                        if (editGalleryLocalAsCoverId === item.id) editGalleryLocalAsCoverId = null;
                         var mid = document.getElementById('edit-id').value;
                         var cur = materialsAll.find(function (x) { return x.id === mid; });
                         if (cur) renderEditGallery(cur);
@@ -4097,23 +4173,59 @@
             }
         }
 
-        var editGalleryDragUrl = null;
+        var editGalleryDragKey = null;
         var galleryOrderSaveTimer = null;
         var galleryOrderSavePendingUrls = null;
+
+        function editGalleryColKey(col) {
+            if (!col) return '';
+            var key = col.getAttribute('data-gallery-key');
+            if (key) return key;
+            var lid = col.getAttribute('data-local-id');
+            if (lid) return 'local:' + lid;
+            return col.getAttribute('data-gallery-url') || '';
+        }
+
+        function syncEditGalleryLocalOrderFromGrid(grid) {
+            if (!grid || !editGalleryLocalAdds.length) return;
+            var byId = {};
+            editGalleryLocalAdds.forEach(function (it) { byId[it.id] = it; });
+            var next = [];
+            grid.querySelectorAll('.edit-gallery-col[data-local-id]').forEach(function (col) {
+                var id = col.getAttribute('data-local-id');
+                if (id && byId[id]) {
+                    next.push(byId[id]);
+                    delete byId[id];
+                }
+            });
+            Object.keys(byId).forEach(function (id) { next.push(byId[id]); });
+            editGalleryLocalAdds = next;
+            var first = grid.querySelector('.edit-gallery-col');
+            if (first && first.getAttribute('data-local-id')) {
+                editGalleryLocalAsCoverId = first.getAttribute('data-local-id');
+            } else if (editGalleryLocalAsCoverId) {
+                editGalleryLocalAsCoverId = null;
+            }
+        }
 
         function applyEditGalleryOrderFromGrid(grid, opts) {
             if (!grid) return;
             opts = opts || {};
+            syncEditGalleryLocalOrderFromGrid(grid);
             var id = document.getElementById('edit-id').value;
             if (!id) return;
             var m = materialsAll.find(function (x) { return x.id === id; });
             var prev = m ? assetImageUrls(m) : [];
             var next = collectEditGalleryOrderFromGrid(grid);
-            if (!next.length || prev.join('\0') === next.join('\0')) return;
-            var mIdx = materialsAll.findIndex(function (x) { return x.id === id; });
-            if (mIdx >= 0) materialsAll[mIdx] = reorderLocalAssetByUrls(materialsAll[mIdx], next);
-            if (prev[0] !== next[0]) renderEditGallery(materialsAll[mIdx]);
-            schedulePersistGalleryOrder(next, { notify: !!(opts && opts.notify) });
+            if (next.length && prev.join('\0') !== next.join('\0')) {
+                var mIdx = materialsAll.findIndex(function (x) { return x.id === id; });
+                if (mIdx >= 0) materialsAll[mIdx] = reorderLocalAssetByUrls(materialsAll[mIdx], next);
+                if (prev[0] !== next[0]) renderEditGallery(materialsAll[mIdx]);
+                else if (opts.notify) renderEditGallery(materialsAll[mIdx] || m);
+                schedulePersistGalleryOrder(next, { notify: !!(opts && opts.notify) });
+            } else if (opts.notify) {
+                renderEditGallery(m);
+            }
         }
 
         function collectEditGalleryOrderFromGrid(grid) {
@@ -4139,24 +4251,24 @@
                         return;
                     }
                     col._dragFromHandle = false;
-                    editGalleryDragUrl = col.getAttribute('data-gallery-url');
+                    editGalleryDragKey = editGalleryColKey(col);
                     col.classList.add('dragging');
                     if (e.dataTransfer) {
                         e.dataTransfer.effectAllowed = 'move';
-                        try { e.dataTransfer.setData('text/plain', editGalleryDragUrl); } catch (_) {}
+                        try { e.dataTransfer.setData('text/plain', editGalleryDragKey); } catch (_) {}
                     }
                 });
                 col.addEventListener('dragend', function () {
                     col.classList.remove('dragging');
-                    if (editGalleryDragUrl) applyEditGalleryOrderFromGrid(grid, { notify: true });
-                    editGalleryDragUrl = null;
+                    if (editGalleryDragKey) applyEditGalleryOrderFromGrid(grid, { notify: true });
+                    editGalleryDragKey = null;
                 });
                 col.addEventListener('dragover', function (e) {
                     e.preventDefault();
-                    if (!editGalleryDragUrl || editGalleryDragUrl === col.getAttribute('data-gallery-url')) return;
+                    if (!editGalleryDragKey || editGalleryDragKey === editGalleryColKey(col)) return;
                     var dragEl = null;
                     grid.querySelectorAll('.edit-gallery-col').forEach(function (el) {
-                        if (el.getAttribute('data-gallery-url') === editGalleryDragUrl) dragEl = el;
+                        if (editGalleryColKey(el) === editGalleryDragKey) dragEl = el;
                     });
                     if (!dragEl || dragEl === col) return;
                     var rect = col.getBoundingClientRect();
@@ -4246,6 +4358,7 @@
         async function setGalleryCover(url) {
             var id = document.getElementById('edit-id').value;
             if (!id || !url) return;
+            editGalleryLocalAsCoverId = null;
             if (editGalleryUploading) {
                 setEditGalleryStatus('上一批仍在處理中，請稍候', 'warning');
                 return;
