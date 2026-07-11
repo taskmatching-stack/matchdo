@@ -1313,7 +1313,7 @@
                         <button class="nav-link" id="tab-pattern-extract" data-bs-toggle="tab" data-bs-target="#panel-pattern-extract" type="button" role="tab" aria-controls="panel-pattern-extract" aria-selected="false" data-i18n="customProduct.patternExtractTab">圖樣提取</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-design-to-physical" data-bs-toggle="tab" data-bs-target="#panel-design-to-physical" type="button" role="tab" aria-controls="panel-design-to-physical" aria-selected="false" data-i18n="customProduct.designToPhysicalTab">設計圖轉實體</button>
+                        <button class="nav-link" id="tab-design-to-physical" data-bs-toggle="tab" data-bs-target="#panel-design-to-physical" type="button" role="tab" aria-controls="panel-design-to-physical" aria-selected="false" data-i18n="customProduct.designToPhysicalTab">寫實化</button>
                     </li>
                 </ul>
 
@@ -1565,11 +1565,11 @@
                     <div class="tab-pane fade" id="panel-design-to-physical" role="tabpanel" aria-labelledby="tab-design-to-physical">
                         <div class="create-panel scene-sim-panel">
                             <div class="create-panel-left">
-                                <p class="form-text text-muted small mb-2" data-i18n="customProduct.designToPhysicalHint">上傳平面設計圖／圖樣，轉成寫實實體產品照。圖樣、結構與顏色會盡量與原圖一致。每次 20 點。</p>
+                                <p class="form-text text-muted small mb-2" data-i18n="customProduct.designToPhysicalHint">將產品圖稿／示意圖寫實化，結構與顏色盡量與原圖一致。每次 20 點。</p>
                                 <div class="form-row full scene-sim-images-row">
-                                    <span class="label w-100 mb-1" data-i18n="customProduct.designToPhysicalSelectImage">選擇設計圖</span>
+                                    <span class="label w-100 mb-1" data-i18n="customProduct.designToPhysicalSelectImage">選擇圖稿／示意圖</span>
                                     <div class="scene-sim-col" style="max-width: 280px;">
-                                        <div id="designToPhysicalPreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" aria-label="選擇設計圖" title="點擊選擇本機圖片或從數位資產選圖">
+                                        <div id="designToPhysicalPreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" aria-label="選擇圖稿／示意圖" title="點擊選擇本機圖片或從數位資產選圖">
                                             <div id="designToPhysicalPreviewInner" class="scene-sim-preview-inner">
                                                 <span class="scene-sim-preview-hint" data-i18n="customProduct.clickToSelect">點擊選擇</span>
                                             </div>
@@ -1585,7 +1585,7 @@
                                 </div>
                                 <p class="small text-muted mt-2 mb-1" id="designToPhysicalPointsDisplay" data-i18n="customProduct.designToPhysicalPoints">20 點／次</p>
                                 <button type="button" class="btn btn-primary btn-generate w-100 mt-2" id="designToPhysicalApplyBtn">
-                                    <i class="fas fa-cube me-2"></i><span data-i18n="customProduct.designToPhysicalApply">轉為實體產品</span>
+                                    <i class="fas fa-cube me-2"></i><span data-i18n="customProduct.designToPhysicalApply">寫實化</span>
                                 </button>
                             </div>
                             <div class="create-panel-right" id="designToPhysicalResultWrap">
@@ -1655,7 +1655,7 @@
     <script src="js/browse-styles.js?v=7" defer></script>
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js" defer></script>
-    <script src="js/custom-product.js?v=114" defer></script>
+    <script src="js/custom-product.js?v=115" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

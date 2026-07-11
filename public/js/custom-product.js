@@ -5460,7 +5460,7 @@ $(document).ready(function () {
             });
     });
 
-    // —— 設計圖轉實體（獨立 Tab；固定 20 點；不併入主生圖）——
+    // —— 寫實化（獨立 Tab；固定 20 點；不併入主生圖）——
     window.designToPhysicalImageDataUrl = null;
     function clearDesignToPhysicalPreview() {
         window.designToPhysicalImageDataUrl = null;
@@ -5484,7 +5484,7 @@ $(document).ready(function () {
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
             (t('customProduct.designToPhysicalResultNote') || '此圖不會自動存入數位資產，請自行下載；亦可加入「數位原型」參考圖。') + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
-        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.designToPhysicalTab') || '設計圖轉實體')
+        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.designToPhysicalTab') || '寫實化')
             .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
         var $btnRow = $('<div class="d-flex flex-wrap gap-2 mt-2"></div>');
         var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>' + (t('customProduct.downloadImage') || '下載圖片') + '</a>');
@@ -5504,7 +5504,7 @@ $(document).ready(function () {
                 var url = URL.createObjectURL(blob);
                 var a = document.createElement('a');
                 a.href = url;
-                a.download = 'design-to-physical.' + ext;
+                a.download = 'photorealize.' + ext;
                 a.click();
                 URL.revokeObjectURL(url);
             } catch (err) { console.warn(err); }
@@ -5553,7 +5553,7 @@ $(document).ready(function () {
     $('#designToPhysicalApplyBtn').on('click', function () {
         var imageUrl = window.designToPhysicalImageDataUrl || '';
         if (!imageUrl) {
-            alert(t('customProduct.designToPhysicalSelectRequired') || '請先選擇一張設計圖');
+            alert(t('customProduct.designToPhysicalSelectRequired') || '請先選擇一張產品圖稿或示意圖');
             return;
         }
         var $btn = $('#designToPhysicalApplyBtn');

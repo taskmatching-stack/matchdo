@@ -883,7 +883,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'design-to-physical-20260711b';
+        window.__MATCHDO_MATERIALS_BUILD = 'photorealize-rename-20260711c';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         function sleepMs(ms) {
             return new Promise(function (resolve) { setTimeout(resolve, ms); });
@@ -1941,7 +1941,7 @@
             return lbl;
         }
 
-        /** 依勾選組出要上傳的檔案（順序：原圖 → 重繪 → 放大 → 轉實體） */
+        /** 依勾選組出要上傳的檔案（順序：原圖 → 重繪 → 放大 → 寫實化） */
         function pendingUploadEntries(item) {
             var baseLabel = (item.label || labelFromFilename(item.file && item.file.name)).trim().slice(0, 120);
             var out = [];
@@ -1955,7 +1955,7 @@
                 out.push({ file: item.upscaleFile, label: baseLabel || '放大', aiDerived: 'upscale' });
             }
             if (item.d2pFile && item.uploadD2p !== false) {
-                out.push({ file: item.d2pFile, label: baseLabel || '轉實體', aiDerived: 'design_to_physical' });
+                out.push({ file: item.d2pFile, label: baseLabel || '寫實化', aiDerived: 'design_to_physical' });
             }
             return out;
         }
@@ -2115,8 +2115,8 @@
 
         function pendingD2pThumbHtml(item, prefix) {
             if (!item.d2pPreviewUrl) return '';
-            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">' + esc(tr('baseModels.designToPhysicalNewThumb', '轉實體新圖')) + '</span>' +
-                '<img src="' + esc(item.d2pPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle(tr('baseModels.designToPhysicalNewThumb', '轉實體新圖'))) + '">' +
+            return '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#198754">' + esc(tr('baseModels.designToPhysicalNewThumb', '寫實化新圖')) + '</span>' +
+                '<img src="' + esc(item.d2pPreviewUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle(tr('baseModels.designToPhysicalNewThumb', '寫實化新圖'))) + '">' +
                 pendingUploadCheckHtml(item.uploadD2p !== false, prefix + '-upload-d2p', '上傳此張') +
                 '</div>';
         }
@@ -2550,7 +2550,7 @@
             }
             if (slot.uploadD2p !== false && slot.d2pFile) {
                 files.push(slot.d2pFile);
-                labels.push(srcItem ? (displayGalleryImageLabel(srcItem) || '轉實體') : '轉實體');
+                labels.push(srcItem ? (displayGalleryImageLabel(srcItem) || '寫實化') : '寫實化');
                 derived.push('design_to_physical');
             }
             if (!files.length) return { ok: false, error: '沒有可上傳的新圖' };
@@ -2690,7 +2690,7 @@
             if (item.imageBusy) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
             if (!vendorDesignToPhysicalEnabledForKind(kind)) {
-                showToast(tr('baseModels.designToPhysicalOnlyProtoPart', '設計圖轉實體僅適用於數位原型／配件'), 'warning');
+                showToast(tr('baseModels.designToPhysicalOnlyProtoPart', '寫實化僅適用於數位原型／配件'), 'warning');
                 return;
             }
             if (!item.file) {
@@ -2698,7 +2698,7 @@
                 return;
             }
             var pts = designToPhysicalPoints();
-            if (!window.confirm(tr('baseModels.designToPhysicalConfirmPending', '設計圖轉實體並追加新圖？（-{pts} 點；發布時一併上傳新圖）').replace('{pts}', String(pts)))) return;
+            if (!window.confirm(tr('baseModels.designToPhysicalConfirmPending', '寫實化並追加新圖？（-{pts} 點；發布時一併上傳新圖）').replace('{pts}', String(pts)))) return;
             item.imageBusy = true;
             renderPendingImages(form);
             try {
@@ -2718,7 +2718,7 @@
                     return;
                 }
                 if (!r.ok) {
-                    showToast(data.error || tr('baseModels.designToPhysicalFail', '轉實體失敗'), 'danger');
+                    showToast(data.error || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger');
                     return;
                 }
                 item.d2pPreviewUrl = previewDataUrlFromResponse(data);
@@ -2727,12 +2727,12 @@
                 item.uploadD2p = true;
                 item.uploadOriginal = false;
                 item.d2pFile = await fileFromPreviewResponse(data, 'd2p-' + idx + '.jpg');
-                var okMsg = tr('baseModels.designToPhysicalDonePending', '已產生轉實體新圖，預設只上傳新圖（不保留原圖）');
+                var okMsg = tr('baseModels.designToPhysicalDonePending', '已產生寫實化新圖，預設只上傳新圖（不保留原圖）');
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + ' ' + tr('baseModels.pointsUnit', '點');
                 if (data.ai_prompt) okMsg += ' · 提示詞：' + data.ai_prompt;
                 showToast(okMsg);
             } catch (err) {
-                showToast(err.message || tr('baseModels.designToPhysicalFail', '轉實體失敗'), 'danger');
+                showToast(err.message || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger');
             } finally {
                 item.imageBusy = false;
                 renderPendingImages(form);
@@ -2968,11 +2968,11 @@
                     pendingDragRowHtml(list.length) +
                     '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     (vendorDesignToPhysicalEnabledForKind(formKind)
-                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm pending-d2p-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '轉實體')) + '</button>')
+                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm pending-d2p-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>')
                         : '') +
                     upscaleBtnHtml +
                     (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-redraw">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
-                    (item.d2pPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-d2p">' + esc(tr('baseModels.designToPhysicalClear', '清除轉實體新圖')) + '</button>' : '') +
+                    (item.d2pPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-d2p">' + esc(tr('baseModels.designToPhysicalClear', '清除寫實化新圖')) + '</button>' : '') +
                     (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '<span class="btn btn-outline-primary btn-sm pending-set-cover-spacer invisible" aria-hidden="true">設為封面</span>') +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
@@ -3247,11 +3247,11 @@
             if (item.imageBusy) return;
             var m = materialsAll.find(function (x) { return x.id === document.getElementById('edit-id').value; });
             if (!m || !vendorDesignToPhysicalEnabledForKind(m.asset_kind)) {
-                showToast(tr('baseModels.designToPhysicalOnlyProtoPart', '設計圖轉實體僅適用於數位原型／配件'), 'warning');
+                showToast(tr('baseModels.designToPhysicalOnlyProtoPart', '寫實化僅適用於數位原型／配件'), 'warning');
                 return;
             }
             var pts = designToPhysicalPoints();
-            if (!window.confirm(tr('baseModels.designToPhysicalConfirmPending', '設計圖轉實體並追加新圖？（-{pts} 點；上傳時一併送出新圖）').replace('{pts}', String(pts)))) return;
+            if (!window.confirm(tr('baseModels.designToPhysicalConfirmPending', '寫實化並追加新圖？（-{pts} 點；上傳時一併送出新圖）').replace('{pts}', String(pts)))) return;
             item.imageBusy = true;
             renderEditGalleryPending();
             try {
@@ -3270,16 +3270,16 @@
                     showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger');
                     return;
                 }
-                if (!r.ok) { showToast(data.error || tr('baseModels.designToPhysicalFail', '轉實體失敗'), 'danger'); return; }
+                if (!r.ok) { showToast(data.error || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger'); return; }
                 item.d2pPreviewUrl = previewDataUrlFromResponse(data);
                 item.d2pPreviewStorageUrl = data.preview_url || '';
                 item.d2pChargedPts = data.points_deducted || 0;
                 item.uploadD2p = true;
                 item.uploadOriginal = false;
                 item.d2pFile = await fileFromPreviewResponse(data, 'd2p-' + idx + '.jpg');
-                showToast(tr('baseModels.designToPhysicalDonePending', '已產生轉實體新圖，預設只上傳新圖（不保留原圖）') + (data.points_deducted ? ' · -' + data.points_deducted + ' ' + tr('baseModels.pointsUnit', '點') : ''));
+                showToast(tr('baseModels.designToPhysicalDonePending', '已產生寫實化新圖，預設只上傳新圖（不保留原圖）') + (data.points_deducted ? ' · -' + data.points_deducted + ' ' + tr('baseModels.pointsUnit', '點') : ''));
             } catch (err) {
-                showToast(err.message || tr('baseModels.designToPhysicalFail', '轉實體失敗'), 'danger');
+                showToast(err.message || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger');
             } finally {
                 item.imageBusy = false;
                 renderEditGalleryPending();
@@ -3377,10 +3377,10 @@
                     '<div class="pending-actions">' +
                     pendingDragRowHtml(list.length) +
                     '<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (d2pOn ? ('<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-d2p-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '轉實體')) + '</button>') : '') +
+                    (d2pOn ? ('<button type="button" class="btn btn-outline-secondary btn-sm edit-pending-d2p-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>') : '') +
                     upscaleBtnHtml +
                     (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-redraw">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
-                    (item.d2pPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-d2p">' + esc(tr('baseModels.designToPhysicalClear', '清除轉實體新圖')) + '</button>' : '') +
+                    (item.d2pPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-pending-clear-d2p">' + esc(tr('baseModels.designToPhysicalClear', '清除寫實化新圖')) + '</button>' : '') +
                     pendingCardActionSpacer() +
                     '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
                 col.appendChild(card);
@@ -3586,7 +3586,7 @@
                         : '') +
                     '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     (vendorDesignToPhysicalEnabledForKind(m.asset_kind)
-                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-d2p-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '轉實體')) + '</button>')
+                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-d2p-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>')
                         : '') +
                     upscaleActionHtml +
                     (hasPreview ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-preview" data-url="' + esc(url) + '">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
@@ -3761,14 +3761,14 @@
             }
             var m = materialsAll.find(function (x) { return x.id === id; });
             if (!m || !vendorDesignToPhysicalEnabledForKind(m.asset_kind)) {
-                showToast(tr('baseModels.designToPhysicalOnlyProtoPart', '設計圖轉實體僅適用於數位原型／配件'), 'warning');
+                showToast(tr('baseModels.designToPhysicalOnlyProtoPart', '寫實化僅適用於數位原型／配件'), 'warning');
                 return false;
             }
             var pts = designToPhysicalPoints();
-            if (!opts.skipConfirm && !window.confirm(tr('baseModels.designToPhysicalConfirmGallery', '以此圖轉實體並新增一張新圖？（-{pts} 點，原圖保留）').replace('{pts}', String(pts)))) return false;
+            if (!opts.skipConfirm && !window.confirm(tr('baseModels.designToPhysicalConfirmGallery', '以此圖寫實化並新增一張新圖？（-{pts} 點，原圖保留）').replace('{pts}', String(pts)))) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);
-            setEditGalleryStatus(tr('baseModels.designToPhysicalBusy', '設計圖轉實體中…'), 'info');
+            setEditGalleryStatus(tr('baseModels.designToPhysicalBusy', '寫實化中…'), 'info');
             try {
                 var tok = token || (await getToken());
                 if (!tok) {
@@ -3791,7 +3791,7 @@
                     return false;
                 }
                 if (!r.ok) {
-                    var errMsg = data.error || data.message || (tr('baseModels.designToPhysicalFail', '轉實體失敗') + ' (HTTP ' + r.status + ')');
+                    var errMsg = data.error || data.message || (tr('baseModels.designToPhysicalFail', '寫實化失敗') + ' (HTTP ' + r.status + ')');
                     setEditGalleryStatus(errMsg, 'danger');
                     showToast(errMsg, 'danger');
                     return false;
@@ -3799,7 +3799,7 @@
                 var merged = afterEditGalleryMutation(id, data);
                 var lastNew = markNewGalleryUrls(urlsBefore, merged);
                 var urlCount = assetImageUrls(merged).length;
-                var okMsg = tr('baseModels.designToPhysicalDoneGallery', '已新增轉實體新圖（原圖保留，共 {n} 張）').replace('{n}', String(urlCount));
+                var okMsg = tr('baseModels.designToPhysicalDoneGallery', '已新增寫實化新圖（原圖保留，共 {n} 張）').replace('{n}', String(urlCount));
                 if (data.points_deducted) okMsg += ' · -' + data.points_deducted + tr('baseModels.pointsUnit', '點');
                 setEditGalleryStatus(okMsg, 'success');
                 showToast(okMsg);
@@ -3813,7 +3813,7 @@
                 }
                 return true;
             } catch (err) {
-                setEditGalleryStatus(err.message || tr('baseModels.designToPhysicalFail', '轉實體失敗'), 'danger');
+                setEditGalleryStatus(err.message || tr('baseModels.designToPhysicalFail', '寫實化失敗'), 'danger');
                 showToast(err.message, 'danger');
                 return false;
             } finally {

@@ -1,19 +1,19 @@
-# 進度：設計圖轉實體（Design → Physical）
+# 進度：寫實化（Photorealize）
 
 **最後更新：** 2026-07-11  
-**狀態：** 已實作（待部署驗收）  
+**狀態：** 已實作（對外名稱：寫實化）  
 **點數：** 固定 **20 點／次**（`points_design_to_physical`，預設 20；後台「會員／點數規則」可調）
-
-## 扣點統計（管理後台）
-
-- 寫入 `credit_transactions`：`source=design_to_physical`，`description=設計圖轉實體`
-- 後台「扣點統計」依 description 彙總次數／點數（與圖樣提取、實境模擬相同機制）
-- 三入口（設計區／廠商預覽／圖庫追加）皆用同一 description，方便合併統計
 
 ## 一句話
 
-獨立 FLUX img2img：將平面設計圖／圖樣轉成寫實實體產品照。  
+將**產品圖稿／示意圖**寫實化（FLUX img2img）。  
 Prompt（鎖定）：`將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致`
+
+## 扣點統計（管理後台）
+
+- 寫入 `credit_transactions`：`source=design_to_physical`，`description=寫實化`
+- 後台「扣點統計」依 description 彙總；「點數規則」顯示名稱為「寫實化」
+- 三入口（設計區／廠商預覽／圖庫追加）皆用同一 description
 
 ## 與現有功能分線
 
@@ -21,11 +21,11 @@ Prompt（鎖定）：`將圖樣轉為實體寫實產品，圖樣、結構和顏�
 |------|------|
 | 產品 AI 重繪 | 已是產品照 → 換底／去雜物 |
 | 材料 FLUX | 滿版材質色卡 |
-| **設計圖轉實體** | 圖樣 → 寫實成品 |
+| **寫實化** | 產品圖稿／示意圖 → 寫實成品照 |
 
 **禁止**併入 `buildVendorAssetProductOptimizePrompt`、材料 prompt、或設計頁 `composeGeneratePromptWithReferences`。
 
-## 後端
+## 後端（內部鍵名仍為 design_to_physical）
 
 | 項目 | 位置 |
 |------|------|
@@ -41,14 +41,14 @@ Prompt（鎖定）：`將圖樣轉為實體寫實產品，圖樣、結構和顏�
 
 | 入口 | 說明 |
 |------|------|
-| 設計區 Tab「設計圖轉實體」 | `custom-product.html` + `custom-product.js`；本機／數位資產選圖；下載；可加入數位原型參考 |
-| 廠商素材庫 | 僅 **prototype／part**；待傳／編輯待傳「轉實體」；圖庫「轉實體」直接追加 |
-| Build | `__MATCHDO_MATERIALS_BUILD=design-to-physical-20260711a` |
+| 設計區 Tab「寫實化」 | 本機／數位資產選圖；下載；可加入數位原型參考 |
+| 廠商素材庫 | 僅 **prototype／part**；按鈕文案「寫實化」 |
+| Build | `__MATCHDO_MATERIALS_BUILD=photorealize-rename-20260711c` |
+| i18n | zh：寫實化；en：Photorealize |
 
 ## 驗收
 
-1. 設計區 Tab → 上傳設計圖 → 出寫實圖 → -20 點  
-2. 結果可下載、可加入數位原型參考  
-3. 廠商原型／配件待傳「轉實體」→ 同格新圖 → 勾選上傳  
-4. 編輯圖庫「轉實體」→ 追加新圖、原圖保留、metadata 不丟  
-5. 材料 tab **無**轉實體按鈕  
+1. 設計區 Tab 名稱為「寫實化」，說明含「產品圖稿／示意圖」  
+2. 廠商原型／配件按鈕為「寫實化」  
+3. 扣點統計／點數規則顯示「寫實化」  
+4. 材料 tab **無**此按鈕  

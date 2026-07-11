@@ -2802,7 +2802,7 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     return `保持顏色並優化此${t}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}材質色卡質感。`;
 }
 
-/** 設計圖轉實體（獨立管線；勿併入產品重繪／材料色卡） */
+/** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 將產品圖稿／示意圖寫實化 */
 const DESIGN_TO_PHYSICAL_PROMPT =
     '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致';
 const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20;
@@ -2835,7 +2835,7 @@ async function runDesignToPhysicalFlux(fileBuffer, mimeType) {
     };
     const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], DESIGN_TO_PHYSICAL_SEED, 'jpeg', fluxOpts);
-    if (!buf || !buf.length) throw new Error('設計圖轉實體服務未設定或暫時無法使用（BFL_API_KEY）');
+    if (!buf || !buf.length) throw new Error('寫實化服務未設定或暫時無法使用（BFL_API_KEY）');
     return buf;
 }
 
@@ -9320,7 +9320,7 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
     }
 });
 
-// API: 設計圖轉實體（獨立 FLUX 管線；固定 20 點；不併入產品重繪／材料／主生圖）
+// API: 寫實化（獨立 FLUX 管線；固定 20 點；將產品圖稿／示意圖寫實化）
 app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -9336,11 +9336,11 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
             }
         }
         if (!currentUser) {
-            return res.status(401).json({ success: false, error: '請先登入後再使用設計圖轉實體' });
+            return res.status(401).json({ success: false, error: '請先登入後再使用寫實化' });
         }
         const { image } = req.body || {};
         if (!image || typeof image !== 'string') {
-            return res.status(400).json({ success: false, error: '請上傳一張設計圖' });
+            return res.status(400).json({ success: false, error: '請上傳一張產品圖稿或示意圖' });
         }
         const pointsToDeduct = await getPointsDesignToPhysical();
         if (!isAdmin && pointsToDeduct > 0) {
@@ -9354,7 +9354,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
             return res.status(400).json({ success: false, error: '圖片無法讀取，請重新上傳' });
         }
         if (!process.env.BFL_API_KEY) {
-            return res.status(503).json({ success: false, error: '設計圖轉實體服務暫未設定，請稍後再試' });
+            return res.status(503).json({ success: false, error: '寫實化服務暫未設定，請稍後再試' });
         }
         const rawBuf = Buffer.from(imageBase64, 'base64');
         const buffer = await runDesignToPhysicalFlux(rawBuf, 'image/jpeg');
@@ -9368,7 +9368,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
                 currentUser.id,
                 pointsToDeduct,
                 'design_to_physical',
-                '設計圖轉實體',
+                '寫實化',
                 {}
             );
             if (!consumed.ok) {
@@ -9384,10 +9384,10 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
             ai_prompt: buildDesignToPhysicalPrompt()
         });
     } catch (error) {
-        console.error('設計圖轉實體錯誤:', error);
+        console.error('寫實化錯誤:', error);
         res.status(500).json({
             success: false,
-            error: error.message || '設計圖轉實體失敗，請稍後再試'
+            error: error.message || '寫實化失敗，請稍後再試'
         });
     }
 });
@@ -19492,7 +19492,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
     }
 });
 
-// POST /api/me/vendor-assets/preview-design-to-physical — 上傳前設計圖轉實體預覽（固定 20 點；僅 prototype／part）
+// POST /api/me/vendor-assets/preview-design-to-physical — 上傳前寫實化預覽（固定 20 點；僅 prototype／part）
 app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('image'), async (req, res) => {
     try {
         const uploadUser = await assertCanUploadProductsAndAssets(req, res);
@@ -19507,7 +19507,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
         const body = req.body || {};
         const assetKind = normalizeVendorAssetKind(body.asset_kind);
         if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '設計圖轉實體僅適用於數位原型／配件' });
+            return res.status(400).json({ error: '寫實化僅適用於數位原型／配件' });
         }
         const pointsRequired = await getPointsDesignToPhysical();
         let ownerId = seedUser.id;
@@ -19525,7 +19525,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
             outBuf = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg');
         } catch (optErr) {
             console.error('preview-design-to-physical:', optErr);
-            return res.status(503).json({ error: (optErr && optErr.message) || '設計圖轉實體失敗，請稍後重試' });
+            return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
         }
         const optimized = {
             buffer: outBuf,
@@ -19543,7 +19543,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
                 ownerId,
                 pointsRequired,
                 'design_to_physical',
-                '設計圖轉實體',
+                '寫實化',
                 { manufacturer_id: manufacturerId, preview: true }
             );
             if (!consumed.ok) {
@@ -19566,7 +19566,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
     }
 });
 
-// POST /api/me/vendor-assets/:id/gallery-images/design-to-physical — 單張設計圖轉實體並追加新圖
+// POST /api/me/vendor-assets/:id/gallery-images/design-to-physical — 單張寫實化並追加新圖
 app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
@@ -19585,7 +19585,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
         if (!row) return res.status(404).json({ error: '找不到該素材' });
         const assetKind = normalizeVendorAssetKind(row.asset_kind);
         if (assetKind !== 'prototype' && assetKind !== 'part') {
-            return res.status(400).json({ error: '設計圖轉實體僅適用於數位原型／配件' });
+            return res.status(400).json({ error: '寫實化僅適用於數位原型／配件' });
         }
         if (!vendorAssetSupportsGalleryImages(assetKind)) {
             return res.status(400).json({ error: '此素材類型不支援多角度圖' });
@@ -19626,7 +19626,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
             outBuf = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg');
         } catch (optErr) {
             console.error('gallery-images/design-to-physical:', optErr);
-            return res.status(503).json({ error: (optErr && optErr.message) || '設計圖轉實體失敗，請稍後重試' });
+            return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
         }
         file = {
             buffer: outBuf,
@@ -19637,10 +19637,10 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
         const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
         const srcLabel = srcItem ? srcItem.label : labelFromImageUrl(sourceUrl);
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
-        const outLabel = vendorImageLabelFromSource(srcLabel, labelFromImageUrl(sourceUrl) || '轉實體');
+        const outLabel = vendorImageLabelFromSource(srcLabel, labelFromImageUrl(sourceUrl) || '寫實化');
         const newEntries = await uploadVendorAssetGalleryFiles(manufacturerId, [file], startSort, [outLabel], ['design_to_physical']);
         if (!newEntries.length) {
-            return res.status(500).json({ error: '上傳轉實體結果失敗' });
+            return res.status(500).json({ error: '上傳寫實化結果失敗' });
         }
         newEntries.forEach(function (e) { e.source_url = sourceUrl; });
         const updatePayload = {
@@ -19665,7 +19665,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
                 ownerId,
                 pointsRequired,
                 'design_to_physical',
-                '設計圖轉實體',
+                '寫實化',
                 { manufacturer_id: manufacturerId, asset_id: id, source_url: sourceUrl }
             );
             if (!consumed.ok) {
