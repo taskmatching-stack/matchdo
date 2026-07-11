@@ -2808,8 +2808,11 @@ const DESIGN_TO_PHYSICAL_PROMPT =
 const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20;
 const DESIGN_TO_PHYSICAL_SEED = 2026071101;
 
-function buildDesignToPhysicalPrompt() {
-    return DESIGN_TO_PHYSICAL_PROMPT;
+/** 固定保真底稿；可選使用者補充（中文直送 FLUX） */
+function buildDesignToPhysicalPrompt(userExtra) {
+    const base = DESIGN_TO_PHYSICAL_PROMPT;
+    const extra = String(userExtra || '').trim().replace(/\s+/g, ' ').slice(0, 500);
+    return extra ? (base + '。' + extra) : base;
 }
 
 async function getPointsDesignToPhysical() {
@@ -2820,13 +2823,13 @@ async function getPointsDesignToPhysical() {
 }
 
 /**
- * 設計圖 → 寫實實體產品（FLUX img2img）。
+ * 寫實化：FLUX img2img。
  * 與 optimizeVendorAssetImageWithFlux 分線；模型暫用 bfl_flux_model_vendor_product。
  */
-async function runDesignToPhysicalFlux(fileBuffer, mimeType) {
+async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
-    const prompt = buildDesignToPhysicalPrompt();
+    const prompt = buildDesignToPhysicalPrompt(userExtra);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_product'),
         width: 1024,
@@ -2836,7 +2839,7 @@ async function runDesignToPhysicalFlux(fileBuffer, mimeType) {
     const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], DESIGN_TO_PHYSICAL_SEED, 'jpeg', fluxOpts);
     if (!buf || !buf.length) throw new Error('寫實化服務未設定或暫時無法使用（BFL_API_KEY）');
-    return buf;
+    return { buffer: buf, prompt };
 }
 
 function normalizeVendorAiDerivedKind(raw) {
@@ -9338,7 +9341,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
         if (!currentUser) {
             return res.status(401).json({ success: false, error: '請先登入後再使用寫實化' });
         }
-        const { image } = req.body || {};
+        const { image, prompt: userPrompt } = req.body || {};
         if (!image || typeof image !== 'string') {
             return res.status(400).json({ success: false, error: '請上傳一張產品圖稿或示意圖' });
         }
@@ -9357,11 +9360,11 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
             return res.status(503).json({ success: false, error: '寫實化服務暫未設定，請稍後再試' });
         }
         const rawBuf = Buffer.from(imageBase64, 'base64');
-        const buffer = await runDesignToPhysicalFlux(rawBuf, 'image/jpeg');
-        if (!buffer) {
+        const fluxResult = await runDesignToPhysicalFlux(rawBuf, 'image/jpeg', userPrompt);
+        if (!fluxResult || !fluxResult.buffer) {
             return res.status(500).json({ success: false, error: '轉換失敗，請稍後再試' });
         }
-        const imageData = buffer.toString('base64');
+        const imageData = fluxResult.buffer.toString('base64');
         let balanceAfter = null;
         if (!isAdmin && pointsToDeduct > 0) {
             const consumed = await consumeUserCredits(
@@ -9381,7 +9384,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
             imageData: `data:image/jpeg;base64,${imageData}`,
             points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
             balance_after: balanceAfter,
-            ai_prompt: buildDesignToPhysicalPrompt()
+            ai_prompt: fluxResult.prompt || buildDesignToPhysicalPrompt(userPrompt)
         });
     } catch (error) {
         console.error('寫實化錯誤:', error);
@@ -19520,13 +19523,15 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
                 return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
             }
         }
-        let outBuf;
+        let fluxResult;
         try {
-            outBuf = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg');
+            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', body.prompt || body.user_prompt);
         } catch (optErr) {
             console.error('preview-design-to-physical:', optErr);
             return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
         }
+        const outBuf = fluxResult && fluxResult.buffer;
+        if (!outBuf) return res.status(503).json({ error: '寫實化失敗，請稍後重試' });
         const optimized = {
             buffer: outBuf,
             mimetype: 'image/jpeg',
@@ -19558,7 +19563,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             credit_transaction_id: creditTransactionId,
-            ai_prompt: buildDesignToPhysicalPrompt()
+            ai_prompt: (fluxResult && fluxResult.prompt) || buildDesignToPhysicalPrompt(body.prompt || body.user_prompt)
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/preview-design-to-physical:', e);
@@ -19621,13 +19626,15 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
             originalname: 'design-to-physical-source.jpg'
         });
         if (!file) return res.status(400).json({ error: '無法讀取圖片，請改用 JPG／PNG／WebP' });
-        let outBuf;
+        let fluxResult;
         try {
-            outBuf = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg');
+            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', body.prompt || body.user_prompt);
         } catch (optErr) {
             console.error('gallery-images/design-to-physical:', optErr);
             return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
         }
+        const outBuf = fluxResult && fluxResult.buffer;
+        if (!outBuf) return res.status(503).json({ error: '寫實化失敗，請稍後重試' });
         file = {
             buffer: outBuf,
             mimetype: 'image/jpeg',
@@ -19678,7 +19685,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             design_to_physical_from_url: sourceUrl,
-            ai_prompt: buildDesignToPhysicalPrompt()
+            ai_prompt: (fluxResult && fluxResult.prompt) || buildDesignToPhysicalPrompt(body.prompt || body.user_prompt)
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/:id/gallery-images/design-to-physical:', e);

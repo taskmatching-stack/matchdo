@@ -5478,7 +5478,7 @@ $(document).ready(function () {
         $('#designToPhysicalPreviewInner').addClass('d-none');
         $('#designToPhysicalClearBtn').removeClass('d-none');
     }
-    function renderDesignToPhysicalResult(imageDataUrl) {
+    function renderDesignToPhysicalResult(imageDataUrl, aiPrompt) {
         if (!imageDataUrl) return;
         var wrap = $('#designToPhysicalResultWrap');
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
@@ -5486,6 +5486,9 @@ $(document).ready(function () {
         var $inner = $('<div class="scene-sim-result-inner"></div>');
         $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', t('customProduct.designToPhysicalTab') || '寫實化')
             .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
+        if (aiPrompt) {
+            $inner.append($('<p class="small text-muted mt-2 mb-0"></p>').text((t('customProduct.designToPhysicalUsedPrompt') || '本次提示詞：') + aiPrompt));
+        }
         var $btnRow = $('<div class="d-flex flex-wrap gap-2 mt-2"></div>');
         var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>' + (t('customProduct.downloadImage') || '下載圖片') + '</a>');
         $btn.on('click', function (e) {
@@ -5558,6 +5561,7 @@ $(document).ready(function () {
         }
         var $btn = $('#designToPhysicalApplyBtn');
         var $wrap = $('#designToPhysicalResultWrap');
+        var prompt = ($('#designToPhysicalPrompt').val() || '').trim();
         var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
             (t('customProduct.designToPhysicalResultNote') || '此圖不會自動存入數位資產，請自行下載；亦可加入「數位原型」參考圖。') + '</p>';
         $btn.prop('disabled', true);
@@ -5573,7 +5577,7 @@ $(document).ready(function () {
             return fetch('/api/design-to-physical', {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify({ image: imageUrl })
+                body: JSON.stringify({ image: imageUrl, prompt: prompt })
             });
         }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
             .then(function (result) {
@@ -5588,7 +5592,7 @@ $(document).ready(function () {
                     return;
                 }
                 if (data.success && data.imageData) {
-                    renderDesignToPhysicalResult(data.imageData);
+                    renderDesignToPhysicalResult(data.imageData, data.ai_prompt);
                 } else {
                     $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
                 }

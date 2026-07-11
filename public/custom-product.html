@@ -1566,6 +1566,11 @@
                         <div class="create-panel scene-sim-panel">
                             <div class="create-panel-left">
                                 <p class="form-text text-muted small mb-2" data-i18n="customProduct.designToPhysicalHint">將產品圖稿／示意圖寫實化，結構與顏色盡量與原圖一致。每次 20 點。</p>
+                                <div class="form-row full">
+                                    <label class="label" for="designToPhysicalPrompt" data-i18n="customProduct.promptOptional">提示詞（選填）</label>
+                                    <input type="text" id="designToPhysicalPrompt" class="form-control form-control-sm scene-sim-prompt-input" data-i18n-placeholder="customProduct.designToPhysicalPromptPlaceholder" placeholder="選填，可補充材質、底色、光線等（例：白底棚拍、皮革質感）" />
+                                    <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.designToPhysicalBasePromptHint">系統固定保真句：將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致。上方補充會接在後面。</p>
+                                </div>
                                 <div class="form-row full scene-sim-images-row">
                                     <span class="label w-100 mb-1" data-i18n="customProduct.designToPhysicalSelectImage">選擇圖稿／示意圖</span>
                                     <div class="scene-sim-col" style="max-width: 280px;">
@@ -1655,7 +1660,7 @@
     <script src="js/browse-styles.js?v=7" defer></script>
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js" defer></script>
-    <script src="js/custom-product.js?v=115" defer></script>
+    <script src="js/custom-product.js?v=116" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
