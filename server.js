@@ -20883,41 +20883,48 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
-        const taxonomyPutErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, id, body);
-        if (taxonomyPutErr) return res.status(400).json({ error: taxonomyPutErr });
-        if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
-            await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
-        }
-        const finalKind = normalizeVendorAssetKind(updated.asset_kind || assetKind);
-        if (finalKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
-            let linkEntries = parseLinkedLinksFromBody(body);
-            if (linkEntries === undefined) {
-                const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
-                if (linkedIds === null) {
-                    return res.status(400).json({ error: 'linked_asset_ids 須為 UUID 陣列' });
-                }
-                linkEntries = normalizePrototypeLinkEntries(linkedIds);
-            } else if (linkEntries === null) {
-                return res.status(400).json({ error: 'linked_links 格式錯誤' });
-            }
-            const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkEntries);
-            if (linkErr) return res.status(400).json({ error: linkErr });
-        }
-        if (body.linked_prototype_ids !== undefined && (finalKind === 'material' || finalKind === 'part')) {
-            const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
-            if (protoIds === null) {
-                return res.status(400).json({ error: 'linked_prototype_ids 須為 UUID 陣列' });
-            }
-            const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, id, protoIds);
-            if (linkErr) return res.status(400).json({ error: linkErr });
-        }
         const putMapped = mapVendorAssetForApi(updated);
-        const putEnriched = await manufacturerTaxonomy.enrichVendorAssetItems(supabase, [putMapped]);
         res.json({
-            ...(putEnriched[0] || putMapped),
+            ...putMapped,
             points_deducted: pointsDeducted,
             balance_after: balanceAfter,
             product_optimized: file ? wantsOptimize : false
+        });
+        
+        setImmediate(async () => {
+            try {
+                const taxonomyPutErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, id, body);
+                if (taxonomyPutErr) console.warn('PUT taxonomy deferred error:', taxonomyPutErr);
+                
+                if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
+                    await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
+                }
+                
+                const finalKind = normalizeVendorAssetKind(updated.asset_kind || assetKind);
+                if (finalKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
+                    let linkEntries = parseLinkedLinksFromBody(body);
+                    if (linkEntries === undefined) {
+                        const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+                        if (linkedIds !== null) {
+                            linkEntries = normalizePrototypeLinkEntries(linkedIds);
+                        }
+                    }
+                    if (linkEntries && linkEntries.length >= 0) {
+                        const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkEntries);
+                        if (linkErr) console.warn('PUT prototype links deferred error:', linkErr);
+                    }
+                }
+                
+                if (body.linked_prototype_ids !== undefined && (finalKind === 'material' || finalKind === 'part')) {
+                    const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
+                    if (protoIds !== null) {
+                        const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, id, protoIds);
+                        if (linkErr) console.warn('PUT linked prototypes deferred error:', linkErr);
+                    }
+                }
+            } catch (e) {
+                console.warn('PUT deferred operations error:', e);
+            }
         });
     } catch (e) {
         console.error('PUT /api/me/vendor-assets/:id 異常:', e);
