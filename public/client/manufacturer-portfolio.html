@@ -362,7 +362,7 @@
         var beforeQuotaUsed = 0;
         var setAddUploadModeBlocks = null;
         var uploadPricing = { points_upload: 5, points_description: 1, points_regenerate_tags: 1 };
-        window.__MATCHDO_PORTFOLIO_BUILD = 'series-set-cover-20260712';
+        window.__MATCHDO_PORTFOLIO_BUILD = 'series-order-cache-20260712';
         var editSeriesOrderUrls = [];
         var editSeriesDragUrl = null;
 
@@ -1044,7 +1044,14 @@
                     const d = await r.json();
                     if (!r.ok) throw new Error(d.error || tr('portfolio.updateFailed'));
                     var idxSave = portfolioItems.findIndex(function (x) { return x.id == pid; });
-                    if (idxSave >= 0) portfolioItems[idxSave] = Object.assign({}, portfolioItems[idxSave], d);
+                    if (idxSave >= 0) {
+                        var merged = Object.assign({}, portfolioItems[idxSave], d);
+                        if (seriesVisible && editSeriesOrderUrls.length > 1 && (!d.series_image_urls || !d.series_image_urls.length)) {
+                            merged.series_image_urls = editSeriesOrderUrls.slice();
+                            if (editSeriesOrderUrls[0]) merged.image_url = editSeriesOrderUrls[0];
+                        }
+                        portfolioItems[idxSave] = merged;
+                    }
                     showToast(tr('portfolio.saved'));
                     editModal.hide();
                     await loadPortfolio();

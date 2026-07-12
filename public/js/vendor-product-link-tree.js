@@ -1652,7 +1652,7 @@
             window.location.replace('/custom-product.html?tab=vendor-styles');
             return;
         }
-        var r = await fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree');
+        var r = await fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree', { cache: 'no-store' });
         var data = await r.json().catch(function () { return {}; });
         if (!r.ok) {
             showAlert(data.error || tr('productTree.loadFailed', '載入失敗'), 'danger');

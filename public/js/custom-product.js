@@ -1560,7 +1560,7 @@ $(document).ready(function () {
         var mfrId = (urlParams.get('manufacturer_id') || '').trim();
         if (!aid || !mfrId) return;
 
-        fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1')
+        fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1', { cache: 'no-store' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var items = (data && data.items) ? data.items : [];
@@ -1672,7 +1672,7 @@ $(document).ready(function () {
         }
 
         if (pid && getPrototypeLockVendorAssetId() === pid && hasGuideSession) {
-            fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree')
+            fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree', { cache: 'no-store' })
                 .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
                 .then(function (res) {
                     if (!res.ok || !res.data || !res.data.prototype) return;
@@ -1684,7 +1684,7 @@ $(document).ready(function () {
 
         if (!pid) return;
 
-        fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree')
+        fetch('/api/vendor-assets/' + encodeURIComponent(pid) + '/link-tree', { cache: 'no-store' })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
             .then(function (res) {
                 if (!res.ok || !res.data || !res.data.prototype) {
@@ -3058,7 +3058,7 @@ $(document).ready(function () {
         $list.empty().addClass('d-none');
         $empty.addClass('d-none');
         $loading.removeClass('d-none').text(t('home.loading') || '載入中…');
-        var fetchOpts = {};
+        var fetchOpts = { cache: 'no-store' };
         var fetchPromise = (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function')
             ? window.AuthService.getSession().then(function (session) {
                 if (session && session.access_token) {
@@ -3249,7 +3249,7 @@ $(document).ready(function () {
             if (fallbackMain) return syncCategorySelectionFromKeys(fallbackMain, fallbackSub);
             return Promise.resolve();
         }
-        return fetch('/api/vendor-assets/' + encodeURIComponent(vendorAssetId) + '/link-tree')
+        return fetch('/api/vendor-assets/' + encodeURIComponent(vendorAssetId) + '/link-tree', { cache: 'no-store' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var p = data && data.prototype;
@@ -3473,7 +3473,7 @@ $(document).ready(function () {
         if ($loading.length) $loading.removeClass('d-none');
         if ($alert.length) $alert.addClass('d-none');
         if ($empty.length) $empty.addClass('d-none');
-        var fetchOpts = {};
+        var fetchOpts = { cache: 'no-store' };
         var fetchPromise = (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function')
             ? window.AuthService.getSession().then(function (session) {
                 if (session && session.access_token) {

@@ -748,7 +748,7 @@
             var section = document.getElementById('sectionVendorAssets');
             if (!section || !mfrId) return;
             vendorAssetsAuthHeaders().then(function (authHdr) {
-                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1' + langQuerySuffix(), { headers: authHdr })
+                fetch('/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1' + langQuerySuffix(), { headers: authHdr, cache: 'no-store' })
                     .then(function (r) { return r.json(); })
                     .then(function (assets) {
                         var items = (assets && assets.items) ? assets.items : [];
@@ -833,7 +833,7 @@
                     var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&for_profile=1' + langQuerySuffix();
                     if (vendorAssetsActiveGroupId) url += '&catalog_group_id=' + encodeURIComponent(vendorAssetsActiveGroupId);
                     vendorAssetsAuthHeaders().then(function (authHdr) {
-                    fetch(url, { headers: authHdr }).then(function (r) { return r.json(); }).then(function (data) {
+                    fetch(url, { headers: authHdr, cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (data) {
                         vendorProfileListItems = (data && data.items) ? data.items : [];
                         renderVendorAssetsGrid(vendorProfileListItems);
                     }).catch(function () { vendorProfileListItems = []; renderVendorAssetsGrid([]); });

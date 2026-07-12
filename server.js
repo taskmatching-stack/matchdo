@@ -12658,11 +12658,12 @@ app.get('/api/media-wall', async (req, res) => {
 
         await enrichMediaWallRefManufacturers(items);
 
-        res.set('Cache-Control', 'public, max-age=120');
+        // private + 短效：避免 CDN／瀏覽器共用快取卡住系列圖順序；首頁 fetch 另用 cache:no-store
+        res.set('Cache-Control', 'private, max-age=0, must-revalidate');
         res.json({ items: items, page, per_page: perPage, filtered: clientFilterActive, tags: tagFilters });
     } catch (e) {
         console.error('GET /api/media-wall 異常:', e);
-        res.set('Cache-Control', 'public, max-age=60');
+        res.set('Cache-Control', 'private, max-age=0, must-revalidate');
         res.status(200).json({ items: [], page, per_page: perPage });
     }
 });
@@ -12827,7 +12828,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             }
             const item = mapUserRowToMediaWallItem(row, ownerDisplayMap);
             await enrichMediaWallRefManufacturers([item]);
-            return res.set('Cache-Control', 'public, max-age=120').json({ item });
+            return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
         }
         if (type === 'comparison' || type === 'series') {
             const { data: row, error } = await supabase
@@ -12870,7 +12871,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             });
             if (type === 'comparison') item.image_url_before = imageUrlBefore;
             if (type === 'series' && seriesUrls.length) item.series_image_urls = seriesUrls;
-            return res.set('Cache-Control', 'public, max-age=120').json({ item });
+            return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
         }
         if (type === 'collection') {
             const { data: row, error } = await supabase
@@ -12901,7 +12902,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 link: row.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) : (row.slug ? '/custom/collection.html?slug=' + encodeURIComponent(row.slug) : '/custom/gallery.html'),
                 category_keys: Array.isArray(row.category_keys) ? row.category_keys : []
             };
-            return res.set('Cache-Control', 'public, max-age=120').json({ item });
+            return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
         }
         return res.status(400).json({ error: '不支援的 type' });
     } catch (e) {
@@ -14577,7 +14578,7 @@ const MANUFACTURER_PORTFOLIO_OPTIONAL_INSERT_COLS = [
 
 const MANUFACTURER_PORTFOLIO_REQUIRED_COLS = ['category_key', 'subcategory_key', 'category_type', 'min_order_quantity'];
 
-const MANUFACTURER_PORTFOLIO_UPDATE_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, ai_tags, sort_order, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity, customization_levels';
+const MANUFACTURER_PORTFOLIO_UPDATE_SELECT = 'id, manufacturer_id, title, description, design_highlight, image_url, image_url_before, tags, ai_tags, sort_order, category_key, subcategory_key, category_type, show_on_media_wall, min_order_quantity, customization_levels, series_image_urls';
 
 function validateManufacturerPortfolioCategoryKeys(categoryKey, subcategoryKey, opts) {
     const allowEmptySubcategory = !!(opts && opts.allowEmptySubcategory);
@@ -17141,6 +17142,8 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
             };
         });
         const paged = paginateVendorAssetList(itemsAll, page);
+        // 圖庫順序／封面會即時變動，勿讓 CDN／瀏覽器共用長快取
+        res.set('Cache-Control', 'private, max-age=0, must-revalidate');
         res.json({
             items: paged.items,
             manufacturers,
@@ -17198,6 +17201,7 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
                 }).filter(Boolean);
             }
             const previewProtoNode = mapVendorAssetLinkTreeNode(protoRow) || {};
+            res.set('Cache-Control', 'private, max-age=0, must-revalidate');
             return res.json({
                 prototype: {
                     ...previewProtoNode,
@@ -17212,6 +17216,7 @@ app.get('/api/vendor-assets/:id/link-tree', async (req, res) => {
                 preview: true
             });
         }
+        res.set('Cache-Control', 'private, max-age=0, must-revalidate');
         res.json(payload);
     } catch (e) {
         console.error('GET /api/vendor-assets/:id/link-tree:', e);
@@ -18470,6 +18475,8 @@ app.get('/api/vendor-assets', async (req, res) => {
             }
         }
         const paged = paginateVendorAssetList(itemsOut, pageParams);
+        // 圖庫順序／封面會即時變動，勿讓 CDN／瀏覽器共用長快取
+        res.set('Cache-Control', 'private, max-age=0, must-revalidate');
         res.json({
             items: paged.items,
             total: paged.total,

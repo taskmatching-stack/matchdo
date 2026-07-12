@@ -1328,7 +1328,8 @@
                 var layoutFilter = currentLayoutType;
                 if (!append) { grid.innerHTML = ''; loading.classList.remove('d-none'); empty.classList.add('d-none'); }
                 var url = buildMediaWallUrl(page, q);
-                var fetchOpts = layoutFilter ? { cache: 'no-store' } : {};
+                // 系列圖順序等會即時變動；不可用預設 HTTP cache（API 曾設 max-age，會讓首頁卡住舊順序）
+                var fetchOpts = { cache: 'no-store' };
                 function showMediaWallLoadError() {
                     loading.classList.add('d-none');
                     if (!append) {
@@ -1775,7 +1776,7 @@
                 var type = parts.length >= 1 && knownTypes.indexOf(parts[0]) >= 0 ? parts[0] : '';
                 var id = parts.length >= 2 ? parts.slice(1).join('-') : '';
                 if (!type || !id) return;
-                fetch('/api/media-wall-item/' + encodeURIComponent(type) + '/' + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (data) {
+                fetch('/api/media-wall-item/' + encodeURIComponent(type) + '/' + encodeURIComponent(id), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (data) {
                     var item = data && data.item ? data.item : null;
                     if (item) {
                         openLightboxWithItem(item);

@@ -246,7 +246,7 @@
             var url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) +
                 '&for_profile=1&asset_kind=prototype' + langQ();
             if (activeGroupId) url += '&catalog_group_id=' + encodeURIComponent(activeGroupId);
-            fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+            fetch(url, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (data) {
                 listItems = (data && data.items) ? data.items : [];
                 renderGrid(listItems);
             }).catch(function () {

@@ -418,7 +418,7 @@
     }
 
     async function galleryVendorAssetsFetchOpts() {
-        const opts = {};
+        const opts = { cache: 'no-store' };
         try {
             if (typeof window.AuthService !== 'undefined' && typeof window.AuthService.getSession === 'function') {
                 const s = await window.AuthService.getSession();
