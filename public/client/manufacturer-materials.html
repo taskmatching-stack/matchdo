@@ -878,7 +878,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'publish-toggle-20260712d';
+        window.__MATCHDO_MATERIALS_BUILD = 'upload-ai-meta-20260713';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7009,6 +7009,7 @@
                     patchMaterialsAllItem(newAssetId, data);
                     materialsListOffsetByKind[kind] = 0;
                 }
+                try { await loadMaterials(); } catch (_) { /* ignore */ }
                 renderGrid();
                 switchKind(kind);
                 closeAddFormPanel(kind);

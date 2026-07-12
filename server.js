@@ -3341,20 +3341,34 @@ async function runVendorAssetImageSemanticsCoverPlusGallery(coverFile, row, cont
     return { ...result, description };
 }
 
-function vendorAssetSemanticsPatchFromResult(sem) {
+function vendorAssetSemanticsPatchFromResult(sem, opts) {
     if (!sem || !sem.tags || !sem.tags.length) return {};
-    return {
+    const patch = {
         ai_tags: sem.tags,
         image_semantics_json: sem.semantics || null,
         ai_tags_generated_at: new Date().toISOString(),
         tags_source: 'gemini'
     };
+    // 背景重標時：若說明仍空，一併寫入（上傳 5 點含自動說明，不可只寫 tags）
+    if (opts && opts.fillDescriptionIfEmpty) {
+        const cur = (opts.currentDescription != null ? String(opts.currentDescription) : '').trim();
+        if (!cur) {
+            const autoDesc = (sem.description && String(sem.description).trim())
+                || vendorAssetDescriptionFromSemantics(sem.semantics)
+                || '';
+            if (autoDesc) patch.description = autoDesc;
+        }
+    }
+    return patch;
 }
 
 async function mergeVendorAssetTagRefreshFromAllImages(updated, manufacturerId, assetId, context, ownerId) {
     if (!updated || !buildVendorAssetImageItems(updated).length) return updated;
     const sem = await tryRefreshVendorAssetTagsFromAllImages(updated, context, ownerId);
-    const patch = vendorAssetSemanticsPatchFromResult(sem);
+    const patch = vendorAssetSemanticsPatchFromResult(sem, {
+        fillDescriptionIfEmpty: true,
+        currentDescription: (updated && updated.description) || (context && context.description) || ''
+    });
     if (!Object.keys(patch).length) return updated;
     const tagSelect = VENDOR_ASSET_SELECT_GALLERY_API;
     const { data: withTags, error } = await supabase.from('vendor_assets')
@@ -19189,52 +19203,45 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         const imageDesignerSelectable = (supportsGallery && (assetKind === 'prototype' || assetKind === 'part'))
             ? parseImageDesignerSelectableBody(body, 1 + (galleryUploadFiles ? galleryUploadFiles.length : 0))
             : [];
+        // 上傳扣點（預設 5）含 AI 標籤＋留空時自動簡短說明：必須同步跑完再回應。
+        // 勿因「已有標題」就 defer（會造成編輯區說明／標籤空白，形同砍掉上傳 AI）。
         let deferVendorAssetTagRefresh = false;
         if (!tags || !tags.length) {
-            const needSemanticsBeforeUpload = !String(title || '').trim();
-            if (needSemanticsBeforeUpload) {
-                try {
-                    const semanticsFiles = [{
-                        file,
-                        label: (imageLabels[0] && String(imageLabels[0]).trim())
-                            || labelFromOriginalFilename(file.originalname)
-                            || '封面'
-                    }];
-                    for (let gi = 0; gi < galleryUploadFiles.length; gi++) {
-                        const gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
-                        if (!gf) continue;
-                        semanticsFiles.push({
-                            file: gf,
-                            label: (imageLabels[gi + 1] && String(imageLabels[gi + 1]).trim())
-                                || labelFromOriginalFilename(gf.originalname)
-                                || (`圖 ${gi + 2}`)
-                        });
-                    }
-                    const sem = await runVendorAssetImageSemanticsFromFiles(semanticsFiles, await vendorAssetSemanticsContextFields({
-                        asset_kind: assetKind,
-                        category_key: categoryKey,
-                        subcategory_key: subcategoryKey || '',
-                        title,
-                        description,
-                        material_catalog_hint: materialCatalogHint || undefined
-                    }), ownerId);
-                    tags = sem.tags;
-                    semanticsJson = sem.semantics;
-                    tagsSource = 'gemini';
-                    semanticsFromThisFile = true;
-                    if (!description && sem.description) description = sem.description;
-                } catch (semErr) {
-                    // Gemini 標籤失敗不中斷上傳，繼續用空標籤上傳
-                    console.warn('vendor-assets semantics skipped (non-fatal):', semErr && semErr.message);
-                    tags = [];
-                    semanticsJson = null;
+            try {
+                const semanticsFiles = [{
+                    file,
+                    label: (imageLabels[0] && String(imageLabels[0]).trim())
+                        || labelFromOriginalFilename(file.originalname)
+                        || '封面'
+                }];
+                for (let gi = 0; gi < galleryUploadFiles.length; gi++) {
+                    const gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
+                    if (!gf) continue;
+                    semanticsFiles.push({
+                        file: gf,
+                        label: (imageLabels[gi + 1] && String(imageLabels[gi + 1]).trim())
+                            || labelFromOriginalFilename(gf.originalname)
+                            || (`圖 ${gi + 2}`)
+                    });
                 }
-            } else {
-                // 已有標題：先上傳，標籤於寫入後背景重算（大幅縮短發布等待）
+                const sem = await runVendorAssetImageSemanticsFromFiles(semanticsFiles, await vendorAssetSemanticsContextFields({
+                    asset_kind: assetKind,
+                    category_key: categoryKey,
+                    subcategory_key: subcategoryKey || '',
+                    title,
+                    description,
+                    material_catalog_hint: materialCatalogHint || undefined
+                }), ownerId);
+                tags = sem.tags;
+                semanticsJson = sem.semantics;
+                tagsSource = 'gemini';
+                semanticsFromThisFile = true;
+                if (!description && sem.description) description = sem.description;
+            } catch (semErr) {
+                // Gemini 標籤失敗不中斷上傳，繼續用空標籤上傳
+                console.warn('vendor-assets semantics skipped (non-fatal):', semErr && semErr.message);
                 tags = [];
                 semanticsJson = null;
-                tagsSource = null;
-                deferVendorAssetTagRefresh = true;
             }
         } else {
             tagsSource = semanticsJson ? 'gemini' : 'manual';
@@ -19372,18 +19379,18 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         ({ data: inserted, error: insertError } = await supabase
             .from('vendor_assets')
             .insert(insertPayload)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, production_type_key, created_at')
             .single());
         if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('cover_image_label')) {
             delete insertPayload.cover_image_label;
             ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
+                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at')
                 .single());
         }
         if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('cover_link_group')) {
             delete insertPayload.cover_link_group;
             ({ data: inserted, error: insertError } = await supabase.from('vendor_assets').insert(insertPayload)
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, created_at')
+                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, gallery_images, usage_type, sort_order, asset_kind, part_key, ai_tags, image_semantics_json, tags_source, min_order_quantity, customization_levels, created_at')
                 .single());
         }
         if (insertError && insertError.code === '42703' && String(insertError.message || '').includes('gallery_images')) {
@@ -19512,6 +19519,18 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         }
         const createMapped = mapVendorAssetForApi({
             ...inserted,
+            // insert select 若因缺欄 fallback 漏掉，仍以寫入值回傳，避免編輯區 MOQ／訂製程度空白
+            min_order_quantity: (inserted && inserted.min_order_quantity != null)
+                ? inserted.min_order_quantity
+                : (insertPayload.min_order_quantity != null ? insertPayload.min_order_quantity : null),
+            customization_levels: (inserted && inserted.customization_levels != null)
+                ? inserted.customization_levels
+                : (insertPayload.customization_levels != null ? insertPayload.customization_levels : []),
+            description: (inserted && inserted.description) || insertPayload.description || description || null,
+            ai_tags: (inserted && Array.isArray(inserted.ai_tags) && inserted.ai_tags.length)
+                ? inserted.ai_tags
+                : (Array.isArray(tags) ? tags : []),
+            image_semantics_json: (inserted && inserted.image_semantics_json) || semanticsJson || null,
             production_type_key: insertPayload.production_type_key != null ? insertPayload.production_type_key : null
         });
         let createEnriched = [createMapped];
