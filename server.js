@@ -15373,6 +15373,31 @@ app.put('/api/manufacturers/:manufacturerId/portfolio/:portfolioId', upload.fiel
             }
         } else if (bodyImageUrl !== undefined) updates.image_url = bodyImageUrl || row.image_url;
 
+        // 系列圖順序：僅允許現有 URL 的重排（第一張同步為 image_url 主圖）
+        if (String(bodyUploadType || '').toLowerCase() === 'series' && body.series_image_urls !== undefined && !mainFile) {
+            let ordered = body.series_image_urls;
+            if (typeof ordered === 'string') {
+                try { ordered = JSON.parse(ordered); } catch (_) { ordered = null; }
+            }
+            const existingSeries = (Array.isArray(row.series_image_urls) && row.series_image_urls.length)
+                ? row.series_image_urls.map(function (u) { return String(u || '').trim(); }).filter(Boolean)
+                : (row.image_url ? [String(row.image_url).trim()] : []);
+            const cleaned = Array.isArray(ordered)
+                ? ordered.map(function (u) { return String(u || '').trim(); }).filter(Boolean)
+                : [];
+            const existingSet = new Set(existingSeries);
+            const sameSet = cleaned.length === existingSeries.length
+                && cleaned.length > 0
+                && new Set(cleaned).size === cleaned.length
+                && cleaned.every(function (u) { return existingSet.has(u); });
+            if (!sameSet) {
+                return res.status(400).json({ error: '系列圖順序無效（僅可調整現有圖片順序）' });
+            }
+            updates.series_image_urls = cleaned;
+            updates.image_url = cleaned[0];
+            updates.image_url_before = null;
+        }
+
         if (beforeFile) {
             const { publicUrl } = await uploadToSupabaseStorage('custom-products', `manufacturer/${manufacturerId}`, beforeFile);
             updates.image_url_before = publicUrl;
