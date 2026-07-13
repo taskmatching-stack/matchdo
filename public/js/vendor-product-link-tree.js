@@ -60,12 +60,15 @@
         return u ? [{ url: u, label: '', sort_order: 0, is_cover: true }] : [];
     }
 
-    /** 色款列：依 url 去重，避免封面與圖庫重複 */
-    function variantImageItems(a) {
+    /** 色款列：依 url 去重；消費端略過僅展示（含材料封面） */
+    function variantImageItems(a, opts) {
+        opts = opts || {};
+        var forPick = opts.forPick !== false && !IS_VENDOR;
         var seen = {};
         return assetImageItems(a).filter(function (it) {
             var u = (it.url || '').trim();
             if (!u || seen[u]) return false;
+            if (forPick && it.designer_selectable === false) return false;
             seen[u] = true;
             return true;
         });
@@ -86,10 +89,18 @@
     }
 
     function defaultGuideVariant(a) {
-        var items = assetImageItems(a);
-        if (!items.length) return null;
-        var cover = items.find(function (it) { return it.is_cover; }) || items[0];
-        return { url: cover.url, label: (cover.label || '').trim() };
+        var items = variantImageItems(a);
+        if (!items.length) {
+            // 無可選圖時仍回封面供廠商後台預覽，消費端則無預設
+            if (IS_VENDOR) {
+                var all = assetImageItems(a);
+                var cover = all.find(function (it) { return it.is_cover; }) || all[0];
+                return cover ? { url: cover.url, label: (cover.label || '').trim() } : null;
+            }
+            return null;
+        }
+        var first = items[0];
+        return { url: first.url, label: (first.label || '').trim() };
     }
 
     function getGuideVariant(assetId) {
@@ -135,6 +146,10 @@
         }
         if (result.action === 'blocked' && result.reason === 'max') {
             showAlert(tr('productTree.guidePrototypeMax', '主產品角度最多選 3 張（與設計頁原型槽上限相同）'), 'warning');
+            return;
+        }
+        if (result.action === 'blocked' && result.reason === 'display_only') {
+            showAlert(tr('productTree.guideDisplayOnly', '此圖僅展示，不可選用。'), 'warning');
             return;
         }
         if (result.truncated) {
@@ -742,8 +757,9 @@
 
     function guideTilesForAsset(a, aid, kindKey, picked) {
         var items = variantImageItems(a);
-        if (items.length <= 1) {
-            return [guideTileHtml(a, aid, kindKey, picked, items[0] || null, 0, 1)];
+        if (!items.length) return [];
+        if (items.length === 1) {
+            return [guideTileHtml(a, aid, kindKey, picked, items[0], 0, 1)];
         }
         return items.map(function (it, idx) {
             return guideTileHtml(a, aid, kindKey, picked, it, idx, items.length);

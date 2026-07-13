@@ -723,13 +723,14 @@
     }
   }
   
-  // === 主產品 image_items：每張圖 = 一個角度（同 product-tree guideTilesForAsset）===
+  // === 主產品 image_items：每張圖 = 一個角度（同 product-tree guideTilesForAsset）；略過僅展示 ===
   function getPrototypeImageItems(proto) {
     if (!proto) return [];
     if (Array.isArray(proto.image_items) && proto.image_items.length) {
       var seen = {};
       return proto.image_items.filter(function (it) {
         if (!it || !it.url) return false;
+        if (it.designer_selectable === false) return false;
         var u = String(it.url).trim();
         if (!u || seen[u]) return false;
         seen[u] = true;
@@ -738,6 +739,17 @@
     }
     var cover = (proto.image_url || '').trim();
     return cover ? [{ url: cover, label: '', is_cover: true }] : [];
+  }
+
+  function materialPickImageUrl(m) {
+    if (!m) return '';
+    if (Array.isArray(m.image_items) && m.image_items.length) {
+      for (var i = 0; i < m.image_items.length; i++) {
+        var it = m.image_items[i];
+        if (it && it.url && it.designer_selectable !== false) return String(it.url).trim();
+      }
+    }
+    return String(m.image_url || '').trim();
   }
 
   function prototypeTileLabel(proto, it, index, total) {
@@ -879,6 +891,10 @@
       alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張（與看可搭配／設計頁原型槽相同）');
       return;
     }
+    if (result.action === 'blocked' && result.reason === 'display_only') {
+      alert('此圖僅展示，不可選用。');
+      return;
+    }
     if (result.truncated) {
       alert('主產品參考圖最多選 ' + MAX_REF_IMAGES_PER_SLOT + ' 張；同組部分角度未能全部加入');
     }
@@ -928,7 +944,7 @@
     
     list.innerHTML = state.materials.map(m => `
       <div class="sim-mat-item" data-id="${m.id}">
-        <img class="sim-mat-img" src="${m.image_url}" alt="${escapeHtml(m.title)}">
+        <img class="sim-mat-img" src="${materialPickImageUrl(m) || m.image_url}" alt="${escapeHtml(m.title)}">
         <i class="sim-mat-checkmark bi bi-check"></i>
       </div>
     `).join('');

@@ -4,10 +4,10 @@
 > **材料單圖 AI 優化／FLUX 保真／後台模型：** 讀 **`docs/PROGRESS-material-flux-ai-settings.md`**。
 > 若還要改 guide／廠商版型 Tab，另讀 `docs/PROGRESS-vendor-styles-and-product-tree.md`。
 
-**最後更新：** 2026-07-10  
-**狀態：** ✅ 圖庫操作後編輯區 metadata 保留；產品重繪 segment 拆分；材料產品照→滿版色卡  
+**最後更新：** 2026-07-13  
+**狀態：** ✅ 圖庫操作後編輯區 metadata 保留；產品重繪 segment 拆分；材料產品照→滿版色卡；**同格原圖／新圖勾選已自 `ddd55a0` flat list 還原**  
 **頁面：** [`/client/manufacturer-materials.html`](https://matchdo.cc/client/manufacturer-materials.html)（僅 `public/client/`，勿改根目錄同名檔）  
-**頁面 build：** `window.__MATCHDO_MATERIALS_BUILD` ≥ `material-product-swatch-hint-20260710g`
+**頁面 build：** `window.__MATCHDO_MATERIALS_BUILD` ≥ `gallery-same-card-checkbox-20260713`
 
 **一句話：** 主產品／配件 = 多圖 + **AI 重繪**（雙按鈕分流）；材料 = 材質圖 AI 優化；展示底色只是重繪附帶參數。
 
@@ -60,7 +60,7 @@
 - **新增角度圖**／**一次選多張** → 待傳清單逐張勾 **AI 重繪** →「僅上傳所選」／「上傳並重繪勾選」→ `POST .../gallery-images`（可加 `optimize_image_indices`）。
 - 狀態列：`#edit-gallery-status`（上傳中／成功／錯誤）。
 - **更換封面**：下方「更換封面」+ 儲存時 `PUT` 單圖（與多角度 API 分開）。
-- **AI 重繪（逐張）**：縮圖「AI 重繪」→ `POST .../gallery-images/redraw`（`replace: false`）**追加**一張新圖（`ai_derived` + `source_url`；編輯 UI **與待傳清單相同**：新圖縮圖在同格下方，不另開一格）。舊資料無 `source_url` 時前端會依名稱嘗試併格。
+- **AI 重繪（逐張）**：縮圖「AI 重繪」→ `preview-image-redraw` **預覽** → 同格勾選 →「儲存」寫入。已存衍生圖以 `ai_derived` + `source_url` **掛同一格**（`groupGalleryDisplayItems`）。**禁止** flat list 每張獨立一格（見 `docs/DO-NOT-flatten-gallery-ai-preview.md`）。`POST .../gallery-images/redraw` 僅保留相容，**不是**編輯區預設按鈕路徑。
 
 ### 後端
 
@@ -86,11 +86,13 @@
   → POST .../gallery-images
   → renderEditGallery() + setEditGalleryStatus()
 
-各圖「AI 重繪」→ redrawGalleryImage() → POST .../gallery-images/redraw（replace: false，追加新圖）
+各圖「AI 重繪」→ previewGallerySlotRedraw() → POST .../preview-image-redraw → 同格勾選 → 儲存 flush
+（禁止改回 redrawGalleryImage 一按就追加獨立卡片）
 ```
 
 - 綁定：`bindEditGalleryUpload()`（`editGalleryUploadBound` 防重複綁定）。
 - **勿**再改 HTML 為 `<label>` 內嵌 input 卻保留 `#btn-edit-add-gallery` 的舊 JS（曾導致整頁 script 載入拋錯、選檔無反應）。
+- **勿**把 `groupGalleryDisplayItems` 改成「每張 image_items 一卡」（`ddd55a0`）。
 
 **與編輯無關、但同頁的程式（不是殘留）：**
 
@@ -164,7 +166,7 @@
 **編輯圖片兩條路（勿混）：**
 
 - **待傳區** →「上傳所選」或「儲存」→ `POST .../gallery-images`
-- **已上傳圖** →「AI 重繪」→ `POST .../gallery-images/redraw`（追加，非取代封面除非 replace）
+- **已上傳圖** →「AI 重繪」→ **preview** → 同格勾選 →「儲存」flush（不是一按就 redraw 追加成另一格）
 
 ---
 

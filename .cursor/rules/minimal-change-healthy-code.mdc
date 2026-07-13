@@ -13,6 +13,12 @@ alwaysApply: true
 2. **健康的 code 預設保留**  
    能跑、使用者已接受的互動（例如待傳清單「原圖 + 新圖同一格」、上傳後可捲動列表）**不得為了「更好」而改掉**，除非使用者當次有說要改。
 
+2b. **編輯圖庫 AI 重繪／放大／寫實化（嚴禁再犯）**  
+   - **正確：** 預覽 → **同一格**顯示原圖＋新圖縮圖＋「上傳原圖／上傳此張」勾選 → 按「儲存」才依勾選寫入。已存衍生圖用 `ai_derived` + `source_url` **掛在原圖同一格**（`groupGalleryDisplayItems`／`ensureEditGallerySlotForGroup`）。  
+   - **禁止：** 把圖庫改成「每張 image_items 獨立一格」（曾犯：`ddd55a0` flat list）；禁止點「AI 重繪」就直接 `POST .../gallery-images/redraw` **自動追加成另一張卡片**當預設 UX。  
+   - **參考：** `docs/PROGRESS-vendor-asset-gallery-edit.md` §二／§七；build ≥ `gallery-same-card-checkbox-20260713`。  
+   - 若為「對衍生圖再重繪」等需求，**另開需求**，不得順便拆掉同格勾選。
+
 3. **先查再改，避免重工**  
    動手前確認：頁面載入的 **Bootstrap／套件版本**（本專案 `manufacturer-materials.html` 等為 **Bootstrap 5.0.0 CDN**，**沒有** `Modal.getOrCreateInstance`）、`docs/PROGRESS-*.md`、同檔案既有慣例。  
    **禁止**用較新版本 API 取代後又 revert。
@@ -42,6 +48,7 @@ alwaysApply: true
 | 每次 `openEditModal` 新建 Modal | 灰屏、無法捲動 |
 | 上傳後強開編輯 Modal | 不能往下滑列表 |
 | 新圖拆成獨立一格 + 問號說明重複插入 | 破壞使用者喜歡的同一框 UI |
+| `ddd55a0` 圖庫 flat list（每張獨立一格） | 毁掉原圖／新圖同格勾選；重繪像「自動加成新圖」 |
 | 名稱強加後綴 | 設計者／消費者看到亂命名 |
 
 ## 部署

@@ -865,6 +865,21 @@ function parseImageAiDerivedBody(body, count) {
     return out;
 }
 
+function parseImageSourceUrlsBody(body, count) {
+    const out = [];
+    if (!body || count <= 0) return out;
+    let raw = body.image_source_urls;
+    if (raw == null || raw === '') return out;
+    if (typeof raw === 'string') {
+        try { raw = JSON.parse(raw); } catch (_) { return out; }
+    }
+    if (!Array.isArray(raw)) return out;
+    for (let i = 0; i < count; i++) {
+        out.push(raw[i] != null ? String(raw[i]).trim() : '');
+    }
+    return out;
+}
+
 function vendorImageLabelFromSource(srcLabel, fallback) {
     const clean = stripVendorImageDerivedSuffixes(srcLabel);
     return (clean || fallback || '').slice(0, 120);
@@ -2133,12 +2148,13 @@ async function mapVendorAssetForApiEnriched(row, lang) {
     }
 }
 
-async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds, linkGroupOverrides, designerSelectableOverrides) {
+async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrder, labelOverrides, derivedKinds, linkGroupOverrides, designerSelectableOverrides, sourceUrlOverrides) {
     const list = Array.isArray(files) ? files : [];
     const labels = Array.isArray(labelOverrides) ? labelOverrides : [];
     const derived = Array.isArray(derivedKinds) ? derivedKinds : [];
     const linkGroups = Array.isArray(linkGroupOverrides) ? linkGroupOverrides : [];
     const selectableList = Array.isArray(designerSelectableOverrides) ? designerSelectableOverrides : [];
+    const sourceUrls = Array.isArray(sourceUrlOverrides) ? sourceUrlOverrides : [];
     const settled = await Promise.all(list.map(async (file, i) => {
         const normalized = await vendorAssetFileFromMulter(file);
         if (!normalized) return null;
@@ -2150,6 +2166,8 @@ async function uploadVendorAssetGalleryFiles(manufacturerId, files, startSortOrd
         const dk = derived[i] != null ? String(derived[i]).trim() : '';
         const derivedNorm = normalizeVendorAiDerivedKind(dk);
         if (derivedNorm) entry.ai_derived = derivedNorm;
+        const src = sourceUrls[i] != null ? String(sourceUrls[i]).trim() : '';
+        if (src) entry.source_url = src;
         const lg = linkGroups[i] != null ? normalizeImageLinkGroup(linkGroups[i]) : '';
         if (lg) entry.link_group = lg;
         if (selectableList[i] !== undefined && !normalizeDesignerSelectable(selectableList[i])) {
@@ -20265,8 +20283,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VEND
         const uploadLinkGroups = assetKind === 'prototype' ? parseImageLinkGroupsBody(body, sliceCount) : [];
         const uploadDesignerSelectable = (assetKind === 'prototype' || assetKind === 'part' || assetKind === 'material')
             ? parseImageDesignerSelectableBody(body, sliceCount) : [];
+        const uploadSourceUrls = parseImageSourceUrlsBody(body, sliceCount);
         const newEntries = await uploadVendorAssetGalleryFiles(
-            manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups, uploadDesignerSelectable
+            manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups, uploadDesignerSelectable, uploadSourceUrls
         );
         let merged = existing.concat(newEntries);
         merged = applyCoverDesignerSelectableMeta(
@@ -20369,15 +20388,19 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 const derivedKeep = normalizeVendorAiDerivedKind(g.ai_derived);
                 if (derivedKeep) next.ai_derived = derivedKeep;
                 if (g.source_url) next.source_url = g.source_url;
-                if (patch.link_group !== undefined) {
-                    if (patch.link_group) next.link_group = patch.link_group;
-                } else if (g.link_group) {
-                    next.link_group = g.link_group;
-                }
                 const selectable = patch.designer_selectable !== undefined
                     ? patch.designer_selectable
                     : (g.designer_selectable === undefined ? true : normalizeDesignerSelectable(g.designer_selectable));
-                if (!selectable) next.designer_selectable = false;
+                if (!selectable) {
+                    next.designer_selectable = false;
+                    // 僅展示不需連動組
+                } else {
+                    if (patch.link_group !== undefined) {
+                        if (patch.link_group) next.link_group = patch.link_group;
+                    } else if (g.link_group) {
+                        next.link_group = g.link_group;
+                    }
+                }
                 return next;
             });
         }
@@ -20387,10 +20410,11 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
             galleryWorking = applyCoverDesignerSelectableMeta(galleryWorking, false);
         } else if (body.cover_designer_selectable !== undefined) {
             if (!galleryWorking) galleryWorking = parseGalleryImages(row.gallery_images);
-            galleryWorking = applyCoverDesignerSelectableMeta(
-                galleryWorking,
-                normalizeDesignerSelectable(body.cover_designer_selectable)
-            );
+            const coverSel = normalizeDesignerSelectable(body.cover_designer_selectable);
+            galleryWorking = applyCoverDesignerSelectableMeta(galleryWorking, coverSel);
+            if (!coverSel && body.cover_link_group === undefined) {
+                updates.cover_link_group = null;
+            }
         } else if (galleryWorking) {
             // 保留既有封面 meta
             galleryWorking = applyCoverDesignerSelectableMeta(
