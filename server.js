@@ -630,7 +630,73 @@ function normalizeVendorPartKey(raw, assetKind) {
     return k.slice(0, 64);
 }
 
-const PROTOTYPE_GALLERY_MAX_EXTRA = 11; // 封面 image_url 以外最多再 11 張
+const PROTOTYPE_GALLERY_MAX_TOTAL = 12; // 數位原型／配件：封面＋多角度
+const PROTOTYPE_GALLERY_MAX_EXTRA = PROTOTYPE_GALLERY_MAX_TOTAL - 1; // 11
+/** 材料色卡可多張；與 AI 讀圖上限分開（見 VENDOR_ASSET_AI_SEMANTICS_MAX_IMAGES） */
+const MATERIAL_GALLERY_MAX_TOTAL = 48;
+const MATERIAL_GALLERY_MAX_EXTRA = MATERIAL_GALLERY_MAX_TOTAL - 1; // 47
+/** multer 接受上限（取材料較大者） */
+const VENDOR_GALLERY_MULTER_MAX_EXTRA = MATERIAL_GALLERY_MAX_EXTRA;
+/** Gemini 多圖語意：原型／配件最多讀幾張；材料色卡多色對標籤／SEO 幫助極小，只讀封面省 token */
+const VENDOR_ASSET_AI_SEMANTICS_MAX_IMAGES = 6;
+const MATERIAL_AI_SEMANTICS_MAX_IMAGES = 1;
+
+function vendorAssetAiSemanticsMaxImages(assetKind) {
+    return normalizeVendorAssetKind(assetKind) === 'material'
+        ? MATERIAL_AI_SEMANTICS_MAX_IMAGES
+        : VENDOR_ASSET_AI_SEMANTICS_MAX_IMAGES;
+}
+
+function vendorAssetGalleryMaxTotal(assetKind) {
+    return normalizeVendorAssetKind(assetKind) === 'material' ? MATERIAL_GALLERY_MAX_TOTAL : PROTOTYPE_GALLERY_MAX_TOTAL;
+}
+
+function vendorAssetGalleryMaxExtra(assetKind) {
+    return vendorAssetGalleryMaxTotal(assetKind) - 1;
+}
+
+function vendorAssetGalleryLimitError(assetKind) {
+    const total = vendorAssetGalleryMaxTotal(assetKind);
+    if (normalizeVendorAssetKind(assetKind) === 'material') {
+        return '已達材料圖上限（最多 ' + total + ' 張色卡／細節圖）';
+    }
+    return '已達多角度圖上限（最多 ' + total + ' 張）';
+}
+
+/**
+ * AI 讀圖抽樣：永遠含封面；其餘均勻取樣。
+ * 有 ai_derived 標記時優先抽原圖，避免重繪圖佔滿配額。
+ */
+function sampleVendorAssetEntriesForAiSemantics(entries, maxN) {
+    const list = (entries || []).filter(Boolean);
+    const n = Math.max(1, Math.min(
+        Number(maxN) > 0 ? Number(maxN) : VENDOR_ASSET_AI_SEMANTICS_MAX_IMAGES,
+        VENDOR_ASSET_AI_SEMANTICS_MAX_IMAGES
+    ));
+    if (list.length <= n) return list.slice();
+    const cover = list[0];
+    let rest = list.slice(1);
+    const und = rest.filter(function (e) { return !(e && (e.ai_derived || (e.item && e.item.ai_derived))); });
+    const der = rest.filter(function (e) { return e && (e.ai_derived || (e.item && e.item.ai_derived)); });
+    if (und.length) rest = und.concat(der);
+    const need = n - 1;
+    if (need <= 0) return [cover];
+    if (rest.length <= need) return [cover].concat(rest);
+    const used = new Set();
+    const picked = [];
+    for (let i = 0; i < need; i++) {
+        const idx = need === 1 ? 0 : Math.round(i * (rest.length - 1) / (need - 1));
+        if (used.has(idx)) continue;
+        used.add(idx);
+        picked.push(rest[idx]);
+    }
+    for (let j = 0; j < rest.length && picked.length < need; j++) {
+        if (used.has(j)) continue;
+        used.add(j);
+        picked.push(rest[j]);
+    }
+    return [cover].concat(picked);
+}
 
 function normalizeImageLinkGroup(raw) {
     if (raw == null) return '';
@@ -829,7 +895,10 @@ function buildVendorAssetImageItems(row) {
     }
     const items = [];
     const cover = String(row.image_url || '').trim();
-    const coverSelectable = readCoverDesignerSelectableMeta(row.gallery_images);
+    // 材料封面＝多色色卡：一律僅展示，設計者不可選用（舊資料也強制）
+    const coverSelectable = kind === 'material'
+        ? false
+        : readCoverDesignerSelectableMeta(row.gallery_images);
     if (cover) {
         const coverLinkGroup = normalizeImageLinkGroup(row.cover_link_group);
         const coverItem = {
@@ -905,7 +974,9 @@ function reorderVendorAssetGalleryFromUrls(row, orderedUrls) {
         if (meta.designer_selectable === false) g.designer_selectable = false;
         return g;
     });
-    const coverSel = metaByUrl[reordered[0]] ? metaByUrl[reordered[0]].designer_selectable !== false : true;
+    const coverSel = normalizeVendorAssetKind(row.asset_kind) === 'material'
+        ? false
+        : (metaByUrl[reordered[0]] ? metaByUrl[reordered[0]].designer_selectable !== false : true);
     gallery_images = applyCoverDesignerSelectableMeta(gallery_images, coverSel);
     return {
         image_url: reordered[0],
@@ -3211,16 +3282,21 @@ async function runVendorAssetImageSemanticsFromFiles(fileEntries, context, owner
         };
     }
     const deps = getVisualSemanticsDeps();
-    const imageEntries = [];
+    let imageEntries = [];
     for (const entry of (fileEntries || [])) {
         if (!entry || !entry.file) continue;
         const f = entry.file;
         imageEntries.push({
             part: visualSemantics.bufferToImagePart(f.buffer || f, f.mimetype),
-            label: (entry.label || '').trim()
+            label: (entry.label || '').trim(),
+            ai_derived: entry.ai_derived || null
         });
     }
     if (!imageEntries.length) throw new Error('無圖片可分析');
+    imageEntries = sampleVendorAssetEntriesForAiSemantics(
+        imageEntries,
+        vendorAssetAiSemanticsMaxImages(assetKind)
+    );
     const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, context);
     await recordVisualSemanticsEvent({
         source_type: 'vendor_asset',
@@ -3242,10 +3318,15 @@ async function runVendorAssetImageSemanticsFromFiles(fileEntries, context, owner
 async function runVendorAssetImageSemanticsFromRow(row, context, ownerId) {
     const items = buildVendorAssetImageItems(row);
     if (!items.length) throw new Error('無圖片可分析');
+    const assetKindEarly = normalizeVendorAssetKind(context.asset_kind || row.asset_kind);
+    const sampled = sampleVendorAssetEntriesForAiSemantics(
+        items,
+        vendorAssetAiSemanticsMaxImages(assetKindEarly)
+    );
     const deps = getVisualSemanticsDeps();
     const imageEntries = [];
-    for (let i = 0; i < items.length; i++) {
-        const it = items[i];
+    for (let i = 0; i < sampled.length; i++) {
+        const it = sampled[i];
         const url = (it.url || '').trim();
         if (!url) continue;
         const part = await visualSemantics.fetchUrlToImagePart(deps.fetch, url);
@@ -3265,8 +3346,10 @@ async function runVendorAssetImageSemanticsFromRow(row, context, ownerId) {
     await recordVisualSemanticsEvent({
         source_type: 'vendor_asset',
         source_id: row.id || null,
-        image_url: items[0] && items[0].url ? items[0].url : null,
-        text_input: imageEntries.length > 1 ? `multi_image:${imageEntries.length}` : null,
+        image_url: sampled[0] && sampled[0].url ? sampled[0].url : null,
+        text_input: imageEntries.length > 1
+            ? `multi_image:${imageEntries.length}/${items.length}`
+            : null,
         semantics_kind: 'image',
         ai_tags: result.tags,
         semantics_json: result.semantics,
@@ -3304,21 +3387,41 @@ async function runVendorAssetImageSemanticsCoverPlusGallery(coverFile, row, cont
     if (assetKind === 'other' && patternIntent !== 'style') {
         return { tags: [], semantics: null, description: null, model: null, prompt_version: null };
     }
-    const deps = getVisualSemanticsDeps();
-    const imageEntries = [{
-        part: visualSemantics.bufferToImagePart(coverFile.buffer || coverFile, coverFile.mimetype),
-        label: (row && row.cover_image_label && String(row.cover_image_label).trim())
-            || labelFromOriginalFilename(coverFile.originalname)
-            || '封面'
+    const coverLabel = (row && row.cover_image_label && String(row.cover_image_label).trim())
+        || labelFromOriginalFilename(coverFile.originalname)
+        || '封面';
+    const staged = [{
+        kind: 'cover',
+        file: coverFile,
+        label: coverLabel,
+        ai_derived: null
     }];
-    for (let i = 0; i < gallery.length; i++) {
-        const g = gallery[i];
-        if (!g || !g.url) continue;
-        const part = await visualSemantics.fetchUrlToImagePart(deps.fetch, g.url);
-        imageEntries.push({
-            part,
-            label: (g.label || '').trim() || `圖 ${i + 2}`
+    gallery.forEach(function (g, i) {
+        if (!g || !g.url) return;
+        staged.push({
+            kind: 'url',
+            url: g.url,
+            label: (g.label || '').trim() || (`圖 ${i + 2}`),
+            ai_derived: g.ai_derived || null
         });
+    });
+    const sampled = sampleVendorAssetEntriesForAiSemantics(
+        staged,
+        vendorAssetAiSemanticsMaxImages(assetKind)
+    );
+    const deps = getVisualSemanticsDeps();
+    const imageEntries = [];
+    for (let i = 0; i < sampled.length; i++) {
+        const s = sampled[i];
+        if (s.kind === 'cover') {
+            imageEntries.push({
+                part: visualSemantics.bufferToImagePart(coverFile.buffer || coverFile, coverFile.mimetype),
+                label: s.label
+            });
+        } else {
+            const part = await visualSemantics.fetchUrlToImagePart(deps.fetch, s.url);
+            imageEntries.push({ part, label: s.label });
+        }
     }
     const result = await visualSemantics.analyzeImageSemanticsMulti(deps, imageEntries, {
         ...context,
@@ -3328,7 +3431,7 @@ async function runVendorAssetImageSemanticsCoverPlusGallery(coverFile, row, cont
         source_type: 'vendor_asset',
         source_id: row && row.id ? row.id : null,
         image_url: null,
-        text_input: `multi_image:${imageEntries.length}`,
+        text_input: `multi_image:${imageEntries.length}/${staged.length}`,
         semantics_kind: 'image',
         ai_tags: result.tags,
         semantics_json: result.semantics,
@@ -17386,7 +17489,12 @@ async function buildValidatedEmbedReferencePayload(ctx, body, proto) {
         const r = byId[mid];
         if (!r || !r.is_public) return;
         const items = buildVendorAssetImageItems(r);
-        const url = r.image_url || (items[0] && items[0].url) || '';
+        // 材料封面不可選用：embed 改用第一張設計者可選圖
+        const pick = (items || []).find(function (it) {
+            return it && it.url && it.designer_selectable !== false;
+        });
+        const url = pick && pick.url ? String(pick.url).trim() : '';
+        if (!url) return;
         pushRef({
             intent: 'material',
             vendor_asset_id: mid,
@@ -19105,7 +19213,7 @@ app.post('/api/me/vendor-assets/generate-description', upload.single('image'), a
 
 const vendorAssetCreateUpload = upload.fields([
     { name: 'image', maxCount: 1 },
-    { name: 'gallery', maxCount: PROTOTYPE_GALLERY_MAX_EXTRA }
+    { name: 'gallery', maxCount: VENDOR_GALLERY_MULTER_MAX_EXTRA }
 ]);
 
 // POST /api/me/vendor-assets — 廠商上傳素材（需登入且已建立廠商資料）；種子廠商不得上傳
@@ -19296,7 +19404,7 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
             || labelFromImageUrl(publicUrl);
         let galleryImages = [];
         if (supportsGallery && galleryUploadFiles.length) {
-            const maxExtra = Math.min(galleryUploadFiles.length, PROTOTYPE_GALLERY_MAX_EXTRA);
+            const maxExtra = Math.min(galleryUploadFiles.length, vendorAssetGalleryMaxExtra(assetKind));
             const galleryToUpload = [];
             for (let gi = 0; gi < maxExtra; gi++) {
                 let gf = await vendorAssetFileFromMulter(galleryUploadFiles[gi]);
@@ -19325,7 +19433,8 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
                 );
             }
         }
-        if (supportsGallery && imageDesignerSelectable.length && imageDesignerSelectable[0] === false) {
+        if (supportsGallery && (assetKind === 'material'
+            || (imageDesignerSelectable.length && imageDesignerSelectable[0] === false))) {
             galleryImages = applyCoverDesignerSelectableMeta(galleryImages, false);
         }
         const insertPayload = {
@@ -19604,9 +19713,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         const existing = parseGalleryImages(row.gallery_images);
         if (!replaceInPlace) {
             const totalNow = allUrls.length;
-            const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
+            const room = vendorAssetGalleryMaxTotal(assetKind) - totalNow;
             if (room <= 0) {
-                return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+                return res.status(400).json({ error: vendorAssetGalleryLimitError(assetKind) });
             }
         }
         const pointsRequired = await computeGalleryImageRedrawPoints(assetKind, row, sourceUrl);
@@ -19846,9 +19955,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
         }
         const existing = parseGalleryImages(row.gallery_images);
         const totalNow = allUrls.length;
-        const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
+        const room = vendorAssetGalleryMaxTotal(assetKind) - totalNow;
         if (room <= 0) {
-            return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+            return res.status(400).json({ error: vendorAssetGalleryLimitError(assetKind) });
         }
         const pointsRequired = await getPointsDesignToPhysical();
         let ownerId = seedUser.id;
@@ -19861,6 +19970,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
                 return res.status(402).json({ error: '點數不足', balance, required: pointsRequired });
             }
         }
+        // design-to-physical: room already checked above
         const resImg = await fetch(sourceUrl, { redirect: 'follow' });
         if (!resImg.ok) return res.status(503).json({ error: '無法讀取來源圖片' });
         const imgBuf = Buffer.from(await resImg.arrayBuffer());
@@ -19969,9 +20079,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         }
         const existing = parseGalleryImages(row.gallery_images);
         const totalNow = allUrls.length;
-        const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
+        const room = vendorAssetGalleryMaxTotal(assetKind) - totalNow;
         if (room <= 0) {
-            return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+            return res.status(400).json({ error: vendorAssetGalleryLimitError(assetKind) });
         }
         const sourceItems = buildVendorAssetImageItems(row);
         const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
@@ -20067,7 +20177,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
 });
 
 // POST /api/me/vendor-assets/:id/gallery-images — 數位原型／零件新增多角度圖（可選每張 AI 重繪）
-app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROTOTYPE_GALLERY_MAX_EXTRA), async (req, res) => {
+app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VENDOR_GALLERY_MULTER_MAX_EXTRA), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
@@ -20116,9 +20226,9 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         }
         const existing = parseGalleryImages(row.gallery_images);
         const totalNow = getVendorAssetAllImageUrls(row).length;
-        const room = PROTOTYPE_GALLERY_MAX_EXTRA + 1 - totalNow;
+        const room = vendorAssetGalleryMaxTotal(assetKind) - totalNow;
         if (room <= 0) {
-            return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
+            return res.status(400).json({ error: vendorAssetGalleryLimitError(assetKind) });
         }
         const sliceCount = Math.min(files.length, room);
         const galleryToUpload = [];
@@ -20153,13 +20263,18 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', PROT
         const uploadLabels = parseImageLabelsBody(body, sliceCount);
         const uploadDerived = parseImageAiDerivedBody(body, sliceCount);
         const uploadLinkGroups = assetKind === 'prototype' ? parseImageLinkGroupsBody(body, sliceCount) : [];
-        const uploadDesignerSelectable = (assetKind === 'prototype' || assetKind === 'part')
+        const uploadDesignerSelectable = (assetKind === 'prototype' || assetKind === 'part' || assetKind === 'material')
             ? parseImageDesignerSelectableBody(body, sliceCount) : [];
         const newEntries = await uploadVendorAssetGalleryFiles(
             manufacturerId, galleryToUpload, startSort, uploadLabels, uploadDerived, uploadLinkGroups, uploadDesignerSelectable
         );
         let merged = existing.concat(newEntries);
-        merged = applyCoverDesignerSelectableMeta(merged, readCoverDesignerSelectableMeta(row.gallery_images));
+        merged = applyCoverDesignerSelectableMeta(
+            merged,
+            normalizeVendorAssetKind(assetKind) === 'material'
+                ? false
+                : readCoverDesignerSelectableMeta(row.gallery_images)
+        );
         const { data: updated, error } = await supabase.from('vendor_assets')
             .update({ gallery_images: merged, updated_at: new Date().toISOString() })
             .eq('id', id)
@@ -20266,7 +20381,11 @@ app.patch('/api/me/vendor-assets/:id/image-labels', express.json(), async (req, 
                 return next;
             });
         }
-        if (body.cover_designer_selectable !== undefined) {
+        if (normalizeVendorAssetKind(row.asset_kind) === 'material') {
+            // 材料封面一律不可選用
+            if (!galleryWorking) galleryWorking = parseGalleryImages(row.gallery_images);
+            galleryWorking = applyCoverDesignerSelectableMeta(galleryWorking, false);
+        } else if (body.cover_designer_selectable !== undefined) {
             if (!galleryWorking) galleryWorking = parseGalleryImages(row.gallery_images);
             galleryWorking = applyCoverDesignerSelectableMeta(
                 galleryWorking,

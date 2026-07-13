@@ -726,6 +726,12 @@ $(document).ready(function () {
         });
     }
 
+    function filterSelectableVendorImageItems(imageItems) {
+        return (imageItems || []).filter(function (it) {
+            return isDesignerSelectableImageItem(it);
+        });
+    }
+
     function clearRefSlot(key) {
         if (!refSlots[key]) return;
         refSlots[key] = emptyRefSlotGroup();
@@ -1574,6 +1580,9 @@ $(document).ready(function () {
                 }
                 var slotKey = slotKeyForVendorAssetKind(item.asset_kind);
                 var imageItems = vendorStyleItemImageItems(item);
+                if (slotKey === 'material' || item.asset_kind === 'material') {
+                    imageItems = filterSelectableVendorImageItems(imageItems);
+                }
                 if (!imageItems.length) {
                     scheduleStripDesignDeepLinkFromUrl();
                     return;
@@ -2767,6 +2776,15 @@ $(document).ready(function () {
             imageItems = filterPrototypeVendorImageItems(imageItems);
             if (!imageItems.length) {
                 alert(tr('customProduct.prototypeNoSelectableAngles', '此原型沒有可引用的角度圖（皆設為僅展示，或已全部加入）。'));
+                return;
+            }
+        }
+
+        if (assetKind === 'material' || targetKey === 'material') {
+            imageItems = filterSelectableVendorImageItems(imageItems);
+            if (!imageItems.length) {
+                alert(tr('customProduct.materialNoSelectableSwatches',
+                    '此材料沒有可選用的色卡（封面多色色卡僅展示）。請先在素材庫上傳至少一張單色樣張。'));
                 return;
             }
         }
