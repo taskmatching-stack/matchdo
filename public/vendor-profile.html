@@ -86,7 +86,7 @@
             font-size: 0.78rem; color: #5c6470;
         }
 
-        /* 作品卡片（與下方素材庫：等高、方形圖） */
+        /* 作品／素材共用卡片底；作品集另對齊首頁媒體牆 */
         .portfolio-card {
             border: 1px solid rgba(68,93,126,.15);
             border-radius: 12px; overflow: hidden;
@@ -94,24 +94,77 @@
             display: flex; flex-direction: column; height: 100%;
         }
         .portfolio-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(68,93,126,.12); }
-        .portfolio-img {
-            width: 100%; aspect-ratio: 1; object-fit: cover;
-            background: #f0f4f8; display: block;
+        #portfolioGrid .portfolio-card {
+            border: 2px solid #445D7E;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(68,93,126,.35);
+            transition: box-shadow .15s;
+        }
+        #portfolioGrid .portfolio-card:hover {
+            transform: none;
+            box-shadow: 0 4px 14px rgba(68,93,126,.4);
+        }
+        #portfolioGrid .portfolio-card .card-img-wrap {
+            width: 100%; aspect-ratio: 1; background: #f0f0f0;
+            position: relative; overflow: hidden;
+        }
+        #portfolioGrid .portfolio-card .card-img-wrap > img {
+            display: block; width: 100%; height: 100%; object-fit: cover;
+        }
+        #portfolioGrid .portfolio-card .card-title-overlay {
+            position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+            padding: 6px 8px;
+            background: linear-gradient(transparent, rgba(0,0,0,.6));
+            color: #fff; font-size: 0.7rem; font-weight: 500;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            text-shadow: 0 0 1px #445D7E, 0 1px 3px rgba(0,0,0,.9);
+            pointer-events: none;
         }
         .portfolio-no-img {
             width: 100%; aspect-ratio: 1;
-            background: #f0f4f8; display: flex;
+            background: #e8e8e8; display: flex;
             align-items: center; justify-content: center;
-            color: #adb5bd; font-size: 2rem;
+            color: #888; font-size: 0.85rem;
         }
-        .before-after-wrap { position: relative; }
-        .before-label, .after-label {
-            position: absolute; bottom: 6px;
-            font-size: 0.65rem; background: rgba(0,0,0,.55); color: #fff;
-            padding: 1px 6px; border-radius: 3px;
+        #portfolioGrid .portfolio-no-img { height: 100%; aspect-ratio: auto; min-height: 80px; }
+        #portfolioGrid .portfolio-card .card-img-wrap.collection-grid {
+            display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr 1fr;
+            gap: 2px; padding: 2px;
         }
-        .before-label { left: 6px; }
-        .after-label { right: 6px; }
+        #portfolioGrid .portfolio-card .card-img-wrap.collection-grid.collection-grid-2x2 {
+            grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+        }
+        #portfolioGrid .portfolio-card .card-img-wrap.collection-grid img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        #portfolioGrid .comparison-slider-wrap { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #portfolioGrid .comparison-slider-wrap img.slider-bg,
+        #portfolioGrid .comparison-slider-wrap img.slider-fg {
+            position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+        }
+        #portfolioGrid .comparison-slider-wrap img.slider-fg { pointer-events: none; }
+        #portfolioGrid .comparison-slider-wrap .slider-overlay { position: absolute; inset: 0; pointer-events: none; }
+        #portfolioGrid .comparison-slider-wrap .slider-overlay input[type="range"] {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            margin: 0; opacity: 0; cursor: ew-resize; pointer-events: auto;
+        }
+        #portfolioGrid .comparison-slider-wrap .slider-line {
+            position: absolute; top: 0; bottom: 0; width: 2px; background: #445D7E;
+            left: 50%; margin-left: -1px; pointer-events: none;
+            box-shadow: 0 0 2px rgba(0,0,0,.25);
+        }
+        #portfolioGrid .comparison-slider-wrap .slider-handle {
+            position: absolute; top: 50%; left: 50%; width: 28px; height: 28px;
+            margin: -14px 0 0 -14px; background: #fff; border: 2px solid #445D7E;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,.25);
+            font-size: 12px; color: #445D7E;
+        }
+        #portfolioGrid .comparison-slider-wrap .slider-hint {
+            position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+            padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff;
+            font-size: 0.6rem; border-radius: 4px; white-space: nowrap; pointer-events: none;
+        }
 
         /* 區塊標題 */
         .section-title {
@@ -619,7 +672,7 @@
             });
             if (hasSocial) document.getElementById('sectionSocial').style.display = '';
 
-            // 作品集
+            // 作品集（呈現對齊首頁媒體牆：對照滑桿／系列格／標題疊圖）
             var portfolio = v.portfolio || [];
             var grid = document.getElementById('portfolioGrid');
             if (portfolio.length === 0) {
@@ -628,43 +681,108 @@
                 portfolio.forEach(function (p) {
                     var col = document.createElement('div');
                     col.className = 'col-6 col-md-4 col-lg-3';
-                    var hasAfter = !!p.image_url;
-                    var hasBefore = !!p.image_url_before;
-                    var imgHTML = '';
-                    if (hasAfter && hasBefore) {
-                        imgHTML = '<div class="before-after-wrap">' +
-                            '<div class="row g-1">' +
-                            '<div class="col-6 position-relative">' +
-                            '<img src="' + escHtml(p.image_url_before) + '" class="portfolio-img" loading="lazy" alt="設計圖">' +
-                            '<span class="before-label">設計圖</span></div>' +
-                            '<div class="col-6 position-relative">' +
-                            '<img src="' + escHtml(p.image_url) + '" class="portfolio-img" loading="lazy" alt="作品">' +
-                            '<span class="after-label">作品</span></div>' +
+                    var titleRaw = (p.title || '').trim();
+                    var afterUrl = (p.image_url || '').trim();
+                    var beforeUrl = (p.image_url_before || '').trim();
+                    var seriesUrls = [];
+                    if (Array.isArray(p.series_image_urls) && p.series_image_urls.length) {
+                        seriesUrls = p.series_image_urls.map(function (u) { return String(u || '').trim(); }).filter(Boolean);
+                        if (p.series_image_valid_until) {
+                            try {
+                                if (new Date(p.series_image_valid_until) <= new Date()) seriesUrls = [];
+                            } catch (_) {}
+                        }
+                    }
+                    var wrapExtra = '';
+                    var content = '';
+                    if (afterUrl && beforeUrl) {
+                        content =
+                            '<div class="comparison-slider-wrap">' +
+                            '<img class="slider-bg" src="' + escHtml(afterUrl) + '" alt="' + escHtml('作品圖：' + titleRaw) + '" loading="lazy">' +
+                            '<img class="slider-fg" src="' + escHtml(beforeUrl) + '" alt="' + escHtml('設計圖：' + titleRaw) + '" style="clip-path:inset(0 50% 0 0)" loading="lazy">' +
+                            '<div class="slider-overlay">' +
+                            '<div class="slider-line" style="left:50%; margin-left:-1px"></div>' +
+                            '<div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div>' +
+                            '<span class="slider-hint">左＝設計圖、右＝作品圖</span>' +
+                            '<input type="range" min="0" max="100" value="50">' +
                             '</div></div>';
-                    } else if (hasAfter) {
-                        imgHTML = '<img src="' + escHtml(p.image_url) + '" class="portfolio-img" loading="lazy" alt="' + escHtml(p.title || '') + '">';
+                    } else if (seriesUrls.length >= 4) {
+                        wrapExtra = ' collection-grid collection-grid-2x2';
+                        content = seriesUrls.slice(0, 4).map(function (u) {
+                            return '<img src="' + escHtml(u) + '" alt="' + escHtml(titleRaw) + '" loading="lazy">';
+                        }).join('');
+                    } else if (seriesUrls.length >= 2) {
+                        wrapExtra = ' collection-grid';
+                        content = [seriesUrls[0], seriesUrls[1]].map(function (u) {
+                            return '<img src="' + escHtml(u) + '" alt="' + escHtml(titleRaw) + '" loading="lazy">';
+                        }).join('');
                     } else {
-                        imgHTML = '<div class="portfolio-no-img"><i class="bi bi-image"></i></div>';
+                        var single = afterUrl || seriesUrls[0] || '';
+                        content = single
+                            ? '<img src="' + escHtml(single) + '" alt="' + escHtml(titleRaw) + '" loading="lazy">'
+                            : '<div class="portfolio-no-img"><i class="bi bi-image"></i></div>';
                     }
-                    var moqN = p.min_order_quantity;
-                    var moqBlock = '';
-                    if (moqN != null && moqN !== '' && Number(moqN) >= 1) {
-                        var moqText = (window.i18n && typeof window.i18n.t === 'function')
-                            ? String(window.i18n.t('portfolio.moqLine')).replace(/\{n\}/g, String(moqN))
-                            : ('最小可訂製：' + moqN + ' 件');
-                        moqBlock = '<div class="text-muted small mt-1" style="font-size:.75rem;">' + escHtml(moqText) + '</div>';
-                    }
-                    col.innerHTML = '<div class="portfolio-card h-100">' + imgHTML +
-                        '<div class="p-2 flex-grow-1 d-flex flex-column">' +
-                        (p.title ? '<div class="fw-semibold small mb-1 text-truncate" style="color:#2d4059" title="' + escHtml(p.title) + '">' + escHtml(p.title) + '</div>' : '') +
-                        moqBlock +
-                        (p.design_highlight ? '<div class="text-muted small mb-1" style="font-size:.75rem;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">' + escHtml(p.design_highlight) + '</div>' : '') +
-                        '</div></div>';
+                    var titleOverlay = titleRaw
+                        ? '<div class="card-title-overlay">' + escHtml(titleRaw) + '</div>'
+                        : '';
+                    col.innerHTML =
+                        '<div class="portfolio-card h-100">' +
+                        '<div class="card-img-wrap' + wrapExtra + '">' + content + titleOverlay + '</div>' +
+                        '</div>';
                     grid.appendChild(col);
                 });
+                wirePortfolioComparisonSliders(grid);
             }
 
             loadVendorMaterialLibrary(v.id);
+        }
+
+        function wirePortfolioComparisonSliders(root) {
+            if (!root) return;
+            root.querySelectorAll('.comparison-slider-wrap').forEach(function (compWrap) {
+                var range = compWrap.querySelector('input[type="range"]');
+                var fg = compWrap.querySelector('img.slider-fg');
+                var line = compWrap.querySelector('.slider-line');
+                var handle = compWrap.querySelector('.slider-handle');
+                function setPos(v) {
+                    var val = Math.max(0, Math.min(100, Number(v)));
+                    if (range) range.value = val;
+                    if (fg) fg.style.clipPath = 'inset(0 ' + (100 - val) + '% 0 0)';
+                    if (line) { line.style.left = val + '%'; line.style.marginLeft = '-1px'; }
+                    if (handle) { handle.style.left = val + '%'; handle.style.marginLeft = '-14px'; }
+                }
+                function pctFromEvent(e) {
+                    var rect = compWrap.getBoundingClientRect();
+                    var x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) - rect.left;
+                    return Math.max(0, Math.min(100, (x / rect.width) * 100));
+                }
+                if (!range) return;
+                range.addEventListener('input', function () { setPos(Number(this.value)); });
+                range.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPos(pctFromEvent(e));
+                    var onMove = function (ev) { setPos(pctFromEvent(ev)); ev.preventDefault(); };
+                    var onUp = function () {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+                range.addEventListener('click', function (e) { e.stopPropagation(); });
+                compWrap.addEventListener('touchstart', function (e) {
+                    if (e.target !== range) return;
+                    setPos(pctFromEvent(e));
+                    var onMove = function (ev) { setPos(pctFromEvent(ev)); ev.preventDefault(); };
+                    var onEnd = function () {
+                        document.removeEventListener('touchmove', onMove);
+                        document.removeEventListener('touchend', onEnd);
+                    };
+                    document.addEventListener('touchmove', onMove, { passive: false });
+                    document.addEventListener('touchend', onEnd);
+                });
+            });
         }
 
         var vendorAssetsCatalogFlat = [];

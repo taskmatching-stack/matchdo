@@ -14664,7 +14664,7 @@ app.get('/api/manufacturers/:id', async (req, res) => {
 
         const mfrId = mfr.id;
         let portfolio = [];
-        const portSelect = 'id, title, title_en, description, description_en, image_url, image_url_before, design_highlight, design_highlight_en, tags, category_key, subcategory_key, sort_order, min_order_quantity';
+        const portSelect = 'id, title, title_en, description, description_en, image_url, image_url_before, design_highlight, design_highlight_en, tags, category_key, subcategory_key, sort_order, min_order_quantity, series_image_urls, series_image_valid_until';
         let portRes = await supabase
             .from('manufacturer_portfolio')
             .select(portSelect)
@@ -14673,9 +14673,16 @@ app.get('/api/manufacturers/:id', async (req, res) => {
         if (portRes.error && portRes.error.code === '42703') {
             portRes = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, title, description, image_url, image_url_before, design_highlight, tags, category_key, subcategory_key, sort_order, min_order_quantity')
+                .select('id, title, title_en, description, description_en, image_url, image_url_before, design_highlight, design_highlight_en, tags, category_key, subcategory_key, sort_order, min_order_quantity')
                 .eq('manufacturer_id', mfrId)
                 .order('sort_order', { ascending: true });
+            if (portRes.error && portRes.error.code === '42703') {
+                portRes = await supabase
+                    .from('manufacturer_portfolio')
+                    .select('id, title, description, image_url, image_url_before, design_highlight, tags, category_key, subcategory_key, sort_order, min_order_quantity')
+                    .eq('manufacturer_id', mfrId)
+                    .order('sort_order', { ascending: true });
+            }
         }
         if (portRes.error) {
             console.warn('GET /api/manufacturers/:id portfolio 查詢失敗:', portRes.error.message);
