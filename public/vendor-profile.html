@@ -165,6 +165,69 @@
             padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff;
             font-size: 0.6rem; border-radius: 4px; white-space: nowrap; pointer-events: none;
         }
+        #portfolioGrid .portfolio-card.is-zoomable { cursor: zoom-in; }
+        #portfolioGrid .portfolio-card.is-zoomable.is-comparison { cursor: ew-resize; }
+        #portfolioGrid .vp-zoom-btn {
+            position: absolute; top: 6px; right: 6px; z-index: 12;
+            width: 30px; height: 30px; padding: 0; border: none; border-radius: 50%;
+            background: rgba(68,93,126,.92); color: #fff;
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 14px; line-height: 1;
+            box-shadow: 0 1px 6px rgba(0,0,0,.3);
+        }
+        #portfolioGrid .vp-zoom-btn:hover { background: #3a5169; }
+        #vendor-portfolio-lightbox .modal-dialog {
+            max-width: min(720px, 94vw); margin: 1rem auto;
+        }
+        #vendor-portfolio-lightbox .modal-content {
+            max-height: 90vh; border-radius: 12px; overflow: hidden;
+            border: 1px solid rgba(68,93,126,.25);
+        }
+        #vendor-portfolio-lightbox .modal-header {
+            padding: 0.75rem 1rem; background: #f0f4f8; border-bottom: 1px solid #445D7E;
+        }
+        #vendor-portfolio-lightbox .modal-title { font-size: 1rem; font-weight: 600; color: #445D7E; }
+        #vendor-portfolio-lightbox .modal-body {
+            padding: 0.5rem; background: #f5f7fa; overflow-y: auto; max-height: 78vh;
+        }
+        #vendor-portfolio-lightbox-body img {
+            max-width: 100%; max-height: 78vh; width: auto; height: auto;
+            object-fit: contain; border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(68,93,126,.2);
+        }
+        #vendor-portfolio-lightbox-body .vp-series-lb {
+            display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;
+            align-items: flex-start; max-height: 78vh; overflow-y: auto;
+        }
+        #vendor-portfolio-lightbox-body .vp-series-lb img { max-height: 42vh; }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap {
+            position: relative; width: 100%; height: 70vh; min-height: 280px; overflow: hidden;
+        }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap img.slider-bg,
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap img.slider-fg {
+            position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #111;
+        }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap img.slider-fg { pointer-events: none; }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap .slider-overlay { position: absolute; inset: 0; pointer-events: none; }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap .slider-overlay input[type="range"] {
+            position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0;
+            cursor: ew-resize; pointer-events: auto;
+        }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap .slider-line {
+            position: absolute; top: 0; bottom: 0; width: 2px; background: #445D7E;
+            left: 50%; margin-left: -1px; pointer-events: none;
+        }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap .slider-handle {
+            position: absolute; top: 50%; left: 50%; width: 28px; height: 28px;
+            margin: -14px 0 0 -14px; background: #fff; border: 2px solid #445D7E;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            pointer-events: none; font-size: 12px; color: #445D7E;
+        }
+        #vendor-portfolio-lightbox-body .comparison-slider-wrap .slider-hint {
+            position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+            padding: 2px 8px; background: rgba(0,0,0,.5); color: #fff;
+            font-size: 0.65rem; border-radius: 4px; white-space: nowrap; pointer-events: none;
+        }
 
         /* 區塊標題 */
         .section-title {
@@ -313,6 +376,21 @@
     </div>
 
     <div id="site-footer"></div>
+
+    <!-- 作品集點擊放大（對齊首頁媒體牆） -->
+    <div class="modal fade" id="vendor-portfolio-lightbox" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title" id="vendor-portfolio-lightbox-title"></h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="vendor-portfolio-lightbox-body"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/config/auth-config.js"></script>
@@ -672,7 +750,7 @@
             });
             if (hasSocial) document.getElementById('sectionSocial').style.display = '';
 
-            // 作品集（呈現對齊首頁媒體牆：對照滑桿／系列格／標題疊圖）
+            // 作品集（呈現對齊首頁媒體牆：對照滑桿／系列格／標題疊圖；可點擊放大）
             var portfolio = v.portfolio || [];
             var grid = document.getElementById('portfolioGrid');
             if (portfolio.length === 0) {
@@ -695,7 +773,9 @@
                     }
                     var wrapExtra = '';
                     var content = '';
+                    var itemType = '';
                     if (afterUrl && beforeUrl) {
+                        itemType = 'comparison';
                         content =
                             '<div class="comparison-slider-wrap">' +
                             '<img class="slider-bg" src="' + escHtml(afterUrl) + '" alt="' + escHtml('作品圖：' + titleRaw) + '" loading="lazy">' +
@@ -707,34 +787,180 @@
                             '<input type="range" min="0" max="100" value="50">' +
                             '</div></div>';
                     } else if (seriesUrls.length >= 4) {
+                        itemType = 'series';
                         wrapExtra = ' collection-grid collection-grid-2x2';
                         content = seriesUrls.slice(0, 4).map(function (u) {
                             return '<img src="' + escHtml(u) + '" alt="' + escHtml(titleRaw) + '" loading="lazy">';
                         }).join('');
                     } else if (seriesUrls.length >= 2) {
+                        itemType = 'series';
                         wrapExtra = ' collection-grid';
                         content = [seriesUrls[0], seriesUrls[1]].map(function (u) {
                             return '<img src="' + escHtml(u) + '" alt="' + escHtml(titleRaw) + '" loading="lazy">';
                         }).join('');
                     } else {
                         var single = afterUrl || seriesUrls[0] || '';
-                        content = single
-                            ? '<img src="' + escHtml(single) + '" alt="' + escHtml(titleRaw) + '" loading="lazy">'
-                            : '<div class="portfolio-no-img"><i class="bi bi-image"></i></div>';
+                        if (single) {
+                            itemType = seriesUrls.length === 1 ? 'series' : 'single';
+                            content = '<img src="' + escHtml(single) + '" alt="' + escHtml(titleRaw) + '" loading="lazy">';
+                        } else {
+                            content = '<div class="portfolio-no-img"><i class="bi bi-image"></i></div>';
+                        }
                     }
                     var titleOverlay = titleRaw
                         ? '<div class="card-title-overlay">' + escHtml(titleRaw) + '</div>'
                         : '';
+                    var zoomCls = itemType ? ' is-zoomable' : '';
+                    if (itemType === 'comparison') zoomCls += ' is-comparison';
+                    var zoomBtn = itemType
+                        ? '<button type="button" class="vp-zoom-btn" title="放大查看" aria-label="放大查看"><i class="bi bi-zoom-in"></i></button>'
+                        : '';
                     col.innerHTML =
-                        '<div class="portfolio-card h-100">' +
-                        '<div class="card-img-wrap' + wrapExtra + '">' + content + titleOverlay + '</div>' +
+                        '<div class="portfolio-card h-100' + zoomCls + '">' +
+                        '<div class="card-img-wrap' + wrapExtra + '">' + content + zoomBtn + titleOverlay + '</div>' +
                         '</div>';
+                    if (itemType) {
+                        var cardEl = col.querySelector('.portfolio-card');
+                        if (cardEl) {
+                            cardEl.setAttribute('data-item', JSON.stringify({
+                                type: itemType,
+                                title: titleRaw,
+                                image_url: afterUrl,
+                                image_url_before: beforeUrl,
+                                series_image_urls: seriesUrls.length ? seriesUrls : (afterUrl ? [afterUrl] : [])
+                            }));
+                        }
+                    }
                     grid.appendChild(col);
                 });
                 wirePortfolioComparisonSliders(grid);
+                wirePortfolioLightbox(grid);
             }
 
             loadVendorMaterialLibrary(v.id);
+        }
+
+        var vendorPortfolioLbModal = null;
+
+        function unlockVendorPortfolioLightboxScroll() {
+            document.querySelectorAll('.modal-backdrop').forEach(function (el) { el.remove(); });
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('overflow');
+            document.body.style.removeProperty('padding-right');
+        }
+
+        function getVendorPortfolioLbModal() {
+            var el = document.getElementById('vendor-portfolio-lightbox');
+            if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
+            if (!vendorPortfolioLbModal) {
+                vendorPortfolioLbModal = new bootstrap.Modal(el);
+                el.addEventListener('hidden.bs.modal', unlockVendorPortfolioLightboxScroll);
+            }
+            return vendorPortfolioLbModal;
+        }
+
+        function wirePortfolioLightboxSlider(compWrap) {
+            if (!compWrap) return;
+            var range = compWrap.querySelector('input[type="range"]');
+            var fg = compWrap.querySelector('img.slider-fg');
+            var line = compWrap.querySelector('.slider-line');
+            var handle = compWrap.querySelector('.slider-handle');
+            function setPos(v) {
+                var val = Math.max(0, Math.min(100, Number(v)));
+                if (range) range.value = val;
+                if (fg) fg.style.clipPath = 'inset(0 ' + (100 - val) + '% 0 0)';
+                if (line) { line.style.left = val + '%'; line.style.marginLeft = '-1px'; }
+                if (handle) { handle.style.left = val + '%'; handle.style.marginLeft = '-14px'; }
+            }
+            function pctFromEvent(e) {
+                var rect = compWrap.getBoundingClientRect();
+                var x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) - rect.left;
+                return Math.max(0, Math.min(100, (x / rect.width) * 100));
+            }
+            if (!range) return;
+            range.addEventListener('input', function () { setPos(Number(this.value)); });
+            range.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                setPos(pctFromEvent(e));
+                var onMove = function (ev) { setPos(pctFromEvent(ev)); ev.preventDefault(); };
+                var onUp = function () {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+            compWrap.addEventListener('touchstart', function (e) {
+                if (e.target !== range) return;
+                setPos(pctFromEvent(e));
+                var onMove = function (ev) { setPos(pctFromEvent(ev)); ev.preventDefault(); };
+                var onEnd = function () {
+                    document.removeEventListener('touchmove', onMove);
+                    document.removeEventListener('touchend', onEnd);
+                };
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onEnd);
+            });
+        }
+
+        function openVendorPortfolioLightbox(item) {
+            if (!item) return;
+            var titleEl = document.getElementById('vendor-portfolio-lightbox-title');
+            var bodyEl = document.getElementById('vendor-portfolio-lightbox-body');
+            var modal = getVendorPortfolioLbModal();
+            if (!bodyEl || !modal) return;
+            if (titleEl) titleEl.textContent = item.title || '';
+            var series = Array.isArray(item.series_image_urls) ? item.series_image_urls.filter(Boolean) : [];
+            if (item.type === 'comparison' && (item.image_url || item.image_url_before)) {
+                var after = (item.image_url || '').trim();
+                var before = (item.image_url_before || '').trim();
+                bodyEl.innerHTML =
+                    '<div class="comparison-slider-wrap">' +
+                    '<img class="slider-bg" src="' + escHtml(after) + '" alt="作品圖">' +
+                    '<img class="slider-fg" src="' + escHtml(before) + '" alt="設計圖" style="clip-path:inset(0 50% 0 0)">' +
+                    '<div class="slider-overlay">' +
+                    '<div class="slider-line" style="left:50%; margin-left:-1px"></div>' +
+                    '<div class="slider-handle" style="left:50%; margin-left:-14px">⇄</div>' +
+                    '<span class="slider-hint">左＝設計圖、右＝作品圖</span>' +
+                    '<input type="range" min="0" max="100" value="50">' +
+                    '</div></div>';
+                wirePortfolioLightboxSlider(bodyEl.querySelector('.comparison-slider-wrap'));
+            } else if ((item.type === 'series' || series.length > 1) && series.length > 0) {
+                bodyEl.innerHTML = '<div class="vp-series-lb">' + series.slice(0, 20).map(function (u) {
+                    return '<img src="' + escHtml(u) + '" alt="">';
+                }).join('') + '</div>';
+            } else {
+                var imgUrl = (item.image_url || series[0] || '').trim();
+                bodyEl.innerHTML = imgUrl
+                    ? '<div class="text-center"><img src="' + escHtml(imgUrl) + '" alt=""></div>'
+                    : '<p class="text-muted py-4 mb-0 text-center">無圖</p>';
+            }
+            modal.show();
+        }
+
+        function wirePortfolioLightbox(root) {
+            if (!root || root._vpLbWired) return;
+            root._vpLbWired = true;
+            root.addEventListener('click', function (e) {
+                var zoomBtn = e.target.closest('.vp-zoom-btn');
+                var card = null;
+                if (zoomBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    card = zoomBtn.closest('.portfolio-card.is-zoomable');
+                } else {
+                    // 對照圖整面是滑桿，只能靠放大鈕；系列／單圖可點卡片
+                    if (e.target.closest('.comparison-slider-wrap input[type="range"]')) return;
+                    card = e.target.closest('.portfolio-card.is-zoomable');
+                    if (card && card.classList.contains('is-comparison')) return;
+                }
+                if (!card || !root.contains(card)) return;
+                var raw = card.getAttribute('data-item');
+                if (!raw) return;
+                try {
+                    openVendorPortfolioLightbox(JSON.parse(raw));
+                } catch (_) {}
+            });
         }
 
         function wirePortfolioComparisonSliders(root) {
