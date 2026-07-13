@@ -2966,7 +2966,8 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
 /** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 固定保真底稿；使用者補充自行輸入 */
 const DESIGN_TO_PHYSICAL_PROMPT =
     '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致。若原圖有尺寸標註，須嚴格顯示原標註之尺寸數字與單位，不得新增、刪除或改寫任何尺寸';
-const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20;
+const DESIGN_TO_PHYSICAL_POINTS_DEFAULT = 20; // 設計區
+const DESIGN_TO_PHYSICAL_VENDOR_POINTS_DEFAULT = 10; // 廠商素材庫／供應商上架
 const DESIGN_TO_PHYSICAL_SEED = 3647440197;
 
 /** 固定保真底稿；可選使用者補充（中文直送 FLUX）。若補充已含底稿全文則不再重複拼接。 */
@@ -2990,6 +2991,14 @@ async function getPointsDesignToPhysical() {
     const v = (rows && rows[0]) ? rows[0].value : null;
     const n = parseInt(v, 10);
     return Number.isFinite(n) && n >= 0 ? n : DESIGN_TO_PHYSICAL_POINTS_DEFAULT;
+}
+
+/** 廠商區寫實化點數（與設計區分開；預設 10） */
+async function getPointsDesignToPhysicalVendor() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_design_to_physical_vendor');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= 0 ? n : DESIGN_TO_PHYSICAL_VENDOR_POINTS_DEFAULT;
 }
 
 /**
@@ -6155,7 +6164,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -6183,6 +6192,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_pattern_extract: parseInt(obj.points_pattern_extract, 10) || 20,
             points_pattern_extract_per_extra_mp: parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10,
             points_design_to_physical: parseInt(obj.points_design_to_physical, 10) || 20,
+            points_design_to_physical_vendor: parseInt(obj.points_design_to_physical_vendor, 10) || 10,
             points_translation: parseInt(obj.points_translation, 10) || 1,
             points_listing_per_category: parseInt(obj.points_listing_per_category, 10) || 200
         });
@@ -6217,6 +6227,7 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_pattern_extract !== undefined) await upsert('points_pattern_extract', body.points_pattern_extract);
         if (body.points_pattern_extract_per_extra_mp !== undefined) await upsert('points_pattern_extract_per_extra_mp', body.points_pattern_extract_per_extra_mp);
         if (body.points_design_to_physical !== undefined) await upsert('points_design_to_physical', body.points_design_to_physical);
+        if (body.points_design_to_physical_vendor !== undefined) await upsert('points_design_to_physical_vendor', body.points_design_to_physical_vendor);
         if (body.points_translation !== undefined) await upsert('points_translation', body.points_translation);
         if (body.points_listing_per_category !== undefined) await upsert('points_listing_per_category', body.points_listing_per_category);
         if (body.grant_welcome_points_on_register !== undefined) await upsert('grant_welcome_points_on_register', body.grant_welcome_points_on_register ? '1' : '0');
@@ -9613,7 +9624,7 @@ app.post('/api/pattern-extract', express.json(), async (req, res) => {
     }
 });
 
-// API: 寫實化（獨立 FLUX 管線；固定 20 點；將產品圖稿／示意圖寫實化）
+// API: 寫實化（獨立 FLUX 管線；設計區預設 20 點；將產品圖稿／示意圖寫實化）
 app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -18761,7 +18772,7 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
             points_upscale: await getPointsVendorAssetUpscale(),
-            points_design_to_physical: await getPointsDesignToPhysical(),
+            points_design_to_physical: await getPointsDesignToPhysicalVendor(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
             optimize_includes_tags: true
@@ -19865,7 +19876,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
     }
 });
 
-// POST /api/me/vendor-assets/preview-design-to-physical — 上傳前寫實化預覽（固定 20 點；僅 prototype／part）
+// POST /api/me/vendor-assets/preview-design-to-physical — 上傳前寫實化預覽（廠商區預設 10 點；僅 prototype／part）
 app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('image'), async (req, res) => {
     try {
         const uploadUser = await assertCanUploadProductsAndAssets(req, res);
@@ -19882,7 +19893,7 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
         if (assetKind !== 'prototype' && assetKind !== 'part') {
             return res.status(400).json({ error: '寫實化僅適用於數位原型／配件' });
         }
-        const pointsRequired = await getPointsDesignToPhysical();
+        const pointsRequired = await getPointsDesignToPhysicalVendor();
         let ownerId = seedUser.id;
         let isAdmin = false;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
@@ -19977,7 +19988,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
         if (room <= 0) {
             return res.status(400).json({ error: vendorAssetGalleryLimitError(assetKind) });
         }
-        const pointsRequired = await getPointsDesignToPhysical();
+        const pointsRequired = await getPointsDesignToPhysicalVendor();
         let ownerId = seedUser.id;
         let isAdmin = false;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
@@ -22854,7 +22865,7 @@ app.get('/api/me/industry-supplier/catalog-items/upload-pricing', async (req, re
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
             points_upscale: await getPointsVendorAssetUpscale(),
-            points_design_to_physical: await getPointsDesignToPhysical(),
+            points_design_to_physical: await getPointsDesignToPhysicalVendor(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
             optimize_includes_tags: true

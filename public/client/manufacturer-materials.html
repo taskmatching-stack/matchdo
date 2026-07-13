@@ -880,7 +880,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-checkbox-plus-material48-20260713';
+        window.__MATCHDO_MATERIALS_BUILD = 'd2p-vendor-10pts-20260713';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1033,7 +1033,7 @@
         var supplierImportModal = null;
         var supplierImportFilterId = null;
         var highlightAssetId = null;
-        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_upscale: 5, points_design_to_physical: 20, points_description: 1, points_regenerate_tags: 1 };
+        var uploadPricing = { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_upscale: 5, points_design_to_physical: 10, points_description: 1, points_regenerate_tags: 1 };
         var editPending = { tags: null, semantics: null };
         var editPrototypeLinksPending = { linked_asset_ids: [], linked_prototype_ids: [], loaded: false };
         var editGalleryUploading = false;
@@ -2687,7 +2687,7 @@
         }
 
         function designToPhysicalPoints() {
-            return uploadPricing.points_design_to_physical != null ? uploadPricing.points_design_to_physical : 20;
+            return uploadPricing.points_design_to_physical != null ? uploadPricing.points_design_to_physical : 10;
         }
 
         function vendorDesignToPhysicalEnabledForKind(kind) {
@@ -5898,7 +5898,7 @@
                     uploadPricing.points_optimize_material = d.points_optimize_material != null ? d.points_optimize_material : 10;
                     uploadPricing.points_optimize_extra = d.points_optimize_extra != null ? d.points_optimize_extra : 5;
                     uploadPricing.points_upscale = d.points_upscale != null ? d.points_upscale : 5;
-                    uploadPricing.points_design_to_physical = d.points_design_to_physical != null ? d.points_design_to_physical : 20;
+                    uploadPricing.points_design_to_physical = d.points_design_to_physical != null ? d.points_design_to_physical : 10;
                     uploadPricing.points_description = d.points_description != null ? d.points_description : 1;
                     uploadPricing.points_regenerate_tags = d.points_regenerate_tags != null ? d.points_regenerate_tags : 1;
                 }

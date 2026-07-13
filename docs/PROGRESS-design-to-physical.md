@@ -2,7 +2,7 @@
 
 **最後更新：** 2026-07-12  
 **狀態：** 已實作（對外名稱：寫實化）  
-**點數：** 固定 **20 點／次**（`points_design_to_physical`，預設 20；後台「會員／點數規則」可調）
+**點數：** 設計區 **20 點／次**（`points_design_to_physical`）；廠商區 **10 點／次**（`points_design_to_physical_vendor`）；後台「會員／點數規則」可調
 
 ## 一句話
 
@@ -25,7 +25,7 @@ Prompt（鎖定）：`將圖樣轉為實體寫實產品，圖樣、結構和顏�
 
 - 寫入 `credit_transactions`：`source=design_to_physical`，`description=寫實化`
 - 後台「扣點統計」依 description 彙總；「點數規則」顯示名稱為「寫實化」
-- 三入口（設計區／廠商預覽／圖庫追加）皆用同一 description
+- 三入口（設計區 20 點／廠商預覽與圖庫追加 10 點）皆用同一 description「寫實化」
 
 ## 與現有功能分線
 
