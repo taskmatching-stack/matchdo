@@ -878,7 +878,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upload-ai-meta-20260713';
+        window.__MATCHDO_MATERIALS_BUILD = 'pending-token-all-kinds-20260713';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -3759,6 +3759,7 @@
                 renderPendingImages(form);
                 updateAddFormPointsEstimate(form);
                 schedulePendingDraftSave(form);
+                startTokenRefreshTimer();
                 if (vendorUpscaleEnabledForKind(form.getAttribute('data-kind') || 'prototype')) {
                     list.slice(-added).forEach(function (item) {
                         probePendingItemUpscale(form, item, function () { renderPendingImages(form); });
