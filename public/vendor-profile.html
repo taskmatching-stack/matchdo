@@ -229,7 +229,7 @@
 
                 <div class="mt-4 pt-2" id="sectionVendorAssets" style="display:none;">
                     <div class="section-title"><i class="bi bi-folder2-open me-1"></i><span data-i18n="vendor.materialLibrary">素材庫</span></div>
-                    <p class="text-muted small mb-2" data-i18n="vendor.materialLibraryHint">依廠商自訂分類瀏覽數位原型與材料參考（與網站訂製分類無關）。</p>
+                    <p class="text-muted small mb-2" data-i18n="vendor.materialLibraryHint">依廠商自訂分類瀏覽數位原型與材料/顏色（與網站訂製分類無關）。</p>
                     <div id="vendorCatalogNav" class="d-flex flex-wrap gap-2 mb-3"></div>
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                         <p id="vendorProfileListRange" class="text-muted small mb-0 d-none"></p>
@@ -813,8 +813,8 @@
             }
             if (matGroups.length) {
                 var matLabel = (window.i18n && typeof window.i18n.t === 'function')
-                    ? (window.i18n.t('vendor.catalogMaterialGroups') || '材料參考')
-                    : '材料參考';
+                    ? (window.i18n.t('vendor.catalogMaterialGroups') || '材料/顏色')
+                    : '材料/顏色';
                 html += '<span class="text-muted small align-self-center ms-2 me-1">' + escHtml(matLabel) + '</span>' + pillRow(matGroups);
             }
             if (!protoGroups.length && !matGroups.length) {

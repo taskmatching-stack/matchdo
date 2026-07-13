@@ -33,7 +33,7 @@
                 <button type="button" class="btn btn-outline-secondary active" data-filter="all"><span data-i18n="supplierRefs.filterAll">全部</span> <span class="kind-count" data-kind="all">0</span></button>
                 <button type="button" class="btn btn-outline-secondary" data-filter="prototype_set"><span data-i18n="baseModels.tabPrototype">數位原型</span> <span class="kind-count" data-kind="prototype_set">0</span></button>
                 <button type="button" class="btn btn-outline-secondary" data-filter="part"><span data-i18n="baseModels.tabPart">配件／零件</span> <span class="kind-count" data-kind="part">0</span></button>
-                <button type="button" class="btn btn-outline-secondary" data-filter="material"><span data-i18n="baseModels.tabMaterial">材料參考</span> <span class="kind-count" data-kind="material">0</span></button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="material"><span data-i18n="baseModels.tabMaterial">材料/顏色</span> <span class="kind-count" data-kind="material">0</span></button>
             </div>
         </div>
 
@@ -80,7 +80,7 @@
         function kindLabel(itemKind) {
             if (itemKind === 'prototype_set') return tr('baseModels.tabPrototype', '數位原型');
             if (itemKind === 'part') return tr('baseModels.tabPart', '配件／零件');
-            return tr('baseModels.tabMaterial', '材料參考');
+            return tr('baseModels.tabMaterial', '材料/顏色');
         }
         function catalogUrlForKind(k) {
             var hash = k === 'prototype_set' ? '#prototype_set' : (k === 'part' ? '#part' : (k === 'material' ? '#material' : ''));

@@ -183,7 +183,7 @@
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <h4 class="mb-0 fw-bold" data-i18n="baseModels.pageTitle">上傳數位版型 (Base Models)</h4>
-                    <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料參考」。</small>
+                    <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料/顏色」。</small>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
                     <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
@@ -227,7 +227,7 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" type="button" data-kind="material" id="tab-material" role="tab">
-                        <i class="bi bi-palette me-1"></i><span data-i18n="baseModels.tabMaterial">材料參考</span>
+                        <i class="bi bi-palette me-1"></i><span data-i18n="baseModels.tabMaterial">材料/顏色</span>
                     </button>
                 </li>
             </ul>
@@ -243,7 +243,7 @@
                                 <span id="catalog-groups-count-prototype" class="badge bg-light text-secondary border fw-normal d-none"></span>
                             </h6>
                             <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
-                            <p class="text-muted small mb-0 mt-1" data-i18n="baseModels.myCatalogKindPrototype">以下分類僅用於「數位原型」，與材料參考分開。</p>
+                            <p class="text-muted small mb-0 mt-1" data-i18n="baseModels.myCatalogKindPrototype">以下分類僅用於「數位原型」，與材料/顏色分開。</p>
                             <p id="catalog-groups-collapsed-summary-prototype" class="text-muted small mb-0 mt-1 d-none"></p>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2 flex-shrink-0">
@@ -273,7 +273,7 @@
                     <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-light text-primary fw-semibold flex-shrink-0"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
                 </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供設計者選用。</p>
-                <div class="alert alert-info border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuidePrototype">「材料參考」請用<strong>材料</strong>分頁（主產品布料／色卡）。<strong>配件</strong>的材質、顏色請在<strong>配件／零件</strong>分頁<strong>各建一筆獨立產品</strong>，不要與材料或原型混在同一筆，以免訂製者 AI 參考混亂。</div>
+                <div class="alert alert-info border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuidePrototype">「材料/顏色」請用<strong>材料</strong>分頁（主產品布料／色卡）。<strong>配件</strong>的材質、顏色請在<strong>配件／零件</strong>分頁<strong>各建一筆獨立產品</strong>，不要與材料或原型混在同一筆，以免訂製者 AI 參考混亂。</div>
                 <div id="add-form-panel-prototype" class="card border-0 shadow-sm mb-4 upload-panel d-none">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-primary"></i><span data-i18n="baseModels.addPrototypeTitle">新增數位原型</span></span>
@@ -298,7 +298,7 @@
                                     </div>
                                 </div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.customizationLevels">訂製程度 <span class="text-danger">*</span></label><p class="text-muted small mb-1" data-i18n="baseModels.customizationLevelsHint">可複選，至少一項；點擊按鈕切換選取。</p><div class="add-customization-levels border rounded p-2"></div></div>
-                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選（與材料參考分開）。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintPrototype">請先在上方「數位原型」專用的我的素材分類新增名稱，再於此勾選（與材料/顏色分開）。</p><div class="add-catalog-groups-prototype border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintPrototype" placeholder="請填款式名稱（如：尖領、雙排扣）"></div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12 ref-image-block">
@@ -403,7 +403,7 @@
                 </div>
             </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintPart">扣具、拉鍊、標章等局部零件參考，供設計者選用（無 MOQ）。</p>
-                <div class="alert alert-warning border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuidePart"><strong>重要：</strong>配件的<strong>每一種顏色、每一種表面材質</strong>請<strong>各建一筆獨立產品</strong>（標題例：「D扣／金色」「D扣／黑色」），不要多色混在同一筆或多張圖當成「一個配件」。布料色卡請用「材料參考」，不要放在這裡。</div>
+                <div class="alert alert-warning border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuidePart"><strong>重要：</strong>配件的<strong>每一種顏色、每一種表面材質</strong>請<strong>各建一筆獨立產品</strong>（標題例：「D扣／金色」「D扣／黑色」），不要多色混在同一筆或多張圖當成「一個配件」。布料色卡請用「材料/顏色」，不要放在這裡。</div>
                 <div id="add-form-panel-part" class="card border-0 shadow-sm mb-4 upload-panel d-none">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-warning"></i><span data-i18n="baseModels.addPartTitle">新增配件／零件</span></span>
@@ -498,11 +498,11 @@
                         <div class="flex-grow-1 min-w-0">
                             <h6 class="fw-semibold mb-1">
                                 <span data-i18n="baseModels.myCatalogTitle">我的素材分類</span>
-                                <span class="badge bg-success ms-1" data-i18n="baseModels.tabMaterial">材料參考</span>
+                                <span class="badge bg-success ms-1" data-i18n="baseModels.tabMaterial">材料/顏色</span>
                                 <span id="catalog-groups-count-material" class="badge bg-light text-secondary border fw-normal d-none"></span>
                             </h6>
                             <p class="text-muted small mb-0" data-i18n="baseModels.myCatalogHint">與網站分類無關，供您與訂製者依您的習慣瀏覽（如：領型庫、2025春夏）。</p>
-                            <p class="text-muted small mb-0 mt-1" data-i18n="baseModels.myCatalogKindMaterial">以下分類僅用於「材料參考」，與數位原型分開。</p>
+                            <p class="text-muted small mb-0 mt-1" data-i18n="baseModels.myCatalogKindMaterial">以下分類僅用於「材料/顏色」，與數位原型分開。</p>
                             <p id="catalog-groups-split-warn-material" class="text-danger small mb-0 mt-1 d-none" data-i18n="baseModels.catalogAssetKindSqlRequired">請於 Supabase 執行 docs/add-vendor-catalog-groups-asset-kind.sql，材料才能使用獨立分類（不與原型共用）。</p>
                             <p id="catalog-groups-collapsed-summary-material" class="text-muted small mb-0 mt-1 d-none"></p>
                         </div>
@@ -522,25 +522,25 @@
                             <input type="text" class="form-control form-control-sm new-catalog-group-name" data-catalog-kind="material" style="max-width: 16rem;" data-i18n-placeholder="baseModels.catalogGroupNamePlaceholder" placeholder="輸入分類名稱（例：丹寧布庫）">
                             <button type="button" class="btn btn-sm btn-success btn-add-catalog-group" data-catalog-kind="material"><i class="bi bi-folder-plus me-1"></i><span data-i18n="baseModels.addCatalogGroup">新增分類</span></button>
                         </div>
-                        <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHintMaterial">拖曳排序；僅顯示於材料參考，不與數位原型共用。</p>
+                        <p class="text-muted small mb-2" data-i18n="baseModels.catalogGroupsSortHintMaterial">拖曳排序；僅顯示於材料/顏色，不與數位原型共用。</p>
                         <ul id="catalog-groups-list-material" class="list-unstyled mb-0 catalog-groups-sortable"></ul>
                         <p id="catalog-groups-empty-material" class="text-muted small mb-0 d-none" data-i18n="baseModels.catalogGroupsEmptyMaterial">尚無材料專用分類，請在上方新增（例如：色卡庫、皮革樣本）。</p>
                     </div>
                 </div>
             </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintMaterial">布料、皮革、金屬等材質樣本，供設計者選用。</p>
-                <div class="alert alert-success border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuideMaterial"><strong>材料參考</strong>給<strong>主產品</strong>用（整件衣服的布料、皮革色卡、織紋滿版圖）。<strong>不要</strong>把配件的顏色變體當材料上傳；配件請到「配件／零件」分頁，每種顏色／材質各建一筆。</div>
+                <div class="alert alert-success border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuideMaterial"><strong>材料/顏色</strong>給<strong>主產品</strong>用（整件衣服的布料、皮革色卡、織紋滿版圖）。<strong>不要</strong>把配件的顏色變體當材料上傳；配件請到「配件／零件」分頁，每種顏色／材質各建一筆。</div>
                 <div id="add-form-panel-material" class="card border-0 shadow-sm mb-4 upload-panel d-none">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                        <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i><span data-i18n="baseModels.addMaterialTitle">新增材料參考</span></span>
+                        <span class="fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i><span data-i18n="baseModels.addMaterialTitle">新增材料/顏色</span></span>
                         <button type="button" class="btn-close btn-add-panel-close" aria-label="關閉"></button>
                     </div>
                     <div class="card-body">
                         <form class="add-form" data-kind="material" enctype="multipart/form-data">
                             <div class="row g-3">
                                 <div class="col-md-6"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" required><option value="">—</option></select></div>
-                                <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.materialMatchHint">媒合僅用平台主分類；材質類型請用上方「材料參考」專用自訂分類（如：色卡庫、皮革樣本）。</p></div>
-                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料參考」專用的我的素材分類新增名稱，再於此勾選（與數位原型分開）。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
+                                <div class="col-12"><p class="form-text text-muted small mb-0" data-i18n="baseModels.materialMatchHint">媒合僅用平台主分類；材質類型請用上方「材料/顏色」專用自訂分類（如：色卡庫、皮革樣本）。</p></div>
+                                <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料/顏色」專用的我的素材分類新增名稱，再於此勾選（與數位原型分開）。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
@@ -600,7 +600,7 @@
                         </form>
                     </div>
                 </div>
-                <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料參考</div>
+                <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料/顏色</div>
             </div>
 
             <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
@@ -880,7 +880,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'd2p-vendor-10pts-20260713';
+        window.__MATCHDO_MATERIALS_BUILD = 'catalog-slug-material-color-20260713';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7899,7 +7899,7 @@
         function activeKindTabLabel() {
             if (activeKind === 'prototype') return tr('baseModels.tabPrototype', '數位原型');
             if (activeKind === 'part') return tr('baseModels.tabPart', '配件／零件');
-            return tr('baseModels.tabMaterial', '材料參考');
+            return tr('baseModels.tabMaterial', '材料/顏色');
         }
 
         function clearSupplierRefFromForm(form) {

@@ -3789,6 +3789,31 @@ async function ensureVendorCatalogGroupsAssetKindColumn() {
     }
 }
 
+/** 啟動時把 slug 唯一改為「同廠商＋同 asset_kind」（材料與原型可同名） */
+async function ensureVendorCatalogGroupsSlugPerKindIndex() {
+    if (!DB_URL) return false;
+    const pool = new Pool({ connectionString: DB_URL });
+    const client = await pool.connect();
+    try {
+        const r = await client.query(
+            `SELECT EXISTS (
+                SELECT 1 FROM pg_indexes
+                WHERE schemaname = 'public' AND indexname = 'idx_vendor_catalog_groups_mfr_kind_slug'
+            ) AS ok`
+        );
+        if (r.rows[0]?.ok) return true;
+        await adminMigrations.runMigrationById('vendor-catalog-groups-slug-per-kind', client);
+        console.log('ensureVendorCatalogGroupsSlugPerKindIndex: 已更新 slug 唯一索引');
+        return true;
+    } catch (e) {
+        console.warn('ensureVendorCatalogGroupsSlugPerKindIndex:', e.message);
+        return false;
+    } finally {
+        client.release();
+        await pool.end();
+    }
+}
+
 function manufacturerLogoFromRow(mfr) {
     if (!mfr) return null;
     const direct = (mfr.logo_url && String(mfr.logo_url).trim()) || '';
@@ -16959,6 +16984,17 @@ app.get('/api/me/vendor-catalog-groups', async (req, res) => {
     }
 });
 
+function isMissingVendorCatalogAssetKindError(error) {
+    if (!error) return false;
+    if (error.code === '42703') return true;
+    if (error.code === 'PGRST204') {
+        const msg0 = String(error.message || error.details || '').toLowerCase();
+        if (msg0.includes('asset_kind')) return true;
+    }
+    const msg = String(error.message || error.details || error.hint || '').toLowerCase();
+    return msg.includes('asset_kind') && (msg.includes('column') || msg.includes('schema cache') || msg.includes('does not exist'));
+}
+
 // POST /api/me/vendor-catalog-groups — 新增分類
 app.post('/api/me/vendor-catalog-groups', express.json(), async (req, res) => {
     try {
@@ -16975,27 +17011,49 @@ app.post('/api/me/vendor-catalog-groups', express.json(), async (req, res) => {
             const { data: parent } = await supabase.from('vendor_catalog_groups').select('id').eq('id', parentId).eq('manufacturer_id', manufacturerId).maybeSingle();
             if (!parent) return res.status(400).json({ error: '上層分類不存在' });
         }
-        let slug = (body.slug || '').trim() || slugifyVendorCatalogGroupName(name);
         const catalogKind = normalizeVendorAssetKind(body.asset_kind);
-        const row = {
-            manufacturer_id: manufacturerId,
-            name,
-            slug,
-            parent_id: parentId,
-            sort_order: (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0,
-            asset_kind: catalogKind
-        };
-        let { data, error } = await supabase.from('vendor_catalog_groups').insert(row).select().single();
-        if (error && error.code === '42703') {
-            if (catalogKind === 'material') {
-                return res.status(503).json({ error: '請先執行 docs/add-vendor-catalog-groups-asset-kind.sql，材料才能使用獨立分類' });
+        const slugBase = (body.slug || '').trim() || slugifyVendorCatalogGroupName(name);
+        const sortOrder = (body.sort_order != null && !isNaN(body.sort_order)) ? parseInt(body.sort_order, 10) : 0;
+        let data = null;
+        let error = null;
+        // 舊庫 slug 唯一跨類型：撞到原型同名時加後綴重試；新庫遷移後同類型才需後綴
+        for (let attempt = 0; attempt < 6; attempt++) {
+            let slug = slugBase;
+            if (attempt === 1) slug = slugBase + '-' + catalogKind;
+            else if (attempt > 1) slug = slugBase + '-' + catalogKind + '-' + attempt;
+            slug = String(slug).slice(0, 64);
+            const row = {
+                manufacturer_id: manufacturerId,
+                name,
+                slug,
+                parent_id: parentId,
+                sort_order: sortOrder,
+                asset_kind: catalogKind
+            };
+            ({ data, error } = await supabase.from('vendor_catalog_groups').insert(row).select().single());
+            if (!error) break;
+            if (isMissingVendorCatalogAssetKindError(error)) {
+                if (catalogKind === 'material' || catalogKind === 'part') {
+                    return res.status(503).json({ error: '請先執行 docs/add-vendor-catalog-groups-asset-kind.sql，材料／零件才能使用獨立分類' });
+                }
+                const fallback = { manufacturer_id: manufacturerId, name, slug, parent_id: parentId, sort_order: sortOrder };
+                ({ data, error } = await supabase.from('vendor_catalog_groups').insert(fallback).select().single());
+                if (!error) break;
+                if (error.code === '23505' && attempt < 5) continue;
+                break;
             }
-            const fallback = { manufacturer_id: manufacturerId, name, slug, parent_id: parentId, sort_order: row.sort_order };
-            ({ data, error } = await supabase.from('vendor_catalog_groups').insert(fallback).select().single());
+            if (error.code === '23505' && attempt < 5) continue;
+            break;
         }
         if (error) {
             console.error('POST /api/me/vendor-catalog-groups:', error);
-            return res.status(500).json({ error: '新增失敗' });
+            if (error.code === '23505') {
+                return res.status(409).json({ error: '此分類名稱已存在，請換一個名稱' });
+            }
+            return res.status(500).json({
+                error: '新增失敗',
+                details: error.message || error.code || undefined
+            });
         }
         res.status(201).json(data);
     } catch (e) {
@@ -28305,4 +28363,5 @@ bootstrapCategories().finally(() => {
     ensureAiCategoriesTableAndSeed().catch(err => console.warn('ensureAiCategoriesTableAndSeed:', err && err.message));
     ensureManufacturerLogoColumn().catch(err => console.warn('ensureManufacturerLogoColumn:', err && err.message));
     ensureVendorCatalogGroupsAssetKindColumn().catch(err => console.warn('ensureVendorCatalogGroupsAssetKindColumn:', err && err.message));
+    ensureVendorCatalogGroupsSlugPerKindIndex().catch(err => console.warn('ensureVendorCatalogGroupsSlugPerKindIndex:', err && err.message));
 });
