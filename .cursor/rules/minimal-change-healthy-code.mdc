@@ -14,9 +14,9 @@ alwaysApply: true
    能跑、使用者已接受的互動（例如待傳清單「原圖 + 新圖同一格」、上傳後可捲動列表）**不得為了「更好」而改掉**，除非使用者當次有說要改。
 
 2b. **編輯圖庫 AI 重繪／放大／寫實化（嚴禁再犯）**  
-   - **正確：** 預覽 → **同一格**顯示原圖＋新圖縮圖＋「上傳原圖／上傳此張」勾選 → 按「儲存」才依勾選寫入。已存衍生圖用 `ai_derived` + `source_url` **掛在原圖同一格**（`groupGalleryDisplayItems`／`ensureEditGallerySlotForGroup`）。  
-   - **禁止：** 把圖庫改成「每張 image_items 獨立一格」（曾犯：`ddd55a0` flat list）；禁止點「AI 重繪」就直接 `POST .../gallery-images/redraw` **自動追加成另一張卡片**當預設 UX。  
-   - **參考：** `docs/PROGRESS-vendor-asset-gallery-edit.md` §二／§七；build ≥ `gallery-same-card-checkbox-20260713`。  
+   - **正確：** 預覽 → **同一格**：**上方主圖＝原圖**，**下方＝重繪／放大／寫實化新圖**＋「上傳原圖／上傳此張」勾選 → 按「儲存」才依勾選寫入。已存衍生圖用 `ai_derived` + `source_url` **掛在原圖同一格**（`groupGalleryDisplayItems`）。  
+   - **禁止：** 把圖庫改成「每張 image_items 獨立一格」；禁止點「AI 重繪」就直接 `POST .../gallery-images/redraw` **自動追加成另一張卡片**；**禁止上方顯示重繪、下方塞原圖**（與待傳矛盾）。  
+   - **參考：** `docs/DO-NOT-flatten-gallery-ai-preview.md`；build ≥ `redraw-top-original-bottom-new-20260713`。  
    - 若為「對衍生圖再重繪」等需求，**另開需求**，不得順便拆掉同格勾選。
 
 3. **先查再改，避免重工**  

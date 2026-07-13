@@ -880,7 +880,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'catalog-slug-material-color-20260713';
+        window.__MATCHDO_MATERIALS_BUILD = 'redraw-top-original-bottom-new-20260713';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -2886,37 +2886,14 @@
             }).filter(Boolean);
         }
 
+        /** 主圖區永遠顯示原圖；重繪／放大／寫實化新圖只出現在下方預覽列 */
         function editGalleryDisplayUrl(sourceUrl, slot) {
-            if (!slot || !pendingHasAiPreview(slot)) return sourceUrl;
-            if (slot.uploadOriginal === false) {
-                if (slot.uploadRedraw !== false && slot.redrawPreviewUrl) return slot.redrawPreviewUrl;
-                if (slot.uploadUpscale !== false && slot.upscalePreviewUrl) return slot.upscalePreviewUrl;
-                if (slot.uploadD2p !== false && slot.d2pPreviewUrl) return slot.d2pPreviewUrl;
-            }
             return sourceUrl;
         }
 
-        /** 重繪預覽期間：同欄顯示原圖對照＋「上傳原圖／上傳此張」勾選（efa3dd1） */
+        /** 上方原圖（主圖區）；下方：上傳原圖勾選 + 重繪／放大／寫實化新圖＋上傳此張 */
         function editGalleryPreviewBlock(slot, prefix, sourceUrl) {
             if (!pendingHasAiPreview(slot)) return '';
-            var onlyNewRedraw = slot.uploadOriginal === false && slot.uploadRedraw !== false && slot.redrawPreviewUrl;
-            var onlyNewUpscale = slot.uploadOriginal === false && slot.uploadUpscale !== false && slot.upscalePreviewUrl;
-            var onlyNewD2p = slot.uploadOriginal === false && slot.uploadD2p !== false && slot.d2pPreviewUrl;
-            if (sourceUrl && (onlyNewRedraw || onlyNewUpscale || onlyNewD2p)) {
-                var h = pendingUploadCheckHtml(slot.uploadOriginal !== false, prefix + '-upload-original', '上傳原圖');
-                h += '<div class="pending-redraw-new-row"><span class="d-block" style="font-size:0.65rem;color:#6c757d">原圖</span>' +
-                    '<img src="' + esc(sourceUrl) + '" class="pending-redraw-thumb matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle('原圖')) + '"></div>';
-                if (onlyNewRedraw) {
-                    h += pendingUploadCheckHtml(slot.uploadRedraw !== false, prefix + '-upload-redraw', '上傳此張');
-                }
-                if (onlyNewUpscale) {
-                    h += pendingUploadCheckHtml(slot.uploadUpscale !== false, prefix + '-upload-upscale', '上傳此張');
-                }
-                if (onlyNewD2p) {
-                    h += pendingUploadCheckHtml(slot.uploadD2p !== false, prefix + '-upload-d2p', '上傳此張');
-                }
-                return h;
-            }
             return pendingOriginalUploadCheckHtml(slot, prefix) + pendingDerivedThumbsHtml(slot, prefix);
         }
 
