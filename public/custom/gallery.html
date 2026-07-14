@@ -194,15 +194,11 @@
         areaIsland:     'Islands',
         areaOverseas:   'Overseas',
         kwPlaceholder:  'Search title, tags…',
-        assetsOnlyIntro:  'No portfolio images in this category yet. Browse digital prototypes below.',
+        assetsOnlyIntro:  'No portfolio images in this category yet. Browse vendor assets below.',
         assetPrototype:   'Prototype',
         assetMaterial:    'Material',
         redesignAsset:    'Design with this asset',
         modalAssetTitle:  'Vendor asset',
-        badgeComparison:  'Comparison',
-        badgeWork:        'Work',
-        categoryFindHint: 'Showing comparison / work images and digital prototypes in this category. Filter further or pick a vendor yourself.',
-        assetsSupplementIntro: 'Digital prototypes in this category (also available for design):',
     } : {
         modalTitle:     '作品詳情',
         highlight:      '作品重點',
@@ -226,15 +222,11 @@
         areaIsland:     '離島',
         areaOverseas:   '海外',
         kwPlaceholder:  '搜尋標題、標籤…',
-        assetsOnlyIntro:  '此分類尚無作品展示圖，您可先瀏覽以下數位原型。',
+        assetsOnlyIntro:  '此分類尚無作品展示圖，您可先瀏覽以下廠商上傳的數位原型與材料/顏色。',
         assetPrototype:   '數位原型',
         assetMaterial:    '材料/顏色',
         redesignAsset:    '用此素材設計',
         modalAssetTitle:  '廠商素材',
-        badgeComparison:  '對照圖',
-        badgeWork:        '作品',
-        categoryFindHint: '以下為該分類廠商的對照圖、作品圖與數位原型；請自行篩選或點進廠商頁。',
-        assetsSupplementIntro: '同分類數位原型（亦可直接用來設計）：',
     };
 
     // 套用所有靜態文字（filter 區 + modal）
@@ -294,15 +286,7 @@
         const labels = selCustomizationLevels.map(function (k) {
             return CUSTOMIZATION_LEVEL_LABELS[k] || k;
         }).join('、');
-        banner.innerHTML = '目前另篩訂製程度含「' + esc(labels) + '」的數位原型；作品仍以分類為主。';
-        banner.classList.remove('d-none');
-    }
-
-    function applyCategoryFindVendorBanner() {
-        const banner = document.getElementById('galleryVendorScopeBanner');
-        if (!banner || scopeMfrId || !selCat) return;
-        if (selCustomizationLevels.length) return;
-        banner.textContent = T.categoryFindHint;
+        banner.innerHTML = '目前僅顯示訂製程度含「' + esc(labels) + '」的廠商作品與素材。';
         banner.classList.remove('d-none');
     }
 
@@ -366,7 +350,7 @@
 
     function portfolioMatchesCategory(p) {
         if (!selCat && !selSub) return true;
-        const mfrCats = p.categories || p.manufacturer_categories || [];
+        const mfrCats = p.categories || [];
         if (selSub) {
             const subPrimary = String(selSub).split('&')[0].trim() || selSub;
             return (p.subcategory_key === selSub || p.subcategory_key === subPrimary) ||
@@ -379,15 +363,6 @@
         if (p.subcategory_key && keys.includes(p.subcategory_key)) return true;
         if (mfrCats.includes(selCat) || keys.some(k => mfrCats.includes(k))) return true;
         return false;
-    }
-
-    /** 對照圖（有設計圖）排在作品圖之前 */
-    function sortPortfolioPreferComparison(list) {
-        return (list || []).slice().sort(function (a, b) {
-            var ac = (a && a.image_url_before) ? 0 : 1;
-            var bc = (b && b.image_url_before) ? 0 : 1;
-            return ac - bc;
-        });
     }
 
     function filterPortfolioItems(mfrIdSet) {
@@ -455,27 +430,24 @@
 
     async function fetchVendorAssetsForManufacturer(mfrId) {
         if (!mfrId) return [];
-        const url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId) + '&asset_kind=prototype';
+        const url = '/api/vendor-assets?manufacturer_id=' + encodeURIComponent(mfrId);
         const r = await fetch(url, await galleryVendorAssetsFetchOpts());
         const d = await r.json();
-        return (d.items || []).filter(x => x && x.image_url && (x.asset_kind || 'prototype') === 'prototype');
+        return (d.items || []).filter(x => x && x.image_url);
     }
 
     async function fetchVendorAssetsForGallery() {
         if (!selCat && !selCustomizationLevels.length) return [];
         const catKey = categoryKeyForUiActive() || String(selCat).split('&')[0].trim() || selCat;
         if (!catKey) return [];
-        let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey) + '&asset_kind=prototype';
-        if (selSub) {
-            const subPrimary = subcategoryKeyForUiActive() || String(selSub).split('&')[0].trim() || selSub;
-            if (subPrimary) url += '&subcategory_key=' + encodeURIComponent(subPrimary);
-        }
+        let url = '/api/vendor-assets?category_key=' + encodeURIComponent(catKey);
         if (selCustomizationLevels.length) {
             url += '&customization_levels=' + encodeURIComponent(selCustomizationLevels.join(','));
+            url += '&asset_kind=prototype';
         }
         const r = await fetch(url, await galleryVendorAssetsFetchOpts());
         const d = await r.json();
-        return (d.items || []).filter(x => x && x.image_url && (x.asset_kind || 'prototype') === 'prototype');
+        return (d.items || []).filter(x => x && x.image_url);
     }
 
     async function fetchVendorAssetsForCustomizationFilter() {
@@ -524,43 +496,48 @@
         if ($empty) $empty.classList.toggle('d-none', total > 0);
     }
 
-    // 作品：對照圖優先；同分類數位原型永遠可追加（分類優先，不因訂製程度鎖死作品）
+    // 作品篩選不變；訂製程度篩選時一併顯示符合廠商之作品與素材
     async function applyFilters() {
         const gen = ++_applyFiltersGen;
-        let portList = sortPortfolioPreferComparison(filterPortfolioItems());
+        let portList;
         let assetList = [];
 
-        const wantPrototypes = !!(selCat || scopeMfrId || selCustomizationLevels.length);
-        if (wantPrototypes) {
+        if (selCustomizationLevels.length) {
             try {
-                let rawAssets = [];
-                if (selCustomizationLevels.length) {
-                    rawAssets = await fetchVendorAssetsForCustomizationFilter();
-                } else if (scopeMfrId && !selCat) {
-                    rawAssets = await fetchVendorAssetsForManufacturer(scopeMfrId);
-                } else {
-                    rawAssets = await fetchVendorAssetsForGallery();
-                }
+                const rawAssets = await fetchVendorAssetsForCustomizationFilter();
                 if (gen !== _applyFiltersGen) return;
+                const mfrSet = new Set(rawAssets.map(a => a.manufacturer_id).filter(Boolean));
+                portList = filterPortfolioItems(mfrSet);
                 assetList = filterAssetItems(rawAssets);
                 _lastAssetItems = assetList;
             } catch (_) {
+                portList = filterPortfolioItems(new Set());
                 assetList = [];
                 _lastAssetItems = [];
             }
         } else {
-            _lastAssetItems = [];
+            portList = filterPortfolioItems();
+            if (portList.length === 0 && (selCat || scopeMfrId)) {
+                try {
+                    const raw = scopeMfrId && !selCat
+                        ? await fetchVendorAssetsForManufacturer(scopeMfrId)
+                        : await fetchVendorAssetsForGallery();
+                    if (gen !== _applyFiltersGen) return;
+                    assetList = filterAssetItems(raw);
+                    _lastAssetItems = assetList;
+                } catch (_) {
+                    _lastAssetItems = [];
+                }
+            } else {
+                _lastAssetItems = [];
+            }
         }
 
         if (gen !== _applyFiltersGen) return;
 
         if (portList.length) {
             renderGrid(portList);
-            if (assetList.length) {
-                $grid.insertAdjacentHTML('beforeend',
-                    '<div class="col-12 mt-1"><p class="text-muted small mb-1">' + esc(T.assetsSupplementIntro) + '</p></div>');
-                appendAssetCardsToGrid(assetList);
-            }
+            if (assetList.length && selCustomizationLevels.length) appendAssetCardsToGrid(assetList);
         } else if (assetList.length) {
             renderAssetGrid(assetList);
         } else {
@@ -771,27 +748,13 @@
             const mfr = esc(p.manufacturer_name||'');
             const loc = esc(p.manufacturer_location||'');
             const img = p.image_url ? esc(p.image_url) : '';
-            const before = p.image_url_before ? esc(p.image_url_before) : '';
-            const isComp = !!(before && img);
-            const badge = isComp
-                ? ('<span class="badge bg-primary-subtle text-primary border mb-1">' + esc(T.badgeComparison) + '</span>')
-                : ('<span class="badge bg-secondary-subtle text-secondary border mb-1">' + esc(T.badgeWork) + '</span>');
-            const media = isComp
-                ? ('<div class="d-flex h-100 w-100">' +
-                    '<div class="w-50 h-100 overflow-hidden border-end"><img src="' + before + '" alt="設計圖" class="object-fit-cover w-100 h-100" loading="lazy"></div>' +
-                    '<div class="w-50 h-100 overflow-hidden"><img src="' + img + '" alt="作品" class="object-fit-cover w-100 h-100" loading="lazy"></div>' +
-                    '</div>')
-                : (img
-                    ? ('<img src="' + img + '" alt="' + title + '" class="object-fit-cover" loading="lazy" onerror="this.style.background=\'#eee\';this.alt=\'無圖\';" />')
-                    : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>');
             const tags = (p.tags||[]).slice(0,3).map(t=>`<span class="badge bg-light text-dark me-1">${esc(t)}</span>`).join('');
             return `<div class="col-sm-6 col-md-4 col-lg-3">
                 <div class="card h-100 border-0 shadow-sm gallery-card" data-id="${esc(p.id)}" style="cursor:pointer;">
                     <div class="ratio ratio-4x3 bg-light rounded-top overflow-hidden">
-                        ${media}
+                        ${img ? `<img src="${img}" alt="${title}" class="object-fit-cover" loading="lazy" onerror="this.style.background='#eee';this.alt='無圖';" />` : '<div class="d-flex align-items-center justify-content-center text-muted"><i class="bi bi-image"></i></div>'}
                     </div>
                     <div class="card-body py-2">
-                        ${badge}
                         <h6 class="card-title small text-truncate mb-0">${title}</h6>
                         <p class="card-text small text-muted mb-0">${mfr}${loc?' <span class="text-secondary">· '+loc+'</span>':''}</p>
                         ${tags?`<div class="mt-1">${tags}</div>`:''}
@@ -817,31 +780,8 @@
         const p = _rawItems.find(i => String(i&&i.id) === String(portfolioId||''));
         if (!p) return;
         const modal = new bootstrap.Modal(document.getElementById('galleryModal'));
-        document.getElementById('galleryModalLabel').textContent = T.modalTitle;
-        const after = p.image_url || '';
-        const before = (p.image_url_before || '').trim();
-        const imgEl = document.getElementById('modalImage');
-        let pair = document.getElementById('modalComparePair');
-        if (before && after) {
-            if (!pair) {
-                pair = document.createElement('div');
-                pair.id = 'modalComparePair';
-                pair.className = 'mb-2';
-                imgEl.parentNode.insertBefore(pair, imgEl);
-            }
-            pair.innerHTML =
-                '<div class="d-flex gap-2">' +
-                '<div class="flex-fill text-center"><div class="small text-muted mb-1">設計圖</div><img src="' + esc(before) + '" alt="設計圖" class="img-fluid rounded" style="max-height:42vh;object-fit:contain;"></div>' +
-                '<div class="flex-fill text-center"><div class="small text-muted mb-1">作品</div><img src="' + esc(after) + '" alt="作品" class="img-fluid rounded" style="max-height:42vh;object-fit:contain;"></div>' +
-                '</div>';
-            pair.classList.remove('d-none');
-            imgEl.classList.add('d-none');
-        } else {
-            if (pair) { pair.classList.add('d-none'); pair.innerHTML = ''; }
-            imgEl.classList.remove('d-none');
-            imgEl.src = after;
-            imgEl.alt = p.title || '';
-        }
+        document.getElementById('modalImage').src = p.image_url||'';
+        document.getElementById('modalImage').alt = p.title||'';
         document.getElementById('modalTitle').textContent = p.title||'未命名作品';
         document.getElementById('modalDescription').textContent = p.description||'';
         const hi = (p.design_highlight||'').trim();
@@ -890,11 +830,7 @@
         browseBtn.innerHTML = `<i class="bi bi-building me-1"></i>${browseLabel}`;
 
         document.getElementById('modalBtnRedesign').href =
-            '/custom-product.html?from_gallery=1&image_url='+encodeURIComponent(p.image_url||p.image_url_before||'')+
-            '&portfolio_id='+encodeURIComponent(p.id||'')+
-            (mfrId ? '&manufacturer_id='+encodeURIComponent(mfrId) : '')+
-            (p.category_key ? '&category_key='+encodeURIComponent(p.category_key) : '')+
-            (p.subcategory_key ? '&subcategory_key='+encodeURIComponent(p.subcategory_key) : '');
+            '/custom-product.html?from_gallery=1&image_url='+encodeURIComponent(p.image_url||'')+'&portfolio_id='+encodeURIComponent(p.id||'');
         modal.show();
     }
 
@@ -903,11 +839,7 @@
         if (!a) return;
         const modal = new bootstrap.Modal(document.getElementById('galleryModal'));
         document.getElementById('galleryModalLabel').textContent = T.modalAssetTitle;
-        const pair = document.getElementById('modalComparePair');
-        if (pair) { pair.classList.add('d-none'); pair.innerHTML = ''; }
-        const imgEl = document.getElementById('modalImage');
-        imgEl.classList.remove('d-none');
-        imgEl.src = a.image_url || '';
+        document.getElementById('modalImage').src = a.image_url || '';
         document.getElementById('modalTitle').textContent = a.title || T.modalAssetTitle;
         document.getElementById('modalDescription').textContent = a.description || '';
         document.getElementById('modalDesignHighlightBlock').classList.add('d-none');
@@ -1023,7 +955,6 @@
         if (urlSub) selSub = urlSub;
         if (scopeMfrId) applyScopedGalleryUi(scopeMfrName);
         else if (selCustomizationLevels.length) applyCustomizationFilterBanner();
-        else if (urlCat) applyCategoryFindVendorBanner();
         await Promise.all([loadPortfolio(), loadCategories(), loadAndBindAreaButtons()]);
         renderCategoryButtons();
         renderSubcategoryRow();

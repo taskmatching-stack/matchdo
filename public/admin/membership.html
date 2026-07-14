@@ -529,8 +529,7 @@
       if (!res.ok) return;
       var rows = [
         { key: 'points_text_to_image', label: 'AI 文生圖', value: data.points_text_to_image, note: '點/次（無參考圖）' },
-        { key: 'points_image_to_image', label: 'AI 圖生圖', value: data.points_image_to_image, note: '點/次（有參考圖，一般／廠商版型）' },
-        { key: 'points_official_image_to_image', label: '官方版型圖生圖', value: data.points_official_image_to_image, note: '點/次（參考圖含官方版型，預設 15）' },
+        { key: 'points_image_to_image', label: 'AI 圖生圖', value: data.points_image_to_image, note: '點/次（有參考圖）' },
         { key: 'points_ai_upscale', label: 'AI 放大', value: data.points_ai_upscale, note: '點/次（我的 AI 編輯區）' },
         { key: 'points_ai_sketch', label: '草圖轉圖像', value: data.points_ai_sketch, note: '點/次（控制類，我的 AI 編輯區，預設 20）' },
         { key: 'points_ai_structure', label: '結構轉圖像', value: data.points_ai_structure, note: '點/次（控制類，我的 AI 編輯區，預設 20）' },
