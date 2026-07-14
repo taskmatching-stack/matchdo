@@ -15,6 +15,30 @@
     <link href="/css/image-lightbox.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
+    <script>
+    (function () {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('official_platform') === '1' || p.get('official_platform') === 'true') {
+            window.__MATCHDO_OFFICIAL_PLATFORM_LIB = true;
+            var origFetch = window.fetch;
+            window.fetch = function (input, init) {
+                init = init || {};
+                var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+                if (/\/api\/me\//.test(url) || /\/api\/admin\//.test(url)) {
+                    var headers = new Headers(init.headers || (typeof input !== 'string' && input && input.headers ? input.headers : undefined));
+                    if (!headers.has('X-Official-Platform-Library')) headers.set('X-Official-Platform-Library', '1');
+                    if (typeof input === 'string') {
+                        init = Object.assign({}, init, { headers: headers });
+                    } else {
+                        input = new Request(input, Object.assign({}, init, { headers: headers }));
+                        init = undefined;
+                    }
+                }
+                return origFetch.call(this, input, init);
+            };
+        }
+    })();
+    </script>
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
     <style>
@@ -186,8 +210,9 @@
                     <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料/顏色」。</small>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
-                    <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
+                    <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary vendor-only-not-official"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
+                    <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary vendor-only-not-official"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
+                    <a href="/admin/" class="btn btn-sm btn-outline-secondary d-none" id="btn-back-admin"><i class="bi bi-arrow-left me-1"></i>返回後台</a>
                     <button type="button" class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i><span id="btn-add-open-label" data-i18n="baseModels.addUpload">新增</span></button>
                 </div>
             </div>
@@ -202,17 +227,22 @@
             <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料。<a href="/client/manufacturer-dashboard.html" class="alert-link">前往控制台建立</a>
         </div>
         <div id="admin-official-hint" class="alert alert-info d-none">
-            <i class="bi bi-info-circle me-2"></i>管理員上傳<strong>官方版型</strong>請至後台
-            <a href="/admin/official-library.html" class="alert-link">官方版型庫</a>（此頁為個人廠商素材，需先建立廠商資料）。
+            <i class="bi bi-info-circle me-2"></i>管理員上傳<strong>官方版型</strong>請至
+            <a href="/client/manufacturer-materials.html?official_platform=1" class="alert-link">官方版型庫</a>（此頁為個人廠商素材，需先建立廠商資料）。
+        </div>
+
+        <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
+            <i class="bi bi-collection me-2"></i>
+            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、零件、材料）。內容會出現在設計頁「官方版型」。
         </div>
 
         <div id="main-content" class="d-none">
             <div id="viewer-context-bar" class="alert alert-secondary border-0 py-2 small mb-3 d-none" role="status"></div>
-            <div class="alert alert-warning border mb-3 py-2 small" role="note">
+            <div class="alert alert-warning border mb-3 py-2 small vendor-only-not-official" role="note">
                 <i class="bi bi-shield-check me-1"></i>
                 <span data-i18n="baseModels.vendorZonePolicy">廠商工作區清單<strong>僅</strong>含：① 本廠自行上傳　② 從<strong>產業供應商目錄</strong>匯入（標示「引用自供應商」）。<strong>不會</strong>也<strong>不允許</strong>引用或顯示其他製造商／廠商的產品。</span>
             </div>
-            <div class="alert alert-light border mb-3 py-2 small">
+            <div class="alert alert-light border mb-3 py-2 small vendor-only-not-official">
                 <i class="bi bi-info-circle text-primary me-1"></i>
                 此頁素材會顯示在公開廠商頁「<strong>素材庫</strong>」；展示案例（系列／對照圖）請至
                 <a href="/client/manufacturer-portfolio.html" class="alert-link">上傳展示案例</a>。
@@ -308,7 +338,7 @@
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
                                         <label class="form-label fw-semibold mb-0">產品圖片 <span class="text-danger">*</span></label>
-                                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                                        <div class="d-flex flex-wrap gap-1 align-items-center vendor-only-not-official">
                                             <button type="button" class="btn btn-outline-success btn-sm btn-open-supplier-import" disabled><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.pickFromSupplierCatalog">從供應商選取</span></button>
                                             <a href="/client/industry-suppliers.html" class="btn btn-outline-secondary btn-sm" data-i18n="baseModels.browseAllSuppliers">全部供應商</a>
                                         </div>
@@ -322,7 +352,7 @@
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeMultiImageHint">在上方「選擇檔案」可一次選多張（第一張為封面，最多 12 張；Windows 按住 Ctrl、Mac 按住 Command 多選）；選完會出現在下方待傳清單，可拖曳︙把手調整順序。點圖片＝預覽放大；圖下方可按「AI 重繪」或「AI 放大」後再發布。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.prototypeGalleryUsageHint">主產品可多張角度；若為<strong>主產品本體</strong>的其他顏色示意，可放在同一筆並用圖片名稱註記（例：正面／藏青）。<strong>同色、同款</strong>各角度建議歸為同一<strong>連動組</strong>（例：black），消費端點一張會同組一起選，之後仍可個別取消。<strong>配件</strong>不同顏色請改在「配件／零件」分頁各建一筆，勿塞在這裡。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
-                                    <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
+                                    <p class="small mb-0 mt-1 vendor-only-not-official"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
                                     <div class="add-optimize-bg-wrap mb-2">
@@ -436,7 +466,7 @@
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
                                         <label class="form-label fw-semibold mb-0">產品圖片 <span class="text-danger">*</span></label>
-                                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                                        <div class="d-flex flex-wrap gap-1 align-items-center vendor-only-not-official">
                                             <button type="button" class="btn btn-outline-success btn-sm btn-open-supplier-import" disabled><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.pickFromSupplierCatalog">從供應商選取</span></button>
                                             <a href="/client/industry-suppliers.html" class="btn btn-outline-secondary btn-sm" data-i18n="baseModels.browseAllSuppliers">全部供應商</a>
                                         </div>
@@ -555,7 +585,7 @@
                                 <div class="col-12 ref-image-block">
                                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
                                         <label class="form-label fw-semibold mb-0">參考圖 <span class="text-danger">*</span></label>
-                                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                                        <div class="d-flex flex-wrap gap-1 align-items-center vendor-only-not-official">
                                             <button type="button" class="btn btn-outline-success btn-sm btn-open-supplier-import" disabled><i class="bi bi-box-arrow-in-down me-1"></i><span data-i18n="baseModels.pickFromSupplierCatalog">從供應商選取</span></button>
                                             <a href="/client/industry-suppliers.html" class="btn btn-outline-secondary btn-sm" data-i18n="baseModels.browseAllSuppliers">全部供應商</a>
                                         </div>
@@ -570,7 +600,7 @@
                                     <p class="form-text text-muted small mb-1"><strong>封面請放一張「多色滿版色卡」</strong>（AI 只讀封面產標籤／說明）。其餘單色樣張給設計者選用；封面設為僅展示且不另耗 AI token。</p>
                                     <p class="form-text text-muted small mb-1" data-i18n="baseModels.materialImageHint">一筆材料＝一種主產品用材質（例：14oz 丹寧藍）。標題請寫材質名稱，勿寫配件名＋顏色。</p>
                                     <p class="form-text text-muted small mb-0" data-i18n="baseModels.clickImageEnlarge">點擊圖片可放大預覽。上傳時會自動產生 AI 標籤。</p>
-                                    <p class="small mb-0 mt-1"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
+                                    <p class="small mb-0 mt-1 vendor-only-not-official"><a href="/client/my-supplier-references.html" data-i18n="baseModels.manageSupplierRefs">供應商引用管理 →</a></p>
                                 </div>
                                 <div class="col-12 add-per-image-optimize-wrap">
                                     <div class="add-optimize-bg-wrap mb-2">
@@ -884,7 +914,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'redraw-top-original-bottom-new-20260713';
+        window.__MATCHDO_MATERIALS_BUILD = 'official-platform-reuse-mfr-page-20260715';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -8170,11 +8200,32 @@
             initPrototypeMetaFields();
             showMaterialsListLoading();
 
+            var isOfficialPlatformLib = !!window.__MATCHDO_OFFICIAL_PLATFORM_LIB;
+
             token = await getToken();
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
             try {
+                if (isOfficialPlatformLib) {
+                    var adminGate = await fetch('/api/admin/can-access', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' });
+                    if (!adminGate.ok) {
+                        document.getElementById('auth-alert').classList.remove('d-none');
+                        document.getElementById('auth-alert').innerHTML = '請以<strong>管理員</strong>帳號登入後再編輯官方版型庫。請先 <a href="/index.html" class="alert-link">登入</a>。';
+                        return;
+                    }
+                    document.querySelectorAll('.vendor-only-not-official').forEach(function (el) { el.classList.add('d-none'); });
+                    var backAdmin = document.getElementById('btn-back-admin');
+                    if (backAdmin) backAdmin.classList.remove('d-none');
+                    var offBanner = document.getElementById('official-platform-banner');
+                    if (offBanner) offBanner.classList.remove('d-none');
+                    var titleH4 = document.querySelector('.page-title-bar h4');
+                    if (titleH4) titleH4.textContent = '官方版型庫（管理員）';
+                    var titleSmall = document.querySelector('.page-title-bar small');
+                    if (titleSmall) titleSmall.textContent = '與廠商「上傳數位版型」相同介面：數位原型、配件／零件、材料／顏色，含 AI 重繪、寫實化、放大。';
+                    document.title = '官方版型庫（管理員）';
+                }
+
                 var mfrRes = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
-                if (mfrRes.status === 404) {
+                if (!isOfficialPlatformLib && mfrRes.status === 404) {
                     try {
                         var adminAccess = await fetch('/api/admin/can-access', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' });
                         if (adminAccess.ok) {
@@ -8187,8 +8238,11 @@
                 }
                 if (!mfrRes.ok) throw new Error('load failed');
                 var mfrData = await mfrRes.json();
+                if (isOfficialPlatformLib) {
+                    viewerManufacturerId = mfrData.id || null;
+                }
                 var linkPubMat = document.getElementById('link-public-vendor-page-mat');
-                if (linkPubMat && mfrData.id) linkPubMat.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrData.id);
+                if (linkPubMat && mfrData.id && !isOfficialPlatformLib) linkPubMat.href = '/vendor-profile.html?id=' + encodeURIComponent(mfrData.id);
                 document.getElementById('main-content').classList.remove('d-none');
                 initMatchdoCollapsibleHints();
                 markProductionTypeSelectsLoading();

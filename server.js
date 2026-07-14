@@ -4620,6 +4620,15 @@ async function listOfficialPlatformManufacturerIds() {
     return id ? [id] : [];
 }
 
+/** 管理員以廠商數位版型同一套 UI 編輯 MATCHDO 官方版型池（header / query） */
+function isOfficialPlatformLibraryRequest(req) {
+    if (!req) return false;
+    const h = String(req.headers['x-official-platform-library'] || '').trim().toLowerCase();
+    if (h === '1' || h === 'true' || h === 'yes') return true;
+    const q = req.query && req.query.official_platform != null ? String(req.query.official_platform).trim().toLowerCase() : '';
+    return q === '1' || q === 'true' || q === 'yes';
+}
+
 async function queryOfficialAssetsForApi(reqQuery, opts) {
     const options = opts || {};
     const publicOnly = options.publicOnly !== false;
@@ -10426,6 +10435,12 @@ async function canUploadProductsAndAssetsUserId(userId) {
 async function assertCanUploadProductsAndAssets(req, res) {
     const user = await getCurrentUser(req, res);
     if (!user) return null;
+    if (isOfficialPlatformLibraryRequest(req)) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (profile?.role === 'admin') return user;
+        res.status(403).json({ error: '僅管理員可上傳官方版型庫', code: 'OFFICIAL_PLATFORM_ADMIN_REQUIRED' });
+        return null;
+    }
     const allowed = await canUploadProductsAndAssetsUserId(user.id);
     if (!allowed) {
         res.status(403).json({
@@ -14229,7 +14244,36 @@ app.get('/api/me/manufacturer', async (req, res) => {
             return res.status(500).json({ error: '查詢失敗' });
         }
         const mfr = resq.data;
-        if (!mfr) return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
+        if (!mfr) {
+            if (isOfficialPlatformLibraryRequest(req)) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                if (profile?.role !== 'admin') {
+                    return res.status(403).json({ error: '僅管理員可編輯官方版型庫', code: 'OFFICIAL_PLATFORM_ADMIN_REQUIRED' });
+                }
+                const officialId = await getOrEnsureOfficialPlatformManufacturerId();
+                if (!officialId) return res.status(503).json({ error: '無法讀取官方版型庫（MATCHDO 官方版型）' });
+                let offRes = await supabase.from('manufacturers').select(selectWithLogo).eq('id', officialId).maybeSingle();
+                if (offRes.error) {
+                    offRes = await supabase.from('manufacturers').select('id, name, description, location, categories, contact_json').eq('id', officialId).maybeSingle();
+                    if (!offRes.error && offRes.data) {
+                        offRes.data.logo_url = null;
+                        offRes.data.vendor_source = 'platform';
+                    }
+                }
+                if (offRes.error || !offRes.data) {
+                    return res.status(503).json({ error: '無法讀取官方版型庫資料' });
+                }
+                const officialMfr = offRes.data;
+                officialMfr.logo_url = manufacturerLogoFromRow(officialMfr);
+                officialMfr.contact_json = attachStoreUrlsToContactJson(officialMfr.contact_json);
+                officialMfr.vendor_source = officialMfr.vendor_source || 'platform';
+                officialMfr.seed_vendor_self_service_locked = false;
+                officialMfr.can_edit_vendor_content = true;
+                officialMfr.official_platform_library = true;
+                return res.json(officialMfr);
+            }
+            return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
+        }
         mfr.logo_url = manufacturerLogoFromRow(mfr);
         mfr.contact_json = attachStoreUrlsToContactJson(mfr.contact_json);
         mfr.seed_vendor_self_service_locked = manufacturerIsSeedVendor(mfr) && !manufacturerSeedSelfServiceEnabled(mfr);
@@ -18964,11 +19008,8 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         } catch (syncErr) {
             console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
         }
-        const { data: mfr } = await supabase.from('manufacturers').select('id, name').eq('user_id', user.id).maybeSingle();
-        if (!mfr) {
-            return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
-        }
-        const manufacturerId = mfr.id;
+        const manufacturerId = await getMeManufacturerId(req, res);
+        if (!manufacturerId) return;
         const categoryKey = (req.query.category_key || '').trim() || null;
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
@@ -21487,6 +21528,42 @@ app.get('/api/me/capabilities', async (req, res) => {
         if (!token) return res.status(401).json({ error: '請先登入' });
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
+        if (isOfficialPlatformLibraryRequest(req)) {
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+            if (profile?.role !== 'admin') {
+                return res.status(403).json({ error: '僅管理員可編輯官方版型庫', code: 'OFFICIAL_PLATFORM_ADMIN_REQUIRED' });
+            }
+            const officialId = await getOrEnsureOfficialPlatformManufacturerId();
+            if (!officialId) return res.status(503).json({ error: '無法讀取官方版型庫（MATCHDO 官方版型）' });
+            const catalogReady = await supplierCatalogTablesReady();
+            return res.json({
+                has_manufacturer: true,
+                is_industry_supplier: false,
+                industry_supplier_id: null,
+                is_qualified_manufacturer: true,
+                manufacturer_id: officialId,
+                manufacturer_is_active: true,
+                portfolio_total_count: 0,
+                vendor_assets_count: 0,
+                active_portfolio_count: 0,
+                portfolio_count: 0,
+                qualifies_for_supplier_import: false,
+                bypass_supplier_portfolio_gate: true,
+                vendor_source: 'platform',
+                is_seed_vendor: false,
+                seed_vendor_self_service_locked: false,
+                can_edit_vendor_content: true,
+                supplier_catalog_ready: catalogReady,
+                can_upload_products_and_assets: true,
+                can_browse_supplier_catalog: false,
+                can_use_supplier_catalog: false,
+                can_import_supplier_catalog: false,
+                can_manage_supplier_catalog: false,
+                official_platform_library: true,
+                zones: { design: true, manufacturer: true, industry_supplier: false },
+                nav: { show_all_workspace_menus: true }
+            });
+        }
         syncMembershipCatalogVisibility(user.id).catch((syncErr) => {
             console.warn('syncMembershipCatalogVisibility:', syncErr && syncErr.message);
         });
@@ -24641,6 +24718,19 @@ async function getMeManufacturerId(req, res) {
     if (authError || !user) {
         res.status(401).json({ error: '登入已過期或無效' });
         return null;
+    }
+    if (isOfficialPlatformLibraryRequest(req)) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (profile?.role !== 'admin') {
+            res.status(403).json({ error: '僅管理員可編輯官方版型庫', code: 'OFFICIAL_PLATFORM_ADMIN_REQUIRED' });
+            return null;
+        }
+        const officialId = await getOrEnsureOfficialPlatformManufacturerId();
+        if (!officialId) {
+            res.status(503).json({ error: '無法讀取官方版型庫（MATCHDO 官方版型）' });
+            return null;
+        }
+        return officialId;
     }
     const { data: mfr, error } = await supabase
         .from('manufacturers')
