@@ -554,9 +554,11 @@
             .cat-bs-item .cat-bs-placeholder-icon { width: 1.1rem; flex-shrink: 0; }
             .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #9ca3af; font-size: 0.75rem; }
 
-            /* 廠商版型 Tab（手機） */
-            #panel-vendor-styles { padding-bottom: 0.5rem; }
-            #panel-vendor-styles #bs-cat-mobile-btn {
+            /* 廠商版型／官方版型 Tab（手機） */
+            #panel-vendor-styles,
+            #panel-official-styles { padding-bottom: 0.5rem; }
+            #panel-vendor-styles #bs-cat-mobile-btn,
+            #panel-official-styles #os-cat-mobile-btn {
                 display: flex !important;
                 align-items: center;
                 gap: 0.5rem;
@@ -571,27 +573,36 @@
                 text-align: left;
                 cursor: pointer;
             }
-            #panel-vendor-styles #bs-cat-mobile-btn.has-value {
+            #panel-vendor-styles #bs-cat-mobile-btn.has-value,
+            #panel-official-styles #os-cat-mobile-btn.has-value {
                 border-color: #445D7E;
                 color: #445D7E;
                 font-weight: 500;
             }
-            #panel-vendor-styles .bs-change-cat-desktop { display: inline !important; }
-            #panel-vendor-styles .row.g-2 > [class*="col-"] {
+            #panel-vendor-styles .bs-change-cat-desktop,
+            #panel-official-styles .bs-change-cat-desktop { display: inline !important; }
+            #panel-vendor-styles .row.g-2 > [class*="col-"],
+            #panel-official-styles .row.g-2 > [class*="col-"] {
                 flex: 0 0 100%;
                 max-width: 100%;
             }
-            #panel-vendor-styles .bs-grid:not(.d-none) {
+            #panel-vendor-styles .bs-grid:not(.d-none),
+            #panel-official-styles .bs-grid:not(.d-none) {
                 display: grid !important;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 0.65rem;
             }
             #panel-vendor-styles .bs-card-title,
-            #panel-vendor-styles .bs-card .fw-semibold.small { font-size: 0.8rem; }
+            #panel-vendor-styles .bs-card .fw-semibold.small,
+            #panel-official-styles .bs-card-title,
+            #panel-official-styles .bs-card .fw-semibold.small { font-size: 0.8rem; }
             #panel-vendor-styles .bs-card-actions .btn,
-            #panel-vendor-styles .bs-card .btn { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
+            #panel-vendor-styles .bs-card .btn,
+            #panel-official-styles .bs-card-actions .btn,
+            #panel-official-styles .bs-card .btn { font-size: 0.8rem; padding: 0.35rem 0.5rem; }
             #bs-manufacturer-suggest { z-index: 1095 !important; }
-            #panel-vendor-styles { position: relative; z-index: 1; }
+            #panel-vendor-styles,
+            #panel-official-styles { position: relative; z-index: 1; }
 
         }
         @keyframes canvas-pulse {
@@ -992,6 +1003,12 @@
             background: #fff;
         }
         #custom-product .ref-intent-btn--lib:hover { background: #f4f7fa; color: #445D7E; border-color: #94a3b8; }
+        #custom-product .ref-intent-btn--official {
+            color: #445D7E;
+            border: 1px solid #c5d0de;
+            background: #fff;
+        }
+        #custom-product .ref-intent-btn--official:hover { background: #f4f7fa; color: #334155; border-color: #94a3b8; }
         #custom-product .ref-intent-btn--up {
             color: #475569;
             border: 1px solid #cbd5e1;
@@ -1351,6 +1368,9 @@
                         <button class="nav-link active" id="tab-product-design" data-bs-toggle="tab" data-bs-target="#panel-product-design" type="button" role="tab" aria-controls="panel-product-design" aria-selected="true" data-i18n="customProduct.productDesignTab">產品設計</button>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-official-styles" data-bs-toggle="tab" data-bs-target="#panel-official-styles" type="button" role="tab" aria-controls="panel-official-styles" aria-selected="false" data-i18n="customProduct.officialStylesTab">官方版型</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-vendor-styles" data-bs-toggle="tab" data-bs-target="#panel-vendor-styles" type="button" role="tab" aria-controls="panel-vendor-styles" aria-selected="false" data-i18n="customProduct.vendorStylesTab">廠商版型</button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -1407,7 +1427,6 @@
                             <div class="form-row full">
                                 <span class="label mb-1 d-block" data-i18n="customProduct.refImages">參考圖（依用途上傳）</span>
                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none mb-2" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
-                                <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
                                 <div id="refIntentSlots" class="mb-1"></div>
                                 <div id="refCapabilityPicker" class="d-none mb-2">
@@ -1444,6 +1463,44 @@
                         </div>
                     </div>
                 </form>
+                    </div>
+                    <div class="tab-pane fade" id="panel-official-styles" role="tabpanel" aria-labelledby="tab-official-styles">
+                        <p class="text-muted small mb-2" data-i18n="customProduct.officialStylesTabHint">平台共用基本版型（顯示名固定「官方版型」）。與產品設計共用主／子分類；選圖後帶入參考，不綁真實接單廠商、無可搭配 MAP。</p>
+                        <button type="button" id="os-cat-mobile-btn" class="cat-mobile-btn d-none" aria-haspopup="dialog" aria-controls="catBottomSheet">
+                            <i class="bi bi-folder2-open" aria-hidden="true"></i>
+                            <span id="osCatMobileBtnLabel" data-i18n="customProduct.categoryRequired">分類（必選）</span>
+                            <i class="bi bi-chevron-down ms-auto" aria-hidden="true"></i>
+                        </button>
+                        <div id="os-category-summary" class="alert alert-light border small py-2 mb-2 d-none">
+                            <span data-i18n="customProduct.vendorStylesCurrentCategory">目前分類：</span>
+                            <strong id="os-cat-main-label"></strong>／<strong id="os-cat-sub-label"></strong>
+                            <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline bs-change-cat-desktop" id="os-go-set-category" data-i18n="customProduct.vendorStylesChangeCategory">變更分類</button>
+                        </div>
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small mb-1" for="os-asset-kind" data-i18n="customProduct.filterAssetKind">素材類型</label>
+                                <select id="os-asset-kind" class="form-select form-select-sm">
+                                    <option value="prototype" data-i18n="customProduct.assetKindPrototype">數位原型</option>
+                                    <option value="part" data-i18n="customProduct.assetKindPart">配件／零件</option>
+                                    <option value="material" data-i18n="customProduct.assetKindMaterial">材料/顏色</option>
+                                    <option value="" data-i18n="customProduct.assetKindAll">全部</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label small mb-1" for="os-filter-q" data-i18n="browseStyles.filterSearch">搜尋</label>
+                                <input type="search" id="os-filter-q" class="form-control form-control-sm" data-i18n-placeholder="browseStyles.searchPlaceholder" placeholder="款式關鍵字">
+                            </div>
+                        </div>
+                        <div id="os-alert" class="alert alert-warning d-none"></div>
+                        <div id="os-loading" class="text-center py-4 text-muted">
+                            <div class="spinner-border spinner-border-sm me-2"></div><span data-i18n="browseStyles.loading">載入中…</span>
+                        </div>
+                        <div id="os-empty" class="text-center py-4 text-muted d-none">
+                            <i class="bi bi-inbox display-6 d-block mb-2 opacity-50"></i>
+                            <p class="mb-0" data-i18n="customProduct.officialStylesEmpty">此分類尚無已上架的官方版型。請改分類，或請管理員至後台「官方版型庫」上傳。</p>
+                        </div>
+                        <div id="os-grid" class="bs-grid d-none"></div>
+                        <nav id="os-pager" class="d-flex justify-content-center gap-2 mt-3 d-none" aria-label="pagination"></nav>
                     </div>
                     <div class="tab-pane fade" id="panel-vendor-styles" role="tabpanel" aria-labelledby="tab-vendor-styles">
                         <p class="text-muted small mb-2" data-i18n="customProduct.vendorStylesTabHint">與「產品設計」共用主／子分類（網址會帶入 category_key）。可直接點「變更分類」；點「用此款進行設計」帶入參考圖。</p>
