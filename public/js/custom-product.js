@@ -3421,6 +3421,16 @@ $(document).ready(function () {
         });
     }
 
+    function isAutoStorageImageLabel(label, title) {
+        var lab = String(label || '').trim();
+        if (!lab) return true;
+        var tit = String(title || '').trim();
+        if (tit && lab === tit) return true;
+        if (/^\d{10,}-[a-f0-9]{6,}/i.test(lab)) return true;
+        if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(lab)) return true;
+        return false;
+    }
+
     function buildVendorStyleBrowseCardHtml(item, opts) {
         opts = opts || {};
         var official = opts.official === true || item.official === true;
@@ -3467,7 +3477,7 @@ $(document).ready(function () {
             escAttr(item.id || '') + '"><img src="' + imgUrl + '" alt="" class="bs-card-thumb-img" loading="lazy"></a></div>'
             : '<div class="bs-card-thumb-placeholder"><i class="bi bi-image fs-2"></i></div>';
         var coverLabel = (imageItems[0] && imageItems[0].label) ? String(imageItems[0].label).trim() : '';
-        var coverLabelHtml = coverLabel
+        var coverLabelHtml = (coverLabel && !isAutoStorageImageLabel(coverLabel, item.title || ''))
             ? '<div class="small text-muted text-truncate" title="' + escAttr(coverLabel) + '">' +
             coverLabel.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '';
         var selectBtn = '<a href="' + designUrl + '" class="btn btn-sm btn-primary w-100 bs-btn-select-design" data-prototype-id="' +

@@ -5795,17 +5795,37 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
         insertPayload.asset_kind = normalizeVendorAssetKind(body.asset_kind);
         insertPayload[VENDOR_ASSET_PLATFORM_MANAGED_COL] = true;
         insertPayload[VENDOR_ASSET_MEMBERSHIP_HIDE_COL] = false;
-        const { data: inserted, error } = await supabase
-            .from('vendor_assets')
-            .insert(insertPayload)
-            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, created_at')
-            .single();
+        const adminInsertSelect = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, asset_kind, created_at';
+        async function tryAdminVendorAssetInsert(payload) {
+            const { data: inserted, error } = await supabase
+                .from('vendor_assets')
+                .insert(payload)
+                .select(adminInsertSelect)
+                .single();
+            return { data: inserted, error };
+        }
+        let insertResult = await tryAdminVendorAssetInsert(insertPayload);
+        let error = insertResult.error;
+        let inserted = insertResult.data;
+        if (error && error.code === '42703') {
+            const msg = String(error.message || '');
+            const retryPayload = { ...insertPayload };
+            if (msg.includes(VENDOR_ASSET_PLATFORM_MANAGED_COL) || msg.includes(VENDOR_ASSET_MEMBERSHIP_HIDE_COL)) {
+                delete retryPayload[VENDOR_ASSET_PLATFORM_MANAGED_COL];
+                delete retryPayload[VENDOR_ASSET_MEMBERSHIP_HIDE_COL];
+                insertResult = await tryAdminVendorAssetInsert(retryPayload);
+                error = insertResult.error;
+                inserted = insertResult.data;
+            }
+        }
         if (error) {
             if (error.code === '42P01') return res.status(500).json({ error: '請先執行 docs/vendor-assets-schema.sql 建立 vendor_assets 表' });
             if (error.code === '42703' && String(error.message || '').includes('asset_kind')) {
-                delete insertPayload.asset_kind;
-                const retry = await supabase.from('vendor_assets').insert(insertPayload)
-                    .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, usage_type, sort_order, created_at').single();
+                const retryPayload = { ...insertPayload };
+                delete retryPayload.asset_kind;
+                delete retryPayload[VENDOR_ASSET_PLATFORM_MANAGED_COL];
+                delete retryPayload[VENDOR_ASSET_MEMBERSHIP_HIDE_COL];
+                const retry = await tryAdminVendorAssetInsert(retryPayload);
                 if (retry.error) return res.status(500).json({ error: '請先執行 docs/add-vendor-asset-kind.sql 新增 asset_kind 欄位' });
                 return res.status(201).json(retry.data);
             }
@@ -5819,7 +5839,6 @@ app.post('/api/admin/manufacturers/:id/vendor-assets', upload.single('image'), a
         res.status(500).json({ error: '系統錯誤' });
     }
 });
-
 // GET /api/admin/manufacturers/:id/vendor-assets — 管理員列出該廠商全部素材（含下架）
 app.get('/api/admin/manufacturers/:id/vendor-assets', async (req, res) => {
     try {

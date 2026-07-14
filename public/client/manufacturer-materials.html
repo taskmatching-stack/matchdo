@@ -201,6 +201,10 @@
         <div id="no-mfr-alert" class="alert alert-warning d-none">
             <i class="bi bi-exclamation-triangle me-2"></i>您尚未建立廠商資料。<a href="/client/manufacturer-dashboard.html" class="alert-link">前往控制台建立</a>
         </div>
+        <div id="admin-official-hint" class="alert alert-info d-none">
+            <i class="bi bi-info-circle me-2"></i>管理員上傳<strong>官方版型</strong>請至後台
+            <a href="/admin/official-library.html" class="alert-link">官方版型庫</a>（此頁為個人廠商素材，需先建立廠商資料）。
+        </div>
 
         <div id="main-content" class="d-none">
             <div id="viewer-context-bar" class="alert alert-secondary border-0 py-2 small mb-3 d-none" role="status"></div>
@@ -8170,7 +8174,17 @@
             if (!token) { document.getElementById('auth-alert').classList.remove('d-none'); return; }
             try {
                 var mfrRes = await fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + token } });
-                if (mfrRes.status === 404) { document.getElementById('no-mfr-alert').classList.remove('d-none'); return; }
+                if (mfrRes.status === 404) {
+                    try {
+                        var adminAccess = await fetch('/api/admin/can-access', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' });
+                        if (adminAccess.ok) {
+                            document.getElementById('admin-official-hint').classList.remove('d-none');
+                            return;
+                        }
+                    } catch (adminCheckErr) { /* ignore */ }
+                    document.getElementById('no-mfr-alert').classList.remove('d-none');
+                    return;
+                }
                 if (!mfrRes.ok) throw new Error('load failed');
                 var mfrData = await mfrRes.json();
                 var linkPubMat = document.getElementById('link-public-vendor-page-mat');
