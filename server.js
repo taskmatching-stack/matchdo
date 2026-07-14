@@ -4577,6 +4577,144 @@ function manufacturerIsSeedVendor(mfr) {
     return !!(mfr && mfr.vendor_source === 'seed');
 }
 
+const OFFICIAL_ASSET_DISPLAY_NAME = '官方版型';
+const OFFICIAL_PLATFORM_MANUFACTURER_NAME = 'MATCHDO 官方版型';
+
+/** 官方版型庫專用廠商（固定名稱）；與種子「官方範例」個別帳號、一般廠商分離 */
+async function getOrEnsureOfficialPlatformManufacturerId() {
+    const nameEq = OFFICIAL_PLATFORM_MANUFACTURER_NAME;
+    let byName = await supabase.from('manufacturers').select('id').eq('name', nameEq).order('created_at', { ascending: true }).limit(1);
+    if (byName.error && byName.error.code === '42703') return null;
+    if (!byName.error && byName.data && byName.data[0] && byName.data[0].id) {
+        return byName.data[0].id;
+    }
+    const payload = {
+        name: nameEq,
+        description: '平台共用官方版型／配件／材料庫（全體管理員共編，非個人廠商帳號）',
+        vendor_source: 'platform',
+        is_active: true,
+        verified: true,
+        expires_at: null,
+        user_id: null
+    };
+    const ins = await supabase.from('manufacturers').insert(payload).select('id').single();
+    if (ins.error) {
+        if (ins.error.code === '42703') {
+            delete payload.vendor_source;
+            delete payload.user_id;
+            const ins2 = await supabase.from('manufacturers').insert(payload).select('id').single();
+            if (ins2.error) {
+                console.error('getOrEnsureOfficialPlatformManufacturerId insert fallback:', ins2.error);
+                return null;
+            }
+            return ins2.data && ins2.data.id ? ins2.data.id : null;
+        }
+        console.error('getOrEnsureOfficialPlatformManufacturerId insert:', ins.error);
+        return null;
+    }
+    return ins.data && ins.data.id ? ins.data.id : null;
+}
+
+async function listOfficialPlatformManufacturerIds() {
+    const id = await getOrEnsureOfficialPlatformManufacturerId();
+    return id ? [id] : [];
+}
+
+async function queryOfficialAssetsForApi(reqQuery, opts) {
+    const options = opts || {};
+    const publicOnly = options.publicOnly !== false;
+    const categoryKey = (reqQuery.category_key || '').trim();
+    if (!categoryKey) return { error: '請傳入 category_key', status: 400 };
+    const subcategoryKey = (reqQuery.subcategory_key || '').trim() || null;
+    const assetKindQ = (reqQuery.asset_kind || '').trim().toLowerCase();
+    const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material' || assetKindQ === 'part') ? assetKindQ : null;
+    const searchQ = (reqQuery.q || reqQuery.search || '').trim() || null;
+    const pageParams = parseVendorAssetsListPageParams(reqQuery);
+    const contentLang = normalizeVendorContentLang(reqQuery.lang);
+    const mfrIds = await listOfficialPlatformManufacturerIds();
+    if (!mfrIds.length) return { items: [], total: 0, name: OFFICIAL_ASSET_DISPLAY_NAME };
+    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, min_order_quantity, customization_levels, is_public';
+    let q = supabase
+        .from('vendor_assets')
+        .select(selectCols)
+        .in('manufacturer_id', mfrIds)
+        .eq('category_key', categoryKey)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+    if (publicOnly) q = q.eq('is_public', true);
+    if (subcategoryKey && assetKindFilter === 'prototype') {
+        q = q.eq('subcategory_key', subcategoryKey);
+    }
+    if (assetKindFilter) q = q.eq('asset_kind', assetKindFilter);
+    let { data: rows, error } = await q;
+    if (error && error.code === '42703') {
+        let fq = supabase
+            .from('vendor_assets')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, sort_order, asset_kind, is_public')
+            .in('manufacturer_id', mfrIds)
+            .eq('category_key', categoryKey)
+            .order('sort_order', { ascending: true });
+        if (publicOnly) fq = fq.eq('is_public', true);
+        ({ data: rows, error } = await fq);
+    }
+    if (error) {
+        if (error.code === '42P01') return { items: [], total: 0, name: OFFICIAL_ASSET_DISPLAY_NAME };
+        return { error: '查詢失敗', status: 500, detail: error };
+    }
+    let list = rows || [];
+    if (assetKindFilter) {
+        list = list.filter((r) => normalizeVendorAssetKind(r.asset_kind) === assetKindFilter);
+    }
+    if (subcategoryKey && !assetKindFilter) {
+        list = list.filter((r) => {
+            const rk = normalizeVendorAssetKind(r.asset_kind);
+            if (rk === 'material' || rk === 'part') return true;
+            return (r.subcategory_key || '') === subcategoryKey;
+        });
+    }
+    if (searchQ) {
+        const k = searchQ.toLowerCase();
+        list = list.filter((r) =>
+            (r.title || '').toLowerCase().includes(k) ||
+            (r.description || '').toLowerCase().includes(k) ||
+            (Array.isArray(r.ai_tags) && r.ai_tags.some((t) => String(t).toLowerCase().includes(k)))
+        );
+    }
+    const total = list.length;
+    const offset = pageParams.offset || 0;
+    const limit = pageParams.limit || 24;
+    list = list.slice(offset, offset + limit);
+    const items = list.map((r) => {
+        const kind = normalizeVendorAssetKind(r.asset_kind);
+        const mapped = mapVendorAssetForApi(r, contentLang);
+        const item = {
+            id: r.id,
+            manufacturer_id: null,
+            category_key: r.category_key,
+            subcategory_key: r.subcategory_key,
+            title: r.title || '',
+            description: r.description || '',
+            image_url: r.image_url,
+            gallery_images: mapped.gallery_images,
+            image_urls: mapped.image_urls,
+            image_items: mapped.image_items,
+            image_count: mapped.image_count,
+            asset_kind: kind,
+            official: true,
+            manufacturer_name: OFFICIAL_ASSET_DISPLAY_NAME,
+            manufacturer_profile_url: null,
+            manufacturer_logo_url: null,
+            ai_tags: r.ai_tags || [],
+            min_order_quantity: r.min_order_quantity != null ? r.min_order_quantity : null,
+            customization_levels: normalizeCustomizationLevels(r.customization_levels),
+            match_guide_url: null
+        };
+        if (!publicOnly) item.is_public = r.is_public !== false;
+        return item;
+    });
+    return { items, total, name: OFFICIAL_ASSET_DISPLAY_NAME };
+}
+
 /** 非種子一律可寫；種子看 seed_vendor_self_service_enabled（false = 鎖 /api/me/* 寫入）。 */
 function manufacturerSeedSelfServiceEnabled(mfr) {
     if (!mfr || !manufacturerIsSeedVendor(mfr)) return true;
@@ -5716,6 +5854,18 @@ app.patch('/api/admin/vendor-assets/:id', express.json(), async (req, res) => {
         const body = req.body || {};
         const updates = { updated_at: new Date().toISOString() };
         if (body.is_public !== undefined) updates.is_public = !!parseTruthyBody(body.is_public);
+        if (body.title !== undefined) updates.title = (body.title != null && String(body.title).trim()) ? String(body.title).trim() : null;
+        if (body.category_key !== undefined) {
+            const ck = (body.category_key || '').trim();
+            if (!ck) return res.status(400).json({ error: 'category_key 不可空白' });
+            updates.category_key = ck;
+        }
+        if (body.subcategory_key !== undefined) {
+            updates.subcategory_key = (body.subcategory_key || '').trim() || null;
+        }
+        if (body.asset_kind !== undefined) {
+            updates.asset_kind = normalizeVendorAssetKind(body.asset_kind);
+        }
         if (Object.keys(updates).length <= 1) return res.status(400).json({ error: '無可更新的欄位' });
         const { data: updated, error } = await supabase
             .from('vendor_assets')
@@ -5731,6 +5881,52 @@ app.patch('/api/admin/vendor-assets/:id', express.json(), async (req, res) => {
         res.json(updated);
     } catch (e) {
         console.error('PATCH /api/admin/vendor-assets/:id 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/official-manufacturer — 取得（或建立）共用官方版型庫廠商 id
+app.get('/api/admin/official-manufacturer', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const id = await getOrEnsureOfficialPlatformManufacturerId();
+        if (!id) return res.status(503).json({ error: '無法建立或讀取官方版型庫（請確認 manufacturers 表）' });
+        res.json({ id: id, display_name: OFFICIAL_ASSET_DISPLAY_NAME });
+    } catch (e) {
+        console.error('GET /api/admin/official-manufacturer:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/official-assets — 後台官方版型庫（含下架）
+app.get('/api/admin/official-assets', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const result = await queryOfficialAssetsForApi(req.query, { publicOnly: false });
+        if (result.error) {
+            console.error('GET /api/admin/official-assets:', result.detail || result.error);
+            return res.status(result.status || 500).json({ error: result.error });
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('GET /api/admin/official-assets:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/official-assets — 設計頁「官方版型」切換（只讀 MATCHDO 官方版型庫）
+app.get('/api/official-assets', async (req, res) => {
+    try {
+        const result = await queryOfficialAssetsForApi(req.query, { publicOnly: true });
+        if (result.error) {
+            console.error('GET /api/official-assets:', result.detail || result.error);
+            return res.status(result.status || 500).json({ error: result.error });
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('GET /api/official-assets:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });
@@ -6189,7 +6385,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -6203,6 +6399,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             monthly_points_free_tier: parseInt(obj.monthly_points_free_tier, 10) || 150,
             points_text_to_image: parseInt(obj.points_text_to_image, 10) || 15,
             points_image_to_image: parseInt(obj.points_image_to_image, 10) || 20,
+            points_official_image_to_image: parseInt(obj.points_official_image_to_image, 10) || 15,
             points_ai_upscale: parseInt(obj.points_ai_upscale, 10) || 10,
             points_ai_sketch: parseInt(obj.points_ai_sketch, 10) || 20,
             points_ai_structure: parseInt(obj.points_ai_structure, 10) || 20,
@@ -6238,6 +6435,7 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         };
         if (body.points_text_to_image !== undefined) await upsert('points_text_to_image', body.points_text_to_image);
         if (body.points_image_to_image !== undefined) await upsert('points_image_to_image', body.points_image_to_image);
+        if (body.points_official_image_to_image !== undefined) await upsert('points_official_image_to_image', body.points_official_image_to_image);
         if (body.points_ai_upscale !== undefined) await upsert('points_ai_upscale', body.points_ai_upscale);
         if (body.points_ai_sketch !== undefined) await upsert('points_ai_sketch', body.points_ai_sketch);
         if (body.points_ai_structure !== undefined) await upsert('points_ai_structure', body.points_ai_structure);
@@ -8959,6 +9157,7 @@ const BFL_PLAYGROUND_MODELS = {
 /** payment_config 鍵 → 程式預設 model id（皆 pro；max 僅在後台手動改材料槽時使用） */
 const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_generate: 'flux-2-pro',
+    bfl_flux_model_official: 'flux-2-pro',
     bfl_flux_model_vendor_product: 'flux-2-pro',
     bfl_flux_model_vendor_material: 'flux-2-pro',
     bfl_flux_model_scene_pattern: 'flux-2-pro',
@@ -9771,7 +9970,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                 isAdmin = role === 'admin';
                 isStaffViewer = role === 'admin' || role === 'tester';
                 if (!isAdmin) {
-                    const basePoints = hasRefs ? await getPointsImageToImage() : await getPointsTextToImage();
+                    const basePoints = await getPointsForProductImageGenerate(hasRefs, referenceSources || []);
                     pointsToDeduct = await applyAnnualDiscount(user.id, basePoints);
                     const { data: creditRow } = await supabase
                         .from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
@@ -9813,7 +10012,10 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         // ── 步驟 2：呼叫 BFL 生圖 ──
         if (process.env.BFL_API_KEY) {
             try {
-                const fluxGenerateEndpoint = await getBflFluxEndpointForConfigKey('bfl_flux_model_generate');
+                const fluxModelKey = (hasRefs && referenceSourcesIncludeOfficial(referenceSources || []))
+                    ? 'bfl_flux_model_official'
+                    : 'bfl_flux_model_generate';
+                const fluxGenerateEndpoint = await getBflFluxEndpointForConfigKey(fluxModelKey);
                 if (hasRefs) {
                     const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat, {
                         endpointUrl: fluxGenerateEndpoint,
@@ -9885,8 +10087,14 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                             type: 'consumed',
                             amount: -pointsToDeduct,
                             balance_after: newBalance,
-                            source: hasRefs ? 'image_to_image' : 'text_to_image',
-                            description: hasRefs ? `圖生圖（${pointsToDeduct} 點）` : `文生圖（${pointsToDeduct} 點）`
+                            source: hasRefs
+                                ? (referenceSourcesIncludeOfficial(referenceSources || []) ? 'official_image_to_image' : 'image_to_image')
+                                : 'text_to_image',
+                            description: !hasRefs
+                                ? `文生圖（${pointsToDeduct} 點）`
+                                : (referenceSourcesIncludeOfficial(referenceSources || [])
+                                    ? `官方版型圖生圖（${pointsToDeduct} 點）`
+                                    : `圖生圖（${pointsToDeduct} 點）`)
                         });
                         if (creditErr) console.warn('寫入 credit_transactions 失敗:', creditErr.message);
                         else console.log('生圖扣點 user=%s points=%d balance_after=%d', currentUser.id, pointsToDeduct, newBalance);
@@ -10347,6 +10555,23 @@ async function getPointsImageToImage() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_image_to_image');
     const v = (rows && rows[0]) ? rows[0].value : null;
     return Math.max(0, parseInt(v, 10) || 20);
+}
+
+async function getPointsOfficialImageToImage() {
+    const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_official_image_to_image');
+    const v = (rows && rows[0]) ? rows[0].value : null;
+    return Math.max(0, parseInt(v, 10) || 15);
+}
+
+function referenceSourcesIncludeOfficial(referenceSources) {
+    if (!Array.isArray(referenceSources)) return false;
+    return referenceSources.some((s) => s && s.official === true);
+}
+
+async function getPointsForProductImageGenerate(hasRefs, referenceSources) {
+    if (!hasRefs) return getPointsTextToImage();
+    if (referenceSourcesIncludeOfficial(referenceSources)) return getPointsOfficialImageToImage();
+    return getPointsImageToImage();
 }
 
 async function getPointsEmbedSimulatorGenerate() {

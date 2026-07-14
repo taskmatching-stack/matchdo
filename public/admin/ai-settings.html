@@ -61,6 +61,11 @@
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_generate</code> — 文生圖／多參考生圖</p>
             </div>
             <div class="mb-3">
+              <label class="form-label small mb-1">官方版型參考生圖</label>
+              <input type="text" id="bflFluxModelOfficial" class="form-control form-control-sm" placeholder="flux-2-pro" />
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_official</code> — 參考含官方版型時使用（未設則與設計頁相同）</p>
+            </div>
+            <div class="mb-3">
               <label class="form-label small mb-1">廠商產品 AI 重繪</label>
               <input type="text" id="bflFluxModelVendorProduct" class="form-control form-control-sm" placeholder="flux-2-pro" />
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_vendor_product</code> — 數位原型／零件白底重繪</p>
@@ -165,11 +170,13 @@
   }
   function applyBflFluxConfigToForm(data) {
     var gen = document.getElementById('bflFluxModelGenerate');
+    var official = document.getElementById('bflFluxModelOfficial');
     var prod = document.getElementById('bflFluxModelVendorProduct');
     var mat = document.getElementById('bflFluxModelVendorMaterial');
     var scene = document.getElementById('bflFluxModelScenePattern');
     var d2p = document.getElementById('bflFluxModelDesignToPhysical');
     if (data.bfl_flux_model_generate != null && gen) gen.value = data.bfl_flux_model_generate;
+    if (data.bfl_flux_model_official != null && official) official.value = data.bfl_flux_model_official;
     if (data.bfl_flux_model_vendor_product != null && prod) prod.value = data.bfl_flux_model_vendor_product;
     if (data.bfl_flux_model_vendor_material != null && mat) mat.value = data.bfl_flux_model_vendor_material;
     if (data.bfl_flux_model_scene_pattern != null && scene) scene.value = data.bfl_flux_model_scene_pattern;
@@ -179,6 +186,7 @@
       var s = data.saved_in_db;
       var parts = [];
       if (s.bfl_flux_model_generate) parts.push('設計頁');
+      if (s.bfl_flux_model_official) parts.push('官方版型');
       if (s.bfl_flux_model_vendor_product) parts.push('產品重繪');
       if (s.bfl_flux_model_vendor_material) parts.push('材料');
       if (s.bfl_flux_model_scene_pattern) parts.push('實境/圖樣');
@@ -317,6 +325,7 @@
     if (!headers.Authorization) { showMsg('請先登入', true); return; }
     var payload = {
       bfl_flux_model_generate: (document.getElementById('bflFluxModelGenerate') || {}).value.trim() || 'flux-2-pro',
+      bfl_flux_model_official: (document.getElementById('bflFluxModelOfficial') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_vendor_product: (document.getElementById('bflFluxModelVendorProduct') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_scene_pattern: (document.getElementById('bflFluxModelScenePattern') || {}).value.trim() || 'flux-2-pro',
       bfl_flux_model_design_to_physical: (document.getElementById('bflFluxModelDesignToPhysical') || {}).value.trim() || 'flux-2-pro'
@@ -331,7 +340,7 @@
         return;
       }
       loadAiConfig();
-      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，寫實化「' + payload.bfl_flux_model_design_to_physical + '」');
+      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，官方版型「' + payload.bfl_flux_model_official + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，寫實化「' + payload.bfl_flux_model_design_to_physical + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {

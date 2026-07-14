@@ -1456,14 +1456,27 @@
                             <span data-i18n="customProduct.vendorStylesCurrentCategory">目前分類：</span>
                             <strong id="bs-cat-main-label"></strong>／<strong id="bs-cat-sub-label"></strong>
                             <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline bs-change-cat-desktop" id="bs-go-set-category" data-i18n="customProduct.vendorStylesChangeCategory">變更分類</button>
+                            <span class="btn-group btn-group-sm ms-2 align-baseline" role="group" id="bs-browse-mode-toggle" aria-label="版型來源">
+                                <button type="button" class="btn btn-outline-secondary active" id="bs-mode-vendor" data-bs-browse-mode="vendor" data-i18n="customProduct.vendorStylesBrowseVendor">廠商版型</button>
+                                <button type="button" class="btn btn-outline-secondary" id="bs-mode-official" data-bs-browse-mode="official" data-i18n="customProduct.vendorStylesBrowseOfficial">官方版型</button>
+                            </span>
                         </div>
                         <div id="bs-vendor-banner" class="bs-vendor-banner mb-3 d-none"></div>
                         <div class="row g-2 align-items-end mb-3">
-                            <div class="col-md-6 position-relative">
+                            <div class="col-md-6 position-relative" id="bs-filter-vendor-col">
                                 <label class="form-label small mb-1" for="bs-manufacturer-name" data-i18n="customProduct.filterVendorName">廠商名稱</label>
                                 <input type="search" class="form-control form-control-sm" id="bs-manufacturer-name" autocomplete="off" data-i18n-placeholder="customProduct.vendorNamePlaceholder" placeholder="輸入廠商名稱">
                                 <input type="hidden" id="bs-manufacturer-id" value="">
                                 <div id="bs-manufacturer-suggest" class="vendor-mfr-suggest-list list-group position-absolute w-100 shadow-sm d-none" role="listbox" style="z-index:10;max-height:240px;overflow-y:auto;top:100%"></div>
+                            </div>
+                            <div class="col-md-6 d-none" id="bs-filter-official-kind-col">
+                                <label class="form-label small mb-1" for="bs-official-asset-kind" data-i18n="customProduct.filterAssetKind">素材類型</label>
+                                <select id="bs-official-asset-kind" class="form-select form-select-sm">
+                                    <option value="" data-i18n="customProduct.assetKindAll">類型 — 全部</option>
+                                    <option value="prototype" data-i18n="customProduct.assetKindPrototype">數位原型</option>
+                                    <option value="part" data-i18n="customProduct.assetKindPart">配件／零件</option>
+                                    <option value="material" data-i18n="customProduct.assetKindMaterial">材料/顏色</option>
+                                </select>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small mb-1" for="bs-filter-q" data-i18n="browseStyles.filterSearch">搜尋</label>
@@ -1707,7 +1720,7 @@
     <script src="js/browse-styles.js?v=7" defer></script>
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
-    <script src="js/custom-product.js?v=119" defer></script>
+    <script src="js/custom-product.js?v=120" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
