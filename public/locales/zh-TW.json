@@ -913,7 +913,7 @@
   "customProduct.selectManufacturerRequired": "請先選擇廠商，再按「套用」載入素材。",
   "customProduct.filterLabel": "篩選：",
   "customProduct.applyFilter": "套用",
-  "customProduct.assetKindPrototype": "數位原型零件",
+  "customProduct.assetKindPrototype": "數位原型",
   "customProduct.assetKindMaterial": "材料/顏色",
   "customProduct.assetKindPart": "配件／零件",
   "customProduct.listPageSize": "每頁顯示",

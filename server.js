@@ -4590,6 +4590,27 @@ const OFFICIAL_ASSET_DISPLAY_NAME = '官方版型';
 const OFFICIAL_PLATFORM_MANUFACTURER_NAME = 'MATCHDO 官方版型';
 
 /** 全站共用官方版型庫（vendor_source=platform）；不綁個人帳號，供全體 admin 共編 */
+async function listOfficialPlatformManufacturerIds() {
+    const ids = new Set();
+    const nameEq = OFFICIAL_PLATFORM_MANUFACTURER_NAME;
+
+    let byName = await supabase.from('manufacturers').select('id').eq('name', nameEq);
+    if (!byName.error && byName.data) {
+        byName.data.forEach((r) => { if (r && r.id) ids.add(r.id); });
+    }
+
+    let byPlatform = await supabase.from('manufacturers').select('id').eq('vendor_source', 'platform');
+    if (!byPlatform.error && byPlatform.data) {
+        byPlatform.data.forEach((r) => { if (r && r.id) ids.add(r.id); });
+    }
+
+    if (!ids.size) {
+        const id = await getOrEnsureOfficialPlatformManufacturerId();
+        if (id) ids.add(id);
+    }
+    return [...ids];
+}
+
 async function getOrEnsureOfficialPlatformManufacturerId() {
     const nameEq = OFFICIAL_PLATFORM_MANUFACTURER_NAME;
     let byName = await supabase.from('manufacturers').select('id').eq('name', nameEq).order('created_at', { ascending: true }).limit(1);
@@ -4649,6 +4670,106 @@ async function getOrEnsureOfficialPlatformManufacturerId() {
         return null;
     }
     return ins.data && ins.data.id ? ins.data.id : null;
+}
+
+/** 官方版型列表查詢（可含下架；讀取所有 platform 官方池 manufacturer_id，避免換池後舊素材消失） */
+async function queryOfficialAssetsForApi(reqQuery, opts) {
+    const options = opts || {};
+    const publicOnly = options.publicOnly !== false;
+    const categoryKey = (reqQuery.category_key || '').trim();
+    if (!categoryKey) return { error: '請傳入 category_key', status: 400 };
+    const subcategoryKey = (reqQuery.subcategory_key || '').trim() || null;
+    const assetKindQ = (reqQuery.asset_kind || '').trim().toLowerCase();
+    const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material' || assetKindQ === 'part') ? assetKindQ : null;
+    const searchQ = (reqQuery.q || reqQuery.search || '').trim() || null;
+    const pageParams = parseVendorAssetsListPageParams(reqQuery);
+    const contentLang = normalizeVendorContentLang(reqQuery.lang);
+
+    const mfrIds = await listOfficialPlatformManufacturerIds();
+    if (!mfrIds.length) {
+        return { items: [], total: 0, name: OFFICIAL_ASSET_DISPLAY_NAME };
+    }
+
+    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, min_order_quantity, customization_levels, is_public';
+    let q = supabase
+        .from('vendor_assets')
+        .select(selectCols)
+        .in('manufacturer_id', mfrIds)
+        .eq('category_key', categoryKey)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+    if (publicOnly) q = q.eq('is_public', true);
+    if (subcategoryKey && assetKindFilter === 'prototype') {
+        q = q.eq('subcategory_key', subcategoryKey);
+    }
+    if (assetKindFilter) q = q.eq('asset_kind', assetKindFilter);
+    let { data: rows, error } = await q;
+    if (error && error.code === '42703') {
+        let fq = supabase
+            .from('vendor_assets')
+            .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, sort_order, asset_kind, is_public')
+            .in('manufacturer_id', mfrIds)
+            .eq('category_key', categoryKey)
+            .order('sort_order', { ascending: true });
+        if (publicOnly) fq = fq.eq('is_public', true);
+        ({ data: rows, error } = await fq);
+    }
+    if (error) {
+        if (error.code === '42P01') return { items: [], total: 0, name: OFFICIAL_ASSET_DISPLAY_NAME };
+        return { error: '查詢失敗', status: 500, detail: error };
+    }
+    let list = rows || [];
+    if (assetKindFilter) {
+        list = list.filter((r) => normalizeVendorAssetKind(r.asset_kind) === assetKindFilter);
+    }
+    if (subcategoryKey && !assetKindFilter) {
+        list = list.filter((r) => {
+            const rk = normalizeVendorAssetKind(r.asset_kind);
+            if (rk === 'material' || rk === 'part') return true;
+            return (r.subcategory_key || '') === subcategoryKey;
+        });
+    }
+    if (searchQ) {
+        const k = searchQ.toLowerCase();
+        list = list.filter((r) =>
+            (r.title || '').toLowerCase().includes(k) ||
+            (r.description || '').toLowerCase().includes(k) ||
+            (Array.isArray(r.ai_tags) && r.ai_tags.some((t) => String(t).toLowerCase().includes(k)))
+        );
+    }
+    const total = list.length;
+    const offset = pageParams.offset || 0;
+    const limit = pageParams.limit || 24;
+    list = list.slice(offset, offset + limit);
+    const items = list.map((r) => {
+        const kind = normalizeVendorAssetKind(r.asset_kind);
+        const mapped = mapVendorAssetForApi(r, contentLang);
+        const item = {
+            id: r.id,
+            manufacturer_id: null,
+            category_key: r.category_key,
+            subcategory_key: r.subcategory_key,
+            title: r.title || '',
+            description: r.description || '',
+            image_url: r.image_url,
+            gallery_images: mapped.gallery_images,
+            image_urls: mapped.image_urls,
+            image_items: mapped.image_items,
+            image_count: mapped.image_count,
+            asset_kind: kind,
+            official: true,
+            manufacturer_name: OFFICIAL_ASSET_DISPLAY_NAME,
+            manufacturer_profile_url: null,
+            manufacturer_logo_url: null,
+            ai_tags: r.ai_tags || [],
+            min_order_quantity: r.min_order_quantity != null ? r.min_order_quantity : null,
+            customization_levels: normalizeCustomizationLevels(r.customization_levels),
+            match_guide_url: null
+        };
+        if (!publicOnly) item.is_public = r.is_public !== false;
+        return item;
+    });
+    return { items, total, name: OFFICIAL_ASSET_DISPLAY_NAME };
 }
 
 /** 非種子一律可寫；種子看 seed_vendor_self_service_enabled（false = 鎖 /api/me/* 寫入）。 */
@@ -5844,98 +5965,31 @@ app.get('/api/admin/official-manufacturer', async (req, res) => {
 // GET /api/official-assets — 設計頁「官方版型」：只讀平台庫，顯示名固定「官方版型」，不暴露帳號名
 app.get('/api/official-assets', async (req, res) => {
     try {
-        const categoryKey = (req.query.category_key || '').trim();
-        if (!categoryKey) return res.status(400).json({ error: '請傳入 category_key' });
-        const subcategoryKey = (req.query.subcategory_key || '').trim() || null;
-        const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
-        const assetKindFilter = (assetKindQ === 'prototype' || assetKindQ === 'material' || assetKindQ === 'part') ? assetKindQ : null;
-        const searchQ = (req.query.q || req.query.search || '').trim() || null;
-        const pageParams = parseVendorAssetsListPageParams(req.query);
-
-        const mfrId = await getOrEnsureOfficialPlatformManufacturerId();
-        if (!mfrId) return res.json({ items: [], total: 0, display: OFFICIAL_ASSET_DISPLAY_NAME });
-
-        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, min_order_quantity, customization_levels, is_public';
-        let q = supabase
-            .from('vendor_assets')
-            .select(selectCols)
-            .eq('manufacturer_id', mfrId)
-            .eq('is_public', true)
-            .eq('category_key', categoryKey)
-            .order('sort_order', { ascending: true })
-            .order('created_at', { ascending: false });
-        // 子分類僅限數位原型；材料／配件無子分類，「全部」須在記憶體篩選（含材料／配件）
-        if (subcategoryKey && assetKindFilter === 'prototype') {
-            q = q.eq('subcategory_key', subcategoryKey);
+        const result = await queryOfficialAssetsForApi(req.query, { publicOnly: true });
+        if (result.error) {
+            console.error('GET /api/official-assets:', result.detail || result.error);
+            return res.status(result.status || 500).json({ error: result.error });
         }
-        if (assetKindFilter) q = q.eq('asset_kind', assetKindFilter);
-        let { data: rows, error } = await q;
-        if (error && error.code === '42703') {
-            ({ data: rows, error } = await supabase
-                .from('vendor_assets')
-                .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, sort_order, asset_kind, is_public')
-                .eq('manufacturer_id', mfrId)
-                .eq('is_public', true)
-                .eq('category_key', categoryKey)
-                .order('sort_order', { ascending: true }));
-        }
-        if (error) {
-            if (error.code === '42P01') return res.json({ items: [], total: 0, name: OFFICIAL_ASSET_DISPLAY_NAME });
-            console.error('GET /api/official-assets:', error);
-            return res.status(500).json({ error: '查詢失敗' });
-        }
-        let list = rows || [];
-        if (assetKindFilter) {
-            list = list.filter((r) => normalizeVendorAssetKind(r.asset_kind) === assetKindFilter);
-        }
-        if (subcategoryKey && !assetKindFilter) {
-            list = list.filter((r) => {
-                const rk = normalizeVendorAssetKind(r.asset_kind);
-                if (rk === 'material' || rk === 'part') return true;
-                return (r.subcategory_key || '') === subcategoryKey;
-            });
-        }
-        if (searchQ) {
-            const k = searchQ.toLowerCase();
-            list = list.filter((r) =>
-                (r.title || '').toLowerCase().includes(k) ||
-                (r.description || '').toLowerCase().includes(k) ||
-                (Array.isArray(r.ai_tags) && r.ai_tags.some((t) => String(t).toLowerCase().includes(k)))
-            );
-        }
-        const total = list.length;
-        const offset = pageParams.offset || 0;
-        const limit = pageParams.limit || 24;
-        list = list.slice(offset, offset + limit);
-        const items = list.map((r) => {
-            const kind = normalizeVendorAssetKind(r.asset_kind);
-            const mapped = mapVendorAssetForApi(r, normalizeVendorContentLang(req.query.lang));
-            return {
-                id: r.id,
-                manufacturer_id: null,
-                category_key: r.category_key,
-                subcategory_key: r.subcategory_key,
-                title: r.title || '',
-                description: r.description || '',
-                image_url: r.image_url,
-                gallery_images: mapped.gallery_images,
-                image_urls: mapped.image_urls,
-                image_items: mapped.image_items,
-                image_count: mapped.image_count,
-                asset_kind: kind,
-                official: true,
-                manufacturer_name: OFFICIAL_ASSET_DISPLAY_NAME,
-                manufacturer_profile_url: null,
-                manufacturer_logo_url: null,
-                ai_tags: r.ai_tags || [],
-                min_order_quantity: r.min_order_quantity != null ? r.min_order_quantity : null,
-                customization_levels: normalizeCustomizationLevels(r.customization_levels),
-                match_guide_url: null
-            };
-        });
-        res.json({ items: items, total: total, name: OFFICIAL_ASSET_DISPLAY_NAME });
+        res.json(result);
     } catch (e) {
         console.error('GET /api/official-assets:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/official-assets — 後台官方版型庫（含下架；讀取所有 platform 官方池）
+app.get('/api/admin/official-assets', async (req, res) => {
+    try {
+        const adminUser = await requireAdmin(req, res);
+        if (!adminUser) return;
+        const result = await queryOfficialAssetsForApi(req.query, { publicOnly: false });
+        if (result.error) {
+            console.error('GET /api/admin/official-assets:', result.detail || result.error);
+            return res.status(result.status || 500).json({ error: result.error });
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('GET /api/admin/official-assets:', e);
         res.status(500).json({ error: '系統錯誤' });
     }
 });

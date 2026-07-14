@@ -207,8 +207,7 @@
         grid.innerHTML = '<div class="col-12 text-danger small">請先登入</div>';
         return;
       }
-      var url = '/api/admin/manufacturers/' + encodeURIComponent(officialMfrId) +
-        '/vendor-assets?category_key=' + encodeURIComponent(cat);
+      var url = '/api/admin/official-assets?category_key=' + encodeURIComponent(cat);
       if (kind) url += '&asset_kind=' + encodeURIComponent(kind);
       fetch(url, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })

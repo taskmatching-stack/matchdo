@@ -877,7 +877,7 @@
   "customProduct.selectManufacturerRequired": "Select a vendor first, then click Apply.",
   "customProduct.filterLabel": "Filter:",
   "customProduct.applyFilter": "Apply",
-  "customProduct.assetKindPrototype": "Digital prototype parts",
+  "customProduct.assetKindPrototype": "Digital prototype",
   "customProduct.assetKindMaterial": "Material / Color",
   "customProduct.assetKindPart": "Parts / accessories",
   "customProduct.listPageSize": "Per page",
