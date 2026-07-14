@@ -971,7 +971,7 @@
   "customProduct.resultHere": "結果會顯示在這裡",
   "customProduct.productDesignTab": "產品設計",
   "customProduct.officialStylesTab": "官方版型",
-  "customProduct.officialStylesTabHint": "平台共用基本版型（顯示名固定「官方版型」）。與產品設計共用主／子分類；選圖後帶入參考，不綁真實接單廠商、無可搭配 MAP。",
+  "customProduct.officialStylesTabHint": "平台共用基本版型（顯示名固定「官方版型」）。共用主分類；子分類僅篩選數位原型，材料／配件不依子分類。「類型 — 全部」會列出該主分類下各類型。選圖後帶入參考，不綁真實接單廠商、無可搭配 MAP。",
   "customProduct.officialStylesEmpty": "此分類尚無已上架的官方版型。請改分類，或請管理員至後台「官方版型庫」上傳。",
   "customProduct.officialAddAsRef": "加入參考圖",
   "customProduct.vendorStylesTab": "廠商版型",

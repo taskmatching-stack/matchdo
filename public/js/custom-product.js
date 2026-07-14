@@ -3483,8 +3483,13 @@ $(document).ready(function () {
             : null;
         var mainLbl = categoryLabelForKey(mainKey, cat ? cat.name : mainKey);
         var subLbl = subKey ? categoryLabelForKey(subKey, sub ? sub.name : subKey) : '—';
+        var osKind = ($('#os-asset-kind').val() || '').trim();
+        var osSubLbl = (osKind === 'material' || osKind === 'part')
+            ? tr('customProduct.categorySubN/aForKind', '—（此類型不套用）')
+            : subLbl;
         $('#bs-cat-main-label, #os-cat-main-label').text(mainLbl);
-        $('#bs-cat-sub-label, #os-cat-sub-label').text(subLbl);
+        $('#bs-cat-sub-label').text(subLbl);
+        $('#os-cat-sub-label').text(osSubLbl);
         $boxes.removeClass('d-none');
         if (typeof window.updateCategoryMobileBtnLabels === 'function') {
             window.updateCategoryMobileBtnLabels();
@@ -3617,14 +3622,15 @@ $(document).ready(function () {
         }
     }
 
-    function buildOfficialStylesTabFetchUrl(mainKey, subKey) {
+    function buildOfficialStylesTabFetchUrl(mainKey, subKey, assetKind) {
         if (!mainKey) return '';
+        var kind = (assetKind != null ? assetKind : ($('#os-asset-kind').val() || '')).trim();
         var url = '/api/official-assets?category_key=' + encodeURIComponent(mainKey);
-        var kind = ($('#os-asset-kind').val() || '').trim();
         if (kind === 'prototype' || kind === 'material' || kind === 'part') {
             url += '&asset_kind=' + encodeURIComponent(kind);
-            if (kind === 'prototype' && subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
-        } else if (subKey) {
+        }
+        // 子分類僅限數位原型；「全部」傳 subKey 供後端只篩原型、材料／配件仍全列
+        if (subKey && (kind === 'prototype' || kind === '')) {
             url += '&subcategory_key=' + encodeURIComponent(subKey);
         }
         var keyword = ($('#os-filter-q').val() || '').trim();
@@ -3820,11 +3826,11 @@ $(document).ready(function () {
         var kind = ($('#os-asset-kind').val() || '').trim();
         var subKey = ($('#imageCategorySubSelect').val() || '').trim();
         var subForApi = '';
-        if (kind === 'prototype' || !kind) {
-            subForApi = pickerSubcategoryAppliesToAssetKind('prototype') ? subKey : '';
-            if (kind === 'prototype' && pickerSubcategoryAppliesToAssetKind('prototype') && !subForApi) {
-                var cat = categoriesData.find(function (c) { return String(c.key) === String(mainKey); });
-                if (cat && cat.subcategories && cat.subcategories.length) {
+        if (kind === 'prototype') {
+            subForApi = subKey;
+            if (!subForApi) {
+                var catProto = categoriesData.find(function (c) { return String(c.key) === String(mainKey); });
+                if (catProto && catProto.subcategories && catProto.subcategories.length) {
                     if ($loading.length) $loading.addClass('d-none');
                     if ($grid.length) $grid.addClass('d-none');
                     if ($empty.length) {
@@ -3835,8 +3841,10 @@ $(document).ready(function () {
                     return;
                 }
             }
+        } else if (!kind) {
+            subForApi = subKey;
         }
-        var url = buildOfficialStylesTabFetchUrl(mainKey, subForApi);
+        var url = buildOfficialStylesTabFetchUrl(mainKey, subForApi, kind);
         if (!url) return;
         var seq = ++officialStylesTabLoadSeq;
         if ($loading.length) $loading.removeClass('d-none');

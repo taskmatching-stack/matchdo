@@ -1368,10 +1368,10 @@
                         <button class="nav-link active" id="tab-product-design" data-bs-toggle="tab" data-bs-target="#panel-product-design" type="button" role="tab" aria-controls="panel-product-design" aria-selected="true" data-i18n="customProduct.productDesignTab">產品設計</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-official-styles" data-bs-toggle="tab" data-bs-target="#panel-official-styles" type="button" role="tab" aria-controls="panel-official-styles" aria-selected="false" data-i18n="customProduct.officialStylesTab">官方版型</button>
+                        <button class="nav-link" id="tab-vendor-styles" data-bs-toggle="tab" data-bs-target="#panel-vendor-styles" type="button" role="tab" aria-controls="panel-vendor-styles" aria-selected="false" data-i18n="customProduct.vendorStylesTab">廠商版型</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="tab-vendor-styles" data-bs-toggle="tab" data-bs-target="#panel-vendor-styles" type="button" role="tab" aria-controls="panel-vendor-styles" aria-selected="false" data-i18n="customProduct.vendorStylesTab">廠商版型</button>
+                        <button class="nav-link" id="tab-official-styles" data-bs-toggle="tab" data-bs-target="#panel-official-styles" type="button" role="tab" aria-controls="panel-official-styles" aria-selected="false" data-i18n="customProduct.officialStylesTab">官方版型</button>
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-scene-sim" data-bs-toggle="tab" data-bs-target="#panel-scene-sim" type="button" role="tab" aria-controls="panel-scene-sim" aria-selected="false" data-i18n="home.sceneSim">實境模擬</button>
@@ -1465,7 +1465,7 @@
                 </form>
                     </div>
                     <div class="tab-pane fade" id="panel-official-styles" role="tabpanel" aria-labelledby="tab-official-styles">
-                        <p class="text-muted small mb-2" data-i18n="customProduct.officialStylesTabHint">平台共用基本版型（顯示名固定「官方版型」）。與產品設計共用主／子分類；選圖後帶入參考，不綁真實接單廠商、無可搭配 MAP。</p>
+                        <p class="text-muted small mb-2" data-i18n="customProduct.officialStylesTabHint">平台共用基本版型（顯示名固定「官方版型」）。共用主分類；子分類僅篩選數位原型，材料／配件不依子分類。「類型 — 全部」會列出該主分類下各類型。選圖後帶入參考，不綁真實接單廠商、無可搭配 MAP。</p>
                         <button type="button" id="os-cat-mobile-btn" class="cat-mobile-btn d-none" aria-haspopup="dialog" aria-controls="catBottomSheet">
                             <i class="bi bi-folder2-open" aria-hidden="true"></i>
                             <span id="osCatMobileBtnLabel" data-i18n="customProduct.categoryRequired">分類（必選）</span>
@@ -1480,10 +1480,10 @@
                             <div class="col-md-4">
                                 <label class="form-label small mb-1" for="os-asset-kind" data-i18n="customProduct.filterAssetKind">素材類型</label>
                                 <select id="os-asset-kind" class="form-select form-select-sm">
+                                    <option value="" data-i18n="customProduct.assetKindAll">類型 — 全部</option>
                                     <option value="prototype" data-i18n="customProduct.assetKindPrototype">數位原型</option>
                                     <option value="part" data-i18n="customProduct.assetKindPart">配件／零件</option>
                                     <option value="material" data-i18n="customProduct.assetKindMaterial">材料/顏色</option>
-                                    <option value="" data-i18n="customProduct.assetKindAll">全部</option>
                                 </select>
                             </div>
                             <div class="col-md-8">

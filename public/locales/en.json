@@ -796,7 +796,7 @@
   "customProduct.refSlotPickVendor": "Vendor styles",
   "customProduct.refSlotPickOfficial": "Official styles",
   "customProduct.officialStylesTab": "Official styles",
-  "customProduct.officialStylesTabHint": "Shared platform base styles (always labeled Official styles). Uses the same categories as Product design; no real vendor lock and no match MAP.",
+  "customProduct.officialStylesTabHint": "Shared platform base styles (always labeled Official styles). Same main category; subcategory filters prototypes only—materials and parts ignore it. Type — all lists every kind under the main category. No real vendor lock and no match MAP.",
   "customProduct.officialStylesEmpty": "No published official styles in this category yet.",
   "customProduct.officialAddAsRef": "Add as reference",
   "customProduct.refSlotUpload": "Upload",

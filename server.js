@@ -4586,15 +4586,35 @@ function manufacturerIsPlatformVendor(mfr) {
 }
 
 const OFFICIAL_ASSET_DISPLAY_NAME = '官方版型';
+/** 全站共用官方版型庫廠商固定名稱（與種子轉「官方範例」的個別廠商帳號分開） */
+const OFFICIAL_PLATFORM_MANUFACTURER_NAME = 'MATCHDO 官方版型';
 
 /** 全站共用官方版型庫（vendor_source=platform）；不綁個人帳號，供全體 admin 共編 */
 async function getOrEnsureOfficialPlatformManufacturerId() {
+    const nameEq = OFFICIAL_PLATFORM_MANUFACTURER_NAME;
+    let byName = await supabase.from('manufacturers').select('id').eq('name', nameEq).order('created_at', { ascending: true }).limit(1);
+    if (byName.error && byName.error.code === '42703') {
+        return null;
+    }
+    if (!byName.error && byName.data && byName.data[0] && byName.data[0].id) {
+        return byName.data[0].id;
+    }
+
     let { data: rows, error } = await supabase
         .from('manufacturers')
         .select('id')
         .eq('vendor_source', 'platform')
+        .is('user_id', null)
         .order('created_at', { ascending: true })
         .limit(1);
+    if (error && error.code === '42703') {
+        ({ data: rows, error } = await supabase
+            .from('manufacturers')
+            .select('id')
+            .eq('vendor_source', 'platform')
+            .order('created_at', { ascending: true })
+            .limit(1));
+    }
     if (error && error.code === '42703') {
         return null;
     }
@@ -4605,7 +4625,7 @@ async function getOrEnsureOfficialPlatformManufacturerId() {
     if (rows && rows[0] && rows[0].id) return rows[0].id;
 
     const payload = {
-        name: 'MATCHDO 官方版型',
+        name: nameEq,
         description: '平台共用官方版型／配件／材料庫（全體管理員共編，非個人廠商帳號）',
         vendor_source: 'platform',
         is_active: true,
@@ -4615,6 +4635,16 @@ async function getOrEnsureOfficialPlatformManufacturerId() {
     };
     const ins = await supabase.from('manufacturers').insert(payload).select('id').single();
     if (ins.error) {
+        if (ins.error.code === '42703') {
+            delete payload.vendor_source;
+            delete payload.user_id;
+            const ins2 = await supabase.from('manufacturers').insert(payload).select('id').single();
+            if (ins2.error) {
+                console.error('getOrEnsureOfficialPlatformManufacturerId insert fallback:', ins2.error);
+                return null;
+            }
+            return ins2.data && ins2.data.id ? ins2.data.id : null;
+        }
         console.error('getOrEnsureOfficialPlatformManufacturerId insert:', ins.error);
         return null;
     }
@@ -5834,7 +5864,8 @@ app.get('/api/official-assets', async (req, res) => {
             .eq('category_key', categoryKey)
             .order('sort_order', { ascending: true })
             .order('created_at', { ascending: false });
-        if (subcategoryKey && assetKindFilter !== 'material' && assetKindFilter !== 'part') {
+        // 子分類僅限數位原型；材料／配件無子分類，「全部」須在記憶體篩選（含材料／配件）
+        if (subcategoryKey && assetKindFilter === 'prototype') {
             q = q.eq('subcategory_key', subcategoryKey);
         }
         if (assetKindFilter) q = q.eq('asset_kind', assetKindFilter);
