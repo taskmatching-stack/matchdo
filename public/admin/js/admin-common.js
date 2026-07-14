@@ -51,23 +51,29 @@
   document.addEventListener('DOMContentLoaded', async function(){
     var allowed = false;
     var path = (typeof location !== 'undefined' && location.pathname) ? location.pathname : '/admin/';
-    var returnUrl = encodeURIComponent(path + (location.search || ''));
+    function adminLoginRedirectUrl() {
+      var target = path + (location.search || '');
+      if (window.AuthService && typeof AuthService.getLoginUrl === 'function') {
+        return AuthService.getLoginUrl(target);
+      }
+      return '/login.html?returnUrl=' + encodeURIComponent(target);
+    }
     try {
       var session = (window.AuthService && typeof AuthService.getSession === 'function') ? await AuthService.getSession() : null;
       if (!session || !session.user) {
-        location.replace((window.AuthService && AuthService.getLoginUrl ? AuthService.getLoginUrl(path) : '/login.html') + '?returnUrl=' + returnUrl);
+        location.replace(adminLoginRedirectUrl());
         return;
       }
       var token = session.access_token || (session.session && session.session.access_token);
       if (!token) {
-        location.replace('/login.html?returnUrl=' + returnUrl);
+        location.replace(adminLoginRedirectUrl());
         return;
       }
       var r = await fetch('/api/admin/can-access', { method: 'GET', headers: { Authorization: 'Bearer ' + token } });
       if (r.ok) {
         allowed = true;
       } else if (r.status === 401) {
-        location.replace('/login.html?returnUrl=' + returnUrl);
+        location.replace(adminLoginRedirectUrl());
         return;
       } else if (r.status === 403) {
         try {
