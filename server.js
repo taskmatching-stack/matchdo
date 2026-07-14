@@ -19010,6 +19010,11 @@ app.get('/api/me/vendor-assets', async (req, res) => {
         }
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        let manufacturerName = null;
+        try {
+            const { data: mfrRow } = await supabase.from('manufacturers').select('name').eq('id', manufacturerId).maybeSingle();
+            manufacturerName = (mfrRow && mfrRow.name) ? mfrRow.name : null;
+        } catch (_) { /* ignore */ }
         const categoryKey = (req.query.category_key || '').trim() || null;
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
@@ -19102,7 +19107,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
                 user_id: user.id,
                 email: user.email || null,
                 manufacturer_id: manufacturerId,
-                manufacturer_name: mfr.name || null
+                manufacturer_name: manufacturerName
             }
         });
     } catch (e) {
