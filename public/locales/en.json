@@ -794,6 +794,8 @@
   "customProduct.refPatternIntentPrintShort": "Print",
   "customProduct.refPatternIntentStyleShort": "Style",
   "customProduct.refSlotPickVendor": "Vendor styles",
+  "customProduct.refSlotPickOfficial": "Official styles",
+  "customProduct.vendorPickerOfficialHint": "Official styles are reference only; find-vendor will not bind to the platform — filter by category yourself.",
   "customProduct.refSlotUpload": "Upload",
   "customProduct.refSlotReplaceConfirm": "Replace the image in this slot?",
   "customProduct.refSlotSingleImageOnly": "Only the first image is used for this slot.",

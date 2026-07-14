@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>官方版型庫 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <style>
+    .ol-card img { height: 120px; object-fit: cover; width: 100%; }
+    .ol-card .card-body { padding: .6rem .75rem; }
+  </style>
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">官方版型庫</h4>
+        <p class="text-muted small mb-3">
+          全站共用參考池（顯示名固定「官方版型」）。全體管理員共編，<strong>不綁</strong>個人會員版型庫、不做產品關聯 MAP。
+          設計頁請用「官方版型」入口選圖。
+        </p>
+
+        <div id="olStatus" class="alert alert-light border py-2 small mb-3">初始化中…</div>
+
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label small mb-0" for="olCategory">主分類</label>
+                <select class="form-select form-select-sm" id="olCategory">
+                  <option value="">— 請選擇 —</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small mb-0" for="olKind">類型</label>
+                <select class="form-select form-select-sm" id="olKind">
+                  <option value="">全部（原型／配件／材料）</option>
+                  <option value="prototype">數位原型</option>
+                  <option value="part">配件／零件</option>
+                  <option value="material">材料／顏色</option>
+                </select>
+              </div>
+              <div class="col-md-5 d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-primary" id="olRefresh">重新載入</button>
+                <button type="button" class="btn btn-sm btn-success" id="olOpenUpload" disabled>上傳素材</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="olEmpty" class="text-muted small py-4 text-center d-none">請先選擇主分類；尚無素材時可點「上傳素材」。</div>
+        <div id="olGrid" class="row g-3"></div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="olUploadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <h6 class="modal-title mb-0">上傳官方素材</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label small mb-0">主分類</label>
+            <select class="form-select form-select-sm" id="olUpCategory"></select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-0">子分類（選填；材料／配件可不綁）</label>
+            <select class="form-select form-select-sm" id="olUpSubcategory">
+              <option value="">—</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-0">類型</label>
+            <select class="form-select form-select-sm" id="olUpKind">
+              <option value="prototype">數位原型</option>
+              <option value="part">配件／零件</option>
+              <option value="material">材料／顏色</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-0">標題</label>
+            <input type="text" class="form-control form-control-sm" id="olUpTitle" placeholder="顯示名稱" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-0">說明（選填）</label>
+            <textarea class="form-control form-control-sm" id="olUpDesc" rows="2"></textarea>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small mb-0">圖片</label>
+            <input type="file" class="form-control form-control-sm" id="olUpImage" accept="image/*" />
+          </div>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="olUpPublic" checked />
+            <label class="form-check-label small" for="olUpPublic">上架（設計頁可見）</label>
+          </div>
+          <p id="olUpMsg" class="small text-danger mb-0" style="display:none;"></p>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-sm btn-primary" id="olUpSubmit">上傳</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var officialMfrId = null;
+  var categories = [];
+  var uploadModal = null;
+
+  function getToken() {
+    return (window.AuthService && AuthService.getSession)
+      ? AuthService.getSession().then(function (s) { return s && s.access_token ? s.access_token : null; })
+      : Promise.resolve(null);
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function kindLabel(k) {
+    if (k === 'material') return '材料';
+    if (k === 'part') return '配件';
+    return '原型';
+  }
+
+  function fillCategorySelect(sel, keep) {
+    if (!sel) return;
+    var cur = keep != null ? keep : (sel.value || '');
+    sel.innerHTML = '<option value="">— 請選擇 —</option>';
+    categories.forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.key || '';
+      opt.textContent = c.name || c.key || '';
+      sel.appendChild(opt);
+    });
+    if (cur) sel.value = cur;
+  }
+
+  function categorySubs(cat) {
+    if (!cat) return [];
+    if (Array.isArray(cat.subcategories)) return cat.subcategories;
+    if (Array.isArray(cat.sub)) return cat.sub;
+    return [];
+  }
+
+  function fillSubSelect(mainKey, subSel) {
+    if (!subSel) return;
+    subSel.innerHTML = '<option value="">—</option>';
+    var cat = categories.find(function (c) { return String(c.key) === String(mainKey); });
+    categorySubs(cat).forEach(function (s) {
+      var opt = document.createElement('option');
+      opt.value = s.key || '';
+      opt.textContent = s.name || s.key || '';
+      subSel.appendChild(opt);
+    });
+  }
+
+  function setStatus(msg, isErr) {
+    var el = document.getElementById('olStatus');
+    el.className = 'alert py-2 small mb-3 ' + (isErr ? 'alert-danger' : 'alert-light border');
+    el.textContent = msg;
+  }
+
+  function loadList() {
+    var cat = (document.getElementById('olCategory').value || '').trim();
+    var kind = (document.getElementById('olKind').value || '').trim();
+    var grid = document.getElementById('olGrid');
+    var empty = document.getElementById('olEmpty');
+    document.getElementById('olOpenUpload').disabled = !officialMfrId || !cat;
+    if (!officialMfrId) {
+      grid.innerHTML = '';
+      empty.classList.add('d-none');
+      return;
+    }
+    if (!cat) {
+      grid.innerHTML = '';
+      empty.classList.remove('d-none');
+      empty.textContent = '請先選擇主分類。';
+      return;
+    }
+    empty.classList.add('d-none');
+    grid.innerHTML = '<div class="col-12 text-muted small">載入中…</div>';
+    getToken().then(function (token) {
+      if (!token) {
+        grid.innerHTML = '<div class="col-12 text-danger small">請先登入</div>';
+        return;
+      }
+      var url = '/api/admin/manufacturers/' + encodeURIComponent(officialMfrId) +
+        '/vendor-assets?category_key=' + encodeURIComponent(cat);
+      if (kind) url += '&asset_kind=' + encodeURIComponent(kind);
+      fetch(url, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            grid.innerHTML = '<div class="col-12 text-danger small">' + escapeHtml(res.data.error || '載入失敗') + '</div>';
+            return;
+          }
+          var items = res.data.items || [];
+          if (!items.length) {
+            grid.innerHTML = '';
+            empty.classList.remove('d-none');
+            empty.textContent = '此分類尚無官方素材，可點「上傳素材」。';
+            return;
+          }
+          empty.classList.add('d-none');
+          grid.innerHTML = items.map(function (a) {
+            var st = a.is_public !== false
+              ? '<span class="badge bg-success">上架</span>'
+              : '<span class="badge bg-secondary">下架</span>';
+            var next = a.is_public !== false ? '0' : '1';
+            var btn = a.is_public !== false ? '下架' : '上架';
+            var img = a.image_url
+              ? '<img src="' + escapeHtml(a.image_url) + '" alt="">'
+              : '<div class="bg-light d-flex align-items-center justify-content-center" style="height:120px"><i class="bi bi-image text-muted"></i></div>';
+            return '<div class="col-6 col-md-4 col-lg-3"><div class="card h-100 ol-card">' +
+              img +
+              '<div class="card-body">' +
+              '<div class="fw-semibold small text-truncate" title="' + escapeHtml(a.title || '') + '">' + escapeHtml(a.title || '（無標題）') + '</div>' +
+              '<div class="small text-muted mb-1">' + kindLabel(a.asset_kind) +
+              (a.subcategory_key ? ' · ' + escapeHtml(a.subcategory_key) : '') + '</div>' +
+              '<div class="d-flex align-items-center justify-content-between gap-1">' + st +
+              '<button type="button" class="btn btn-sm btn-outline-primary py-0 ol-toggle" data-id="' + escapeHtml(a.id) + '" data-next="' + next + '">' + btn + '</button>' +
+              '</div></div></div></div>';
+          }).join('');
+          grid.querySelectorAll('.ol-toggle').forEach(function (b) {
+            b.addEventListener('click', function () {
+              var id = b.getAttribute('data-id');
+              var pub = b.getAttribute('data-next') === '1';
+              getToken().then(function (tok) {
+                fetch('/api/admin/vendor-assets/' + encodeURIComponent(id), {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok },
+                  body: JSON.stringify({ is_public: pub })
+                }).then(function (r) {
+                  return r.json().then(function (d) { return { ok: r.ok, data: d }; });
+                }).then(function (result) {
+                  if (result.ok) loadList();
+                  else alert(result.data.error || '更新失敗');
+                });
+              });
+            });
+          });
+        })
+        .catch(function () {
+          grid.innerHTML = '<div class="col-12 text-danger small">載入失敗</div>';
+        });
+    });
+  }
+
+  function init() {
+    uploadModal = new bootstrap.Modal(document.getElementById('olUploadModal'));
+    getToken().then(function (token) {
+      if (!token) {
+        setStatus('請先登入管理員帳號', true);
+        return;
+      }
+      Promise.all([
+        fetch('/api/admin/official-manufacturer', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); }),
+        fetch('/api/categories', { cache: 'no-store' }).then(function (r) { return r.json(); })
+      ]).then(function (pair) {
+        var mfrRes = pair[0];
+        var catData = pair[1];
+        categories = (catData && catData.categories) ? catData.categories : (Array.isArray(catData) ? catData : []);
+        fillCategorySelect(document.getElementById('olCategory'));
+        fillCategorySelect(document.getElementById('olUpCategory'));
+        if (!mfrRes.ok || !mfrRes.data.id) {
+          setStatus(mfrRes.data.error || '無法取得官方版型庫（請確認 manufacturers.vendor_source 欄位）', true);
+          return;
+        }
+        officialMfrId = mfrRes.data.id;
+        setStatus('官方版型庫已就緒（顯示名：官方版型）。請選主分類後管理素材。');
+        loadList();
+      }).catch(function () {
+        setStatus('初始化失敗', true);
+      });
+    });
+
+    document.getElementById('olCategory').addEventListener('change', loadList);
+    document.getElementById('olKind').addEventListener('change', loadList);
+    document.getElementById('olRefresh').addEventListener('click', loadList);
+
+    document.getElementById('olOpenUpload').addEventListener('click', function () {
+      var cat = (document.getElementById('olCategory').value || '').trim();
+      fillCategorySelect(document.getElementById('olUpCategory'), cat);
+      fillSubSelect(cat, document.getElementById('olUpSubcategory'));
+      document.getElementById('olUpMsg').style.display = 'none';
+      uploadModal.show();
+    });
+
+    document.getElementById('olUpCategory').addEventListener('change', function () {
+      fillSubSelect(this.value, document.getElementById('olUpSubcategory'));
+    });
+
+    document.getElementById('olUpSubmit').addEventListener('click', function () {
+      var msg = document.getElementById('olUpMsg');
+      msg.style.display = 'none';
+      if (!officialMfrId) { msg.textContent = '官方庫尚未就緒'; msg.style.display = 'block'; return; }
+      var categoryKey = (document.getElementById('olUpCategory').value || '').trim();
+      var fileInput = document.getElementById('olUpImage');
+      if (!categoryKey) { msg.textContent = '請選擇主分類'; msg.style.display = 'block'; return; }
+      if (!fileInput.files || !fileInput.files[0]) { msg.textContent = '請選擇圖片'; msg.style.display = 'block'; return; }
+      var fd = new FormData();
+      fd.append('category_key', categoryKey);
+      fd.append('subcategory_key', (document.getElementById('olUpSubcategory').value || '').trim());
+      fd.append('title', (document.getElementById('olUpTitle').value || '').trim());
+      fd.append('description', (document.getElementById('olUpDesc').value || '').trim());
+      fd.append('asset_kind', (document.getElementById('olUpKind').value || 'prototype').trim());
+      fd.append('is_public', document.getElementById('olUpPublic').checked ? '1' : '0');
+      fd.append('image', fileInput.files[0]);
+      var btn = document.getElementById('olUpSubmit');
+      btn.disabled = true;
+      getToken().then(function (token) {
+        if (!token) { msg.textContent = '請先登入'; msg.style.display = 'block'; btn.disabled = false; return; }
+        fetch('/api/admin/manufacturers/' + encodeURIComponent(officialMfrId) + '/vendor-assets', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + token },
+          body: fd
+        }).then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, data: d }; });
+        }).then(function (result) {
+          if (result.ok) {
+            uploadModal.hide();
+            document.getElementById('olCategory').value = categoryKey;
+            document.getElementById('olUpTitle').value = '';
+            document.getElementById('olUpDesc').value = '';
+            fileInput.value = '';
+            loadList();
+          } else {
+            msg.textContent = result.data.error || '上傳失敗';
+            msg.style.display = 'block';
+          }
+        }).catch(function () {
+          msg.textContent = '網路錯誤';
+          msg.style.display = 'block';
+        }).finally(function () { btn.disabled = false; });
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+  </script>
+</body>
+</html>

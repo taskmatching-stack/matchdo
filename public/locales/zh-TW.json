@@ -834,6 +834,8 @@
   "customProduct.refPatternIntentPrintShort": "印刷",
   "customProduct.refPatternIntentStyleShort": "風格",
   "customProduct.refSlotPickVendor": "廠商版型",
+  "customProduct.refSlotPickOfficial": "官方版型",
+  "customProduct.vendorPickerOfficialHint": "官方版型僅供參考；生圖後找廠商不綁定平台，請依分類自行篩選。",
   "customProduct.refSlotUpload": "上傳",
   "customProduct.refSlotReplaceConfirm": "此用途已有參考圖，要取代嗎？",
   "customProduct.refSlotSingleImageOnly": "此插槽僅使用第一張圖；多視角請分開上傳或改選其他素材。",

@@ -778,8 +778,8 @@
                 var subKey = (item.subcategory_key || '').trim();
                 if (mainKey) q.push('category_key=' + encodeURIComponent(mainKey));
                 if (subKey) q.push('subcategory_key=' + encodeURIComponent(subKey));
-                q.push('customization_levels=' + encodeURIComponent('form_structure'));
-                return '/custom/gallery.html?' + q.join('&');
+                // 分類優先：對照圖／作品圖＋原型；不預設鎖 form_structure（避免清單過少）
+                return '/custom/gallery.html' + (q.length ? ('?' + q.join('&')) : '');
             }
             function syncLightboxVendorRef(item) {
                 var wrap = document.getElementById('media-wall-lightbox-vendor-ref');
