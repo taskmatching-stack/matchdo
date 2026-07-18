@@ -924,7 +924,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'photography-prompt-sets-material-preset-20260718';
+        window.__MATCHDO_MATERIALS_BUILD = 'photography-category-keys-edit-live-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -3057,15 +3057,38 @@
             if (sub) fd.append('subcategory_key', sub);
         }
 
-        function appendCategoryKeysFromMaterialOrForm(fd, m, form) {
-            if (m) {
-                appendCategoryKeysToRedrawFormData(fd, m.category_key, m.subcategory_key);
-                return;
+        /** 上傳表單用當下選的分類；編輯 Modal 開著時優先用編輯區分類下拉（未存檔也算） */
+        function getRedrawCategoryKeys(m, form) {
+            var editModal = document.getElementById('editModal');
+            var editOpen = editModal && editModal.classList.contains('show');
+            var editCat = document.getElementById('edit-category');
+            var editSub = document.getElementById('edit-subcategory');
+            if (editOpen && editCat) {
+                return {
+                    categoryKey: String(editCat.value || (m && m.category_key) || '').trim(),
+                    subcategoryKey: String((editSub && editSub.value) || (m && m.subcategory_key) || '').trim()
+                };
             }
-            if (!form) return;
-            var catSel = form.querySelector('.add-category');
-            var subSel = form.querySelector('.add-subcategory');
-            appendCategoryKeysToRedrawFormData(fd, catSel && catSel.value, subSel && subSel.value);
+            if (form) {
+                var catSel = form.querySelector('.add-category');
+                var subSel = form.querySelector('.add-subcategory');
+                return {
+                    categoryKey: String((catSel && catSel.value) || '').trim(),
+                    subcategoryKey: String((subSel && subSel.value) || '').trim()
+                };
+            }
+            if (m) {
+                return {
+                    categoryKey: String(m.category_key || '').trim(),
+                    subcategoryKey: String(m.subcategory_key || '').trim()
+                };
+            }
+            return { categoryKey: '', subcategoryKey: '' };
+        }
+
+        function appendCategoryKeysFromMaterialOrForm(fd, m, form) {
+            var keys = getRedrawCategoryKeys(m, form);
+            appendCategoryKeysToRedrawFormData(fd, keys.categoryKey, keys.subcategoryKey);
         }
 
         function syncEditGalleryMaterialUi(isMaterial) {
