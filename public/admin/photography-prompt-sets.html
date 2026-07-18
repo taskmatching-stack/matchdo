@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>攝影參數提示詞 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">攝影參數提示詞</h4>
+        <p class="text-muted small mb-3">
+          管理可重用的攝影參數組（鏡頭／光影／景深等），會<strong>追加在</strong>設計生圖、AI 重繪、寫實化、材料重繪既有提示詞的<strong>最後</strong>。
+          請先在 Supabase 執行 <code>docs/add-photography-prompt-sets.sql</code>。
+          分類綁定請至 <a href="/admin/custom-categories.html">訂製品分類</a>。
+        </p>
+        <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
+
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-sets" type="button">攝影參數組</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-presets" type="button">材料快速選單</button></li>
+        </ul>
+
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="tab-sets">
+            <div class="card mb-3">
+              <div class="card-header fw-semibold">新增攝影參數組</div>
+              <div class="card-body">
+                <div class="row g-2">
+                  <div class="col-md-2"><label class="form-label small mb-0">key</label><input id="setKey" class="form-control form-control-sm" placeholder="studio_soft"></div>
+                  <div class="col-md-3"><label class="form-label small mb-0">名稱</label><input id="setName" class="form-control form-control-sm" placeholder="柔光棚拍"></div>
+                  <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="setSort" type="number" class="form-control form-control-sm" value="10"></div>
+                  <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="setMaterialFallback">
+                      <label class="form-check-label small" for="setMaterialFallback">材料通用預設（手打不在清單時）</label>
+                    </div>
+                  </div>
+                  <div class="col-12"><label class="form-label small mb-0">提示詞正文（追加於最後）</label><textarea id="setBody" class="form-control form-control-sm" rows="3" placeholder="自然棚拍光，柔和方向光…"></textarea></div>
+                  <div class="col-12"><button type="button" id="btnAddSet" class="btn btn-primary btn-sm">新增</button></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">參數組列表</span>
+                <button type="button" id="btnReloadSets" class="btn btn-sm btn-outline-secondary">重新載入</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                  <thead class="table-light"><tr><th>key</th><th>名稱</th><th>正文</th><th>標記</th><th>排序</th><th>狀態</th><th></th></tr></thead>
+                  <tbody id="setsBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="tab-presets">
+            <div class="card mb-3">
+              <div class="card-header fw-semibold">新增材料快速選項</div>
+              <div class="card-body">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-3"><label class="form-label small mb-0">材質標籤</label><input id="presetLabel" class="form-control form-control-sm" placeholder="皮革"></div>
+                  <div class="col-md-4"><label class="form-label small mb-0">攝影參數組</label><select id="presetSet" class="form-select form-select-sm"><option value="">— 用材料通用預設 —</option></select></div>
+                  <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="presetSort" type="number" class="form-control form-control-sm" value="10"></div>
+                  <div class="col-md-2"><button type="button" id="btnAddPreset" class="btn btn-primary btn-sm w-100">新增</button></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">材料選單列表</span>
+                <button type="button" id="btnReloadPresets" class="btn btn-sm btn-outline-secondary">重新載入</button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                  <thead class="table-light"><tr><th>標籤</th><th>攝影參數組</th><th>排序</th><th>狀態</th><th></th></tr></thead>
+                  <tbody id="presetsBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal fade" id="editSetModal" tabindex="-1">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header"><h5 class="modal-title">編輯攝影參數組</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+              <div class="modal-body">
+                <input type="hidden" id="editSetId">
+                <div class="mb-2"><label class="form-label">key</label><input id="editSetKey" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">名稱</label><input id="editSetName" class="form-control"></div>
+                <div class="mb-2"><label class="form-label">提示詞正文</label><textarea id="editSetBody" class="form-control" rows="5"></textarea></div>
+                <div class="row g-2">
+                  <div class="col-md-3"><label class="form-label">排序</label><input id="editSetSort" type="number" class="form-control"></div>
+                  <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="editSetActive"><label class="form-check-label" for="editSetActive">啟用</label></div></div>
+                  <div class="col-md-5 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="editSetFallback"><label class="form-check-label" for="editSetFallback">材料通用預設</label></div></div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btnSaveSet">儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var SETS_API = '/api/admin/photography-prompt-sets';
+  var PRESETS_API = '/api/admin/material-surface-presets';
+  var sets = [];
+  var presets = [];
+  var editModal = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function showStatus(msg, ok) {
+    var w = document.getElementById('statusWrap');
+    var m = document.getElementById('statusMsg');
+    w.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
+    w.classList.add(ok ? 'alert-success' : 'alert-danger');
+    m.textContent = msg;
+  }
+  async function authHeaders() {
+    if (!window.AuthService) return {};
+    try {
+      var session = await AuthService.getSession();
+      var t = session && session.access_token;
+      return t ? { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' } : {};
+    } catch (e) { return {}; }
+  }
+  function setNameById(id) {
+    var s = sets.find(function (x) { return x.id === id; });
+    return s ? s.name : '—';
+  }
+  function fillPresetSetSelect(sel, selected) {
+    if (!sel) return;
+    var v = selected || '';
+    sel.innerHTML = '<option value="">— 用材料通用預設 —</option>' +
+      sets.filter(function (s) { return s.is_active !== false; }).map(function (s) {
+        return '<option value="' + esc(s.id) + '"' + (s.id === v ? ' selected' : '') + '>' + esc(s.name) + ' (' + esc(s.key) + ')</option>';
+      }).join('');
+  }
+
+  async function loadSets() {
+    var headers = await authHeaders();
+    var r = await fetch(SETS_API, { headers: headers, cache: 'no-store' });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      showStatus(d.error || '載入參數組失敗', false);
+      return;
+    }
+    sets = d.items || [];
+    renderSets();
+    fillPresetSetSelect(document.getElementById('presetSet'));
+  }
+  function renderSets() {
+    var tb = document.getElementById('setsBody');
+    tb.innerHTML = sets.map(function (s) {
+      var body = (s.body_text || '').trim();
+      var short = body.length > 60 ? body.slice(0, 60) + '…' : (body || '—');
+      var badges = '';
+      if (s.is_material_fallback) badges += '<span class="badge bg-info text-dark me-1">材料通用</span>';
+      return '<tr>' +
+        '<td><code>' + esc(s.key) + '</code></td>' +
+        '<td>' + esc(s.name) + '</td>' +
+        '<td class="small text-muted" title="' + esc(body) + '">' + esc(short) + '</td>' +
+        '<td>' + badges + '</td>' +
+        '<td>' + esc(s.sort_order) + '</td>' +
+        '<td>' + (s.is_active === false ? '<span class="text-danger">停用</span>' : '啟用') + '</td>' +
+        '<td class="text-nowrap">' +
+          '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit-set" data-id="' + esc(s.id) + '">編輯</button>' +
+          '<button type="button" class="btn btn-sm btn-outline-danger btn-del-set" data-id="' + esc(s.id) + '">刪除</button>' +
+        '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="text-muted text-center">尚無資料</td></tr>';
+  }
+
+  async function loadPresets() {
+    var headers = await authHeaders();
+    var r = await fetch(PRESETS_API, { headers: headers, cache: 'no-store' });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      showStatus(d.error || '載入材料選單失敗', false);
+      return;
+    }
+    presets = d.items || [];
+    renderPresets();
+  }
+  function renderPresets() {
+    var tb = document.getElementById('presetsBody');
+    tb.innerHTML = presets.map(function (p) {
+      return '<tr>' +
+        '<td>' + esc(p.label) + '</td>' +
+        '<td class="small">' + esc(p.photography_set_id ? setNameById(p.photography_set_id) : '（通用預設）') + '</td>' +
+        '<td>' + esc(p.sort_order) + '</td>' +
+        '<td>' + (p.is_active === false ? '<span class="text-danger">停用</span>' : '啟用') + '</td>' +
+        '<td><button type="button" class="btn btn-sm btn-outline-danger btn-del-preset" data-id="' + esc(p.id) + '">刪除</button></td></tr>';
+    }).join('') || '<tr><td colspan="5" class="text-muted text-center">尚無資料</td></tr>';
+  }
+
+  document.getElementById('btnAddSet').addEventListener('click', async function () {
+    var headers = await authHeaders();
+    var r = await fetch(SETS_API, {
+      method: 'POST', headers: headers,
+      body: JSON.stringify({
+        key: document.getElementById('setKey').value,
+        name: document.getElementById('setName').value,
+        body_text: document.getElementById('setBody').value,
+        sort_order: Number(document.getElementById('setSort').value) || 0,
+        is_material_fallback: document.getElementById('setMaterialFallback').checked
+      })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
+    showStatus('已新增參數組', true);
+    document.getElementById('setKey').value = '';
+    document.getElementById('setName').value = '';
+    document.getElementById('setBody').value = '';
+    document.getElementById('setMaterialFallback').checked = false;
+    await loadSets();
+  });
+
+  document.getElementById('setsBody').addEventListener('click', async function (e) {
+    var editBtn = e.target.closest('.btn-edit-set');
+    var delBtn = e.target.closest('.btn-del-set');
+    if (editBtn) {
+      var s = sets.find(function (x) { return x.id === editBtn.getAttribute('data-id'); });
+      if (!s) return;
+      document.getElementById('editSetId').value = s.id;
+      document.getElementById('editSetKey').value = s.key || '';
+      document.getElementById('editSetName').value = s.name || '';
+      document.getElementById('editSetBody').value = s.body_text || '';
+      document.getElementById('editSetSort').value = s.sort_order != null ? s.sort_order : 0;
+      document.getElementById('editSetActive').checked = s.is_active !== false;
+      document.getElementById('editSetFallback').checked = !!s.is_material_fallback;
+      if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editSetModal'));
+      editModal.show();
+    }
+    if (delBtn) {
+      if (!confirm('確定刪除？已綁定的分類會變成未綁定。')) return;
+      var headers = await authHeaders();
+      var r = await fetch(SETS_API + '/' + encodeURIComponent(delBtn.getAttribute('data-id')), { method: 'DELETE', headers: headers });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok) { showStatus(d.error || '刪除失敗', false); return; }
+      showStatus('已刪除', true);
+      await loadSets();
+      await loadPresets();
+    }
+  });
+
+  document.getElementById('btnSaveSet').addEventListener('click', async function () {
+    var id = document.getElementById('editSetId').value;
+    var headers = await authHeaders();
+    var r = await fetch(SETS_API + '/' + encodeURIComponent(id), {
+      method: 'PUT', headers: headers,
+      body: JSON.stringify({
+        key: document.getElementById('editSetKey').value,
+        name: document.getElementById('editSetName').value,
+        body_text: document.getElementById('editSetBody').value,
+        sort_order: Number(document.getElementById('editSetSort').value) || 0,
+        is_active: document.getElementById('editSetActive').checked,
+        is_material_fallback: document.getElementById('editSetFallback').checked
+      })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
+    if (editModal) editModal.hide();
+    showStatus('已儲存', true);
+    await loadSets();
+    await loadPresets();
+  });
+
+  document.getElementById('btnAddPreset').addEventListener('click', async function () {
+    var headers = await authHeaders();
+    var setVal = document.getElementById('presetSet').value;
+    var r = await fetch(PRESETS_API, {
+      method: 'POST', headers: headers,
+      body: JSON.stringify({
+        label: document.getElementById('presetLabel').value,
+        photography_set_id: setVal || null,
+        sort_order: Number(document.getElementById('presetSort').value) || 0
+      })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
+    showStatus('已新增材料選項', true);
+    document.getElementById('presetLabel').value = '';
+    await loadPresets();
+  });
+
+  document.getElementById('presetsBody').addEventListener('click', async function (e) {
+    var delBtn = e.target.closest('.btn-del-preset');
+    if (!delBtn) return;
+    if (!confirm('確定刪除？')) return;
+    var headers = await authHeaders();
+    var r = await fetch(PRESETS_API + '/' + encodeURIComponent(delBtn.getAttribute('data-id')), { method: 'DELETE', headers: headers });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.error || '刪除失敗', false); return; }
+    showStatus('已刪除', true);
+    await loadPresets();
+  });
+
+  document.getElementById('btnReloadSets').addEventListener('click', loadSets);
+  document.getElementById('btnReloadPresets').addEventListener('click', loadPresets);
+
+  Promise.all([loadSets(), loadPresets()]);
+})();
+  </script>
+</body>
+</html>

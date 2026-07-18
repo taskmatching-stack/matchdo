@@ -16,6 +16,7 @@
         <h4 class="mb-3">訂製品廠商分類</h4>
         <p class="text-muted small mb-3">建立並管理「訂製品／圖庫找廠商」使用的分類，供後續建立模擬廠商與作品圖時選用。key 請用英文或數字（會自動轉小寫、空格改底線）。</p>
         <p class="text-muted small mb-3">若要儲存「英文名」與其他語系欄位，請先在 Supabase SQL Editor 執行 <code>docs/add-custom-product-categories-multilang.sql</code>，執行後重新整理本頁即可。</p>
+        <p class="text-muted small mb-3">攝影參數組請先在 <a href="/admin/photography-prompt-sets.html">攝影參數提示詞</a> 建立，並執行 <code>docs/add-photography-prompt-sets.sql</code>。選定後會追加在設計生圖／重繪／寫實化提示詞最後。</p>
 
         <!-- 登入狀態：讓使用者清楚知道是否已登入 -->
         <div id="adminLoginStatus" class="alert alert-secondary mb-3 py-2 d-flex align-items-center flex-wrap gap-2">
@@ -63,6 +64,10 @@
               <div class="col-md-3">
                 <label class="form-label small mb-0">提示詞（AI 設計用，可含 {subcategory}）</label>
                 <textarea id="newPrompt" class="form-control form-control-sm" rows="2" placeholder="選填，供 AI 分析／估價用"></textarea>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small mb-0">攝影參數組</label>
+                <select id="newPhotoSet" class="form-select form-select-sm"><option value="">— 不指定 —</option></select>
               </div>
               <div class="col-md-1">
                 <label class="form-label small mb-0">排序</label>
@@ -140,6 +145,11 @@
                   <textarea id="editCatPrompt" class="form-control" rows="4" placeholder="供 AI 分析／估價用"></textarea>
                 </div>
                 <div class="mb-3">
+                  <label class="form-label">攝影參數組</label>
+                  <select id="editCatPhotoSet" class="form-select"><option value="">— 不指定 —</option></select>
+                  <div class="form-text">子分類有設則優先於主分類；會追加在生圖／重繪／寫實化提示詞最後。</div>
+                </div>
+                <div class="mb-3">
                   <label class="form-label">排序</label>
                   <input type="number" id="editCatSortOrder" class="form-control" style="width:100px;" min="0" />
                 </div>
@@ -188,7 +198,27 @@
 (function() {
   const API = '/api/admin/custom-product-categories';
   const SUB_API = '/api/admin/custom-product-subcategories';
+  const PHOTO_API = '/api/admin/photography-prompt-sets';
   let categories = [];
+  let photoSets = [];
+
+  function photoSetOptionsHtml(selectedId) {
+    const sel = selectedId || '';
+    return '<option value="">— 不指定 —</option>' + photoSets.filter(function (s) { return s.is_active !== false; }).map(function (s) {
+      return '<option value="' + escapeHtml(s.id) + '"' + (s.id === sel ? ' selected' : '') + '>' + escapeHtml(s.name) + ' (' + escapeHtml(s.key) + ')</option>';
+    }).join('');
+  }
+  function photoSetLabel(id) {
+    if (!id) return '';
+    const s = photoSets.find(function (x) { return x.id === id; });
+    return s ? s.name : '';
+  }
+  function fillPhotoSelects() {
+    const neu = document.getElementById('newPhotoSet');
+    if (neu) neu.innerHTML = photoSetOptionsHtml('');
+    const edit = document.getElementById('editCatPhotoSet');
+    if (edit) edit.innerHTML = photoSetOptionsHtml(edit.value || '');
+  }
 
   function getAuthHeaders() {
     return new Promise(async (resolve) => {
@@ -263,10 +293,12 @@
       if (!c.is_active) tr.classList.add('table-secondary');
       const promptShort = (c.prompt || '').trim();
       const promptDisplay = promptShort.length > 40 ? promptShort.slice(0, 40) + '…' : (promptShort || '—');
+      const photoLabel = photoSetLabel(c.photography_set_id);
+      const promptCell = escapeHtml(promptDisplay) + (photoLabel ? '<div class="small text-info mt-1">📷 ' + escapeHtml(photoLabel) + '</div>' : '');
       tr.innerHTML = `
         <td><code>${escapeHtml(c.key)}</code></td>
         <td><span class="cat-name">${escapeHtml(c.name)}</span></td>
-        <td class="small text-muted" title="${escapeHtml(promptShort)}">${escapeHtml(promptDisplay)}</td>
+        <td class="small text-muted" title="${escapeHtml(promptShort)}">${promptCell}</td>
         <td><span class="cat-sort">${Number(c.sort_order)}</span></td>
         <td>${c.is_active ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
         <td>
@@ -285,10 +317,12 @@
         if (!s.is_active) subTr.classList.add('table-secondary');
         const subPromptShort = (s.prompt || '').trim();
         const subPromptDisplay = subPromptShort.length > 40 ? subPromptShort.slice(0, 40) + '…' : (subPromptShort || '—');
+        const subPhotoLabel = photoSetLabel(s.photography_set_id);
+        const subPromptCell = escapeHtml(subPromptDisplay) + (subPhotoLabel ? '<div class="small text-info mt-1">📷 ' + escapeHtml(subPhotoLabel) + '</div>' : '');
         subTr.innerHTML = `
           <td class="ps-4"><span class="text-muted">└</span> <code>${escapeHtml(s.key)}</code></td>
           <td>${escapeHtml(s.name)}</td>
-          <td class="small text-muted" title="${escapeHtml(subPromptShort)}">${escapeHtml(subPromptDisplay)}</td>
+          <td class="small text-muted" title="${escapeHtml(subPromptShort)}">${subPromptCell}</td>
           <td>${Number(s.sort_order)}</td>
           <td>${s.is_active !== false ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
           <td>
@@ -308,7 +342,8 @@
             <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="key" data-field="sub-key" />
             <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="顯示名稱" data-field="sub-name" />
             <input type="text" class="form-control form-control-sm" style="width:90px;" placeholder="英文名" data-field="sub-name-en" title="選填" />
-            <textarea class="form-control form-control-sm" style="width:180px;" rows="1" placeholder="提示詞（選填）" data-field="sub-prompt"></textarea>
+            <textarea class="form-control form-control-sm" style="width:160px;" rows="1" placeholder="提示詞（選填）" data-field="sub-prompt"></textarea>
+            <select class="form-select form-select-sm" style="width:140px;" data-field="sub-photo-set">${photoSetOptionsHtml('')}</select>
             <input type="number" class="form-control form-control-sm" style="width:60px;" value="0" min="0" placeholder="排序" data-field="sub-sort" />
             <button type="button" class="btn btn-sm btn-success sub-add-btn">新增</button>
             <button type="button" class="btn btn-sm btn-outline-secondary sub-cancel-btn">取消</button>
@@ -417,18 +452,19 @@
       const name = (form.querySelector('[data-field="sub-name"]')?.value || '').trim();
       const nameEn = (form.querySelector('[data-field="sub-name-en"]')?.value || '').trim();
       const prompt = (form.querySelector('[data-field="sub-prompt"]')?.value || '').trim();
+      const photoSet = (form.querySelector('[data-field="sub-photo-set"]')?.value || '').trim();
       const sortOrder = parseInt(form.querySelector('[data-field="sub-sort"]')?.value, 10) || 0;
       if (!key) { showStatus('請填寫子分類 key', 'warning'); return; }
-      addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, form);
+      addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, form, photoSet);
     }
   }
 
-  async function addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, formEl) {
+  async function addSubcategory(categoryKey, key, name, nameEn, prompt, sortOrder, formEl, photoSetId) {
     const headers = await getAuthHeaders();
     if (!headers.Authorization) return;
     showStatus('新增子分類中...', 'secondary');
     try {
-      const body = { category_key: categoryKey, key, name: name || key, prompt: prompt || '', sort_order: sortOrder };
+      const body = { category_key: categoryKey, key, name: name || key, prompt: prompt || '', sort_order: sortOrder, photography_set_id: photoSetId || null };
       if (nameEn !== undefined && nameEn !== '') body.name_en = nameEn;
       const res = await fetch(SUB_API, { method: 'POST', headers, body: JSON.stringify(body) });
       const data = await res.json();
@@ -439,6 +475,7 @@
         const n = formEl.querySelector('[data-field="sub-name"]'); if (n) n.value = '';
         const ne = formEl.querySelector('[data-field="sub-name-en"]'); if (ne) ne.value = '';
         const p = formEl.querySelector('[data-field="sub-prompt"]'); if (p) p.value = '';
+        const ps = formEl.querySelector('[data-field="sub-photo-set"]'); if (ps) ps.value = '';
         const s = formEl.querySelector('[data-field="sub-sort"]'); if (s) s.value = '0';
       }
       loadList();
@@ -465,6 +502,8 @@
     document.getElementById('editCatNameDe').value = s.name_de || '';
     document.getElementById('editCatNameFr').value = s.name_fr || '';
     document.getElementById('editCatPrompt').value = s.prompt || '';
+    const editPhoto = document.getElementById('editCatPhotoSet');
+    if (editPhoto) editPhoto.innerHTML = photoSetOptionsHtml(s.photography_set_id || '');
     document.getElementById('editCatSortOrder').value = String(s.sort_order ?? 0);
     new bootstrap.Modal(document.getElementById('editCatModal')).show();
   }
@@ -619,6 +658,14 @@
       }
       if (!res.ok) throw new Error(data.error || '載入失敗');
       categories = data.categories || [];
+      try {
+        const pr = await fetch(PHOTO_API, { headers, cache: 'no-store' });
+        const pd = await pr.json().catch(function () { return {}; });
+        if (pr.ok) {
+          photoSets = pd.items || [];
+          fillPhotoSelects();
+        }
+      } catch (_) { /* 未跑 migration 時略過 */ }
       hideLoading();
       renderTable();
     } catch (e) {
@@ -656,7 +703,8 @@
           name_de: (document.getElementById('newNameDe')?.value || '').trim() || undefined,
           name_fr: (document.getElementById('newNameFr')?.value || '').trim() || undefined,
           prompt: prompt || '',
-          sort_order: sortOrder
+          sort_order: sortOrder,
+          photography_set_id: (document.getElementById('newPhotoSet')?.value || '') || null
         })
       });
       const data = await res.json();
@@ -667,6 +715,7 @@
       const newNameEnEl = document.getElementById('newNameEn'); if (newNameEnEl) newNameEnEl.value = '';
       ['newNameJa','newNameEs','newNameDe','newNameFr'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       document.getElementById('newPrompt').value = '';
+      const newPhoto = document.getElementById('newPhotoSet'); if (newPhoto) newPhoto.value = '';
       loadList();
     } catch (e) {
       showStatus('新增失敗：' + (e.message || String(e)), 'danger');
@@ -690,6 +739,8 @@
     document.getElementById('editCatNameDe').value = c.name_de || '';
     document.getElementById('editCatNameFr').value = c.name_fr || '';
     document.getElementById('editCatPrompt').value = c.prompt || '';
+    const editPhotoMain = document.getElementById('editCatPhotoSet');
+    if (editPhotoMain) editPhotoMain.innerHTML = photoSetOptionsHtml(c.photography_set_id || '');
     document.getElementById('editCatSortOrder').value = String(c.sort_order ?? 0);
     new bootstrap.Modal(document.getElementById('editCatModal')).show();
   }
@@ -748,10 +799,11 @@
     const nameDe = (document.getElementById('editCatNameDe')?.value || '').trim();
     const nameFr = (document.getElementById('editCatNameFr')?.value || '').trim();
     const prompt = (document.getElementById('editCatPrompt').value || '').trim();
+    const photoSetId = (document.getElementById('editCatPhotoSet')?.value || '').trim() || null;
     const sortOrderRaw = parseInt(document.getElementById('editCatSortOrder').value, 10);
     const sortOrder = Number.isFinite(sortOrderRaw) ? sortOrderRaw : 0;
     const nameEnVal = nameEn !== '' ? nameEn : undefined;
-    const payload = { key: newKey, name: name || newKey, name_en: nameEnVal, prompt, sort_order: sortOrder };
+    const payload = { key: newKey, name: name || newKey, name_en: nameEnVal, prompt, sort_order: sortOrder, photography_set_id: photoSetId };
     payload.name_ja = nameJa !== '' ? nameJa : null;
     payload.name_es = nameEs !== '' ? nameEs : null;
     payload.name_de = nameDe !== '' ? nameDe : null;

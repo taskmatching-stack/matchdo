@@ -5920,7 +5920,12 @@ $(document).ready(function () {
             return fetch('/api/design-to-physical', {
                 method: 'POST',
                 headers: headers,
-                body: JSON.stringify({ image: imageUrl, prompt: prompt })
+                body: JSON.stringify({
+                    image: imageUrl,
+                    prompt: prompt,
+                    category_key: ($('#imageCategoryMainSelect').val() || '').trim() || undefined,
+                    subcategory_key: ($('#imageCategorySubSelect').val() || '').trim() || undefined
+                })
             });
         }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
             .then(function (result) {

@@ -578,8 +578,13 @@
                                 <div class="col-12"><label class="form-label fw-semibold">標題</label><input type="text" class="form-control add-title" data-i18n-placeholder="baseModels.titleHintMaterial" placeholder="請填材質名稱（如：丹寧布）"></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32">
-                                    <p class="form-text text-muted small mb-0">必填；原圖上傳時也會提供給 Gemini 解讀材質。送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                    <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
+                                        <select class="form-select form-select-sm add-material-surface-preset" style="max-width:12rem">
+                                            <option value="">快速選單…</option>
+                                        </select>
+                                        <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
+                                    </div>
+                                    <p class="form-text text-muted small mb-0">必填；可從快速選單選或手打。手打不在清單時使用後台「材料通用預設」攝影參數。送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                                 </div>
                                 <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12 ref-image-block">
@@ -779,8 +784,13 @@
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.galleryOrderHint">拖曳圖卡左側︙把手調整順序；第一張為列表封面。</p>
                             <div id="edit-material-surface-wrap" class="mb-2 d-none">
                                 <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
-                                <p class="form-text text-muted small mb-0">必填；原圖上傳時也會提供給 Gemini 解讀材質。送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
+                                    <select class="form-select form-select-sm" id="edit-material-surface-preset" style="max-width:12rem">
+                                        <option value="">快速選單…</option>
+                                    </select>
+                                    <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
+                                </div>
+                                <p class="form-text text-muted small mb-0">必填；可從快速選單選或手打。送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                             </div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
@@ -914,7 +924,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'official-platform-hide-supplier-import-20260715';
+        window.__MATCHDO_MATERIALS_BUILD = 'photography-prompt-sets-material-preset-20260718';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1284,6 +1294,7 @@
                 appendEditGalleryUseDisplayStandToFormData(fd);
                 appendEditGalleryOptimizeProductNameToFormData(fd);
                 appendMaterialCatalogHintToRedrawFormData(fd, m);
+                appendCategoryKeysFromMaterialOrForm(fd, m, null);
                 if (m && normalizeKind(m.asset_kind) === 'material') {
                     appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromEdit());
                 }
@@ -1332,6 +1343,7 @@
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', m.asset_kind);
+                appendCategoryKeysFromMaterialOrForm(fd, m, null);
                 var r = await fetch('/api/me/vendor-assets/preview-design-to-physical', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -2946,7 +2958,57 @@
         function buildMaterialFluxPromptPreview(surfaceType) {
             var t = String(surfaceType || '').trim().replace(/[\[\]{}<>\n\r]/g, '').slice(0, 32);
             if (!t) return '（填材質類型後顯示）';
-            return '保持顏色並優化此' + t + '材質光影；產品圖另去除版型滿版呈現此' + t + '材質色卡質感';
+            return '保持顏色並優化此' + t + '材質光影；產品圖另去除版型滿版呈現此' + t + '材質色卡質感（+攝影參數）';
+        }
+
+        var materialSurfacePresets = [];
+        function fillMaterialSurfacePresetSelect(sel) {
+            if (!sel) return;
+            var cur = sel.value;
+            sel.innerHTML = '<option value="">快速選單…</option>' +
+                materialSurfacePresets.map(function (p) {
+                    return '<option value="' + esc(p.label) + '">' + esc(p.label) + '</option>';
+                }).join('');
+            if (cur) sel.value = cur;
+        }
+        function syncAllMaterialSurfacePresetSelects() {
+            document.querySelectorAll('.add-material-surface-preset').forEach(fillMaterialSurfacePresetSelect);
+            fillMaterialSurfacePresetSelect(document.getElementById('edit-material-surface-preset'));
+        }
+        async function loadMaterialSurfacePresets() {
+            try {
+                var r = await fetch('/api/material-surface-presets', { cache: 'no-store' });
+                var d = await r.json().catch(function () { return {}; });
+                materialSurfacePresets = (r.ok && d.items) ? d.items : [];
+            } catch (e) {
+                materialSurfacePresets = [];
+            }
+            syncAllMaterialSurfacePresetSelects();
+        }
+        function bindMaterialSurfacePresetUi() {
+            document.querySelectorAll('.add-material-surface-preset').forEach(function (sel) {
+                if (sel.dataset.boundPreset) return;
+                sel.dataset.boundPreset = '1';
+                sel.addEventListener('change', function () {
+                    var form = sel.closest('form');
+                    var inp = form && form.querySelector('.add-material-surface-type');
+                    if (inp && sel.value) {
+                        inp.value = sel.value;
+                        syncMaterialFluxPromptPreviewEl(form.querySelector('.material-flux-prompt-preview'), sel.value);
+                    }
+                });
+            });
+            var editSel = document.getElementById('edit-material-surface-preset');
+            if (editSel && !editSel.dataset.boundPreset) {
+                editSel.dataset.boundPreset = '1';
+                editSel.addEventListener('change', function () {
+                    var inp = document.getElementById('edit-material-surface-type');
+                    if (inp && editSel.value) {
+                        inp.value = editSel.value;
+                        syncMaterialFluxPromptPreviewEl(document.getElementById('edit-material-flux-prompt-preview'), editSel.value);
+                    }
+                });
+            }
         }
 
         function syncMaterialFluxPromptPreviewEl(el, surfaceType) {
@@ -2985,6 +3047,25 @@
             if (!fd) return;
             var v = String(surfaceType || '').trim();
             if (v) fd.append('material_surface_type', v);
+        }
+
+        function appendCategoryKeysToRedrawFormData(fd, categoryKey, subcategoryKey) {
+            if (!fd) return;
+            var cat = String(categoryKey || '').trim();
+            var sub = String(subcategoryKey || '').trim();
+            if (cat) fd.append('category_key', cat);
+            if (sub) fd.append('subcategory_key', sub);
+        }
+
+        function appendCategoryKeysFromMaterialOrForm(fd, m, form) {
+            if (m) {
+                appendCategoryKeysToRedrawFormData(fd, m.category_key, m.subcategory_key);
+                return;
+            }
+            if (!form) return;
+            var catSel = form.querySelector('.add-category');
+            var subSel = form.querySelector('.add-subcategory');
+            appendCategoryKeysToRedrawFormData(fd, catSel && catSel.value, subSel && subSel.value);
         }
 
         function syncEditGalleryMaterialUi(isMaterial) {
@@ -3049,6 +3130,7 @@
                 appendEditGalleryOptimizeProductNameToFormData(fd);
                 if (srcItem && srcItem.label) fd.append('image_label', displayGalleryImageLabel(srcItem));
                 appendMaterialCatalogHintToRedrawFormData(fd, m);
+                appendCategoryKeysFromMaterialOrForm(fd, m, null);
                 if (m && normalizeKind(m.asset_kind) === 'material') {
                     appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromEdit());
                 }
@@ -3110,6 +3192,7 @@
                 var fd = new FormData();
                 fd.append('image', file);
                 fd.append('asset_kind', m.asset_kind);
+                appendCategoryKeysFromMaterialOrForm(fd, m, null);
                 var r = await fetch('/api/me/vendor-assets/preview-design-to-physical', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -3336,6 +3419,7 @@
                 appendAddFormOptimizeProductNameToFormData(fd, form);
                 if (item.label) fd.append('image_label', item.label);
                 appendMaterialCatalogHintToRedrawFormDataFromForm(fd, form);
+                appendCategoryKeysFromMaterialOrForm(fd, null, form);
                 if (kind === 'material') appendMaterialSurfaceTypeToFormData(fd, getMaterialSurfaceTypeFromAddForm(form));
                 var r = await fetch('/api/me/vendor-assets/preview-image-redraw', {
                     method: 'POST',
@@ -3394,6 +3478,7 @@
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', kind);
+                appendCategoryKeysFromMaterialOrForm(fd, null, form);
                 var r = await fetch('/api/me/vendor-assets/preview-design-to-physical', {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -8268,6 +8353,7 @@
                     loadCapabilities(),
                     loadTaxonomy(),
                     loadUploadPricing(),
+                    loadMaterialSurfacePresets().then(function () { bindMaterialSurfacePresetUi(); }),
                     applySeedVendorInfoBanner(mfrData.vendor_source)
                 ]);
 

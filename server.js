@@ -2825,16 +2825,17 @@ function fluxSeedFromImageBuffer(buffer) {
     return n === 0 ? 1 : n;
 }
 
-function createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStand) {
+function createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStand, photoCtx) {
     let jobIndex = 0;
     const surfaceType = normalizeMaterialSurfaceType(materialSurfaceType);
     const displayStand = !!useDisplayStand;
+    const photo = photoCtx && typeof photoCtx === 'object' ? photoCtx : null;
     return {
         async optimize(file, title, assetKind, materialHint, optimizeBackground, filenameHint) {
             if (jobIndex > 0) await sleepMs(VENDOR_FLUX_BATCH_GAP_MS);
             const out = await maybeOptimizeVendorAssetMulterFile(
                 file, title, assetKind, materialHint, optimizeBackground, filenameHint,
-                undefined, surfaceType, ownerId, displayStand
+                undefined, surfaceType, ownerId, displayStand, photo
             );
             jobIndex += 1;
             return out;
@@ -2844,7 +2845,7 @@ function createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisp
 
 async function maybeOptimizeVendorAssetMulterFile(
     file, productNameForPrompt, assetKind, materialHint, optimizeBackground, filenameHintOverride,
-    materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand
+    materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand, photoCtx
 ) {
     const optimizeBg = (optimizeBackground || '').trim() || 'white';
     const seed = fluxSeedFromImageBuffer(file.buffer);
@@ -2858,7 +2859,8 @@ async function maybeOptimizeVendorAssetMulterFile(
         materialFluxEditPrompt,
         materialSurfaceType,
         ownerId,
-        useDisplayStand
+        useDisplayStand,
+        photoCtx
     );
     return {
         buffer: optimizedBuf,
@@ -2963,6 +2965,142 @@ function buildVendorAssetMaterialFluxOptimizePrompt(surfaceType) {
     return `保持顏色並優化此${t}材質光影。若參考圖含產品、服裝或物件外型，去除版型、縫線、標籤與背景，整張滿版呈現此${t}材質色卡質感。`;
 }
 
+/** 攝影參數提示詞：追加於各 FLUX prompt 最後（見 docs/add-photography-prompt-sets.sql） */
+function appendPhotographyParams(prompt, photoLine) {
+    const p = String(prompt || '').trim();
+    const t = String(photoLine || '').trim();
+    if (!t) return p;
+    return p ? (p + '\n\n' + t) : t;
+}
+
+function normalizePhotographySetKey(raw) {
+    return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 64);
+}
+
+async function getPhotographySetBodyById(setId) {
+    const id = String(setId || '').trim();
+    if (!id) return '';
+    try {
+        const { data, error } = await supabase
+            .from('photography_prompt_sets')
+            .select('body_text, is_active')
+            .eq('id', id)
+            .maybeSingle();
+        if (error || !data || data.is_active === false) return '';
+        return String(data.body_text || '').trim();
+    } catch (_) {
+        return '';
+    }
+}
+
+/** 子分類優先，否則主分類；皆無則空字串（不加） */
+async function resolvePhotographyBodyForCategory(categoryKey, subcategoryKey) {
+    const cat = String(categoryKey || '').trim();
+    const sub = String(subcategoryKey || '').trim();
+    try {
+        if (sub && cat) {
+            const { data: subRow } = await supabase
+                .from('custom_product_subcategories')
+                .select('photography_set_id')
+                .eq('category_key', cat)
+                .eq('key', sub)
+                .maybeSingle();
+            if (subRow && subRow.photography_set_id) {
+                const body = await getPhotographySetBodyById(subRow.photography_set_id);
+                if (body) return body;
+            }
+        }
+        if (cat) {
+            const { data: mainRow } = await supabase
+                .from('custom_product_categories')
+                .select('photography_set_id')
+                .eq('key', cat)
+                .maybeSingle();
+            if (mainRow && mainRow.photography_set_id) {
+                return getPhotographySetBodyById(mainRow.photography_set_id);
+            }
+        }
+    } catch (e) {
+        console.warn('resolvePhotographyBodyForCategory:', e && e.message);
+    }
+    return '';
+}
+
+/** 設計生圖：依 categoryKeys 解析（子 key 命中優先；否則主 key） */
+async function resolvePhotographyBodyForCategoryKeys(categoryKeys) {
+    const keys = [...new Set((categoryKeys || []).filter(Boolean).map((k) => String(k).trim()))];
+    if (!keys.length) return '';
+    try {
+        const { data: subs } = await supabase
+            .from('custom_product_subcategories')
+            .select('key, category_key, photography_set_id')
+            .in('key', keys)
+            .eq('is_active', true);
+        for (const k of keys) {
+            const hit = (subs || []).find((s) => s.key === k && s.photography_set_id);
+            if (hit) {
+                const body = await getPhotographySetBodyById(hit.photography_set_id);
+                if (body) return body;
+            }
+        }
+        const { data: mains } = await supabase
+            .from('custom_product_categories')
+            .select('key, photography_set_id')
+            .in('key', keys)
+            .eq('is_active', true);
+        for (const k of keys) {
+            const hit = (mains || []).find((m) => m.key === k && m.photography_set_id);
+            if (hit) {
+                const body = await getPhotographySetBodyById(hit.photography_set_id);
+                if (body) return body;
+            }
+        }
+    } catch (e) {
+        console.warn('resolvePhotographyBodyForCategoryKeys:', e && e.message);
+    }
+    return '';
+}
+
+/** 材料：命中快速選單用該組；否則用 is_material_fallback 通用預設 */
+async function resolvePhotographyBodyForMaterial(surfaceType) {
+    const label = normalizeMaterialSurfaceType(surfaceType);
+    try {
+        if (label) {
+            const { data: presets } = await supabase
+                .from('material_surface_presets')
+                .select('label, photography_set_id, is_active')
+                .eq('is_active', true);
+            const hit = (presets || []).find((p) => normalizeMaterialSurfaceType(p.label).toLowerCase() === label.toLowerCase());
+            if (hit && hit.photography_set_id) {
+                const body = await getPhotographySetBodyById(hit.photography_set_id);
+                if (body) return body;
+            }
+        }
+        const { data: fb } = await supabase
+            .from('photography_prompt_sets')
+            .select('body_text')
+            .eq('is_material_fallback', true)
+            .eq('is_active', true)
+            .maybeSingle();
+        return fb ? String(fb.body_text || '').trim() : '';
+    } catch (e) {
+        console.warn('resolvePhotographyBodyForMaterial:', e && e.message);
+        return '';
+    }
+}
+
+async function buildVendorAssetMaterialFluxOptimizePromptWithPhoto(surfaceType) {
+    const base = buildVendorAssetMaterialFluxOptimizePrompt(surfaceType);
+    const photo = await resolvePhotographyBodyForMaterial(surfaceType);
+    return appendPhotographyParams(base, photo);
+}
+
+async function buildVendorAssetProductOptimizePromptWithPhoto(productNameHint, backgroundColor, useDisplayStand, categoryKey, subcategoryKey) {
+    const base = buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand);
+    const photo = await resolvePhotographyBodyForCategory(categoryKey, subcategoryKey);
+    return appendPhotographyParams(base, photo);
+}
+
 /** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 固定保真底稿；使用者補充自行輸入 */
 const DESIGN_TO_PHYSICAL_PROMPT =
     '將圖樣轉為實體寫實產品，圖樣、結構和顏色要完全一致。若原圖有尺寸標註，須嚴格顯示原標註之尺寸數字與單位，不得新增、刪除或改寫任何尺寸';
@@ -2977,6 +3115,12 @@ function buildDesignToPhysicalPrompt(userExtra) {
     if (!extra) return base;
     if (extra.indexOf(base) === 0) return extra;
     return base + '。' + extra;
+}
+
+async function buildDesignToPhysicalPromptWithPhoto(userExtra, categoryKey, subcategoryKey) {
+    const base = buildDesignToPhysicalPrompt(userExtra);
+    const photo = await resolvePhotographyBodyForCategory(categoryKey, subcategoryKey);
+    return appendPhotographyParams(base, photo);
 }
 
 /** 寫實化補充：只用使用者明確輸入（對齊 Playground 行為；不自動帶產品名） */
@@ -3006,7 +3150,7 @@ async function getPointsDesignToPhysicalVendor() {
  * 與 optimizeVendorAssetImageWithFlux 分線（獨立槽 bfl_flux_model_design_to_physical）。
  * 原圖直送（僅 AVIF/HEIC 轉 JPEG），不做任何尺寸處理。
  */
-async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra) {
+async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra, categoryKey, subcategoryKey) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const mime = String(mimeType || 'image/jpeg').toLowerCase().split(';')[0].trim();
     let finalBuffer = fileBuffer;
@@ -3025,7 +3169,7 @@ async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra) {
             console.warn('runDesignToPhysicalFlux AVIF/HEIC 轉換失敗，用原圖:', convErr.message);
         }
     }
-    const prompt = buildDesignToPhysicalPrompt(userExtra);
+    const prompt = await buildDesignToPhysicalPromptWithPhoto(userExtra, categoryKey, subcategoryKey);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_design_to_physical'),
         width: 1024,
@@ -9336,13 +9480,14 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
 /** 廠商素材：材料＝FLUX img2img；數位原型／零件＝FLUX 重繪 */
 async function optimizeVendorAssetImageWithFlux(
     fileBuffer, mimeType, productNameRaw, assetKind, materialCatalogHint, backgroundColor, seed, filenameHint,
-    materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand
+    materialFluxEditPrompt, materialSurfaceType, ownerId, useDisplayStand, photoCtx
 ) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const isMaterial = normalizeVendorAssetKind(assetKind) === 'material';
+    const ctx = photoCtx && typeof photoCtx === 'object' ? photoCtx : {};
     if (isMaterial) {
         const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
-        const prompt = buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType);
+        const prompt = await buildVendorAssetMaterialFluxOptimizePromptWithPhoto(materialSurfaceType);
         const fluxOpts = {
             endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
             width: 1024,
@@ -9355,7 +9500,9 @@ async function optimizeVendorAssetImageWithFlux(
         return buf;
     }
     const productNameHint = await translateOptimizeProductNameForFlux(productNameRaw);
-    const prompt = buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, !!useDisplayStand);
+    const prompt = await buildVendorAssetProductOptimizePromptWithPhoto(
+        productNameHint, backgroundColor, !!useDisplayStand, ctx.categoryKey, ctx.subcategoryKey
+    );
     const fluxBuffer = fileBuffer;
     const fluxMime = mimeType || 'image/jpeg';
     const fluxOpts = {
@@ -9491,6 +9638,8 @@ async function composeGeneratePromptWithReferences(opts) {
     const hasRefs = referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0;
     if (!hasRefs) {
         if (userLine) fullPrompt = (fullPrompt || '').trim() + (fullPrompt ? '\n\n' : '') + userLine;
+        const photoLineNoRef = await resolvePhotographyBodyForCategoryKeys(categoryKeys);
+        fullPrompt = appendPhotographyParams(fullPrompt, photoLineNoRef);
         return { fullPrompt: fullPrompt.trim(), fluxReferenceImages: [], fluxReferenceSources: [] };
     }
 
@@ -9515,6 +9664,9 @@ async function composeGeneratePromptWithReferences(opts) {
 
     if (userLine) fullPrompt = (fullPrompt || '').trim() + '\n\n' + userLine;
     if (styleReferenceLead) fullPrompt = styleReferenceLead + '\n\n' + (fullPrompt || '').trim();
+
+    const photoLine = await resolvePhotographyBodyForCategoryKeys(categoryKeys);
+    fullPrompt = appendPhotographyParams(fullPrompt, photoLine);
 
     return {
         fullPrompt: fullPrompt.trim(),
@@ -9894,7 +10046,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
         if (!currentUser) {
             return res.status(401).json({ success: false, error: '請先登入後再使用寫實化' });
         }
-        const { image, prompt: userPrompt } = req.body || {};
+        const { image, prompt: userPrompt, category_key: d2pCategoryKey, subcategory_key: d2pSubcategoryKey } = req.body || {};
         if (!image || typeof image !== 'string') {
             return res.status(400).json({ success: false, error: '請上傳一張產品圖稿或示意圖' });
         }
@@ -9912,7 +10064,13 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
         if (!process.env.BFL_API_KEY) {
             return res.status(503).json({ success: false, error: '寫實化服務暫未設定，請稍後再試' });
         }
-        const fluxResult = await runDesignToPhysicalFlux(resolved.buffer, resolved.mime || 'image/jpeg', userPrompt);
+        const fluxResult = await runDesignToPhysicalFlux(
+            resolved.buffer,
+            resolved.mime || 'image/jpeg',
+            userPrompt,
+            d2pCategoryKey,
+            d2pSubcategoryKey
+        );
         if (!fluxResult || !fluxResult.buffer) {
             return res.status(500).json({ success: false, error: '轉換失敗，請稍後再試' });
         }
@@ -9936,7 +10094,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
             imageData: `data:image/jpeg;base64,${imageData}`,
             points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
             balance_after: balanceAfter,
-            ai_prompt: fluxResult.prompt || buildDesignToPhysicalPrompt(userPrompt)
+            ai_prompt: fluxResult.prompt || await buildDesignToPhysicalPromptWithPhoto(userPrompt, d2pCategoryKey, d2pSubcategoryKey)
         });
     } catch (error) {
         console.error('寫實化錯誤:', error);
@@ -19194,9 +19352,16 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
         }
         let optimized;
         const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
+        const photoCtxPreview = {
+            categoryKey: (body.category_key || '').trim(),
+            subcategoryKey: (body.subcategory_key || '').trim()
+        };
         let aiPromptUsed = assetKind === 'material'
-            ? buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType)
-            : buildVendorAssetProductOptimizePrompt(productNameForPrompt, optimizeBackground, useDisplayStand);
+            ? await buildVendorAssetMaterialFluxOptimizePromptWithPhoto(materialSurfaceType)
+            : await buildVendorAssetProductOptimizePromptWithPhoto(
+                productNameForPrompt, optimizeBackground, useDisplayStand,
+                photoCtxPreview.categoryKey, photoCtxPreview.subcategoryKey
+            );
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
                 file,
@@ -19208,7 +19373,8 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
                 undefined,
                 materialSurfaceType,
                 ownerId,
-                useDisplayStand
+                useDisplayStand,
+                photoCtxPreview
             );
         } catch (optErr) {
             console.error('preview-image-redraw optimize:', optErr);
@@ -19766,7 +19932,10 @@ app.post('/api/me/vendor-assets', vendorAssetCreateUpload, async (req, res) => {
         }
 
         const productNameForPrompt = resolveOptimizeProductNameForPrompt(body, title);
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate, useDisplayStandCreate);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate, useDisplayStandCreate, {
+            categoryKey: categoryKey,
+            subcategoryKey: subcategoryKey || ''
+        });
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
@@ -20081,7 +20250,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
         const replaceInPlace = parseTruthyBody(body.replace);
         const optimizeBackground = (body.optimize_background || body.background_color || '').trim() || 'white';
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label, image_semantics_json'
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label, image_semantics_json, category_key, subcategory_key'
         );
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
@@ -20147,7 +20316,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/redraw', express.json(), asyn
                 undefined,
                 materialSurfaceType,
                 ownerId,
-                useDisplayStand
+                useDisplayStand,
+                { categoryKey: row.category_key || '', subcategoryKey: row.subcategory_key || '' }
             );
         } catch (optErr) {
             console.error('gallery-images/redraw optimize:', optErr);
@@ -20263,7 +20433,13 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
         let fluxResult;
         try {
             // 寫實化直送原圖（勿 vendorAssetFileFromMulter 縮圖重壓）
-            fluxResult = await runDesignToPhysicalFlux(file.buffer, file.mimetype || 'image/jpeg', userExtra);
+            fluxResult = await runDesignToPhysicalFlux(
+                file.buffer,
+                file.mimetype || 'image/jpeg',
+                userExtra,
+                (body.category_key || '').trim(),
+                (body.subcategory_key || '').trim()
+            );
         } catch (optErr) {
             console.error('preview-design-to-physical:', optErr);
             return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
@@ -20322,7 +20498,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
         const sourceUrl = String(body.source_url || '').trim();
         if (!sourceUrl) return res.status(400).json({ error: '請提供 source_url' });
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label, image_semantics_json'
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label, image_semantics_json, category_key, subcategory_key'
         );
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
@@ -20364,7 +20540,13 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
         let fluxResult;
         try {
             // 寫實化直送原圖（勿 normalizeVendorUploadFile 縮圖重壓）
-            fluxResult = await runDesignToPhysicalFlux(imgBuf, imgMime, userExtra);
+            fluxResult = await runDesignToPhysicalFlux(
+                imgBuf,
+                imgMime,
+                userExtra,
+                row.category_key || '',
+                row.subcategory_key || ''
+            );
         } catch (optErr) {
             console.error('gallery-images/design-to-physical:', optErr);
             return res.status(503).json({ error: (optErr && optErr.message) || '寫實化失敗，請稍後重試' });
@@ -20570,7 +20752,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VEND
         if (await rejectSeedVendorSelfServiceWrite(seedUser.id, manufacturerId, res)) return;
         const id = (req.params.id || '').trim();
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
-            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, category_key, description'
+            id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, category_key, subcategory_key, description'
         );
         if (rowErr) return res.status(500).json({ error: '查詢失敗' });
         if (!row) return res.status(404).json({ error: '找不到該素材' });
@@ -20616,7 +20798,10 @@ app.post('/api/me/vendor-assets/:id/gallery-images', upload.array('images', VEND
         }
         const sliceCount = Math.min(files.length, room);
         const galleryToUpload = [];
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStand);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStand, {
+            categoryKey: row.category_key || '',
+            subcategoryKey: row.subcategory_key || ''
+        });
         for (let gi = 0; gi < sliceCount; gi++) {
             let gf = await vendorAssetFileFromMulter(files[gi]);
             if (!gf) continue;
@@ -23313,9 +23498,16 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-redraw', upload.
         }
         let optimized;
         const filenameHint = imageLabelHint || labelFromOriginalFilename(file.originalname);
+        const photoCtxSupplier = {
+            categoryKey: (body.category_key || '').trim(),
+            subcategoryKey: (body.subcategory_key || '').trim()
+        };
         let aiPromptUsed = assetKind === 'material'
-            ? buildVendorAssetMaterialFluxOptimizePrompt(materialSurfaceType)
-            : buildVendorAssetProductOptimizePrompt(productNameForPrompt, optimizeBackground, useDisplayStand);
+            ? await buildVendorAssetMaterialFluxOptimizePromptWithPhoto(materialSurfaceType)
+            : await buildVendorAssetProductOptimizePromptWithPhoto(
+                productNameForPrompt, optimizeBackground, useDisplayStand,
+                photoCtxSupplier.categoryKey, photoCtxSupplier.subcategoryKey
+            );
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
                 file,
@@ -23327,7 +23519,8 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-redraw', upload.
                 undefined,
                 materialSurfaceType,
                 ownerId,
-                useDisplayStand
+                useDisplayStand,
+                photoCtxSupplier
             );
         } catch (optErr) {
             console.error('supplier preview-image-redraw optimize:', optErr);
@@ -23715,7 +23908,10 @@ app.post('/api/me/industry-supplier/catalog-items', supplierCatalogItemCreateUpl
         if (!description) return res.status(400).json({ error: '請填寫產品說明，或留空由 AI 產生（需可讀圖）' });
 
         const productNameForPrompt = resolveOptimizeProductNameForPrompt(body, title);
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate, useDisplayStandCreate);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceCreate, useDisplayStandCreate, {
+            categoryKey: (body.category_key || '').trim(),
+            subcategoryKey: (body.subcategory_key || '').trim()
+        });
         let uploadFile = file;
         if (optimizeIndices.includes(0)) {
             try {
@@ -24098,7 +24294,10 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images', supplierC
         }
         const sliceCount = Math.min(files.length, room);
         const imageLabels = parseImageLabelsBody(body, sliceCount);
-        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStand);
+        const fluxScheduler = createVendorFluxOptimizeScheduler(ownerId, materialSurfaceType, useDisplayStand, {
+            categoryKey: (body.category_key || row.category_key || '').trim(),
+            subcategoryKey: (body.subcategory_key || row.subcategory_key || '').trim()
+        });
         const galleryToUpload = [];
         for (let gi = 0; gi < sliceCount; gi++) {
             let gf = await vendorAssetFileFromMulter(files[gi]);
@@ -25087,6 +25286,261 @@ app.put('/api/custom-product-categories', express.json(), async (req, res) => {
     }
 });
 
+// ——— 攝影參數提示詞組 + 材料快速選單 ———
+const PHOTOGRAPHY_SET_SELECT = 'id, key, name, body_text, is_material_fallback, sort_order, is_active, created_at, updated_at';
+const MATERIAL_PRESET_SELECT = 'id, label, photography_set_id, sort_order, is_active, created_at, updated_at';
+
+function parsePhotographySetIdFromBody(body) {
+    if (!body || body.photography_set_id === undefined) return undefined;
+    if (body.photography_set_id === null || body.photography_set_id === '') return null;
+    return String(body.photography_set_id).trim() || null;
+}
+
+// GET /api/material-surface-presets — 前台快速選單（啟用中）
+app.get('/api/material-surface-presets', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('material_surface_presets')
+            .select(MATERIAL_PRESET_SELECT)
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true })
+            .order('label', { ascending: true });
+        if (error) {
+            if (error.code === '42P01' || error.code === '42703') return res.json({ items: [] });
+            console.error('GET /api/material-surface-presets:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json({ items: data || [] });
+    } catch (e) {
+        console.error('GET /api/material-surface-presets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/photography-prompt-sets
+app.get('/api/admin/photography-prompt-sets', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('photography_prompt_sets')
+            .select(PHOTOGRAPHY_SET_SELECT)
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('GET /api/admin/photography-prompt-sets:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json({ items: data || [] });
+    } catch (e) {
+        console.error('GET /api/admin/photography-prompt-sets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/photography-prompt-sets
+app.post('/api/admin/photography-prompt-sets', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const key = normalizePhotographySetKey(body.key);
+        const name = String(body.name || '').trim();
+        if (!key) return res.status(400).json({ error: '請填寫 key' });
+        if (!name) return res.status(400).json({ error: '請填寫名稱' });
+        const payload = {
+            key,
+            name,
+            body_text: body.body_text != null ? String(body.body_text) : '',
+            is_material_fallback: !!body.is_material_fallback,
+            sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
+            is_active: body.is_active === undefined ? true : !!body.is_active
+        };
+        if (payload.is_material_fallback) {
+            await supabase.from('photography_prompt_sets').update({ is_material_fallback: false }).eq('is_material_fallback', true);
+        }
+        const { data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT).single();
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在，或已有材料通用預設' });
+            console.error('POST /api/admin/photography-prompt-sets:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        res.status(201).json({ item: data });
+    } catch (e) {
+        console.error('POST /api/admin/photography-prompt-sets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/admin/photography-prompt-sets/:id
+app.put('/api/admin/photography-prompt-sets/:id', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.key !== undefined) {
+            const key = normalizePhotographySetKey(body.key);
+            if (!key) return res.status(400).json({ error: 'key 不可為空' });
+            updates.key = key;
+        }
+        if (body.name !== undefined) {
+            const name = String(body.name || '').trim();
+            if (!name) return res.status(400).json({ error: '名稱不可為空' });
+            updates.name = name;
+        }
+        if (body.body_text !== undefined) updates.body_text = String(body.body_text);
+        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.is_material_fallback !== undefined) {
+            updates.is_material_fallback = !!body.is_material_fallback;
+            if (updates.is_material_fallback) {
+                await supabase.from('photography_prompt_sets').update({ is_material_fallback: false }).neq('id', id).eq('is_material_fallback', true);
+            }
+        }
+        const { data, error } = await supabase.from('photography_prompt_sets').update(updates).eq('id', id).select(PHOTOGRAPHY_SET_SELECT).single();
+        if (error) {
+            if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在，或已有材料通用預設' });
+            console.error('PUT /api/admin/photography-prompt-sets:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json({ item: data });
+    } catch (e) {
+        console.error('PUT /api/admin/photography-prompt-sets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/photography-prompt-sets/:id
+app.delete('/api/admin/photography-prompt-sets/:id', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const { error } = await supabase.from('photography_prompt_sets').delete().eq('id', id);
+        if (error) {
+            console.error('DELETE /api/admin/photography-prompt-sets:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/photography-prompt-sets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/admin/material-surface-presets
+app.get('/api/admin/material-surface-presets', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('material_surface_presets')
+            .select(MATERIAL_PRESET_SELECT)
+            .order('sort_order', { ascending: true })
+            .order('label', { ascending: true });
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('GET /api/admin/material-surface-presets:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json({ items: data || [] });
+    } catch (e) {
+        console.error('GET /api/admin/material-surface-presets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/material-surface-presets
+app.post('/api/admin/material-surface-presets', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const label = normalizeMaterialSurfaceType(body.label);
+        if (!label) return res.status(400).json({ error: '請填寫材質標籤' });
+        const payload = {
+            label,
+            photography_set_id: parsePhotographySetIdFromBody(body) === undefined ? null : parsePhotographySetIdFromBody(body),
+            sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
+            is_active: body.is_active === undefined ? true : !!body.is_active
+        };
+        const { data, error } = await supabase.from('material_surface_presets').insert(payload).select(MATERIAL_PRESET_SELECT).single();
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(400).json({ error: '此材質標籤已存在' });
+            console.error('POST /api/admin/material-surface-presets:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        res.status(201).json({ item: data });
+    } catch (e) {
+        console.error('POST /api/admin/material-surface-presets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/admin/material-surface-presets/:id
+app.put('/api/admin/material-surface-presets/:id', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.label !== undefined) {
+            const label = normalizeMaterialSurfaceType(body.label);
+            if (!label) return res.status(400).json({ error: '材質標籤不可為空' });
+            updates.label = label;
+        }
+        if (body.photography_set_id !== undefined) updates.photography_set_id = parsePhotographySetIdFromBody(body);
+        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        const { data, error } = await supabase.from('material_surface_presets').update(updates).eq('id', id).select(MATERIAL_PRESET_SELECT).single();
+        if (error) {
+            if (error.code === '23505') return res.status(400).json({ error: '此材質標籤已存在' });
+            console.error('PUT /api/admin/material-surface-presets:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json({ item: data });
+    } catch (e) {
+        console.error('PUT /api/admin/material-surface-presets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/material-surface-presets/:id
+app.delete('/api/admin/material-surface-presets/:id', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const { error } = await supabase.from('material_surface_presets').delete().eq('id', id);
+        if (error) {
+            console.error('DELETE /api/admin/material-surface-presets:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/material-surface-presets 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/admin/custom-product-categories — 列出全部（含停用、含子分類），供後台編輯
 app.get('/api/admin/custom-product-categories', async (req, res) => {
     try {
@@ -25094,10 +25548,41 @@ app.get('/api/admin/custom-product-categories', async (req, res) => {
         if (!user) return;
         const { data: cats, error } = await supabase
             .from('custom_product_categories')
-            .select('id, key, name, prompt, sort_order, is_active, created_at')
+            .select('id, key, name, prompt, photography_set_id, sort_order, is_active, created_at')
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
         if (error) {
+            if (error.code === '42703' || (error.message && /photography_set_id/.test(error.message))) {
+                const fb = await supabase
+                    .from('custom_product_categories')
+                    .select('id, key, name, prompt, sort_order, is_active, created_at')
+                    .order('sort_order', { ascending: true })
+                    .order('key', { ascending: true });
+                if (fb.error) {
+                    console.error('GET /api/admin/custom-product-categories:', fb.error);
+                    return res.status(500).json({ error: '查詢失敗' });
+                }
+                const listFb = (fb.data || []).map(c => ({ ...c, photography_set_id: null, name_en: '', name_ja: '', name_es: '', name_de: '', name_fr: '' }));
+                // continue with legacy path below via reassign — fall through with cats = listFb
+                return (async () => {
+                    const list = listFb;
+                    const keys = list.map(c => c.key);
+                    let subMap = {};
+                    if (keys.length > 0) {
+                        const { data: subs } = await supabase
+                            .from('custom_product_subcategories')
+                            .select('id, category_key, key, name, prompt, sort_order, is_active')
+                            .in('category_key', keys)
+                            .order('sort_order', { ascending: true });
+                        (subs || []).forEach(s => {
+                            if (!subMap[s.category_key]) subMap[s.category_key] = [];
+                            subMap[s.category_key].push({ id: s.id, key: s.key, name: s.name, name_en: '', name_ja: '', name_es: '', name_de: '', name_fr: '', prompt: s.prompt || '', photography_set_id: null, sort_order: s.sort_order, is_active: s.is_active });
+                        });
+                    }
+                    const categories = list.map(c => ({ ...c, prompt: c.prompt || '', subcategories: subMap[c.key] || [] }));
+                    res.json({ categories, photography_sets_migration_required: true });
+                })();
+            }
             console.error('GET /api/admin/custom-product-categories:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
@@ -25105,14 +25590,21 @@ app.get('/api/admin/custom-product-categories', async (req, res) => {
         const keys = list.map(c => c.key);
         let subMap = {};
         if (keys.length > 0) {
-            const { data: subs } = await supabase
+            let { data: subs, error: subErr } = await supabase
                 .from('custom_product_subcategories')
-                .select('id, category_key, key, name, prompt, sort_order, is_active')
+                .select('id, category_key, key, name, prompt, photography_set_id, sort_order, is_active')
                 .in('category_key', keys)
                 .order('sort_order', { ascending: true });
+            if (subErr && (subErr.code === '42703' || (subErr.message && /photography_set_id/.test(subErr.message)))) {
+                ({ data: subs } = await supabase
+                    .from('custom_product_subcategories')
+                    .select('id, category_key, key, name, prompt, sort_order, is_active')
+                    .in('category_key', keys)
+                    .order('sort_order', { ascending: true }));
+            }
             (subs || []).forEach(s => {
                 if (!subMap[s.category_key]) subMap[s.category_key] = [];
-                subMap[s.category_key].push({ id: s.id, key: s.key, name: s.name, name_en: '', name_ja: '', name_es: '', name_de: '', name_fr: '', prompt: s.prompt || '', sort_order: s.sort_order, is_active: s.is_active });
+                subMap[s.category_key].push({ id: s.id, key: s.key, name: s.name, name_en: '', name_ja: '', name_es: '', name_de: '', name_fr: '', prompt: s.prompt || '', photography_set_id: s.photography_set_id || null, sort_order: s.sort_order, is_active: s.is_active });
             });
         }
         const { data: catsEn, error: e1 } = await supabase.from('custom_product_categories').select('key, name_en').in('key', keys);
@@ -25149,10 +25641,12 @@ app.post('/api/admin/custom-product-categories', express.json(), async (req, res
             sort_order: sort_order != null ? Number(sort_order) : 0,
             is_active: true
         };
+        const photoSetId = parsePhotographySetIdFromBody(req.body);
+        if (photoSetId !== undefined) payload.photography_set_id = photoSetId;
         if (name_en !== undefined) payload.name_en = name_en != null ? String(name_en).trim() : null;
         for (const col of ['name_ja', 'name_es', 'name_de', 'name_fr']) if (req.body[col] !== undefined) payload[col] = req.body[col] != null ? String(req.body[col]).trim() : null;
         let error = (await supabase.from('custom_product_categories').insert(payload)).error;
-        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja|photography_set_id/.test(error.message)))) {
             const basePayload = { key: k, name: (name && String(name).trim()) || k, prompt: prompt != null ? String(prompt) : '', sort_order: sort_order != null ? Number(sort_order) : 0, is_active: true };
             error = (await supabase.from('custom_product_categories').insert(basePayload)).error;
         }
@@ -25192,12 +25686,23 @@ app.put('/api/admin/custom-product-categories/by-id/:id', express.json(), async 
             if (prompt !== undefined) updates.prompt = String(prompt);
             if (sort_order !== undefined) updates.sort_order = Number(sort_order);
             if (is_active !== undefined) updates.is_active = !!is_active;
+            const photoSetIdById = parsePhotographySetIdFromBody(req.body);
+            if (photoSetIdById !== undefined) updates.photography_set_id = photoSetIdById;
             updates.updated_at = new Date().toISOString();
             const { error } = await supabase.from('custom_product_categories').update(updates).eq('id', id).select('key').maybeSingle();
             if (error) {
                 if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在' });
-                console.error('PUT by-id custom-product-categories:', error);
-                return res.status(500).json({ error: '更新失敗', details: error.message });
+                if (error.code === '42703' || (error.message && /photography_set_id/.test(error.message))) {
+                    delete updates.photography_set_id;
+                    const fb = await supabase.from('custom_product_categories').update(updates).eq('id', id).select('key').maybeSingle();
+                    if (fb.error) {
+                        console.error('PUT by-id custom-product-categories fallback:', fb.error);
+                        return res.status(500).json({ error: '更新失敗', details: fb.error.message });
+                    }
+                } else {
+                    console.error('PUT by-id custom-product-categories:', error);
+                    return res.status(500).json({ error: '更新失敗', details: error.message });
+                }
             }
         } else {
             const insertRow = { ...row, key: newKey, updated_at: new Date().toISOString() };
@@ -25261,9 +25766,11 @@ app.put('/api/admin/custom-product-categories/:key', express.json(), async (req,
             if (prompt !== undefined) updates.prompt = String(prompt);
             if (sort_order !== undefined) updates.sort_order = Number(sort_order);
             if (is_active !== undefined) updates.is_active = !!is_active;
+            const photoSetIdByKey = parsePhotographySetIdFromBody(req.body);
+            if (photoSetIdByKey !== undefined) updates.photography_set_id = photoSetIdByKey;
             updates.updated_at = new Date().toISOString();
             let { data: updatedRow, error } = await supabase.from('custom_product_categories').update(updates).eq('id', row.id).select('key').maybeSingle();
-            const isColumnMissing = error && (error.code === '42703' || error.code === 'PGRST204' || (error.message && /column.*does not exist|Could not find.*column|schema cache|name_en|name_ja|name_de|name_es|name_fr/.test(error.message)));
+            const isColumnMissing = error && (error.code === '42703' || error.code === 'PGRST204' || (error.message && /column.*does not exist|Could not find.*column|schema cache|name_en|name_ja|name_de|name_es|name_fr|photography_set_id/.test(error.message)));
             if (error && isColumnMissing) {
                 const baseUpdates = { updated_at: updates.updated_at };
                 if (name !== undefined) baseUpdates.name = String(name).trim() || key;
@@ -25410,10 +25917,12 @@ app.post('/api/admin/custom-product-subcategories', express.json(), async (req, 
             sort_order: sort_order != null ? Number(sort_order) : 0,
             is_active: true
         };
+        const photoSetIdSub = parsePhotographySetIdFromBody(req.body);
+        if (photoSetIdSub !== undefined) payload.photography_set_id = photoSetIdSub;
         if (name_en !== undefined) payload.name_en = name_en != null ? String(name_en).trim() : null;
         for (const col of ['name_ja', 'name_es', 'name_de', 'name_fr']) if (req.body[col] !== undefined) payload[col] = req.body[col] != null ? String(req.body[col]).trim() : null;
         let error = (await supabase.from('custom_product_subcategories').insert(payload)).error;
-        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja|photography_set_id/.test(error.message)))) {
             const basePayload = { category_key: cKey, key: k, name: (name && String(name).trim()) || k, prompt: prompt != null ? String(prompt) : '', sort_order: sort_order != null ? Number(sort_order) : 0, is_active: true };
             error = (await supabase.from('custom_product_subcategories').insert(basePayload)).error;
         }
@@ -25457,12 +25966,14 @@ app.put('/api/admin/custom-product-subcategories/:category_key/:key', express.js
             updates.sort_order = Number.isFinite(n) ? n : 0;
         }
         if (is_active !== undefined) updates.is_active = !!is_active;
+        const photoSetIdSubPut = parsePhotographySetIdFromBody(req.body);
+        if (photoSetIdSubPut !== undefined) updates.photography_set_id = photoSetIdSubPut;
         updates.updated_at = new Date().toISOString();
         const updatePayload = Object.fromEntries(Object.entries(updates).filter(([, v]) => v !== undefined));
         let { error } = await supabase.from('custom_product_subcategories').update(updatePayload).eq('id', subRow.id);
         const isColumnMissing = error && (
             error.code === '42703' || error.code === 'PGRST204' ||
-            (error.message && /column.*does not exist|Could not find.*column|schema cache|name_en|name_ja|name_de|name_es|name_fr/.test(error.message))
+            (error.message && /column.*does not exist|Could not find.*column|schema cache|name_en|name_ja|name_de|name_es|name_fr|photography_set_id/.test(error.message))
         );
         if (error && isColumnMissing) {
             const baseUpdates = { updated_at: updates.updated_at };
