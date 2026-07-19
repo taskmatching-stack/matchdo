@@ -68,8 +68,24 @@ function getStabilityApiKey() {
     return process.env.STABILITY_API_KEY || process.env.STABILITY_AI_API_KEY || process.env.STABILITY_AI_KEY || process.env.STABILITY_KEY || null;
 }
 function getReplicateApiToken() {
-    return process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || null;
+    const raw = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || '';
+    const trimmed = String(raw).trim().replace(/^["']|["']$/g, '');
+    if (!trimmed) return null;
+    // 必須純 ASCII；誤貼中文佔位（如「你的r8_token」）會讓 fetch 拋 ByteString → 502
+    if (!/^[\x21-\x7E]+$/.test(trimmed)) {
+        console.error('REPLICATE_API_TOKEN contains non-ASCII characters; refusing to call Replicate');
+        return null;
+    }
+    return trimmed;
 }
+function replicateTokenMissingMessage() {
+    const raw = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || '';
+    if (String(raw).trim() && !getReplicateApiToken()) {
+        return 'REPLICATE_API_TOKEN 格式無效（只能是 r8_ 開頭的英文 token，不可含中文）。請在 Cloud Run 重設。';
+    }
+    return '伺服器未設定 REPLICATE_API_TOKEN';
+}
+
 const express = require('express');
 const multer = require('multer');
 const crypto = require('crypto');
@@ -11071,7 +11087,7 @@ app.post('/api/upscale-image', upload.single('image'), async (req, res) => {
         const scale = parseUpscaleScaleFromRequest(req);
         const REPLICATE_API_TOKEN = getReplicateApiToken();
         if (!REPLICATE_API_TOKEN) {
-            return res.status(503).json({ success: false, error: '伺服器未設定 REPLICATE_API_TOKEN，無法使用放大功能' });
+            return res.status(503).json({ success: false, error: replicateTokenMissingMessage() + '，無法使用放大功能' });
         }
         let upscaled;
         try {
@@ -19479,7 +19495,7 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         }
         const REPLICATE_API_TOKEN = getReplicateApiToken();
         if (!REPLICATE_API_TOKEN) {
-            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
+            return res.status(503).json({ error: replicateTokenMissingMessage() });
         }
         const scale = parseUpscaleScaleFromRequest(req);
         const basePts = await getPointsVendorAssetUpscale();
@@ -19502,7 +19518,9 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         } catch (upErr) {
             console.error('preview-image-upscale:', upErr.status, upErr.details || upErr.message);
             return res.status(502).json({
-                error: '放大服務暫時無法使用，請稍後再試',
+                error: upErr.message && String(upErr.message).indexOf('REPLICATE') >= 0
+                    ? String(upErr.message)
+                    : '放大服務暫時無法使用，請稍後再試',
                 details: upErr.status === 401 ? 'API Token 無效' : (upErr.details || upErr.message || '').slice(0, 200)
             });
         }
@@ -20660,7 +20678,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         if (!sourceUrl) return res.status(400).json({ error: '請提供 source_url' });
         const REPLICATE_API_TOKEN = getReplicateApiToken();
         if (!REPLICATE_API_TOKEN) {
-            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
+            return res.status(503).json({ error: replicateTokenMissingMessage() });
         }
         const scale = parseUpscaleScaleFromRequest(req);
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
@@ -23634,7 +23652,7 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-upscale', upload
         }
         const REPLICATE_API_TOKEN = getReplicateApiToken();
         if (!REPLICATE_API_TOKEN) {
-            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
+            return res.status(503).json({ error: replicateTokenMissingMessage() });
         }
         const scale = parseUpscaleScaleFromRequest(req);
         const basePts = await getPointsVendorAssetUpscale();
@@ -24458,7 +24476,7 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images/upscale', e
         }
         const REPLICATE_API_TOKEN = getReplicateApiToken();
         if (!REPLICATE_API_TOKEN) {
-            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
+            return res.status(503).json({ error: replicateTokenMissingMessage() });
         }
         const scale = parseUpscaleScaleFromRequest(req);
         const sourceItems = buildSupplierCatalogImageItems(row);
