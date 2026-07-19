@@ -1053,7 +1053,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-url-no-upload-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-lite-list-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7404,8 +7404,14 @@
                 btnAddOpen.classList.toggle('d-none', showPromo);
             }
             if (showPromo) {
-                if (typeof renderPromoAssetList === 'function') renderPromoAssetList();
                 if (typeof ensurePromoVendorOptions === 'function') ensurePromoVendorOptions();
+                if (typeof loadPromoAssetsLite === 'function') {
+                    loadPromoAssetsLite(false).then(function () {
+                        if (typeof renderPromoAssetList === 'function') renderPromoAssetList();
+                    });
+                } else if (typeof renderPromoAssetList === 'function') {
+                    renderPromoAssetList();
+                }
                 return;
             }
             syncCatalogGroupsFlatFromActiveKind();
@@ -7426,14 +7432,33 @@
             btn.addEventListener('click', function () { switchKind(btn.getAttribute('data-kind')); });
         });
 
-        // —— 推廣圖 TAB（獨立；不碰上傳／編輯）——
+        // —— 推廣圖 TAB（獨立輕量列表，不依賴整包 materialsAll）——
         var promoVendorSelectedAssetId = null;
         var promoVendorSelectedImageUrl = null;
         var promoVendorOptionsLoaded = false;
+        var promoAssetsCache = null;
+        var promoAssetsLoading = null;
 
         function promoVendorEsc(s) {
             return String(s == null ? '' : s)
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function promoAssetImageItems(m) {
+            if (!m) return [];
+            if (m.image_items && m.image_items.length) return m.image_items.slice();
+            var urls = [];
+            if (m.image_url) urls.push(String(m.image_url));
+            var g = m.gallery_images;
+            if (Array.isArray(g)) {
+                g.forEach(function (x) {
+                    var u = typeof x === 'string' ? x : (x && x.url);
+                    if (u && urls.indexOf(u) === -1) urls.push(String(u));
+                });
+            }
+            return urls.map(function (url, idx) {
+                return { url: url, sort_order: idx, label: '', is_cover: idx === 0 };
+            });
         }
 
         function getPromoVendorDims() {
@@ -7477,12 +7502,55 @@
             }).catch(function (err) { console.warn('promo vendor options', err); });
         }
 
+        function loadPromoAssetsLite(force) {
+            if (promoAssetsCache && !force) return Promise.resolve(promoAssetsCache);
+            if (promoAssetsLoading) return promoAssetsLoading;
+            var list = document.getElementById('promo-asset-list');
+            var empty = document.getElementById('promo-asset-empty');
+            if (empty) empty.classList.add('d-none');
+            if (list) {
+                list.innerHTML = '<div class="col-12 text-muted small py-3"><span class="spinner-border spinner-border-sm me-2" role="status"></span>載入產品卡…</div>';
+            }
+            promoAssetsLoading = Promise.resolve().then(function () {
+                return ensureTokenFresh();
+            }).then(function () {
+                return fetch('/api/me/vendor-assets?lite=1', { headers: { Authorization: 'Bearer ' + token } });
+            }).then(function (r) {
+                return r.json().catch(function () { return {}; }).then(function (d) {
+                    if (!r.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+                    promoAssetsCache = (d.items || []).map(function (m) {
+                        m.asset_kind = normalizeKind(m.asset_kind);
+                        return m;
+                    });
+                    return promoAssetsCache;
+                });
+            }).catch(function (err) {
+                console.warn('promo lite load', err);
+                if (list) {
+                    list.innerHTML = '<div class="col-12"><p class="text-danger small mb-0">產品卡載入失敗：' + promoVendorEsc(err.message || err) + '</p></div>';
+                }
+                return [];
+            }).finally(function () {
+                promoAssetsLoading = null;
+            });
+            return promoAssetsLoading;
+        }
+
         function renderPromoAssetList() {
             var list = document.getElementById('promo-asset-list');
             var empty = document.getElementById('promo-asset-empty');
             if (!list) return;
             var filter = (document.getElementById('promo-kind-filter') || {}).value || 'prototype';
-            var items = (materialsAll || []).filter(function (m) {
+            var source = promoAssetsCache;
+            if (!source) {
+                if (materialsAll && materialsAll.length) {
+                    source = materialsAll;
+                } else {
+                    loadPromoAssetsLite(false).then(function () { renderPromoAssetList(); });
+                    return;
+                }
+            }
+            var items = (source || []).filter(function (m) {
                 var k = normalizeKind(m.asset_kind);
                 if (k === 'material' || k === 'promo') return false;
                 if (filter === 'all') return k === 'prototype' || k === 'part';
@@ -7490,22 +7558,29 @@
             });
             list.innerHTML = '';
             if (!items.length) {
-                if (empty) empty.classList.remove('d-none');
+                if (empty) {
+                    empty.textContent = '尚無可用產品卡，請先在「數位原型」或「配件」上傳。';
+                    empty.classList.remove('d-none');
+                }
                 return;
             }
             if (empty) empty.classList.add('d-none');
+            var frag = document.createDocumentFragment();
             items.forEach(function (m) {
-                var urls = assetImageUrls(m);
-                var cover = urls[0] || m.image_url || '';
+                var imgItems = promoAssetImageItems(m);
+                var cover = (imgItems[0] && imgItems[0].url) || m.image_url || '';
                 var col = document.createElement('div');
                 col.className = 'col-6';
                 col.innerHTML =
                     '<div class="card promo-card-pick h-100' + (promoVendorSelectedAssetId === m.id ? ' active' : '') + '" data-id="' + promoVendorEsc(m.id) + '">' +
-                    (cover ? '<img src="' + promoVendorEsc(cover) + '" class="card-img-top" style="height:90px;object-fit:cover" alt="">' : '') +
+                    (cover
+                        ? '<img src="' + promoVendorEsc(cover) + '" class="card-img-top" style="height:90px;object-fit:cover" alt="" loading="lazy" decoding="async">'
+                        : '') +
                     '<div class="card-body py-1 px-2"><p class="small mb-0 text-truncate">' + promoVendorEsc(m.title || m.id) + '</p>' +
-                    '<p class="text-muted" style="font-size:.65rem;margin:0">' + urls.length + ' 張</p></div></div>';
-                list.appendChild(col);
+                    '<p class="text-muted" style="font-size:.65rem;margin:0">' + imgItems.length + ' 張</p></div></div>';
+                frag.appendChild(col);
             });
+            list.appendChild(frag);
             list.querySelectorAll('.promo-card-pick').forEach(function (card) {
                 card.addEventListener('click', function () {
                     selectPromoVendorAsset(card.getAttribute('data-id'));
@@ -7516,7 +7591,11 @@
         function selectPromoVendorAsset(id) {
             promoVendorSelectedAssetId = id;
             promoVendorSelectedImageUrl = null;
-            var m = (materialsAll || []).find(function (x) { return x.id === id; });
+            var pool = promoAssetsCache && promoAssetsCache.length ? promoAssetsCache : materialsAll;
+            var m = (pool || []).find(function (x) { return x.id === id; });
+            if (!m && materialsAll && materialsAll.length) {
+                m = materialsAll.find(function (x) { return x.id === id; });
+            }
             var thumbs = document.getElementById('promo-source-thumbs');
             var empty = document.getElementById('promo-source-empty');
             var applyBtn = document.getElementById('promoVendorApplyBtn');
@@ -7529,7 +7608,7 @@
                 if (applyBtn) applyBtn.disabled = true;
                 return;
             }
-            var items = assetImageItems(m);
+            var items = promoAssetImageItems(m);
             if (!items.length) {
                 if (empty) {
                     empty.textContent = '此卡尚無圖片';
@@ -7544,6 +7623,8 @@
                 img.src = it.url;
                 img.alt = it.label || '';
                 img.className = 'promo-src-thumb' + (idx === 0 ? ' active' : '');
+                img.loading = 'lazy';
+                img.decoding = 'async';
                 img.title = it.label || ('圖 ' + (idx + 1));
                 img.addEventListener('click', function () {
                     promoVendorSelectedImageUrl = it.url;

@@ -19496,6 +19496,59 @@ app.get('/api/me/vendor-assets', async (req, res) => {
             const { data: mfrRow } = await supabase.from('manufacturers').select('name').eq('id', manufacturerId).maybeSingle();
             manufacturerName = (mfrRow && mfrRow.name) ? mfrRow.name : null;
         } catch (_) { /* ignore */ }
+
+        /** 推廣圖選卡：輕量列表（跳過語意／關聯／分享 URL 等重處理） */
+        const lite = String(req.query.lite || '').trim() === '1' || String(req.query.lite || '').toLowerCase() === 'true';
+        if (lite) {
+            const LITE_SELECT = 'id, manufacturer_id, title, image_url, gallery_images, asset_kind, cover_image_label, cover_link_group, is_public, created_at, updated_at';
+            const LITE_SELECT_MIN = 'id, manufacturer_id, title, image_url, gallery_images, asset_kind, is_public, created_at, updated_at';
+            const kindQ = String(req.query.asset_kind || '').trim().toLowerCase();
+            let q = supabase
+                .from('vendor_assets')
+                .select(LITE_SELECT)
+                .eq('manufacturer_id', manufacturerId)
+                .order('sort_order', { ascending: true })
+                .order('created_at', { ascending: false });
+            if (kindQ === 'prototype' || kindQ === 'part') {
+                q = q.eq('asset_kind', kindQ);
+            } else {
+                q = q.in('asset_kind', ['prototype', 'part']);
+            }
+            let { data: list, error } = await q;
+            if (error && error.code === '42703') {
+                ({ data: list, error } = await supabase
+                    .from('vendor_assets')
+                    .select(LITE_SELECT_MIN)
+                    .eq('manufacturer_id', manufacturerId)
+                    .order('created_at', { ascending: false }));
+                if (!error && list) {
+                    list = list.filter((row) => {
+                        const k = normalizeVendorAssetKind(row.asset_kind);
+                        if (kindQ === 'prototype' || kindQ === 'part') return k === kindQ;
+                        return k === 'prototype' || k === 'part';
+                    });
+                }
+            }
+            if (error) {
+                if (error.code === '42P01') return res.json({ items: [], lite: true });
+                console.error('GET /api/me/vendor-assets?lite=1 失敗:', error);
+                return res.status(500).json({ error: '查詢失敗' });
+            }
+            const lang = resolveVendorAssetApiLang(req);
+            const mapped = (list || []).map((row) => mapVendorAssetForApi(row, lang));
+            return res.json({
+                items: mapped,
+                total: mapped.length,
+                lite: true,
+                viewer: {
+                    user_id: user.id,
+                    email: user.email || null,
+                    manufacturer_id: manufacturerId,
+                    manufacturer_name: manufacturerName
+                }
+            });
+        }
+
         const categoryKey = (req.query.category_key || '').trim() || null;
         const catalogGroupId = (req.query.catalog_group_id || '').trim() || null;
         const assetKindQ = (req.query.asset_kind || '').trim().toLowerCase();
