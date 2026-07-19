@@ -15,9 +15,9 @@
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">推廣圖宣傳風格</h4>
         <p class="text-muted small mb-3">
-          管理推廣圖 TAB 的<strong>宣傳風格</strong>（DM／廣告／宣傳用提示詞）。
-          系統會先套用固定的「廣告／DM、禁止換場景、多圖參考」規則，再併入下方的風格提示與構圖提示。
-          請先執行 <code>docs/add-product-promo-image.sql</code>；若仍是舊「換場景」模板，再執行 <code>docs/update-promo-templates-ad-dm.sql</code>。
+          這裡編輯的<strong>啟用</strong>風格＝前台「宣傳風格」下拉選單（同一張表 <code>promo_scene_templates</code>）。
+          系統會先套用固定的「廣告／DM、禁止只換背景、多圖參考」規則，再併入風格／構圖提示。
+          請執行 <code>docs/update-promo-templates-ad-dm.sql</code> 刪除舊「居家／棚拍／戶外」換場景模板，前後台才會一致。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
@@ -39,9 +39,16 @@
         </div>
 
         <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-semibold">風格列表</span>
-            <button type="button" id="btnReload" class="btn btn-sm btn-outline-secondary">重新載入</button>
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-semibold">風格列表 <span class="text-muted fw-normal small">（預設只顯示啟用＝與前台相同）</span></span>
+            <div class="d-flex align-items-center gap-3">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="showInactive">
+                <label class="form-check-label small" for="showInactive">顯示已停用</label>
+              </div>
+              <button type="button" id="btnPurgeLegacy" class="btn btn-sm btn-outline-danger">清除舊換場景模板</button>
+              <button type="button" id="btnReload" class="btn btn-sm btn-outline-secondary">重新載入</button>
+            </div>
           </div>
           <div class="table-responsive">
             <table class="table table-sm table-bordered mb-0 align-middle">
@@ -135,6 +142,14 @@
     return t.length > n ? t.slice(0, n) + '…' : t;
   }
 
+  var LEGACY_SCENE_KEYS = {
+    lifestyle_home: 1,
+    studio_clean: 1,
+    desktop_mockup: 1,
+    outdoor_nature: 1,
+    ecommerce_white: 1
+  };
+
   async function loadList() {
     var headers = await authHeaders();
     var r = await fetch(API, { headers: headers, cache: 'no-store' });
@@ -145,25 +160,45 @@
     }
     items = d.items || [];
     renderList();
+    var legacyCount = items.filter(function (s) { return LEGACY_SCENE_KEYS[s.key]; }).length;
+    if (legacyCount > 0) {
+      showStatus('偵測到 ' + legacyCount + ' 筆舊「換場景」模板；請按「清除舊換場景模板」或執行 update-promo-templates-ad-dm.sql，前後台才會一致。', false);
+    }
+  }
+
+  function visibleItems() {
+    var showInactive = document.getElementById('showInactive') && document.getElementById('showInactive').checked;
+    return items.filter(function (s) {
+      if (showInactive) return true;
+      return s.is_active !== false;
+    });
   }
 
   function renderList() {
     var tb = document.getElementById('listBody');
-    tb.innerHTML = items.map(function (s) {
+    var rows = visibleItems();
+    tb.innerHTML = rows.map(function (s) {
+      var legacyBadge = LEGACY_SCENE_KEYS[s.key]
+        ? ' <span class="badge bg-warning text-dark">舊換場景</span>'
+        : '';
       return '<tr>' +
-        '<td><code>' + esc(s.key) + '</code></td>' +
+        '<td><code>' + esc(s.key) + '</code>' + legacyBadge + '</td>' +
         '<td>' + esc(s.name) +
           (s.description ? '<div class="small text-muted">' + esc(s.description) + '</div>' : '') +
         '</td>' +
         '<td class="small text-muted" title="' + esc(s.scene_prompt || '') + '">' + esc(shortText(s.scene_prompt, 48)) + '</td>' +
         '<td class="small text-muted" title="' + esc(s.composition_hint || '') + '">' + esc(shortText(s.composition_hint, 36)) + '</td>' +
         '<td>' + esc(s.sort_order) + '</td>' +
-        '<td>' + (s.is_active === false ? '<span class="text-danger">停用</span>' : '啟用') + '</td>' +
+        '<td>' + (s.is_active === false ? '<span class="text-danger">停用</span>' : '<span class="text-success">啟用＝前台可見</span>') + '</td>' +
         '<td class="text-nowrap">' +
           '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit" data-id="' + esc(s.id) + '">編輯</button>' +
           '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(s.id) + '">刪除</button>' +
         '</td></tr>';
-    }).join('') || '<tr><td colspan="7" class="text-muted text-center">尚無資料</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="text-muted text-center">' +
+      (items.length && !rows.length
+        ? '目前沒有啟用中的風格（勾選「顯示已停用」可查看）'
+        : '尚無資料') +
+      '</td></tr>';
   }
 
   document.getElementById('btnAdd').addEventListener('click', async function () {
@@ -248,6 +283,23 @@
   });
 
   document.getElementById('btnReload').addEventListener('click', loadList);
+  document.getElementById('showInactive').addEventListener('change', renderList);
+  document.getElementById('btnPurgeLegacy').addEventListener('click', async function () {
+    var legacy = items.filter(function (s) { return LEGACY_SCENE_KEYS[s.key]; });
+    if (!legacy.length) {
+      showStatus('沒有舊換場景模板需要清除', true);
+      return;
+    }
+    if (!confirm('將刪除 ' + legacy.length + ' 筆舊換場景模板（居家／棚拍／桌面／戶外／電商白底），與前台下拉選單對齊。確定？')) return;
+    var headers = await authHeaders();
+    var ok = 0;
+    for (var i = 0; i < legacy.length; i++) {
+      var r = await fetch(API + '/' + encodeURIComponent(legacy[i].id), { method: 'DELETE', headers: headers });
+      if (r.ok) ok += 1;
+    }
+    showStatus('已清除 ' + ok + '／' + legacy.length + ' 筆舊模板', ok === legacy.length);
+    await loadList();
+  });
   loadList();
 })();
   </script>

@@ -9873,7 +9873,7 @@ async function bflPlaygroundTextToImage(endpointUrl, prompt, width, height, seed
 }
 
 /** 通用 BFL 圖生圖（指定 endpoint、解析度），供 Admin Playground 使用；不串任何系統提示詞 */
-async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, width, height, seed, outputFormat, BFL_API_KEY) {
+async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, width, height, seed, outputFormat, BFL_API_KEY, opts) {
     prompt = await translatePromptToEnglishForFlux(prompt);
     const images = referenceImages.slice(0, 8).map((img) => {
         if (typeof img === 'string' && img.startsWith('data:')) {
@@ -9887,6 +9887,11 @@ async function bflPlaygroundImageEdit(endpointUrl, prompt, referenceImages, widt
     const body = { prompt, output_format: (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg', width: w, height: h, input_image: images[0] };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
+    const o = opts && typeof opts === 'object' ? opts : {};
+    if (o.promptUpsampling) body.prompt_upsampling = true;
+    if (o.safetyTolerance != null && Number.isFinite(Number(o.safetyTolerance))) {
+        body.safety_tolerance = Math.max(0, Math.min(6, Math.round(Number(o.safetyTolerance))));
+    }
     const createRes = await fetch(endpointUrl, {
         method: 'POST',
         headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'x-key': BFL_API_KEY },
@@ -10453,10 +10458,13 @@ app.get('/api/promo-image/options', async (req, res) => {
         try {
             const { data: pRows } = await supabase
                 .from('photography_prompt_sets')
-                .select('id, key, name, sort_order')
+                .select('id, key, name, sort_order, is_material_fallback')
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
-            photographySets = pRows || [];
+            // 推廣圖不要出現「材料通用預設」——會把廣告生圖帶成材質色卡語意
+            photographySets = (pRows || [])
+                .filter((r) => !r.is_material_fallback)
+                .map((r) => ({ id: r.id, key: r.key, name: r.name, sort_order: r.sort_order }));
         } catch (_) { photographySets = []; }
         const pointsPreview1mp = await getPointsPromoImageForResolution(1024, 1024);
         let pointsPerExtra = 10;
@@ -10558,7 +10566,8 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 h,
                 seed,
                 'jpeg',
-                process.env.BFL_API_KEY
+                process.env.BFL_API_KEY,
+                { promptUpsampling: true }
             );
         } catch (fluxErr) {
             console.error('promo-image BFL:', fluxErr);
@@ -11605,27 +11614,29 @@ async function buildPromoImagePrompt(sceneTemplateKey, userPrompt, photographySe
     const photo = photographySetId ? await getPhotographySetBodyById(photographySetId) : '';
     const refN = Math.min(8, Math.max(1, parseInt(referenceCount, 10) || 1));
     const parts = [];
-    // 定位：DM／廣告／宣傳主視覺——禁止「換場景塞產品」
-    parts.push('Create a professional advertising and marketing promotional image suitable for DM flyers, print ads, social ads, and campaign materials');
-    parts.push('Keep the exact product identity from the reference image(s): shape, materials, colors, logos, and recognizable details');
-    parts.push('Do not relocate the product into a lifestyle room, outdoor scenery, cafe, desk mockup, or other staged environment; do not invent a new background scene story');
-    parts.push('Improve commercial advertising composition, lighting, contrast, and visual polish so the result looks print-ready and campaign-ready');
+    // 定位：用產品「拍／做廣告主視覺」——不是修圖、不是原構圖換底
+    parts.push('Shoot and design a brand-new commercial advertising photograph of this product for store ads, DM flyers, and marketing campaigns');
+    parts.push('Goal: advertising creative design and new product photography look — NOT retouching, NOT background cleanup, NOT a lightly edited copy of the reference');
+    parts.push('CRITICAL FORBIDDEN: keeping the same mannequin pose, crop, framing, camera height, and overall composition while only changing the backdrop or lighting — that is failure');
+    parts.push('Create a fresh advertising shot: new camera angle and crop, stronger hero composition, intentional negative space for ad copy later, premium commercial lighting, magazine or campaign energy');
+    parts.push('The product must remain clearly the same real product (cut, fabric, color, logos, details), but the photo itself must look newly directed for advertising');
+    parts.push('Use a clean commercial advertising environment that serves the promo; do not invent unrelated lifestyle room stories');
+    parts.push('Do not render unreadable fake text or watermarks');
     if (refN > 1) {
         parts.push(
             'Multiple reference images are provided (input_image through input_image_' + refN +
-            '). Use ALL of them: they may show different angles, colorways, or related product variants of the line. ' +
-            'Synthesize one cohesive advertising promotional image. Treat image 1 as the primary hero subject unless the user request says otherwise; ' +
-            'use the other images to enrich product understanding (structure, materials, alternate colors, details)'
+            '). Treat them as product identity references (angles, colorways, variants). ' +
+            'Produce ONE newly directed advertising photograph. Image 1 is the primary product unless the brief says otherwise'
         );
     } else {
-        parts.push('Use the single reference product image as the clear hero subject');
+        parts.push('Treat the reference as product identity only, then shoot a newly directed advertising photograph of that product');
     }
     if (scene) parts.push(scene);
     if (composition) parts.push(composition);
-    if (user) parts.push(user);
+    if (user) parts.push('Advertising brief: ' + user);
     let prompt = parts.join('. ').trim();
     prompt = appendPhotographyParams(prompt, photo);
-    return prompt || 'Create a professional product advertising promotional image from the reference product photo(s), suitable for DM and marketing ads, without changing it into a lifestyle scene.';
+    return prompt || 'Create a brand-new product advertising key visual from the reference, not a background-only retouch.';
 }
 
 /** 推廣圖參考圖：支援 images[]（最多 8）或舊版單張 image */

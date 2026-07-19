@@ -1,9 +1,8 @@
--- 推廣圖模板：從「換場景」改為「DM／廣告／宣傳風格」
--- 若已跑過舊版 add-product-promo-image.sql，請在 Supabase SQL Editor 執行本檔。
+-- 推廣圖模板：只保留廣告／DM 風格；刪除舊「換場景」列，前後台一致
 -- 可重複執行（冪等）。
 
-UPDATE public.promo_scene_templates
-SET is_active = FALSE, updated_at = NOW()
+-- 1) 刪除舊換場景模板（前台本來就不顯示；後台也不該再留）
+DELETE FROM public.promo_scene_templates
 WHERE key IN (
     'lifestyle_home',
     'studio_clean',
@@ -12,26 +11,27 @@ WHERE key IN (
     'ecommerce_white'
 );
 
+-- 2) 寫入／更新廣告風格（強化：禁止只換背景）
 INSERT INTO public.promo_scene_templates (key, name, description, scene_prompt, composition_hint, category, sort_order, is_active) VALUES
-('product_hero_ad', '產品主視覺廣告', '適合官網／社群的產品廣告主圖',
- 'commercial product advertising hero visual, clean and powerful, marketing-campaign quality',
- 'product fills the frame as the clear hero, strong focal point, advertising layout feel without readable text overlays',
+('product_hero_ad', '產品主視覺廣告', '重新設計成官網／社群廣告主圖（不是原圖換底）',
+ 'redesign into a powerful commercial advertising hero key visual with campaign lighting and polished marketing look; not a background swap',
+ 'new advertising crop and framing; product as hero with intentional negative space; forbid keeping the exact same reference pose and framing',
  'ad', 10, TRUE),
-('flyer_dm', 'DM／傳單風', '清楚好印，適合DM與傳單主圖',
- 'print-ready promotional flyer visual, clear product presentation for direct-mail and handout marketing',
- 'centered product hero, high clarity, balanced margins suitable for DM and flyer use, no invented lifestyle room',
+('flyer_dm', 'DM／傳單風', '重新設計成可印的 DM／傳單主圖',
+ 'redesign as a print-ready DM and flyer advertising visual with clear product presentation for direct-mail marketing',
+ 'balanced flyer margins and strong product hierarchy; commercial ad redesign, not a retouched copy of the reference photo',
  'print', 20, TRUE),
-('campaign_promo', '活動宣傳風', '有張力的促銷／活動宣傳感',
- 'bold promotional campaign advertising look, eye-catching marketing energy for sales and event promotion',
- 'dynamic commercial composition, strong contrast, campaign poster energy while keeping the real product unchanged',
+('campaign_promo', '活動宣傳風', '有張力的促銷／活動宣傳主視覺',
+ 'bold promotional campaign advertising redesign with eye-catching marketing energy for sales and event promotion',
+ 'dynamic campaign composition and contrast; reinvent the shot as an ad, keep product identity but change framing',
  'campaign', 30, TRUE),
-('brand_premium', '品牌質感廣告', '高級克制，適合品牌形象宣傳',
- 'premium brand advertising photography, refined and restrained luxury marketing aesthetic',
- 'elegant commercial framing, soft premium lighting, high-end catalog advertising mood',
+('brand_premium', '品牌質感廣告', '高級克制的品牌形象廣告',
+ 'premium brand advertising redesign with refined luxury marketing aesthetic and high-end catalog energy',
+ 'elegant commercial framing and premium lighting; advertising reinterpretation rather than background cleanup',
  'brand', 40, TRUE),
-('catalog_ad', '型錄／電商廣告', '清楚展示，適合型錄與電商宣傳',
- 'clean catalog and ecommerce advertising visual, accurate product showcase for online and print catalog promo',
- 'product clearly readable, even commercial lighting, catalog-ad composition, minimal distraction',
+('catalog_ad', '型錄／電商廣告', '清楚有力的型錄／電商宣傳主圖',
+ 'clean catalog and ecommerce advertising redesign for online and print catalog promo',
+ 'accurate product showcase with commercial catalog lighting and a stronger ad crop than the reference photo',
  'catalog', 50, TRUE)
 ON CONFLICT (key) DO UPDATE SET
     name = EXCLUDED.name,
