@@ -415,11 +415,27 @@
           : '') +
         '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
         upscaleBtn +
-        (hasPreview ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-preview" data-url="' + esc(url) + '">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
-        (!isCover
-          ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(trLocal('baseModels.setAsCover', '設為封面')) + '</button>' +
-            '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
-          : pendingCardActionSpacer()) +
+        ((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.footerFromPreviewItem)
+          ? window.MatchdoUpscaleScale.footerFromPreviewItem(slot || {}, {
+              redrawClass: 'btn-gallery-clear-redraw',
+              upscaleClass: 'btn-gallery-clear-upscale',
+              redrawAttrs: ' data-url="' + esc(url) + '"',
+              upscaleAttrs: ' data-url="' + esc(url) + '"',
+              coverHtml: !isCover
+                ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(trLocal('baseModels.setAsCover', '設為封面')) + '</button>'
+                : '<span class="btn btn-outline-primary btn-sm invisible" aria-hidden="true">設為封面</span>',
+              removeHtml: !isCover
+                ? '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
+                : '<span class="btn btn-outline-danger btn-sm invisible" aria-hidden="true">移除</span>'
+            })
+          : ('<div class="pending-footer-actions">' +
+            ((slot && slot.redrawPreviewUrl) ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-redraw" data-url="' + esc(url) + '">清除重繪</button>' : '') +
+            ((slot && slot.upscalePreviewUrl) ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-upscale" data-url="' + esc(url) + '">清除放大</button>' : '') +
+            (!isCover
+              ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(trLocal('baseModels.setAsCover', '設為封面')) + '</button>' +
+                '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
+              : pendingCardActionSpacer()) +
+            '</div>')) +
         '</div>';
       return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="true" data-gallery-url="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
         pendingCardBadgeRow(coverBadge, newBadge) +
@@ -433,12 +449,32 @@
         previewGallerySlotRedraw(item, btn.getAttribute('data-url'));
       });
     });
-    grid.querySelectorAll('.btn-gallery-clear-preview').forEach(function (btn) {
+    function clearGallerySlotKind(url, kind) {
+      var slot = editGallerySlotPreview[url];
+      if (!slot) return;
+      if (kind === 'redraw') {
+        slot.redrawPreviewUrl = null;
+        slot.redrawFile = null;
+        slot.uploadRedraw = false;
+      } else if (kind === 'upscale') {
+        slot.upscalePreviewUrl = null;
+        slot.upscaleFile = null;
+        slot.uploadUpscale = false;
+      }
+      if (!pendingHasDerivedPreview(slot)) delete editGallerySlotPreview[url];
+      var getItemFn = getCfg().getEditItem;
+      renderEditGallery(typeof getItemFn === 'function' ? getItemFn() : item);
+    }
+    grid.querySelectorAll('.btn-gallery-clear-redraw, .btn-gallery-clear-preview').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
-        delete editGallerySlotPreview[btn.getAttribute('data-url')];
-        var getItemFn = getCfg().getEditItem;
-        renderEditGallery(typeof getItemFn === 'function' ? getItemFn() : item);
+        clearGallerySlotKind(btn.getAttribute('data-url'), 'redraw');
+      });
+    });
+    grid.querySelectorAll('.btn-gallery-clear-upscale').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        clearGallerySlotKind(btn.getAttribute('data-url'), 'upscale');
       });
     });
     grid.querySelectorAll('.btn-gallery-del').forEach(function (btn) {

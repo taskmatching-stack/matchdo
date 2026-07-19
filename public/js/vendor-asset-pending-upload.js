@@ -365,9 +365,33 @@
         }
         function upscaleControlsRowHtml(selectClass, buttonAndAfterHtml) {
             var U = global.MatchdoUpscaleScale;
-            if (U) return U.controlsRowHtml(selectClass, buttonAndAfterHtml);
-            return '<div class="d-flex align-items-center gap-1 flex-wrap w-100 mt-1 pending-upscale-controls" style="flex-basis:100%;">' +
+            if (U) return U.controlsRowHtml(selectClass, buttonAndAfterHtml, uploadPricing);
+            return '<div class="pending-upscale-controls">' +
                 upscaleScaleSelectHtml(selectClass) + (buttonAndAfterHtml || '') + '</div>';
+        }
+        function pendingFooterFromItem(item, opts) {
+            var U = global.MatchdoUpscaleScale;
+            if (U && U.footerFromPreviewItem) return U.footerFromPreviewItem(item, opts || {});
+            opts = opts || {};
+            item = item || {};
+            return '<div class="pending-footer-actions">' +
+                (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm ' + (opts.redrawClass || 'pending-clear-redraw') + '">清除重繪</button>' : '') +
+                (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm ' + (opts.upscaleClass || 'pending-clear-upscale') + '">清除放大</button>' : '') +
+                (opts.coverHtml || '') +
+                (opts.removeHtml || '') +
+                '</div>';
+        }
+        function pendingFooterActionsRowHtml(partsOrHtml) {
+            var U = global.MatchdoUpscaleScale;
+            if (partsOrHtml && typeof partsOrHtml === 'object') {
+                if (U) return U.footerActionsRowHtml(partsOrHtml);
+                return '<div class="pending-footer-actions">' +
+                    (partsOrHtml.clearRedraw || '') + (partsOrHtml.clearUpscale || '') +
+                    (partsOrHtml.clearD2p || '') + (partsOrHtml.coverHtml || '') +
+                    (partsOrHtml.removeHtml || '') + '</div>';
+            }
+            if (U) return U.footerActionsRowHtml({ removeHtml: partsOrHtml || '' });
+            return '<div class="pending-footer-actions">' + (partsOrHtml || '') + '</div>';
         }
         function confirmUpscaleInputLimit(width, height) {
             var U = global.MatchdoUpscaleScale;
@@ -1019,8 +1043,7 @@
                     ? upscaleControlsRowHtml(
                         'pending-upscale-scale matchdo-upscale-scale',
                         '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
-                        pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
-                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-upscale">清除 AI 放大新圖</button>' : '')
+                        pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp)
                     )
                     : '';
                 card.innerHTML = pendingCardBadgeRow(coverBadge, '') +
@@ -1031,9 +1054,15 @@
                     '<div class="pending-actions">' +
                     '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
                     upscaleBtnHtml +
-                    (item.redrawPreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-redraw">清除重繪新圖</button>' : pendingCardClearRedrawSpacer()) +
-                    (idx > 0 ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>' : '<span class="btn btn-outline-primary btn-sm invisible" aria-hidden="true">設為封面</span>') +
-                    '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button></div>';
+                    pendingFooterFromItem(item, {
+                        redrawClass: 'pending-clear-redraw',
+                        upscaleClass: 'pending-clear-upscale',
+                        coverHtml: idx > 0
+                            ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>'
+                            : '<span class="btn btn-outline-primary btn-sm invisible" aria-hidden="true">設為封面</span>',
+                        removeHtml: '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button>'
+                    }) +
+                    '</div>';
                 col.appendChild(card);
                 wrap.appendChild(col);
                 card.querySelector('.pending-redraw-btn').addEventListener('click', function () {
