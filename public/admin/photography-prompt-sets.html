@@ -16,7 +16,8 @@
         <h4 class="mb-1">攝影參數提示詞</h4>
         <p class="text-muted small mb-3">
           管理可重用的攝影參數組（鏡頭／光影／景深等），會<strong>追加在</strong>設計生圖、AI 重繪、寫實化、材料重繪既有提示詞的<strong>最後</strong>。
-          請先在 Supabase 執行 <code>docs/add-photography-prompt-sets.sql</code>。
+          勾選<strong>推廣圖使用</strong>後，才會出現在設計區／廠商區推廣圖的「攝影參數」選單（兩邊同一份列表）。
+          請先執行 <code>docs/add-photography-prompt-sets.sql</code>；若尚無推廣圖開關欄位，再執行 <code>docs/add-photography-use-for-promo.sql</code>。
           分類綁定請至 <a href="/admin/custom-categories.html">訂製品分類</a>。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
@@ -39,6 +40,12 @@
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="setMaterialFallback">
                       <label class="form-check-label small" for="setMaterialFallback">材料通用預設（手打不在清單時）</label>
+                    </div>
+                  </div>
+                  <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="setUseForPromo">
+                      <label class="form-check-label small" for="setUseForPromo">推廣圖使用（設計區＋廠商區）</label>
                     </div>
                   </div>
                   <div class="col-12"><label class="form-label small mb-0">提示詞正文（追加於最後）</label><textarea id="setBody" class="form-control form-control-sm" rows="3" placeholder="自然棚拍光，柔和方向光…"></textarea></div>
@@ -98,8 +105,9 @@
                 <div class="mb-2"><label class="form-label">提示詞正文</label><textarea id="editSetBody" class="form-control" rows="5"></textarea></div>
                 <div class="row g-2">
                   <div class="col-md-3"><label class="form-label">排序</label><input id="editSetSort" type="number" class="form-control"></div>
-                  <div class="col-md-4 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="editSetActive"><label class="form-check-label" for="editSetActive">啟用</label></div></div>
-                  <div class="col-md-5 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="editSetFallback"><label class="form-check-label" for="editSetFallback">材料通用預設</label></div></div>
+                  <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="editSetActive"><label class="form-check-label" for="editSetActive">啟用</label></div></div>
+                  <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="editSetFallback"><label class="form-check-label" for="editSetFallback">材料通用預設</label></div></div>
+                  <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input class="form-check-input" type="checkbox" id="editSetUseForPromo"><label class="form-check-label" for="editSetUseForPromo">推廣圖使用</label></div></div>
                 </div>
               </div>
               <div class="modal-footer">
@@ -166,6 +174,7 @@
     sets = d.items || [];
     renderSets();
     fillPresetSetSelect(document.getElementById('presetSet'));
+    if (d.migration_hint) showStatus(d.migration_hint, false);
   }
   function renderSets() {
     var tb = document.getElementById('setsBody');
@@ -174,6 +183,7 @@
       var short = body.length > 60 ? body.slice(0, 60) + '…' : (body || '—');
       var badges = '';
       if (s.is_material_fallback) badges += '<span class="badge bg-info text-dark me-1">材料通用</span>';
+      if (s.use_for_promo) badges += '<span class="badge bg-warning text-dark me-1">推廣圖</span>';
       return '<tr>' +
         '<td><code>' + esc(s.key) + '</code></td>' +
         '<td>' + esc(s.name) + '</td>' +
@@ -220,7 +230,8 @@
         name: document.getElementById('setName').value,
         body_text: document.getElementById('setBody').value,
         sort_order: Number(document.getElementById('setSort').value) || 0,
-        is_material_fallback: document.getElementById('setMaterialFallback').checked
+        is_material_fallback: document.getElementById('setMaterialFallback').checked,
+        use_for_promo: document.getElementById('setUseForPromo').checked
       })
     });
     var d = await r.json().catch(function () { return {}; });
@@ -230,6 +241,7 @@
     document.getElementById('setName').value = '';
     document.getElementById('setBody').value = '';
     document.getElementById('setMaterialFallback').checked = false;
+    document.getElementById('setUseForPromo').checked = false;
     await loadSets();
   });
 
@@ -246,6 +258,7 @@
       document.getElementById('editSetSort').value = s.sort_order != null ? s.sort_order : 0;
       document.getElementById('editSetActive').checked = s.is_active !== false;
       document.getElementById('editSetFallback').checked = !!s.is_material_fallback;
+      document.getElementById('editSetUseForPromo').checked = !!s.use_for_promo;
       if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editSetModal'));
       editModal.show();
     }
@@ -272,7 +285,8 @@
         body_text: document.getElementById('editSetBody').value,
         sort_order: Number(document.getElementById('editSetSort').value) || 0,
         is_active: document.getElementById('editSetActive').checked,
-        is_material_fallback: document.getElementById('editSetFallback').checked
+        is_material_fallback: document.getElementById('editSetFallback').checked,
+        use_for_promo: document.getElementById('editSetUseForPromo').checked
       })
     });
     var d = await r.json().catch(function () { return {}; });

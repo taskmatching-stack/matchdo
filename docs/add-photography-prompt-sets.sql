@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.photography_prompt_sets (
     name TEXT NOT NULL,
     body_text TEXT NOT NULL DEFAULT '',
     is_material_fallback BOOLEAN NOT NULL DEFAULT FALSE,
+    use_for_promo BOOLEAN NOT NULL DEFAULT FALSE,
     sort_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -22,11 +23,16 @@ CREATE INDEX IF NOT EXISTS idx_photography_prompt_sets_active
 
 COMMENT ON TABLE public.photography_prompt_sets IS '攝影參數提示詞組（鏡頭／光影／景深等），追加於各 FLUX prompt 最後';
 COMMENT ON COLUMN public.photography_prompt_sets.is_material_fallback IS '材料重繪：手打不在清單內時使用的通用預設（全表最多一筆 true）';
+COMMENT ON COLUMN public.photography_prompt_sets.use_for_promo IS '為 true 時，出現在設計區／廠商區推廣圖的攝影參數選單';
 
 -- 材料通用預設：僅允許一筆 is_material_fallback = true
 CREATE UNIQUE INDEX IF NOT EXISTS uq_photography_prompt_sets_material_fallback
     ON public.photography_prompt_sets ((is_material_fallback))
     WHERE is_material_fallback = TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_photography_prompt_sets_use_for_promo
+    ON public.photography_prompt_sets (use_for_promo)
+    WHERE use_for_promo = TRUE;
 
 ALTER TABLE public.photography_prompt_sets ENABLE ROW LEVEL SECURITY;
 

@@ -10447,6 +10447,7 @@ app.get('/api/promo-image/options', async (req, res) => {
     try {
         let templates = [];
         let photographySets = [];
+        let photoMigrationHint;
         try {
             const { data: tRows } = await supabase
                 .from('promo_scene_templates')
@@ -10456,12 +10457,18 @@ app.get('/api/promo-image/options', async (req, res) => {
             templates = tRows || [];
         } catch (_) { templates = []; }
         try {
-            const { data: pRows } = await supabase
+            const { data: pRows, error: pErr } = await supabase
                 .from('photography_prompt_sets')
                 .select('id, key, name, sort_order')
                 .eq('is_active', true)
+                .eq('use_for_promo', true)
                 .order('sort_order', { ascending: true });
-            photographySets = pRows || [];
+            if (pErr && pErr.code === '42703') {
+                photographySets = [];
+                photoMigrationHint = '請執行 docs/add-photography-use-for-promo.sql，並在後台勾選「推廣圖使用」';
+            } else {
+                photographySets = pRows || [];
+            }
         } catch (_) { photographySets = []; }
         const pointsPreview1mp = await getPointsPromoImageForResolution(1024, 1024);
         let pointsPerExtra = 10;
@@ -10477,6 +10484,7 @@ app.get('/api/promo-image/options', async (req, res) => {
             points_per_extra_mp: pointsPerExtra,
             mp_tiers: [1, 2, 3, 4],
             max_reference_images: 8,
+            photography_migration_hint: photoMigrationHint,
             ratio_presets: {
                 '1:1': { w: 1024, h: 1024 },
                 '4:3': { w: 1152, h: 864 },
@@ -26122,7 +26130,8 @@ app.put('/api/custom-product-categories', express.json(), async (req, res) => {
 });
 
 // ——— 攝影參數提示詞組 + 材料快速選單 ———
-const PHOTOGRAPHY_SET_SELECT = 'id, key, name, body_text, is_material_fallback, sort_order, is_active, created_at, updated_at';
+const PHOTOGRAPHY_SET_SELECT = 'id, key, name, body_text, is_material_fallback, use_for_promo, sort_order, is_active, created_at, updated_at';
+const PHOTOGRAPHY_SET_SELECT_LEGACY = 'id, key, name, body_text, is_material_fallback, sort_order, is_active, created_at, updated_at';
 const MATERIAL_PRESET_SELECT = 'id, label, photography_set_id, sort_order, is_active, created_at, updated_at';
 
 function parsePhotographySetIdFromBody(body) {
@@ -26166,6 +26175,21 @@ app.get('/api/admin/photography-prompt-sets', async (req, res) => {
             if (error.code === '42P01') {
                 return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
             }
+            if (error.code === '42703') {
+                const legacy = await supabase
+                    .from('photography_prompt_sets')
+                    .select(PHOTOGRAPHY_SET_SELECT_LEGACY)
+                    .order('sort_order', { ascending: true })
+                    .order('key', { ascending: true });
+                if (legacy.error) {
+                    console.error('GET /api/admin/photography-prompt-sets legacy:', legacy.error);
+                    return res.status(500).json({ error: '查詢失敗' });
+                }
+                return res.json({
+                    items: (legacy.data || []).map((r) => ({ ...r, use_for_promo: false })),
+                    migration_hint: '請執行 docs/add-photography-use-for-promo.sql 以啟用「推廣圖使用」開關'
+                });
+            }
             console.error('GET /api/admin/photography-prompt-sets:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
@@ -26191,13 +26215,19 @@ app.post('/api/admin/photography-prompt-sets', express.json(), async (req, res) 
             name,
             body_text: body.body_text != null ? String(body.body_text) : '',
             is_material_fallback: !!body.is_material_fallback,
+            use_for_promo: !!body.use_for_promo,
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active
         };
         if (payload.is_material_fallback) {
             await supabase.from('photography_prompt_sets').update({ is_material_fallback: false }).eq('is_material_fallback', true);
         }
-        const { data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT).single();
+        let { data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT).single();
+        if (error && error.code === '42703') {
+            delete payload.use_for_promo;
+            ({ data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT_LEGACY).single());
+            if (!error && data) data = { ...data, use_for_promo: false };
+        }
         if (error) {
             if (error.code === '42P01') {
                 return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
@@ -26235,13 +26265,28 @@ app.put('/api/admin/photography-prompt-sets/:id', express.json(), async (req, re
         if (body.body_text !== undefined) updates.body_text = String(body.body_text);
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.use_for_promo !== undefined) updates.use_for_promo = !!body.use_for_promo;
         if (body.is_material_fallback !== undefined) {
             updates.is_material_fallback = !!body.is_material_fallback;
             if (updates.is_material_fallback) {
                 await supabase.from('photography_prompt_sets').update({ is_material_fallback: false }).neq('id', id).eq('is_material_fallback', true);
             }
         }
-        const { data, error } = await supabase.from('photography_prompt_sets').update(updates).eq('id', id).select(PHOTOGRAPHY_SET_SELECT).single();
+        let { data, error } = await supabase.from('photography_prompt_sets').update(updates).eq('id', id).select(PHOTOGRAPHY_SET_SELECT).single();
+        if (error && error.code === '42703') {
+            const stripped = { ...updates };
+            const wantedPromo = Object.prototype.hasOwnProperty.call(stripped, 'use_for_promo');
+            delete stripped.use_for_promo;
+            ({ data, error } = await supabase.from('photography_prompt_sets').update(stripped).eq('id', id).select(PHOTOGRAPHY_SET_SELECT_LEGACY).single());
+            if (!error && data) data = { ...data, use_for_promo: false };
+            if (!error && wantedPromo) {
+                return res.status(503).json({
+                    error: '請先執行 docs/add-photography-use-for-promo.sql 才能儲存「推廣圖使用」',
+                    code: 'MIGRATION_REQUIRED',
+                    item: data
+                });
+            }
+        }
         if (error) {
             if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在，或已有材料通用預設' });
             console.error('PUT /api/admin/photography-prompt-sets:', error);
