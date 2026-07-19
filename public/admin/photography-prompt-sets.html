@@ -236,7 +236,7 @@
     });
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
-    showStatus('已新增參數組', true);
+    showStatus(d.warning || '已新增參數組', !d.warning);
     document.getElementById('setKey').value = '';
     document.getElementById('setName').value = '';
     document.getElementById('setBody').value = '';
@@ -292,7 +292,7 @@
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
     if (editModal) editModal.hide();
-    showStatus('已儲存', true);
+    showStatus(d.warning || '已儲存', !d.warning);
     await loadSets();
     await loadPresets();
   });

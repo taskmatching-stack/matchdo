@@ -10463,7 +10463,7 @@ app.get('/api/promo-image/options', async (req, res) => {
                 .eq('is_active', true)
                 .eq('use_for_promo', true)
                 .order('sort_order', { ascending: true });
-            if (pErr && pErr.code === '42703') {
+            if (isSupabaseMissingColumnError(pErr, 'use_for_promo')) {
                 photographySets = [];
                 photoMigrationHint = '請執行 docs/add-photography-use-for-promo.sql，並在後台勾選「推廣圖使用」';
             } else {
@@ -26172,10 +26172,10 @@ app.get('/api/admin/photography-prompt-sets', async (req, res) => {
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
         if (error) {
-            if (error.code === '42P01') {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
             }
-            if (error.code === '42703') {
+            if (isSupabaseMissingColumnError(error, 'use_for_promo')) {
                 const legacy = await supabase
                     .from('photography_prompt_sets')
                     .select(PHOTOGRAPHY_SET_SELECT_LEGACY)
@@ -26210,6 +26210,7 @@ app.post('/api/admin/photography-prompt-sets', express.json(), async (req, res) 
         const name = String(body.name || '').trim();
         if (!key) return res.status(400).json({ error: '請填寫 key' });
         if (!name) return res.status(400).json({ error: '請填寫名稱' });
+        const wantedPromo = body.use_for_promo !== undefined && !!body.use_for_promo;
         const payload = {
             key,
             name,
@@ -26223,13 +26224,20 @@ app.post('/api/admin/photography-prompt-sets', express.json(), async (req, res) 
             await supabase.from('photography_prompt_sets').update({ is_material_fallback: false }).eq('is_material_fallback', true);
         }
         let { data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT).single();
-        if (error && error.code === '42703') {
+        // UPDATE/INSERT 缺欄位時 PostgREST 常回 PGRST204（非 42703）
+        if (isSupabaseMissingColumnError(error, 'use_for_promo')) {
             delete payload.use_for_promo;
             ({ data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT_LEGACY).single());
             if (!error && data) data = { ...data, use_for_promo: false };
+            if (!error && wantedPromo) {
+                return res.status(201).json({
+                    item: data,
+                    warning: '其他欄位已儲存。請先執行 docs/add-photography-use-for-promo.sql，才能啟用「推廣圖使用」'
+                });
+            }
         }
         if (error) {
-            if (error.code === '42P01') {
+            if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
             }
             if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在，或已有材料通用預設' });
@@ -26273,24 +26281,26 @@ app.put('/api/admin/photography-prompt-sets/:id', express.json(), async (req, re
             }
         }
         let { data, error } = await supabase.from('photography_prompt_sets').update(updates).eq('id', id).select(PHOTOGRAPHY_SET_SELECT).single();
-        if (error && error.code === '42703') {
+        // UPDATE 缺欄位時為 PGRST204，不是 42703
+        if (isSupabaseMissingColumnError(error, 'use_for_promo')) {
             const stripped = { ...updates };
             const wantedPromo = Object.prototype.hasOwnProperty.call(stripped, 'use_for_promo');
             delete stripped.use_for_promo;
             ({ data, error } = await supabase.from('photography_prompt_sets').update(stripped).eq('id', id).select(PHOTOGRAPHY_SET_SELECT_LEGACY).single());
             if (!error && data) data = { ...data, use_for_promo: false };
             if (!error && wantedPromo) {
-                return res.status(503).json({
-                    error: '請先執行 docs/add-photography-use-for-promo.sql 才能儲存「推廣圖使用」',
-                    code: 'MIGRATION_REQUIRED',
-                    item: data
+                // 其他欄位仍寫入成功；提醒執行 migration（勿再回 500）
+                return res.json({
+                    item: data,
+                    warning: '其他欄位已儲存。請先執行 docs/add-photography-use-for-promo.sql，才能啟用「推廣圖使用」'
                 });
             }
         }
         if (error) {
             if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在，或已有材料通用預設' });
+            if (error.code === 'PGRST116') return res.status(404).json({ error: '找不到此參數組' });
             console.error('PUT /api/admin/photography-prompt-sets:', error);
-            return res.status(500).json({ error: '更新失敗' });
+            return res.status(500).json({ error: '更新失敗：' + (error.message || error.code || '') });
         }
         res.json({ item: data });
     } catch (e) {
