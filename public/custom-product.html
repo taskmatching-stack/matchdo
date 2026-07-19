@@ -1667,17 +1667,15 @@
                             <div class="create-panel-left">
                                 <p class="form-text text-muted small mb-2">以設計圖或數位資產生成產品推廣圖。基礎約 1MP 起跳 20 點，解析度越高點數越高。</p>
                                 <div class="form-row full scene-sim-images-row">
-                                    <span class="label w-100 mb-1">選擇來源圖</span>
+                                    <span class="label w-100 mb-1">選擇來源圖（從數位資產）</span>
                                     <div class="scene-sim-col" style="max-width: 280px;">
-                                        <div id="promoImagePreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" title="點擊選擇本機圖片或從數位資產選圖">
+                                        <div id="promoImagePreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" title="點擊從數位資產選圖">
                                             <div id="promoImagePreviewInner" class="scene-sim-preview-inner">
-                                                <span class="scene-sim-preview-hint" data-i18n="customProduct.clickToSelect">點擊選擇</span>
+                                                <span class="scene-sim-preview-hint">點擊選擇數位資產</span>
                                             </div>
                                             <img id="promoImagePreviewImg" src="" alt="" class="scene-sim-preview-img d-none">
                                         </div>
-                                        <input type="file" id="promoImageFileInput" accept="image/*" class="d-none">
                                         <div class="d-flex flex-wrap gap-2 mt-2">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="promoImagePickLocalBtn">本機上傳</button>
                                             <button type="button" class="btn btn-outline-secondary btn-sm" id="promoImagePickAssetBtn">從數位資產</button>
                                             <button type="button" class="btn btn-outline-warning btn-sm d-none" id="promoImageClearBtn">清除</button>
                                         </div>
@@ -1781,8 +1779,8 @@
     <script src="js/browse-styles.js?v=7" defer></script>
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
-    <script src="/js/matchdo-promo-image.js?v=20260719a" defer></script>
-    <script src="js/custom-product.js?v=122" defer></script>
+    <script src="/js/matchdo-promo-image.js?v=20260719b" defer></script>
+    <script src="js/custom-product.js?v=123" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 

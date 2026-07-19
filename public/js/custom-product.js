@@ -5428,7 +5428,8 @@ $(document).ready(function () {
     function openAssetPickerModal(context) {
         window.assetPickerContext = context || 'sceneSim';
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
-        $('#sceneSimAssetPickerModal').modal('show');
+        var pickerEl = document.getElementById('sceneSimAssetPickerModal');
+        showBootstrapModal(pickerEl);
         var $list = $('#sceneSimAssetList');
         var $empty = $('#sceneSimAssetEmpty');
         var $loading = $('#sceneSimAssetLoading');
@@ -5475,10 +5476,14 @@ $(document).ready(function () {
                         if (u) {
                             if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
                             else if (window.assetPickerContext === 'designToPhysical') setDesignToPhysicalPreview(u);
-                            else if (window.assetPickerContext === 'promoImage') setPromoImagePreview(u);
+                            else if (window.assetPickerContext === 'promoImage') {
+                                if (typeof setPromoImagePreview === 'function') setPromoImagePreview(u, 'digital_asset');
+                                else if (typeof window.setPromoImagePreview === 'function') window.setPromoImagePreview(u, 'digital_asset');
+                            }
                             else setSceneSimPreview(u);
                         }
-                        $('#sceneSimAssetPickerModal').modal('hide');
+                        var hideInst = getBootstrapModal(pickerEl);
+                        if (hideInst) hideInst.hide();
                     });
                 })
                 .catch(function () {
@@ -5953,14 +5958,14 @@ $(document).ready(function () {
             });
     });
 
-    // —— 推廣圖（獨立 Tab；不改寫實化／生圖）——
+    // —— 推廣圖（獨立 Tab；僅數位資產選圖，不提供本機上傳）——
     window.promoImageImageDataUrl = null;
-    window.promoImageSourceType = 'upload';
+    window.promoImageSourceType = 'digital_asset';
     var promoImageOptionsLoaded = false;
 
     function clearPromoImagePreview() {
         window.promoImageImageDataUrl = null;
-        window.promoImageSourceType = 'upload';
+        window.promoImageSourceType = 'digital_asset';
         $('#promoImagePreviewImg').addClass('d-none').attr('src', '');
         $('#promoImagePreviewInner').removeClass('d-none');
         $('#promoImageClearBtn').addClass('d-none');
@@ -5976,6 +5981,7 @@ $(document).ready(function () {
         $('#promoImagePreviewInner').addClass('d-none');
         $('#promoImageClearBtn').removeClass('d-none');
     }
+    window.setPromoImagePreview = setPromoImagePreview;
     function getPromoImageDims() {
         var ratio = ($('#promoImageRatioSelect').val() || '1:1');
         if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.dimsForRatio === 'function') {
@@ -6029,19 +6035,47 @@ $(document).ready(function () {
         });
     }
     function renderPromoImageResult(imageDataUrl, meta) {
-        if (!imageDataUrl) return;
+        if (!imageDataUrl && !(meta && meta.image_url)) return;
         var wrap = $('#promoImageResultWrap');
-        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會自動存入數位資產，請自行下載。</p>';
+        var displayUrl = (meta && meta.image_url) || imageDataUrl;
+        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖已存成公開網址，可下載或複製連結分享。</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
-        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', '推廣圖')
+        $inner.append($('<img>').attr('src', displayUrl).attr('alt', '推廣圖')
             .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
         if (meta && meta.points_deducted != null) {
             $inner.append($('<p class="small text-muted mt-2 mb-0"></p>').text('已扣除 ' + meta.points_deducted + ' 點'));
+        }
+        if (meta && meta.image_url) {
+            var $urlRow = $('<div class="mt-2"></div>');
+            $urlRow.append($('<input type="text" class="form-control form-control-sm mb-1" readonly>').val(meta.image_url));
+            var $copy = $('<button type="button" class="btn btn-sm btn-outline-secondary me-1">複製網址</button>');
+            $copy.on('click', function () {
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(meta.image_url);
+                    } else {
+                        var inp = $urlRow.find('input')[0];
+                        if (inp) { inp.select(); document.execCommand('copy'); }
+                    }
+                } catch (err) { console.warn(err); }
+            });
+            var $open = $('<a class="btn btn-sm btn-outline-primary me-1" target="_blank" rel="noopener">開啟</a>').attr('href', meta.image_url);
+            $urlRow.append($copy).append($open);
+            $inner.append($urlRow);
         }
         var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>下載圖片</a>');
         $btn.on('click', function (e) {
             e.preventDefault();
             try {
+                if (meta && meta.image_url && !String(displayUrl).startsWith('data:')) {
+                    var a = document.createElement('a');
+                    a.href = meta.image_url;
+                    a.download = 'promo-image.jpg';
+                    a.target = '_blank';
+                    a.rel = 'noopener';
+                    a.click();
+                    return;
+                }
                 var dataUrl = (imageDataUrl || '');
                 var mimeMatch = dataUrl.match(/^data:image\/(jpeg|jpg|png);base64,/i);
                 var ext = (mimeMatch && mimeMatch[1]) ? (mimeMatch[1].toLowerCase() === 'png' ? 'png' : 'jpg') : 'jpg';
@@ -6053,10 +6087,10 @@ $(document).ready(function () {
                 for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
                 var blob = new Blob([arr], { type: mime });
                 var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = 'promo-image.' + ext;
-                a.click();
+                var a2 = document.createElement('a');
+                a2.href = url;
+                a2.download = 'promo-image.' + ext;
+                a2.click();
                 URL.revokeObjectURL(url);
             } catch (err) { console.warn(err); }
         });
@@ -6068,22 +6102,13 @@ $(document).ready(function () {
         ensurePromoImageOptions();
     });
     $('#promoImageRatioSelect').on('change', refreshPromoImagePointsDisplay);
-    $('#promoImagePickLocalBtn').on('click', function () {
-        $('#promoImageFileInput').trigger('click');
+    $('#promoImagePickAssetBtn').on('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openAssetPickerModal('promoImage');
     });
     $('#promoImagePreviewWrap').on('click', function (e) {
         if ($(e.target).closest('.scene-sim-preview-img').length) return;
-        $('#promoImageFileInput').trigger('click');
-    });
-    $('#promoImageFileInput').on('change', function () {
-        var f = this.files && this.files[0];
-        if (!f) return;
-        var reader = new FileReader();
-        reader.onload = function () { setPromoImagePreview(reader.result, 'upload'); };
-        reader.readAsDataURL(f);
-        this.value = '';
-    });
-    $('#promoImagePickAssetBtn').on('click', function () {
         openAssetPickerModal('promoImage');
     });
     $('#promoImageClearBtn').on('click', function () {
@@ -6092,12 +6117,12 @@ $(document).ready(function () {
     $('#promoImageApplyBtn').on('click', function () {
         var imageUrl = window.promoImageImageDataUrl || '';
         if (!imageUrl) {
-            alert('請先選擇一張產品圖或數位資產');
+            alert('請先從數位資產選擇一張圖片');
             return;
         }
         var $btn = $('#promoImageApplyBtn');
         var $wrap = $('#promoImageResultWrap');
-        var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會自動存入數位資產，請自行下載。</p>';
+        var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖已存成公開網址，可下載或複製連結分享。</p>';
         var dims = getPromoImageDims();
         var payload = {
             image: imageUrl,
@@ -6107,7 +6132,7 @@ $(document).ready(function () {
             scene_template_key: ($('#promoImageSceneSelect').val() || '').trim(),
             user_prompt: ($('#promoImagePrompt').val() || '').trim(),
             photography_set_id: ($('#promoImagePhotoSelect').val() || '').trim() || undefined,
-            source_type: window.promoImageSourceType || 'upload'
+            source_type: 'digital_asset'
         };
         $btn.prop('disabled', true);
         $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p>' + noteHtml);
@@ -6130,7 +6155,7 @@ $(document).ready(function () {
                 $wrap.html('<p class="text-danger small mb-0">' + (data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>' + noteHtml);
                 return;
             }
-            if (data.success && data.imageData) {
+            if (data.success && (data.imageData || data.image_url)) {
                 renderPromoImageResult(data.imageData, data);
             } else {
                 $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);

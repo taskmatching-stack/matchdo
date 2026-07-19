@@ -10271,6 +10271,18 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
         }
         const imageData = buffer.toString('base64');
+        let resultImageUrl = null;
+        try {
+            const uploaded = await uploadToSupabaseStorage(
+                'custom-products',
+                `promo/${currentUser.id}`,
+                { buffer, mimetype: 'image/jpeg', originalname: `promo-${Date.now()}.jpg` },
+                { ext: 'jpg', contentType: 'image/jpeg' }
+            );
+            resultImageUrl = uploaded && uploaded.publicUrl ? uploaded.publicUrl : null;
+        } catch (upErr) {
+            console.warn('promo-image storage upload:', upErr?.message || upErr);
+        }
         let balanceAfter = null;
         if (!isAdmin && pointsToDeduct > 0) {
             const consumed = await consumeUserCredits(
@@ -10285,8 +10297,9 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             }
             balanceAfter = consumed.balance_after;
         }
+        let generationId = null;
         try {
-            await supabase.from('product_promo_generations').insert({
+            const { data: row, error: insErr } = await supabase.from('product_promo_generations').insert({
                 user_id: currentUser.id,
                 source_type: sourceType,
                 source_id: sourceId || null,
@@ -10299,16 +10312,21 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 user_prompt: userPrompt || null,
                 photography_set_id: photographySetId || null,
                 final_prompt: finalPrompt,
+                result_image_url: resultImageUrl,
                 status: 'success',
                 points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
                 completed_at: new Date().toISOString()
-            });
+            }).select('id').single();
+            if (insErr) console.warn('product_promo_generations insert:', insErr.message);
+            else generationId = row && row.id ? row.id : null;
         } catch (logErr) {
             console.warn('product_promo_generations insert skipped:', logErr?.message || logErr);
         }
         res.json({
             success: true,
+            id: generationId,
             imageData: `data:image/jpeg;base64,${imageData}`,
+            image_url: resultImageUrl,
             points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
             balance_after: balanceAfter,
             width: w,

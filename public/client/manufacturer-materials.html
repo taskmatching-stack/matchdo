@@ -1048,12 +1048,12 @@
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
-    <script src="/js/matchdo-promo-image.js?v=20260719a"></script>
+    <script src="/js/matchdo-promo-image.js?v=20260719b"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-tab-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-url-no-upload-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7611,10 +7611,17 @@
                             if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>';
                             return;
                         }
-                        if (data.success && data.imageData) {
-                            var html = '<img src="' + data.imageData + '" class="img-fluid rounded mb-2" alt="推廣圖" style="max-height:360px">';
+                        if (data.success && (data.imageData || data.image_url)) {
+                            var displayUrl = data.image_url || data.imageData;
+                            var html = '<img src="' + displayUrl + '" class="img-fluid rounded mb-2" alt="推廣圖" style="max-height:360px">';
                             if (data.points_deducted != null) html += '<p class="small text-muted mb-2">已扣除 ' + data.points_deducted + ' 點</p>';
-                            html += '<a class="btn btn-sm btn-outline-primary" href="' + data.imageData + '" download="promo-image.jpg">下載圖片</a>';
+                            if (data.image_url) {
+                                html += '<div class="mb-2"><input type="text" class="form-control form-control-sm mb-1" readonly value="' + promoVendorEsc(data.image_url) + '">';
+                                html += '<a class="btn btn-sm btn-outline-primary me-1" href="' + promoVendorEsc(data.image_url) + '" target="_blank" rel="noopener">開啟網址</a>';
+                                html += '<a class="btn btn-sm btn-outline-secondary" href="' + promoVendorEsc(data.image_url) + '" download="promo-image.jpg" target="_blank" rel="noopener">下載</a></div>';
+                            } else {
+                                html += '<a class="btn btn-sm btn-outline-primary" href="' + data.imageData + '" download="promo-image.jpg">下載圖片</a>';
+                            }
                             if (wrap) wrap.innerHTML = html;
                         } else {
                             if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || '生成失敗') + '</p>';
