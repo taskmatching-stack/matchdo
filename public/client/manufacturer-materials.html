@@ -53,19 +53,44 @@
         .pending-image-card .pending-card-media { flex: 0 0 auto; }
         .pending-image-card .pending-card-preview { flex: 0 0 auto; }
         .pending-image-card .pending-card-label { flex: 0 0 auto; }
-        .pending-image-card .pending-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 6px; min-height: 4.75rem; align-content: flex-start; }
+        .pending-image-card .pending-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: auto; padding-top: 6px; min-height: 4.75rem; align-content: flex-start; max-width: 100%; overflow: hidden; box-sizing: border-box; }
         .pending-image-card .pending-actions .btn.invisible { pointer-events: none; }
-        /* 上傳區／編輯區同一套：倍數+放大同一列；清除+移除同一列（細節見 matchdo-upscale-scale.js） */
+        /* 上傳／編輯同一套尺寸；細節由 matchdo-upscale-scale.js 注入補強 */
+        .pending-image-card .pending-actions > .btn,
+        .pending-image-card .pending-upscale-controls .btn,
+        .pending-image-card .pending-footer-actions .btn,
+        .pending-image-card .pending-actions .form-select {
+            font-size: 0.75rem !important;
+            line-height: 1.2 !important;
+            padding: 0.2rem 0.4rem !important;
+            min-height: 1.75rem !important;
+            height: 1.75rem !important;
+            box-sizing: border-box !important;
+            border-radius: 0.25rem !important;
+        }
+        .pending-image-card .pending-actions .form-select {
+            padding-right: 1.35rem !important;
+            background-position: right 0.35rem center !important;
+            background-size: 12px 8px !important;
+        }
+        .pending-image-card .pending-actions .btn .bi { font-size: 0.75rem; }
         .pending-image-card .pending-upscale-controls {
-            flex-basis: 100%; width: 100%; display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 4px;
+            flex-basis: 100%; width: 100%; max-width: 100%; min-width: 0;
+            display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 4px;
+            box-sizing: border-box; overflow: hidden;
         }
         .pending-image-card .pending-upscale-controls .form-select {
-            width: auto !important; max-width: 7.5rem !important; flex: 0 0 auto !important;
+            width: 3.85rem !important; max-width: 3.85rem !important; flex: 0 0 3.85rem !important; min-width: 0 !important;
+        }
+        .pending-image-card .pending-upscale-controls .btn {
+            flex: 1 1 0 !important; min-width: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .pending-image-card .pending-footer-actions {
-            flex-basis: 100%; width: 100%; display: flex !important; flex-wrap: wrap; align-items: center; gap: 4px;
+            flex-basis: 100%; width: 100%; max-width: 100%; min-width: 0;
+            display: flex !important; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 4px;
+            box-sizing: border-box;
         }
-        .pending-image-card .pending-footer-actions .btn { flex: 0 0 auto; }
+        .pending-image-card .pending-footer-actions .btn { flex: 0 1 auto !important; min-width: 0; }
         #edit-gallery-grid > [class*="col-"], .add-pending-images > [class*="col-"] { display: flex; }
         .pending-image-card.is-new-redraw { border-color: #198754; box-shadow: 0 0 0 2px rgba(25,135,84,.35); }
         .pending-redraw-badge { font-size: 0.65rem; }
@@ -931,12 +956,12 @@
     <script src="/js/offset-list-pager.js"></script>
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
-    <script src="/js/matchdo-upscale-scale.js"></script>
+    <script src="/js/matchdo-upscale-scale.js?v=fit-unify-20260719"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'pending-actions-unified-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'pending-actions-fit-unify-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -3848,12 +3873,9 @@
                     reorderPendingListFromDom(wrap, list);
                     var formEl = wrap.closest('form');
                     var kind = formEl ? (formEl.getAttribute('data-kind') || '') : '';
-                    if (kind === 'material') {
-                        if (list[0]) list[0].designer_selectable = false;
-                        if (formEl) renderPendingImages(formEl);
-                    } else {
-                        syncPendingCoverDom(wrap);
-                    }
+                    if (kind === 'material' && list[0]) list[0].designer_selectable = false;
+                    if (formEl) renderPendingImages(formEl);
+                    else syncPendingCoverDom(wrap);
                     if (prevOrder !== list.map(function (x) { return x.id; }).join('\0') && onReorder) onReorder();
                 });
                 col.addEventListener('dragover', function (e) {
@@ -3921,7 +3943,7 @@
                     d2pClass: 'pending-clear-d2p',
                     coverHtml: idx > 0
                         ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>'
-                        : '<span class="btn btn-outline-primary btn-sm pending-set-cover-spacer invisible" aria-hidden="true">設為封面</span>',
+                        : '',
                     removeHtml: '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button>'
                 });
                 card.innerHTML = pendingCardBadgeRow(coverBadge, '') +
@@ -4016,14 +4038,8 @@
                         if (i <= 0) return;
                         var moved = list.splice(i, 1)[0];
                         list.unshift(moved);
-                        if (formKind === 'material') {
-                            list[0].designer_selectable = false;
-                            renderPendingImages(form);
-                        } else {
-                            var colEl = wrap.querySelector('[data-pending-id="' + item.id + '"]');
-                            if (colEl) wrap.insertBefore(colEl, wrap.firstChild);
-                            syncPendingCoverDom(wrap);
-                        }
+                        if (formKind === 'material' && list[0]) list[0].designer_selectable = false;
+                        renderPendingImages(form);
                         updateAddFormPointsEstimate(form);
                         schedulePendingDraftSave(form);
                     });
@@ -4272,7 +4288,7 @@
                         '</div>')
                     : '';
                 var coverBtn = asCover
-                    ? pendingCardActionSpacer()
+                    ? ''
                     : ('<button type="button" class="btn btn-outline-primary btn-sm edit-local-set-cover" data-local-id="' + esc(item.id) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>');
                 var localIdAttr = ' data-local-id="' + esc(item.id) + '"';
                 var localFooterHtml = pendingFooterFromItem(item, {
@@ -4363,10 +4379,10 @@
                         d2pAttrs: ' data-url="' + esc(url) + '"',
                         coverHtml: !isCover
                             ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(tr('baseModels.setAsCover', '設為封面')) + '</button>'
-                            : '<span class="btn btn-outline-primary btn-sm invisible" aria-hidden="true">設為封面</span>',
+                            : '',
                         removeHtml: !isCover
                             ? '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
-                            : '<span class="btn btn-outline-danger btn-sm invisible" aria-hidden="true">移除</span>'
+                            : ''
                     }) +
                     '</div>';
                 return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-gallery-url="' + esc(url) + '" data-gallery-key="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +

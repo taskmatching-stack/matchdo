@@ -12,12 +12,36 @@
     if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return;
     var s = document.createElement('style');
     s.id = STYLE_ID;
+    /* 上傳／編輯共用：同一高度、不衝出欄寬 */
     s.textContent = [
-      '.pending-upscale-controls{flex-basis:100%;width:100%;display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:4px;margin-top:4px;}',
-      '.pending-upscale-controls .form-select{width:auto!important;max-width:7.5rem!important;flex:0 0 auto!important;display:inline-block!important;}',
-      '.pending-upscale-controls .btn{flex:0 0 auto;}',
-      '.pending-footer-actions{flex-basis:100%;width:100%;display:flex!important;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px;}',
-      '.pending-footer-actions .btn{flex:0 0 auto;}'
+      '.pending-image-card .pending-actions{max-width:100%;overflow:hidden;box-sizing:border-box;}',
+      '.pending-image-card .pending-actions>.btn,',
+      '.pending-image-card .pending-upscale-controls .btn,',
+      '.pending-image-card .pending-footer-actions .btn,',
+      '.pending-image-card .pending-actions .form-select{',
+      'font-size:.75rem!important;line-height:1.2!important;',
+      'padding:.2rem .4rem!important;min-height:1.75rem!important;height:1.75rem!important;',
+      'box-sizing:border-box!important;border-radius:.25rem!important;',
+      '}',
+      '.pending-image-card .pending-actions .form-select{',
+      'padding-right:1.35rem!important;background-position:right .35rem center!important;',
+      'background-size:12px 8px!important;',
+      '}',
+      '.pending-image-card .pending-actions .btn .bi{font-size:.75rem;}',
+      '.pending-upscale-controls{flex-basis:100%;width:100%;max-width:100%;min-width:0;',
+      'display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:4px;margin-top:4px;',
+      'box-sizing:border-box;overflow:hidden;}',
+      '.pending-upscale-controls .form-select{',
+      'width:3.85rem!important;max-width:3.85rem!important;flex:0 0 3.85rem!important;',
+      'min-width:0!important;display:inline-block!important;',
+      '}',
+      '.pending-upscale-controls .btn{flex:1 1 0!important;min-width:0!important;',
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '.pending-upscale-controls .pending-upscale-ai-edit-help{flex:0 0 auto;font-size:.8rem!important;}',
+      '.pending-footer-actions{flex-basis:100%;width:100%;max-width:100%;min-width:0;',
+      'display:flex!important;flex-wrap:wrap;align-items:center;justify-content:flex-start;',
+      'gap:4px;margin-top:4px;box-sizing:border-box;}',
+      '.pending-footer-actions .btn{flex:0 1 auto!important;min-width:0;}'
     ].join('');
     document.head.appendChild(s);
   }
@@ -40,12 +64,24 @@
     var map = pricing && pricing.upscale_points_by_scale;
     var opts = SCALES.map(function (s) {
       var pts = pointsForScale(base, s, map);
-      return '<option value="' + s + '"' + (s === DEFAULT_SCALE ? ' selected' : '') + '>' + s + '×（' + pts + '點）</option>';
+      return (
+        '<option value="' +
+        s +
+        '"' +
+        (s === DEFAULT_SCALE ? ' selected' : '') +
+        ' title="' +
+        s +
+        '×（' +
+        pts +
+        '點）">' +
+        s +
+        '×</option>'
+      );
     }).join('');
     return (
       '<select class="form-select form-select-sm ' +
       (className || 'matchdo-upscale-scale') +
-      '" title="放大倍數">' +
+      '" title="放大倍數（選項旁括號為點數）">' +
       opts +
       '</select>'
     );

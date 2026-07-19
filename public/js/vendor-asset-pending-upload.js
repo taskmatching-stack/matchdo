@@ -1059,7 +1059,7 @@
                         upscaleClass: 'pending-clear-upscale',
                         coverHtml: idx > 0
                             ? '<button type="button" class="btn btn-outline-primary btn-sm pending-set-cover">設為封面</button>'
-                            : '<span class="btn btn-outline-primary btn-sm invisible" aria-hidden="true">設為封面</span>',
+                            : '',
                         removeHtml: '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button>'
                     }) +
                     '</div>';

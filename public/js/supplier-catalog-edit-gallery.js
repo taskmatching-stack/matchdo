@@ -423,10 +423,10 @@
               upscaleAttrs: ' data-url="' + esc(url) + '"',
               coverHtml: !isCover
                 ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(trLocal('baseModels.setAsCover', '設為封面')) + '</button>'
-                : '<span class="btn btn-outline-primary btn-sm invisible" aria-hidden="true">設為封面</span>',
+                : '',
               removeHtml: !isCover
                 ? '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
-                : '<span class="btn btn-outline-danger btn-sm invisible" aria-hidden="true">移除</span>'
+                : ''
             })
           : ('<div class="pending-footer-actions">' +
             ((slot && slot.redrawPreviewUrl) ? '<button type="button" class="btn btn-outline-warning btn-sm btn-gallery-clear-redraw" data-url="' + esc(url) + '">清除重繪</button>' : '') +
@@ -434,7 +434,7 @@
             (!isCover
               ? '<button type="button" class="btn btn-outline-primary btn-sm btn-gallery-set-cover" data-url="' + esc(url) + '">' + esc(trLocal('baseModels.setAsCover', '設為封面')) + '</button>' +
                 '<button type="button" class="btn btn-outline-danger btn-sm btn-gallery-del" data-url="' + esc(url) + '">移除</button>'
-              : pendingCardActionSpacer()) +
+              : '') +
             '</div>')) +
         '</div>';
       return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col" draggable="true" data-gallery-url="' + esc(url) + '"><div class="pending-image-card' + (isCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
