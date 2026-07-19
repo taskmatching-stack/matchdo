@@ -108,7 +108,10 @@
     }
   }
   function pendingUpscaleAiEditHelpHtml() {
-    return Pending.pendingUpscaleAiEditHelpHtml ? Pending.pendingUpscaleAiEditHelpHtml(false) : '';
+    return '';
+  }
+  function pendingAiPairRowHtml(innerHtml) {
+    return '<div class="pending-ai-pair">' + (innerHtml || '') + '</div>';
   }
   function gridDisableEditGalleryActions(disabled) {
     var inputMulti = document.getElementById('edit-gallery-add');
@@ -401,9 +404,9 @@
       var upscaleBtn = upscaleOn
         ? ((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.controlsRowHtml(
             'gallery-upscale-scale matchdo-upscale-scale',
-            '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml()
+            '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
           )) ||
-          ('<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml()))
+          ('<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'))
         : '';
       var actions = '<div class="pending-actions">' +
         (items.length > 1
@@ -413,7 +416,9 @@
             '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-move-right py-0 px-1"' + (idx < items.length - 1 ? '' : ' disabled') + ' data-url="' + esc(url) + '" title="' + esc(trLocal('baseModels.galleryMoveRight', '往後')) + '"><i class="bi bi-chevron-right"></i></button>' +
             '</div>')
           : '') +
-        '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+        pendingAiPairRowHtml(
+          '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>'
+        ) +
         upscaleBtn +
         ((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.footerFromPreviewItem)
           ? window.MatchdoUpscaleScale.footerFromPreviewItem(slot || {}, {

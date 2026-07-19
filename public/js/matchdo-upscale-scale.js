@@ -16,6 +16,7 @@
     s.textContent = [
       '.pending-image-card .pending-actions{max-width:100%;overflow:hidden;box-sizing:border-box;}',
       '.pending-image-card .pending-actions>.btn,',
+      '.pending-image-card .pending-ai-pair .btn,',
       '.pending-image-card .pending-upscale-controls .btn,',
       '.pending-image-card .pending-footer-actions .btn,',
       '.pending-image-card .pending-actions .form-select{',
@@ -28,6 +29,10 @@
       'background-size:12px 8px!important;',
       '}',
       '.pending-image-card .pending-actions .btn .bi{font-size:.75rem;}',
+      '.pending-ai-pair{flex-basis:100%;width:100%;max-width:100%;min-width:0;',
+      'display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:4px;box-sizing:border-box;}',
+      '.pending-ai-pair .btn{flex:1 1 0!important;min-width:0!important;',
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
       '.pending-upscale-controls{flex-basis:100%;width:100%;max-width:100%;min-width:0;',
       'display:flex!important;flex-wrap:nowrap!important;align-items:center;gap:4px;margin-top:4px;',
       'box-sizing:border-box;overflow:hidden;}',
@@ -37,11 +42,11 @@
       '}',
       '.pending-upscale-controls .btn{flex:1 1 0!important;min-width:0!important;',
       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-      '.pending-upscale-controls .pending-upscale-ai-edit-help{flex:0 0 auto;font-size:.8rem!important;}',
       '.pending-footer-actions{flex-basis:100%;width:100%;max-width:100%;min-width:0;',
-      'display:flex!important;flex-wrap:wrap;align-items:center;justify-content:flex-start;',
+      'display:flex!important;flex-wrap:nowrap;align-items:center;justify-content:flex-start;',
       'gap:4px;margin-top:4px;box-sizing:border-box;}',
-      '.pending-footer-actions .btn{flex:0 1 auto!important;min-width:0;}'
+      '.pending-footer-actions .btn{flex:1 1 0!important;min-width:0;',
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     ].join('');
     document.head.appendChild(s);
   }

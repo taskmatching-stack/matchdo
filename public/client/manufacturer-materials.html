@@ -57,6 +57,7 @@
         .pending-image-card .pending-actions .btn.invisible { pointer-events: none; }
         /* 上傳／編輯同一套尺寸；細節由 matchdo-upscale-scale.js 注入補強 */
         .pending-image-card .pending-actions > .btn,
+        .pending-image-card .pending-ai-pair .btn,
         .pending-image-card .pending-upscale-controls .btn,
         .pending-image-card .pending-footer-actions .btn,
         .pending-image-card .pending-actions .form-select {
@@ -74,6 +75,14 @@
             background-size: 12px 8px !important;
         }
         .pending-image-card .pending-actions .btn .bi { font-size: 0.75rem; }
+        .pending-image-card .pending-ai-pair {
+            flex-basis: 100%; width: 100%; max-width: 100%; min-width: 0;
+            display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 4px;
+            box-sizing: border-box;
+        }
+        .pending-image-card .pending-ai-pair .btn {
+            flex: 1 1 0 !important; min-width: 0 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         .pending-image-card .pending-upscale-controls {
             flex-basis: 100%; width: 100%; max-width: 100%; min-width: 0;
             display: flex !important; flex-wrap: nowrap !important; align-items: center; gap: 4px;
@@ -87,10 +96,10 @@
         }
         .pending-image-card .pending-footer-actions {
             flex-basis: 100%; width: 100%; max-width: 100%; min-width: 0;
-            display: flex !important; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 4px;
+            display: flex !important; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 4px;
             box-sizing: border-box;
         }
-        .pending-image-card .pending-footer-actions .btn { flex: 0 1 auto !important; min-width: 0; }
+        .pending-image-card .pending-footer-actions .btn { flex: 1 1 0 !important; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #edit-gallery-grid > [class*="col-"], .add-pending-images > [class*="col-"] { display: flex; }
         .pending-image-card.is-new-redraw { border-color: #198754; box-shadow: 0 0 0 2px rgba(25,135,84,.35); }
         .pending-redraw-badge { font-size: 0.65rem; }
@@ -956,12 +965,12 @@
     <script src="/js/offset-list-pager.js"></script>
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
-    <script src="/js/matchdo-upscale-scale.js?v=fit-unify-20260719"></script>
+    <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'pending-actions-fit-unify-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'pending-no-ai-edit-link-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -2896,11 +2905,13 @@
             return { needed: true, megapixels: mp, hint: VENDOR_UPSCALE_RULE_TEXT, showAiEditHelp: false };
         }
 
-        function pendingUpscaleAiEditHelpHtml(showHelp, extraClass) {
-            if (!showHelp) return '';
-            var cls = 'pending-upscale-ai-edit-help' + (extraClass ? ' ' + extraClass : '');
-            return '<a href="' + esc(AI_EDIT_UPSCALE_URL) + '" class="' + esc(cls) + '" target="_blank" rel="noopener" ' +
-                'title="' + esc(AI_EDIT_UPSCALE_HELP_TITLE) + '">AI 編輯區</a>';
+        function pendingUpscaleAiEditHelpHtml() {
+            /* 卡片內不再插入「AI 編輯區」連結（會擠爆對齊）；說明改放 title／頁面提示／toast */
+            return '';
+        }
+
+        function pendingAiPairRowHtml(innerHtml) {
+            return '<div class="pending-ai-pair">' + (innerHtml || '') + '</div>';
         }
 
         function probeImageDimensionsFromFile(file) {
@@ -2987,7 +2998,7 @@
         function syncGalleryUpscaleButtons() {
             var grid = document.getElementById('edit-gallery-grid');
             if (!grid) return;
-            grid.querySelectorAll('.gallery-upscale-ai-edit-help').forEach(function (el) { el.remove(); });
+            grid.querySelectorAll('.gallery-upscale-ai-edit-help, .pending-upscale-ai-edit-help').forEach(function (el) { el.remove(); });
             grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
                 var url = btn.getAttribute('data-url');
                 var probe = galleryUpscaleProbe[url];
@@ -2998,9 +3009,6 @@
                 }
                 btn.disabled = !probe.needed;
                 btn.title = probe.hint || (probe.needed ? VENDOR_UPSCALE_RULE_TEXT : AI_EDIT_UPSCALE_HELP_TITLE);
-                if (!probe.needed && probe.showAiEditHelp) {
-                    btn.insertAdjacentHTML('afterend', pendingUpscaleAiEditHelpHtml(true, 'gallery-upscale-ai-edit-help'));
-                }
             });
         }
 
@@ -3933,8 +3941,7 @@
                 var upscaleBtnHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'pending-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
-                        pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp)
+                        '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
                     )
                     : '';
                 var footerActionsHtml = pendingFooterFromItem(item, {
@@ -3946,6 +3953,12 @@
                         : '',
                     removeHtml: '<button type="button" class="btn btn-outline-danger btn-sm pending-remove">移除</button>'
                 });
+                var aiPairHtml = pendingAiPairRowHtml(
+                    '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    (vendorDesignToPhysicalEnabledForKind(formKind)
+                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm pending-d2p-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>')
+                        : '')
+                );
                 card.innerHTML = pendingCardBadgeRow(coverBadge, '') +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
                     '<div class="pending-card-preview">' + pendingOriginalUploadCheckHtml(item, 'pending') + pendingDerivedThumbsHtml(item, 'pending', upscaleOn) + '</div>' +
@@ -3956,10 +3969,7 @@
                         : (vendorDesignerSelectableEnabledForKind(formKind) ? pendingDesignerSelectableFieldHtml(item) : '')) +
                     '<div class="pending-actions">' +
                     pendingDragRowHtml(list.length) +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (vendorDesignToPhysicalEnabledForKind(formKind)
-                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm pending-d2p-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>')
-                        : '') +
+                    aiPairHtml +
                     upscaleBtnHtml +
                     footerActionsHtml +
                     '</div>';
@@ -4276,8 +4286,7 @@
                 var upscaleBtnHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'edit-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm edit-local-upscale-btn" data-local-id="' + esc(item.id) + '"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
-                        pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp)
+                        '<button type="button" class="btn btn-outline-info btn-sm edit-local-upscale-btn" data-local-id="' + esc(item.id) + '"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
                     )
                     : '';
                 var d2pOn = vendorDesignToPhysicalEnabledForKind(m && m.asset_kind);
@@ -4301,6 +4310,10 @@
                     coverHtml: coverBtn,
                     removeHtml: '<button type="button" class="btn btn-outline-danger btn-sm edit-local-remove" data-local-id="' + esc(item.id) + '">移除</button>'
                 });
+                var localAiPair = pendingAiPairRowHtml(
+                    '<button type="button" class="btn btn-outline-secondary btn-sm edit-local-redraw-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    (d2pOn ? ('<button type="button" class="btn btn-outline-secondary btn-sm edit-local-d2p-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>') : '')
+                );
                 return '<div class="col-6 col-sm-4 col-md-3 edit-gallery-col edit-gallery-local-col" draggable="' + (canReorder ? 'true' : 'false') + '" data-local-id="' + esc(item.id) + '" data-gallery-key="local:' + esc(item.id) + '"><div class="pending-image-card' + (asCover ? ' is-cover' : '') + (hasPreview ? ' is-new-redraw' : '') + '">' +
                     pendingCardBadgeRow(coverBadge, '') +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
@@ -4314,8 +4327,7 @@
                         : '') +
                     '<div class="pending-actions">' +
                     moveHtml +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm edit-local-redraw-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (d2pOn ? ('<button type="button" class="btn btn-outline-secondary btn-sm edit-local-d2p-btn" data-local-id="' + esc(item.id) + '"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>') : '') +
+                    localAiPair +
                     upscaleBtnHtml +
                     localFooterHtml +
                     '</div></div></div>';
@@ -4355,20 +4367,22 @@
                 var upscaleActionHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'gallery-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
-                        pendingUpscaleAiEditHelpHtml(false)
+                        '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
                     )
                     : '';
+                var savedAiPair = pendingAiPairRowHtml(
+                    '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    (vendorDesignToPhysicalEnabledForKind(m.asset_kind)
+                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-d2p-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>')
+                        : '')
+                );
                 var actions = '<div class="pending-actions">' +
                     (canReorder
                         ? ('<div class="d-flex align-items-center gap-1 mb-1 edit-gallery-move-row w-100">' +
                             '<span class="text-muted edit-gallery-drag" title="' + esc(tr('baseModels.catalogGroupsDrag', '拖曳排序')) + '"><i class="bi bi-grip-vertical"></i></span>' +
                             '</div>')
                         : '') +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-redraw-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
-                    (vendorDesignToPhysicalEnabledForKind(m.asset_kind)
-                        ? ('<button type="button" class="btn btn-outline-secondary btn-sm btn-gallery-d2p-one" data-url="' + esc(url) + '"' + ((slot && slot.imageBusy) ? ' disabled' : '') + '><i class="bi bi-box me-1"></i>' + esc(tr('baseModels.designToPhysicalBtn', '寫實化')) + '</button>')
-                        : '') +
+                    savedAiPair +
                     upscaleActionHtml +
                     pendingFooterFromItem(slot || {}, {
                         redrawClass: 'btn-gallery-clear-redraw',

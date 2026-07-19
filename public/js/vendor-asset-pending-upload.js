@@ -447,11 +447,11 @@
             return { needed: true, megapixels: mp, hint: VENDOR_UPSCALE_RULE_TEXT, showAiEditHelp: false };
         }
 
-        function pendingUpscaleAiEditHelpHtml(showHelp, extraClass) {
-            if (!showHelp) return '';
-            var cls = 'pending-upscale-ai-edit-help' + (extraClass ? ' ' + extraClass : '');
-            return '<a href="' + esc(AI_EDIT_UPSCALE_URL) + '" class="' + esc(cls) + '" target="_blank" rel="noopener" ' +
-                'title="' + esc(AI_EDIT_UPSCALE_HELP_TITLE) + '">AI 編輯區</a>';
+        function pendingUpscaleAiEditHelpHtml() {
+            return '';
+        }
+        function pendingAiPairRowHtml(innerHtml) {
+            return '<div class="pending-ai-pair">' + (innerHtml || '') + '</div>';
         }
 
         function probeImageDimensionsFromFile(file) {
@@ -535,7 +535,7 @@
         function syncGalleryUpscaleButtons() {
             var grid = document.getElementById('edit-gallery-grid');
             if (!grid) return;
-            grid.querySelectorAll('.gallery-upscale-ai-edit-help').forEach(function (el) { el.remove(); });
+            grid.querySelectorAll('.gallery-upscale-ai-edit-help, .pending-upscale-ai-edit-help').forEach(function (el) { el.remove(); });
             grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
                 var url = btn.getAttribute('data-url');
                 var probe = galleryUpscaleProbe[url];
@@ -546,9 +546,6 @@
                 }
                 btn.disabled = !probe.needed;
                 btn.title = probe.hint || (probe.needed ? VENDOR_UPSCALE_RULE_TEXT : AI_EDIT_UPSCALE_HELP_TITLE);
-                if (!probe.needed && probe.showAiEditHelp) {
-                    btn.insertAdjacentHTML('afterend', pendingUpscaleAiEditHelpHtml(true, 'gallery-upscale-ai-edit-help'));
-                }
             });
         }
 
@@ -1042,8 +1039,7 @@
                 var upscaleBtnHtml = upscaleOn
                     ? upscaleControlsRowHtml(
                         'pending-upscale-scale matchdo-upscale-scale',
-                        '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
-                        pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp)
+                        '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>'
                     )
                     : '';
                 card.innerHTML = pendingCardBadgeRow(coverBadge, '') +
@@ -1052,7 +1048,9 @@
                     '<input type="text" class="form-control form-control-sm mt-1 pending-card-label pending-image-label" placeholder="圖片名稱" value="' + esc(item.label || labelFromFilename(item.file && item.file.name)) + '">' +
                     (formKind === 'prototype' ? pendingLinkGroupFieldHtml(item) : '') +
                     '<div class="pending-actions">' +
-                    '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>' +
+                    pendingAiPairRowHtml(
+                        '<button type="button" class="btn btn-outline-secondary btn-sm pending-redraw-btn"' + (item.imageBusy ? ' disabled' : '') + '><i class="bi bi-magic me-1"></i>AI 重繪</button>'
+                    ) +
                     upscaleBtnHtml +
                     pendingFooterFromItem(item, {
                         redrawClass: 'pending-clear-redraw',
@@ -1251,6 +1249,8 @@
     getMaterialSurfaceTypeFromEdit: getMaterialSurfaceTypeFromEdit,
     syncEditGalleryMaterialUi: syncEditGalleryMaterialUi,
     appendMaterialCatalogHintToRedrawFormData: appendMaterialCatalogHintToRedrawFormData,
+    pendingUpscaleAiEditHelpHtml: pendingUpscaleAiEditHelpHtml,
+    pendingAiPairRowHtml: pendingAiPairRowHtml,
     init: function () { if (CFG.onInit) CFG.onInit(global.MatchdoVendorAssetPending); }
   };
 })(typeof window !== 'undefined' ? window : this);
