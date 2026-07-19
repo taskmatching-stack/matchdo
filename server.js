@@ -10470,6 +10470,8 @@ app.get('/api/promo-image/options', async (req, res) => {
             photography_sets: photographySets,
             points_base: pointsPreview1mp,
             points_per_extra_mp: pointsPerExtra,
+            mp_tiers: [1, 2, 3, 4],
+            max_reference_images: 8,
             ratio_presets: {
                 '1:1': { w: 1024, h: 1024 },
                 '4:3': { w: 1152, h: 864 },
@@ -10516,10 +10518,12 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             return res.status(401).json({ success: false, error: '請先登入後再使用推廣圖生成' });
         }
         const body = req.body || {};
-        const image = body.image;
-        if (!image || typeof image !== 'string') {
-            return res.status(400).json({ success: false, error: '請選擇一張產品圖' });
+        const resolvedRefs = await resolvePromoImageReferences(body);
+        if (resolvedRefs.error || !resolvedRefs.images || !resolvedRefs.images.length) {
+            return res.status(400).json({ success: false, error: resolvedRefs.error || '請至少選擇一張產品圖' });
         }
+        const refBases = resolvedRefs.images;
+        const refUrls = resolvedRefs.urls || [];
         const w = Math.min(2048, Math.max(512, parseInt(body.width, 10) || 1024));
         const h = Math.min(2048, Math.max(512, parseInt(body.height, 10) || 1024));
         const aspectRatio = String(body.aspect_ratio || '').trim() || `${w}:${h}`;
@@ -10538,14 +10542,10 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
             }
         }
-        const imageBase64 = await resolveImageToBase64(image);
-        if (!imageBase64) {
-            return res.status(400).json({ success: false, error: '圖片無法讀取，請重新選擇' });
-        }
         if (!process.env.BFL_API_KEY) {
             return res.status(503).json({ success: false, error: '推廣圖服務暫未設定，請稍後再試' });
         }
-        const finalPrompt = await buildPromoImagePrompt(sceneKey, userPrompt, photographySetId);
+        const finalPrompt = await buildPromoImagePrompt(sceneKey, userPrompt, photographySetId, refBases.length);
         const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
         const seed = Math.floor(Math.random() * 2147483647);
         let buffer;
@@ -10553,7 +10553,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             buffer = await bflPlaygroundImageEdit(
                 endpointUrl,
                 finalPrompt,
-                [imageBase64],
+                refBases,
                 w,
                 h,
                 seed,
@@ -10587,7 +10587,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 pointsToDeduct,
                 'promo_image',
                 '產品推廣圖',
-                { width: w, height: h, scene_template_key: sceneKey || null }
+                { width: w, height: h, scene_template_key: sceneKey || null, reference_count: refBases.length }
             );
             if (!consumed.ok) {
                 return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
@@ -10595,12 +10595,13 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             balanceAfter = consumed.balance_after;
         }
         let generationId = null;
+        const primaryUrl = refUrls[0] || '';
         try {
             const { data: row, error: insErr } = await supabase.from('product_promo_generations').insert({
                 user_id: currentUser.id,
                 source_type: sourceType,
                 source_id: sourceId || null,
-                source_image_url: String(image).startsWith('data:') ? null : String(image).slice(0, 2000),
+                source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
                 aspect_ratio: aspectRatio,
                 width: w,
                 height: h,
@@ -10629,6 +10630,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             width: w,
             height: h,
             megapixels: promoImageMegapixelsFromResolution(w, h),
+            reference_count: refBases.length,
             ai_prompt: finalPrompt,
             seed
         });
@@ -11582,7 +11584,7 @@ async function getPointsPromoImageForResolution(width, height) {
     return base + (mp - 1) * perExtra;
 }
 
-async function buildPromoImagePrompt(sceneTemplateKey, userPrompt, photographySetId) {
+async function buildPromoImagePrompt(sceneTemplateKey, userPrompt, photographySetId, referenceCount) {
     const key = String(sceneTemplateKey || '').trim();
     let scene = '';
     let composition = '';
@@ -11601,14 +11603,61 @@ async function buildPromoImagePrompt(sceneTemplateKey, userPrompt, photographySe
     }
     const user = String(userPrompt || '').trim();
     const photo = photographySetId ? await getPhotographySetBodyById(photographySetId) : '';
+    const refN = Math.min(8, Math.max(1, parseInt(referenceCount, 10) || 1));
     const parts = [];
+    // 定位：DM／廣告／宣傳主視覺——禁止「換場景塞產品」
+    parts.push('Create a professional advertising and marketing promotional image suitable for DM flyers, print ads, social ads, and campaign materials');
+    parts.push('Keep the exact product identity from the reference image(s): shape, materials, colors, logos, and recognizable details');
+    parts.push('Do not relocate the product into a lifestyle room, outdoor scenery, cafe, desk mockup, or other staged environment; do not invent a new background scene story');
+    parts.push('Improve commercial advertising composition, lighting, contrast, and visual polish so the result looks print-ready and campaign-ready');
+    if (refN > 1) {
+        parts.push(
+            'Multiple reference images are provided (input_image through input_image_' + refN +
+            '). Use ALL of them: they may show different angles, colorways, or related product variants of the line. ' +
+            'Synthesize one cohesive advertising promotional image. Treat image 1 as the primary hero subject unless the user request says otherwise; ' +
+            'use the other images to enrich product understanding (structure, materials, alternate colors, details)'
+        );
+    } else {
+        parts.push('Use the single reference product image as the clear hero subject');
+    }
     if (scene) parts.push(scene);
     if (composition) parts.push(composition);
-    parts.push('Preserve the product identity, shape, materials, colors, and logos from the reference image; place it naturally into the promotional scene.');
     if (user) parts.push(user);
     let prompt = parts.join('. ').trim();
     prompt = appendPhotographyParams(prompt, photo);
-    return prompt || 'Create a professional product promotional photograph from the reference product image.';
+    return prompt || 'Create a professional product advertising promotional image from the reference product photo(s), suitable for DM and marketing ads, without changing it into a lifestyle scene.';
+}
+
+/** 推廣圖參考圖：支援 images[]（最多 8）或舊版單張 image */
+async function resolvePromoImageReferences(body) {
+    const MAX = 8;
+    const raw = [];
+    const list = body && Array.isArray(body.images) ? body.images : [];
+    list.forEach(function (x) {
+        if (typeof x === 'string' && x.trim()) raw.push(x.trim());
+    });
+    if (!raw.length && body && typeof body.image === 'string' && body.image.trim()) {
+        raw.push(body.image.trim());
+    }
+    const unique = [];
+    const seen = new Set();
+    for (let i = 0; i < raw.length; i++) {
+        const u = raw[i];
+        if (seen.has(u)) continue;
+        seen.add(u);
+        unique.push(u);
+        if (unique.length >= MAX) break;
+    }
+    if (!unique.length) return { error: '請至少選擇一張產品圖', images: [] };
+    const bases = [];
+    for (let i = 0; i < unique.length; i++) {
+        const b64 = await resolveImageToBase64(unique[i]);
+        if (!b64) {
+            return { error: '第 ' + (i + 1) + ' 張圖片無法讀取，請重新選擇', images: [], urls: unique };
+        }
+        bases.push(b64);
+    }
+    return { images: bases, urls: unique };
 }
 
 // POST /api/upscale-image — Real-ESRGAN 放大（預設 2×；可 4/6/8/10）；管理員不扣點

@@ -132,8 +132,8 @@
         }
         #panel-promo .promo-card-pick { cursor: pointer; border: 2px solid transparent; }
         #panel-promo .promo-card-pick.active { border-color: #ea580c; box-shadow: 0 0 0 1px #ea580c; }
-        #panel-promo .promo-src-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #dee2e6; }
-        #panel-promo .promo-src-thumb.active { border-color: #ea580c; }
+        #panel-promo .promo-src-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #dee2e6; opacity: 0.55; }
+        #panel-promo .promo-src-thumb.active { border-color: #ea580c; opacity: 1; box-shadow: 0 0 0 1px #ea580c; }
         .customization-level-btn { border-radius: 999px; font-weight: 500; }
         .customization-level-btn.active { color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
         .customization-level-btn.active:hover { color: #fff; background-color: #0b5ed7; border-color: #0a58ca; }
@@ -710,7 +710,7 @@
 
             <div id="panel-promo" class="asset-kind-panel d-none" hidden>
                 <div class="alert alert-warning border small py-2 mb-3" role="note">
-                    選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡，帶入該卡全部圖片，再生成推廣圖。基礎約 1MP＝20 點。此分頁不影響上傳／編輯流程。
+                    選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡，帶入該卡全部圖片，再生成<strong>可當 DM／廣告／宣傳</strong>用的推廣主視覺。1 MP＝20 點，每多 1 MP ＋10 點（最高 4 MP）。此分頁不影響上傳／編輯流程。
                 </div>
                 <div class="row g-3">
                     <div class="col-lg-5">
@@ -726,12 +726,13 @@
                         <p id="promo-asset-empty" class="text-muted small d-none mb-0">尚無可用產品卡，請先在「數位原型」或「配件」上傳。</p>
                     </div>
                     <div class="col-lg-7">
-                        <label class="form-label fw-semibold small mb-1">來源圖（該卡全部圖片，點選一張）</label>
-                        <div id="promo-source-thumbs" class="d-flex flex-wrap gap-2 mb-3"></div>
+                        <label class="form-label fw-semibold small mb-1">來源圖（可多選角度／色款／款式，最多 8 張；點縮圖切換）</label>
+                        <div id="promo-source-thumbs" class="d-flex flex-wrap gap-2 mb-1"></div>
+                        <p id="promo-source-selected-hint" class="small text-muted mb-2 d-none"></p>
                         <p id="promo-source-empty" class="text-muted small">請先點左側產品卡</p>
                         <div class="row g-2">
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorSceneSelect">情境模板</label>
+                                <label class="form-label small mb-1" for="promoVendorSceneSelect">宣傳風格</label>
                                 <select id="promoVendorSceneSelect" class="form-select form-select-sm"></select>
                             </div>
                             <div class="col-md-6">
@@ -742,6 +743,15 @@
                                     <option value="3:4">3:4</option>
                                     <option value="16:9">16:9</option>
                                     <option value="9:16">9:16</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="promoVendorMpSelect">解析度</label>
+                                <select id="promoVendorMpSelect" class="form-select form-select-sm">
+                                    <option value="1" selected>1 MP（標準）</option>
+                                    <option value="2">2 MP</option>
+                                    <option value="3">3 MP</option>
+                                    <option value="4">4 MP</option>
                                 </select>
                                 <p class="form-text small text-muted mb-0" id="promoVendorDimsHint">1024×1024</p>
                             </div>
@@ -1055,12 +1065,12 @@
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
-    <script src="/js/matchdo-promo-image.js?v=20260719b"></script>
+    <script src="/js/matchdo-promo-image.js?v=20260719d"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'card-embed-copy-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-multi-ref-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7525,10 +7535,11 @@
 
         // —— 推廣圖 TAB（獨立輕量列表，不依賴整包 materialsAll）——
         var promoVendorSelectedAssetId = null;
-        var promoVendorSelectedImageUrl = null;
+        var promoVendorSelectedImageUrls = [];
         var promoVendorOptionsLoaded = false;
         var promoAssetsCache = null;
         var promoAssetsLoading = null;
+        var PROMO_MAX_REF_IMAGES = 8;
 
         function promoVendorEsc(s) {
             return String(s == null ? '' : s)
@@ -7554,16 +7565,22 @@
 
         function getPromoVendorDims() {
             var ratio = (document.getElementById('promoVendorRatioSelect') || {}).value || '1:1';
+            var mp = parseInt((document.getElementById('promoVendorMpSelect') || {}).value, 10) || 1;
             if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.dimsForRatio === 'function') {
-                return window.MatchdoPromoImage.dimsForRatio(ratio);
+                return window.MatchdoPromoImage.dimsForRatio(ratio, mp);
             }
-            return { w: 1024, h: 1024, ratio: '1:1' };
+            return { w: 1024, h: 1024, ratio: '1:1', mp: 1 };
         }
 
         function refreshPromoVendorPoints() {
             var dims = getPromoVendorDims();
             var hint = document.getElementById('promoVendorDimsHint');
-            if (hint) hint.textContent = dims.w + '×' + dims.h;
+            var selectedMp = parseInt((document.getElementById('promoVendorMpSelect') || {}).value, 10) || 1;
+            if (hint) {
+                var text = dims.w + '×' + dims.h;
+                if (dims.mp && dims.mp < selectedMp) text += '（此比例最高約 ' + dims.mp + ' MP）';
+                hint.textContent = text;
+            }
             var disp = document.getElementById('promoVendorPointsDisplay');
             var localEst = (window.MatchdoPromoImage && window.MatchdoPromoImage.estimatePointsLocal)
                 ? window.MatchdoPromoImage.estimatePointsLocal(dims.w, dims.h, 20, 10)
@@ -7679,9 +7696,54 @@
             });
         }
 
+        function syncPromoVendorSourceHint() {
+            var hint = document.getElementById('promo-source-selected-hint');
+            var applyBtn = document.getElementById('promoVendorApplyBtn');
+            var n = promoVendorSelectedImageUrls.length;
+            if (hint) {
+                if (n > 0) {
+                    hint.textContent = '已選 ' + n + ' 張參考圖（最多 ' + PROMO_MAX_REF_IMAGES + '；第一張為主體）';
+                    hint.classList.remove('d-none');
+                } else {
+                    hint.textContent = '';
+                    hint.classList.add('d-none');
+                }
+            }
+            if (applyBtn) applyBtn.disabled = n < 1;
+        }
+
+        function syncPromoVendorThumbActive() {
+            var thumbs = document.getElementById('promo-source-thumbs');
+            if (!thumbs) return;
+            thumbs.querySelectorAll('.promo-src-thumb').forEach(function (el) {
+                var u = el.getAttribute('data-url') || el.src;
+                el.classList.toggle('active', promoVendorSelectedImageUrls.indexOf(u) >= 0);
+            });
+            syncPromoVendorSourceHint();
+        }
+
+        function togglePromoVendorImageUrl(url) {
+            if (!url) return;
+            var i = promoVendorSelectedImageUrls.indexOf(url);
+            if (i >= 0) {
+                if (promoVendorSelectedImageUrls.length <= 1) {
+                    showToast('至少保留一張參考圖', 'warning');
+                    return;
+                }
+                promoVendorSelectedImageUrls.splice(i, 1);
+            } else {
+                if (promoVendorSelectedImageUrls.length >= PROMO_MAX_REF_IMAGES) {
+                    showToast('最多選 ' + PROMO_MAX_REF_IMAGES + ' 張參考圖', 'warning');
+                    return;
+                }
+                promoVendorSelectedImageUrls.push(url);
+            }
+            syncPromoVendorThumbActive();
+        }
+
         function selectPromoVendorAsset(id) {
             promoVendorSelectedAssetId = id;
-            promoVendorSelectedImageUrl = null;
+            promoVendorSelectedImageUrls = [];
             var pool = promoAssetsCache && promoAssetsCache.length ? promoAssetsCache : materialsAll;
             var m = (pool || []).find(function (x) { return x.id === id; });
             if (!m && materialsAll && materialsAll.length) {
@@ -7689,14 +7751,13 @@
             }
             var thumbs = document.getElementById('promo-source-thumbs');
             var empty = document.getElementById('promo-source-empty');
-            var applyBtn = document.getElementById('promoVendorApplyBtn');
             if (thumbs) thumbs.innerHTML = '';
             document.querySelectorAll('#promo-asset-list .promo-card-pick').forEach(function (c) {
                 c.classList.toggle('active', c.getAttribute('data-id') === id);
             });
             if (!m) {
                 if (empty) empty.classList.remove('d-none');
-                if (applyBtn) applyBtn.disabled = true;
+                syncPromoVendorSourceHint();
                 return;
             }
             var items = promoAssetImageItems(m);
@@ -7705,28 +7766,26 @@
                     empty.textContent = '此卡尚無圖片';
                     empty.classList.remove('d-none');
                 }
-                if (applyBtn) applyBtn.disabled = true;
+                syncPromoVendorSourceHint();
                 return;
             }
             if (empty) empty.classList.add('d-none');
+            promoVendorSelectedImageUrls = items.slice(0, PROMO_MAX_REF_IMAGES).map(function (it) { return it.url; });
             items.forEach(function (it, idx) {
                 var img = document.createElement('img');
                 img.src = it.url;
+                img.setAttribute('data-url', it.url);
                 img.alt = it.label || '';
-                img.className = 'promo-src-thumb' + (idx === 0 ? ' active' : '');
+                img.className = 'promo-src-thumb' + (promoVendorSelectedImageUrls.indexOf(it.url) >= 0 ? ' active' : '');
                 img.loading = 'lazy';
                 img.decoding = 'async';
-                img.title = it.label || ('圖 ' + (idx + 1));
+                img.title = (it.label || ('圖 ' + (idx + 1))) + '（點選切換多圖參考）';
                 img.addEventListener('click', function () {
-                    promoVendorSelectedImageUrl = it.url;
-                    thumbs.querySelectorAll('.promo-src-thumb').forEach(function (t) { t.classList.remove('active'); });
-                    img.classList.add('active');
-                    if (applyBtn) applyBtn.disabled = false;
+                    togglePromoVendorImageUrl(it.url);
                 });
                 thumbs.appendChild(img);
             });
-            promoVendorSelectedImageUrl = items[0].url;
-            if (applyBtn) applyBtn.disabled = false;
+            syncPromoVendorSourceHint();
         }
 
         function bindPromoVendorUi() {
@@ -7734,31 +7793,33 @@
             if (kindFilter) {
                 kindFilter.addEventListener('change', function () {
                     promoVendorSelectedAssetId = null;
-                    promoVendorSelectedImageUrl = null;
+                    promoVendorSelectedImageUrls = [];
                     renderPromoAssetList();
                     var thumbs = document.getElementById('promo-source-thumbs');
                     var empty = document.getElementById('promo-source-empty');
-                    var applyBtn = document.getElementById('promoVendorApplyBtn');
                     if (thumbs) thumbs.innerHTML = '';
                     if (empty) {
                         empty.textContent = '請先點左側產品卡';
                         empty.classList.remove('d-none');
                     }
-                    if (applyBtn) applyBtn.disabled = true;
+                    syncPromoVendorSourceHint();
                 });
             }
             var ratio = document.getElementById('promoVendorRatioSelect');
             if (ratio) ratio.addEventListener('change', refreshPromoVendorPoints);
+            var mpSel = document.getElementById('promoVendorMpSelect');
+            if (mpSel) mpSel.addEventListener('change', refreshPromoVendorPoints);
             var applyBtn = document.getElementById('promoVendorApplyBtn');
             if (applyBtn) {
                 applyBtn.addEventListener('click', function () {
-                    if (!promoVendorSelectedImageUrl) {
-                        showToast('請先選擇來源圖', 'warning');
+                    if (!promoVendorSelectedImageUrls.length) {
+                        showToast('請先選擇至少一張來源圖', 'warning');
                         return;
                     }
                     var dims = getPromoVendorDims();
                     var payload = {
-                        image: promoVendorSelectedImageUrl,
+                        images: promoVendorSelectedImageUrls.slice(),
+                        image: promoVendorSelectedImageUrls[0],
                         width: dims.w,
                         height: dims.h,
                         aspect_ratio: dims.ratio || (ratio && ratio.value) || '1:1',

@@ -5958,40 +5958,78 @@ $(document).ready(function () {
             });
     });
 
-    // —— 推廣圖（獨立 Tab；僅數位資產選圖，不提供本機上傳）——
-    window.promoImageImageDataUrl = null;
+    // —— 推廣圖（獨立 Tab；可多圖參考，最多 8 張）——
+    window.promoImageImageUrls = [];
     window.promoImageSourceType = 'digital_asset';
     var promoImageOptionsLoaded = false;
+    var PROMO_IMAGE_MAX_REFS = 8;
 
     function clearPromoImagePreview() {
-        window.promoImageImageDataUrl = null;
+        window.promoImageImageUrls = [];
         window.promoImageSourceType = 'digital_asset';
-        $('#promoImagePreviewImg').addClass('d-none').attr('src', '');
-        $('#promoImagePreviewInner').removeClass('d-none');
-        $('#promoImageClearBtn').addClass('d-none');
+        renderPromoImageSelectedThumbs();
+    }
+    function renderPromoImageSelectedThumbs() {
+        var $wrap = $('#promoImageSelectedThumbs');
+        var $hint = $('#promoImageSelectedHint');
+        var $clear = $('#promoImageClearBtn');
+        $wrap.empty();
+        var urls = window.promoImageImageUrls || [];
+        urls.forEach(function (url, idx) {
+            var $chip = $('<div class="position-relative" style="width:72px;height:72px;"></div>');
+            var $img = $('<img>').attr('src', url).attr('alt', '參考 ' + (idx + 1))
+                .css({ width: '72px', height: '72px', objectFit: 'cover', borderRadius: '6px', border: idx === 0 ? '2px solid #0d6efd' : '2px solid #dee2e6' });
+            var $rm = $('<button type="button" class="btn btn-sm btn-danger p-0" title="移除">×</button>')
+                .css({ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', lineHeight: '16px', borderRadius: '50%', fontSize: '12px' });
+            $rm.on('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.promoImageImageUrls = (window.promoImageImageUrls || []).filter(function (u) { return u !== url; });
+                renderPromoImageSelectedThumbs();
+            });
+            $chip.append($img).append($rm);
+            $wrap.append($chip);
+        });
+        if (urls.length) {
+            $hint.text('已選 ' + urls.length + ' 張（最多 ' + PROMO_IMAGE_MAX_REFS + '；第一張為主體，可再加入）');
+            $clear.removeClass('d-none');
+        } else {
+            $hint.text('尚未選圖 — 可多次從數位資產加入');
+            $clear.addClass('d-none');
+        }
     }
     function setPromoImagePreview(imageUrl, sourceType) {
-        if (!imageUrl || !String(imageUrl).trim()) {
-            clearPromoImagePreview();
+        if (!imageUrl || !String(imageUrl).trim()) return;
+        var url = String(imageUrl).trim();
+        window.promoImageSourceType = sourceType || 'digital_asset';
+        window.promoImageImageUrls = window.promoImageImageUrls || [];
+        if (window.promoImageImageUrls.indexOf(url) >= 0) {
+            renderPromoImageSelectedThumbs();
             return;
         }
-        window.promoImageImageDataUrl = String(imageUrl).trim();
-        window.promoImageSourceType = sourceType || 'digital_asset';
-        $('#promoImagePreviewImg').attr('src', window.promoImageImageDataUrl).removeClass('d-none');
-        $('#promoImagePreviewInner').addClass('d-none');
-        $('#promoImageClearBtn').removeClass('d-none');
+        if (window.promoImageImageUrls.length >= PROMO_IMAGE_MAX_REFS) {
+            alert('最多選 ' + PROMO_IMAGE_MAX_REFS + ' 張參考圖');
+            return;
+        }
+        window.promoImageImageUrls.push(url);
+        renderPromoImageSelectedThumbs();
     }
     window.setPromoImagePreview = setPromoImagePreview;
     function getPromoImageDims() {
         var ratio = ($('#promoImageRatioSelect').val() || '1:1');
+        var mp = parseInt($('#promoImageMpSelect').val(), 10) || 1;
         if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.dimsForRatio === 'function') {
-            return window.MatchdoPromoImage.dimsForRatio(ratio);
+            return window.MatchdoPromoImage.dimsForRatio(ratio, mp);
         }
-        return { w: 1024, h: 1024, ratio: '1:1' };
+        return { w: 1024, h: 1024, ratio: '1:1', mp: 1 };
     }
     function refreshPromoImagePointsDisplay() {
         var dims = getPromoImageDims();
-        $('#promoImageDimsHint').text(dims.w + '×' + dims.h);
+        var hint = dims.w + '×' + dims.h;
+        if (dims.mp && dims.mp < (parseInt($('#promoImageMpSelect').val(), 10) || 1)) {
+            hint += '（此比例最高約 ' + dims.mp + ' MP）';
+        }
+        $('#promoImageDimsHint').text(hint);
         var localEst = (window.MatchdoPromoImage && window.MatchdoPromoImage.estimatePointsLocal)
             ? window.MatchdoPromoImage.estimatePointsLocal(dims.w, dims.h, 20, 10)
             : 20;
@@ -6102,22 +6140,19 @@ $(document).ready(function () {
         ensurePromoImageOptions();
     });
     $('#promoImageRatioSelect').on('change', refreshPromoImagePointsDisplay);
+    $('#promoImageMpSelect').on('change', refreshPromoImagePointsDisplay);
     $('#promoImagePickAssetBtn').on('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        openAssetPickerModal('promoImage');
-    });
-    $('#promoImagePreviewWrap').on('click', function (e) {
-        if ($(e.target).closest('.scene-sim-preview-img').length) return;
         openAssetPickerModal('promoImage');
     });
     $('#promoImageClearBtn').on('click', function () {
         clearPromoImagePreview();
     });
     $('#promoImageApplyBtn').on('click', function () {
-        var imageUrl = window.promoImageImageDataUrl || '';
-        if (!imageUrl) {
-            alert('請先從數位資產選擇一張圖片');
+        var urls = (window.promoImageImageUrls || []).slice();
+        if (!urls.length) {
+            alert('請先從數位資產加入至少一張圖片');
             return;
         }
         var $btn = $('#promoImageApplyBtn');
@@ -6125,7 +6160,8 @@ $(document).ready(function () {
         var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖已存成公開網址，可下載或複製連結分享。</p>';
         var dims = getPromoImageDims();
         var payload = {
-            image: imageUrl,
+            images: urls,
+            image: urls[0],
             width: dims.w,
             height: dims.h,
             aspect_ratio: dims.ratio || ($('#promoImageRatioSelect').val() || '1:1'),

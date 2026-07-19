@@ -1,10 +1,11 @@
 /**
- * Matchdo 產品推廣圖 — 共用前端輔助（比例／點數預覽／API）
+ * Matchdo 產品推廣圖 — 共用前端輔助（比例／解析度 MP／點數預覽／API）
  * 僅供推廣圖 TAB 使用；不改動既有寫實化／圖樣提取邏輯。
  */
 (function (global) {
   'use strict';
 
+  /** 各長寬比約 1 MP 基準尺寸（與後端 options.ratio_presets 對齊） */
   var RATIO_PRESETS = {
     '1:1': { w: 1024, h: 1024 },
     '4:3': { w: 1152, h: 864 },
@@ -13,21 +14,89 @@
     '9:16': { w: 756, h: 1344 }
   };
 
+  var MP_TIERS = [1, 2, 3, 4];
+  var ONE_MP = 1024 * 1024;
+  var MAX_SIDE = 2048;
+  var MIN_SIDE = 512;
+
   function clampDim(n, fallback) {
     var v = parseInt(n, 10);
     if (!isFinite(v)) v = fallback || 1024;
-    return Math.min(2048, Math.max(512, v));
+    return Math.min(MAX_SIDE, Math.max(MIN_SIDE, v));
   }
 
-  function dimsForRatio(ratio) {
+  function roundToStep(n, step) {
+    step = step || 8;
+    return Math.round(n / step) * step;
+  }
+
+  function megapixelsFromDims(width, height) {
+    var w = clampDim(width, 1024);
+    var h = clampDim(height, 1024);
+    return Math.min(4, Math.ceil((w * h) / ONE_MP) || 1);
+  }
+
+  function fitAspect(w, h, aspect) {
+    if (aspect >= 1) {
+      h = clampDim(roundToStep(w / aspect, 8), MIN_SIDE);
+      if (h > MAX_SIDE) {
+        h = MAX_SIDE;
+        w = clampDim(roundToStep(h * aspect, 8), MIN_SIDE);
+      }
+    } else {
+      w = clampDim(roundToStep(h * aspect, 8), MIN_SIDE);
+      if (w > MAX_SIDE) {
+        w = MAX_SIDE;
+        h = clampDim(roundToStep(w / aspect, 8), MIN_SIDE);
+      }
+    }
+    return { w: w, h: h };
+  }
+
+  /**
+   * 依長寬比與目標 MP 計算輸出尺寸（最長邊 ≤ 2048）。
+   * 計價用 ceil(像素/1MP)，故輸出嚴格壓在所選檔位內；非 1:1 的 4MP 可能因長邊上限只能到約 3MP。
+   */
+  function dimsForRatio(ratio, megapixels) {
     var p = RATIO_PRESETS[ratio] || RATIO_PRESETS['1:1'];
-    return { w: p.w, h: p.h, ratio: RATIO_PRESETS[ratio] ? ratio : '1:1' };
+    var usedRatio = RATIO_PRESETS[ratio] ? ratio : '1:1';
+    var targetMp = Math.min(4, Math.max(1, parseInt(megapixels, 10) || 1));
+    if (targetMp <= 1) {
+      return { w: p.w, h: p.h, ratio: usedRatio, mp: megapixelsFromDims(p.w, p.h) };
+    }
+    if (usedRatio === '1:1' && targetMp === 4) {
+      return { w: 2048, h: 2048, ratio: usedRatio, mp: 4 };
+    }
+
+    var aspect = p.w / p.h;
+    // 目標像素取檔位上界的 99%，避免捨入後 ceil 跳檔
+    var aimPixels = targetMp * ONE_MP * 0.99;
+    var w = Math.sqrt(aimPixels * aspect);
+    var h = w / aspect;
+    var scale = Math.min(1, MAX_SIDE / w, MAX_SIDE / h);
+    var fitted = fitAspect(
+      clampDim(roundToStep(w * scale, 8), p.w),
+      clampDim(roundToStep(h * scale, 8), p.h),
+      aspect
+    );
+    w = fitted.w;
+    h = fitted.h;
+
+    // 若仍超過目標檔（捨入誤差），逐步縮小
+    var guard = 0;
+    while (megapixelsFromDims(w, h) > targetMp && guard < 24) {
+      w = Math.max(MIN_SIDE, w - 8);
+      fitted = fitAspect(w, h, aspect);
+      w = fitted.w;
+      h = fitted.h;
+      guard += 1;
+    }
+
+    return { w: w, h: h, ratio: usedRatio, mp: megapixelsFromDims(w, h) };
   }
 
   function estimatePointsLocal(width, height, base, perExtra) {
-    var w = clampDim(width, 1024);
-    var h = clampDim(height, 1024);
-    var mp = Math.min(4, Math.ceil((w * h) / (1024 * 1024)) || 1);
+    var mp = megapixelsFromDims(width, height);
     var b = Math.max(0, parseInt(base, 10) || 20);
     var e = Math.max(0, parseInt(perExtra, 10) || 10);
     return b + (mp - 1) * e;
@@ -39,6 +108,21 @@
       return '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + k + '</option>';
     }).join('');
     return '<select class="form-select form-select-sm ' + (className || 'promo-ratio-select') + '">' + opts + '</select>';
+  }
+
+  function mpSelectHtml(selected, className) {
+    var sel = String(parseInt(selected, 10) || 1);
+    var labels = {
+      1: '1 MP（標準）',
+      2: '2 MP',
+      3: '3 MP',
+      4: '4 MP'
+    };
+    var opts = MP_TIERS.map(function (n) {
+      var k = String(n);
+      return '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + (labels[n] || (k + ' MP')) + '</option>';
+    }).join('');
+    return '<select class="form-select form-select-sm ' + (className || 'promo-mp-select') + '">' + opts + '</select>';
   }
 
   function fillSelect(el, items, valueKey, labelKey, emptyLabel) {
@@ -97,10 +181,13 @@
 
   global.MatchdoPromoImage = {
     RATIO_PRESETS: RATIO_PRESETS,
+    MP_TIERS: MP_TIERS,
     dimsForRatio: dimsForRatio,
+    megapixelsFromDims: megapixelsFromDims,
     clampDim: clampDim,
     estimatePointsLocal: estimatePointsLocal,
     ratioSelectHtml: ratioSelectHtml,
+    mpSelectHtml: mpSelectHtml,
     fillSelect: fillSelect,
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,

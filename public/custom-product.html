@@ -1665,24 +1665,18 @@
                     <div class="tab-pane fade" id="panel-promo-image" role="tabpanel" aria-labelledby="tab-promo-image">
                         <div class="create-panel scene-sim-panel">
                             <div class="create-panel-left">
-                                <p class="form-text text-muted small mb-2">以設計圖或數位資產生成產品推廣圖。基礎約 1MP 起跳 20 點，解析度越高點數越高。</p>
+                                <p class="form-text text-muted small mb-2">把產品圖做成可當 DM、廣告、宣傳用的主視覺。1 MP＝20 點，每多 1 MP ＋10 點（最高 4 MP）。</p>
                                 <div class="form-row full scene-sim-images-row">
-                                    <span class="label w-100 mb-1">選擇來源圖（從數位資產）</span>
-                                    <div class="scene-sim-col" style="max-width: 280px;">
-                                        <div id="promoImagePreviewWrap" class="scene-sim-preview-wrap" role="button" tabindex="0" title="點擊從數位資產選圖">
-                                            <div id="promoImagePreviewInner" class="scene-sim-preview-inner">
-                                                <span class="scene-sim-preview-hint">點擊選擇數位資產</span>
-                                            </div>
-                                            <img id="promoImagePreviewImg" src="" alt="" class="scene-sim-preview-img d-none">
-                                        </div>
-                                        <div class="d-flex flex-wrap gap-2 mt-2">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="promoImagePickAssetBtn">從數位資產</button>
-                                            <button type="button" class="btn btn-outline-warning btn-sm d-none" id="promoImageClearBtn">清除</button>
-                                        </div>
+                                    <span class="label w-100 mb-1">來源圖（可多選，最多 8 張；從數位資產加入）</span>
+                                    <div id="promoImageSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
+                                    <p id="promoImageSelectedHint" class="form-text text-muted small mb-2">尚未選圖</p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="promoImagePickAssetBtn">加入數位資產</button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm d-none" id="promoImageClearBtn">清除全部</button>
                                     </div>
                                 </div>
                                 <div class="form-row full mt-2">
-                                    <label class="label" for="promoImageSceneSelect">情境模板</label>
+                                    <label class="label" for="promoImageSceneSelect">宣傳風格</label>
                                     <select id="promoImageSceneSelect" class="form-select form-select-sm"></select>
                                     <p class="form-text text-muted small mb-0 mt-1" id="promoImageSceneHint"></p>
                                 </div>
@@ -1694,6 +1688,15 @@
                                         <option value="3:4">3:4</option>
                                         <option value="16:9">16:9</option>
                                         <option value="9:16">9:16</option>
+                                    </select>
+                                </div>
+                                <div class="form-row full mt-2">
+                                    <label class="label" for="promoImageMpSelect">解析度</label>
+                                    <select id="promoImageMpSelect" class="form-select form-select-sm">
+                                        <option value="1" selected>1 MP（標準）</option>
+                                        <option value="2">2 MP</option>
+                                        <option value="3">3 MP</option>
+                                        <option value="4">4 MP</option>
                                     </select>
                                     <p class="form-text text-muted small mb-0 mt-1" id="promoImageDimsHint">1024×1024</p>
                                 </div>
@@ -1779,7 +1782,7 @@
     <script src="js/browse-styles.js?v=7" defer></script>
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
-    <script src="/js/matchdo-promo-image.js?v=20260719b" defer></script>
+    <script src="/js/matchdo-promo-image.js?v=20260719d" defer></script>
     <script src="js/custom-product.js?v=123" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
