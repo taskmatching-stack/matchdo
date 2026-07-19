@@ -6,7 +6,7 @@
 (function() {
   'use strict';
   
-  const BUILD = 'embed-simulator-20260710b';
+  const BUILD = 'embed-simulator-20260719-chrome';
   
   // 訪客上傳槽（主產品／材料／配件由步驟 1、2 選擇自動帶入，不重複上傳）
   const UPLOAD_REF_SLOTS = [
@@ -21,6 +21,31 @@
   const embedId = params.get('embed_id');
   const sig = params.get('sig');
   const useMockData = params.get('mock') === '1'; // ?mock=1 使用假資料
+  const embedTheme = normalizeEmbedTheme(params.get('theme'));
+  const embedChrome = normalizeEmbedChrome(params.get('chrome'));
+
+  function normalizeEmbedTheme(v) {
+    var t = String(v || '').trim().toLowerCase();
+    if (t === 'host' || t === 'light' || t === 'dark') return t;
+    return 'light'; // 舊嵌入碼無參數 → 維持既有淺色整頁感
+  }
+
+  function normalizeEmbedChrome(v) {
+    var c = String(v || '').trim().toLowerCase();
+    if (c === 'minimal' || c === 'none' || c === 'full') return c;
+    return 'full'; // 舊嵌入碼無參數 → 維持完整品牌列
+  }
+
+  function applyEmbedPresentation() {
+    var body = document.body;
+    if (!body) return;
+    body.classList.remove('embed-theme-host', 'embed-theme-light', 'embed-theme-dark');
+    body.classList.remove('embed-chrome-minimal', 'embed-chrome-none', 'embed-chrome-full');
+    body.classList.add('embed-theme-' + embedTheme);
+    body.classList.add('embed-chrome-' + embedChrome);
+  }
+
+  applyEmbedPresentation();
   
   // === 全域狀態 ===
   const state = {
@@ -719,7 +744,29 @@
     document.title = `產品試做 - ${vendorName}`;
     if (powered) {
       var showPowered = !state.embedBranding || state.embedBranding.show_powered_by !== false;
-      powered.style.display = showPowered ? '' : 'none';
+      if (embedChrome === 'none') {
+        powered.style.display = 'none';
+        var floatEl = document.getElementById('simPoweredFloat');
+        if (showPowered) {
+          if (!floatEl) {
+            floatEl = document.createElement('a');
+            floatEl.id = 'simPoweredFloat';
+            floatEl.className = 'sim-powered-float';
+            floatEl.href = 'https://matchdo.cc';
+            floatEl.target = '_blank';
+            floatEl.rel = 'noopener noreferrer';
+            floatEl.innerHTML = 'Powered by <img src="/img/matchdo-logo.png" alt="MatchDO">';
+            document.body.appendChild(floatEl);
+          }
+          floatEl.style.display = '';
+        } else if (floatEl) {
+          floatEl.style.display = 'none';
+        }
+      } else {
+        powered.style.display = showPowered ? '' : 'none';
+        var floatHide = document.getElementById('simPoweredFloat');
+        if (floatHide) floatHide.style.display = 'none';
+      }
     }
   }
   

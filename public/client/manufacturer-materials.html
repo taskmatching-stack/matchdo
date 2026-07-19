@@ -833,30 +833,37 @@
                             <p id="edit-prototype-links-empty" class="text-muted small mb-0 d-none" data-i18n="baseModels.prototypeLinksEmpty">尚無材料或配件可選（選填，略過不影響發布；可先上傳材料／零件再回來關聯）。</p>
                         </div>
                         <div class="mb-3 d-none" id="edit-share-links-wrap">
-                            <label class="form-label fw-semibold">分享與嵌入</label>
-                            <p class="text-muted small mb-2">主產品專用。訪客試做須保持<strong>上架中</strong>。① 與 ② 計費不同，請依用途選擇。</p>
-                            <p class="small fw-semibold text-secondary mb-1">① Matchdo 主站試做連結（訪客用<strong>自己的</strong> Matchdo 點數）</p>
-                            <div class="mb-2">
-                                <label class="form-label small text-muted mb-1">試做連結</label>
-                                <p class="text-muted small mb-1">開啟 Matchdo 設計頁，適合 LINE、Email。訪客須登入；生圖扣<strong>訪客點數</strong>，非您代付。</p>
-                                <div class="input-group input-group-sm">
-                                    <input type="text" class="form-control font-monospace" id="edit-share-design-url" readonly>
-                                    <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-design">複製</button>
-                                </div>
-                            </div>
-                            <div class="mb-0 d-none" id="edit-share-guide-row">
-                                <label class="form-label small text-muted mb-1">搭配導覽連結</label>
-                                <p class="text-muted small mb-1">先看可搭配再進設計頁（同 ①，扣訪客點數）。</p>
-                                <div class="input-group input-group-sm">
-                                    <input type="text" class="form-control font-monospace" id="edit-share-guide-url" readonly>
-                                    <button type="button" class="btn btn-outline-secondary" id="btn-edit-copy-share-guide">複製</button>
-                                </div>
-                            </div>
-                            <div class="mt-3 pt-3 border-top" id="edit-share-embed-block">
-                                <p class="small fw-semibold text-secondary mb-1">② 嵌入官網 iframe（訪客<strong>免付點</strong>，只試<strong>此款</strong>主產品）</p>
-                                <p class="text-muted small mb-2">複製 <code>&lt;iframe&gt;</code> 貼到官網、活動頁或 Landing Page。訪客在您的頁面試做（不需 MatchDO 帳號）；生圖扣<strong>您的</strong>點數。主產品上架後即可複製嵌入碼與預覽連結。</p>
+                            <label class="form-label fw-semibold">官網嵌入（iframe）</label>
+                            <p class="text-muted small mb-2">像 YouTube／Sketchfab：複製程式碼貼到官網某一區塊。訪客免付點、生圖扣<strong>您的</strong>點數。須保持<strong>上架中</strong>。卡片上的 <i class="bi bi-code-slash"></i> 可一鍵複製預設嵌入碼。</p>
+                            <div id="edit-share-embed-block">
                                 <div id="edit-share-embed-status" class="text-muted small mb-2">開啟編輯後自動載入…</div>
                                 <div id="edit-share-embed-fields" class="d-none">
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-4">
+                                            <label class="form-label small text-muted mb-1" for="edit-share-embed-height">高度</label>
+                                            <select class="form-select form-select-sm" id="edit-share-embed-height">
+                                                <option value="560">矮（560）</option>
+                                                <option value="720" selected>標準（720）</option>
+                                                <option value="900">高（900）</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label small text-muted mb-1" for="edit-share-embed-chrome">外框</label>
+                                            <select class="form-select form-select-sm" id="edit-share-embed-chrome">
+                                                <option value="minimal" selected>精簡（建議）</option>
+                                                <option value="full">完整品牌列</option>
+                                                <option value="none">無外框</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <label class="form-label small text-muted mb-1" for="edit-share-embed-theme">主題</label>
+                                            <select class="form-select form-select-sm" id="edit-share-embed-theme">
+                                                <option value="host" selected>貼合官網</option>
+                                                <option value="light">淺色</option>
+                                                <option value="dark">深色</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                     <label class="form-label small text-muted mb-1">iframe 網址</label>
                                     <div class="input-group input-group-sm mb-2">
                                         <input type="text" class="form-control font-monospace" id="edit-share-embed-url" readonly>
@@ -867,7 +874,7 @@
                                         <span class="text-muted small ms-1">新分頁開啟，與訪客在官網 iframe 內相同</span>
                                     </div>
                                     <label class="form-label small text-muted mb-1">嵌入程式碼</label>
-                                    <textarea class="form-control form-control-sm font-monospace mb-2" id="edit-share-embed-snippet" rows="4" readonly></textarea>
+                                    <textarea class="form-control form-control-sm font-monospace mb-2" id="edit-share-embed-snippet" rows="5" readonly></textarea>
                                     <button type="button" class="btn btn-outline-primary btn-sm" id="btn-edit-copy-share-embed-snippet"><i class="bi bi-clipboard me-1"></i>複製嵌入程式碼</button>
                                     <div class="form-check mt-3 d-none" id="edit-share-embed-media-wall-wrap">
                                         <input class="form-check-input" type="checkbox" id="edit-share-embed-media-wall" checked>
@@ -881,7 +888,7 @@
                                     <p class="small mb-0 mt-2"><a href="/client/embed-design-records.html" target="_blank" rel="noopener">查看 Embed 訪客生圖紀錄</a></p>
                                 </div>
                             </div>
-                            <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用上述連結或 iframe。</p>
+                            <p class="text-warning small mb-0 mt-2 d-none" id="edit-share-unpublished-hint">此款式已下架，訪客無法使用 iframe。</p>
                         </div>
                         <div class="mb-3 d-none" id="edit-linked-prototypes-wrap">
                             <label class="form-label fw-semibold" data-i18n="baseModels.linkedPrototypesTitle">關聯主產品</label>
@@ -1053,7 +1060,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-lite-list-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'card-embed-copy-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -6785,32 +6792,19 @@
             return null;
         }
 
-        function assetItemForShare(item) {
-            if (!item) return null;
-            var out = Object.assign({}, item);
-            if (!out.manufacturer_id && viewerManufacturerId) out.manufacturer_id = viewerManufacturerId;
-            return out;
-        }
+        var cardEmbedSnippetCache = {};
 
-        function renderPrototypeShareLinkDropdown(m) {
-            if (!m || m.asset_kind !== 'prototype' || isSeedVendor) return '';
+        function renderPrototypeEmbedCopyBtn(m) {
+            if (!m || normalizeKind(m.asset_kind) !== 'prototype' || isSeedVendor) return '';
             var isPub = m.is_public !== false;
-            var lc = m.link_count != null ? Number(m.link_count) : 0;
-            var hasGuide = lc > 0;
-            var menuTitle = esc(tr('baseModels.shareLinkMenu', '複製分享連結'));
-            var needPubTitle = esc(tr('baseModels.shareLinkNeedPublic', '請先上架後再分享'));
-            var designLbl = esc(tr('baseModels.copyShareDesign', '複製試做連結'));
-            var guideLbl = esc(tr('baseModels.copyShareGuide', '複製搭配導覽連結'));
+            var title = isPub
+                ? '複製官網嵌入程式碼（iframe）'
+                : '請先上架後再複製嵌入碼';
             var disabledCls = isPub ? '' : ' disabled';
-            var disabledAttr = isPub ? '' : ' disabled tabindex="-1"';
-            return '<div class="dropdown flex-fill">' +
-                '<button class="btn btn-outline-secondary btn-sm w-100 dropdown-toggle' + disabledCls + '" type="button" ' +
-                'data-bs-toggle="dropdown" aria-expanded="false" title="' + (isPub ? menuTitle : needPubTitle) + '"' + disabledAttr + '>' +
-                '<i class="bi bi-link-45deg"></i></button>' +
-                '<ul class="dropdown-menu dropdown-menu-end">' +
-                '<li><button type="button" class="dropdown-item btn-copy-share-design" data-id="' + esc(m.id) + '"' + disabledAttr + '>' + designLbl + '</button></li>' +
-                (hasGuide ? '<li><button type="button" class="dropdown-item btn-copy-share-guide" data-id="' + esc(m.id) + '"' + disabledAttr + '>' + guideLbl + '</button></li>' : '') +
-                '</ul></div>';
+            var disabledAttr = isPub ? '' : ' disabled tabindex="-1" aria-disabled="true"';
+            return '<button type="button" class="btn btn-outline-secondary btn-sm flex-fill btn-copy-embed-snippet' + disabledCls + '" ' +
+                'data-id="' + esc(m.id) + '" title="' + esc(title) + '" aria-label="' + esc(title) + '"' + disabledAttr + '>' +
+                '<i class="bi bi-code-slash"></i></button>';
         }
 
         function syncEditShareLinks(m) {
@@ -6819,23 +6813,8 @@
             var isProto = m && normalizeKind(m.asset_kind) === 'prototype' && !isSeedVendor;
             wrap.classList.toggle('d-none', !isProto);
             if (!isProto) return;
-            var Share = window.VendorAssetShareUrls;
-            var item = assetItemForShare(m);
-            var designInp = document.getElementById('edit-share-design-url');
-            var guideRow = document.getElementById('edit-share-guide-row');
-            var guideInp = document.getElementById('edit-share-guide-url');
             var unpubHint = document.getElementById('edit-share-unpublished-hint');
             var isPub = m.is_public !== false;
-            var designUrl = (m.design_share_url && String(m.design_share_url).trim())
-                ? String(m.design_share_url).trim()
-                : (Share ? Share.buildShareDesignUrl(item) : '');
-            if (designInp) designInp.value = designUrl;
-            var lc = Share && Share.prototypeLinkCount ? Share.prototypeLinkCount(m) : (Number(m.link_count || 0));
-            var guideUrl = (m.guide_share_url && String(m.guide_share_url).trim())
-                ? String(m.guide_share_url).trim()
-                : (Share && lc > 0 ? Share.buildShareGuideUrl(item) : '');
-            if (guideRow) guideRow.classList.toggle('d-none', !(lc > 0 && guideUrl));
-            if (guideInp) guideInp.value = guideUrl;
             if (unpubHint) unpubHint.classList.toggle('d-none', isPub);
             loadEditEmbedSimulator(m, isPub);
         }
@@ -6857,6 +6836,65 @@
             }
         }
 
+        var editEmbedPageUrlBase = '';
+        var editEmbedSnippetTitle = '產品試做';
+
+        function getEditEmbedUiOpts() {
+            var hEl = document.getElementById('edit-share-embed-height');
+            var cEl = document.getElementById('edit-share-embed-chrome');
+            var tEl = document.getElementById('edit-share-embed-theme');
+            var height = Number(hEl && hEl.value) || 720;
+            var chrome = (cEl && cEl.value) || 'minimal';
+            var theme = (tEl && tEl.value) || 'host';
+            return { height: height, chrome: chrome, theme: theme, title: editEmbedSnippetTitle };
+        }
+
+        function applyEmbedUiToPageUrl(baseUrl, opts) {
+            opts = opts || {};
+            if (!baseUrl) return '';
+            try {
+                var u = new URL(baseUrl, window.location.origin);
+                if (opts.theme) u.searchParams.set('theme', opts.theme);
+                else u.searchParams.delete('theme');
+                if (opts.chrome) u.searchParams.set('chrome', opts.chrome);
+                else u.searchParams.delete('chrome');
+                return u.toString();
+            } catch (e) {
+                return baseUrl;
+            }
+        }
+
+        function buildEditEmbedIframeSnippet(pageUrl, opts) {
+            opts = opts || {};
+            var h = Number(opts.height);
+            if (!isFinite(h) || h < 200) h = 720;
+            var title = String(opts.title || '產品試做').replace(/"/g, '&quot;');
+            var src = String(pageUrl || '').replace(/"/g, '&quot;');
+            return '<iframe\n  src="' + src + '"\n  width="100%"\n  height="' + h + '"\n  style="border:0;border-radius:8px;max-width:100%;"\n  loading="lazy"\n  title="' + title + '"\n></iframe>';
+        }
+
+        function refreshEditEmbedSnippetFields() {
+            if (!editEmbedPageUrlBase) return;
+            var opts = getEditEmbedUiOpts();
+            var pageUrl = applyEmbedUiToPageUrl(editEmbedPageUrlBase, opts);
+            var urlInp = document.getElementById('edit-share-embed-url');
+            var snipTa = document.getElementById('edit-share-embed-snippet');
+            if (urlInp) urlInp.value = pageUrl;
+            if (snipTa) snipTa.value = buildEditEmbedIframeSnippet(pageUrl, opts);
+            syncEditShareEmbedPreviewLink(pageUrl);
+            var editId = document.getElementById('edit-id') && document.getElementById('edit-id').value;
+            if (editId && snipTa && snipTa.value) cardEmbedSnippetCache[editId] = snipTa.value;
+        }
+
+        function bindEditEmbedUiControlsOnce() {
+            if (window.__editEmbedUiBound) return;
+            window.__editEmbedUiBound = true;
+            ['edit-share-embed-height', 'edit-share-embed-chrome', 'edit-share-embed-theme'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.addEventListener('change', refreshEditEmbedSnippetFields);
+            });
+        }
+
         async function loadEditEmbedSimulator(m, isPub) {
             var statusEl = document.getElementById('edit-share-embed-status');
             var fieldsEl = document.getElementById('edit-share-embed-fields');
@@ -6869,6 +6907,7 @@
             var sceneSimHint300 = document.getElementById('edit-share-embed-scene-sim-hint-300');
             if (!statusEl || !fieldsEl) return;
             fieldsEl.classList.add('d-none');
+            editEmbedPageUrlBase = '';
             syncEditShareEmbedPreviewLink('');
             if (mediaWallWrap) mediaWallWrap.classList.add('d-none');
             if (sceneSimWrap) sceneSimWrap.classList.add('d-none');
@@ -6920,9 +6959,23 @@
                     ? '已建立此款專用 iframe，請複製下方程式碼貼到官網。'
                     : '已載入此款 iframe（可重複複製使用）。';
                 statusEl.classList.remove('text-danger');
-                if (urlInp) urlInp.value = data.page_url || '';
-                if (snipTa) snipTa.value = data.iframe_snippet || '';
-                syncEditShareEmbedPreviewLink(data.page_url || '');
+                editEmbedPageUrlBase = data.page_url_base || (function () {
+                    var raw = data.page_url || '';
+                    if (!raw) return '';
+                    try {
+                        var u = new URL(raw, window.location.origin);
+                        u.searchParams.delete('theme');
+                        u.searchParams.delete('chrome');
+                        return u.toString();
+                    } catch (e2) { return raw; }
+                })();
+                editEmbedSnippetTitle = ((m.title || '產品') + ' 試做').slice(0, 80);
+                bindEditEmbedUiControlsOnce();
+                refreshEditEmbedSnippetFields();
+                if (m && m.id && document.getElementById('edit-share-embed-snippet')) {
+                    var sn = (document.getElementById('edit-share-embed-snippet').value || '').trim();
+                    if (sn) cardEmbedSnippetCache[m.id] = sn;
+                }
                 fieldsEl.classList.remove('d-none');
                 if (mediaWallWrap && mediaWallChk && tierCfg && tierCfg.wallMode === 'configurable' && data.id) {
                     mediaWallWrap.classList.remove('d-none');
@@ -6997,50 +7050,88 @@
             var inp = document.getElementById(inputId);
             var val = inp && inp.value ? String(inp.value).trim() : '';
             if (!val) return;
-            var Share = window.VendorAssetShareUrls;
-            if (Share && Share.copyTextToClipboard) {
-                Share.copyTextToClipboard(val, function (ok) {
-                    showToast(ok
-                        ? tr('baseModels.copyShareDone', '已複製連結')
-                        : tr('baseModels.copyShareFailed', '複製失敗，請手動複製'), ok ? 'success' : 'danger');
-                });
+            function done(ok) {
+                showToast(ok ? '已複製' : '複製失敗，請手動複製', ok ? 'success' : 'danger');
             }
+            if (window.VendorAssetShareUrls && window.VendorAssetShareUrls.copyTextToClipboard) {
+                window.VendorAssetShareUrls.copyTextToClipboard(val, done);
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(val).then(function () { done(true); }).catch(function () { done(false); });
+                return;
+            }
+            done(false);
         }
 
-        function bindShareLinkCopyButtons(scope) {
-            if (!scope || !window.VendorAssetShareUrls) return;
-            var Share = window.VendorAssetShareUrls;
-            scope.querySelectorAll('.btn-copy-share-design').forEach(function (btn) {
-                btn.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var item = assetItemForShare(findMaterialItemById(btn.dataset.id));
-                    if (!item || item.is_public === false) {
-                        showToast(tr('baseModels.shareLinkNeedPublic', '請先上架後再分享'), 'warning');
-                        return;
-                    }
-                    var url = Share.buildShareDesignUrl(item);
-                    Share.copyTextToClipboard(url, function (ok) {
-                        showToast(ok
-                            ? tr('baseModels.copyShareDone', '已複製連結')
-                            : tr('baseModels.copyShareFailed', '複製失敗，請手動複製'), ok ? 'success' : 'danger');
-                    });
-                });
+        async function fetchEmbedSnippetForPrototype(m) {
+            if (!m || !m.id) throw new Error('找不到產品');
+            if (cardEmbedSnippetCache[m.id]) return cardEmbedSnippetCache[m.id];
+            var tok = token || (await getToken());
+            if (!tok) throw new Error('請先登入');
+            var r = await fetch('/api/me/embed-simulator-instances', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prototype_asset_id: m.id,
+                    name: ((m.title || '主產品') + ' 官網試做').slice(0, 120)
+                })
             });
-            scope.querySelectorAll('.btn-copy-share-guide').forEach(function (btn) {
+            var data = await r.json().catch(function () { return {}; });
+            if (r.status === 503 || data.code === 'EMBED_SCHEMA') {
+                throw new Error('嵌入試做尚未啟用，請聯絡平台');
+            }
+            if (data.error_code === 'embed_instance_limit') {
+                throw new Error(data.error || 'iframe 組數已達方案上限');
+            }
+            if (!r.ok) {
+                var failMsg = (data && data.error) || '無法取得嵌入碼';
+                if (data && data.error_detail) failMsg += '（' + data.error_detail + '）';
+                throw new Error(failMsg);
+            }
+            var snippet = data.iframe_snippet || '';
+            if (!snippet && data.page_url) {
+                snippet = buildEditEmbedIframeSnippet(data.page_url, {
+                    height: 720, chrome: 'minimal', theme: 'host',
+                    title: ((m.title || '產品') + ' 試做').slice(0, 80)
+                });
+            }
+            if (!snippet) throw new Error('嵌入碼為空');
+            cardEmbedSnippetCache[m.id] = snippet;
+            return snippet;
+        }
+
+        function bindCardEmbedCopyButtons(scope) {
+            if (!scope) return;
+            scope.querySelectorAll('.btn-copy-embed-snippet').forEach(function (btn) {
                 btn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    var item = assetItemForShare(findMaterialItemById(btn.dataset.id));
+                    var item = findMaterialItemById(btn.dataset.id);
                     if (!item || item.is_public === false) {
-                        showToast(tr('baseModels.shareLinkNeedPublic', '請先上架後再分享'), 'warning');
+                        showToast('請先上架後再複製嵌入碼', 'warning');
                         return;
                     }
-                    var url = Share.buildShareGuideUrl(item);
-                    Share.copyTextToClipboard(url, function (ok) {
-                        showToast(ok
-                            ? tr('baseModels.copyShareDone', '已複製連結')
-                            : tr('baseModels.copyShareFailed', '複製失敗，請手動複製'), ok ? 'success' : 'danger');
+                    var icon = btn.querySelector('i');
+                    var prevClass = icon ? icon.className : '';
+                    btn.disabled = true;
+                    if (icon) icon.className = 'spinner-border spinner-border-sm';
+                    fetchEmbedSnippetForPrototype(item).then(function (snippet) {
+                        function done(ok) {
+                            showToast(ok ? '已複製嵌入程式碼' : '複製失敗，請手動複製', ok ? 'success' : 'danger');
+                        }
+                        if (window.VendorAssetShareUrls && window.VendorAssetShareUrls.copyTextToClipboard) {
+                            window.VendorAssetShareUrls.copyTextToClipboard(snippet, done);
+                        } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(snippet).then(function () { done(true); }).catch(function () { done(false); });
+                        } else {
+                            done(false);
+                        }
+                    }).catch(function (err) {
+                        showToast((err && err.message) || '取得嵌入碼失敗', 'danger');
+                    }).finally(function () {
+                        btn.disabled = item.is_public === false;
+                        if (icon) icon.className = prevClass || 'bi bi-code-slash';
                     });
                 });
             });
@@ -7172,7 +7263,7 @@
                     ? ('<a class="btn btn-outline-info btn-sm flex-fill" href="/client/vendor-prototype-insights.html?prototype_asset_id=' +
                         encodeURIComponent(m.id) + '" title="設計洞察"><i class="bi bi-bar-chart"></i></a>')
                     : '';
-                var shareLinkBtn = renderPrototypeShareLinkDropdown(m);
+                var shareLinkBtn = renderPrototypeEmbedCopyBtn(m);
                 var actionBtns = isSeedVendor
                     ? ('<span class="text-muted small">由管理員於種子後台調整上下架</span>')
                     : (togglePubBtn + shareLinkBtn + insightsBtn +
@@ -7238,7 +7329,7 @@
                     grid.innerHTML = html;
                     grid.appendChild(tempContainer);
                     if (!isSeedVendor) {
-                        bindShareLinkCopyButtons(grid);
+                        bindCardEmbedCopyButtons(grid);
                         grid.querySelectorAll('.btn-del').forEach(function (btn) {
                             btn.addEventListener('click', function () { openDeleteModal(btn.dataset.id, btn.dataset.title || ''); });
                         });
@@ -8300,14 +8391,6 @@
             toggleEditImageOptions(hasFile);
         }
         document.getElementById('edit-image').addEventListener('change', onEditCoverFileChange);
-        var btnEditCopyShareDesign = document.getElementById('btn-edit-copy-share-design');
-        if (btnEditCopyShareDesign) {
-            btnEditCopyShareDesign.addEventListener('click', function () { copyEditShareInput('edit-share-design-url'); });
-        }
-        var btnEditCopyShareGuide = document.getElementById('btn-edit-copy-share-guide');
-        if (btnEditCopyShareGuide) {
-            btnEditCopyShareGuide.addEventListener('click', function () { copyEditShareInput('edit-share-guide-url'); });
-        }
         var btnEditCopyShareEmbedUrl = document.getElementById('btn-edit-copy-share-embed-url');
         if (btnEditCopyShareEmbedUrl) {
             btnEditCopyShareEmbedUrl.addEventListener('click', function () { copyEditShareInput('edit-share-embed-url'); });

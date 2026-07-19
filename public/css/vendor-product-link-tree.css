@@ -553,6 +553,19 @@
     font-weight: 400;
     line-height: 1.2;
 }
+.vplt-guide-tile-detail {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    color: #0d9488;
+    text-decoration: none;
+    font-weight: 500;
+}
+.vplt-guide-tile-detail:hover {
+    color: #0f766e;
+    text-decoration: underline;
+}
 .vplt-guide-tile--prototype .vplt-guide-tile-kind {
     color: #0d9488;
 }

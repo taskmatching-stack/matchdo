@@ -2,7 +2,7 @@
 
 > **狀態（2026-06-30）**：**MVP 已上線可結案**。Phase A～D 核心 ✅；Phase E（硬化）與獨立實例管理頁為**選做 backlog**。  
 > **Handoff**：[`PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md`](PROGRESS-vendor-embed-simulator-handoff-2026-06-27.md)  
-> **與現況關係**：已上線的 [`/embed/vendor-catalog.html`](../public/embed/vendor-catalog.html) 為「卡片牆 + 外跳試做」；本文件為**新產品**「iframe 內完整模擬 + 廠商扣點 + 訪客匿名」。
+> **與現況關係（2026-07-19）**：舊版「目錄卡片牆 + 外跳試做」(`/embed/vendor-catalog.html`) **已停用**。官網嵌入**僅保留本產品**：iframe 內完整模擬 + 廠商扣點 + 訪客匿名。
 
 ---
 

@@ -355,20 +355,13 @@
 
 > 技術／維護說明見 `docs/PROGRESS-vendor-asset-gallery-edit.md`。
 
-**分享試做連結（給官網／LINE）**
+**官網嵌入試做（iframe，廠商付點）**
 
-- 在 **數位原型** 列表卡片按 **🔗**，可 **複製試做連結**（訪客一點即進設計頁並鎖定該款）。
-- 若已設定材料／配件關聯，另可複製 **搭配導覽連結**（`product-tree.html`）。
-- **須保持上架中**；下架後連結對訪客無效。編輯原型時「分享連結」區塊亦可複製。
-- 詳見 `docs/PROGRESS-vendor-asset-share-links.md`。
-
-**官網嵌入產品卡片（iframe）**
-
-- 在 **廠商控制台** →「我的廠商首頁」區塊下方，可 **複製 iframe 嵌入碼**。
-- 訪客在您的官網 iframe 內瀏覽公開數位原型；點 **用此款試做** 會跳至 Matchdo 全頁完成生圖（不在 iframe 內扣點）。
-- 嵌入頁網址：`/embed/vendor-catalog.html?manufacturer_id={廠商UUID}`；建議 iframe 高度 **640px**，寬度 100%。
-- 站內可用 `/embed/preview.html?manufacturer_id={UUID}` 預覽嵌入效果。
-- 詳見 `docs/PROGRESS-vendor-embed-catalog.md`。
+- 在 **數位原型** 列表卡片按 **</>**（程式碼圖示），可 **一鍵複製 iframe 嵌入碼**（預設精簡外框，貼官網即可）。
+- 進階（高度／外框／主題）：編輯原型 →「官網嵌入」。
+- 訪客在官網 iframe 內試做（免 Matchdo 帳號）；生圖扣**廠商**點數。須**上架中**。
+- 舊「目錄卡片牆」與卡片上「複製試做／導覽連結」已移除。
+- 詳見 `docs/PROGRESS-vendor-embed-simulator.md`。
 
 ### 8.4 訂製需求（`/client/demands.html`）
 
@@ -384,4 +377,4 @@
 ---
 
 *本手冊依目前網站功能撰寫，若畫面或流程有更新，請以站內實際介面為準。*  
-*最後更新：2026-06-26（官網 iframe 嵌入產品卡片；素材庫分享連結）*
+*最後更新：2026-07-19（官網僅保留廠商付點試做 iframe；目錄牆嵌入已停用）*

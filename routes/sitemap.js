@@ -221,6 +221,19 @@ function registerSitemapRoutes(app, deps) {
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/collection/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>weekly</changefreq><priority>0.5</priority></url>');
             }
+            const { data: assetRows } = await supabase
+                .from('vendor_assets')
+                .select('id, asset_kind, updated_at, created_at, is_public')
+                .eq('is_public', true)
+                .in('asset_kind', ['prototype', 'part', 'material'])
+                .order('updated_at', { ascending: false })
+                .limit(80);
+            for (const r of (assetRows || [])) {
+                const kind = String(r.asset_kind || 'prototype').toLowerCase();
+                if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') continue;
+                const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
+                urls.push('  <url><loc>' + escapeXml(base + '/inspiration/' + kind + '/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
+            }
             if (urls.length > SITEMAP_INSPIRATION_LIMIT) urls.length = SITEMAP_INSPIRATION_LIMIT;
         } catch (e) {
             console.warn('sitemap-inspiration.xml:', e && e.message);

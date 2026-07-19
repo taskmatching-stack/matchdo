@@ -813,15 +813,24 @@
                     var titleOverlay = titleRaw
                         ? '<div class="card-title-overlay">' + escHtml(titleRaw) + '</div>'
                         : '';
+                    var inspType = beforeUrl ? 'comparison' : 'series';
+                    if (!beforeUrl && !seriesUrls.length && afterUrl) inspType = 'series';
+                    var detailUrl = p.id
+                        ? ('/inspiration/' + inspType + '/' + encodeURIComponent(p.id))
+                        : '';
                     var zoomCls = itemType ? ' is-zoomable' : '';
                     if (itemType === 'comparison') zoomCls += ' is-comparison';
                     var zoomBtn = itemType
                         ? '<button type="button" class="vp-zoom-btn" title="放大查看" aria-label="放大查看"><i class="bi bi-zoom-in"></i></button>'
                         : '';
+                    var cardTagOpen = detailUrl
+                        ? ('<a class="portfolio-card h-100 text-decoration-none d-block' + zoomCls + '" href="' + escHtml(detailUrl) + '">')
+                        : ('<div class="portfolio-card h-100' + zoomCls + '">');
+                    var cardTagClose = detailUrl ? '</a>' : '</div>';
                     col.innerHTML =
-                        '<div class="portfolio-card h-100' + zoomCls + '">' +
+                        cardTagOpen +
                         '<div class="card-img-wrap' + wrapExtra + '">' + content + zoomBtn + titleOverlay + '</div>' +
-                        '</div>';
+                        cardTagClose;
                     if (itemType) {
                         var cardEl = col.querySelector('.portfolio-card');
                         if (cardEl) {
@@ -832,6 +841,7 @@
                                 image_url_before: beforeUrl,
                                 series_image_urls: seriesUrls.length ? seriesUrls : (afterUrl ? [afterUrl] : [])
                             }));
+                            if (detailUrl) cardEl.setAttribute('data-detail-url', detailUrl);
                         }
                     }
                     grid.appendChild(col);
@@ -945,24 +955,28 @@
             if (!root || root._vpLbWired) return;
             root._vpLbWired = true;
             root.addEventListener('click', function (e) {
+                // 滑桿操作勿跟連結走
+                if (e.target.closest('.comparison-slider-wrap input[type="range"]') ||
+                    e.target.closest('.comparison-slider-wrap .slider-handle') ||
+                    e.target.closest('.comparison-slider-wrap .slider-line')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
                 var zoomBtn = e.target.closest('.vp-zoom-btn');
-                var card = null;
                 if (zoomBtn) {
                     e.preventDefault();
                     e.stopPropagation();
-                    card = zoomBtn.closest('.portfolio-card.is-zoomable');
-                } else {
-                    // 對照圖整面是滑桿，只能靠放大鈕；系列／單圖可點卡片
-                    if (e.target.closest('.comparison-slider-wrap input[type="range"]')) return;
-                    card = e.target.closest('.portfolio-card.is-zoomable');
-                    if (card && card.classList.contains('is-comparison')) return;
+                    var card = zoomBtn.closest('.portfolio-card.is-zoomable');
+                    if (!card || !root.contains(card)) return;
+                    var raw = card.getAttribute('data-item');
+                    if (!raw) return;
+                    try {
+                        openVendorPortfolioLightbox(JSON.parse(raw));
+                    } catch (_) {}
+                    return;
                 }
-                if (!card || !root.contains(card)) return;
-                var raw = card.getAttribute('data-item');
-                if (!raw) return;
-                try {
-                    openVendorPortfolioLightbox(JSON.parse(raw));
-                } catch (_) {}
+                // 其餘：若卡片是 <a href=/inspiration/...>，讓瀏覽器導向獨立頁
             });
         }
 
@@ -1259,6 +1273,7 @@
                 var col = document.createElement('div');
                 col.className = 'col-6 col-md-4 col-lg-3';
                 var kind = item.asset_kind || 'prototype';
+                if (kind !== 'material' && kind !== 'part') kind = 'prototype';
                 var kindLabel = kind === 'material' ? vpTr('customProduct.assetKindMaterial', '材料') : (kind === 'part' ? vpTr('customProduct.assetKindPart', '配件／零件') : vpTr('customProduct.assetKindPrototype', '數位原型'));
                 var cats = (item.catalog_groups || []).map(function (g) {
                     return '<span class="badge bg-light text-primary border border-primary border-opacity-25 me-1 mb-1" style="font-size:.65rem;">' + escHtml(g.name) + '</span>';
@@ -1273,12 +1288,13 @@
                 });
                 var imageItems = vendorAssetImageItems(item);
                 var imgUrl = (imageItems[0] && imageItems[0].url) || item.image_url || '';
+                var detailUrl = item.inspiration_url || ('/inspiration/' + kind + '/' + encodeURIComponent(item.id));
                 var designUrl = buildVendorAssetDesignUrl(item);
                 var guideUrl = buildVendorAssetGuideUrl(item);
                 var multiBadge = imageItems.length > 1
                     ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem;">' + imageItems.length + ' 張</span>' : '';
                 var thumbHtml = imgUrl
-                    ? '<div class="position-relative"><a href="' + escHtml(designUrl) + '" class="vendor-asset-thumb-link d-block">' + multiBadge +
+                    ? '<div class="position-relative"><a href="' + escHtml(detailUrl) + '" class="vendor-asset-thumb-link d-block">' + multiBadge +
                     '<img src="' + escHtml(imgUrl) + '" class="vendor-asset-thumb" loading="lazy" alt=""></a></div>'
                     : '<div class="portfolio-no-img" style="aspect-ratio:1;"><i class="bi bi-image"></i></div>';
                 var guideBtn = guideUrl
@@ -1288,10 +1304,11 @@
                     thumbHtml +
                     '<div class="p-2 flex-grow-1 d-flex flex-column">' +
                     '<span class="badge bg-light text-secondary border mb-1 align-self-start" style="font-size:.65rem;">' + escHtml(kindLabel) + '</span>' +
-                    (item.title ? '<div class="fw-semibold small text-truncate mb-1" style="color:#2d4059" title="' + escHtml(item.title) + '">' + escHtml(item.title) + '</div>' : '') +
+                    (item.title ? '<a href="' + escHtml(detailUrl) + '" class="fw-semibold small text-truncate mb-1 text-decoration-none d-block" style="color:#2d4059" title="' + escHtml(item.title) + '">' + escHtml(item.title) + '</a>' : '') +
                     (capBadges ? '<div class="mb-1">' + capBadges + '</div>' : '') +
                     (cats ? '<div class="mb-1">' + cats + '</div>' : '') +
                     '<div class="d-grid gap-1 mt-auto pt-2">' +
+                    '<a href="' + escHtml(detailUrl) + '" class="btn btn-sm btn-outline-primary w-100">查看詳情</a>' +
                     '<a href="' + escHtml(designUrl) + '" class="btn btn-sm btn-primary w-100">' + escHtml(designLbl) + '</a>' +
                     guideBtn +
                     '</div></div></div>';

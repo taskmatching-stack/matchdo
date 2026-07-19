@@ -814,6 +814,76 @@
       border-radius: 10px;
       border: 1px solid #e2e8f0;
     }
+
+    /* === Embed 元件模式（官網局部嵌入）=== */
+    body.embed-theme-host {
+      background: transparent;
+    }
+    body.embed-theme-host .sim-container,
+    body.embed-theme-host .sim-scene-panel {
+      background: transparent;
+    }
+    body.embed-theme-dark {
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    body.embed-theme-dark .sim-header {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border-bottom-color: #334155;
+    }
+    body.embed-theme-dark .sim-vendor-name { color: #f8fafc; }
+    body.embed-theme-dark .sim-step,
+    body.embed-theme-dark .sim-scene-card {
+      background: #1e293b;
+      border-color: #334155;
+      color: #e2e8f0;
+    }
+    body.embed-chrome-minimal .sim-header {
+      padding: 0.4rem 0.75rem;
+      background: transparent;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      box-shadow: none;
+      position: relative;
+    }
+    body.embed-chrome-minimal .sim-logo-wrap {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      box-shadow: none;
+    }
+    body.embed-chrome-minimal .sim-vendor-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    body.embed-chrome-minimal .sim-powered {
+      padding: 0.2rem 0.4rem;
+      font-size: 0.62rem;
+    }
+    body.embed-chrome-minimal .sim-powered-logo {
+      height: 12px;
+    }
+    body.embed-chrome-none .sim-header {
+      display: none;
+    }
+    body.embed-chrome-none .sim-powered-float {
+      display: inline-flex;
+      position: fixed;
+      right: 8px;
+      bottom: 8px;
+      z-index: 50;
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: #64748b;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      padding: 0.2rem 0.5rem;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    body.embed-chrome-none .sim-powered-float img {
+      height: 11px;
+    }
   </style>
 </head>
 <body>
@@ -1014,6 +1084,6 @@
   </div>
   
   <script src="/js/vendor-asset-image-link-groups.js?v=20260713a"></script>
-  <script src="/js/embed-simulator.js?v=20260713a"></script>
+  <script src="/js/embed-simulator.js?v=20260719-embed-chrome"></script>
 </body>
 </html>

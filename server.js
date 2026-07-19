@@ -611,6 +611,266 @@ function buildInspirationTagsBlockHtml(tags) {
     return '<details class="inspiration-tags-details"><summary><i class="bi bi-tags" aria-hidden="true"></i> 標籤（' + tags.length + '）</summary><div class="inspiration-tags-list">' + inner + '</div></details>';
 }
 
+function escapeHtmlText(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function proxyPublicImageUrl(raw, base) {
+    let img = String(raw || '').trim();
+    if (!img) return '';
+    const supabaseOrigin = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+    if (img.startsWith('http')) {
+        if (supabaseOrigin && img.startsWith(supabaseOrigin + '/')) {
+            return base + '/api/proxy-image?url=' + encodeURIComponent(img);
+        }
+        return img;
+    }
+    return base + (img.startsWith('/') ? '' : '/') + img;
+}
+
+/**
+ * 對外公開「一卡一頁」詳情（訪客看）：帶入廠商編輯區的說明／標籤／MOQ／訂製程度／工藝等。
+ * 不是後台編輯介面。
+ */
+function buildPublicVendorCardDetailHtml(item, base) {
+    const type = String((item && item.type) || '').trim();
+    const title = escapeHtmlText(item.title || '作品');
+    const mfrName = escapeHtmlText(item.manufacturer_name || '廠商');
+    const mfrId = item.manufacturer_id ? String(item.manufacturer_id) : '';
+    const kindLabelMap = {
+        prototype: '數位原型',
+        part: '配件／零件',
+        material: '材料／顏色',
+        comparison: '對照圖',
+        series: '系列圖'
+    };
+    const kindLabel = kindLabelMap[type] || '作品';
+    const pageUrl = base + '/inspiration/' + encodeURIComponent(type) + '/' + encodeURIComponent(item.id);
+    const vendorHref = mfrId ? (base + '/vendor-profile.html?id=' + encodeURIComponent(mfrId)) : '';
+    const designHref = item.design_url ? String(item.design_url) : '';
+    const guideHref = item.guide_url ? String(item.guide_url) : '';
+    const cover = proxyPublicImageUrl(item.image_url || item.cover_image_url || '', base);
+    const descRaw = String(item.description || '').trim();
+    const highlightRaw = String(item.design_highlight || '').trim();
+    const displayTags = Array.isArray(item.display_tags) ? item.display_tags : [];
+    const manualTags = Array.isArray(item.tags) ? item.tags.filter(Boolean) : [];
+    const aiTags = Array.isArray(item.ai_tags) ? item.ai_tags.filter(Boolean) : [];
+    const allTags = displayTags.length ? displayTags : [...new Set(manualTags.concat(aiTags))];
+    const catLine = item.category_label
+        ? (item.subcategory_label ? (item.category_label + ' › ' + item.subcategory_label) : item.category_label)
+        : (item.category_key ? (item.subcategory_key ? (item.category_key + ' › ' + item.subcategory_key) : item.category_key) : '');
+    const moq = (item.min_order_quantity != null && Number.isFinite(Number(item.min_order_quantity)))
+        ? Number(item.min_order_quantity) : null;
+    const clLabels = Array.isArray(item.customization_level_labels) ? item.customization_level_labels.filter(Boolean)
+        : (Array.isArray(item.customization_levels)
+            ? item.customization_levels.map((k) => vendorCustomizationLevelLabel(k, 'zh-TW')).filter(Boolean)
+            : []);
+    const prodLabel = String(item.production_type_label || '').trim();
+    const caps = [];
+    (item.capabilities || []).forEach(function (cap) {
+        const lbl = cap && (cap.label || cap.name_zh || cap.name) ? String(cap.label || cap.name_zh || cap.name).trim() : '';
+        if (lbl) caps.push(lbl);
+    });
+    (item.capability_custom_labels || []).forEach(function (lbl) {
+        if (lbl && String(lbl).trim()) caps.push(String(lbl).trim());
+    });
+    const catalogNames = (item.catalog_groups || []).map(function (g) {
+        return g && g.name ? String(g.name).trim() : '';
+    }).filter(Boolean);
+
+    let galleryUrls = [];
+    if (Array.isArray(item.image_urls) && item.image_urls.length) galleryUrls = item.image_urls;
+    else if (Array.isArray(item.series_image_urls) && item.series_image_urls.length) galleryUrls = item.series_image_urls;
+    galleryUrls = galleryUrls.map((u) => String(u || '').trim()).filter(Boolean);
+
+    let mediaHtml = '';
+    if (type === 'comparison' && item.image_url_before) {
+        const before = proxyPublicImageUrl(item.image_url_before, base);
+        const after = cover;
+        mediaHtml = '<div class="vp-detail-compare">' +
+            (before ? '<figure><img src="' + escapeHtmlAttr(before) + '" alt="設計圖"><figcaption>設計圖</figcaption></figure>' : '') +
+            (after ? '<figure><img src="' + escapeHtmlAttr(after) + '" alt="作品圖"><figcaption>作品圖</figcaption></figure>' : '') +
+            '</div>';
+    } else if (galleryUrls.length > 1) {
+        mediaHtml = '<div class="vp-detail-gallery">' + galleryUrls.slice(0, 16).map(function (u) {
+            const src = proxyPublicImageUrl(u, base);
+            return src ? '<img src="' + escapeHtmlAttr(src) + '" alt="' + escapeHtmlAttr(item.title || '') + '" loading="lazy">' : '';
+        }).join('') + '</div>';
+    } else if (cover) {
+        mediaHtml = '<img class="vp-detail-hero" src="' + escapeHtmlAttr(cover) + '" alt="' + escapeHtmlAttr(item.title || '') + '">';
+    }
+
+    function metaRow(label, valueHtml) {
+        if (!valueHtml || !String(valueHtml).trim()) return '';
+        return '<div class="vp-detail-meta-row"><dt>' + escapeHtmlText(label) + '</dt><dd>' + valueHtml + '</dd></div>';
+    }
+    const metaRows = [];
+    metaRows.push(metaRow('類型', escapeHtmlText(kindLabel)));
+    if (catLine) metaRows.push(metaRow('分類', escapeHtmlText(catLine)));
+    if (moq != null && moq >= 1) metaRows.push(metaRow('最小訂購量', escapeHtmlText(String(moq) + ' 件')));
+    if (clLabels.length) {
+        metaRows.push(metaRow('訂製程度', clLabels.map((l) => '<span class="vp-chip">' + escapeHtmlText(l) + '</span>').join('')));
+    }
+    if (prodLabel) metaRows.push(metaRow('生產模式', escapeHtmlText(prodLabel)));
+    if (caps.length) {
+        metaRows.push(metaRow('可執行工藝', caps.map((l) => '<span class="vp-chip">' + escapeHtmlText(l) + '</span>').join('')));
+    }
+    if (catalogNames.length) {
+        metaRows.push(metaRow('廠商分類', catalogNames.map((l) => '<span class="vp-chip">' + escapeHtmlText(l) + '</span>').join('')));
+    }
+    const metaHtml = metaRows.filter(Boolean).length
+        ? ('<dl class="vp-detail-meta">' + metaRows.join('') + '</dl>')
+        : '';
+
+    const cleanTags = allTags.map((t) => String(t || '').trim()).filter(Boolean);
+    let tagsHtml = '';
+    if (cleanTags.length) {
+        tagsHtml = '<section class="vp-detail-section"><h2>標籤</h2><div class="vp-detail-tags">' +
+            cleanTags.map((t) => '<span class="vp-chip">' + escapeHtmlText(t) + '</span>').join('') +
+            '</div></section>';
+    }
+
+    let bodyHtml = '';
+    if (highlightRaw) {
+        bodyHtml += '<section class="vp-detail-section"><h2>作品特色</h2><p class="vp-detail-highlight">' +
+            escapeHtmlText(highlightRaw).replace(/\n/g, '<br>') + '</p></section>';
+    }
+    if (descRaw) {
+        bodyHtml += '<section class="vp-detail-section"><h2>說明</h2><div class="vp-detail-desc">' +
+            escapeHtmlText(descRaw).replace(/\n/g, '<br>') + '</div></section>';
+    }
+
+    const ctaParts = [];
+    if (designHref) ctaParts.push('<a class="vp-btn vp-btn-primary" href="' + escapeHtmlAttr(designHref) + '">用此款進行設計</a>');
+    if (guideHref) ctaParts.push('<a class="vp-btn" href="' + escapeHtmlAttr(guideHref) + '">看可搭配</a>');
+    if (vendorHref) ctaParts.push('<a class="vp-btn" href="' + escapeHtmlAttr(vendorHref) + '">查看廠商頁</a>');
+    const ctaHtml = ctaParts.length ? ('<div class="vp-detail-ctas">' + ctaParts.join('') + '</div>') : '';
+
+    let relatedHtml = '';
+    const related = Array.isArray(item.related_assets) ? item.related_assets.filter(function (a) {
+        return a && a.id && a.is_public !== false && (a.asset_kind === 'material' || a.asset_kind === 'part');
+    }) : [];
+    if (related.length) {
+        relatedHtml = '<section class="vp-detail-section"><h2>關聯材料／配件</h2><div class="vp-related-grid">' +
+            related.map(function (a) {
+                const k = a.asset_kind === 'part' ? 'part' : 'material';
+                const href = a.inspiration_url || ('/inspiration/' + k + '/' + encodeURIComponent(a.id));
+                const thumb = proxyPublicImageUrl(a.image_url || (a.image_urls && a.image_urls[0]) || '', base);
+                const lbl = k === 'part' ? '配件' : '材料';
+                return '<a class="vp-related-card" href="' + escapeHtmlAttr(href) + '">' +
+                    (thumb ? '<img src="' + escapeHtmlAttr(thumb) + '" alt="" loading="lazy">' : '<div class="vp-related-ph"></div>') +
+                    '<span class="vp-related-kind">' + escapeHtmlText(lbl) + '</span>' +
+                    '<span class="vp-related-title">' + escapeHtmlText(a.title || '未命名') + '</span></a>';
+            }).join('') +
+            '</div></section>';
+    }
+
+    const pageTitle = title + '｜' + kindLabel + '｜' + mfrName + '｜MATCHDO';
+    const descMeta = (descRaw || highlightRaw || title + ' - ' + kindLabel + '，' + mfrName).slice(0, 160);
+    const ogImg = cover || (galleryUrls[0] ? proxyPublicImageUrl(galleryUrls[0], base) : '');
+
+    return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtmlAttr(pageTitle)}</title>
+<meta name="description" content="${escapeHtmlAttr(descMeta)}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="${escapeHtmlAttr(pageUrl)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MATCHDO 合做">
+<meta property="og:title" content="${escapeHtmlAttr(pageTitle)}">
+<meta property="og:description" content="${escapeHtmlAttr(descMeta)}">
+<meta property="og:url" content="${escapeHtmlAttr(pageUrl)}">
+${ogImg ? '<meta property="og:image" content="' + escapeHtmlAttr(ogImg) + '">' : ''}
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">${JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: item.title || '作品',
+        description: descRaw || highlightRaw || undefined,
+        image: ogImg || undefined,
+        url: pageUrl,
+        brand: mfrId ? { '@type': 'Brand', name: item.manufacturer_name || '廠商' } : undefined,
+        keywords: cleanTags.length ? cleanTags.slice(0, 30).join(', ') : undefined
+    }).replace(/</g, '\\u003c')}</script>
+<style>
+:root{--vp:#445D7E;--vp-dark:#2d4059;--vp-bg:#f8fafc;--vp-border:#e2e8f0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--vp-bg);color:#1e293b;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans TC",sans-serif}
+.vp-wrap{max-width:880px;margin:0 auto;padding:1.25rem 1rem 3rem}
+.vp-nav{font-size:.875rem;margin-bottom:1rem}
+.vp-nav a{color:var(--vp);text-decoration:none}
+.vp-nav a:hover{text-decoration:underline}
+.vp-kicker{font-size:.8rem;color:#64748b;margin:0 0 .35rem}
+.vp-title{font-size:1.5rem;line-height:1.3;margin:0 0 .5rem;color:var(--vp-dark)}
+.vp-mfr{font-size:.95rem;margin:0 0 1rem}
+.vp-mfr a{color:var(--vp);font-weight:600;text-decoration:none}
+.vp-detail-hero{width:100%;max-height:520px;object-fit:contain;background:#fff;border:1px solid var(--vp-border);border-radius:12px}
+.vp-detail-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.6rem;margin:0 0 1.25rem}
+.vp-detail-gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--vp-border);background:#fff}
+.vp-detail-compare{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:0 0 1.25rem}
+.vp-detail-compare img{width:100%;border-radius:10px;border:1px solid var(--vp-border);background:#fff}
+.vp-detail-compare figcaption{font-size:.75rem;color:#64748b;margin-top:.35rem}
+.vp-detail-meta{display:grid;gap:.65rem;margin:1.25rem 0;padding:1rem;background:#fff;border:1px solid var(--vp-border);border-radius:12px}
+.vp-detail-meta-row{display:grid;grid-template-columns:7rem 1fr;gap:.5rem;align-items:start}
+.vp-detail-meta-row dt{font-size:.8rem;color:#64748b;margin:0}
+.vp-detail-meta-row dd{margin:0;font-size:.9rem}
+.vp-chip{display:inline-block;padding:.2rem .55rem;margin:0 .3rem .3rem 0;background:#eef2f7;border-radius:999px;font-size:.75rem;color:#334155}
+.vp-detail-section{margin:1.25rem 0;padding:1rem;background:#fff;border:1px solid var(--vp-border);border-radius:12px}
+.vp-detail-section h2{font-size:.95rem;margin:0 0 .6rem;color:var(--vp)}
+.vp-detail-highlight,.vp-detail-desc{font-size:.95rem;line-height:1.65;margin:0;white-space:pre-wrap}
+.vp-detail-tags{display:flex;flex-wrap:wrap}
+.vp-detail-ctas{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.25rem}
+.vp-btn{display:inline-block;padding:.55rem 1rem;border-radius:8px;border:1px solid var(--vp);color:var(--vp);background:#fff;text-decoration:none;font-size:.9rem;font-weight:600}
+.vp-btn-primary{background:var(--vp);color:#fff!important;border-color:var(--vp)}
+.vp-permalink{margin-top:1.5rem;font-size:.8rem;color:#64748b;word-break:break-all}
+.vp-related-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.65rem}
+.vp-related-card{display:flex;flex-direction:column;text-decoration:none;color:inherit;background:#f8fafc;border:1px solid var(--vp-border);border-radius:10px;overflow:hidden}
+.vp-related-card:hover{border-color:var(--vp)}
+.vp-related-card img,.vp-related-ph{width:100%;aspect-ratio:1;object-fit:cover;background:#e2e8f0}
+.vp-related-kind{font-size:.65rem;color:#64748b;padding:.35rem .5rem 0}
+.vp-related-title{font-size:.8rem;font-weight:600;padding:.15rem .5rem .5rem;color:var(--vp-dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:640px){
+  .vp-detail-compare{grid-template-columns:1fr}
+  .vp-detail-meta-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<main class="vp-wrap">
+<nav class="vp-nav">${vendorHref ? '<a href="' + escapeHtmlAttr(vendorHref) + '">← 返回廠商頁</a>' : '<a href="/vendors.html">← 廠商列表</a>'}</nav>
+<p class="vp-kicker">${escapeHtmlText(kindLabel)} · 公開詳情</p>
+<h1 class="vp-title">${title}</h1>
+${vendorHref ? '<p class="vp-mfr">廠商：<a href="' + escapeHtmlAttr(vendorHref) + '">' + mfrName + '</a></p>' : ''}
+${mediaHtml}
+${metaHtml}
+${bodyHtml}
+${tagsHtml}
+${relatedHtml}
+${ctaHtml}
+<p class="vp-permalink">永久連結：<a href="${escapeHtmlAttr(pageUrl)}">${escapeHtmlText(pageUrl)}</a></p>
+</main>
+</body>
+</html>`;
+}
+
+async function resolvePublicCategoryLabels(categoryKey, subcategoryKey) {
+    const out = { category_label: null, subcategory_label: null };
+    const ck = String(categoryKey || '').trim();
+    const sk = String(subcategoryKey || '').trim();
+    if (!ck) return out;
+    try {
+        const { data: cat } = await supabase.from('ai_categories').select('name').eq('key', ck).maybeSingle();
+        if (cat && cat.name) out.category_label = String(cat.name).trim();
+    } catch (_) { /* ignore */ }
+    if (sk) {
+        out.subcategory_label = await lookupAiSubcategoryName(ck, sk);
+    }
+    return out;
+}
+
 function normalizeVendorAssetKind(raw) {
     const k = String(raw || '').trim().toLowerCase();
     if (k === 'material') return 'material';
@@ -2157,6 +2417,7 @@ function mapVendorAssetForApi(row, lang) {
         image_urls: imageUrls,
         image_items: imageItems,
         image_count: imageUrls.length,
+        inspiration_url: row.id ? ('/inspiration/' + kind + '/' + row.id) : null,
         ...enrichVendorAssetPrototypeFields(row, lang)
     };
 }
@@ -4188,7 +4449,8 @@ app.get(['/iStudio-1.0.0', '/iStudio-1.0.0/', '/iStudio-1.0.0/index.html'], (req
 app.get('/inspiration/:type/:id', async (req, res) => {
     const type = (req.params.type || '').trim();
     const id = (req.params.id || '').trim();
-    if (!['user_design', 'comparison', 'series', 'collection'].includes(type) || !id) {
+    const allowedTypes = ['user_design', 'comparison', 'series', 'collection', 'prototype', 'part', 'material'];
+    if (!allowedTypes.includes(type) || !id) {
         res.status(400).send('Invalid type or id');
         return;
     }
@@ -4206,6 +4468,13 @@ app.get('/inspiration/:type/:id', async (req, res) => {
             return;
         }
         attachDisplayTags(item);
+        const isVendorCard = ['prototype', 'part', 'material', 'comparison', 'series'].includes(type);
+        if (isVendorCard) {
+            const html = buildPublicVendorCardDetailHtml(item, base);
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.setHeader('Cache-Control', 'public, max-age=120');
+            return res.send(html);
+        }
         const displayTags = item.display_tags || [];
         const tagsKeywords = displayTags.slice(0, 24).join(', ');
         const title = (item.title || '作品').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -8299,10 +8568,15 @@ function serveEmbedPage(relPath, req, res, next) {
     res.set('Cache-Control', 'public, max-age=300');
     res.sendFile(filePath);
 }
-app.get('/embed/vendor-catalog.html', (req, res, next) => serveEmbedPage('vendor-catalog.html', req, res, next));
-app.get('/embed/preview.html', (req, res, next) => serveEmbedPage('preview.html', req, res, next));
 app.get('/embed/simulator.html', (req, res, next) => serveEmbedPage('simulator.html', req, res, next));
 app.get('/embed/preview-simulator.html', (req, res, next) => serveEmbedPage('preview-simulator.html', req, res, next));
+/** 舊目錄牆（跳出 Matchdo）已移除；保留 410 避免殘留嵌入碼誤判為站點故障 */
+app.get('/embed/vendor-catalog.html', (req, res) => {
+    res.status(410).type('html').send('<!DOCTYPE html><html lang="zh-TW"><head><meta charset="utf-8"><title>已停用</title></head><body style="font-family:sans-serif;padding:1.5rem;"><p>目錄牆嵌入已停用。請改用素材管理 → 數位原型「分享與嵌入」的<strong>單款試做 iframe</strong>（廠商付點）。</p></body></html>');
+});
+app.get('/embed/preview.html', (req, res) => {
+    res.redirect(301, '/embed/preview-simulator.html');
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 // 錯誤連結修正：/public/custom/* → /custom/*
@@ -13716,12 +13990,12 @@ app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
 });
 
 // GET /api/media-wall-item/:type/:id — 單一靈感牆作品（供獨立 URL 頁與 lightbox 使用）
-const MEDIA_WALL_ITEM_TYPES = ['user_design', 'comparison', 'series', 'collection'];
+const MEDIA_WALL_ITEM_TYPES = ['user_design', 'comparison', 'series', 'collection', 'prototype', 'part', 'material'];
 app.get('/api/media-wall-item/:type/:id', async (req, res) => {
     const type = (req.params.type || '').trim();
     const id = (req.params.id || '').trim();
     if (!MEDIA_WALL_ITEM_TYPES.includes(type) || !id) {
-        return res.status(400).json({ error: 'type 須為 user_design、comparison、series、collection，且 id 必填' });
+        return res.status(400).json({ error: 'type 須為 user_design、comparison、series、collection、prototype、part、material，且 id 必填' });
     }
     try {
         if (type === 'user_design') {
@@ -13742,31 +14016,46 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
             return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
         }
         if (type === 'comparison' || type === 'series') {
-            const { data: row, error } = await supabase
+            let portSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until, min_order_quantity, customization_levels';
+            let { data: row, error } = await supabase
                 .from('manufacturer_portfolio')
-                .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until, min_order_quantity')
+                .select(portSelect)
                 .eq('id', id)
                 .maybeSingle();
+            if (error && error.code === '42703') {
+                ({ data: row, error } = await supabase
+                    .from('manufacturer_portfolio')
+                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, before_image_valid_until, min_order_quantity')
+                    .eq('id', id)
+                    .maybeSingle());
+            }
             if (error || !row) return res.status(404).json({ error: '找不到該作品' });
             const isComparison = !!row.image_url_before;
             if (type === 'comparison' && !isComparison) return res.status(404).json({ error: '找不到該對照圖' });
             if (type === 'series' && isComparison) return res.status(404).json({ error: '找不到該系列圖' });
             let mfrUserId = null;
+            let mfrName = null;
             if (row.manufacturer_id) {
-                const { data: mfr } = await supabase.from('manufacturers').select('user_id').eq('id', row.manufacturer_id).eq('is_active', true).maybeSingle();
-                if (mfr) mfrUserId = mfr.user_id || null;
+                const { data: mfr } = await supabase.from('manufacturers').select('user_id, name, is_active').eq('id', row.manufacturer_id).maybeSingle();
+                if (mfr) {
+                    mfrUserId = mfr.user_id || null;
+                    mfrName = mfr.name || null;
+                }
             }
             const nowIso = new Date().toISOString();
             const seriesExpired = row.series_image_valid_until && row.series_image_valid_until < nowIso;
             const imageUrl = seriesExpired ? null : (row.image_url || null);
             const imageUrlBefore = row.image_url_before || null;
             const seriesUrls = (Array.isArray(row.series_image_urls) && row.series_image_urls.length) ? (seriesExpired ? [] : row.series_image_urls) : (imageUrl ? [imageUrl] : []);
+            const catLabels = await resolvePublicCategoryLabels(row.category_key, row.subcategory_key);
+            const clLevels = normalizeCustomizationLevels(row.customization_levels);
             const item = attachDisplayTags({
                 type: type,
                 size: '1x1',
                 id: row.id,
                 manufacturer_id: row.manufacturer_id,
                 manufacturer_user_id: mfrUserId,
+                manufacturer_name: mfrName,
                 title: row.title || '廠商作品',
                 image_url: imageUrl,
                 design_highlight: row.design_highlight || null,
@@ -13776,13 +14065,20 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 description: row.description || null,
                 category_key: row.category_key || null,
                 subcategory_key: row.subcategory_key || null,
+                category_label: catLabels.category_label,
+                subcategory_label: catLabels.subcategory_label,
+                customization_levels: clLevels,
+                customization_level_labels: vendorAssetCustomizationLevelLabels(clLevels, 'zh-TW').map(function (x) { return x.label; }),
                 link: row.manufacturer_id ? '/vendor-profile.html?id=' + encodeURIComponent(row.manufacturer_id) : '/custom/gallery.html',
                 inspiration_url: `/inspiration/${type}/${id}`,
                 min_order_quantity: (row.min_order_quantity != null && Number.isFinite(Number(row.min_order_quantity))) ? Number(row.min_order_quantity) : null
             });
             if (type === 'comparison') item.image_url_before = imageUrlBefore;
-            if (type === 'series' && seriesUrls.length) item.series_image_urls = seriesUrls;
-            return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
+            if (type === 'series' && seriesUrls.length) {
+                item.series_image_urls = seriesUrls;
+                item.image_urls = seriesUrls;
+            }
+            return res.set('Cache-Control', 'public, max-age=120').json({ item });
         }
         if (type === 'collection') {
             const { data: row, error } = await supabase
@@ -13814,6 +14110,89 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 category_keys: Array.isArray(row.category_keys) ? row.category_keys : []
             };
             return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
+        }
+        if (type === 'prototype' || type === 'part' || type === 'material') {
+            let { data: row, error } = await supabase
+                .from('vendor_assets')
+                .select(VENDOR_ASSET_SELECT_ME)
+                .eq('id', id)
+                .maybeSingle();
+            if (error && error.code === '42703') {
+                ({ data: row, error } = await supabase
+                    .from('vendor_assets')
+                    .select(VENDOR_ASSET_SELECT_ME_LEGACY)
+                    .eq('id', id)
+                    .maybeSingle());
+            }
+            if (error || !row) return res.status(404).json({ error: '找不到該素材' });
+            const kind = normalizeVendorAssetKind(row.asset_kind);
+            if (kind !== type) return res.status(404).json({ error: '找不到該素材' });
+            const { data: mfr } = await supabase
+                .from('manufacturers')
+                .select('id, name, user_id, is_active, expires_at, vendor_source, seed_public_released_at')
+                .eq('id', row.manufacturer_id)
+                .maybeSingle();
+            if (!mfr || !vendorAssetVisibleOnManufacturerProfile(mfr, row)) {
+                return res.status(404).json({ error: '找不到該素材或尚未公開' });
+            }
+            const mapped = await mapVendorAssetForApiEnriched(row, 'zh-TW');
+            const catLabels = await resolvePublicCategoryLabels(mapped.category_key, mapped.subcategory_key);
+            const designPath = kind === 'prototype'
+                ? ('/custom-product.html?tab=product-design&prototype_asset_id=' + encodeURIComponent(id) +
+                    '&manufacturer_id=' + encodeURIComponent(mfr.id))
+                : ('/custom-product.html?tab=product-design&vendor_asset_id=' + encodeURIComponent(id) +
+                    '&manufacturer_id=' + encodeURIComponent(mfr.id));
+            let guidePath = '';
+            if (kind === 'prototype') {
+                guidePath = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(id);
+            }
+            const item = attachDisplayTags({
+                type: kind,
+                size: '1x1',
+                id: mapped.id,
+                manufacturer_id: mfr.id,
+                manufacturer_user_id: mfr.user_id || null,
+                manufacturer_name: mfr.name || null,
+                title: mapped.title || '廠商素材',
+                description: mapped.description || null,
+                image_url: mapped.image_url || (mapped.image_urls && mapped.image_urls[0]) || null,
+                image_urls: mapped.image_urls || [],
+                image_items: mapped.image_items || [],
+                asset_kind: kind,
+                category_key: mapped.category_key || null,
+                subcategory_key: mapped.subcategory_key || null,
+                category_label: catLabels.category_label,
+                subcategory_label: catLabels.subcategory_label,
+                ai_tags: Array.isArray(mapped.ai_tags) ? mapped.ai_tags : [],
+                tags: Array.isArray(mapped.tags) ? mapped.tags : [],
+                image_semantics_json: mapped.image_semantics_json || null,
+                capabilities: mapped.capabilities || null,
+                capability_custom_labels: mapped.capability_custom_labels || null,
+                production_type_label: mapped.production_type_label || null,
+                production_type_key: mapped.production_type_key || null,
+                min_order_quantity: mapped.min_order_quantity != null ? mapped.min_order_quantity : null,
+                customization_levels: mapped.customization_levels || null,
+                customization_level_labels: mapped.customization_level_labels || null,
+                catalog_groups: mapped.catalog_groups || null,
+                catalog_group_ids: mapped.catalog_group_ids || null,
+                link: '/vendor-profile.html?id=' + encodeURIComponent(mfr.id),
+                inspiration_url: '/inspiration/' + kind + '/' + encodeURIComponent(id),
+                design_url: designPath,
+                guide_url: guidePath || null
+            });
+            if (kind === 'prototype') {
+                try {
+                    const tree = await buildPublicPrototypeLinkTree(id);
+                    if (tree && !tree.error && Array.isArray(tree.linked_assets)) {
+                        item.related_assets = tree.linked_assets.filter(function (a) {
+                            return a && a.is_public !== false && (a.asset_kind === 'material' || a.asset_kind === 'part');
+                        });
+                    }
+                } catch (relErr) {
+                    console.warn('media-wall-item related_assets:', relErr && relErr.message);
+                }
+            }
+            return res.set('Cache-Control', 'public, max-age=120').json({ item });
         }
         return res.status(400).json({ error: '不支援的 type' });
     } catch (e) {
@@ -17257,7 +17636,8 @@ function mapVendorAssetLinkTreeNode(r) {
         asset_kind: kind,
         is_public: !!r.is_public,
         image_urls: imageUrls,
-        image_items: imageItems
+        image_items: imageItems,
+        inspiration_url: r.id ? ('/inspiration/' + kind + '/' + r.id) : null
     };
 }
 

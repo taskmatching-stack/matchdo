@@ -85,16 +85,7 @@
                     <button type="button" class="btn btn-sm btn-outline-primary flex-shrink-0" id="btn-public-page-copy"><i class="bi bi-clipboard me-1"></i>複製</button>
                 </div>
                 <span id="copy-profile-url-msg" class="small text-success mt-1 d-none">已複製</span>
-                <p class="text-muted small mb-0 mt-2">單款試做連結：至 <a href="/client/manufacturer-materials.html">素材管理</a> → 數位原型卡片 🔗 複製，可貼至官網或 LINE。</p>
-                <hr class="my-3">
-                <h6 class="mb-1"><i class="bi bi-code-square text-primary me-1"></i>官網嵌入產品卡片（iframe）</h6>
-                <p class="text-muted small mb-2">將下方程式碼貼入官網，訪客在您的網站瀏覽款式；點「試做」後會跳至 Matchdo 全頁完成生圖。</p>
-                <textarea class="form-control form-control-sm font-monospace mb-2" id="mfr-embed-snippet" rows="5" readonly placeholder="建立廠商資料後會顯示"></textarea>
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-embed-snippet-copy"><i class="bi bi-clipboard me-1"></i>複製嵌入碼</button>
-                    <a href="#" id="btn-embed-preview" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer"><i class="bi bi-eye me-1"></i>預覽 iframe</a>
-                </div>
-                <span id="copy-embed-snippet-msg" class="small text-success mt-1 d-none">已複製嵌入碼</span>
+                <p class="text-muted small mb-0 mt-2">官網嵌入試做（訪客免付點、由您扣點）：至 <a href="/client/manufacturer-materials.html">素材管理</a> → 編輯上架中的數位原型 →「分享與嵌入」複製 iframe。</p>
             </div>
         </div>
         <!-- 未建立廠商資料：建立表單（僅在 404 時顯示） -->
@@ -344,7 +335,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/i18n.js"></script>
     <script src="/js/site-header.js"></script>
-    <script src="/js/vendor-asset-share-urls.js"></script>
     <script>
     (function () {
         var token = null;
@@ -620,16 +610,6 @@
                     var origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
                     profileUrlInput.value = origin ? (origin.replace(/\/$/, '') + '/vendor-profile.html?id=' + encodeURIComponent(mfrId)) : ('/vendor-profile.html?id=' + encodeURIComponent(mfrId));
                 }
-                var embedSnippetEl = document.getElementById('mfr-embed-snippet');
-                var embedPreviewBtn = document.getElementById('btn-embed-preview');
-                if (embedSnippetEl && window.VendorAssetShareUrls && window.VendorAssetShareUrls.buildEmbedIframeSnippet) {
-                    var embedOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
-                    embedSnippetEl.value = window.VendorAssetShareUrls.buildEmbedIframeSnippet(mfrId, embedOrigin, { height: 640 });
-                }
-                if (embedPreviewBtn) {
-                    embedPreviewBtn.href = '/embed/preview.html?manufacturer_id=' + encodeURIComponent(mfrId);
-                }
-
                 // 摘要卡（切換分頁回來時若表單有未儲存賣場，保留使用者輸入）
                 const contact = hydrateStoreUrls(mfr.contact_json);
                 var preservedStoreUrls = storeUrlsFormHasDraft() ? collectAllStoreUrlRowsFromForm() : null;
@@ -1087,27 +1067,6 @@
             }
             var btnPublicPageCopy = document.getElementById('btn-public-page-copy');
             if (btnPublicPageCopy) btnPublicPageCopy.addEventListener('click', copyPublicProfileUrl);
-
-            var copyEmbedSnippetMsg = document.getElementById('copy-embed-snippet-msg');
-            var btnEmbedSnippetCopy = document.getElementById('btn-embed-snippet-copy');
-            if (btnEmbedSnippetCopy) {
-                btnEmbedSnippetCopy.addEventListener('click', function () {
-                    var ta = document.getElementById('mfr-embed-snippet');
-                    var text = (ta && ta.value || '').trim();
-                    if (!text) return;
-                    function done(ok) {
-                        if (!ok || !copyEmbedSnippetMsg) return;
-                        copyEmbedSnippetMsg.classList.remove('d-none');
-                        copyEmbedSnippetMsg.textContent = '已複製嵌入碼';
-                        setTimeout(function () { copyEmbedSnippetMsg.classList.add('d-none'); }, 2000);
-                    }
-                    if (window.VendorAssetShareUrls && window.VendorAssetShareUrls.copyTextToClipboard) {
-                        window.VendorAssetShareUrls.copyTextToClipboard(text, done);
-                    } else if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () { done(false); });
-                    }
-                });
-            }
 
             var mfrLoadedOnce = false;
             function triggerLoadMfr(force) {

@@ -710,6 +710,21 @@
             '<i class="bi bi-zoom-in" aria-hidden="true"></i></button>';
     }
 
+    /** 公開產品樹：連到已有的 /inspiration/{kind}/{id}，不干擾選取 */
+    function guideTileDetailLinkHtml(a, kindKey) {
+        if (IS_VENDOR || !a || !a.id) return '';
+        if (kindKey !== 'prototype' && kindKey !== 'material' && kindKey !== 'part') return '';
+        var path = '';
+        if (typeof window !== 'undefined' && window.VendorAssetShareUrls &&
+            typeof window.VendorAssetShareUrls.buildInspirationPath === 'function') {
+            path = window.VendorAssetShareUrls.buildInspirationPath(a) || '';
+        }
+        if (!path) path = '/inspiration/' + kindKey + '/' + encodeURIComponent(a.id);
+        var lbl = tr('productTree.viewDetail', '查看詳情');
+        return '<a class="vplt-guide-tile-detail" href="' + esc(path) + '"' +
+            ' target="_blank" rel="noopener">' + esc(lbl) + '</a>';
+    }
+
     function guideTileMediaHtml(a, it, optionLabel, badgeHtml) {
         var url = (it && it.url) ? it.url : '';
         if (!url) {
@@ -752,6 +767,7 @@
             guideTileMediaHtml(a, it, optionLabel, badgeHtml) +
             '<span class="vplt-guide-tile-name">' + displayName + '</span>' +
             subKind +
+            guideTileDetailLinkHtml(a, kindKey) +
             '</div>';
     }
 
@@ -1009,6 +1025,7 @@
             tile.__vpltTileWired = true;
             tile.addEventListener('click', function (e) {
                 if (e.target.closest('.vplt-variant-zoom-btn')) return;
+                if (e.target.closest('.vplt-guide-tile-detail')) return;
                 var aid = tile.getAttribute('data-guide-asset');
                 var url = (tile.getAttribute('data-variant-url') || '').trim();
                 var label = (tile.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
