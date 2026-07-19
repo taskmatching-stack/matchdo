@@ -6587,7 +6587,7 @@ app.get('/api/admin/points-config', async (req, res) => {
         const adminUser = await requireAdminOrTester(req, res);
         if (!adminUser) return;
         const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', [
-            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_translation', 'points_listing_per_category',
+            'points_text_to_image', 'points_image_to_image', 'points_official_image_to_image', 'points_ai_upscale', 'points_ai_sketch', 'points_ai_structure', 'points_ai_style', 'points_ai_style_transfer', 'points_ai_erase', 'points_ai_inpaint', 'points_ai_outpaint', 'points_ai_remove_bg', 'points_ai_replace_bg_relight', 'points_scene_simulate', 'points_pattern_extract', 'points_pattern_extract_per_extra_mp', 'points_design_to_physical', 'points_design_to_physical_vendor', 'points_promo_image_base', 'points_promo_image_per_extra_mp', 'points_translation', 'points_listing_per_category',
             'grant_welcome_points_on_register', 'welcome_points_amount', 'grant_monthly_points_enabled', 'monthly_points_free_tier'
         ]);
         const obj = {};
@@ -6617,6 +6617,8 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_pattern_extract_per_extra_mp: parseInt(obj.points_pattern_extract_per_extra_mp, 10) || 10,
             points_design_to_physical: parseInt(obj.points_design_to_physical, 10) || 20,
             points_design_to_physical_vendor: parseInt(obj.points_design_to_physical_vendor, 10) || 10,
+            points_promo_image_base: parseInt(obj.points_promo_image_base, 10) || 20,
+            points_promo_image_per_extra_mp: parseInt(obj.points_promo_image_per_extra_mp, 10) || 10,
             points_translation: parseInt(obj.points_translation, 10) || 1,
             points_listing_per_category: parseInt(obj.points_listing_per_category, 10) || 200
         });
@@ -6653,6 +6655,8 @@ app.patch('/api/admin/points-config', express.json(), async (req, res) => {
         if (body.points_pattern_extract_per_extra_mp !== undefined) await upsert('points_pattern_extract_per_extra_mp', body.points_pattern_extract_per_extra_mp);
         if (body.points_design_to_physical !== undefined) await upsert('points_design_to_physical', body.points_design_to_physical);
         if (body.points_design_to_physical_vendor !== undefined) await upsert('points_design_to_physical_vendor', body.points_design_to_physical_vendor);
+        if (body.points_promo_image_base !== undefined) await upsert('points_promo_image_base', body.points_promo_image_base);
+        if (body.points_promo_image_per_extra_mp !== undefined) await upsert('points_promo_image_per_extra_mp', body.points_promo_image_per_extra_mp);
         if (body.points_translation !== undefined) await upsert('points_translation', body.points_translation);
         if (body.points_listing_per_category !== undefined) await upsert('points_listing_per_category', body.points_listing_per_category);
         if (body.grant_welcome_points_on_register !== undefined) await upsert('grant_welcome_points_on_register', body.grant_welcome_points_on_register ? '1' : '0');
@@ -9363,7 +9367,8 @@ const BFL_FLUX_MODEL_CONFIG = {
     bfl_flux_model_vendor_product: 'flux-2-pro',
     bfl_flux_model_vendor_material: 'flux-2-pro',
     bfl_flux_model_scene_pattern: 'flux-2-pro',
-    bfl_flux_model_design_to_physical: 'flux-2-pro'
+    bfl_flux_model_design_to_physical: 'flux-2-pro',
+    bfl_flux_model_promo_image: 'flux-2-pro'
 };
 
 /** 允許後台手填 BFL model id（含未來新型號），格式 flux-2-* */
@@ -10131,6 +10136,192 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
         res.status(500).json({
             success: false,
             error: error.message || '寫實化失敗，請稍後再試'
+        });
+    }
+});
+
+// —— 產品推廣圖（獨立槽 bfl_flux_model_promo_image；基礎 20 點；不影響寫實化／生圖）——
+app.get('/api/promo-image/options', async (req, res) => {
+    try {
+        let templates = [];
+        let photographySets = [];
+        try {
+            const { data: tRows } = await supabase
+                .from('promo_scene_templates')
+                .select('key, name, description, recommended_ratios, category, sort_order')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+            templates = tRows || [];
+        } catch (_) { templates = []; }
+        try {
+            const { data: pRows } = await supabase
+                .from('photography_prompt_sets')
+                .select('id, key, name, sort_order')
+                .eq('is_active', true)
+                .order('sort_order', { ascending: true });
+            photographySets = pRows || [];
+        } catch (_) { photographySets = []; }
+        const pointsPreview1mp = await getPointsPromoImageForResolution(1024, 1024);
+        let pointsPerExtra = 10;
+        try {
+            const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['points_promo_image_per_extra_mp']);
+            const row = (rows || []).find((r) => r.key === 'points_promo_image_per_extra_mp');
+            if (row) pointsPerExtra = Math.max(0, parseInt(row.value, 10) || 10);
+        } catch (_) {}
+        res.json({
+            templates,
+            photography_sets: photographySets,
+            points_base: pointsPreview1mp,
+            points_per_extra_mp: pointsPerExtra,
+            ratio_presets: {
+                '1:1': { w: 1024, h: 1024 },
+                '4:3': { w: 1152, h: 864 },
+                '3:4': { w: 864, h: 1152 },
+                '16:9': { w: 1344, h: 756 },
+                '9:16': { w: 756, h: 1344 }
+            },
+            migration_hint: templates.length ? undefined : '請於 Supabase 執行 docs/add-product-promo-image.sql'
+        });
+    } catch (e) {
+        console.error('GET /api/promo-image/options:', e);
+        res.status(500).json({ error: e.message || '讀取失敗' });
+    }
+});
+
+app.get('/api/promo-image/points-preview', async (req, res) => {
+    try {
+        const w = Math.min(2048, Math.max(512, parseInt(req.query.width, 10) || 1024));
+        const h = Math.min(2048, Math.max(512, parseInt(req.query.height, 10) || 1024));
+        const mp = promoImageMegapixelsFromResolution(w, h);
+        const points = await getPointsPromoImageForResolution(w, h);
+        res.json({ width: w, height: h, megapixels: mp, points });
+    } catch (e) {
+        console.error('GET /api/promo-image/points-preview:', e);
+        res.status(500).json({ error: e.message || '預覽失敗' });
+    }
+});
+
+app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        let isAdmin = false;
+        let currentUser = null;
+        if (authHeader) {
+            const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+            const { data: { user }, error } = await supabase.auth.getUser(token);
+            if (!error && user) {
+                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+                isAdmin = profile?.role === 'admin';
+                currentUser = user;
+            }
+        }
+        if (!currentUser) {
+            return res.status(401).json({ success: false, error: '請先登入後再使用推廣圖生成' });
+        }
+        const body = req.body || {};
+        const image = body.image;
+        if (!image || typeof image !== 'string') {
+            return res.status(400).json({ success: false, error: '請選擇一張產品圖' });
+        }
+        const w = Math.min(2048, Math.max(512, parseInt(body.width, 10) || 1024));
+        const h = Math.min(2048, Math.max(512, parseInt(body.height, 10) || 1024));
+        const aspectRatio = String(body.aspect_ratio || '').trim() || `${w}:${h}`;
+        const sceneKey = String(body.scene_template_key || '').trim();
+        const userPrompt = String(body.user_prompt || body.prompt || '').trim();
+        const photographySetId = body.photography_set_id ? String(body.photography_set_id).trim() : '';
+        const sourceType = ['custom_product', 'vendor_asset', 'upload', 'digital_asset'].includes(body.source_type)
+            ? body.source_type
+            : 'upload';
+        const sourceId = body.source_id ? String(body.source_id).trim() : null;
+
+        const pointsToDeduct = await getPointsPromoImageForResolution(w, h);
+        if (!isAdmin && pointsToDeduct > 0) {
+            const { balance, sufficient } = await checkUserCreditsBalance(currentUser.id, pointsToDeduct);
+            if (!sufficient) {
+                return res.status(402).json({ success: false, error: '點數不足', balance, required: pointsToDeduct });
+            }
+        }
+        const imageBase64 = await resolveImageToBase64(image);
+        if (!imageBase64) {
+            return res.status(400).json({ success: false, error: '圖片無法讀取，請重新選擇' });
+        }
+        if (!process.env.BFL_API_KEY) {
+            return res.status(503).json({ success: false, error: '推廣圖服務暫未設定，請稍後再試' });
+        }
+        const finalPrompt = await buildPromoImagePrompt(sceneKey, userPrompt, photographySetId);
+        const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
+        const seed = Math.floor(Math.random() * 2147483647);
+        let buffer;
+        try {
+            buffer = await bflPlaygroundImageEdit(
+                endpointUrl,
+                finalPrompt,
+                [imageBase64],
+                w,
+                h,
+                seed,
+                'jpeg',
+                process.env.BFL_API_KEY
+            );
+        } catch (fluxErr) {
+            console.error('promo-image BFL:', fluxErr);
+            return res.status(500).json({ success: false, error: fluxErr.message || '生成失敗，請稍後再試' });
+        }
+        if (!buffer) {
+            return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
+        }
+        const imageData = buffer.toString('base64');
+        let balanceAfter = null;
+        if (!isAdmin && pointsToDeduct > 0) {
+            const consumed = await consumeUserCredits(
+                currentUser.id,
+                pointsToDeduct,
+                'promo_image',
+                '產品推廣圖',
+                { width: w, height: h, scene_template_key: sceneKey || null }
+            );
+            if (!consumed.ok) {
+                return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
+            }
+            balanceAfter = consumed.balance_after;
+        }
+        try {
+            await supabase.from('product_promo_generations').insert({
+                user_id: currentUser.id,
+                source_type: sourceType,
+                source_id: sourceId || null,
+                source_image_url: String(image).startsWith('data:') ? null : String(image).slice(0, 2000),
+                aspect_ratio: aspectRatio,
+                width: w,
+                height: h,
+                megapixels: promoImageMegapixelsFromResolution(w, h),
+                scene_template_key: sceneKey || null,
+                user_prompt: userPrompt || null,
+                photography_set_id: photographySetId || null,
+                final_prompt: finalPrompt,
+                status: 'success',
+                points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+                completed_at: new Date().toISOString()
+            });
+        } catch (logErr) {
+            console.warn('product_promo_generations insert skipped:', logErr?.message || logErr);
+        }
+        res.json({
+            success: true,
+            imageData: `data:image/jpeg;base64,${imageData}`,
+            points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+            balance_after: balanceAfter,
+            width: w,
+            height: h,
+            megapixels: promoImageMegapixelsFromResolution(w, h),
+            ai_prompt: finalPrompt,
+            seed
+        });
+    } catch (error) {
+        console.error('推廣圖生成錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || '推廣圖生成失敗，請稍後再試'
         });
     }
 });
@@ -11056,6 +11247,53 @@ async function getPointsPatternExtract() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_pattern_extract');
     const v = (rows && rows[0]) ? rows[0].value : null;
     return Math.max(0, parseInt(v, 10) || 20);
+}
+
+/** 推廣圖計價：獨立函式（精神同圖樣提取，不共用／不改 patternExtract*） */
+function promoImageMegapixelsFromResolution(width, height) {
+    const w = Math.min(2048, Math.max(512, parseInt(width, 10) || 1024));
+    const h = Math.min(2048, Math.max(512, parseInt(height, 10) || 1024));
+    const oneMp = 1024 * 1024;
+    return Math.min(4, Math.ceil((w * h) / oneMp) || 1);
+}
+
+async function getPointsPromoImageForResolution(width, height) {
+    const { data: rows } = await supabase.from('payment_config').select('key, value').in('key', ['points_promo_image_base', 'points_promo_image_per_extra_mp']);
+    const obj = {};
+    (rows || []).forEach(r => { obj[r.key] = r.value; });
+    const base = Math.max(0, parseInt(obj.points_promo_image_base, 10) || 20);
+    const perExtra = Math.max(0, parseInt(obj.points_promo_image_per_extra_mp, 10) || 10);
+    const mp = promoImageMegapixelsFromResolution(width, height);
+    return base + (mp - 1) * perExtra;
+}
+
+async function buildPromoImagePrompt(sceneTemplateKey, userPrompt, photographySetId) {
+    const key = String(sceneTemplateKey || '').trim();
+    let scene = '';
+    let composition = '';
+    if (key) {
+        try {
+            const { data } = await supabase
+                .from('promo_scene_templates')
+                .select('scene_prompt, composition_hint, is_active')
+                .eq('key', key)
+                .maybeSingle();
+            if (data && data.is_active !== false) {
+                scene = String(data.scene_prompt || '').trim();
+                composition = String(data.composition_hint || '').trim();
+            }
+        } catch (_) { /* 表未建時略過 */ }
+    }
+    const user = String(userPrompt || '').trim();
+    const photo = photographySetId ? await getPhotographySetBodyById(photographySetId) : '';
+    const parts = [];
+    if (scene) parts.push(scene);
+    if (composition) parts.push(composition);
+    parts.push('Preserve the product identity, shape, materials, colors, and logos from the reference image; place it naturally into the promotional scene.');
+    if (user) parts.push(user);
+    let prompt = parts.join('. ').trim();
+    prompt = appendPhotographyParams(prompt, photo);
+    return prompt || 'Create a professional product promotional photograph from the reference product image.';
 }
 
 // POST /api/upscale-image — Real-ESRGAN 放大（預設 2×；可 4/6/8/10）；管理員不扣點

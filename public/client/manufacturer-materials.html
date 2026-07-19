@@ -118,6 +118,22 @@
         #toast-area { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
         #asset-kind-tabs .nav-link { font-weight: 600; }
         #asset-kind-tabs .nav-link.active { color: #0d6efd; border-color: #dee2e6 #dee2e6 #fff; }
+        #asset-kind-tabs #tab-promo.nav-link {
+            color: #9a3412;
+        }
+        #asset-kind-tabs #tab-promo.nav-link:hover {
+            color: #7c2d12;
+            border-color: #fdba74;
+        }
+        #asset-kind-tabs #tab-promo.nav-link.active {
+            color: #9a3412;
+            background: #fff7ed;
+            border-color: #fdba74 #fdba74 #fff7ed;
+        }
+        #panel-promo .promo-card-pick { cursor: pointer; border: 2px solid transparent; }
+        #panel-promo .promo-card-pick.active { border-color: #ea580c; box-shadow: 0 0 0 1px #ea580c; }
+        #panel-promo .promo-src-thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #dee2e6; }
+        #panel-promo .promo-src-thumb.active { border-color: #ea580c; }
         .customization-level-btn { border-radius: 999px; font-weight: 500; }
         .customization-level-btn.active { color: #fff; background-color: #0d6efd; border-color: #0d6efd; }
         .customization-level-btn.active:hover { color: #fff; background-color: #0b5ed7; border-color: #0a58ca; }
@@ -307,6 +323,11 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" type="button" data-kind="material" id="tab-material" role="tab">
                         <i class="bi bi-palette me-1"></i><span data-i18n="baseModels.tabMaterial">材料/顏色</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" type="button" data-kind="promo" id="tab-promo" role="tab">
+                        <i class="bi bi-megaphone me-1"></i>推廣圖
                     </button>
                 </li>
             </ul>
@@ -687,6 +708,66 @@
                 <div class="section-title list-section-title" data-i18n="baseModels.listMaterial">已上傳的材料/顏色</div>
             </div>
 
+            <div id="panel-promo" class="asset-kind-panel d-none" hidden>
+                <div class="alert alert-warning border small py-2 mb-3" role="note">
+                    選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡，帶入該卡全部圖片，再生成推廣圖。基礎約 1MP＝20 點。此分頁不影響上傳／編輯流程。
+                </div>
+                <div class="row g-3">
+                    <div class="col-lg-5">
+                        <label class="form-label fw-semibold small mb-1">選擇產品卡</label>
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <select id="promo-kind-filter" class="form-select form-select-sm" style="max-width:10rem">
+                                <option value="prototype">數位原型</option>
+                                <option value="part">配件／零件</option>
+                                <option value="all">原型＋配件</option>
+                            </select>
+                        </div>
+                        <div id="promo-asset-list" class="row g-2" style="max-height:28rem;overflow-y:auto"></div>
+                        <p id="promo-asset-empty" class="text-muted small d-none mb-0">尚無可用產品卡，請先在「數位原型」或「配件」上傳。</p>
+                    </div>
+                    <div class="col-lg-7">
+                        <label class="form-label fw-semibold small mb-1">來源圖（該卡全部圖片，點選一張）</label>
+                        <div id="promo-source-thumbs" class="d-flex flex-wrap gap-2 mb-3"></div>
+                        <p id="promo-source-empty" class="text-muted small">請先點左側產品卡</p>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="promoVendorSceneSelect">情境模板</label>
+                                <select id="promoVendorSceneSelect" class="form-select form-select-sm"></select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="promoVendorRatioSelect">長寬比</label>
+                                <select id="promoVendorRatioSelect" class="form-select form-select-sm">
+                                    <option value="1:1" selected>1:1</option>
+                                    <option value="4:3">4:3</option>
+                                    <option value="3:4">3:4</option>
+                                    <option value="16:9">16:9</option>
+                                    <option value="9:16">9:16</option>
+                                </select>
+                                <p class="form-text small text-muted mb-0" id="promoVendorDimsHint">1024×1024</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="promoVendorPhotoSelect">攝影參數（選填）</label>
+                                <select id="promoVendorPhotoSelect" class="form-select form-select-sm">
+                                    <option value="">（不追加）</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="promoVendorPrompt">額外描述（選填）</label>
+                                <input type="text" id="promoVendorPrompt" class="form-control form-control-sm" placeholder="例：溫暖午後陽光" />
+                            </div>
+                        </div>
+                        <p class="small text-muted mt-2 mb-1" id="promoVendorPointsDisplay">預估 20 點</p>
+                        <button type="button" class="btn btn-warning" id="promoVendorApplyBtn" disabled>
+                            <i class="bi bi-megaphone me-1"></i>生成推廣圖
+                        </button>
+                        <div id="promoVendorResultWrap" class="mt-3">
+                            <p class="text-muted small mb-0">結果會顯示在這裡</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="materials-list-chrome">
             <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
                 <div>
                     <label class="form-label small text-muted mb-0" data-i18n="baseModels.filterMyCatalog">依我的分類</label>
@@ -712,6 +793,7 @@
                 <div id="materials-list-page-nums" class="d-flex flex-wrap align-items-center gap-1" role="navigation" aria-label="Pagination"></div>
                 <span class="small text-muted flex-shrink-0" id="materials-list-page-info"></span>
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="materials-list-next" data-i18n="baseModels.listNext">下一頁</button>
+            </div>
             </div>
         </div>
     </div>
@@ -966,11 +1048,12 @@
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
+    <script src="/js/matchdo-promo-image.js?v=20260719a"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'pending-no-ai-edit-link-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-tab-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1672,6 +1755,7 @@
         function normalizeKind(k) {
             if (k === 'material') return 'material';
             if (k === 'part') return 'part';
+            if (k === 'promo') return 'promo';
             return 'prototype';
         }
 
@@ -6668,6 +6752,7 @@
         }
 
         function itemsForActiveKind() {
+            if (activeKind === 'promo') return [];
             var filterCat = document.getElementById('filter-category') && document.getElementById('filter-category').value;
             var filterGrp = document.getElementById('filter-vendor-catalog') && document.getElementById('filter-vendor-catalog').value;
             return materialsAll.filter(function (m) {
@@ -7219,6 +7304,8 @@
         }
 
         function openAddFormPanel(kind) {
+            var k = normalizeKind(kind || activeKind);
+            if (k === 'promo') return;
             var panelId = addFormPanelIdForKind(kind);
             var panel = document.getElementById(panelId);
             if (!panel) return;
@@ -7267,6 +7354,7 @@
             var h = (window.location.hash || '').replace(/^#/, '').toLowerCase();
             if (h === 'tab-material' || h === 'material') return 'material';
             if (h === 'tab-part' || h === 'part') return 'part';
+            if (h === 'tab-promo' || h === 'promo') return 'promo';
             if (h === 'tab-prototype' || h === 'prototype') return 'prototype';
             return null;
         }
@@ -7276,6 +7364,7 @@
             try {
                 if (activeKind === 'material') window.location.hash = 'tab-material';
                 else if (activeKind === 'part') window.location.hash = 'tab-part';
+                else if (activeKind === 'promo') window.location.hash = 'tab-promo';
                 else window.location.hash = 'tab-prototype';
             } catch (eHash) {}
             document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
@@ -7284,9 +7373,13 @@
             var protoPanel = document.getElementById('panel-prototype');
             var partPanel = document.getElementById('panel-part');
             var matPanel = document.getElementById('panel-material');
+            var promoPanel = document.getElementById('panel-promo');
+            var listChrome = document.getElementById('materials-list-chrome');
+            var btnAddOpen = document.getElementById('btn-add-open');
             var showProto = activeKind === 'prototype';
             var showPart = activeKind === 'part';
             var showMat = activeKind === 'material';
+            var showPromo = activeKind === 'promo';
             if (protoPanel) {
                 protoPanel.classList.toggle('d-none', !showProto);
                 protoPanel.hidden = !showProto;
@@ -7298,6 +7391,22 @@
             if (matPanel) {
                 matPanel.classList.toggle('d-none', !showMat);
                 matPanel.hidden = !showMat;
+            }
+            if (promoPanel) {
+                promoPanel.classList.toggle('d-none', !showPromo);
+                promoPanel.hidden = !showPromo;
+            }
+            if (listChrome) {
+                listChrome.classList.toggle('d-none', showPromo);
+                listChrome.hidden = showPromo;
+            }
+            if (btnAddOpen) {
+                btnAddOpen.classList.toggle('d-none', showPromo);
+            }
+            if (showPromo) {
+                if (typeof renderPromoAssetList === 'function') renderPromoAssetList();
+                if (typeof ensurePromoVendorOptions === 'function') ensurePromoVendorOptions();
+                return;
             }
             syncCatalogGroupsFlatFromActiveKind();
             var filterSel = document.getElementById('filter-vendor-catalog');
@@ -7316,6 +7425,209 @@
         document.querySelectorAll('#asset-kind-tabs .nav-link').forEach(function (btn) {
             btn.addEventListener('click', function () { switchKind(btn.getAttribute('data-kind')); });
         });
+
+        // —— 推廣圖 TAB（獨立；不碰上傳／編輯）——
+        var promoVendorSelectedAssetId = null;
+        var promoVendorSelectedImageUrl = null;
+        var promoVendorOptionsLoaded = false;
+
+        function promoVendorEsc(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function getPromoVendorDims() {
+            var ratio = (document.getElementById('promoVendorRatioSelect') || {}).value || '1:1';
+            if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.dimsForRatio === 'function') {
+                return window.MatchdoPromoImage.dimsForRatio(ratio);
+            }
+            return { w: 1024, h: 1024, ratio: '1:1' };
+        }
+
+        function refreshPromoVendorPoints() {
+            var dims = getPromoVendorDims();
+            var hint = document.getElementById('promoVendorDimsHint');
+            if (hint) hint.textContent = dims.w + '×' + dims.h;
+            var disp = document.getElementById('promoVendorPointsDisplay');
+            var localEst = (window.MatchdoPromoImage && window.MatchdoPromoImage.estimatePointsLocal)
+                ? window.MatchdoPromoImage.estimatePointsLocal(dims.w, dims.h, 20, 10)
+                : 20;
+            if (disp) disp.textContent = '預估 ' + localEst + ' 點';
+            if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.pointsPreview === 'function') {
+                window.MatchdoPromoImage.pointsPreview(dims.w, dims.h).then(function (res) {
+                    if (res && res.ok && res.data && res.data.points != null && disp) {
+                        disp.textContent = '預估 ' + res.data.points + ' 點（' + (res.data.megapixels || 1) + ' MP）';
+                    }
+                }).catch(function () {});
+            }
+        }
+
+        function ensurePromoVendorOptions() {
+            if (promoVendorOptionsLoaded) {
+                refreshPromoVendorPoints();
+                return;
+            }
+            if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.loadOptions !== 'function') return;
+            window.MatchdoPromoImage.loadOptions().then(function (res) {
+                var data = (res && res.data) || {};
+                window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorSceneSelect'), data.templates || [], 'key', 'name', '');
+                window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorPhotoSelect'), data.photography_sets || [], 'id', 'name', '（不追加）');
+                promoVendorOptionsLoaded = true;
+                refreshPromoVendorPoints();
+            }).catch(function (err) { console.warn('promo vendor options', err); });
+        }
+
+        function renderPromoAssetList() {
+            var list = document.getElementById('promo-asset-list');
+            var empty = document.getElementById('promo-asset-empty');
+            if (!list) return;
+            var filter = (document.getElementById('promo-kind-filter') || {}).value || 'prototype';
+            var items = (materialsAll || []).filter(function (m) {
+                var k = normalizeKind(m.asset_kind);
+                if (k === 'material' || k === 'promo') return false;
+                if (filter === 'all') return k === 'prototype' || k === 'part';
+                return k === filter;
+            });
+            list.innerHTML = '';
+            if (!items.length) {
+                if (empty) empty.classList.remove('d-none');
+                return;
+            }
+            if (empty) empty.classList.add('d-none');
+            items.forEach(function (m) {
+                var urls = assetImageUrls(m);
+                var cover = urls[0] || m.image_url || '';
+                var col = document.createElement('div');
+                col.className = 'col-6';
+                col.innerHTML =
+                    '<div class="card promo-card-pick h-100' + (promoVendorSelectedAssetId === m.id ? ' active' : '') + '" data-id="' + promoVendorEsc(m.id) + '">' +
+                    (cover ? '<img src="' + promoVendorEsc(cover) + '" class="card-img-top" style="height:90px;object-fit:cover" alt="">' : '') +
+                    '<div class="card-body py-1 px-2"><p class="small mb-0 text-truncate">' + promoVendorEsc(m.title || m.id) + '</p>' +
+                    '<p class="text-muted" style="font-size:.65rem;margin:0">' + urls.length + ' 張</p></div></div>';
+                list.appendChild(col);
+            });
+            list.querySelectorAll('.promo-card-pick').forEach(function (card) {
+                card.addEventListener('click', function () {
+                    selectPromoVendorAsset(card.getAttribute('data-id'));
+                });
+            });
+        }
+
+        function selectPromoVendorAsset(id) {
+            promoVendorSelectedAssetId = id;
+            promoVendorSelectedImageUrl = null;
+            var m = (materialsAll || []).find(function (x) { return x.id === id; });
+            var thumbs = document.getElementById('promo-source-thumbs');
+            var empty = document.getElementById('promo-source-empty');
+            var applyBtn = document.getElementById('promoVendorApplyBtn');
+            if (thumbs) thumbs.innerHTML = '';
+            document.querySelectorAll('#promo-asset-list .promo-card-pick').forEach(function (c) {
+                c.classList.toggle('active', c.getAttribute('data-id') === id);
+            });
+            if (!m) {
+                if (empty) empty.classList.remove('d-none');
+                if (applyBtn) applyBtn.disabled = true;
+                return;
+            }
+            var items = assetImageItems(m);
+            if (!items.length) {
+                if (empty) {
+                    empty.textContent = '此卡尚無圖片';
+                    empty.classList.remove('d-none');
+                }
+                if (applyBtn) applyBtn.disabled = true;
+                return;
+            }
+            if (empty) empty.classList.add('d-none');
+            items.forEach(function (it, idx) {
+                var img = document.createElement('img');
+                img.src = it.url;
+                img.alt = it.label || '';
+                img.className = 'promo-src-thumb' + (idx === 0 ? ' active' : '');
+                img.title = it.label || ('圖 ' + (idx + 1));
+                img.addEventListener('click', function () {
+                    promoVendorSelectedImageUrl = it.url;
+                    thumbs.querySelectorAll('.promo-src-thumb').forEach(function (t) { t.classList.remove('active'); });
+                    img.classList.add('active');
+                    if (applyBtn) applyBtn.disabled = false;
+                });
+                thumbs.appendChild(img);
+            });
+            promoVendorSelectedImageUrl = items[0].url;
+            if (applyBtn) applyBtn.disabled = false;
+        }
+
+        function bindPromoVendorUi() {
+            var kindFilter = document.getElementById('promo-kind-filter');
+            if (kindFilter) {
+                kindFilter.addEventListener('change', function () {
+                    promoVendorSelectedAssetId = null;
+                    promoVendorSelectedImageUrl = null;
+                    renderPromoAssetList();
+                    var thumbs = document.getElementById('promo-source-thumbs');
+                    var empty = document.getElementById('promo-source-empty');
+                    var applyBtn = document.getElementById('promoVendorApplyBtn');
+                    if (thumbs) thumbs.innerHTML = '';
+                    if (empty) {
+                        empty.textContent = '請先點左側產品卡';
+                        empty.classList.remove('d-none');
+                    }
+                    if (applyBtn) applyBtn.disabled = true;
+                });
+            }
+            var ratio = document.getElementById('promoVendorRatioSelect');
+            if (ratio) ratio.addEventListener('change', refreshPromoVendorPoints);
+            var applyBtn = document.getElementById('promoVendorApplyBtn');
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function () {
+                    if (!promoVendorSelectedImageUrl) {
+                        showToast('請先選擇來源圖', 'warning');
+                        return;
+                    }
+                    var dims = getPromoVendorDims();
+                    var payload = {
+                        image: promoVendorSelectedImageUrl,
+                        width: dims.w,
+                        height: dims.h,
+                        aspect_ratio: dims.ratio || (ratio && ratio.value) || '1:1',
+                        scene_template_key: (document.getElementById('promoVendorSceneSelect') || {}).value || '',
+                        user_prompt: (document.getElementById('promoVendorPrompt') || {}).value || '',
+                        photography_set_id: (document.getElementById('promoVendorPhotoSelect') || {}).value || undefined,
+                        source_type: 'vendor_asset',
+                        source_id: promoVendorSelectedAssetId || undefined
+                    };
+                    var wrap = document.getElementById('promoVendorResultWrap');
+                    applyBtn.disabled = true;
+                    if (wrap) wrap.innerHTML = '<p class="text-muted small mb-0">生成中…</p>';
+                    if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.generate !== 'function') {
+                        applyBtn.disabled = false;
+                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">推廣圖模組未載入</p>';
+                        return;
+                    }
+                    window.MatchdoPromoImage.generate(payload).then(function (result) {
+                        applyBtn.disabled = false;
+                        var data = result.data || {};
+                        if (result.status === 402) {
+                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>';
+                            return;
+                        }
+                        if (data.success && data.imageData) {
+                            var html = '<img src="' + data.imageData + '" class="img-fluid rounded mb-2" alt="推廣圖" style="max-height:360px">';
+                            if (data.points_deducted != null) html += '<p class="small text-muted mb-2">已扣除 ' + data.points_deducted + ' 點</p>';
+                            html += '<a class="btn btn-sm btn-outline-primary" href="' + data.imageData + '" download="promo-image.jpg">下載圖片</a>';
+                            if (wrap) wrap.innerHTML = html;
+                        } else {
+                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || '生成失敗') + '</p>';
+                        }
+                    }).catch(function (err) {
+                        applyBtn.disabled = false;
+                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">生成失敗</p>';
+                        console.warn('promo vendor', err);
+                    });
+                });
+            }
+        }
+        bindPromoVendorUi();
 
         async function submitAddForm(form) {
             var kind = form.getAttribute('data-kind');

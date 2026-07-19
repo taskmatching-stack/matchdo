@@ -5475,6 +5475,7 @@ $(document).ready(function () {
                         if (u) {
                             if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
                             else if (window.assetPickerContext === 'designToPhysical') setDesignToPhysicalPreview(u);
+                            else if (window.assetPickerContext === 'promoImage') setPromoImagePreview(u);
                             else setSceneSimPreview(u);
                         }
                         $('#sceneSimAssetPickerModal').modal('hide');
@@ -5950,6 +5951,195 @@ $(document).ready(function () {
                 $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p>' + noteHtml);
                 console.warn('design-to-physical:', err);
             });
+    });
+
+    // —— 推廣圖（獨立 Tab；不改寫實化／生圖）——
+    window.promoImageImageDataUrl = null;
+    window.promoImageSourceType = 'upload';
+    var promoImageOptionsLoaded = false;
+
+    function clearPromoImagePreview() {
+        window.promoImageImageDataUrl = null;
+        window.promoImageSourceType = 'upload';
+        $('#promoImagePreviewImg').addClass('d-none').attr('src', '');
+        $('#promoImagePreviewInner').removeClass('d-none');
+        $('#promoImageClearBtn').addClass('d-none');
+    }
+    function setPromoImagePreview(imageUrl, sourceType) {
+        if (!imageUrl || !String(imageUrl).trim()) {
+            clearPromoImagePreview();
+            return;
+        }
+        window.promoImageImageDataUrl = String(imageUrl).trim();
+        window.promoImageSourceType = sourceType || 'digital_asset';
+        $('#promoImagePreviewImg').attr('src', window.promoImageImageDataUrl).removeClass('d-none');
+        $('#promoImagePreviewInner').addClass('d-none');
+        $('#promoImageClearBtn').removeClass('d-none');
+    }
+    function getPromoImageDims() {
+        var ratio = ($('#promoImageRatioSelect').val() || '1:1');
+        if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.dimsForRatio === 'function') {
+            return window.MatchdoPromoImage.dimsForRatio(ratio);
+        }
+        return { w: 1024, h: 1024, ratio: '1:1' };
+    }
+    function refreshPromoImagePointsDisplay() {
+        var dims = getPromoImageDims();
+        $('#promoImageDimsHint').text(dims.w + '×' + dims.h);
+        var localEst = (window.MatchdoPromoImage && window.MatchdoPromoImage.estimatePointsLocal)
+            ? window.MatchdoPromoImage.estimatePointsLocal(dims.w, dims.h, 20, 10)
+            : 20;
+        $('#promoImagePointsDisplay').text('預估 ' + localEst + ' 點');
+        if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.pointsPreview === 'function') {
+            window.MatchdoPromoImage.pointsPreview(dims.w, dims.h).then(function (res) {
+                if (res && res.ok && res.data && res.data.points != null) {
+                    $('#promoImagePointsDisplay').text('預估 ' + res.data.points + ' 點（' + (res.data.megapixels || 1) + ' MP）');
+                }
+            }).catch(function () {});
+        }
+    }
+    function ensurePromoImageOptions() {
+        if (promoImageOptionsLoaded) return Promise.resolve();
+        if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.loadOptions !== 'function') {
+            return Promise.resolve();
+        }
+        return window.MatchdoPromoImage.loadOptions().then(function (res) {
+            var data = (res && res.data) || {};
+            window.MatchdoPromoImage.fillSelect(
+                document.getElementById('promoImageSceneSelect'),
+                data.templates || [],
+                'key',
+                'name',
+                ''
+            );
+            window.MatchdoPromoImage.fillSelect(
+                document.getElementById('promoImagePhotoSelect'),
+                data.photography_sets || [],
+                'id',
+                'name',
+                '（不追加）'
+            );
+            promoImageOptionsLoaded = true;
+            if (data.migration_hint) {
+                $('#promoImageSceneHint').text(data.migration_hint);
+            }
+            refreshPromoImagePointsDisplay();
+        }).catch(function (err) {
+            console.warn('promo-image options:', err);
+        });
+    }
+    function renderPromoImageResult(imageDataUrl, meta) {
+        if (!imageDataUrl) return;
+        var wrap = $('#promoImageResultWrap');
+        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會自動存入數位資產，請自行下載。</p>';
+        var $inner = $('<div class="scene-sim-result-inner"></div>');
+        $inner.append($('<img>').attr('src', imageDataUrl).attr('alt', '推廣圖')
+            .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
+        if (meta && meta.points_deducted != null) {
+            $inner.append($('<p class="small text-muted mt-2 mb-0"></p>').text('已扣除 ' + meta.points_deducted + ' 點'));
+        }
+        var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>下載圖片</a>');
+        $btn.on('click', function (e) {
+            e.preventDefault();
+            try {
+                var dataUrl = (imageDataUrl || '');
+                var mimeMatch = dataUrl.match(/^data:image\/(jpeg|jpg|png);base64,/i);
+                var ext = (mimeMatch && mimeMatch[1]) ? (mimeMatch[1].toLowerCase() === 'png' ? 'png' : 'jpg') : 'jpg';
+                var mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+                var base64 = dataUrl.split(',')[1];
+                if (!base64) return;
+                var bin = atob(base64);
+                var arr = new Uint8Array(bin.length);
+                for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                var blob = new Blob([arr], { type: mime });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'promo-image.' + ext;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) { console.warn(err); }
+        });
+        $inner.append($btn).append($(note));
+        wrap.html('').append($inner);
+    }
+
+    $('#tab-promo-image').on('shown.bs.tab', function () {
+        ensurePromoImageOptions();
+    });
+    $('#promoImageRatioSelect').on('change', refreshPromoImagePointsDisplay);
+    $('#promoImagePickLocalBtn').on('click', function () {
+        $('#promoImageFileInput').trigger('click');
+    });
+    $('#promoImagePreviewWrap').on('click', function (e) {
+        if ($(e.target).closest('.scene-sim-preview-img').length) return;
+        $('#promoImageFileInput').trigger('click');
+    });
+    $('#promoImageFileInput').on('change', function () {
+        var f = this.files && this.files[0];
+        if (!f) return;
+        var reader = new FileReader();
+        reader.onload = function () { setPromoImagePreview(reader.result, 'upload'); };
+        reader.readAsDataURL(f);
+        this.value = '';
+    });
+    $('#promoImagePickAssetBtn').on('click', function () {
+        openAssetPickerModal('promoImage');
+    });
+    $('#promoImageClearBtn').on('click', function () {
+        clearPromoImagePreview();
+    });
+    $('#promoImageApplyBtn').on('click', function () {
+        var imageUrl = window.promoImageImageDataUrl || '';
+        if (!imageUrl) {
+            alert('請先選擇一張產品圖或數位資產');
+            return;
+        }
+        var $btn = $('#promoImageApplyBtn');
+        var $wrap = $('#promoImageResultWrap');
+        var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖不會自動存入數位資產，請自行下載。</p>';
+        var dims = getPromoImageDims();
+        var payload = {
+            image: imageUrl,
+            width: dims.w,
+            height: dims.h,
+            aspect_ratio: dims.ratio || ($('#promoImageRatioSelect').val() || '1:1'),
+            scene_template_key: ($('#promoImageSceneSelect').val() || '').trim(),
+            user_prompt: ($('#promoImagePrompt').val() || '').trim(),
+            photography_set_id: ($('#promoImagePhotoSelect').val() || '').trim() || undefined,
+            source_type: window.promoImageSourceType || 'upload'
+        };
+        $btn.prop('disabled', true);
+        $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p>' + noteHtml);
+        var genFn = (window.MatchdoPromoImage && window.MatchdoPromoImage.generate)
+            ? window.MatchdoPromoImage.generate
+            : null;
+        if (!genFn) {
+            $btn.prop('disabled', false);
+            $wrap.html('<p class="text-danger small mb-0">推廣圖模組未載入</p>' + noteHtml);
+            return;
+        }
+        genFn(payload).then(function (result) {
+            $btn.prop('disabled', false);
+            var data = result.data || {};
+            if (result.status === 401) {
+                $wrap.html('<p class="text-warning small mb-0">' + (t('customProduct.loginToSelectAssets') || '請先登入') + '</p>' + noteHtml);
+                return;
+            }
+            if (result.status === 402) {
+                $wrap.html('<p class="text-danger small mb-0">' + (data.error || ('點數不足（需要 ' + (data.required || 20) + ' 點）')) + '</p>' + noteHtml);
+                return;
+            }
+            if (data.success && data.imageData) {
+                renderPromoImageResult(data.imageData, data);
+            } else {
+                $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
+            }
+        }).catch(function (err) {
+            $btn.prop('disabled', false);
+            $wrap.html('<p class="text-danger small mb-0">' + t('customProduct.loadFailed') + '</p>' + noteHtml);
+            console.warn('promo-image:', err);
+        });
     });
 });
 
