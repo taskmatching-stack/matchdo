@@ -732,8 +732,14 @@
                         <p id="promo-source-empty" class="text-muted small">請先點左側產品卡</p>
                         <div class="row g-2">
                             <div class="col-md-6">
-                                <label class="form-label small mb-1" for="promoVendorSceneSelect">宣傳風格</label>
-                                <select id="promoVendorSceneSelect" class="form-select form-select-sm"></select>
+                                <label class="form-label small mb-1" for="promoVendorThemeSelect">主題</label>
+                                <select id="promoVendorThemeSelect" class="form-select form-select-sm"></select>
+                                <p class="form-text small text-muted mb-0" id="promoVendorThemeHint"></p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="promoVendorEnvSelect">場景（選填）</label>
+                                <select id="promoVendorEnvSelect" class="form-select form-select-sm"></select>
+                                <p class="form-text small text-muted mb-0" id="promoVendorEnvHint"></p>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small mb-1" for="promoVendorRatioSelect">長寬比</label>
@@ -1070,7 +1076,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-multi-ref-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-theme-scene-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7603,8 +7609,19 @@
             if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.loadOptions !== 'function') return;
             window.MatchdoPromoImage.loadOptions().then(function (res) {
                 var data = (res && res.data) || {};
-                window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorSceneSelect'), data.templates || [], 'key', 'name', '');
+                var themes = data.themes || data.templates || [];
+                var scenes = data.scenes || [];
+                window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorThemeSelect'), themes, 'key', 'name', '');
+                window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorEnvSelect'), scenes, 'key', 'name', '（不指定場景）');
                 window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorPhotoSelect'), data.photography_sets || [], 'id', 'name', '（不追加）');
+                if (typeof window.MatchdoPromoImage.bindSelectHint === 'function') {
+                    window.MatchdoPromoImage.bindSelectHint(document.getElementById('promoVendorThemeSelect'), document.getElementById('promoVendorThemeHint'), themes, 'key');
+                    window.MatchdoPromoImage.bindSelectHint(document.getElementById('promoVendorEnvSelect'), document.getElementById('promoVendorEnvHint'), scenes, 'key');
+                }
+                if (data.slot_migration_hint) {
+                    var th = document.getElementById('promoVendorThemeHint');
+                    if (th) th.textContent = data.slot_migration_hint;
+                }
                 promoVendorOptionsLoaded = true;
                 refreshPromoVendorPoints();
             }).catch(function (err) { console.warn('promo vendor options', err); });
@@ -7823,7 +7840,9 @@
                         width: dims.w,
                         height: dims.h,
                         aspect_ratio: dims.ratio || (ratio && ratio.value) || '1:1',
-                        scene_template_key: (document.getElementById('promoVendorSceneSelect') || {}).value || '',
+                        theme_key: (document.getElementById('promoVendorThemeSelect') || {}).value || '',
+                        scene_template_key: (document.getElementById('promoVendorThemeSelect') || {}).value || '',
+                        scene_key: (document.getElementById('promoVendorEnvSelect') || {}).value || '',
                         user_prompt: (document.getElementById('promoVendorPrompt') || {}).value || '',
                         photography_set_id: (document.getElementById('promoVendorPhotoSelect') || {}).value || undefined,
                         source_type: 'vendor_asset',

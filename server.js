@@ -10445,17 +10445,35 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
 // —— 產品推廣圖（獨立槽 bfl_flux_model_promo_image；基礎 20 點；不影響寫實化／生圖）——
 app.get('/api/promo-image/options', async (req, res) => {
     try {
-        let templates = [];
+        let themes = [];
+        let scenes = [];
         let photographySets = [];
         let photoMigrationHint;
+        let slotMigrationHint;
         try {
-            const { data: tRows } = await supabase
+            const { data: tRows, error: tErr } = await supabase
                 .from('promo_scene_templates')
-                .select('key, name, description, recommended_ratios, category, sort_order')
+                .select('key, name, description, recommended_ratios, category, sort_order, slot')
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
-            templates = tRows || [];
-        } catch (_) { templates = []; }
+            if (isSupabaseMissingColumnError(tErr, 'slot')) {
+                const legacy = await supabase
+                    .from('promo_scene_templates')
+                    .select('key, name, description, recommended_ratios, category, sort_order')
+                    .eq('is_active', true)
+                    .order('sort_order', { ascending: true });
+                themes = (legacy.data || []).map((r) => ({ ...r, slot: 'theme' }));
+                scenes = [];
+                slotMigrationHint = '請執行 docs/add-promo-theme-scene-slots.sql 以啟用「主題／場景」雙選';
+            } else if (tErr) {
+                themes = [];
+                scenes = [];
+            } else {
+                const rows = tRows || [];
+                themes = rows.filter((r) => String(r.slot || 'theme') !== 'scene');
+                scenes = rows.filter((r) => String(r.slot || '') === 'scene');
+            }
+        } catch (_) { themes = []; scenes = []; }
         try {
             const { data: pRows, error: pErr } = await supabase
                 .from('photography_prompt_sets')
@@ -10478,13 +10496,17 @@ app.get('/api/promo-image/options', async (req, res) => {
             if (row) pointsPerExtra = Math.max(0, parseInt(row.value, 10) || 10);
         } catch (_) {}
         res.json({
-            templates,
+            themes,
+            scenes,
+            // 相容舊前端：templates＝主題列表
+            templates: themes,
             photography_sets: photographySets,
             points_base: pointsPreview1mp,
             points_per_extra_mp: pointsPerExtra,
             mp_tiers: [1, 2, 3, 4],
             max_reference_images: 8,
             photography_migration_hint: photoMigrationHint,
+            slot_migration_hint: slotMigrationHint,
             ratio_presets: {
                 '1:1': { w: 1024, h: 1024 },
                 '4:3': { w: 1152, h: 864 },
@@ -10492,7 +10514,7 @@ app.get('/api/promo-image/options', async (req, res) => {
                 '16:9': { w: 1344, h: 756 },
                 '9:16': { w: 756, h: 1344 }
             },
-            migration_hint: templates.length ? undefined : '請於 Supabase 執行 docs/add-product-promo-image.sql'
+            migration_hint: themes.length ? undefined : '請於 Supabase 執行 docs/add-product-promo-image.sql'
         });
     } catch (e) {
         console.error('GET /api/promo-image/options:', e);
@@ -10540,7 +10562,9 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         const w = Math.min(2048, Math.max(512, parseInt(body.width, 10) || 1024));
         const h = Math.min(2048, Math.max(512, parseInt(body.height, 10) || 1024));
         const aspectRatio = String(body.aspect_ratio || '').trim() || `${w}:${h}`;
-        const sceneKey = String(body.scene_template_key || '').trim();
+        // theme_key 優先；舊欄位 scene_template_key＝主題
+        const themeKey = String(body.theme_key || body.scene_template_key || '').trim();
+        const sceneKey = String(body.scene_key || '').trim();
         const userPrompt = String(body.user_prompt || body.prompt || '').trim();
         const photographySetId = body.photography_set_id ? String(body.photography_set_id).trim() : '';
         const sourceType = ['custom_product', 'vendor_asset', 'upload', 'digital_asset'].includes(body.source_type)
@@ -10558,7 +10582,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         if (!process.env.BFL_API_KEY) {
             return res.status(503).json({ success: false, error: '推廣圖服務暫未設定，請稍後再試' });
         }
-        const finalPrompt = await buildPromoImagePrompt(sceneKey, userPrompt, photographySetId, refBases.length);
+        const finalPrompt = await buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, refBases.length);
         const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
         const seed = Math.floor(Math.random() * 2147483647);
         let buffer;
@@ -10601,7 +10625,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 pointsToDeduct,
                 'promo_image',
                 '產品推廣圖',
-                { width: w, height: h, scene_template_key: sceneKey || null, reference_count: refBases.length }
+                { width: w, height: h, theme_key: themeKey || null, scene_key: sceneKey || null, scene_template_key: themeKey || null, reference_count: refBases.length }
             );
             if (!consumed.ok) {
                 return res.status(402).json({ success: false, error: '點數不足', balance: consumed.balance, required: pointsToDeduct });
@@ -10620,7 +10644,8 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 width: w,
                 height: h,
                 megapixels: promoImageMegapixelsFromResolution(w, h),
-                scene_template_key: sceneKey || null,
+                scene_template_key: themeKey || null,
+                scene_key: sceneKey || null,
                 user_prompt: userPrompt || null,
                 photography_set_id: photographySetId || null,
                 final_prompt: finalPrompt,
@@ -10629,7 +10654,28 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
                 completed_at: new Date().toISOString()
             }).select('id').single();
-            if (insErr) console.warn('product_promo_generations insert:', insErr.message);
+            if (insErr && isSupabaseMissingColumnError(insErr, 'scene_key')) {
+                const retry = await supabase.from('product_promo_generations').insert({
+                    user_id: currentUser.id,
+                    source_type: sourceType,
+                    source_id: sourceId || null,
+                    source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+                    aspect_ratio: aspectRatio,
+                    width: w,
+                    height: h,
+                    megapixels: promoImageMegapixelsFromResolution(w, h),
+                    scene_template_key: themeKey || null,
+                    user_prompt: userPrompt || null,
+                    photography_set_id: photographySetId || null,
+                    final_prompt: finalPrompt,
+                    result_image_url: resultImageUrl,
+                    status: 'success',
+                    points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+                    completed_at: new Date().toISOString()
+                }).select('id').single();
+                if (retry.error) console.warn('product_promo_generations insert:', retry.error.message);
+                else generationId = retry.data && retry.data.id ? retry.data.id : null;
+            } else if (insErr) console.warn('product_promo_generations insert:', insErr.message);
             else generationId = row && row.id ? row.id : null;
         } catch (logErr) {
             console.warn('product_promo_generations insert skipped:', logErr?.message || logErr);
@@ -11598,23 +11644,47 @@ async function getPointsPromoImageForResolution(width, height) {
     return base + (mp - 1) * perExtra;
 }
 
-async function buildPromoImagePrompt(sceneTemplateKey, userPrompt, photographySetId, referenceCount) {
-    const key = String(sceneTemplateKey || '').trim();
-    let scene = '';
-    let composition = '';
-    if (key) {
-        try {
-            const { data } = await supabase
+async function loadPromoTemplatePartsByKey(templateKey) {
+    const key = String(templateKey || '').trim();
+    if (!key) return { prompt: '', composition: '', slot: '', name: '' };
+    try {
+        let { data, error } = await supabase
+            .from('promo_scene_templates')
+            .select('name, scene_prompt, composition_hint, is_active, slot')
+            .eq('key', key)
+            .maybeSingle();
+        if (isSupabaseMissingColumnError(error, 'slot')) {
+            ({ data, error } = await supabase
                 .from('promo_scene_templates')
-                .select('scene_prompt, composition_hint, is_active')
+                .select('name, scene_prompt, composition_hint, is_active')
                 .eq('key', key)
-                .maybeSingle();
-            if (data && data.is_active !== false) {
-                scene = String(data.scene_prompt || '').trim();
-                composition = String(data.composition_hint || '').trim();
-            }
-        } catch (_) { /* 表未建時略過 */ }
+                .maybeSingle());
+            if (data) data = { ...data, slot: 'theme' };
+        }
+        if (error || !data || data.is_active === false) return { prompt: '', composition: '', slot: '', name: '' };
+        return {
+            prompt: String(data.scene_prompt || '').trim(),
+            composition: String(data.composition_hint || '').trim(),
+            slot: String(data.slot || 'theme'),
+            name: String(data.name || '').trim()
+        };
+    } catch (_) {
+        return { prompt: '', composition: '', slot: '', name: '' };
     }
+}
+
+/**
+ * 推廣圖提示詞組裝：
+ * 1) 固定英文廣告底稿（後端硬編碼）
+ * 2) 主題 theme 的 scene_prompt + composition_hint（DB，管理區可編）
+ * 3) 場景 scene 的 scene_prompt + composition_hint（DB，管理區可編）
+ * 4) 使用者額外描述
+ * 5) 攝影參數 body_text（選填）
+ * 注意：中文 name／description 不進 FLUX，只進 UI
+ */
+async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, referenceCount) {
+    const theme = await loadPromoTemplatePartsByKey(themeKey);
+    const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
     const photo = photographySetId ? await getPhotographySetBodyById(photographySetId) : '';
     const refN = Math.min(8, Math.max(1, parseInt(referenceCount, 10) || 1));
@@ -11636,8 +11706,16 @@ async function buildPromoImagePrompt(sceneTemplateKey, userPrompt, photographySe
     } else {
         parts.push('Treat the reference as product identity only, then shoot a newly directed advertising photograph of that product');
     }
-    if (scene) parts.push(scene);
-    if (composition) parts.push(composition);
+    if (theme.prompt || theme.composition) {
+        parts.push('Theme direction (advertising style)');
+        if (theme.prompt) parts.push(theme.prompt);
+        if (theme.composition) parts.push(theme.composition);
+    }
+    if (scene.prompt || scene.composition) {
+        parts.push('Scene setting (commercial environment for the ad)');
+        if (scene.prompt) parts.push(scene.prompt);
+        if (scene.composition) parts.push(scene.composition);
+    }
     if (user) parts.push('Advertising brief: ' + user);
     let prompt = parts.join('. ').trim();
     prompt = appendPhotographyParams(prompt, photo);
@@ -26328,10 +26406,15 @@ app.delete('/api/admin/photography-prompt-sets/:id', async (req, res) => {
     }
 });
 
-const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, sort_order, is_active, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT_LEGACY = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, sort_order, is_active, created_at, updated_at';
 
 function normalizePromoSceneTemplateKey(raw) {
     return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+}
+
+function normalizePromoTemplateSlot(raw) {
+    return String(raw || '').trim().toLowerCase() === 'scene' ? 'scene' : 'theme';
 }
 
 function parsePromoRecommendedRatios(raw) {
@@ -26344,16 +26427,38 @@ function parsePromoRecommendedRatios(raw) {
     return ['1:1', '4:3', '16:9'];
 }
 
-// GET /api/admin/promo-scene-templates — 推廣圖宣傳風格
+// GET /api/admin/promo-scene-templates — 推廣圖主題／場景
 app.get('/api/admin/promo-scene-templates', async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
-        const { data, error } = await supabase
+        const slotFilter = req.query.slot ? normalizePromoTemplateSlot(req.query.slot) : '';
+        let { data, error } = await supabase
             .from('promo_scene_templates')
             .select(PROMO_SCENE_TEMPLATE_SELECT)
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
+        if (isSupabaseMissingColumnError(error, 'slot')) {
+            const legacy = await supabase
+                .from('promo_scene_templates')
+                .select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY)
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true });
+            if (legacy.error) {
+                if (legacy.error.code === '42P01') {
+                    return res.status(503).json({ error: '請先執行 docs/add-product-promo-image.sql', code: 'MIGRATION_REQUIRED' });
+                }
+                console.error('GET /api/admin/promo-scene-templates legacy:', legacy.error);
+                return res.status(500).json({ error: '查詢失敗' });
+            }
+            let items = (legacy.data || []).map((r) => ({ ...r, slot: 'theme' }));
+            if (slotFilter === 'scene') items = [];
+            else if (slotFilter === 'theme') items = items.filter((r) => r.slot === 'theme');
+            return res.json({
+                items,
+                migration_hint: '請執行 docs/add-promo-theme-scene-slots.sql 以啟用「主題／場景」分欄'
+            });
+        }
         if (error) {
             if (error.code === '42P01') {
                 return res.status(503).json({ error: '請先執行 docs/add-product-promo-image.sql', code: 'MIGRATION_REQUIRED' });
@@ -26361,7 +26466,9 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
             console.error('GET /api/admin/promo-scene-templates:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        res.json({ items: data || [] });
+        let items = data || [];
+        if (slotFilter) items = items.filter((r) => normalizePromoTemplateSlot(r.slot) === slotFilter);
+        res.json({ items });
     } catch (e) {
         console.error('GET /api/admin/promo-scene-templates 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -26386,11 +26493,23 @@ app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) =>
             composition_hint: body.composition_hint != null ? String(body.composition_hint) : null,
             recommended_ratios: parsePromoRecommendedRatios(body.recommended_ratios),
             category: body.category != null ? String(body.category).trim() || null : null,
+            slot: normalizePromoTemplateSlot(body.slot),
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active,
             updated_at: new Date().toISOString()
         };
-        const { data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        let { data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (isSupabaseMissingColumnError(error, 'slot')) {
+            delete payload.slot;
+            ({ data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY).single());
+            if (!error && data) data = { ...data, slot: 'theme' };
+            if (!error) {
+                return res.status(201).json({
+                    item: data,
+                    warning: '已新增（尚無 slot 欄）。請執行 docs/add-promo-theme-scene-slots.sql 才能區分主題／場景'
+                });
+            }
+        }
         if (error) {
             if (error.code === '42P01') {
                 return res.status(503).json({ error: '請先執行 docs/add-product-promo-image.sql', code: 'MIGRATION_REQUIRED' });
@@ -26430,9 +26549,22 @@ app.put('/api/admin/promo-scene-templates/:id', express.json(), async (req, res)
         if (body.composition_hint !== undefined) updates.composition_hint = String(body.composition_hint || '').trim() || null;
         if (body.recommended_ratios !== undefined) updates.recommended_ratios = parsePromoRecommendedRatios(body.recommended_ratios);
         if (body.category !== undefined) updates.category = String(body.category || '').trim() || null;
+        if (body.slot !== undefined) updates.slot = normalizePromoTemplateSlot(body.slot);
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
-        const { data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        let { data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (isSupabaseMissingColumnError(error, 'slot')) {
+            const stripped = { ...updates };
+            delete stripped.slot;
+            ({ data, error } = await supabase.from('promo_scene_templates').update(stripped).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY).single());
+            if (!error && data) data = { ...data, slot: 'theme' };
+            if (!error && body.slot !== undefined) {
+                return res.json({
+                    item: data,
+                    warning: '其他欄位已儲存。請執行 docs/add-promo-theme-scene-slots.sql 才能設定主題／場景'
+                });
+            }
+        }
         if (error) {
             if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在' });
             console.error('PUT /api/admin/promo-scene-templates:', error);

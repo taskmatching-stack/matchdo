@@ -6049,12 +6049,21 @@ $(document).ready(function () {
         }
         return window.MatchdoPromoImage.loadOptions().then(function (res) {
             var data = (res && res.data) || {};
+            var themes = data.themes || data.templates || [];
+            var scenes = data.scenes || [];
             window.MatchdoPromoImage.fillSelect(
-                document.getElementById('promoImageSceneSelect'),
-                data.templates || [],
+                document.getElementById('promoImageThemeSelect'),
+                themes,
                 'key',
                 'name',
                 ''
+            );
+            window.MatchdoPromoImage.fillSelect(
+                document.getElementById('promoImageEnvSelect'),
+                scenes,
+                'key',
+                'name',
+                '（不指定場景）'
             );
             window.MatchdoPromoImage.fillSelect(
                 document.getElementById('promoImagePhotoSelect'),
@@ -6063,9 +6072,25 @@ $(document).ready(function () {
                 'name',
                 '（不追加）'
             );
+            if (typeof window.MatchdoPromoImage.bindSelectHint === 'function') {
+                window.MatchdoPromoImage.bindSelectHint(
+                    document.getElementById('promoImageThemeSelect'),
+                    document.getElementById('promoImageThemeHint'),
+                    themes,
+                    'key'
+                );
+                window.MatchdoPromoImage.bindSelectHint(
+                    document.getElementById('promoImageEnvSelect'),
+                    document.getElementById('promoImageEnvHint'),
+                    scenes,
+                    'key'
+                );
+            }
             promoImageOptionsLoaded = true;
-            if (data.migration_hint) {
-                $('#promoImageSceneHint').text(data.migration_hint);
+            if (data.slot_migration_hint) {
+                $('#promoImageThemeHint').text(data.slot_migration_hint);
+            } else if (data.migration_hint) {
+                $('#promoImageThemeHint').text(data.migration_hint);
             }
             refreshPromoImagePointsDisplay();
         }).catch(function (err) {
@@ -6165,7 +6190,9 @@ $(document).ready(function () {
             width: dims.w,
             height: dims.h,
             aspect_ratio: dims.ratio || ($('#promoImageRatioSelect').val() || '1:1'),
-            scene_template_key: ($('#promoImageSceneSelect').val() || '').trim(),
+            theme_key: ($('#promoImageThemeSelect').val() || '').trim(),
+            scene_template_key: ($('#promoImageThemeSelect').val() || '').trim(),
+            scene_key: ($('#promoImageEnvSelect').val() || '').trim(),
             user_prompt: ($('#promoImagePrompt').val() || '').trim(),
             photography_set_id: ($('#promoImagePhotoSelect').val() || '').trim() || undefined,
             source_type: 'digital_asset'

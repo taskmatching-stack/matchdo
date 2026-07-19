@@ -3,7 +3,7 @@
 -- 見 docs/PLAN-product-promo-image-implementation.md
 -- 定位：DM／廣告／宣傳主視覺（不是把產品塞進居家／戶外等場景）
 
--- 1) 宣傳風格模板（表名沿用 promo_scene_templates，語意改為廣告風格）
+-- 1) 主題／場景模板（表名沿用 promo_scene_templates；slot=theme|scene）
 CREATE TABLE IF NOT EXISTS public.promo_scene_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     key TEXT NOT NULL UNIQUE,
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.promo_scene_templates (
     composition_hint TEXT,
     recommended_ratios TEXT[] DEFAULT ARRAY['1:1', '4:3', '16:9'],
     category TEXT,
+    slot TEXT NOT NULL DEFAULT 'theme',
     sort_order INT NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -24,7 +25,13 @@ CREATE INDEX IF NOT EXISTS idx_promo_scene_templates_sort
 CREATE INDEX IF NOT EXISTS idx_promo_scene_templates_active
     ON public.promo_scene_templates (is_active);
 
-COMMENT ON TABLE public.promo_scene_templates IS '產品推廣圖宣傳風格（DM／廣告／宣傳用；非換場景）';
+COMMENT ON TABLE public.promo_scene_templates IS '推廣圖主題／場景（DM／廣告；slot=theme|scene）';
+
+ALTER TABLE public.promo_scene_templates
+    ADD COLUMN IF NOT EXISTS slot TEXT NOT NULL DEFAULT 'theme';
+
+CREATE INDEX IF NOT EXISTS idx_promo_scene_templates_slot_active
+    ON public.promo_scene_templates (slot, is_active, sort_order);
 
 ALTER TABLE public.promo_scene_templates ENABLE ROW LEVEL SECURITY;
 
@@ -52,27 +59,27 @@ WHERE key IN (
     'ecommerce_white'
 );
 
-INSERT INTO public.promo_scene_templates (key, name, description, scene_prompt, composition_hint, category, sort_order) VALUES
+INSERT INTO public.promo_scene_templates (key, name, description, scene_prompt, composition_hint, category, sort_order, slot) VALUES
 ('product_hero_ad', '產品主視覺廣告', '重新設計成官網／社群廣告主圖（不是原圖換底）',
  'redesign into a powerful commercial advertising hero key visual with campaign lighting and polished marketing look; not a background swap',
  'new advertising crop and framing; product as hero with intentional negative space; forbid keeping the exact same reference pose and framing',
- 'ad', 10),
+ 'ad', 10, 'theme'),
 ('flyer_dm', 'DM／傳單風', '重新設計成可印的 DM／傳單主圖',
  'redesign as a print-ready DM and flyer advertising visual with clear product presentation for direct-mail marketing',
  'balanced flyer margins and strong product hierarchy; commercial ad redesign, not a retouched copy of the reference photo',
- 'print', 20),
+ 'print', 20, 'theme'),
 ('campaign_promo', '活動宣傳風', '有張力的促銷／活動宣傳主視覺',
  'bold promotional campaign advertising redesign with eye-catching marketing energy for sales and event promotion',
  'dynamic campaign composition and contrast; reinvent the shot as an ad, keep product identity but change framing',
- 'campaign', 30),
+ 'campaign', 30, 'theme'),
 ('brand_premium', '品牌質感廣告', '高級克制的品牌形象廣告',
  'premium brand advertising redesign with refined luxury marketing aesthetic and high-end catalog energy',
  'elegant commercial framing and premium lighting; advertising reinterpretation rather than background cleanup',
- 'brand', 40),
+ 'brand', 40, 'theme'),
 ('catalog_ad', '型錄／電商廣告', '清楚有力的型錄／電商宣傳主圖',
  'clean catalog and ecommerce advertising redesign for online and print catalog promo',
  'accurate product showcase with commercial catalog lighting and a stronger ad crop than the reference photo',
- 'catalog', 50)
+ 'catalog', 50, 'theme')
 ON CONFLICT (key) DO UPDATE SET
     name = EXCLUDED.name,
     description = EXCLUDED.description,
@@ -80,6 +87,7 @@ ON CONFLICT (key) DO UPDATE SET
     composition_hint = EXCLUDED.composition_hint,
     category = EXCLUDED.category,
     sort_order = EXCLUDED.sort_order,
+    slot = COALESCE(EXCLUDED.slot, 'theme'),
     is_active = TRUE,
     updated_at = NOW();
 

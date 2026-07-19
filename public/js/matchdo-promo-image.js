@@ -137,6 +137,22 @@
     el.innerHTML = html;
   }
 
+  /** 依選項 description 更新提示文字（名稱不進 FLUX，說明只給人看） */
+  function bindSelectHint(selectEl, hintEl, items, valueKey) {
+    if (!selectEl || !hintEl) return;
+    var vk = valueKey || 'key';
+    var list = items || [];
+    function refresh() {
+      var v = String(selectEl.value || '').trim();
+      var found = list.find(function (it) { return String(it[vk] || '') === v; });
+      hintEl.textContent = (found && found.description) ? String(found.description) : '';
+    }
+    selectEl.removeEventListener('change', selectEl.__promoHintHandler);
+    selectEl.__promoHintHandler = refresh;
+    selectEl.addEventListener('change', refresh);
+    refresh();
+  }
+
   function authHeaders(json) {
     var h = json ? { 'Content-Type': 'application/json' } : {};
     return Promise.resolve().then(function () {
@@ -189,6 +205,7 @@
     ratioSelectHtml: ratioSelectHtml,
     mpSelectHtml: mpSelectHtml,
     fillSelect: fillSelect,
+    bindSelectHint: bindSelectHint,
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,
     generate: generate

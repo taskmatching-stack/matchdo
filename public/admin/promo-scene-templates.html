@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>推廣圖宣傳風格 - MATCHDO 後台</title>
+  <title>推廣圖主題／場景 - MATCHDO 後台</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
 </head>
@@ -13,25 +13,37 @@
     <div class="row">
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
-        <h4 class="mb-1">推廣圖宣傳風格</h4>
-        <p class="text-muted small mb-3">
-          這裡編輯的<strong>啟用</strong>風格＝前台「宣傳風格」下拉選單（同一張表 <code>promo_scene_templates</code>）。
-          系統會先套用固定的「廣告／DM、禁止只換背景、多圖參考」規則，再併入風格／構圖提示。
-          請執行 <code>docs/update-promo-templates-ad-dm.sql</code> 刪除舊「居家／棚拍／戶外」換場景模板，前後台才會一致。
+        <h4 class="mb-1">推廣圖主題／場景</h4>
+        <p class="text-muted small mb-2">
+          前台推廣圖有兩個下拉：<strong>主題</strong>與<strong>場景</strong>（同一張表 <code>promo_scene_templates</code>，以 <code>slot</code> 區分）。
+          請先執行 <code>docs/add-promo-theme-scene-slots.sql</code>。
         </p>
+        <div class="alert alert-info small py-2 mb-3">
+          <strong>如何影響提示詞（送進 FLUX）：</strong>
+          系統先套用固定的英文「廣告／DM、禁止只換背景」底稿，再依序併入你選的
+          <em>主題</em>的 <code>scene_prompt</code>＋<code>composition_hint</code>、
+          <em>場景</em>的同名字段、使用者額外描述、攝影參數。
+          中文「名稱／說明」只給人看，<strong>不會</strong>進提示詞——要改生成結果請改英文提示詞欄。
+        </div>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item"><button class="nav-link active" type="button" id="tabTheme" data-slot="theme">主題</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" id="tabScene" data-slot="scene">場景</button></li>
+        </ul>
+
         <div class="card mb-3">
-          <div class="card-header fw-semibold">新增宣傳風格</div>
+          <div class="card-header fw-semibold" id="addCardTitle">新增主題</div>
           <div class="card-body">
+            <input type="hidden" id="tplSlot" value="theme">
             <div class="row g-2">
               <div class="col-md-2"><label class="form-label small mb-0">key</label><input id="tplKey" class="form-control form-control-sm" placeholder="flyer_dm"></div>
-              <div class="col-md-3"><label class="form-label small mb-0">名稱</label><input id="tplName" class="form-control form-control-sm" placeholder="DM／傳單風"></div>
+              <div class="col-md-3"><label class="form-label small mb-0">名稱（UI 顯示）</label><input id="tplName" class="form-control form-control-sm" placeholder="DM／傳單風"></div>
               <div class="col-md-2"><label class="form-label small mb-0">分類標籤</label><input id="tplCategory" class="form-control form-control-sm" placeholder="print"></div>
               <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="tplSort" type="number" class="form-control form-control-sm" value="10"></div>
-              <div class="col-md-4"><label class="form-label small mb-0">說明（選填）</label><input id="tplDesc" class="form-control form-control-sm" placeholder="清楚好印，適合DM"></div>
-              <div class="col-12"><label class="form-label small mb-0">風格提示詞 scene_prompt</label><textarea id="tplScene" class="form-control form-control-sm" rows="2" placeholder="print-ready promotional flyer visual…"></textarea></div>
-              <div class="col-12"><label class="form-label small mb-0">構圖提示 composition_hint（選填）</label><textarea id="tplComp" class="form-control form-control-sm" rows="2" placeholder="centered product hero…"></textarea></div>
+              <div class="col-md-4"><label class="form-label small mb-0">說明（選填，UI 提示）</label><input id="tplDesc" class="form-control form-control-sm" placeholder="清楚好印，適合DM"></div>
+              <div class="col-12"><label class="form-label small mb-0">提示詞 scene_prompt（進 FLUX）</label><textarea id="tplScene" class="form-control form-control-sm" rows="2" placeholder="print-ready promotional flyer visual…"></textarea></div>
+              <div class="col-12"><label class="form-label small mb-0">構圖提示 composition_hint（進 FLUX，選填）</label><textarea id="tplComp" class="form-control form-control-sm" rows="2" placeholder="centered product hero…"></textarea></div>
               <div class="col-md-6"><label class="form-label small mb-0">建議比例（逗號分隔）</label><input id="tplRatios" class="form-control form-control-sm" value="1:1,4:3,16:9"></div>
               <div class="col-12"><button type="button" id="btnAdd" class="btn btn-primary btn-sm">新增</button></div>
             </div>
@@ -40,7 +52,7 @@
 
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span class="fw-semibold">風格列表 <span class="text-muted fw-normal small">（預設只顯示啟用＝與前台相同）</span></span>
+            <span class="fw-semibold" id="listCardTitle">主題列表 <span class="text-muted fw-normal small">（預設只顯示啟用＝與前台相同）</span></span>
             <div class="d-flex align-items-center gap-3">
               <div class="form-check mb-0">
                 <input class="form-check-input" type="checkbox" id="showInactive">
@@ -56,7 +68,7 @@
                 <tr>
                   <th>key</th>
                   <th>名稱</th>
-                  <th>風格提示</th>
+                  <th>提示詞（進 FLUX）</th>
                   <th>構圖</th>
                   <th>排序</th>
                   <th>狀態</th>
@@ -72,18 +84,24 @@
           <div class="modal-dialog modal-lg">
             <div class="modal-content">
               <div class="modal-header">
-                <h5 class="modal-title">編輯宣傳風格</h5>
+                <h5 class="modal-title" id="editModalTitle">編輯主題</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
               </div>
               <div class="modal-body">
                 <input type="hidden" id="editId">
                 <div class="row g-2">
-                  <div class="col-md-4"><label class="form-label">key</label><input id="editKey" class="form-control"></div>
-                  <div class="col-md-4"><label class="form-label">名稱</label><input id="editName" class="form-control"></div>
-                  <div class="col-md-4"><label class="form-label">分類標籤</label><input id="editCategory" class="form-control"></div>
-                  <div class="col-12"><label class="form-label">說明</label><input id="editDesc" class="form-control"></div>
-                  <div class="col-12"><label class="form-label">風格提示詞 scene_prompt</label><textarea id="editScene" class="form-control" rows="4"></textarea></div>
-                  <div class="col-12"><label class="form-label">構圖提示 composition_hint</label><textarea id="editComp" class="form-control" rows="3"></textarea></div>
+                  <div class="col-md-3"><label class="form-label">key</label><input id="editKey" class="form-control"></div>
+                  <div class="col-md-3"><label class="form-label">名稱</label><input id="editName" class="form-control"></div>
+                  <div class="col-md-3"><label class="form-label">類型</label>
+                    <select id="editSlot" class="form-select">
+                      <option value="theme">主題</option>
+                      <option value="scene">場景</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3"><label class="form-label">分類標籤</label><input id="editCategory" class="form-control"></div>
+                  <div class="col-12"><label class="form-label">說明（UI）</label><input id="editDesc" class="form-control"></div>
+                  <div class="col-12"><label class="form-label">提示詞 scene_prompt（進 FLUX）</label><textarea id="editScene" class="form-control" rows="4"></textarea></div>
+                  <div class="col-12"><label class="form-label">構圖提示 composition_hint（進 FLUX）</label><textarea id="editComp" class="form-control" rows="3"></textarea></div>
                   <div class="col-md-6"><label class="form-label">建議比例</label><input id="editRatios" class="form-control"></div>
                   <div class="col-md-3"><label class="form-label">排序</label><input id="editSort" type="number" class="form-control"></div>
                   <div class="col-md-3 d-flex align-items-end">
@@ -112,6 +130,7 @@
 (function () {
   var API = '/api/admin/promo-scene-templates';
   var items = [];
+  var currentSlot = 'theme';
   var editModal = null;
 
   function esc(s) {
@@ -121,7 +140,7 @@
     var w = document.getElementById('statusWrap');
     var m = document.getElementById('statusMsg');
     w.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
-    w.classList.add(ok ? 'alert-success' : 'alert-danger');
+    w.classList.add(ok === true ? 'alert-success' : (ok === 'warn' ? 'alert-warning' : 'alert-danger'));
     m.textContent = msg;
   }
   async function authHeaders() {
@@ -141,6 +160,7 @@
     if (!t) return '—';
     return t.length > n ? t.slice(0, n) + '…' : t;
   }
+  function slotLabel(s) { return s === 'scene' ? '場景' : '主題'; }
 
   var LEGACY_SCENE_KEYS = {
     lifestyle_home: 1,
@@ -149,6 +169,19 @@
     outdoor_nature: 1,
     ecommerce_white: 1
   };
+
+  function setSlot(slot) {
+    currentSlot = slot === 'scene' ? 'scene' : 'theme';
+    document.getElementById('tplSlot').value = currentSlot;
+    document.getElementById('tabTheme').classList.toggle('active', currentSlot === 'theme');
+    document.getElementById('tabScene').classList.toggle('active', currentSlot === 'scene');
+    document.getElementById('addCardTitle').textContent = '新增' + slotLabel(currentSlot);
+    document.getElementById('listCardTitle').innerHTML = slotLabel(currentSlot) + '列表 <span class="text-muted fw-normal small">（預設只顯示啟用＝與前台相同）</span>';
+    document.getElementById('editModalTitle').textContent = '編輯' + slotLabel(currentSlot);
+    document.getElementById('tplKey').placeholder = currentSlot === 'scene' ? 'scene_clean_studio' : 'flyer_dm';
+    document.getElementById('tplName').placeholder = currentSlot === 'scene' ? '乾淨棚拍場景' : 'DM／傳單風';
+    renderList();
+  }
 
   async function loadList() {
     var headers = await authHeaders();
@@ -160,15 +193,18 @@
     }
     items = d.items || [];
     renderList();
+    if (d.migration_hint) showStatus(d.migration_hint, 'warn');
     var legacyCount = items.filter(function (s) { return LEGACY_SCENE_KEYS[s.key]; }).length;
     if (legacyCount > 0) {
-      showStatus('偵測到 ' + legacyCount + ' 筆舊「換場景」模板；請按「清除舊換場景模板」或執行 update-promo-templates-ad-dm.sql，前後台才會一致。', false);
+      showStatus('偵測到 ' + legacyCount + ' 筆舊「換場景」模板；請按「清除舊換場景模板」或執行 update-promo-templates-ad-dm.sql。', false);
     }
   }
 
   function visibleItems() {
     var showInactive = document.getElementById('showInactive') && document.getElementById('showInactive').checked;
     return items.filter(function (s) {
+      var slot = (s.slot === 'scene') ? 'scene' : 'theme';
+      if (slot !== currentSlot) return false;
       if (showInactive) return true;
       return s.is_active !== false;
     });
@@ -196,10 +232,13 @@
         '</td></tr>';
     }).join('') || '<tr><td colspan="7" class="text-muted text-center">' +
       (items.length && !rows.length
-        ? '目前沒有啟用中的風格（勾選「顯示已停用」可查看）'
+        ? '目前沒有啟用中的' + slotLabel(currentSlot) + '（勾選「顯示已停用」可查看）'
         : '尚無資料') +
       '</td></tr>';
   }
+
+  document.getElementById('tabTheme').addEventListener('click', function () { setSlot('theme'); });
+  document.getElementById('tabScene').addEventListener('click', function () { setSlot('scene'); });
 
   document.getElementById('btnAdd').addEventListener('click', async function () {
     var headers = await authHeaders();
@@ -213,12 +252,13 @@
         scene_prompt: document.getElementById('tplScene').value,
         composition_hint: document.getElementById('tplComp').value,
         recommended_ratios: document.getElementById('tplRatios').value,
-        sort_order: Number(document.getElementById('tplSort').value) || 0
+        sort_order: Number(document.getElementById('tplSort').value) || 0,
+        slot: document.getElementById('tplSlot').value
       })
     });
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
-    showStatus('已新增', true);
+    showStatus(d.warning || '已新增', d.warning ? 'warn' : true);
     document.getElementById('tplKey').value = '';
     document.getElementById('tplName').value = '';
     document.getElementById('tplCategory').value = '';
@@ -237,6 +277,7 @@
       document.getElementById('editId').value = s.id;
       document.getElementById('editKey').value = s.key || '';
       document.getElementById('editName').value = s.name || '';
+      document.getElementById('editSlot').value = s.slot === 'scene' ? 'scene' : 'theme';
       document.getElementById('editCategory').value = s.category || '';
       document.getElementById('editDesc').value = s.description || '';
       document.getElementById('editScene').value = s.scene_prompt || '';
@@ -244,11 +285,12 @@
       document.getElementById('editRatios').value = ratiosToText(s.recommended_ratios);
       document.getElementById('editSort').value = s.sort_order != null ? s.sort_order : 0;
       document.getElementById('editActive').checked = s.is_active !== false;
+      document.getElementById('editModalTitle').textContent = '編輯' + slotLabel(s.slot === 'scene' ? 'scene' : 'theme');
       if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
       editModal.show();
     }
     if (delBtn) {
-      if (!confirm('確定刪除這個宣傳風格？')) return;
+      if (!confirm('確定刪除這個' + slotLabel(currentSlot) + '？')) return;
       var headers = await authHeaders();
       var r = await fetch(API + '/' + encodeURIComponent(delBtn.getAttribute('data-id')), { method: 'DELETE', headers: headers });
       var d = await r.json().catch(function () { return {}; });
@@ -272,13 +314,14 @@
         composition_hint: document.getElementById('editComp').value,
         recommended_ratios: document.getElementById('editRatios').value,
         sort_order: Number(document.getElementById('editSort').value) || 0,
-        is_active: document.getElementById('editActive').checked
+        is_active: document.getElementById('editActive').checked,
+        slot: document.getElementById('editSlot').value
       })
     });
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
     if (editModal) editModal.hide();
-    showStatus('已儲存', true);
+    showStatus(d.warning || '已儲存', d.warning ? 'warn' : true);
     await loadList();
   });
 
@@ -290,7 +333,7 @@
       showStatus('沒有舊換場景模板需要清除', true);
       return;
     }
-    if (!confirm('將刪除 ' + legacy.length + ' 筆舊換場景模板（居家／棚拍／桌面／戶外／電商白底），與前台下拉選單對齊。確定？')) return;
+    if (!confirm('將刪除 ' + legacy.length + ' 筆舊換場景模板（居家／棚拍／桌面／戶外／電商白底）。確定？')) return;
     var headers = await authHeaders();
     var ok = 0;
     for (var i = 0; i < legacy.length; i++) {
@@ -300,6 +343,7 @@
     showStatus('已清除 ' + ok + '／' + legacy.length + ' 筆舊模板', ok === legacy.length);
     await loadList();
   });
+  setSlot('theme');
   loadList();
 })();
   </script>
