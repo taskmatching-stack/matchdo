@@ -10458,13 +10458,10 @@ app.get('/api/promo-image/options', async (req, res) => {
         try {
             const { data: pRows } = await supabase
                 .from('photography_prompt_sets')
-                .select('id, key, name, sort_order, is_material_fallback')
+                .select('id, key, name, sort_order')
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
-            // 推廣圖不要出現「材料通用預設」——會把廣告生圖帶成材質色卡語意
-            photographySets = (pRows || [])
-                .filter((r) => !r.is_material_fallback)
-                .map((r) => ({ id: r.id, key: r.key, name: r.name, sort_order: r.sort_order }));
+            photographySets = pRows || [];
         } catch (_) { photographySets = []; }
         const pointsPreview1mp = await getPointsPromoImageForResolution(1024, 1024);
         let pointsPerExtra = 10;
