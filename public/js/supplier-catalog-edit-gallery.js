@@ -73,7 +73,7 @@
   function syncEditGalleryRedrawSettings() {
     var up = uploadPricing();
     var extra = up.points_optimize_extra != null ? up.points_optimize_extra : 5;
-    var upscale = up.points_upscale != null ? up.points_upscale : 5;
+    var upscale = up.points_upscale != null ? up.points_upscale : 1;
     document.querySelectorAll('.edit-gallery-redraw-points-extra').forEach(function (el) {
       el.textContent = String(extra);
     });
@@ -100,11 +100,11 @@
     var isMaterial = kindEl && kindEl.value === 'material';
     var up = uploadPricing();
     var extra = up.points_optimize_extra != null ? up.points_optimize_extra : 5;
-    var upscale = up.points_upscale != null ? up.points_upscale : 5;
+    var upscale = up.points_upscale != null ? up.points_upscale : 1;
     if (isMaterial) {
       hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起。';
     } else {
-      hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起；&lt;0.5 MP 可按 AI 放大（≤1MP，<span class="edit-gallery-upscale-points">' + upscale + '</span> 點／次）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。';
+      hint.innerHTML = '「<strong>預覽放大</strong>」：點圖片只看大圖，不扣點。「<strong>AI 重繪</strong>」：先預覽，勾選「上傳原圖／上傳此張」後按「<strong>儲存</strong>」寫入（與上方新增待傳相同）。重繪約 <span class="edit-gallery-redraw-points-extra">' + extra + '</span> 點起；&lt;0.5 MP 可按 AI 放大（2× 起 ' + upscale + ' 點，每升一階 +1；≤1MP）。≥0.5 MP 請至 <a href="/client/ai-edit.html" target="_blank" rel="noopener">我的 AI 編輯區</a>。';
     }
   }
   function pendingUpscaleAiEditHelpHtml() {
@@ -399,7 +399,8 @@
         : ('<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="預覽放大" data-image-items="' + lightboxItemsJson + '">');
       var previewBlock = hasPreview ? editGalleryPreviewBlock(slot, slotPrefix) : '';
       var upscaleBtn = upscaleOn
-        ? ('<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml())
+        ? (((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.selectHtml('gallery-upscale-scale matchdo-upscale-scale', uploadPricing())) || '') +
+          '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml())
         : '';
       var actions = '<div class="pending-actions">' +
         (items.length > 1
@@ -464,7 +465,8 @@
     grid.querySelectorAll('.btn-gallery-upscale-one').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
-        upscaleGalleryImage(item, btn.getAttribute('data-url'));
+        var scale = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.readScaleNear(btn)) || 2;
+        upscaleGalleryImage(item, btn.getAttribute('data-url'), scale);
       });
     });
     items.forEach(function (it, idx) {
@@ -547,12 +549,14 @@
       renderEditGallery(getCfg().getEditItem());
     }
   }
-  async function upscaleGalleryImage(item, sourceUrl) {
+  async function upscaleGalleryImage(item, sourceUrl, scaleOpt) {
     if (!sourceUrl || editGalleryUploading || !vendorUpscaleEnabledForEdit()) return;
     var id = document.getElementById('edit-id').value;
     var up = uploadPricing();
-    var pts = up.points_upscale != null ? up.points_upscale : 5;
-    if (!window.confirm('以此圖 AI 放大並新增一張新圖？（-' + pts + ' 點；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
+    var scale = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
+    var base = up.points_upscale != null ? up.points_upscale : 1;
+    var pts = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.pointsForScale(base, scale, up.upscale_points_by_scale)) || (base + (scale / 2 - 1));
+    if (!window.confirm('以此圖 AI 放大並新增一張新圖？（' + scale + '×，-' + pts + ' 點；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
     editGalleryUploading = true;
     setEditGalleryStatus('AI 放大中…', 'info');
     try {
@@ -561,7 +565,7 @@
       var r = await fetch(apiItemBase(id) + '/gallery-images/upscale', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_url: sourceUrl })
+        body: JSON.stringify({ source_url: sourceUrl, scale: scale })
       });
       var data = await r.json().catch(function () { return {}; });
       if (r.status === 402) { showToast((data.error || '點數不足') + ' (' + (data.required || '') + ')', 'danger'); return; }

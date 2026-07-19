@@ -1,9 +1,17 @@
 # MatchDO「合做」落地 TODO 清單（分階段）
 
-更新日期：2026-06-02
+更新日期：2026-07-19
 
 > **架構 × SEO × B 線原則（必讀）**：`docs/architecture-and-seo-principles.md` — A1～A4 仍有效、**A5 已還原（進度＝A5r 待做）**、B 線 `/client/*` 不進 sitemap、供應商語意欄位。  
 > **新對話交接**：`docs/session-handoff-2026-05-26.md`（B 線推送狀態、產品規則、硬編碼 vs AI 待辦）。
+
+---
+
+## 待辦（未開工）
+
+| 項目 | 說明 | 文件 |
+|------|------|------|
+| **AI 放大 → Replicate Real-ESRGAN** | Real-ESRGAN；預設 2×＝1 點，4/6/8/10× 每階 +1；**只動放大** | `docs/PROGRESS-upscale-replicate-real-esrgan.md`（✅ 已實作・待 deploy） |
 
 ---
 

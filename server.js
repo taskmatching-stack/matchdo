@@ -15,8 +15,11 @@ for (let i = 0; i < process.argv.length; i++) {
 }
 
 const envPath = path.join(__dirname, '.env');
-if (!process.env.STABILITY_API_KEY && !process.env.STABILITY_AI_API_KEY) {
+// 一律載入 .env（既有變數不覆寫）；否則有 STABILITY 時 REPLICATE 不會進 process.env
+try {
     require('dotenv').config({ path: envPath });
+} catch (_) {}
+if (!process.env.STABILITY_API_KEY && !process.env.STABILITY_AI_API_KEY) {
     if (!process.env.STABILITY_API_KEY && !process.env.STABILITY_AI_API_KEY) require('dotenv').config();
 }
 if (!process.env.STABILITY_API_KEY && !process.env.STABILITY_AI_API_KEY && fs.existsSync(envPath)) {
@@ -64,6 +67,9 @@ if (!process.env.STABILITY_API_KEY && !process.env.STABILITY_AI_API_KEY) {
 function getStabilityApiKey() {
     return process.env.STABILITY_API_KEY || process.env.STABILITY_AI_API_KEY || process.env.STABILITY_AI_KEY || process.env.STABILITY_KEY || null;
 }
+function getReplicateApiToken() {
+    return process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || null;
+}
 const express = require('express');
 const multer = require('multer');
 const crypto = require('crypto');
@@ -86,8 +92,16 @@ const {
     vendorMaterialUpscale,
     evaluateVendorUpscaleNeedFromBuffer,
     vendorUpscaleRejectMessage,
-    AI_EDIT_UPSCALE_PAGE
+    AI_EDIT_UPSCALE_PAGE,
+    AI_EDIT_MAX_OUTPUT_MP,
+    normalizeUpscaleScale
 } = require('./lib/stability-fast-upscale');
+const {
+    pointsForUpscaleScale,
+    buildUpscalePointsByScale,
+    UPSCALE_SCALE_OPTIONS,
+    DEFAULT_UPSCALE_SCALE
+} = require('./lib/replicate-real-esrgan');
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const embedSimulator = require('./lib/embed-simulator');
@@ -6572,7 +6586,7 @@ app.get('/api/admin/points-config', async (req, res) => {
             points_text_to_image: parseInt(obj.points_text_to_image, 10) || 15,
             points_image_to_image: parseInt(obj.points_image_to_image, 10) || 20,
             points_official_image_to_image: parseInt(obj.points_official_image_to_image, 10) || 15,
-            points_ai_upscale: parseInt(obj.points_ai_upscale, 10) || 10,
+            points_ai_upscale: parseInt(obj.points_ai_upscale, 10) || 1,
             points_ai_sketch: parseInt(obj.points_ai_sketch, 10) || 20,
             points_ai_structure: parseInt(obj.points_ai_structure, 10) || 20,
             points_ai_style: parseInt(obj.points_ai_style, 10) || 20,
@@ -10806,11 +10820,11 @@ async function getPointsVendorAssetOptimizeExtraPer() {
     return Math.max(0, parseInt(v, 10) || 5);
 }
 
-/** 素材頁原圖 Fast 放大（4×，輸出上限 1MP），預設 5 點/次 */
+/** 素材頁原圖 Real-ESRGAN 放大：2× 基準點數，預設 1；每升一階 +1 */
 async function getPointsVendorAssetUpscale() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_vendor_asset_upscale');
     const v = (rows && rows[0]) ? rows[0].value : null;
-    return Math.max(0, parseInt(v, 10) || 5);
+    return Math.max(0, parseInt(v, 10) || 1);
 }
 
 /** n 張重繪總點數：首張依種類（原型 15／材料 10），之後每張 +extra */
@@ -10983,11 +10997,17 @@ async function respondVendorAssetUploadFailure(res, status, userId, body, jsonBo
     }
     return res.status(status).json(out);
 }
-// 讀取 points_ai_upscale（供扣點用）
+// 讀取 points_ai_upscale（2× 基準點數；預設 1）
 async function getPointsAIUpscale() {
     const { data: rows } = await supabase.from('payment_config').select('value').eq('key', 'points_ai_upscale');
     const v = (rows && rows[0]) ? rows[0].value : null;
-    return Math.max(0, parseInt(v, 10) || 10);
+    return Math.max(0, parseInt(v, 10) || 1);
+}
+
+function parseUpscaleScaleFromRequest(req) {
+    const body = req.body || {};
+    const raw = body.scale != null ? body.scale : body.upscale_scale;
+    return normalizeUpscaleScale(raw);
 }
 
 async function getPointsSceneSimulate() {
@@ -11022,7 +11042,7 @@ async function getPointsPatternExtract() {
     return Math.max(0, parseInt(v, 10) || 20);
 }
 
-// POST /api/upscale-image — 上傳圖片，Stability Fast 4x 放大；管理員不扣點，一般用戶成功後扣 points_ai_upscale
+// POST /api/upscale-image — Real-ESRGAN 放大（預設 2×；可 4/6/8/10）；管理員不扣點
 app.post('/api/upscale-image', upload.single('image'), async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -11048,19 +11068,23 @@ app.post('/api/upscale-image', upload.single('image'), async (req, res) => {
         if (!file || !file.buffer) {
             return res.status(400).json({ success: false, error: '請上傳一張圖片' });
         }
-        const STABILITY_API_KEY = getStabilityApiKey();
-        if (!STABILITY_API_KEY) {
-            return res.status(503).json({ success: false, error: '伺服器未設定 STABILITY_API_KEY，無法使用放大功能' });
+        const scale = parseUpscaleScaleFromRequest(req);
+        const REPLICATE_API_TOKEN = getReplicateApiToken();
+        if (!REPLICATE_API_TOKEN) {
+            return res.status(503).json({ success: false, error: '伺服器未設定 REPLICATE_API_TOKEN，無法使用放大功能' });
         }
         let upscaled;
         try {
-            upscaled = await stabilityFastUpscale(file.buffer, file.mimetype, STABILITY_API_KEY, { maxOutputMp: 4 });
+            upscaled = await stabilityFastUpscale(file.buffer, file.mimetype, REPLICATE_API_TOKEN, {
+                scale: scale,
+                maxOutputMp: AI_EDIT_MAX_OUTPUT_MP
+            });
         } catch (upErr) {
-            console.error('Stability upscale error:', upErr.status, upErr.details || upErr.message);
+            console.error('Replicate upscale error:', upErr.status, upErr.details || upErr.message);
             return res.status(502).json({
                 success: false,
                 error: '放大服務暫時無法使用，請稍後再試',
-                details: upErr.status === 401 ? 'API Key 無效' : (upErr.details || upErr.message || '').slice(0, 200)
+                details: upErr.status === 401 ? 'API Token 無效' : (upErr.details || upErr.message || '').slice(0, 200)
             });
         }
         const imageBase64 = upscaled.buffer.toString('base64');
@@ -11068,7 +11092,8 @@ app.post('/api/upscale-image', upload.single('image'), async (req, res) => {
             return res.status(502).json({ success: false, error: '無法取得放大結果' });
         }
         if (!isAdmin && currentUser) {
-            let pointsToDeduct = await getPointsAIUpscale();
+            const basePts = await getPointsAIUpscale();
+            let pointsToDeduct = pointsForUpscaleScale(basePts, scale);
             if (pointsToDeduct > 0) {
                 pointsToDeduct = await applyAiEditDiscountForSubscriber(currentUser.id, pointsToDeduct);
                 const { data: credRow } = await supabase.from('user_credits').select('balance, total_spent').eq('user_id', currentUser.id).maybeSingle();
@@ -11090,14 +11115,17 @@ app.post('/api/upscale-image', upload.single('image'), async (req, res) => {
                     amount: -pointsToDeduct,
                     balance_after: balanceAfter,
                     source: 'ai_upscale',
-                    description: 'AI 圖片放大',
-                    metadata: {}
+                    description: 'AI 圖片放大 ' + scale + '×',
+                    metadata: { scale: scale }
                 });
             }
         }
         res.json({
             success: true,
-            imageData: 'data:image/png;base64,' + imageBase64
+            imageData: 'data:image/png;base64,' + imageBase64,
+            scale: scale,
+            output_width: upscaled.width,
+            output_height: upscaled.height
         });
     } catch (e) {
         console.error('POST /api/upscale-image 異常:', e);
@@ -19279,12 +19307,16 @@ app.get('/api/me/vendor-assets/upload-pricing', async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
         if (!manufacturerId) return;
+        const pointsUpscaleBase = await getPointsVendorAssetUpscale();
         res.json({
             points_upload: await getPointsVendorAssetUpload(),
             points_optimize: await getPointsVendorAssetOptimize(),
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
-            points_upscale: await getPointsVendorAssetUpscale(),
+            points_upscale: pointsUpscaleBase,
+            upscale_scales: UPSCALE_SCALE_OPTIONS,
+            upscale_default_scale: DEFAULT_UPSCALE_SCALE,
+            upscale_points_by_scale: buildUpscalePointsByScale(pointsUpscaleBase),
             points_design_to_physical: await getPointsDesignToPhysicalVendor(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
@@ -19415,7 +19447,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
     }
 });
 
-// POST /api/me/vendor-assets/preview-image-upscale — 上傳前原圖 Fast 4× 放大預覽（輸出 ≤1MP，扣點一次）
+// POST /api/me/vendor-assets/preview-image-upscale — 上傳前原圖 Real-ESRGAN 放大預覽（輸出 ≤1MP）
 app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), async (req, res) => {
     try {
         const uploadUser = await assertCanUploadProductsAndAssets(req, res);
@@ -19445,11 +19477,13 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
                 ai_edit_url: AI_EDIT_UPSCALE_PAGE
             });
         }
-        const STABILITY_API_KEY = getStabilityApiKey();
-        if (!STABILITY_API_KEY) {
-            return res.status(503).json({ error: '伺服器未設定 STABILITY_API_KEY' });
+        const REPLICATE_API_TOKEN = getReplicateApiToken();
+        if (!REPLICATE_API_TOKEN) {
+            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
         }
-        const pointsRequired = await getPointsVendorAssetUpscale();
+        const scale = parseUpscaleScaleFromRequest(req);
+        const basePts = await getPointsVendorAssetUpscale();
+        const pointsRequired = pointsForUpscaleScale(basePts, scale);
         let ownerId = seedUser.id;
         let isAdmin = false;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
@@ -19464,12 +19498,12 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
         if (!file) return res.status(400).json({ error: '請上傳圖片' });
         let upscaled;
         try {
-            upscaled = await vendorMaterialUpscale(file.buffer, file.mimetype, STABILITY_API_KEY);
+            upscaled = await vendorMaterialUpscale(file.buffer, file.mimetype, REPLICATE_API_TOKEN, { scale: scale });
         } catch (upErr) {
             console.error('preview-image-upscale:', upErr.status, upErr.details || upErr.message);
             return res.status(502).json({
                 error: '放大服務暫時無法使用，請稍後再試',
-                details: upErr.status === 401 ? 'API Key 無效' : (upErr.details || upErr.message || '').slice(0, 200)
+                details: upErr.status === 401 ? 'API Token 無效' : (upErr.details || upErr.message || '').slice(0, 200)
             });
         }
         const previewName = `upscale-preview-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
@@ -19485,8 +19519,8 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
                 ownerId,
                 pointsRequired,
                 'vendor_asset_upscale',
-                `上傳前 AI 放大預覽（${pointsRequired} 點）`,
-                { manufacturer_id: manufacturerId, preview: true, max_output_mp: 1 }
+                `上傳前 AI 放大預覽 ${scale}×（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, preview: true, max_output_mp: 1, scale: scale }
             );
             if (!consumed.ok) {
                 return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
@@ -19499,6 +19533,7 @@ app.post('/api/me/vendor-assets/preview-image-upscale', upload.single('image'), 
             preview_base64: upscaled.buffer.toString('base64'),
             output_width: upscaled.width,
             output_height: upscaled.height,
+            scale: scale,
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             credit_transaction_id: creditTransactionId
@@ -20611,7 +20646,7 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
     }
 });
 
-// POST /api/me/vendor-assets/:id/gallery-images/upscale — 單張原圖 Fast 4× 放大並追加新圖（輸出 ≤1MP）
+// POST /api/me/vendor-assets/:id/gallery-images/upscale — 單張原圖 Real-ESRGAN 放大並追加新圖（輸出 ≤1MP）
 app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), async (req, res) => {
     try {
         const manufacturerId = await getMeManufacturerId(req, res);
@@ -20623,10 +20658,11 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         const body = req.body || {};
         const sourceUrl = String(body.source_url || '').trim();
         if (!sourceUrl) return res.status(400).json({ error: '請提供 source_url' });
-        const STABILITY_API_KEY = getStabilityApiKey();
-        if (!STABILITY_API_KEY) {
-            return res.status(503).json({ error: '伺服器未設定 STABILITY_API_KEY' });
+        const REPLICATE_API_TOKEN = getReplicateApiToken();
+        if (!REPLICATE_API_TOKEN) {
+            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
         }
+        const scale = parseUpscaleScaleFromRequest(req);
         const { data: row, error: rowErr } = await fetchVendorAssetOwnedByManufacturer(
             id, manufacturerId, 'id, image_url, gallery_images, asset_kind, title, cover_image_label'
         );
@@ -20652,7 +20688,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         const sourceItems = buildVendorAssetImageItems(row);
         const srcItem = sourceItems.find(function (it) { return it.url === sourceUrl; });
         const srcLabel = (srcItem && srcItem.label) || '';
-        const pointsRequired = await getPointsVendorAssetUpscale();
+        const basePts = await getPointsVendorAssetUpscale();
+        const pointsRequired = pointsForUpscaleScale(basePts, scale);
         let ownerId = seedUser.id;
         let isAdmin = false;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
@@ -20680,12 +20717,12 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
         }
         let upscaled;
         try {
-            upscaled = await vendorMaterialUpscale(imgBuf, imgMime, STABILITY_API_KEY);
+            upscaled = await vendorMaterialUpscale(imgBuf, imgMime, REPLICATE_API_TOKEN, { scale: scale });
         } catch (upErr) {
             console.error('gallery-images/upscale:', upErr.status, upErr.details || upErr.message);
             return res.status(502).json({
                 error: '放大服務暫時無法使用，請稍後再試',
-                details: upErr.status === 401 ? 'API Key 無效' : (upErr.details || upErr.message || '').slice(0, 200)
+                details: upErr.status === 401 ? 'API Token 無效' : (upErr.details || upErr.message || '').slice(0, 200)
             });
         }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
@@ -20722,8 +20759,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
                 ownerId,
                 pointsRequired,
                 'vendor_asset_upscale',
-                `單張多角度圖 AI 放大（${pointsRequired} 點）`,
-                { manufacturer_id: manufacturerId, asset_id: id, source_url: sourceUrl }
+                `單張多角度圖 AI 放大 ${scale}×（${pointsRequired} 點）`,
+                { manufacturer_id: manufacturerId, asset_id: id, source_url: sourceUrl, scale: scale }
             );
             if (!consumed.ok) {
                 return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
@@ -20734,7 +20771,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/upscale', express.json(), asy
             ...(await mapVendorAssetForApiEnriched(updated)),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
-            upscale_from_url: sourceUrl
+            upscale_from_url: sourceUrl,
+            scale: scale
         });
     } catch (e) {
         console.error('POST /api/me/vendor-assets/:id/gallery-images/upscale:', e);
@@ -23435,12 +23473,16 @@ app.delete('/api/me/industry-supplier/catalog-groups/:id', async (req, res) => {
 // GET /api/me/industry-supplier/catalog-items/upload-pricing — 與廠商素材庫相同扣點
 app.get('/api/me/industry-supplier/catalog-items/upload-pricing', async (req, res) => {
     try {
+        const pointsUpscaleBase = await getPointsVendorAssetUpscale();
         res.json({
             points_upload: await getPointsVendorAssetUpload(),
             points_optimize: await getPointsVendorAssetOptimize(),
             points_optimize_material: await getPointsVendorAssetMaterialOptimize(),
             points_optimize_extra: await getPointsVendorAssetOptimizeExtraPer(),
-            points_upscale: await getPointsVendorAssetUpscale(),
+            points_upscale: pointsUpscaleBase,
+            upscale_scales: UPSCALE_SCALE_OPTIONS,
+            upscale_default_scale: DEFAULT_UPSCALE_SCALE,
+            upscale_points_by_scale: buildUpscalePointsByScale(pointsUpscaleBase),
             points_design_to_physical: await getPointsDesignToPhysicalVendor(),
             points_description: await getPointsVendorAssetDescription(),
             points_regenerate_tags: await getPointsVendorAssetRegenerateTags(),
@@ -23590,11 +23632,13 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-upscale', upload
                 ai_edit_url: AI_EDIT_UPSCALE_PAGE
             });
         }
-        const STABILITY_API_KEY = getStabilityApiKey();
-        if (!STABILITY_API_KEY) {
-            return res.status(503).json({ error: '伺服器未設定 STABILITY_API_KEY' });
+        const REPLICATE_API_TOKEN = getReplicateApiToken();
+        if (!REPLICATE_API_TOKEN) {
+            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
         }
-        const pointsRequired = await getPointsVendorAssetUpscale();
+        const scale = parseUpscaleScaleFromRequest(req);
+        const basePts = await getPointsVendorAssetUpscale();
+        const pointsRequired = pointsForUpscaleScale(basePts, scale);
         let ownerId = seedUser.id;
         let isAdmin = false;
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', ownerId).maybeSingle();
@@ -23609,12 +23653,12 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-upscale', upload
         if (!file) return res.status(400).json({ error: '請上傳圖片' });
         let upscaled;
         try {
-            upscaled = await vendorMaterialUpscale(file.buffer, file.mimetype, STABILITY_API_KEY);
+            upscaled = await vendorMaterialUpscale(file.buffer, file.mimetype, REPLICATE_API_TOKEN, { scale: scale });
         } catch (upErr) {
             console.error('supplier preview-image-upscale:', upErr.status, upErr.details || upErr.message);
             return res.status(502).json({
                 error: '放大服務暫時無法使用，請稍後再試',
-                details: upErr.status === 401 ? 'API Key 無效' : (upErr.details || upErr.message || '').slice(0, 200)
+                details: upErr.status === 401 ? 'API Token 無效' : (upErr.details || upErr.message || '').slice(0, 200)
             });
         }
         const previewName = `upscale-preview-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.jpg`;
@@ -23630,8 +23674,8 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-upscale', upload
                 ownerId,
                 pointsRequired,
                 'vendor_asset_upscale',
-                `供應商上架前 AI 放大預覽（${pointsRequired} 點）`,
-                { industry_supplier_id: ctx.supplier.id, preview: true, max_output_mp: 1 }
+                `供應商上架前 AI 放大預覽 ${scale}×（${pointsRequired} 點）`,
+                { industry_supplier_id: ctx.supplier.id, preview: true, max_output_mp: 1, scale: scale }
             );
             if (!consumed.ok) {
                 return res.status(402).json({ error: '點數不足', balance: consumed.balance, required: pointsRequired });
@@ -23644,6 +23688,7 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-upscale', upload
             preview_base64: upscaled.buffer.toString('base64'),
             output_width: upscaled.width,
             output_height: upscaled.height,
+            scale: scale,
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
             credit_transaction_id: creditTransactionId
@@ -24411,14 +24456,16 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images/upscale', e
         if (room <= 0) {
             return res.status(400).json({ error: '已達多角度圖上限（封面＋' + PROTOTYPE_GALLERY_MAX_EXTRA + ' 張）' });
         }
-        const STABILITY_API_KEY = getStabilityApiKey();
-        if (!STABILITY_API_KEY) {
-            return res.status(503).json({ error: '伺服器未設定 STABILITY_API_KEY' });
+        const REPLICATE_API_TOKEN = getReplicateApiToken();
+        if (!REPLICATE_API_TOKEN) {
+            return res.status(503).json({ error: '伺服器未設定 REPLICATE_API_TOKEN' });
         }
+        const scale = parseUpscaleScaleFromRequest(req);
         const sourceItems = buildSupplierCatalogImageItems(row);
         const srcItem = sourceItems.find((it) => it.url === sourceUrl);
         const srcLabel = (srcItem && srcItem.label) || '';
-        const pointsRequired = await getPointsVendorAssetUpscale();
+        const basePts = await getPointsVendorAssetUpscale();
+        const pointsRequired = pointsForUpscaleScale(basePts, scale);
         const ownerId = uploadUser.id || (await getAuthOwnerIdFromReq(req));
         const isAdmin = await isProfileAdminUser(ownerId);
         if (!isAdmin && ownerId && pointsRequired > 0) {
@@ -24444,12 +24491,12 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images/upscale', e
         }
         let upscaled;
         try {
-            upscaled = await vendorMaterialUpscale(imgBuf, imgMime, STABILITY_API_KEY);
+            upscaled = await vendorMaterialUpscale(imgBuf, imgMime, REPLICATE_API_TOKEN, { scale: scale });
         } catch (upErr) {
             console.error('supplier gallery-images/upscale:', upErr.status, upErr.details || upErr.message);
             return res.status(502).json({
                 error: '放大服務暫時無法使用，請稍後再試',
-                details: upErr.status === 401 ? 'API Key 無效' : (upErr.details || upErr.message || '').slice(0, 200)
+                details: upErr.status === 401 ? 'API Token 無效' : (upErr.details || upErr.message || '').slice(0, 200)
             });
         }
         const startSort = existing.length ? Math.max.apply(null, existing.map(function (g) { return g.sort_order; })) + 1 : 1;
@@ -24489,8 +24536,8 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images/upscale', e
                 ownerId,
                 pointsRequired,
                 'vendor_asset_upscale',
-                `供應商品項多角度圖 AI 放大（${pointsRequired} 點）`,
-                { industry_supplier_id: ctx.supplier.id, catalog_item_id: itemId, source_url: sourceUrl }
+                `供應商品項多角度圖 AI 放大 ${scale}×（${pointsRequired} 點）`,
+                { industry_supplier_id: ctx.supplier.id, catalog_item_id: itemId, source_url: sourceUrl, scale: scale }
             );
             if (consumed.ok) balanceAfter = consumed.balance_after;
         }
@@ -24499,7 +24546,8 @@ app.post('/api/me/industry-supplier/catalog-items/:id/gallery-images/upscale', e
             item: mapSupplierCatalogItemForApi(updated),
             points_deducted: (!isAdmin && pointsRequired > 0) ? pointsRequired : 0,
             balance_after: balanceAfter,
-            upscale_from_url: sourceUrl
+            upscale_from_url: sourceUrl,
+            scale: scale
         });
     } catch (e) {
         console.error('POST /api/me/industry-supplier/catalog-items/:id/gallery-images/upscale:', e);

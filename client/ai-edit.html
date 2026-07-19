@@ -714,9 +714,17 @@
                                 </div>
                             </div>
                             <div class="mt-3">
+                                <label class="form-label small mb-1" for="upscaleScaleSelect">放大倍數</label>
+                                <select id="upscaleScaleSelect" class="form-select form-select-sm mb-2">
+                                    <option value="2" selected>2×（1 點）</option>
+                                    <option value="4">4×（2 點）</option>
+                                    <option value="6">6×（3 點）</option>
+                                    <option value="8">8×（4 點）</option>
+                                    <option value="10">10×（5 點）</option>
+                                </select>
                                 <button type="button" class="btn btn-primary w-100 btn-upscale" id="btnUpscale" disabled><i class="bi bi-zoom-in me-2" id="btnIcon"></i><span id="btnText">開始放大</span></button>
-                                <p class="form-text text-muted small mb-1">Stability Fast：固定 <strong>4×</strong> 放大，輸出總解析度上限約 <strong>4MP</strong>（例如 2048×2048 以內）。</p>
-                                <p class="points-badge mb-0"><i class="bi bi-currency-exchange"></i> 每次 10 點 · <a href="/credits.html">查看餘額</a></p>
+                                <p class="form-text text-muted small mb-1">Real-ESRGAN：預設 <strong>2×</strong>，可選 4／6／8／10×；輸出總解析度上限約 <strong>16MP</strong>。每升一階多 1 點。</p>
+                                <p class="points-badge mb-0" id="upscalePointsBadge"><i class="bi bi-currency-exchange"></i> 目前 <strong id="upscalePointsNum">1</strong> 點 · <a href="/credits.html">查看餘額</a></p>
                             </div>
                         </div>
                     </div>
@@ -724,7 +732,7 @@
                         <div id="displayPlaceholder" class="empty-state" style="display:none;">
                             <div class="empty-icon"><i class="bi bi-image"></i></div>
                             <p class="empty-title">預覽與結果會顯示在這裡</p>
-                            <p class="empty-steps"><span>1. 在左側選擇「放大」</span><span>2. 上傳一張圖片</span><span>3. 點「開始放大」（4×，輸出 ≤4MP）</span></p>
+                            <p class="empty-steps"><span>1. 在左側選擇「放大」</span><span>2. 上傳一張圖片</span><span>3. 選倍數後點「開始放大」</span></p>
                         </div>
                         <div id="displayArea" class="display-area" style="display:none;">
                             <p class="display-label" id="displayLabel">原圖預覽</p>
@@ -862,6 +870,8 @@
 
         var form = new FormData();
         form.append('image', selectedFile);
+        var scaleSel = document.getElementById('upscaleScaleSelect');
+        form.append('scale', scaleSel ? scaleSel.value : '2');
 
         try {
             var res = await fetch('/api/upscale-image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: form });
@@ -894,6 +904,18 @@
         }
         setButtonLoading(false);
     });
+
+    (function bindUpscaleScalePoints() {
+        var sel = document.getElementById('upscaleScaleSelect');
+        var num = document.getElementById('upscalePointsNum');
+        if (!sel || !num) return;
+        function sync() {
+            var s = parseInt(sel.value, 10) || 2;
+            num.textContent = String(1 + (s / 2 - 1));
+        }
+        sel.addEventListener('change', sync);
+        sync();
+    })();
 
     btnAgain.addEventListener('click', function() {
         if (currentTool === 'sketch') {

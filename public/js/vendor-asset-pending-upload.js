@@ -9,7 +9,7 @@
   function tr(k, fb) { return (CFG.tr ? CFG.tr(k, fb) : (fb || k)); }
   function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function normalizeKind(k) { if (k === 'material') return 'material'; if (k === 'part') return 'part'; return 'prototype'; }
-  var uploadPricing = CFG.uploadPricing || { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_upscale: 5 };
+  var uploadPricing = CFG.uploadPricing || { points_upload: 5, points_optimize: 15, points_optimize_material: 10, points_optimize_extra: 5, points_upscale: 1 };
   function optimizePointsForKind(kind) {
     return normalizeKind(kind) === 'material'
       ? (uploadPricing.points_optimize_material != null ? uploadPricing.points_optimize_material : 10)
@@ -351,8 +351,22 @@
             return pendingDerivedThumbsHtml(item);
         }
 
-        function vendorAssetUpscalePoints() {
-            return uploadPricing.points_upscale != null ? uploadPricing.points_upscale : 5;
+        function vendorAssetUpscalePoints(scale) {
+            var U = global.MatchdoUpscaleScale;
+            var base = uploadPricing.points_upscale != null ? uploadPricing.points_upscale : 1;
+            if (U) return U.pointsForScale(base, scale, uploadPricing.upscale_points_by_scale);
+            var s = parseInt(scale, 10) || 2;
+            return base + (s / 2 - 1);
+        }
+        function upscaleScaleSelectHtml(extraClass) {
+            var U = global.MatchdoUpscaleScale;
+            if (U) return U.selectHtml(extraClass || 'matchdo-upscale-scale', uploadPricing);
+            return '<select class="form-select form-select-sm ' + (extraClass || 'matchdo-upscale-scale') + '" style="width:auto;max-width:8rem;display:inline-block"><option value="2" selected>2×</option><option value="4">4×</option><option value="6">6×</option><option value="8">8×</option><option value="10">10×</option></select>';
+        }
+        function readUpscaleScaleFromEl(el) {
+            var U = global.MatchdoUpscaleScale;
+            if (U) return U.readScaleNear(el);
+            return 2;
         }
 
         var ONE_MP_PX = 1024 * 1024;
@@ -876,7 +890,7 @@
             }
         }
 
-        async function previewPendingUpscale(form, item, idx) {
+        async function previewPendingUpscale(form, item, idx, scaleOpt) {
             if (item.imageBusy) return;
             var kind = form.getAttribute('data-kind') || 'prototype';
             if (!vendorUpscaleEnabledForKind(kind)) return;
@@ -884,8 +898,9 @@
                 showToast((item.upscaleHint || '已 ≥0.5 MP') + ' · 請至「我的 AI 編輯區」放大', 'warning');
                 return;
             }
-            var pts = vendorAssetUpscalePoints();
-            if (!window.confirm('AI 放大並追加新圖？（-' + pts + ' 點，圖片須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
+            var scale = (global.MatchdoUpscaleScale && global.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
+            var pts = vendorAssetUpscalePoints(scale);
+            if (!window.confirm('AI 放大並追加新圖？（' + scale + '×，-' + pts + ' 點，圖片須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
             item.imageBusy = true;
             renderPendingImages(form);
             try {
@@ -894,6 +909,7 @@
                 var fd = new FormData();
                 fd.append('image', item.file);
                 fd.append('asset_kind', kind);
+                fd.append('scale', String(scale));
                 var r = await fetch(PREVIEW_UPSCALE_URL, {
                     method: 'POST',
                     headers: { Authorization: 'Bearer ' + tok },
@@ -986,7 +1002,8 @@
                         ? '<img src="' + esc(url) + '"' + (objectUrl ? ' data-object-url="' + esc(objectUrl) + '"' : '') + ' class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">'
                         : '<div class="text-muted small text-center py-4">無預覽</div>');
                 var upscaleBtnHtml = upscaleOn
-                    ? ('<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
+                    ? (upscaleScaleSelectHtml('pending-upscale-scale matchdo-upscale-scale') +
+                        '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
                         pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
                         (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-upscale">清除 AI 放大新圖</button>' : ''))
                     : '';
@@ -1009,7 +1026,7 @@
                 var upscaleBtn = card.querySelector('.pending-upscale-btn');
                 if (upscaleBtn) {
                     upscaleBtn.addEventListener('click', function () {
-                        previewPendingUpscale(form, item, idx);
+                        previewPendingUpscale(form, item, idx, readUpscaleScaleFromEl(upscaleBtn));
                     });
                 }
                 wirePendingUploadCheckboxes(card, item, 'pending');
