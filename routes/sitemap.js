@@ -3,6 +3,21 @@
 /**
  * Sitemap 與 robots.txt（由 server.js 掛載，須在 express.static 之前）
  */
+function resolveSitemapBase(BASE_URL) {
+    const strip = (u) => String(u || '').trim().replace(/\/$/, '');
+    const publicSite = strip(process.env.PUBLIC_SITE_URL);
+    if (publicSite) return publicSite;
+    const base = strip(BASE_URL);
+    if (base) {
+        try {
+            const host = new URL(base).hostname || '';
+            if (/\.run\.app$/i.test(host)) return 'https://matchdo.cc';
+        } catch (_) { /* ignore */ }
+        return base;
+    }
+    return 'https://matchdo.cc';
+}
+
 function registerSitemapRoutes(app, deps) {
     const { supabase, BASE_URL } = deps;
 
@@ -35,9 +50,12 @@ function registerSitemapRoutes(app, deps) {
     function escapeXml(s) {
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
     }
+    function siteBase() {
+        return resolveSitemapBase(BASE_URL);
+    }
     // Sitemap 索引：pages / categories / vendors / collections / inspiration（2026-05-26 起不列入 products，見 docs/SEO-PROGRESS.md）
     app.get('/sitemap.xml', (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const now = new Date().toISOString().slice(0, 10);
         const entries = [
             '<sitemap><loc>' + escapeXml(base + '/sitemap-pages.xml') + '</loc><lastmod>' + now + '</lastmod></sitemap>',
@@ -54,7 +72,7 @@ function registerSitemapRoutes(app, deps) {
     });
     // 靜態／半靜態公開頁（固定清單）
     app.get('/sitemap-pages.xml', (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const lastmod = new Date().toISOString().slice(0, 10);
         const urls = SITEMAP_PAGES.map(p => {
             const loc = p.path === '/' ? base + '/' : base + p.path;
@@ -67,7 +85,7 @@ function registerSitemapRoutes(app, deps) {
     });
     // 動態：首頁「分類」篩選 URL（ai_categories 主分類，/?category_key=xxx），與 layout_type／lang 可疊加
     app.get('/sitemap-categories.xml', async (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const lastmod = new Date().toISOString().slice(0, 10);
         const urls = [];
         try {
@@ -90,7 +108,7 @@ function registerSitemapRoutes(app, deps) {
     });
     // 動態：廠商／製作方列表與詳情頁（由 DB 查詢，每次請求即時更新，新會員/作品上線即被收錄）
     app.get('/sitemap-vendors.xml', async (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const today = new Date().toISOString().slice(0, 10);
         const urls = [];
         urls.push('  <url><loc>' + escapeXml(base + '/vendors.html') + '</loc><lastmod>' + today + '</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>');
@@ -115,7 +133,7 @@ function registerSitemapRoutes(app, deps) {
 
     // Legacy：已自 /sitemap.xml 索引移除；若直接請求則輸出與 inspiration 相同條件的 /inspiration/user_design/*（不用 visibility）
     app.get('/sitemap-products.xml', async (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const today = new Date().toISOString().slice(0, 10);
         const urls = [];
         try {
@@ -141,7 +159,7 @@ function registerSitemapRoutes(app, deps) {
 
     // 動態：作品資料夾系列頁（media_collections，is_active=true，以 slug 為 URL 參數）
     app.get('/sitemap-collections.xml', async (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const today = new Date().toISOString().slice(0, 10);
         const urls = [];
         try {
@@ -166,7 +184,7 @@ function registerSitemapRoutes(app, deps) {
     // 動態：靈感牆單一作品獨立 URL（/inspiration/:type/:id），收錄近期作品供搜尋引擎索引
     const SITEMAP_INSPIRATION_LIMIT = 150; // 單一 sitemap 建議不超過 5000，此處保守取 150
     app.get('/sitemap-inspiration.xml', async (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const today = new Date().toISOString().slice(0, 10);
         const urls = [];
         try {
@@ -215,7 +233,7 @@ function registerSitemapRoutes(app, deps) {
 
     // GET /robots.txt — 告知搜尋引擎 Sitemap 位置並限制爬取範圍（SEO）
     app.get('/robots.txt', (req, res) => {
-        const base = (BASE_URL || '').replace(/\/$/, '');
+        const base = siteBase();
         const body = 'User-agent: *\nDisallow: /admin/\nDisallow: /api/\nDisallow: /payment/\nAllow: /\n\nSitemap: ' + base + '/sitemap.xml\n';
         res.set('Content-Type', 'text/plain; charset=utf-8');
         res.set('Cache-Control', 'public, max-age=86400');

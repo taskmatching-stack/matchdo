@@ -3807,7 +3807,30 @@ async function translatePromptAndNegativeToEnglish(prompt, negativePrompt) {
 let ecpayConfig;
 try { ecpayConfig = require('./config/ecpay-config.js'); } catch (_) { ecpayConfig = null; }
 
-const BASE_URL = process.env.BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:' + (process.env.PORT || 3000));
+/**
+ * 對外公開網址（SEO sitemap／robots、付款回調等）。
+ * Cloud Run 常誤設 BASE_URL=*.run.app → 強制改用正式網域，避免 Google 收錄錯主機。
+ */
+function resolvePublicBaseUrl() {
+    const strip = (u) => String(u || '').trim().replace(/\/$/, '');
+    const publicSite = strip(process.env.PUBLIC_SITE_URL);
+    if (publicSite) return publicSite;
+
+    const raw = strip(process.env.BASE_URL);
+    if (raw) {
+        try {
+            const host = new URL(raw).hostname || '';
+            if (/\.run\.app$/i.test(host)) return 'https://matchdo.cc';
+        } catch (_) { /* ignore */ }
+        return raw;
+    }
+    if (process.env.VERCEL_URL) return strip(`https://${process.env.VERCEL_URL}`);
+    // Cloud Run 未設 BASE_URL
+    if (process.env.K_SERVICE || process.env.CLOUD_RUN_SERVICE) return 'https://matchdo.cc';
+    return 'http://localhost:' + (process.env.PORT || 3000);
+}
+
+const BASE_URL = resolvePublicBaseUrl();
 const ECPAY_TEST_STAGE = 'https://vendor-stage.ecpay.com.tw';
 const PAYPAL_DEV_DOC = 'https://developer.paypal.com';
 
