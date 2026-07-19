@@ -723,8 +723,9 @@
                                     <option value="10">10×（5 點）</option>
                                 </select>
                                 <button type="button" class="btn btn-primary w-100 btn-upscale" id="btnUpscale" disabled><i class="bi bi-zoom-in me-2" id="btnIcon"></i><span id="btnText">開始放大</span></button>
-                                <p class="form-text text-muted small mb-1">Real-ESRGAN：預設 <strong>2×</strong>，可選 4／6／8／10×；輸出總解析度上限約 <strong>16MP</strong>。每升一階多 1 點。</p>
+                                <p class="form-text text-muted small mb-1">Real-ESRGAN：預設 <strong>2×</strong>，可選 4／6／8／10×；輸入建議最長邊 ≤<strong>1440px</strong>（約 1440p，超過會提示）；輸出上限約 <strong>16MP</strong>。每升一階多 1 點。</p>
                                 <p class="points-badge mb-0" id="upscalePointsBadge"><i class="bi bi-currency-exchange"></i> 目前 <strong id="upscalePointsNum">1</strong> 點 · <a href="/credits.html">查看餘額</a></p>
+                                <p id="upscaleInputLimitWarn" class="alert alert-warning py-2 small mt-2 mb-0" style="display:none;" role="alert"></p>
                             </div>
                         </div>
                     </div>
@@ -760,6 +761,7 @@
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
+    <script src="/js/matchdo-upscale-scale.js"></script>
     <script src="/js/site-header.js"></script>
     <script>
 (function () {
@@ -844,6 +846,8 @@
         if (fileInput.files && fileInput.files[0]) setFile(fileInput.files[0]);
     });
 
+    var selectedUpscaleDims = { width: 0, height: 0 };
+
     function setFile(file) {
         if (!file || !file.type.startsWith('image/')) return;
         selectedFile = file;
@@ -857,10 +861,28 @@
         displayImg.src = URL.createObjectURL(file);
         showRight('preview');
         displayActions.style.display = 'none';
+        selectedUpscaleDims = { width: 0, height: 0 };
+        var warnEl = document.getElementById('upscaleInputLimitWarn');
+        if (warnEl) { warnEl.style.display = 'none'; warnEl.textContent = ''; }
+        var probeImg = new Image();
+        probeImg.onload = function () {
+            selectedUpscaleDims = { width: probeImg.naturalWidth || 0, height: probeImg.naturalHeight || 0 };
+            var msg = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.inputLimitMessage)
+                ? window.MatchdoUpscaleScale.inputLimitMessage(selectedUpscaleDims.width, selectedUpscaleDims.height)
+                : '';
+            if (warnEl && msg) {
+                warnEl.textContent = msg;
+                warnEl.style.display = '';
+            }
+        };
+        probeImg.src = previewImg.src;
     }
 
     btnUpscale.addEventListener('click', async function() {
         if (!selectedFile) return;
+        if (window.MatchdoUpscaleScale && !window.MatchdoUpscaleScale.confirmIfOverInputLimit(selectedUpscaleDims.width, selectedUpscaleDims.height)) {
+            return;
+        }
         var session = await AuthService.getSession();
         var token = session && session.access_token;
         if (!token) { showError(t('aiEdit.errorLogin')); return; }

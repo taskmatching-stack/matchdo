@@ -925,7 +925,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'upscale-replicate-real-esrgan-20260719';
+        window.__MATCHDO_MATERIALS_BUILD = 'upscale-scale-row-1440p-warn-20260719';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1380,6 +1380,14 @@
             }
             var scale = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
             var pts = vendorAssetUpscalePoints(scale);
+            var dimW = item.upscaleWidth || 0;
+            var dimH = item.upscaleHeight || 0;
+            if ((!dimW || !dimH) && item.file) {
+                var dimLocal = await probeImageDimensionsFromFile(item.file);
+                dimW = dimLocal.width;
+                dimH = dimLocal.height;
+            }
+            if (!confirmUpscaleInputLimit(dimW, dimH)) return;
             if (!window.confirm('AI 放大預覽？（' + scale + '×，-' + pts + ' 點；按「儲存」才寫入；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
             item.imageBusy = true;
             refreshCurrentEditGallery();
@@ -2759,7 +2767,20 @@
         function upscaleScaleSelectHtml(extraClass) {
             var U = window.MatchdoUpscaleScale;
             if (U) return U.selectHtml(extraClass || 'matchdo-upscale-scale', uploadPricing);
-            return '<select class="form-select form-select-sm ' + (extraClass || 'matchdo-upscale-scale') + '" style="width:auto;max-width:8rem;display:inline-block"><option value="2" selected>2×</option><option value="4">4×</option><option value="6">6×</option><option value="8">8×</option><option value="10">10×</option></select>';
+            return '<select class="form-select form-select-sm ' + (extraClass || 'matchdo-upscale-scale') + '" style="width:auto;max-width:8rem;flex:0 0 auto"><option value="2" selected>2×</option><option value="4">4×</option><option value="6">6×</option><option value="8">8×</option><option value="10">10×</option></select>';
+        }
+
+        function upscaleControlsRowHtml(selectClass, buttonAndAfterHtml) {
+            var U = window.MatchdoUpscaleScale;
+            if (U) return U.controlsRowHtml(selectClass, buttonAndAfterHtml);
+            return '<div class="d-flex align-items-center gap-1 flex-wrap w-100 mt-1 pending-upscale-controls" style="flex-basis:100%;">' +
+                upscaleScaleSelectHtml(selectClass) + (buttonAndAfterHtml || '') + '</div>';
+        }
+
+        function confirmUpscaleInputLimit(width, height) {
+            var U = window.MatchdoUpscaleScale;
+            if (U) return U.confirmIfOverInputLimit(width, height);
+            return true;
         }
 
         function readUpscaleScaleFromEl(el) {
@@ -2862,6 +2883,8 @@
             item.upscaleMegapixels = ev.megapixels;
             item.upscaleHint = ev.hint;
             item.upscaleShowAiEditHelp = !!ev.showAiEditHelp;
+            item.upscaleWidth = width | 0;
+            item.upscaleHeight = height | 0;
         }
 
         function pendingUpscaleBtnDisabled(item) {
@@ -2889,7 +2912,10 @@
         function probeGalleryUrlForUpscale(url) {
             if (!url) return Promise.resolve();
             return probeImageDimensionsFromUrl(url).then(function (dim) {
-                galleryUpscaleProbe[url] = evaluatePendingUpscaleNeed(dim.width, dim.height);
+                var ev = evaluatePendingUpscaleNeed(dim.width, dim.height);
+                ev.width = dim.width | 0;
+                ev.height = dim.height | 0;
+                galleryUpscaleProbe[url] = ev;
                 syncGalleryUpscaleButtons();
             });
         }
@@ -3565,6 +3591,14 @@
             }
             var scale = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
             var pts = vendorAssetUpscalePoints(scale);
+            var dimW = item.upscaleWidth || 0;
+            var dimH = item.upscaleHeight || 0;
+            if ((!dimW || !dimH) && item.file) {
+                var dimPend = await probeImageDimensionsFromFile(item.file);
+                dimW = dimPend.width;
+                dimH = dimPend.height;
+            }
+            if (!confirmUpscaleInputLimit(dimW, dimH)) return;
             if (!window.confirm('AI 放大並追加新圖？（' + scale + '×，-' + pts + ' 點，圖片須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
             item.imageBusy = true;
             renderPendingImages(form);
@@ -3805,10 +3839,12 @@
                         ? '<img src="' + esc(url) + '"' + (objectUrl ? ' data-object-url="' + esc(objectUrl) + '"' : '') + ' class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">'
                         : '<div class="text-muted small text-center py-4">無預覽</div>');
                 var upscaleBtnHtml = upscaleOn
-                    ? (upscaleScaleSelectHtml('pending-upscale-scale matchdo-upscale-scale') +
+                    ? upscaleControlsRowHtml(
+                        'pending-upscale-scale matchdo-upscale-scale',
                         '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
                         pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
-                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-upscale">清除 AI 放大新圖</button>' : ''))
+                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-upscale">清除 AI 放大新圖</button>' : '')
+                    )
                     : '';
                 card.innerHTML = pendingCardBadgeRow(coverBadge, '') +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
@@ -4146,10 +4182,12 @@
                     : ('<img src="' + esc(previewUrl) + '" class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '"' +
                         ' data-image-items="' + lightboxItemsJson + '">');
                 var upscaleBtnHtml = upscaleOn
-                    ? (upscaleScaleSelectHtml('edit-upscale-scale matchdo-upscale-scale') +
+                    ? upscaleControlsRowHtml(
+                        'edit-upscale-scale matchdo-upscale-scale',
                         '<button type="button" class="btn btn-outline-info btn-sm edit-local-upscale-btn" data-local-id="' + esc(item.id) + '"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
                         pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
-                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-upscale" data-local-id="' + esc(item.id) + '">清除 AI 放大新圖</button>' : ''))
+                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm edit-local-clear-upscale" data-local-id="' + esc(item.id) + '">清除 AI 放大新圖</button>' : '')
+                    )
                     : '';
                 var d2pOn = vendorDesignToPhysicalEnabledForKind(m && m.asset_kind);
                 var coverBadge = asCover ? '<span class="badge bg-primary" style="font-size:0.65rem">' + esc(tr('baseModels.coverImage', '封面')) + '</span>' : '';
@@ -4216,9 +4254,11 @@
                         ' data-image-items="' + lightboxItemsJson + '">');
                 var previewBlock = hasPreview ? editGalleryPreviewBlock(slot, slotPrefix, url) : '';
                 var upscaleActionHtml = upscaleOn
-                    ? (upscaleScaleSelectHtml('gallery-upscale-scale matchdo-upscale-scale') +
+                    ? upscaleControlsRowHtml(
+                        'gallery-upscale-scale matchdo-upscale-scale',
                         '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
-                        pendingUpscaleAiEditHelpHtml(false))
+                        pendingUpscaleAiEditHelpHtml(false)
+                    )
                     : '';
                 var actions = '<div class="pending-actions">' +
                     (canReorder
@@ -4527,6 +4567,14 @@
                 ? ((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(opts.scale)) || (parseInt(opts.scale, 10) || 2))
                 : 2;
             var pts = vendorAssetUpscalePoints(scale);
+            var dimW = (probe && probe.width) || 0;
+            var dimH = (probe && probe.height) || 0;
+            if ((!dimW || !dimH) && sourceUrl) {
+                var dimGal = await probeImageDimensionsFromUrl(sourceUrl);
+                dimW = dimGal.width;
+                dimH = dimGal.height;
+            }
+            if (!opts.skipConfirm && !confirmUpscaleInputLimit(dimW, dimH)) return false;
             if (!opts.skipConfirm && !window.confirm('以此圖 AI 放大並新增一張新圖？（' + scale + '×，-' + pts + ' 點，圖片須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return false;
             editGalleryUploading = true;
             gridDisableEditGalleryActions(true);

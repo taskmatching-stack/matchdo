@@ -399,8 +399,11 @@
         : ('<img src="' + esc(url) + '" class="matchdo-enlarge-trigger" alt="" title="預覽放大" data-image-items="' + lightboxItemsJson + '">');
       var previewBlock = hasPreview ? editGalleryPreviewBlock(slot, slotPrefix) : '';
       var upscaleBtn = upscaleOn
-        ? (((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.selectHtml('gallery-upscale-scale matchdo-upscale-scale', uploadPricing())) || '') +
-          '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml())
+        ? ((window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.controlsRowHtml(
+            'gallery-upscale-scale matchdo-upscale-scale',
+            '<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml()
+          )) ||
+          ('<button type="button" class="btn btn-outline-info btn-sm btn-gallery-upscale-one" data-url="' + esc(url) + '" title="' + esc(VENDOR_UPSCALE_RULE_TEXT) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' + pendingUpscaleAiEditHelpHtml()))
         : '';
       var actions = '<div class="pending-actions">' +
         (items.length > 1
@@ -556,6 +559,13 @@
     var scale = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
     var base = up.points_upscale != null ? up.points_upscale : 1;
     var pts = (window.MatchdoUpscaleScale && window.MatchdoUpscaleScale.pointsForScale(base, scale, up.upscale_points_by_scale)) || (base + (scale / 2 - 1));
+    var dim = await new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve({ w: img.naturalWidth || 0, h: img.naturalHeight || 0 }); };
+      img.onerror = function () { resolve({ w: 0, h: 0 }); };
+      img.src = sourceUrl;
+    });
+    if (window.MatchdoUpscaleScale && !window.MatchdoUpscaleScale.confirmIfOverInputLimit(dim.w, dim.h)) return;
     if (!window.confirm('以此圖 AI 放大並新增一張新圖？（' + scale + '×，-' + pts + ' 點；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
     editGalleryUploading = true;
     setEditGalleryStatus('AI 放大中…', 'info');

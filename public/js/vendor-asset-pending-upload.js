@@ -361,7 +361,18 @@
         function upscaleScaleSelectHtml(extraClass) {
             var U = global.MatchdoUpscaleScale;
             if (U) return U.selectHtml(extraClass || 'matchdo-upscale-scale', uploadPricing);
-            return '<select class="form-select form-select-sm ' + (extraClass || 'matchdo-upscale-scale') + '" style="width:auto;max-width:8rem;display:inline-block"><option value="2" selected>2×</option><option value="4">4×</option><option value="6">6×</option><option value="8">8×</option><option value="10">10×</option></select>';
+            return '<select class="form-select form-select-sm ' + (extraClass || 'matchdo-upscale-scale') + '" style="width:auto;max-width:8rem;flex:0 0 auto"><option value="2" selected>2×</option><option value="4">4×</option><option value="6">6×</option><option value="8">8×</option><option value="10">10×</option></select>';
+        }
+        function upscaleControlsRowHtml(selectClass, buttonAndAfterHtml) {
+            var U = global.MatchdoUpscaleScale;
+            if (U) return U.controlsRowHtml(selectClass, buttonAndAfterHtml);
+            return '<div class="d-flex align-items-center gap-1 flex-wrap w-100 mt-1 pending-upscale-controls" style="flex-basis:100%;">' +
+                upscaleScaleSelectHtml(selectClass) + (buttonAndAfterHtml || '') + '</div>';
+        }
+        function confirmUpscaleInputLimit(width, height) {
+            var U = global.MatchdoUpscaleScale;
+            if (U) return U.confirmIfOverInputLimit(width, height);
+            return true;
         }
         function readUpscaleScaleFromEl(el) {
             var U = global.MatchdoUpscaleScale;
@@ -463,6 +474,8 @@
             item.upscaleMegapixels = ev.megapixels;
             item.upscaleHint = ev.hint;
             item.upscaleShowAiEditHelp = !!ev.showAiEditHelp;
+            item.upscaleWidth = width | 0;
+            item.upscaleHeight = height | 0;
         }
 
         function pendingUpscaleBtnDisabled(item) {
@@ -900,6 +913,7 @@
             }
             var scale = (global.MatchdoUpscaleScale && global.MatchdoUpscaleScale.normalizeScale(scaleOpt)) || (parseInt(scaleOpt, 10) || 2);
             var pts = vendorAssetUpscalePoints(scale);
+            if (!confirmUpscaleInputLimit(item.upscaleWidth || 0, item.upscaleHeight || 0)) return;
             if (!window.confirm('AI 放大並追加新圖？（' + scale + '×，-' + pts + ' 點，圖片須 <0.5 MP；' + VENDOR_UPSCALE_RULE_TEXT + '）')) return;
             item.imageBusy = true;
             renderPendingImages(form);
@@ -1002,10 +1016,12 @@
                         ? '<img src="' + esc(url) + '"' + (objectUrl ? ' data-object-url="' + esc(objectUrl) + '"' : '') + ' class="matchdo-enlarge-trigger" alt="" title="' + esc(trPreviewEnlargeTitle()) + '">'
                         : '<div class="text-muted small text-center py-4">無預覽</div>');
                 var upscaleBtnHtml = upscaleOn
-                    ? (upscaleScaleSelectHtml('pending-upscale-scale matchdo-upscale-scale') +
+                    ? upscaleControlsRowHtml(
+                        'pending-upscale-scale matchdo-upscale-scale',
                         '<button type="button" class="btn btn-outline-info btn-sm pending-upscale-btn"' + (pendingUpscaleBtnDisabled(item) ? ' disabled' : '') + ' title="' + esc(pendingUpscaleBtnTitle(item)) + '"><i class="bi bi-stars me-1"></i>' + esc(VENDOR_AI_UPSCALE_BTN) + '</button>' +
                         pendingUpscaleAiEditHelpHtml(item.upscaleProbeDone && item.upscaleShowAiEditHelp) +
-                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-upscale">清除 AI 放大新圖</button>' : ''))
+                        (item.upscalePreviewUrl ? '<button type="button" class="btn btn-outline-warning btn-sm pending-clear-upscale">清除 AI 放大新圖</button>' : '')
+                    )
                     : '';
                 card.innerHTML = pendingCardBadgeRow(coverBadge, '') +
                     '<div class="pending-card-media">' + imgHtml + '</div>' +
