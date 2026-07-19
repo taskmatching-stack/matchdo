@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>推廣圖宣傳風格 - MATCHDO 後台</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+</head>
+<body class="bg-light">
+  <div id="admin-header"></div>
+  <div class="container-fluid">
+    <div class="row">
+      <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
+      <main class="col-md-9 col-lg-10 py-4">
+        <h4 class="mb-1">推廣圖宣傳風格</h4>
+        <p class="text-muted small mb-3">
+          管理推廣圖 TAB 的<strong>宣傳風格</strong>（DM／廣告／宣傳用提示詞）。
+          系統會先套用固定的「廣告／DM、禁止換場景、多圖參考」規則，再併入下方的風格提示與構圖提示。
+          請先執行 <code>docs/add-product-promo-image.sql</code>；若仍是舊「換場景」模板，再執行 <code>docs/update-promo-templates-ad-dm.sql</code>。
+        </p>
+        <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
+
+        <div class="card mb-3">
+          <div class="card-header fw-semibold">新增宣傳風格</div>
+          <div class="card-body">
+            <div class="row g-2">
+              <div class="col-md-2"><label class="form-label small mb-0">key</label><input id="tplKey" class="form-control form-control-sm" placeholder="flyer_dm"></div>
+              <div class="col-md-3"><label class="form-label small mb-0">名稱</label><input id="tplName" class="form-control form-control-sm" placeholder="DM／傳單風"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">分類標籤</label><input id="tplCategory" class="form-control form-control-sm" placeholder="print"></div>
+              <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="tplSort" type="number" class="form-control form-control-sm" value="10"></div>
+              <div class="col-md-4"><label class="form-label small mb-0">說明（選填）</label><input id="tplDesc" class="form-control form-control-sm" placeholder="清楚好印，適合DM"></div>
+              <div class="col-12"><label class="form-label small mb-0">風格提示詞 scene_prompt</label><textarea id="tplScene" class="form-control form-control-sm" rows="2" placeholder="print-ready promotional flyer visual…"></textarea></div>
+              <div class="col-12"><label class="form-label small mb-0">構圖提示 composition_hint（選填）</label><textarea id="tplComp" class="form-control form-control-sm" rows="2" placeholder="centered product hero…"></textarea></div>
+              <div class="col-md-6"><label class="form-label small mb-0">建議比例（逗號分隔）</label><input id="tplRatios" class="form-control form-control-sm" value="1:1,4:3,16:9"></div>
+              <div class="col-12"><button type="button" id="btnAdd" class="btn btn-primary btn-sm">新增</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">風格列表</span>
+            <button type="button" id="btnReload" class="btn btn-sm btn-outline-secondary">重新載入</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>key</th>
+                  <th>名稱</th>
+                  <th>風格提示</th>
+                  <th>構圖</th>
+                  <th>排序</th>
+                  <th>狀態</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="listBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal fade" id="editModal" tabindex="-1">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">編輯宣傳風格</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <input type="hidden" id="editId">
+                <div class="row g-2">
+                  <div class="col-md-4"><label class="form-label">key</label><input id="editKey" class="form-control"></div>
+                  <div class="col-md-4"><label class="form-label">名稱</label><input id="editName" class="form-control"></div>
+                  <div class="col-md-4"><label class="form-label">分類標籤</label><input id="editCategory" class="form-control"></div>
+                  <div class="col-12"><label class="form-label">說明</label><input id="editDesc" class="form-control"></div>
+                  <div class="col-12"><label class="form-label">風格提示詞 scene_prompt</label><textarea id="editScene" class="form-control" rows="4"></textarea></div>
+                  <div class="col-12"><label class="form-label">構圖提示 composition_hint</label><textarea id="editComp" class="form-control" rows="3"></textarea></div>
+                  <div class="col-md-6"><label class="form-label">建議比例</label><input id="editRatios" class="form-control"></div>
+                  <div class="col-md-3"><label class="form-label">排序</label><input id="editSort" type="number" class="form-control"></div>
+                  <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="editActive">
+                      <label class="form-check-label" for="editActive">啟用</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btnSave">儲存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config/auth-config.js"></script>
+  <script src="/admin/js/admin-common.js"></script>
+  <script>
+(function () {
+  var API = '/api/admin/promo-scene-templates';
+  var items = [];
+  var editModal = null;
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function showStatus(msg, ok) {
+    var w = document.getElementById('statusWrap');
+    var m = document.getElementById('statusMsg');
+    w.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
+    w.classList.add(ok ? 'alert-success' : 'alert-danger');
+    m.textContent = msg;
+  }
+  async function authHeaders() {
+    if (!window.AuthService) return {};
+    try {
+      var session = await AuthService.getSession();
+      var t = session && session.access_token;
+      return t ? { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' } : {};
+    } catch (e) { return {}; }
+  }
+  function ratiosToText(arr) {
+    if (Array.isArray(arr)) return arr.join(',');
+    return String(arr || '');
+  }
+  function shortText(s, n) {
+    var t = String(s || '').trim();
+    if (!t) return '—';
+    return t.length > n ? t.slice(0, n) + '…' : t;
+  }
+
+  async function loadList() {
+    var headers = await authHeaders();
+    var r = await fetch(API, { headers: headers, cache: 'no-store' });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) {
+      showStatus(d.error || '載入失敗', false);
+      return;
+    }
+    items = d.items || [];
+    renderList();
+  }
+
+  function renderList() {
+    var tb = document.getElementById('listBody');
+    tb.innerHTML = items.map(function (s) {
+      return '<tr>' +
+        '<td><code>' + esc(s.key) + '</code></td>' +
+        '<td>' + esc(s.name) +
+          (s.description ? '<div class="small text-muted">' + esc(s.description) + '</div>' : '') +
+        '</td>' +
+        '<td class="small text-muted" title="' + esc(s.scene_prompt || '') + '">' + esc(shortText(s.scene_prompt, 48)) + '</td>' +
+        '<td class="small text-muted" title="' + esc(s.composition_hint || '') + '">' + esc(shortText(s.composition_hint, 36)) + '</td>' +
+        '<td>' + esc(s.sort_order) + '</td>' +
+        '<td>' + (s.is_active === false ? '<span class="text-danger">停用</span>' : '啟用') + '</td>' +
+        '<td class="text-nowrap">' +
+          '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit" data-id="' + esc(s.id) + '">編輯</button>' +
+          '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(s.id) + '">刪除</button>' +
+        '</td></tr>';
+    }).join('') || '<tr><td colspan="7" class="text-muted text-center">尚無資料</td></tr>';
+  }
+
+  document.getElementById('btnAdd').addEventListener('click', async function () {
+    var headers = await authHeaders();
+    var r = await fetch(API, {
+      method: 'POST', headers: headers,
+      body: JSON.stringify({
+        key: document.getElementById('tplKey').value,
+        name: document.getElementById('tplName').value,
+        category: document.getElementById('tplCategory').value,
+        description: document.getElementById('tplDesc').value,
+        scene_prompt: document.getElementById('tplScene').value,
+        composition_hint: document.getElementById('tplComp').value,
+        recommended_ratios: document.getElementById('tplRatios').value,
+        sort_order: Number(document.getElementById('tplSort').value) || 0
+      })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
+    showStatus('已新增', true);
+    document.getElementById('tplKey').value = '';
+    document.getElementById('tplName').value = '';
+    document.getElementById('tplCategory').value = '';
+    document.getElementById('tplDesc').value = '';
+    document.getElementById('tplScene').value = '';
+    document.getElementById('tplComp').value = '';
+    await loadList();
+  });
+
+  document.getElementById('listBody').addEventListener('click', async function (e) {
+    var editBtn = e.target.closest('.btn-edit');
+    var delBtn = e.target.closest('.btn-del');
+    if (editBtn) {
+      var s = items.find(function (x) { return x.id === editBtn.getAttribute('data-id'); });
+      if (!s) return;
+      document.getElementById('editId').value = s.id;
+      document.getElementById('editKey').value = s.key || '';
+      document.getElementById('editName').value = s.name || '';
+      document.getElementById('editCategory').value = s.category || '';
+      document.getElementById('editDesc').value = s.description || '';
+      document.getElementById('editScene').value = s.scene_prompt || '';
+      document.getElementById('editComp').value = s.composition_hint || '';
+      document.getElementById('editRatios').value = ratiosToText(s.recommended_ratios);
+      document.getElementById('editSort').value = s.sort_order != null ? s.sort_order : 0;
+      document.getElementById('editActive').checked = s.is_active !== false;
+      if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
+      editModal.show();
+    }
+    if (delBtn) {
+      if (!confirm('確定刪除這個宣傳風格？')) return;
+      var headers = await authHeaders();
+      var r = await fetch(API + '/' + encodeURIComponent(delBtn.getAttribute('data-id')), { method: 'DELETE', headers: headers });
+      var d = await r.json().catch(function () { return {}; });
+      if (!r.ok) { showStatus(d.error || '刪除失敗', false); return; }
+      showStatus('已刪除', true);
+      await loadList();
+    }
+  });
+
+  document.getElementById('btnSave').addEventListener('click', async function () {
+    var id = document.getElementById('editId').value;
+    var headers = await authHeaders();
+    var r = await fetch(API + '/' + encodeURIComponent(id), {
+      method: 'PUT', headers: headers,
+      body: JSON.stringify({
+        key: document.getElementById('editKey').value,
+        name: document.getElementById('editName').value,
+        category: document.getElementById('editCategory').value,
+        description: document.getElementById('editDesc').value,
+        scene_prompt: document.getElementById('editScene').value,
+        composition_hint: document.getElementById('editComp').value,
+        recommended_ratios: document.getElementById('editRatios').value,
+        sort_order: Number(document.getElementById('editSort').value) || 0,
+        is_active: document.getElementById('editActive').checked
+      })
+    });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }
+    if (editModal) editModal.hide();
+    showStatus('已儲存', true);
+    await loadList();
+  });
+
+  document.getElementById('btnReload').addEventListener('click', loadList);
+  loadList();
+})();
+  </script>
+</body>
+</html>

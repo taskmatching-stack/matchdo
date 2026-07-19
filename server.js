@@ -26265,6 +26265,142 @@ app.delete('/api/admin/photography-prompt-sets/:id', async (req, res) => {
     }
 });
 
+const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, sort_order, is_active, created_at, updated_at';
+
+function normalizePromoSceneTemplateKey(raw) {
+    return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+}
+
+function parsePromoRecommendedRatios(raw) {
+    if (Array.isArray(raw)) {
+        return raw.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 12);
+    }
+    if (typeof raw === 'string') {
+        return raw.split(/[,，\s]+/).map((x) => x.trim()).filter(Boolean).slice(0, 12);
+    }
+    return ['1:1', '4:3', '16:9'];
+}
+
+// GET /api/admin/promo-scene-templates — 推廣圖宣傳風格
+app.get('/api/admin/promo-scene-templates', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('promo_scene_templates')
+            .select(PROMO_SCENE_TEMPLATE_SELECT)
+            .order('sort_order', { ascending: true })
+            .order('key', { ascending: true });
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-product-promo-image.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            console.error('GET /api/admin/promo-scene-templates:', error);
+            return res.status(500).json({ error: '查詢失敗' });
+        }
+        res.json({ items: data || [] });
+    } catch (e) {
+        console.error('GET /api/admin/promo-scene-templates 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/promo-scene-templates
+app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const body = req.body || {};
+        const key = normalizePromoSceneTemplateKey(body.key);
+        const name = String(body.name || '').trim();
+        if (!key) return res.status(400).json({ error: '請填寫 key' });
+        if (!name) return res.status(400).json({ error: '請填寫名稱' });
+        const payload = {
+            key,
+            name,
+            description: body.description != null ? String(body.description).trim() : null,
+            scene_prompt: body.scene_prompt != null ? String(body.scene_prompt) : '',
+            composition_hint: body.composition_hint != null ? String(body.composition_hint) : null,
+            recommended_ratios: parsePromoRecommendedRatios(body.recommended_ratios),
+            category: body.category != null ? String(body.category).trim() || null : null,
+            sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
+            is_active: body.is_active === undefined ? true : !!body.is_active,
+            updated_at: new Date().toISOString()
+        };
+        const { data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (error) {
+            if (error.code === '42P01') {
+                return res.status(503).json({ error: '請先執行 docs/add-product-promo-image.sql', code: 'MIGRATION_REQUIRED' });
+            }
+            if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在' });
+            console.error('POST /api/admin/promo-scene-templates:', error);
+            return res.status(500).json({ error: '新增失敗' });
+        }
+        res.status(201).json({ item: data });
+    } catch (e) {
+        console.error('POST /api/admin/promo-scene-templates 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// PUT /api/admin/promo-scene-templates/:id
+app.put('/api/admin/promo-scene-templates/:id', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const body = req.body || {};
+        const updates = { updated_at: new Date().toISOString() };
+        if (body.key !== undefined) {
+            const key = normalizePromoSceneTemplateKey(body.key);
+            if (!key) return res.status(400).json({ error: 'key 不可為空' });
+            updates.key = key;
+        }
+        if (body.name !== undefined) {
+            const name = String(body.name || '').trim();
+            if (!name) return res.status(400).json({ error: '名稱不可為空' });
+            updates.name = name;
+        }
+        if (body.description !== undefined) updates.description = String(body.description || '').trim() || null;
+        if (body.scene_prompt !== undefined) updates.scene_prompt = String(body.scene_prompt);
+        if (body.composition_hint !== undefined) updates.composition_hint = String(body.composition_hint || '').trim() || null;
+        if (body.recommended_ratios !== undefined) updates.recommended_ratios = parsePromoRecommendedRatios(body.recommended_ratios);
+        if (body.category !== undefined) updates.category = String(body.category || '').trim() || null;
+        if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
+        if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        const { data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (error) {
+            if (error.code === '23505') return res.status(400).json({ error: '此 key 已存在' });
+            console.error('PUT /api/admin/promo-scene-templates:', error);
+            return res.status(500).json({ error: '更新失敗' });
+        }
+        res.json({ item: data });
+    } catch (e) {
+        console.error('PUT /api/admin/promo-scene-templates 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// DELETE /api/admin/promo-scene-templates/:id
+app.delete('/api/admin/promo-scene-templates/:id', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const id = String(req.params.id || '').trim();
+        if (!id) return res.status(400).json({ error: '無效的 id' });
+        const { error } = await supabase.from('promo_scene_templates').delete().eq('id', id);
+        if (error) {
+            console.error('DELETE /api/admin/promo-scene-templates:', error);
+            return res.status(500).json({ error: '刪除失敗' });
+        }
+        res.json({ success: true });
+    } catch (e) {
+        console.error('DELETE /api/admin/promo-scene-templates 異常:', e);
+        res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
 // GET /api/admin/material-surface-presets
 app.get('/api/admin/material-surface-presets', async (req, res) => {
     try {
