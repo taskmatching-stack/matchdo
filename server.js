@@ -3386,10 +3386,9 @@ async function buildVendorAssetMaterialFluxOptimizePromptWithPhoto(surfaceType) 
     return appendPhotographyParams(base, photo);
 }
 
+/** 產品／配件 AI 重繪：不加攝影參數（材料色卡優化仍用 WithPhoto；設計區生圖另接） */
 async function buildVendorAssetProductOptimizePromptWithPhoto(productNameHint, backgroundColor, useDisplayStand, categoryKey, subcategoryKey) {
-    const base = buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand);
-    const photo = await resolvePhotographyBodyForCategory(categoryKey, subcategoryKey);
-    return appendPhotographyParams(base, photo);
+    return buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand);
 }
 
 /** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 固定保真底稿；使用者補充自行輸入 */
@@ -3441,7 +3440,11 @@ async function getPointsDesignToPhysicalVendor() {
  * 與 optimizeVendorAssetImageWithFlux 分線（獨立槽 bfl_flux_model_design_to_physical）。
  * 原圖直送（僅 AVIF/HEIC 轉 JPEG），不做任何尺寸處理。
  */
-async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra, categoryKey, subcategoryKey) {
+/**
+ * 寫實化 FLUX。
+ * opts.skipPhotography=true：廠商／產品上傳區不加攝影參數；設計區預設仍可依分類追加。
+ */
+async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra, categoryKey, subcategoryKey, opts) {
     if (!fileBuffer || !fileBuffer.length) throw new Error('無效的參考圖');
     const mime = String(mimeType || 'image/jpeg').toLowerCase().split(';')[0].trim();
     let finalBuffer = fileBuffer;
@@ -3460,7 +3463,10 @@ async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra, category
             console.warn('runDesignToPhysicalFlux AVIF/HEIC 轉換失敗，用原圖:', convErr.message);
         }
     }
-    const prompt = await buildDesignToPhysicalPromptWithPhoto(userExtra, categoryKey, subcategoryKey);
+    const skipPhoto = !!(opts && opts.skipPhotography);
+    const prompt = skipPhoto
+        ? buildDesignToPhysicalPrompt(userExtra)
+        : await buildDesignToPhysicalPromptWithPhoto(userExtra, categoryKey, subcategoryKey);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_design_to_physical'),
         width: 1024,
@@ -21346,7 +21352,8 @@ app.post('/api/me/vendor-assets/preview-design-to-physical', upload.single('imag
                 file.mimetype || 'image/jpeg',
                 userExtra,
                 (body.category_key || '').trim(),
-                (body.subcategory_key || '').trim()
+                (body.subcategory_key || '').trim(),
+                { skipPhotography: true }
             );
         } catch (optErr) {
             console.error('preview-design-to-physical:', optErr);
@@ -21453,7 +21460,8 @@ app.post('/api/me/vendor-assets/:id/gallery-images/design-to-physical', express.
                 imgMime,
                 userExtra,
                 row.category_key || '',
-                row.subcategory_key || ''
+                row.subcategory_key || '',
+                { skipPhotography: true }
             );
         } catch (optErr) {
             console.error('gallery-images/design-to-physical:', optErr);
