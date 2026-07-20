@@ -1100,7 +1100,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-ratio-click-20260721';
+        window.__MATCHDO_MATERIALS_BUILD = 'catalog-groups-save-20260721';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -1271,6 +1271,8 @@
             if (!incoming) return prev;
             if (!prev || String(prev.id) !== String(incoming.id)) return incoming;
             var merged = Object.assign({}, prev, incoming);
+            // 部分更新（例如只回傳 gallery）不要誤清空分類／工藝；
+            // 但若回應明確帶空陣列（儲存後清空「我的分類」），必須採用，不可回退舊值。
             var metaKeys = [
                 'category_key', 'subcategory_key', 'title', 'description', 'production_type_key',
                 'production_type_label', 'capabilities', 'capability_keys', 'capability_labels',
@@ -1280,10 +1282,13 @@
                 'style_key', 'color_key'
             ];
             metaKeys.forEach(function (k) {
+                if (!Object.prototype.hasOwnProperty.call(incoming, k)) {
+                    merged[k] = prev[k];
+                    return;
+                }
                 var nv = incoming[k];
-                var pv = prev[k];
-                if (nv == null || nv === '') merged[k] = pv;
-                else if (Array.isArray(nv) && !nv.length && Array.isArray(pv) && pv.length) merged[k] = pv;
+                if (nv == null || nv === '') merged[k] = prev[k];
+                else merged[k] = nv;
             });
             if (incoming.image_url != null) merged.image_url = incoming.image_url;
             if (incoming.gallery_images != null) merged.gallery_images = incoming.gallery_images;
@@ -8700,10 +8705,8 @@
             if (file) {
                 fd.append('image', file);
             }
+            // 以畫面上實際勾選為準（含全部取消）；勿回退成舊 catalog_group_ids，否則無法清空／像沒存住
             var editGrpIds = getSelectedCatalogGroupIds(document.getElementById('edit-catalog-groups'));
-            if (!editGrpIds.length && editAssetRecord) {
-                editGrpIds = editAssetRecord.catalog_group_ids || (editAssetRecord.catalog_groups || []).map(function (g) { return g.id; });
-            }
             fd.append('catalog_group_ids', JSON.stringify(editGrpIds));
             if (editKind === 'prototype') {
                 var moqSave = document.getElementById('edit-min-order-qty');

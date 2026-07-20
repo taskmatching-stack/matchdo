@@ -15253,6 +15253,35 @@ app.get('/api/me/manufacturer', async (req, res) => {
         if (authError || !user) return res.status(401).json({ error: '登入已過期或無效' });
         const selectWithLogo = 'id, name, name_en, description, description_en, location, categories, contact_json, logo_url, vendor_source, expires_at, seed_vendor_self_service_enabled, i18n_en_generated_at, i18n_en_source_hash';
         const selectWithoutLogo = 'id, name, name_en, description, description_en, location, categories, contact_json, vendor_source, expires_at, seed_vendor_self_service_enabled, i18n_en_generated_at, i18n_en_source_hash';
+        // 官方版型庫頁：一律回官方製造商（與 getMeManufacturerId／素材 API 一致）。
+        // 管理員若另有個人製造商卻仍回個人，前端「我的分類」與資產會跨庫錯位，勾選像存不住。
+        if (isOfficialPlatformLibraryRequest(req)) {
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+            if (profile?.role !== 'admin') {
+                return res.status(403).json({ error: '僅管理員可編輯官方版型庫', code: 'OFFICIAL_PLATFORM_ADMIN_REQUIRED' });
+            }
+            const officialId = await getOrEnsureOfficialPlatformManufacturerId();
+            if (!officialId) return res.status(503).json({ error: '無法讀取官方版型庫（MATCHDO 官方版型）' });
+            let offRes = await supabase.from('manufacturers').select(selectWithLogo).eq('id', officialId).maybeSingle();
+            if (offRes.error) {
+                offRes = await supabase.from('manufacturers').select('id, name, description, location, categories, contact_json').eq('id', officialId).maybeSingle();
+                if (!offRes.error && offRes.data) {
+                    offRes.data.logo_url = null;
+                    offRes.data.vendor_source = 'platform';
+                }
+            }
+            if (offRes.error || !offRes.data) {
+                return res.status(503).json({ error: '無法讀取官方版型庫資料' });
+            }
+            const officialMfr = offRes.data;
+            officialMfr.logo_url = manufacturerLogoFromRow(officialMfr);
+            officialMfr.contact_json = attachStoreUrlsToContactJson(officialMfr.contact_json);
+            officialMfr.vendor_source = officialMfr.vendor_source || 'platform';
+            officialMfr.seed_vendor_self_service_locked = false;
+            officialMfr.can_edit_vendor_content = true;
+            officialMfr.official_platform_library = true;
+            return res.json(officialMfr);
+        }
         let resq = await supabase.from('manufacturers').select(selectWithLogo).eq('user_id', user.id).maybeSingle();
         if (resq.error) {
             const msg = (resq.error.message || '').toLowerCase();
@@ -15271,33 +15300,6 @@ app.get('/api/me/manufacturer', async (req, res) => {
         }
         const mfr = resq.data;
         if (!mfr) {
-            if (isOfficialPlatformLibraryRequest(req)) {
-                const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-                if (profile?.role !== 'admin') {
-                    return res.status(403).json({ error: '僅管理員可編輯官方版型庫', code: 'OFFICIAL_PLATFORM_ADMIN_REQUIRED' });
-                }
-                const officialId = await getOrEnsureOfficialPlatformManufacturerId();
-                if (!officialId) return res.status(503).json({ error: '無法讀取官方版型庫（MATCHDO 官方版型）' });
-                let offRes = await supabase.from('manufacturers').select(selectWithLogo).eq('id', officialId).maybeSingle();
-                if (offRes.error) {
-                    offRes = await supabase.from('manufacturers').select('id, name, description, location, categories, contact_json').eq('id', officialId).maybeSingle();
-                    if (!offRes.error && offRes.data) {
-                        offRes.data.logo_url = null;
-                        offRes.data.vendor_source = 'platform';
-                    }
-                }
-                if (offRes.error || !offRes.data) {
-                    return res.status(503).json({ error: '無法讀取官方版型庫資料' });
-                }
-                const officialMfr = offRes.data;
-                officialMfr.logo_url = manufacturerLogoFromRow(officialMfr);
-                officialMfr.contact_json = attachStoreUrlsToContactJson(officialMfr.contact_json);
-                officialMfr.vendor_source = officialMfr.vendor_source || 'platform';
-                officialMfr.seed_vendor_self_service_locked = false;
-                officialMfr.can_edit_vendor_content = true;
-                officialMfr.official_platform_library = true;
-                return res.json(officialMfr);
-            }
             return res.status(404).json({ error: '尚未建立廠商資料', code: 'NO_MANUFACTURER' });
         }
         mfr.logo_url = manufacturerLogoFromRow(mfr);
@@ -22564,48 +22566,54 @@ app.put('/api/me/vendor-assets/:id', upload.single('image'), async (req, res) =>
             console.error('PUT /api/me/vendor-assets/:id 失敗:', error);
             return res.status(500).json({ error: '更新失敗' });
         }
-        const putMapped = mapVendorAssetForApi(updated);
+        // 分類／taxonomy／原型連結須寫完再回傳：前端用 catalog_group_ids 重繪勾選；
+        // 若 setImmediate 延後寫，回傳無分類欄位 → 畫面像「勾選沒存住」（官方與廠商同路徑）。
+        try {
+            const taxonomyPutErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, id, body);
+            if (taxonomyPutErr) console.warn('PUT taxonomy error:', taxonomyPutErr);
+
+            if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
+                await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
+            }
+
+            const finalKind = normalizeVendorAssetKind(updated.asset_kind || assetKind);
+            if (finalKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
+                let linkEntries = parseLinkedLinksFromBody(body);
+                if (linkEntries === undefined) {
+                    const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
+                    if (linkedIds !== null) {
+                        linkEntries = normalizePrototypeLinkEntries(linkedIds);
+                    }
+                }
+                if (linkEntries && linkEntries.length >= 0) {
+                    const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkEntries);
+                    if (linkErr) console.warn('PUT prototype links error:', linkErr);
+                }
+            }
+
+            if (body.linked_prototype_ids !== undefined && (finalKind === 'material' || finalKind === 'part')) {
+                const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
+                if (protoIds !== null) {
+                    const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, id, protoIds);
+                    if (linkErr) console.warn('PUT linked prototypes error:', linkErr);
+                }
+            }
+        } catch (e) {
+            console.warn('PUT related writes error:', e && e.message ? e.message : e);
+            return res.status(500).json({ error: (e && e.message) || '關聯資料儲存失敗' });
+        }
+        let putMapped;
+        try {
+            putMapped = await mapVendorAssetForApiEnriched(updated);
+        } catch (e) {
+            console.warn('PUT enrich error:', e && e.message ? e.message : e);
+            putMapped = mapVendorAssetForApi(updated);
+        }
         res.json({
             ...putMapped,
             points_deducted: pointsDeducted,
             balance_after: balanceAfter,
             product_optimized: file ? wantsOptimize : false
-        });
-        
-        setImmediate(async () => {
-            try {
-                const taxonomyPutErr = await manufacturerTaxonomy.applyVendorAssetTaxonomyWrites(supabase, id, body);
-                if (taxonomyPutErr) console.warn('PUT taxonomy deferred error:', taxonomyPutErr);
-                
-                if (body.catalog_group_ids !== undefined || body.catalog_group_id) {
-                    await setVendorAssetCatalogGroups(id, manufacturerId, parseCatalogGroupIdsFromBody(body));
-                }
-                
-                const finalKind = normalizeVendorAssetKind(updated.asset_kind || assetKind);
-                if (finalKind === 'prototype' && (body.linked_links !== undefined || body.linked_asset_ids !== undefined)) {
-                    let linkEntries = parseLinkedLinksFromBody(body);
-                    if (linkEntries === undefined) {
-                        const linkedIds = parseJsonUuidArrayFromBody(body.linked_asset_ids);
-                        if (linkedIds !== null) {
-                            linkEntries = normalizePrototypeLinkEntries(linkedIds);
-                        }
-                    }
-                    if (linkEntries && linkEntries.length >= 0) {
-                        const linkErr = await replacePrototypeMaterialPartLinks(manufacturerId, id, linkEntries);
-                        if (linkErr) console.warn('PUT prototype links deferred error:', linkErr);
-                    }
-                }
-                
-                if (body.linked_prototype_ids !== undefined && (finalKind === 'material' || finalKind === 'part')) {
-                    const protoIds = parseJsonUuidArrayFromBody(body.linked_prototype_ids);
-                    if (protoIds !== null) {
-                        const linkErr = await replaceLinkedAssetPrototypeLinks(manufacturerId, id, protoIds);
-                        if (linkErr) console.warn('PUT linked prototypes deferred error:', linkErr);
-                    }
-                }
-            } catch (e) {
-                console.warn('PUT deferred operations error:', e);
-            }
         });
     } catch (e) {
         console.error('PUT /api/me/vendor-assets/:id 異常:', e);
