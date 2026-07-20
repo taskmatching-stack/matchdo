@@ -161,7 +161,8 @@
       }
       return null;
     }).then(function (session) {
-      if (session && session.access_token) h.Authorization = 'Bearer ' + session.access_token;
+      var tok = (session && session.access_token) || global.__MATCHDO_ACCESS_TOKEN || '';
+      if (tok) h.Authorization = 'Bearer ' + tok;
       return h;
     });
   }
