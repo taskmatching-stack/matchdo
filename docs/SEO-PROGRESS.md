@@ -49,7 +49,7 @@
 | **首頁篩選 URL（2026-03-04）** | 首頁網址狀態可**疊加**：`layout_type`、`category_key`、`subcategory_key`、`q`、`lang`。Sitemap 收錄主要 landing，不列所有組合。 |
 | **首頁四種「類型」** | **全部**＝`/`；**設計圖／對照圖／系列圖**＝`/?layout_type=user_design|comparison|collection`（共 4 筆在 `sitemap-pages.xml`） |
 | **中英文** | `sitemap-pages.xml` 另加 4 筆：`/?lang=en`、`/?layout_type=user_design&lang=en`、`/?layout_type=comparison&lang=en`、`/?layout_type=collection&lang=en`，與頁面 hreflang 對應 |
-| **分類** | 動態 `sitemap-categories.xml`：從 `ai_categories` 查主分類，產出 `/?category_key=xxx`（與 layout_type／lang 可疊加，sitemap 只列主分類 landing） |
+| **分類** | 動態 `sitemap-categories.xml`：從 **`custom_product_categories`**（`is_active=true`）查主分類，產出 `/?category_key=xxx`（與 layout_type／lang 可疊加，sitemap 只列主分類 landing）。首頁／圖庫同一套分類；**勿**再用 `ai_categories` |
 | **Canonical** | 首頁有篩選參數時 canonical 為目前完整網址；無參數時為 `https://matchdo.cc/`（見 `index.html` 內 `#mw-canonical`） |
 
 **目前子 sitemap 更新機制（索引內 5 個 + legacy 1 個）：**
@@ -57,7 +57,7 @@
 | Sitemap | 來源 | 更新方式 | 在 `/sitemap.xml` 索引 |
 |---------|------|---------|------------------------|
 | `sitemap-pages.xml` | `SITEMAP_PAGES` 陣列（`routes/sitemap.js`） | 新增靜態頁或首頁篩選 URL 需手動補 | ✅ |
-| `sitemap-categories.xml` | `ai_categories` 表（主分類 key） | ✅ 自動 | ✅ |
+| `sitemap-categories.xml` | `custom_product_categories`（`is_active=true` 主分類 key） | ✅ 自動 | ✅ |
 | `sitemap-vendors.xml` | `manufacturers` 表（`is_active=true`） | ✅ 自動 | ✅ |
 | `sitemap-collections.xml` | `media_collections` 表（`is_active=true`） | ✅ 自動 | ✅ |
 | `sitemap-inspiration.xml` | 靈感牆項目（user_design / comparison / series / collection） | ✅ 自動（2026-03-05） | ✅ |

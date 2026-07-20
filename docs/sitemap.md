@@ -174,7 +174,7 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 |------|------|----------|
 | **GET /sitemap.xml** | Sitemap **索引**，列出**五個**子 sitemap（pages / categories / vendors / collections / inspiration）；**不含** products（2026-05-26） | 固定結構 |
 | **GET /sitemap-pages.xml** | 靜態公開頁 + **首頁四種類型**（全部 `/`、設計圖/對照圖/系列圖 `/?layout_type=...`）+ **中英文**（`/?lang=en` 與三種 layout_type + lang）；見 `routes/sitemap.js` SITEMAP_PAGES | 程式內固定清單 |
-| **GET /sitemap-categories.xml** | **動態**：首頁「分類」篩選 `/?category_key=xxx`（來自 `ai_categories` 主分類）；與 layout_type／lang 可疊加，sitemap 只列主分類 landing | **每次請求即時查 DB** |
+| **GET /sitemap-categories.xml** | **動態**：首頁「分類」篩選 `/?category_key=xxx`（來自 **`custom_product_categories`** 主分類，`is_active=true`）；與 layout_type／lang 可疊加，sitemap 只列主分類 landing。**禁止**再用已廢棄的 `ai_categories` | **每次請求即時查 DB** |
 | **GET /sitemap-vendors.xml** | **動態**：廠商列表 + 各廠商詳情頁 | **每次請求即時查 DB**（`manufacturers`），新廠商上線即被收錄 |
 | **GET /sitemap-products.xml** | Legacy：CSR 詳情頁（`visibility='public'`）；**已自索引移除**，UGC 用 `sitemap-inspiration` | 路由仍 200 |
 | **GET /sitemap-collections.xml** | **動態**：作品系列／資料夾頁（slug） | **每次請求即時查 DB**（media_collections） |
