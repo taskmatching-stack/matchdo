@@ -83,13 +83,13 @@ function registerSitemapRoutes(app, deps) {
         res.set('Cache-Control', 'public, max-age=3600');
         res.send(xml);
     });
-    // 動態：首頁「分類」篩選 URL（ai_categories 主分類，/?category_key=xxx），與 layout_type／lang 可疊加
+    // 動態：首頁「分類」篩選 URL（custom_product_categories 主分類，/?category_key=xxx），與 layout_type／lang 可疊加
     app.get('/sitemap-categories.xml', async (req, res) => {
         const base = siteBase();
         const lastmod = new Date().toISOString().slice(0, 10);
         const urls = [];
         try {
-            const { data: rows, error } = await supabase.from('ai_categories').select('key, sort_order').order('sort_order', { ascending: true });
+            const { data: rows, error } = await supabase.from('custom_product_categories').select('key, sort_order').eq('is_active', true).order('sort_order', { ascending: true });
             if (!error && Array.isArray(rows) && rows.length > 0) {
                 rows.forEach(r => {
                     if (r && r.key) {
@@ -99,7 +99,7 @@ function registerSitemapRoutes(app, deps) {
                 });
             }
         } catch (e) {
-            console.warn('sitemap-categories.xml 查詢 ai_categories 失敗:', e && e.message);
+            console.warn('sitemap-categories.xml 查詢 custom_product_categories 失敗:', e && e.message);
         }
         const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls.join('\n') + '\n</urlset>';
         res.set('Content-Type', 'application/xml; charset=utf-8');
