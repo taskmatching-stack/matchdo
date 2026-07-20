@@ -620,7 +620,7 @@
 
         function validateMaterialSurfaceTypeForRedraw(surfaceType) {
             if (String(surfaceType || '').trim()) return '';
-            return '請填材質類型（例：皮革、丹寧）再執行 AI 重繪';
+            return '請填材質類型（例：午夜藍PC塑料）再執行 AI 重繪';
         }
 
         function appendMaterialSurfaceTypeToFormData(fd, surfaceType) {

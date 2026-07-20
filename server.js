@@ -17472,12 +17472,73 @@ async function listAdminGenerationRecords(opts) {
         }
     }
 
+    if (source === 'all' || source === 'promo') {
+        let promoQ = supabase
+            .from('product_promo_generations')
+            .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at')
+            .eq('status', 'success')
+            .not('result_image_url', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(fetchN);
+        if (from) promoQ = promoQ.gte('created_at', from);
+        if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
+        let promoRes = await promoQ;
+        if (promoRes.error && isSupabaseMissingColumnError(promoRes.error, 'scene_key')) {
+            promoQ = supabase
+                .from('product_promo_generations')
+                .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, final_prompt, result_image_url, status, points_charged, created_at, completed_at')
+                .eq('status', 'success')
+                .not('result_image_url', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(fetchN);
+            if (from) promoQ = promoQ.gte('created_at', from);
+            if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
+            promoRes = await promoQ;
+        }
+        if (!promoRes.error) {
+            (promoRes.data || []).forEach(function (row) {
+                const prompt = (row.final_prompt || row.user_prompt || '').trim();
+                const themeLabel = (row.scene_template_key || '').trim();
+                const sceneLabel = (row.scene_key || '').trim();
+                const titleParts = ['產品推廣圖'];
+                if (themeLabel) titleParts.push(themeLabel);
+                if (sceneLabel) titleParts.push(sceneLabel);
+                const hay = [prompt, row.user_prompt, themeLabel, sceneLabel, row.source_type, row.source_id, row.source_image_url].join(' ').toLowerCase();
+                if (qText && !hay.includes(qText)) return;
+                merged.push({
+                    id: row.id,
+                    source: 'promo',
+                    created_at: row.created_at || row.completed_at,
+                    ai_generated_image_url: row.result_image_url,
+                    title: titleParts.join(' · '),
+                    prompt: prompt,
+                    user_prompt: row.user_prompt || null,
+                    scene_template_key: themeLabel || null,
+                    scene_key: sceneLabel || null,
+                    source_type: row.source_type || null,
+                    source_id: row.source_id || null,
+                    source_image_url: row.source_image_url || null,
+                    aspect_ratio: row.aspect_ratio || null,
+                    width: row.width || null,
+                    height: row.height || null,
+                    megapixels: row.megapixels != null ? row.megapixels : null,
+                    points_charged: row.points_charged || 0,
+                    owner_id: row.user_id || null,
+                    status: row.status || 'success',
+                    reference_sources: row.source_image_url ? [{ type: row.source_type || 'upload', url: row.source_image_url, id: row.source_id || null }] : []
+                });
+            });
+        } else if (promoRes.error && promoRes.error.code !== '42P01') {
+            console.warn('listAdminGenerationRecords promo:', promoRes.error.message || promoRes.error);
+        }
+    }
+
     merged.sort(function (a, b) {
         return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
     const items = merged.slice(offset, offset + limit);
 
-    const ownerIds = [...new Set(items.filter(function (i) { return i.source === 'site' && i.owner_id; }).map(function (i) { return i.owner_id; }))];
+    const ownerIds = [...new Set(items.filter(function (i) { return (i.source === 'site' || i.source === 'promo') && i.owner_id; }).map(function (i) { return i.owner_id; }))];
     const ownerById = {};
     if (ownerIds.length) {
         const { data: profs } = await supabase.from('profiles').select('id, email, full_name').in('id', ownerIds);
@@ -17486,20 +17547,63 @@ async function listAdminGenerationRecords(opts) {
         });
     }
     items.forEach(function (item) {
-        if (item.source === 'site' && item.owner_id && ownerById[item.owner_id]) {
+        if ((item.source === 'site' || item.source === 'promo') && item.owner_id && ownerById[item.owner_id]) {
             const p = ownerById[item.owner_id];
             item.owner_email = p.email || null;
             item.owner_name = p.full_name || null;
         }
     });
 
+    const summary = await adminGenerationRecordSummaryCounts({ from, to, qText: qText });
+
     return {
         items: items,
         total: merged.length,
         limit: limit,
         offset: offset,
-        has_more: merged.length > offset + limit
+        has_more: merged.length > offset + limit,
+        summary: summary
     };
+}
+
+/** 後台生圖紀錄：依來源筆數（日期篩選；關鍵字篩選時僅供參考） */
+async function adminGenerationRecordSummaryCounts(opts) {
+    opts = opts || {};
+    const from = (opts.from || '').trim();
+    const to = (opts.to || '').trim();
+    const qText = (opts.qText || '').trim();
+    const summary = { site: 0, embed: 0, promo: 0, total: 0, filtered: !!qText };
+    if (qText) return summary;
+
+    let cpQ = supabase
+        .from('custom_products')
+        .select('id', { count: 'exact', head: true })
+        .not('ai_generated_image_url', 'is', null);
+    if (from) cpQ = cpQ.gte('created_at', from);
+    if (to) cpQ = cpQ.lte('created_at', to + 'T23:59:59.999Z');
+    const cpRes = await cpQ;
+    if (!cpRes.error && cpRes.count != null) summary.site = cpRes.count;
+
+    let embQ = supabase
+        .from('vendor_embed_designs')
+        .select('id', { count: 'exact', head: true });
+    if (from) embQ = embQ.gte('created_at', from);
+    if (to) embQ = embQ.lte('created_at', to + 'T23:59:59.999Z');
+    const embRes = await embQ;
+    if (!embRes.error && embRes.count != null) summary.embed = embRes.count;
+
+    let promoQ = supabase
+        .from('product_promo_generations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'success')
+        .not('result_image_url', 'is', null);
+    if (from) promoQ = promoQ.gte('created_at', from);
+    if (to) promoQ = promoQ.lte('created_at', to + 'T23:59:59.999Z');
+    const promoRes = await promoQ;
+    if (!promoRes.error && promoRes.count != null) summary.promo = promoRes.count;
+
+    summary.total = summary.site + summary.embed + summary.promo;
+    return summary;
 }
 
 async function buildVendorPrototypeDesignInsights(manufacturerId, prototypeAssetId) {

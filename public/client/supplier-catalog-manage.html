@@ -320,10 +320,11 @@
                                 <div class="col-12"><label class="form-label fw-semibold">主分類 <span class="text-danger">*</span></label><select class="form-select add-category" name="category_key" required><option value="">—</option></select><p class="form-text text-muted small mb-0" data-i18n="baseModels.materialMatchHint">媒合僅用平台主分類；材質類型請用上方「材料/顏色」專用自訂分類。</p></div>
                                 <div class="col-12"><label class="form-label fw-semibold" data-i18n="baseModels.myCatalogAssign">我的分類（選填，可多選）</label><p class="text-muted small mb-1" data-i18n="baseModels.myCatalogAssignHintMaterial">請先在上方「材料/顏色」專用分類新增名稱，再於此勾選。</p><div class="add-catalog-groups-material border rounded p-2 d-flex flex-wrap gap-2 align-items-center min-h-32"></div></div>
                                 <div class="col-12"><label class="form-label fw-semibold">標題 <span class="text-danger">*</span></label><input type="text" class="form-control add-title" name="title" required placeholder="材質名稱，如：PU 膜布料、全棉斜紋"></div>
+                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4" data-i18n-placeholder="baseModels.descriptionBilingualHint" placeholder="一段中文說明，空一行，再一段英文說明"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32">
-                                    <p class="form-text text-muted small mb-0">送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                                    <input type="text" class="form-control form-control-sm add-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
+                                    <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。送 FLUX 提示詞：<strong class="material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">參考圖 <span class="text-danger">*</span></label>
@@ -335,7 +336,6 @@
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.composition">成分（選填）</label><input type="text" class="form-control add-composition" name="composition" placeholder="例：棉 100%"></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.finishMaterial">表面／織法（選填）</label><input type="text" class="form-control add-finish" name="finish" placeholder="例：平織"></div>
                                 <div class="col-md-6"><label class="form-label fw-semibold" data-i18n="supplierManage.fieldWidth">幅寬 cm（選填）</label><input type="number" class="form-control add-width-cm" name="width_cm" min="0" step="1" inputmode="numeric" placeholder="例：150"></div>
-                                <div class="col-12"><label class="form-label fw-semibold">簡短說明（選填）</label><textarea class="form-control add-description" name="description" rows="4"></textarea><p class="form-text text-muted small mb-0" data-i18n="baseModels.descriptionUploadHint">若留空，上傳時會自動產生中英文說明（含在上傳扣點內）。</p></div>
                                 <div class="col-12 add-per-image-optimize-wrap">
                                     <p class="text-muted small mb-1 add-points-estimate-line"><span data-i18n="baseModels.estimatedPoints">預估扣點：</span> <strong class="add-points-estimate-val">5</strong> <span data-i18n="baseModels.pointsUnit">點</span> <span class="text-muted add-points-estimate-hint">（僅上傳 <span class="add-points-base">5</span> 點；之後可逐張 AI 重繪，不另收上傳費）</span></p>
                                     <p class="text-muted small mb-0 add-points-redraw-estimate-line d-none">AI 重繪並發布預估：<strong class="add-points-redraw-estimate-val">0</strong> <span data-i18n="baseModels.pointsUnit">點</span></p>
@@ -387,14 +387,14 @@
                             <p class="form-text text-muted small mb-0" data-i18n="baseModels.generateDescriptionEditHint">依目前圖片產生中英文各一段；換圖後請重新產生。上傳時產生說明已含在上傳扣點內，不另扣點。</p>
                             <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="btn-edit-gen-desc"><i class="bi bi-magic me-1"></i><span data-i18n="baseModels.generateDescription">AI 產生說明</span> — <span id="edit-points-desc" class="fw-semibold">1</span> <span data-i18n="baseModels.pointsUnit">點</span></button>
                         </div>
+                        <div id="edit-material-surface-wrap" class="mb-3 d-none">
+                            <label class="form-label fw-semibold">AI 重繪材質類型 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：午夜藍PC塑料" maxlength="32" style="max-width:16rem">
+                            <p class="form-text text-muted small mb-0">必填，請填<strong>顏色與材質</strong>。送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
+                        </div>
                         <div class="mb-3" id="edit-images-gallery-wrap">
                             <label class="form-label" id="edit-gallery-images-label" data-i18n="baseModels.productImagesGalleryLabel">產品圖片（多角度／多色款）</label>
                             <p class="form-text text-muted small mb-1" data-i18n="baseModels.galleryOrderHint">拖曳或使用 ← → 調整順序；第一張為列表封面。</p>
-                            <div id="edit-material-surface-wrap" class="mb-2 d-none">
-                                <label class="form-label fw-semibold small mb-1">AI 重繪材質類型 <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-sm" id="edit-material-surface-type" placeholder="例：皮革、丹寧、帆布" maxlength="32" style="max-width:16rem">
-                                <p class="form-text text-muted small mb-0">送 FLUX 提示詞：<strong id="edit-material-flux-prompt-preview">（填材質類型後顯示）</strong></p>
-                            </div>
                             <div id="edit-gallery-status" class="alert alert-info border-0 small py-2 mb-2 d-none" role="alert" aria-live="assertive"></div>
                             <div id="edit-gallery-grid" class="row g-2 mb-2"></div>
                             <div id="edit-gallery-redraw-settings" class="border rounded p-2 mb-3 d-none">
@@ -540,7 +540,7 @@
             if (s == null) return '';
             return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
         }
-        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'supplier-catalog-20260704p';
+        window.__MATCHDO_SUPPLIER_CATALOG_BUILD = 'material-surface-example-20260721';
         var Pending = window.MatchdoVendorAssetPending;
         var EditGallery = window.MatchdoSupplierCatalogEditGallery;
         var editItemCache = null;

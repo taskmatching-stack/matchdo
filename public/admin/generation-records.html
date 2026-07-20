@@ -12,7 +12,10 @@
     .rec-row:hover td { background: #f8f9fa; }
     .badge-site { background: #0d6efd; }
     .badge-embed { background: #6f42c1; }
+    .badge-promo { background: #198754; }
     pre.detail-json { font-size: 0.72rem; max-height: 240px; overflow: auto; background: #f8f9fa; padding: 0.5rem; border-radius: 6px; }
+    .stat-card { border: 0; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,.075); }
+    .stat-card .stat-num { font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
   </style>
 </head>
 <body class="bg-light">
@@ -22,7 +25,35 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">生圖紀錄</h4>
-        <p class="text-muted small mb-3">主站訂製生圖與 Embed iframe 訪客生圖（含成圖、描述、參考來源）</p>
+        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品推廣圖（含成圖、描述、參考來源）</p>
+
+        <div class="row g-2 mb-3" id="summaryRow">
+          <div class="col-6 col-md-3">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">全部</div>
+              <div class="stat-num" id="sumTotal">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">主站</div>
+              <div class="stat-num text-primary" id="sumSite">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">Embed</div>
+              <div class="stat-num" style="color:#6f42c1" id="sumEmbed">—</div>
+            </div></div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card stat-card"><div class="card-body py-2 px-3">
+              <div class="text-muted small">推廣圖</div>
+              <div class="stat-num text-success" id="sumPromo">—</div>
+            </div></div>
+          </div>
+        </div>
+        <p class="text-muted small mb-3 d-none" id="summaryFilteredHint">已輸入關鍵字時，上方統計不套用篩選；請以下方列表為準。</p>
 
         <div class="card border-0 shadow-sm mb-3">
           <div class="card-body">
@@ -33,11 +64,12 @@
                   <option value="all">全部</option>
                   <option value="site">主站</option>
                   <option value="embed">Embed</option>
+                  <option value="promo">推廣圖</option>
                 </select>
               </div>
               <div class="col-md-3">
                 <label class="form-label small mb-1">關鍵字</label>
-                <input type="text" class="form-control form-control-sm" id="filterQ" placeholder="標題／描述／網域">
+                <input type="text" class="form-control form-control-sm" id="filterQ" placeholder="標題／描述／主題／網域">
               </div>
               <div class="col-md-2">
                 <label class="form-label small mb-1">起始</label>
@@ -117,6 +149,18 @@
       try { return new Date(iso).toLocaleString('zh-TW', { hour12: false }); } catch (_) { return String(iso).slice(0, 16); }
     }
 
+    function sourceBadge(row) {
+      if (row.source === 'embed') return '<span class="badge badge-embed">Embed</span>';
+      if (row.source === 'promo') return '<span class="badge badge-promo">推廣圖</span>';
+      return '<span class="badge badge-site">主站</span>';
+    }
+
+    function sourceLabel(row) {
+      if (row.source === 'embed') return 'embed';
+      if (row.source === 'promo') return 'promo';
+      return 'site';
+    }
+
     async function getToken() {
       if (token) return token;
       if (window.AuthService && typeof AuthService.getSession === 'function') {
@@ -124,6 +168,15 @@
         token = s && (s.access_token || (s.session && s.session.access_token));
       }
       return token;
+    }
+
+    function renderSummary(summary) {
+      summary = summary || {};
+      document.getElementById('sumTotal').textContent = summary.filtered ? '—' : String(summary.total != null ? summary.total : '—');
+      document.getElementById('sumSite').textContent = summary.filtered ? '—' : String(summary.site != null ? summary.site : '—');
+      document.getElementById('sumEmbed').textContent = summary.filtered ? '—' : String(summary.embed != null ? summary.embed : '—');
+      document.getElementById('sumPromo').textContent = summary.filtered ? '—' : String(summary.promo != null ? summary.promo : '—');
+      document.getElementById('summaryFilteredHint').classList.toggle('d-none', !summary.filtered);
     }
 
     function renderRows() {
@@ -135,14 +188,11 @@
       body.innerHTML = items.map(function (row, idx) {
         var url = row.ai_generated_image_url || '';
         var img = url ? '<img src="' + esc(url) + '" class="rec-thumb" alt="">' : '<span class="text-muted">—</span>';
-        var srcBadge = row.source === 'embed'
-          ? '<span class="badge badge-embed">Embed</span>'
-          : '<span class="badge badge-site">主站</span>';
         var who = row.source === 'embed'
           ? esc(row.manufacturer_name || row.manufacturer_id || '—')
           : esc(row.owner_name || row.owner_email || row.owner_id || '—');
         var cap = esc((row.title || row.prompt || '').slice(0, 80));
-        return '<tr class="rec-row" data-idx="' + idx + '"><td>' + img + '</td><td>' + srcBadge + '</td>' +
+        return '<tr class="rec-row" data-idx="' + idx + '"><td>' + img + '</td><td>' + sourceBadge(row) + '</td>' +
           '<td><div class="text-truncate" style="max-width:280px" title="' + cap + '">' + cap + '</div></td>' +
           '<td class="small">' + who + '</td><td class="small text-nowrap">' + esc(fmtTime(row.created_at)) + '</td></tr>';
       }).join('');
@@ -157,18 +207,29 @@
       var url = row.ai_generated_image_url || '';
       var html = (url ? '<p><img src="' + esc(url) + '" class="img-fluid rounded border mb-2" alt=""></p>' : '') +
         '<dl class="row mb-2">' +
-        '<dt class="col-sm-3">來源</dt><dd class="col-sm-9">' + esc(row.source) + '</dd>' +
+        '<dt class="col-sm-3">來源</dt><dd class="col-sm-9">' + esc(sourceLabel(row)) + '</dd>' +
         '<dt class="col-sm-3">時間</dt><dd class="col-sm-9">' + esc(fmtTime(row.created_at)) + '</dd>' +
         '<dt class="col-sm-3">標題</dt><dd class="col-sm-9">' + esc(row.title || '—') + '</dd>' +
-        '<dt class="col-sm-3">描述／Prompt</dt><dd class="col-sm-9">' + esc(row.prompt || row.generation_prompt || '—') + '</dd>' +
-        '<dt class="col-sm-3">Seed</dt><dd class="col-sm-9">' + esc(row.generation_seed != null ? row.generation_seed : '—') + '</dd>';
+        '<dt class="col-sm-3">描述／Prompt</dt><dd class="col-sm-9">' + esc(row.prompt || row.generation_prompt || '—') + '</dd>';
+      if (row.source !== 'promo') {
+        html += '<dt class="col-sm-3">Seed</dt><dd class="col-sm-9">' + esc(row.generation_seed != null ? row.generation_seed : '—') + '</dd>';
+      }
       if (row.source === 'site') {
         html += '<dt class="col-sm-3">owner</dt><dd class="col-sm-9">' + esc(row.owner_email || row.owner_id) + '</dd>' +
           '<dt class="col-sm-3">廠商自產</dt><dd class="col-sm-9">' + (row.is_vendor_self_serve ? '是' : '否') + '</dd>' +
           '<dt class="col-sm-3">媒體牆</dt><dd class="col-sm-9">' + (row.show_on_homepage !== false ? '是' : '否') + '</dd>';
-      } else {
+      } else if (row.source === 'embed') {
         html += '<dt class="col-sm-3">廠商</dt><dd class="col-sm-9">' + esc(row.manufacturer_name || row.manufacturer_id) + '</dd>' +
           '<dt class="col-sm-3">來源網域</dt><dd class="col-sm-9">' + esc(row.referrer_host || '—') + '</dd>' +
+          '<dt class="col-sm-3">扣點</dt><dd class="col-sm-9">' + (row.points_charged ? row.points_charged + ' 點' : '—') + '</dd>';
+      } else if (row.source === 'promo') {
+        html += '<dt class="col-sm-3">帳號</dt><dd class="col-sm-9">' + esc(row.owner_email || row.owner_id || '—') + '</dd>' +
+          '<dt class="col-sm-3">主題</dt><dd class="col-sm-9">' + esc(row.scene_template_key || '—') + '</dd>' +
+          '<dt class="col-sm-3">場景</dt><dd class="col-sm-9">' + esc(row.scene_key || '—') + '</dd>' +
+          '<dt class="col-sm-3">使用者描述</dt><dd class="col-sm-9">' + esc(row.user_prompt || '—') + '</dd>' +
+          '<dt class="col-sm-3">尺寸</dt><dd class="col-sm-9">' + esc((row.width && row.height) ? (row.width + '×' + row.height + (row.aspect_ratio ? ' · ' + row.aspect_ratio : '')) : '—') + '</dd>' +
+          '<dt class="col-sm-3">MP</dt><dd class="col-sm-9">' + esc(row.megapixels != null ? row.megapixels : '—') + '</dd>' +
+          '<dt class="col-sm-3">參考來源</dt><dd class="col-sm-9">' + esc(row.source_type || '—') + (row.source_id ? (' · ' + esc(row.source_id)) : '') + '</dd>' +
           '<dt class="col-sm-3">扣點</dt><dd class="col-sm-9">' + (row.points_charged ? row.points_charged + ' 點' : '—') + '</dd>';
       }
       html += '</dl><div class="fw-semibold mb-1">reference_sources</div><pre class="detail-json">' +
@@ -203,6 +264,7 @@
       }
       items = data.items || [];
       hasMore = !!data.has_more;
+      renderSummary(data.summary);
       document.getElementById('pageInfo').textContent = '第 ' + (page + 1) + ' 頁' + (data.total != null ? '（本批 ' + data.total + ' 筆內）' : '');
       document.getElementById('btnPrev').disabled = page <= 0;
       document.getElementById('btnNext').disabled = !hasMore;
