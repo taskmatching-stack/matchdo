@@ -3,6 +3,10 @@
 
     var MODE = (document.body && document.body.getAttribute('data-vplt-mode')) || 'guide';
     var IS_VENDOR = MODE === 'vendor';
+    var IS_OFFICIAL = !!(window.__MATCHDO_OFFICIAL_PLATFORM_LIB ||
+        (typeof URLSearchParams !== 'undefined' &&
+            (new URLSearchParams(window.location.search).get('official_platform') === '1' ||
+                new URLSearchParams(window.location.search).get('official_platform') === 'true')));
 
     var state = {
         prototypes: [],
@@ -225,7 +229,15 @@
     }
 
     function guideLightboxItems(a) {
-        var raw = variantImageItems(a);
+        // 燈箱可看僅展示圖；選取仍走 variantImageItems
+        var raw = [];
+        var seen = {};
+        assetImageItems(a).forEach(function (x) {
+            var u = (x && x.url || '').trim();
+            if (!u || seen[u]) return;
+            seen[u] = true;
+            raw.push(x);
+        });
         return raw.map(function (x, idx) {
             return {
                 url: x.url,
@@ -738,7 +750,9 @@
     }
 
     /** 主產品／配件／材料同一套：多圖 = 多格，選取以 teal 外框 + 角標（預覽中／已選）表示 */
-    function guideTileHtml(a, aid, kindKey, picked, variantIt, variantIndex, variantTotal) {
+    function guideTileHtml(a, aid, kindKey, picked, variantIt, variantIndex, variantTotal, opts) {
+        opts = opts || {};
+        var displayOnly = !!opts.displayOnly;
         var kindCls = kindKey === 'prototype' ? 'prototype' : (kindKey === 'material' ? 'material' : 'part');
         var items = variantImageItems(a);
         var total = variantTotal != null ? variantTotal : items.length;
@@ -750,35 +764,62 @@
         var optionLabel = guideTileOptionLabel(a, it, idx, total);
         var displayName = esc(optionLabel);
         var subKind = multi ? '' : ('<span class="vplt-guide-tile-kind">' + esc(guideKindLabelForKey(kindKey)) + '</span>');
-        var isActive = (kindKey === 'prototype' && multi)
+        var isActive = displayOnly ? false : ((kindKey === 'prototype' && multi)
             ? isPrototypeVariantSelected(imgUrl)
-            : (!multi || imgUrl === activeUrl);
-        var vis = guideTileSelectionVisuals(kindKey, picked, isActive, multi);
+            : (!multi || imgUrl === activeUrl));
+        var vis = displayOnly
+            ? { isPicked: false, showFrame: false }
+            : guideTileSelectionVisuals(kindKey, picked, isActive, multi);
         var pickCls = vis.isPicked ? ' vplt-guide-tile--picked' : '';
         var activeCls = vis.showFrame ? ' vplt-guide-tile--active-view' : '';
-        var interCls = (kindKey !== 'prototype' || multi) ? ' vplt-guide-tile--interactive' : '';
+        var interCls = (!displayOnly && (kindKey !== 'prototype' || multi)) ? ' vplt-guide-tile--interactive' : '';
+        var displayCls = displayOnly ? ' vplt-guide-tile--display-only' : '';
         var variantAttrs = multi && it && it.url
             ? ' data-variant-url="' + esc(it.url) + '" data-variant-label="' + esc(optionLabel) + '"'
             : '';
-        var badgeHtml = guideTileBadgeHtml(kindKey, picked, isActive, multi);
-        var pressedAttr = vis.isPicked ? ' aria-pressed="true"' : ' aria-pressed="false"';
-        return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + interCls + pickCls + activeCls + '"' +
-            ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + pressedAttr + ' tabindex="0">' +
+        if (displayOnly) variantAttrs += ' data-display-only="1"';
+        var badgeHtml = displayOnly
+            ? ('<span class="vplt-guide-tile-badge vplt-guide-tile-badge--display-only">' +
+                esc(tr('productTree.guideDisplayOnlyBadge', '僅展示')) + '</span>')
+            : guideTileBadgeHtml(kindKey, picked, isActive, multi);
+        var pressedAttr = displayOnly ? '' : (vis.isPicked ? ' aria-pressed="true"' : ' aria-pressed="false"');
+        return '<div class="vplt-guide-tile vplt-guide-tile--' + esc(kindCls) + interCls + displayCls + pickCls + activeCls + '"' +
+            ' data-guide-asset="' + esc(aid) + '" role="listitem"' + variantAttrs + pressedAttr +
+            (displayOnly ? ' title="' + esc(tr('productTree.guideDisplayOnly', '此圖僅展示，不可選用。')) + '"' : ' tabindex="0"') + '>' +
             guideTileMediaHtml(a, it, optionLabel, badgeHtml) +
-            '<span class="vplt-guide-tile-name">' + displayName + '</span>' +
+            '<span class="vplt-guide-tile-name">' + displayName +
+            (displayOnly ? (' <span class="text-muted" style="font-size:.7rem">(' + esc(tr('productTree.guideDisplayOnlyBadge', '僅展示')) + ')</span>') : '') +
+            '</span>' +
             subKind +
             guideTileDetailLinkHtml(a, kindKey) +
             '</div>';
     }
 
     function guideTilesForAsset(a, aid, kindKey, picked) {
-        var items = variantImageItems(a);
-        if (!items.length) return [];
-        if (items.length === 1) {
-            return [guideTileHtml(a, aid, kindKey, picked, items[0], 0, 1)];
+        var pickItems = variantImageItems(a);
+        var viewItems = [];
+        var seen = {};
+        assetImageItems(a).forEach(function (it) {
+            var u = (it && it.url || '').trim();
+            if (!u || seen[u]) return;
+            seen[u] = true;
+            viewItems.push(it);
+        });
+        if (!IS_VENDOR && viewItems.length) {
+            // 消費端：僅展示圖仍顯示，但不可選
+            return viewItems.map(function (it, idx) {
+                var selectable = it.designer_selectable !== false;
+                return guideTileHtml(a, aid, kindKey, picked, it, idx, viewItems.length, {
+                    displayOnly: !selectable
+                });
+            });
         }
-        return items.map(function (it, idx) {
-            return guideTileHtml(a, aid, kindKey, picked, it, idx, items.length);
+        if (!pickItems.length) return [];
+        if (pickItems.length === 1) {
+            return [guideTileHtml(a, aid, kindKey, picked, pickItems[0], 0, 1)];
+        }
+        return pickItems.map(function (it, idx) {
+            return guideTileHtml(a, aid, kindKey, picked, it, idx, pickItems.length);
         });
     }
 
@@ -1026,6 +1067,10 @@
             tile.addEventListener('click', function (e) {
                 if (e.target.closest('.vplt-variant-zoom-btn')) return;
                 if (e.target.closest('.vplt-guide-tile-detail')) return;
+                if (tile.getAttribute('data-display-only') === '1' || tile.classList.contains('vplt-guide-tile--display-only')) {
+                    showAlert(tr('productTree.guideDisplayOnly', '此圖僅展示，不可選用。'), 'warning');
+                    return;
+                }
                 var aid = tile.getAttribute('data-guide-asset');
                 var url = (tile.getAttribute('data-variant-url') || '').trim();
                 var label = (tile.getAttribute('data-variant-label') || '').replace(/&quot;/g, '"').trim();
@@ -1749,6 +1794,13 @@
         if (typeof AuthService === 'undefined') {
             showAlert('AuthService 未載入', 'danger');
             return;
+        }
+        if (IS_OFFICIAL) {
+            var back = document.getElementById('vplt-back-materials');
+            if (back) back.href = '/client/manufacturer-materials.html?official_platform=1';
+            var titleEl = document.querySelector('.page-title-bar h1');
+            if (titleEl) titleEl.textContent = tr('productTree.officialVendorTitle', '產品關聯圖（官方版型庫）');
+            document.title = tr('productTree.officialVendorTitle', '產品關聯圖（官方版型庫）') + ' - MatchDO';
         }
         var session = await AuthService.getSession();
         if (!session || !session.access_token) {

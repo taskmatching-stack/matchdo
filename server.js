@@ -5164,9 +5164,20 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
     const offset = pageParams.offset || 0;
     const limit = pageParams.limit || 24;
     list = list.slice(offset, offset + limit);
+    const protoRowsForLinks = list.filter((r) => normalizeVendorAssetKind(r.asset_kind) === 'prototype');
+    let linkCountsByProto = {};
+    if (protoRowsForLinks.length && (await vendorPrototypeLinksTableReady())) {
+        linkCountsByProto = await batchPrototypeLinkCounts(protoRowsForLinks);
+    }
     const items = list.map((r) => {
         const kind = normalizeVendorAssetKind(r.asset_kind);
         const mapped = mapVendorAssetForApi(r, contentLang);
+        const protoLinkCounts = (kind === 'prototype' && linkCountsByProto[r.id])
+            ? linkCountsByProto[r.id]
+            : { material_count: 0, part_count: 0 };
+        const linkCount = kind === 'prototype'
+            ? (protoLinkCounts.material_count + protoLinkCounts.part_count)
+            : 0;
         const item = {
             id: r.id,
             manufacturer_id: null,
@@ -5187,7 +5198,12 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
             ai_tags: r.ai_tags || [],
             min_order_quantity: r.min_order_quantity != null ? r.min_order_quantity : null,
             customization_levels: normalizeCustomizationLevels(r.customization_levels),
-            match_guide_url: null
+            material_count: kind === 'prototype' ? protoLinkCounts.material_count : undefined,
+            part_count: kind === 'prototype' ? protoLinkCounts.part_count : undefined,
+            link_count: kind === 'prototype' ? linkCount : undefined,
+            match_guide_url: kind === 'prototype'
+                ? '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id)
+                : null
         };
         if (!publicOnly) item.is_public = r.is_public !== false;
         return item;

@@ -291,7 +291,7 @@
                     <small class="text-muted" data-i18n="baseModels.pageIntro">給訂製者在產品設計頁當參考圖。請分別上傳「數位原型」與「材料/顏色」。</small>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary vendor-only-not-official"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
+                    <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-primary product-link-tree-entry"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
                     <a href="/client/manufacturer-dashboard.html" class="btn btn-sm btn-outline-secondary vendor-only-not-official"><i class="bi bi-arrow-left me-1"></i><span data-i18n="supplierPortal.backVendor">返回控制台</span></a>
                     <a href="/admin/" class="btn btn-sm btn-outline-secondary d-none" id="btn-back-admin"><i class="bi bi-arrow-left me-1"></i>返回後台</a>
                     <button type="button" class="btn btn-sm btn-primary" id="btn-add-open"><i class="bi bi-plus-lg me-1"></i><span id="btn-add-open-label" data-i18n="baseModels.addUpload">新增</span></button>
@@ -314,7 +314,7 @@
 
         <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
             <i class="bi bi-collection me-2"></i>
-            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、推廣圖、零件、材料）。內容會出現在設計頁「官方版型」。
+            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、推廣圖、零件、材料、產品關聯圖）。內容會出現在設計頁「官方版型」。
         </div>
 
         <div id="main-content" class="d-none">
@@ -390,7 +390,7 @@
             </div>
                 <div class="alert alert-primary border-0 py-2 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
                     <span class="small mb-0"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.vendorIntroShort">管理主產品與材料／配件的關聯，設計端選圖時會優先顯示。</span></span>
-                    <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-light text-primary fw-semibold flex-shrink-0"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
+                    <a href="/client/vendor-product-link-tree.html" class="btn btn-sm btn-light text-primary fw-semibold flex-shrink-0 product-link-tree-entry"><i class="bi bi-diagram-3 me-1"></i><span data-i18n="productTree.openVendorTree">產品關聯圖</span></a>
                 </div>
                 <p class="text-muted small mb-2" data-i18n="baseModels.hintPrototype">造型、輪廓、結構參考圖，供設計者選用。</p>
                 <div class="alert alert-info border small py-2 mb-3" role="note" data-i18n="baseModels.uploadGuidePrototype">「材料/顏色」請用<strong>材料</strong>分頁（主產品布料／色卡）。<strong>配件</strong>的材質、顏色請在<strong>配件／零件</strong>分頁<strong>各建一筆獨立產品</strong>，不要與材料或原型混在同一筆，以免訂製者 AI 參考混亂。</div>
@@ -1098,7 +1098,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'thumb-contain-20260721';
+        window.__MATCHDO_MATERIALS_BUILD = 'official-link-tree-20260721';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -9144,6 +9144,9 @@
                         return;
                     }
                     document.querySelectorAll('.vendor-only-not-official').forEach(function (el) { el.classList.add('d-none'); });
+                    document.querySelectorAll('.product-link-tree-entry').forEach(function (el) {
+                        el.href = '/client/vendor-product-link-tree.html?official_platform=1';
+                    });
                     var backAdmin = document.getElementById('btn-back-admin');
                     if (backAdmin) backAdmin.classList.remove('d-none');
                     var offBanner = document.getElementById('official-platform-banner');
@@ -9151,7 +9154,7 @@
                     var titleH4 = document.querySelector('.page-title-bar h4');
                     if (titleH4) titleH4.textContent = '官方版型庫（管理員）';
                     var titleSmall = document.querySelector('.page-title-bar small');
-                    if (titleSmall) titleSmall.textContent = '與廠商「上傳數位版型」相同介面：數位原型、配件／零件、材料／顏色，含 AI 重繪、寫實化、推廣圖、放大。';
+                    if (titleSmall) titleSmall.textContent = '與廠商「上傳數位版型」相同介面：數位原型、配件／零件、材料／顏色，含 AI 重繪、寫實化、推廣圖、放大、產品關聯圖。';
                     document.title = '官方版型庫（管理員）';
                 }
 

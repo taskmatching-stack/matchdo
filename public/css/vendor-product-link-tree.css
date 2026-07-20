@@ -483,6 +483,17 @@
     background: #334155;
     color: #fff;
 }
+.vplt-guide-tile-badge--display-only {
+    background: rgba(108, 117, 125, 0.92);
+    color: #fff;
+}
+.vplt-guide-tile--display-only {
+    opacity: 0.88;
+    cursor: default;
+}
+.vplt-guide-tile--display-only .vplt-guide-tile-media {
+    filter: grayscale(0.12);
+}
 .vplt-guide-tile-media--empty {
     min-height: 5.5rem;
     background: #f5f5f7;

@@ -10,13 +10,37 @@
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/style.css" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
-    <link href="/css/vendor-product-link-tree.css?v=32" rel="stylesheet">
+    <link href="/css/vendor-product-link-tree.css?v=35" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/config/auth-config.js"></script>
     <script src="/js/auth-middleware.js"></script>
     <script src="/js/i18n.js"></script>
 </head>
 <body class="vplt-page vplt-page--vendor" data-vplt-mode="vendor">
+    <script>
+    (function () {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('official_platform') === '1' || p.get('official_platform') === 'true') {
+            window.__MATCHDO_OFFICIAL_PLATFORM_LIB = true;
+            var origFetch = window.fetch;
+            window.fetch = function (input, init) {
+                init = init || {};
+                var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+                if (/\/api\/me\//.test(url) || /\/api\/admin\//.test(url)) {
+                    var headers = new Headers(init.headers || (typeof input !== 'string' && input && input.headers ? input.headers : undefined));
+                    if (!headers.has('X-Official-Platform-Library')) headers.set('X-Official-Platform-Library', '1');
+                    if (typeof input === 'string') {
+                        init = Object.assign({}, init, { headers: headers });
+                    } else {
+                        input = new Request(input, Object.assign({}, init, { headers: headers }));
+                        init = undefined;
+                    }
+                }
+                return origFetch.call(this, input, init);
+            };
+        }
+    })();
+    </script>
     <div id="site-header"></div>
     <div class="container-fluid page-title-bar py-3 bg-light border-bottom">
         <div class="container">
@@ -26,7 +50,7 @@
                     <p class="text-muted small mb-0" data-i18n="productTree.vendorIntro">與「看可搭配」相同版面：主產品、配件、材料分區；有關聯才顯示該區。右側未關聯素材可拖曳加入。</p>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="/client/manufacturer-materials.html" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i><span data-i18n="productTree.backMaterials">返回素材庫</span></a>
+                    <a href="/client/manufacturer-materials.html" class="btn btn-sm btn-outline-secondary" id="vplt-back-materials"><i class="bi bi-arrow-left me-1"></i><span data-i18n="productTree.backMaterials">返回素材庫</span></a>
                     <a href="#" class="btn btn-sm btn-outline-primary d-none" id="btn-export-pdf"><i class="bi bi-file-earmark-pdf me-1"></i><span data-i18n="productTree.exportPdf">下載 PDF</span></a>
                     <button type="button" class="btn btn-sm btn-primary" id="btn-save-links" disabled><i class="bi bi-check-lg me-1"></i><span data-i18n="productTree.save">儲存關聯</span></button>
                 </div>
@@ -57,6 +81,6 @@
     <script src="/js/site-header.js" defer></script>
     <script src="/js/image-lightbox.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
-    <script src="/js/vendor-product-link-tree.js?v=71" defer></script>
+    <script src="/js/vendor-product-link-tree.js?v=73" defer></script>
 </body>
 </html>

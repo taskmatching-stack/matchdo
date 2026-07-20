@@ -369,7 +369,6 @@ $(document).ready(function () {
     function hasVendorPrototypeLock() {
         var anchor = getPrototypeAnchorSource();
         if (!anchor || !anchor.vendor_asset_id) return false;
-        if (anchor.official === true) return false;
         return true;
     }
 
@@ -389,7 +388,7 @@ $(document).ready(function () {
         var $hint = $('#panel-vendor-styles > p.text-muted.small').first();
         if ($hint.length) {
             $hint.text(official
-                ? (t('customProduct.officialStylesBrowseHint') || '平台共用官方版型（顯示名固定「官方版型」）。子分類僅篩選數位原型；無廠商 MAP。')
+                ? (t('customProduct.officialStylesBrowseHint') || '平台共用官方版型（顯示名固定「官方版型」）。子分類僅篩選數位原型；有關聯的主產品可看可搭配（產品 MAP）。')
                 : (t('customProduct.vendorStylesTabHint') || '與「產品設計」共用主／子分類（網址會帶入 category_key）。可直接點「變更分類」；點「用此款進行設計」帶入參考圖。'));
         }
     }
@@ -448,6 +447,14 @@ $(document).ready(function () {
     }
 
     function navigateRefSlotOfficialPick(slotKey) {
+        if ((slotKey === 'material' || slotKey === 'part')) {
+            var anchor = getPrototypeAnchorSource();
+            if (anchor && anchor.official === true && anchor.vendor_asset_id) {
+                var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+                window.location.href = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(String(anchor.vendor_asset_id).trim()) + '&return_to=' + returnTo;
+                return;
+            }
+        }
         var def = slotKey ? getRefSlotDef(slotKey) : null;
         if (def && def.assetKind) {
             var $kind = $('#bs-official-asset-kind');
@@ -775,6 +782,11 @@ $(document).ready(function () {
         return (imageItems || []).filter(function (it) {
             return isDesignerSelectableImageItem(it);
         });
+    }
+
+    /** 選圖彈窗：僅展示圖仍列出供預覽，但不可勾選 */
+    function isVendorPickDisplayOnlyItem(it) {
+        return !!(it && it.url) && it.designer_selectable === false;
     }
 
     function clearRefSlot(key) {
@@ -1564,7 +1576,14 @@ $(document).ready(function () {
     }
 
     function applyPrototypeRefsFromLinkTreeNode(p) {
-        var imageItems = prototypeImageItemsFromNode(p);
+        var allItems = [];
+        if (p && p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
+            allItems = p.image_items.filter(function (it) { return it && it.url; });
+        } else {
+            var u0 = p && (p.image_url || '').trim();
+            if (u0) allItems = [{ url: u0, label: '', sort_order: 0, is_cover: true, designer_selectable: true }];
+        }
+        var imageItems = filterSelectableVendorImageItems(allItems);
         if (!imageItems.length) return Promise.resolve();
         var baseMeta = {
             vendor_asset_id: p.id,
@@ -1583,7 +1602,7 @@ $(document).ready(function () {
         }
         var cap = vendorImportCapacity('prototype');
         if (cap.maxAdd <= 0) return Promise.resolve();
-        if (imageItems.length === 1) {
+        if (imageItems.length === 1 && allItems.length === 1) {
             var it0 = imageItems[0];
             return fetchUrlAsDataUrl(it0.url).catch(function () { return null; }).then(function (dataUrl) {
                 if (!dataUrl) return;
@@ -1595,8 +1614,8 @@ $(document).ready(function () {
         }
         return Promise.resolve().then(function () {
             openVendorAssetImagePickModal({
-                imageItems: imageItems,
-                maxSelect: cap.maxAdd,
+                imageItems: allItems,
+                maxSelect: Math.min(cap.maxAdd, imageItems.length),
                 targetKey: 'prototype',
                 baseMeta: baseMeta,
                 pickerModalEl: null,
@@ -1632,11 +1651,11 @@ $(document).ready(function () {
                     return;
                 }
                 var slotKey = slotKeyForVendorAssetKind(item.asset_kind);
-                var imageItems = vendorStyleItemImageItems(item);
-                if (slotKey === 'material' || item.asset_kind === 'material') {
-                    imageItems = filterSelectableVendorImageItems(imageItems);
-                }
+                var allImageItems = vendorStyleItemImageItems(item);
+                var imageItems = filterSelectableVendorImageItems(allImageItems);
                 if (!imageItems.length) {
+                    alert(tr('customProduct.prototypeNoSelectableAngles',
+                        '此素材沒有可引用的圖片（皆設為僅展示）。'));
                     scheduleStripDesignDeepLinkFromUrl();
                     return;
                 }
@@ -1654,9 +1673,9 @@ $(document).ready(function () {
                     return syncCategorySelectionFromKeys(item.category_key || '', item.subcategory_key || '').then(function () {
                         var cap = vendorImportCapacity(slotKey);
                         var maxPick = Math.max(1, Math.min(imageItems.length, cap.maxAdd));
-                        if (imageItems.length > 1) {
+                        if (allImageItems.length > 1 || imageItems.length > 1) {
                             openVendorAssetImagePickModal({
-                                imageItems: imageItems,
+                                imageItems: allImageItems,
                                 maxSelect: maxPick,
                                 targetKey: slotKey,
                                 baseMeta: baseMeta,
@@ -1843,7 +1862,8 @@ $(document).ready(function () {
             var selected = [];
             $('#vendorAssetImagesPickGrid input.vendor-asset-pick-check:checked').each(function () {
                 var i = parseInt($(this).val(), 10);
-                if (!isNaN(i) && st.imageItems[i]) selected.push(st.imageItems[i]);
+                var row = (!isNaN(i) && st.imageItems[i]) ? st.imageItems[i] : null;
+                if (row && isDesignerSelectableImageItem(row)) selected.push(row);
             });
             if (!selected.length) {
                 alert(tr('customProduct.vendorAssetPickSelectOne', '請至少勾選一張圖片。'));
@@ -1858,7 +1878,7 @@ $(document).ready(function () {
         $('#vendorAssetImagesPickSelectMax').on('click', function () {
             var st = vendorAssetPickModalState;
             if (!st) return;
-            var $boxes = $('#vendorAssetImagesPickGrid input.vendor-asset-pick-check');
+            var $boxes = $('#vendorAssetImagesPickGrid input.vendor-asset-pick-check:not(:disabled)');
             $boxes.prop('checked', false);
             var n = Math.min(st.maxSelect, $boxes.length);
             for (var i = 0; i < n; i++) $boxes.eq(i).prop('checked', true);
@@ -2727,6 +2747,12 @@ $(document).ready(function () {
             if ($grid.data('link-group-sync')) return;
             var it = st.imageItems[idx];
             if (!it || !it.url) return;
+            if (isVendorPickDisplayOnlyItem(it)) {
+                $cb.prop('checked', false);
+                alert(tr('customProduct.imageDisplayOnly', '此圖僅展示，不可選用。'));
+                updateVendorAssetPickModalCount();
+                return;
+            }
 
             if (st.targetKey === 'prototype' && typeof MatchdoImageLinkGroups !== 'undefined') {
                 if (!$cb.prop('checked')) {
@@ -2786,6 +2812,12 @@ $(document).ready(function () {
         var assetTitle = opts.assetTitle || '';
         if (!imageItems.length || maxSelect < 1) return;
 
+        var selectableCount = filterSelectableVendorImageItems(imageItems).length;
+        if (!selectableCount) {
+            alert(tr('customProduct.prototypeNoSelectableAngles', '此原型沒有可引用的角度圖（皆設為僅展示，或已全部加入）。'));
+            return;
+        }
+
         vendorAssetPickModalState = {
             imageItems: imageItems,
             maxSelect: maxSelect,
@@ -2809,15 +2841,26 @@ $(document).ready(function () {
         }
 
         var $grid = $('#vendorAssetImagesPickGrid').empty();
+        var displayOnlyLbl = tr('customProduct.imageDisplayOnlyBadge', '僅展示');
         imageItems.forEach(function (it, idx) {
             var label = (it.label || '').trim() || (tr('customProduct.refThumbDefault', '圖') + ' ' + (idx + 1));
             var safeLabel = label.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            var displayOnly = isVendorPickDisplayOnlyItem(it);
             var $col = $('<div class="col-6 col-sm-4 col-md-3"></div>');
-            var $label = $('<label class="vendor-asset-pick-item position-relative"></label>');
+            var $label = $('<label class="vendor-asset-pick-item position-relative' +
+                (displayOnly ? ' vendor-asset-pick-item--display-only' : '') + '"></label>');
             var $cb = $('<input type="checkbox" class="vendor-asset-pick-check">').attr('value', String(idx));
+            if (displayOnly) {
+                $cb.prop('disabled', true).attr('title', tr('customProduct.imageDisplayOnly', '此圖僅展示，不可選用。'));
+            }
             var $wrap = $('<div class="vendor-asset-pick-item-img-wrap"></div>');
             $wrap.append($('<img alt="">').attr('src', it.url).attr('loading', 'lazy'));
-            $wrap.append($('<span class="vendor-asset-pick-item-check" aria-hidden="true"></span>'));
+            if (!displayOnly) {
+                $wrap.append($('<span class="vendor-asset-pick-item-check" aria-hidden="true"></span>'));
+            } else {
+                $wrap.append($('<span class="badge bg-secondary position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem"></span>')
+                    .text(displayOnlyLbl));
+            }
             $wrap.append($('<button type="button" class="vendor-asset-pick-preview-btn" title="' +
                 (tr('customProduct.zoomImage', '放大預覽').replace(/"/g, '&quot;')) + '"><i class="bi bi-zoom-in"></i></button>')
                 .on('click', function (e) {
@@ -2825,10 +2868,19 @@ $(document).ready(function () {
                     e.stopPropagation();
                     openImageLightbox(it.url, assetTitle + ' · ' + label, imageItems, idx);
                 }));
-            $label.append($cb).append($wrap).append($('<div class="vendor-asset-pick-item-label"></div>').html(safeLabel));
-            $cb.on('change', function () {
-                handleVendorAssetPickCheckChange($(this), idx);
-            });
+            $label.append($cb).append($wrap).append($('<div class="vendor-asset-pick-item-label"></div>').html(
+                safeLabel + (displayOnly ? (' <span class="text-muted">(' + displayOnlyLbl.replace(/</g, '&lt;') + ')</span>') : '')
+            ));
+            if (!displayOnly) {
+                $cb.on('change', function () {
+                    handleVendorAssetPickCheckChange($(this), idx);
+                });
+            } else {
+                $label.on('click', function (e) {
+                    if (e.target.closest('.vendor-asset-pick-preview-btn')) return;
+                    e.preventDefault();
+                });
+            }
             $col.append($label);
             $grid.append($col);
         });
@@ -2840,14 +2892,15 @@ $(document).ready(function () {
     }
 
     function startVendorAssetImport($c, pickerModalEl) {
-        var imageItems = vendorAssetCardImageItems($c);
-        if (!imageItems.length) return;
+        var allImageItems = vendorAssetCardImageItems($c);
+        if (!allImageItems.length) return;
         var assetKind = ($c.attr('data-asset-kind') || 'prototype').trim();
         var targetKey = null;
         try { targetKey = window.__refImportTargetSlot; } catch (e) { targetKey = null; }
         try { window.__refImportTargetSlot = null; } catch (e2) {}
         if (!targetKey || !getRefSlotDef(targetKey)) targetKey = intentKeyFromAssetKind(assetKind);
 
+        var imageItems = allImageItems;
         if (targetKey === 'prototype') {
             var pickAssetId = ($c.attr('data-vendor-asset-id') || '').trim();
             var lock = getPrototypeLockVendorAssetId();
@@ -2866,21 +2919,23 @@ $(document).ready(function () {
                     '「原型」類別僅能加入數位原型素材。'));
                 return;
             }
-            imageItems = filterPrototypeVendorImageItems(imageItems);
-            if (!imageItems.length) {
+            if (!filterPrototypeVendorImageItems(allImageItems).length) {
                 alert(tr('customProduct.prototypeNoSelectableAngles', '此原型沒有可引用的角度圖（皆設為僅展示，或已全部加入）。'));
+                return;
+            }
+        } else if (assetKind === 'material' || targetKey === 'material' || assetKind === 'part' || targetKey === 'part') {
+            if (!filterSelectableVendorImageItems(allImageItems).length) {
+                alert(assetKind === 'material' || targetKey === 'material'
+                    ? tr('customProduct.materialNoSelectableSwatches',
+                        '此材料沒有可選用的色卡（封面多色色卡僅展示）。請先在素材庫上傳至少一張單色樣張。')
+                    : tr('customProduct.prototypeNoSelectableAngles', '此配件沒有可引用的圖片（皆設為僅展示）。'));
                 return;
             }
         }
 
-        if (assetKind === 'material' || targetKey === 'material') {
-            imageItems = filterSelectableVendorImageItems(imageItems);
-            if (!imageItems.length) {
-                alert(tr('customProduct.materialNoSelectableSwatches',
-                    '此材料沒有可選用的色卡（封面多色色卡僅展示）。請先在素材庫上傳至少一張單色樣張。'));
-                return;
-            }
-        }
+        var selectableForImport = (targetKey === 'prototype')
+            ? filterPrototypeVendorImageItems(imageItems)
+            : filterSelectableVendorImageItems(imageItems);
 
         var cap = vendorImportCapacity(targetKey);
         if (cap.maxAdd <= 0) {
@@ -2891,9 +2946,9 @@ $(document).ready(function () {
         var baseMeta = buildVendorAssetBaseMeta($c, assetKind);
         var assetTitle = vendorAssetCardCaption($c);
 
-        if (imageItems.length === 1) {
+        if (selectableForImport.length === 1 && imageItems.length === 1) {
             confirmMultiVendorImport($c, function () {
-                importVendorAssetImageItems(targetKey, imageItems, baseMeta, pickerModalEl);
+                importVendorAssetImageItems(targetKey, selectableForImport, baseMeta, pickerModalEl);
             });
             return;
         }
@@ -2901,7 +2956,7 @@ $(document).ready(function () {
         confirmMultiVendorImport($c, function () {
             openVendorAssetImagePickModal({
                 imageItems: imageItems,
-                maxSelect: cap.maxAdd,
+                maxSelect: Math.min(cap.maxAdd, selectableForImport.length),
                 targetKey: targetKey,
                 baseMeta: baseMeta,
                 pickerModalEl: pickerModalEl,
@@ -3448,10 +3503,10 @@ $(document).ready(function () {
         var designUrl = (official ? buildOfficialStyleDesignUrl(item) : buildVendorStyleDesignUrl(item)).replace(/"/g, '&quot;');
         var returnTo = encodeURIComponent('/custom-product.html?tab=product-design');
         var guidePath = '';
-        if (!official && window.VendorAssetShareUrls && window.VendorAssetShareUrls.buildShareGuidePath) {
+        if (window.VendorAssetShareUrls && window.VendorAssetShareUrls.buildShareGuidePath) {
             guidePath = window.VendorAssetShareUrls.buildShareGuidePath(item, { returnTo: '/custom-product.html?tab=product-design' });
         }
-        var guideUrl = official ? '' : (guidePath || (item.match_guide_url
+        var guideUrl = (guidePath || (item.match_guide_url
             ? (item.match_guide_url + (item.match_guide_url.indexOf('return_to=') >= 0 ? '' : ('&return_to=' + returnTo)))
             : ('/product-tree.html?prototype_asset_id=' + encodeURIComponent(item.id || '') + '&return_to=' + returnTo))).replace(/"/g, '&quot;');
         var assetKind = (item.asset_kind || 'prototype').toLowerCase();
@@ -3459,8 +3514,8 @@ $(document).ready(function () {
             ? tr('customProduct.officialAddAsRef', '加入參考圖')
             : (t('browseStyles.selectForDesign') || '用此款進行設計')).replace(/</g, '&lt;');
         var guideLbl = (t('browseStyles.viewMatchGuide') || '看可搭配').replace(/</g, '&lt;');
-        var linkCount = official ? 0 : (item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0)));
-        var hasLinks = !official && linkCount > 0;
+        var linkCount = item.link_count != null ? Number(item.link_count) : (Number(item.material_count || 0) + Number(item.part_count || 0));
+        var hasLinks = linkCount > 0;
         var linkHint = hasLinks
             ? '<span class="badge bg-light text-secondary border mb-1">' +
             (t('browseStyles.linkCountBadge') || '可搭配 {n} 項').replace('{n}', String(linkCount)).replace(/</g, '&lt;') + '</span> '
@@ -3530,17 +3585,25 @@ $(document).ready(function () {
         var catKey = (item.category_key || '').trim();
         var subKey = (item.subcategory_key || '').trim();
         var imageItems = vendorStyleItemImageItems(item).filter(function (it) { return it && it.url; });
-        if (!imageItems.length) return Promise.resolve();
+        var selectableItems = filterSelectableVendorImageItems(imageItems);
+        if (!selectableItems.length) {
+            alert(tr('customProduct.prototypeNoSelectableAngles', '此原型沒有可引用的角度圖（皆設為僅展示，或已全部加入）。'));
+            return Promise.resolve();
+        }
         var baseMeta = {
             vendor_asset_id: assetId || null,
             manufacturer_id: null,
             manufacturer_name: tr('customProduct.refSlotPickOfficial', '官方版型'),
             official: true,
             title: title,
-            image_url: imageItems[0].url,
+            image_url: selectableItems[0].url,
             asset_kind: kind === 'material' || kind === 'part' ? kind : 'prototype',
             category_key: catKey || null,
-            subcategory_key: subKey || null
+            subcategory_key: subKey || null,
+            customization_levels: Array.isArray(item.customization_levels)
+                ? item.customization_levels
+                : parseCustomizationLevelsClient(item.customization_levels),
+            min_order_quantity: item.min_order_quantity != null ? item.min_order_quantity : null
         };
         var cap = vendorImportCapacity(targetKey);
         if (cap.maxAdd <= 0) {
@@ -3560,12 +3623,12 @@ $(document).ready(function () {
             renderIntentSlots();
             return Promise.resolve();
         }
-        if (imageItems.length === 1) {
-            return fetchUrlAsDataUrl(imageItems[0].url).then(function (dataUrl) {
+        if (selectableItems.length === 1 && imageItems.length === 1) {
+            return fetchUrlAsDataUrl(selectableItems[0].url).then(function (dataUrl) {
                 if (!dataUrl) return;
                 addRefImageToSlot(targetKey, dataUrl, Object.assign({}, baseMeta, {
-                    image_label: (imageItems[0].label || '').trim(),
-                    gallery_label: (imageItems[0].label || '').trim() || undefined
+                    image_label: (selectableItems[0].label || '').trim(),
+                    gallery_label: (selectableItems[0].label || '').trim() || undefined
                 }));
                 return finish();
             }).catch(function () {
@@ -3574,7 +3637,7 @@ $(document).ready(function () {
         }
         openVendorAssetImagePickModal({
             imageItems: imageItems,
-            maxSelect: cap.maxAdd,
+            maxSelect: Math.min(cap.maxAdd, selectableItems.length),
             targetKey: targetKey,
             baseMeta: baseMeta,
             pickerModalEl: null,
