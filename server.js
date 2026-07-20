@@ -30374,11 +30374,7 @@ app.post('/api/match/run-split', async (req, res) => {
 });
 
 // 背景執行 DB 初始化（listen 已於檔案前段執行）
-// bootstrapCategories() 與 ensureAiCategoriesTableAndSeed() 已移除（ai_categories 舊服務類分類系統不再使用）
-(async () => {
-    ensureManufacturerLogoColumn().catch(err => console.warn('ensureManufacturerLogoColumn:', err && err.message));
-    ensureVendorCatalogGroupsAssetKindColumn().catch(err => console.warn('ensureVendorCatalogGroupsAssetKindColumn:', err && err.message));
-    ensureVendorCatalogGroupsSlugPerKindIndex().catch(err => console.warn('ensureVendorCatalogGroupsSlugPerKindIndex:', err && err.message));
-})();
-    ensureVendorCatalogGroupsSlugPerKindIndex().catch(err => console.warn('ensureVendorCatalogGroupsSlugPerKindIndex:', err && err.message));
-});
+// bootstrapCategories() / ensureAiCategoriesTableAndSeed() 已移除（不再使用 ai_categories）
+ensureManufacturerLogoColumn().catch(err => console.warn('ensureManufacturerLogoColumn:', err && err.message));
+ensureVendorCatalogGroupsAssetKindColumn().catch(err => console.warn('ensureVendorCatalogGroupsAssetKindColumn:', err && err.message));
+ensureVendorCatalogGroupsSlugPerKindIndex().catch(err => console.warn('ensureVendorCatalogGroupsSlugPerKindIndex:', err && err.message));
