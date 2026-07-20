@@ -769,6 +769,8 @@
                                     <option value="3:4">3:4</option>
                                     <option value="16:9">16:9</option>
                                     <option value="9:16">9:16</option>
+                                    <option value="21:9">21:9</option>
+                                    <option value="9:21">9:21</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -1093,12 +1095,12 @@
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
-    <script src="/js/matchdo-promo-image.js?v=20260721a"></script>
+    <script src="/js/matchdo-promo-image.js?v=20260721b"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'official-link-tree-20260721';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-ratio-click-20260721';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7721,7 +7723,7 @@
                 var col = document.createElement('div');
                 col.className = 'col-6';
                 col.innerHTML =
-                    '<div class="card promo-card-pick h-100' + (promoVendorSelectedAssetId === m.id ? ' active' : '') + '" data-id="' + promoVendorEsc(m.id) + '">' +
+                    '<div class="card promo-card-pick h-100' + (String(promoVendorSelectedAssetId) === String(m.id) ? ' active' : '') + '" data-id="' + promoVendorEsc(m.id) + '">' +
                     (cover
                         ? '<img src="' + promoVendorEsc(cover) + '" class="card-img-top" style="height:90px;object-fit:contain;background:#f0f0f0" alt="" loading="lazy" decoding="async">'
                         : '') +
@@ -7786,9 +7788,9 @@
             promoVendorSelectedAssetId = id;
             promoVendorSelectedImageUrls = [];
             var pool = promoAssetsCache && promoAssetsCache.length ? promoAssetsCache : materialsAll;
-            var m = (pool || []).find(function (x) { return x.id === id; });
+            var m = (pool || []).find(function (x) { return String(x.id) === String(id); });
             if (!m && materialsAll && materialsAll.length) {
-                m = materialsAll.find(function (x) { return x.id === id; });
+                m = materialsAll.find(function (x) { return String(x.id) === String(id); });
             }
             var thumbs = document.getElementById('promo-source-thumbs');
             var empty = document.getElementById('promo-source-empty');
@@ -7854,14 +7856,19 @@
             var applyWrap = document.getElementById('promoVendorApplyWrap');
             if (applyWrap && !applyWrap.__promoDisabledClickBound) {
                 applyWrap.__promoDisabledClickBound = true;
+                // 記錄按下時是否已 disabled，避免「生成中」剛 disable 後冒泡誤跳出提示
+                applyWrap.addEventListener('pointerdown', function () {
+                    applyWrap.__promoWasDisabledOnPointerDown = !!(applyBtn && applyBtn.disabled);
+                }, true);
                 applyWrap.addEventListener('click', function () {
-                    if (applyBtn && applyBtn.disabled) {
-                        showToast('請先點左側產品卡，並確認右側已選至少一張參考圖', 'warning');
-                    }
+                    if (!applyBtn || !applyBtn.disabled) return;
+                    if (!applyWrap.__promoWasDisabledOnPointerDown) return;
+                    showToast('請先點左側產品卡，並確認右側已選至少一張參考圖', 'warning');
                 });
             }
             if (applyBtn) {
-                applyBtn.addEventListener('click', function () {
+                applyBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
                     if (!promoVendorSelectedImageUrls.length) {
                         showToast('請先選擇至少一張來源圖', 'warning');
                         return;
