@@ -44,11 +44,17 @@
     <style>
         .material-card { border-radius: 12px; border: 1px solid #e9ecef; overflow: hidden; transition: box-shadow .15s; }
         .material-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); }
-        .material-img { width: 100%; aspect-ratio: 4/3; object-fit: cover; background: #f0f0f0; display: block; cursor: zoom-in; }
+        .material-img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: #f0f0f0; display: block; cursor: zoom-in; }
         .add-image-preview img, #edit-current-image { cursor: zoom-in; max-height: 200px; max-width: 100%; width: auto; height: auto; object-fit: contain; }
         .pending-image-card { border: 1px solid #dee2e6; border-radius: 8px; padding: 8px; background: #fafbfc; display: flex; flex-direction: column; height: 100%; }
         .pending-image-card.is-cover { border-color: #0d6efd; box-shadow: 0 0 0 1px #0d6efd33; }
-        .pending-image-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; cursor: zoom-in; }
+        .pending-image-card > .pending-card-media > img,
+        .pending-image-card > .pending-card-preview > img,
+        .pending-image-card img.pending-main-thumb {
+            width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 6px; cursor: zoom-in; background: #f0f0f0;
+        }
+        /* 勿用 .pending-image-card img 全選：會把「重繪新圖」縮圖裁成橫條 */
+        .pending-image-card img { max-width: 100%; }
         .pending-image-card .pending-card-badges { min-height: 1.35rem; margin-bottom: 0.25rem; }
         .pending-image-card .pending-card-media { flex: 0 0 auto; }
         .pending-image-card .pending-card-preview { flex: 0 0 auto; }
@@ -105,10 +111,24 @@
         .pending-redraw-badge { font-size: 0.65rem; }
         .pending-redraw-new-row { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #dee2e6; }
         .pending-redraw-new-row label { font-size: 0.65rem; color: #198754; margin-bottom: 2px; display: block; }
-        .pending-redraw-new-row img { width: 100%; max-height: 72px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid #198754; }
+        .pending-redraw-new-row img,
+        .pending-image-card .pending-redraw-thumb {
+            display: block !important;
+            width: auto !important;
+            max-width: 100% !important;
+            max-height: 120px !important;
+            height: auto !important;
+            aspect-ratio: auto !important;
+            object-fit: contain !important;
+            border-radius: 6px;
+            cursor: zoom-in;
+            border: 1px solid #198754;
+            background: #fff;
+            margin-top: 4px;
+        }
         .pending-upload-check { display: block; font-size: 0.7rem; color: #495057; margin-top: 4px; cursor: pointer; user-select: none; }
         .pending-upload-check .form-check-input { margin-top: 0.15rem; cursor: pointer; }
-        .pending-redraw-thumb { display: block; max-height: 56px; max-width: 100%; width: auto; margin-top: 4px; border-radius: 6px; border: 1px solid #198754; object-fit: contain; cursor: zoom-in; background: #fff; }
+        .pending-redraw-thumb { display: block; max-height: 120px; max-width: 100%; width: auto; margin-top: 4px; border-radius: 6px; border: 1px solid #198754; object-fit: contain; cursor: zoom-in; background: #fff; }
         .pending-upscale-ai-edit-help { display: inline-flex; align-items: center; color: #0dcaf0; text-decoration: none; font-size: 1rem; line-height: 1; margin-left: 2px; vertical-align: middle; }
         .pending-upscale-ai-edit-help:hover { color: #0aa2c0; }
         .material-img-count { position: absolute; top: 8px; left: 8px; z-index: 1; }
@@ -1078,7 +1098,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'official-promo-fix-20260721';
+        window.__MATCHDO_MATERIALS_BUILD = 'thumb-contain-20260721';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7703,7 +7723,7 @@
                 col.innerHTML =
                     '<div class="card promo-card-pick h-100' + (promoVendorSelectedAssetId === m.id ? ' active' : '') + '" data-id="' + promoVendorEsc(m.id) + '">' +
                     (cover
-                        ? '<img src="' + promoVendorEsc(cover) + '" class="card-img-top" style="height:90px;object-fit:cover" alt="" loading="lazy" decoding="async">'
+                        ? '<img src="' + promoVendorEsc(cover) + '" class="card-img-top" style="height:90px;object-fit:contain;background:#f0f0f0" alt="" loading="lazy" decoding="async">'
                         : '') +
                     '<div class="card-body py-1 px-2"><p class="small mb-0 text-truncate">' + promoVendorEsc(m.title || m.id) + '</p>' +
                     '<p class="text-muted" style="font-size:.65rem;margin:0">' + imgItems.length + ' 張</p></div></div>';
