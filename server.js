@@ -3380,10 +3380,9 @@ async function resolvePhotographyBodyForMaterial(surfaceType) {
     }
 }
 
+/** 材料色卡優化：只用材質類型中文兩句，不加攝影參數（見 flux-and-gemini-prompt-policy） */
 async function buildVendorAssetMaterialFluxOptimizePromptWithPhoto(surfaceType) {
-    const base = buildVendorAssetMaterialFluxOptimizePrompt(surfaceType);
-    const photo = await resolvePhotographyBodyForMaterial(surfaceType);
-    return appendPhotographyParams(base, photo);
+    return buildVendorAssetMaterialFluxOptimizePrompt(surfaceType);
 }
 
 /** 產品／配件 AI 重繪：不加攝影參數（材料色卡優化仍用 WithPhoto；設計區生圖另接） */
