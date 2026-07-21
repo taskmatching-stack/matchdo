@@ -1588,11 +1588,13 @@ $(document).ready(function () {
             if (u0) allItems = [{ url: u0, label: '', sort_order: 0, is_cover: true, designer_selectable: true }];
         }
         var imageItems = filterSelectableVendorImageItems(allItems);
-        if (!imageItems.length) {
-            alert(tr('customProduct.prototypeNoSelectableAngles',
-                '此原型沒有可引用的角度圖（皆設為僅展示，或已全部加入）。'));
-            return Promise.resolve();
+        if (!imageItems.length && allItems.length === 1 && allItems[0].url) {
+            imageItems = [allItems[0]];
+        } else if (!imageItems.length) {
+            var selectable = allItems.filter(function (it) { return it && it.url && it.designer_selectable !== false; });
+            if (selectable.length) imageItems = selectable;
         }
+        if (!imageItems.length) return Promise.resolve();
         var baseMeta = {
             vendor_asset_id: p.id,
             manufacturer_id: p.manufacturer_id,

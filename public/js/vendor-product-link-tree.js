@@ -171,11 +171,24 @@
     }
 
     /** 看可搭配：主產品多圖時預選第一連動組（或前 N 張，上限 3） */
+    function pickSeedablePrototypeItems(p) {
+        if (!p) return [];
+        var items = variantImageItems(p);
+        if (items.length) return items;
+        var all = assetImageItems(p);
+        if (all.length === 1 && all[0] && all[0].url) return [all[0]];
+        var selectable = all.filter(function (it) { return it && it.url && it.designer_selectable !== false; });
+        if (selectable.length) return selectable;
+        var u = (p.image_url || '').trim();
+        if (!all.length && u) return [{ url: u, label: '', sort_order: 0, is_cover: true }];
+        return [];
+    }
+
     function seedDefaultPrototypeVariantSelection(prototypeId) {
         if (IS_VENDOR || !prototypeId) return;
         var p = prototypeById(prototypeId);
         if (!p) return;
-        var items = variantImageItems(p);
+        var items = pickSeedablePrototypeItems(p);
         if (!items.length) return;
         var labelFor = function (it) {
             var idx = items.findIndex(function (x) { return x && x.url === it.url; });
