@@ -10565,7 +10565,9 @@ app.get('/api/promo-image/options', async (req, res) => {
                 '21:9': { w: 1536, h: 658 },
                 '3:1': { w: 1728, h: 576 },
                 '4:1': { w: 2048, h: 512 },
-                '9:21': { w: 658, h: 1536 }
+                '9:21': { w: 658, h: 1536 },
+                '1:3': { w: 576, h: 1728 },
+                '1:4': { w: 512, h: 2048 }
             },
             migration_hint: themes.length ? undefined : '請於 Supabase 執行 docs/add-product-promo-image.sql'
         });
