@@ -3199,6 +3199,10 @@ function vendorOptimizeBackgroundSegment(backgroundColor) {
     ];
 }
 
+/** 產品重繪：產品置於畫面中心（僅數位原型；材料區不走此 prompt） */
+const VENDOR_OPTIMIZE_PRODUCT_CENTERED_COMPOSITION_LINE =
+    'Composition: Place the complete product at the center of the frame with balanced margins on all sides.';
+
 /** 產品重繪：顏色與結構以 reference 像素為準（正向表述；FLUX 不堆負面句） */
 const VENDOR_OPTIMIZE_PRODUCT_COLOR_STRUCTURE_LINE =
     'Match product color and structure from the reference image: same silhouette, construction, proportions, hardware, surface patterns, and exact colors visible on the product body.';
@@ -3223,11 +3227,13 @@ function normalizeVendorOptimizeBackground(raw) {
  * 數位原型／零件「AI 重繪」：img2img 以參考圖像素為準，只換背景與去除場景雜物。
  * productNameHint 僅在使用者填寫 optimize_product_name 時傳入，輔助識別品項。
  */
-function buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand) {
+function buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand, assetKind) {
     const nameHint = String(productNameHint || '').trim();
+    const isPrototype = normalizeVendorAssetKind(assetKind) === 'prototype';
     const parts = [
         'Edit the provided reference image in place: keep the complete product faithful to the reference pixels; replace only the background and remove non-product scene elements.',
         'The complete product must be clearly visible and remain the only subject.',
+        ...(isPrototype ? [VENDOR_OPTIMIZE_PRODUCT_CENTERED_COMPOSITION_LINE] : []),
         VENDOR_OPTIMIZE_PRODUCT_COLOR_STRUCTURE_LINE,
         'Preserve on-product text, numbers, logos, icons, and graphics exactly as shown on the product surface in the reference.',
         'Remove or replace everything that is NOT part of the product: old background, floor, props, hands, people, packaging behind the product, and any text or graphics that appear only in the background or scene—not on the product.',
@@ -3389,8 +3395,8 @@ async function buildVendorAssetMaterialFluxOptimizePromptWithPhoto(surfaceType) 
 }
 
 /** 產品／配件 AI 重繪：不加攝影參數（材料色卡優化仍用 WithPhoto；設計區生圖另接） */
-async function buildVendorAssetProductOptimizePromptWithPhoto(productNameHint, backgroundColor, useDisplayStand, categoryKey, subcategoryKey) {
-    return buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand);
+async function buildVendorAssetProductOptimizePromptWithPhoto(productNameHint, backgroundColor, useDisplayStand, categoryKey, subcategoryKey, assetKind) {
+    return buildVendorAssetProductOptimizePrompt(productNameHint, backgroundColor, useDisplayStand, assetKind);
 }
 
 /** 寫實化（獨立管線；勿併入產品重繪／材料色卡）— 固定保真底稿；使用者補充自行輸入 */
@@ -9865,7 +9871,7 @@ async function optimizeVendorAssetImageWithFlux(
     }
     const productNameHint = await translateOptimizeProductNameForFlux(productNameRaw);
     const prompt = await buildVendorAssetProductOptimizePromptWithPhoto(
-        productNameHint, backgroundColor, !!useDisplayStand, ctx.categoryKey, ctx.subcategoryKey
+        productNameHint, backgroundColor, !!useDisplayStand, ctx.categoryKey, ctx.subcategoryKey, assetKind
     );
     const fluxBuffer = fileBuffer;
     const fluxMime = mimeType || 'image/jpeg';
@@ -20490,7 +20496,7 @@ app.post('/api/me/vendor-assets/preview-image-redraw', upload.single('image'), a
             ? await buildVendorAssetMaterialFluxOptimizePromptWithPhoto(materialSurfaceType)
             : await buildVendorAssetProductOptimizePromptWithPhoto(
                 productNameForPrompt, optimizeBackground, useDisplayStand,
-                photoCtxPreview.categoryKey, photoCtxPreview.subcategoryKey
+                photoCtxPreview.categoryKey, photoCtxPreview.subcategoryKey, assetKind
             );
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(
@@ -24656,7 +24662,7 @@ app.post('/api/me/industry-supplier/catalog-items/preview-image-redraw', upload.
             ? await buildVendorAssetMaterialFluxOptimizePromptWithPhoto(materialSurfaceType)
             : await buildVendorAssetProductOptimizePromptWithPhoto(
                 productNameForPrompt, optimizeBackground, useDisplayStand,
-                photoCtxSupplier.categoryKey, photoCtxSupplier.subcategoryKey
+                photoCtxSupplier.categoryKey, photoCtxSupplier.subcategoryKey, assetKind
             );
         try {
             optimized = await maybeOptimizeVendorAssetMulterFile(

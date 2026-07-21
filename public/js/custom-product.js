@@ -1555,7 +1555,11 @@ $(document).ready(function () {
         if (session.linkedRefs.length) {
             chain = chain.then(function () { return applyGuideLinkedRefsToSlots(session.linkedRefs, treeData); });
         }
-        return chain;
+        return chain.then(function () {
+            if (countSlotRefImages('prototype') === 0) {
+                return applyPrototypeRefsFromLinkTreeNode(p);
+            }
+        });
     }
 
     function finishGuideImportToDesignPage() {
@@ -1584,7 +1588,11 @@ $(document).ready(function () {
             if (u0) allItems = [{ url: u0, label: '', sort_order: 0, is_cover: true, designer_selectable: true }];
         }
         var imageItems = filterSelectableVendorImageItems(allItems);
-        if (!imageItems.length) return Promise.resolve();
+        if (!imageItems.length) {
+            alert(tr('customProduct.prototypeNoSelectableAngles',
+                '此原型沒有可引用的角度圖（皆設為僅展示，或已全部加入）。'));
+            return Promise.resolve();
+        }
         var baseMeta = {
             vendor_asset_id: p.id,
             manufacturer_id: p.manufacturer_id,
