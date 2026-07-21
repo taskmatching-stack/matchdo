@@ -10718,7 +10718,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 seed,
                 'jpeg',
                 process.env.BFL_API_KEY,
-                { promptUpsampling: true }
+                { promptUpsampling: false }
             );
         } catch (fluxErr) {
             console.error('promo-image BFL:', fluxErr);
@@ -11815,10 +11815,9 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
     parts.push('Shoot and design a brand-new commercial advertising photograph of this product for store ads, DM flyers, and marketing campaigns');
     parts.push('Goal: advertising creative design and new product photography look — NOT retouching, NOT background cleanup, NOT a lightly edited copy of the reference');
     parts.push('CRITICAL FORBIDDEN: keeping the same mannequin pose, crop, framing, camera height, and overall composition while only changing the backdrop or lighting — that is failure');
-    parts.push('Create a fresh advertising shot: new camera angle and crop, stronger hero composition, intentional negative space for ad copy later, premium commercial lighting, magazine or campaign energy');
-    parts.push('The product must remain clearly the same real product (cut, fabric, color, logos, details), but the photo itself must look newly directed for advertising');
+    parts.push('Create a fresh advertising shot: new camera angle and crop, stronger hero composition, premium commercial lighting, magazine or campaign energy');
+    parts.push('The product must remain clearly the same real product (cut, fabric, color, surface details)');
     parts.push('Use a clean commercial advertising environment that serves the promo; do not invent unrelated lifestyle room stories');
-    parts.push('Do not render unreadable fake text or watermarks');
     if (refN > 1) {
         parts.push(
             'Multiple reference images are provided (input_image through input_image_' + refN +
