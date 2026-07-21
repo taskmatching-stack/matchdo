@@ -173,9 +173,13 @@
     });
   }
 
-  function loadOptions() {
+  function loadOptions(lang) {
+    var q = '';
+    if (lang != null && String(lang).trim()) {
+      q = '?lang=' + encodeURIComponent(String(lang).trim().toLowerCase().replace(/-.*$/, ''));
+    }
     return authHeaders(false).then(function (headers) {
-      return fetch('/api/promo-image/options', { headers: headers }).then(function (r) {
+      return fetch('/api/promo-image/options' + q, { headers: headers }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
       });
     });

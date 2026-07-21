@@ -10494,47 +10494,69 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
 // —— 產品推廣圖（獨立槽 bfl_flux_model_promo_image；基礎 20 點；不影響寫實化／生圖）——
 app.get('/api/promo-image/options', async (req, res) => {
     try {
+        const lang = (req.query.lang || '').toLowerCase().replace(/-.*$/, '');
         let themes = [];
         let scenes = [];
         let photographySets = [];
         let photoMigrationHint;
         let slotMigrationHint;
         try {
-            const { data: tRows, error: tErr } = await supabase
+            const promoSelect = 'key, name, name_en, name_ja, name_es, name_de, name_fr, description, recommended_ratios, category, sort_order, slot';
+            const promoSelectLegacy = 'key, name, description, recommended_ratios, category, sort_order';
+            let { data: tRows, error: tErr } = await supabase
                 .from('promo_scene_templates')
-                .select('key, name, description, recommended_ratios, category, sort_order, slot')
+                .select(promoSelect)
                 .eq('is_active', true)
                 .order('sort_order', { ascending: true });
-            if (isSupabaseMissingColumnError(tErr, 'slot')) {
-                const legacy = await supabase
+            if (tErr && (tErr.code === '42703' || (tErr.message && /column.*does not exist|name_en/.test(tErr.message)))) {
+                ({ data: tRows, error: tErr } = await supabase
                     .from('promo_scene_templates')
-                    .select('key, name, description, recommended_ratios, category, sort_order')
+                    .select(promoSelectLegacy + ', slot')
                     .eq('is_active', true)
-                    .order('sort_order', { ascending: true });
-                themes = (legacy.data || []).map((r) => ({ ...r, slot: 'theme' }));
+                    .order('sort_order', { ascending: true }));
+                if (isSupabaseMissingColumnError(tErr, 'slot')) {
+                    ({ data: tRows, error: tErr } = await supabase
+                        .from('promo_scene_templates')
+                        .select(promoSelectLegacy)
+                        .eq('is_active', true)
+                        .order('sort_order', { ascending: true }));
+                }
+            }
+            if (isSupabaseMissingColumnError(tErr, 'slot')) {
+                themes = (tRows || []).map((r) => applyPromoSceneTemplateLocale({ ...r, slot: 'theme' }, lang));
                 scenes = [];
                 slotMigrationHint = '請執行 docs/add-promo-theme-scene-slots.sql 以啟用「主題／場景」雙選';
             } else if (tErr) {
                 themes = [];
                 scenes = [];
             } else {
-                const rows = tRows || [];
+                const rows = (tRows || []).map((r) => applyPromoSceneTemplateLocale(r, lang));
                 themes = rows.filter((r) => String(r.slot || 'theme') !== 'scene');
                 scenes = rows.filter((r) => String(r.slot || '') === 'scene');
             }
         } catch (_) { themes = []; scenes = []; }
         try {
-            const { data: pRows, error: pErr } = await supabase
+            const photoSelect = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, sort_order';
+            const photoSelectLegacy = 'id, key, name, sort_order';
+            let { data: pRows, error: pErr } = await supabase
                 .from('photography_prompt_sets')
-                .select('id, key, name, sort_order')
+                .select(photoSelect)
                 .eq('is_active', true)
                 .eq('use_for_promo', true)
                 .order('sort_order', { ascending: true });
+            if (pErr && (pErr.code === '42703' || (pErr.message && /column.*does not exist|name_en/.test(pErr.message)))) {
+                ({ data: pRows, error: pErr } = await supabase
+                    .from('photography_prompt_sets')
+                    .select(photoSelectLegacy)
+                    .eq('is_active', true)
+                    .eq('use_for_promo', true)
+                    .order('sort_order', { ascending: true }));
+            }
             if (isSupabaseMissingColumnError(pErr, 'use_for_promo')) {
                 photographySets = [];
                 photoMigrationHint = '請執行 docs/add-photography-use-for-promo.sql，並在後台勾選「推廣圖使用」';
             } else {
-                photographySets = pRows || [];
+                photographySets = (pRows || []).map((r) => applyPromoSceneTemplateLocale(r, lang));
             }
         } catch (_) { photographySets = []; }
         const pointsPreview1mp = await getPointsPromoImageForResolution(1024, 1024);
@@ -26377,7 +26399,8 @@ app.put('/api/custom-product-categories', express.json(), async (req, res) => {
 });
 
 // ——— 攝影參數提示詞組 + 材料快速選單 ———
-const PHOTOGRAPHY_SET_SELECT = 'id, key, name, body_text, is_material_fallback, use_for_promo, sort_order, is_active, created_at, updated_at';
+const PHOTOGRAPHY_SET_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, body_text, is_material_fallback, use_for_promo, sort_order, is_active, created_at, updated_at';
+const PHOTOGRAPHY_SET_SELECT_NO_I18N = 'id, key, name, body_text, is_material_fallback, use_for_promo, sort_order, is_active, created_at, updated_at';
 const PHOTOGRAPHY_SET_SELECT_LEGACY = 'id, key, name, body_text, is_material_fallback, sort_order, is_active, created_at, updated_at';
 const MATERIAL_PRESET_SELECT = 'id, label, photography_set_id, sort_order, is_active, created_at, updated_at';
 
@@ -26413,11 +26436,20 @@ app.get('/api/admin/photography-prompt-sets', async (req, res) => {
     try {
         const user = await requireAdmin(req, res);
         if (!user) return;
-        const { data, error } = await supabase
+        let usedNoI18nFallback = false;
+        let { data, error } = await supabase
             .from('photography_prompt_sets')
             .select(PHOTOGRAPHY_SET_SELECT)
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+            usedNoI18nFallback = true;
+            ({ data, error } = await supabase
+                .from('photography_prompt_sets')
+                .select(PHOTOGRAPHY_SET_SELECT_NO_I18N)
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true }));
+        }
         if (error) {
             if (error.code === '42P01' || isSupabaseMissingTableError(error)) {
                 return res.status(503).json({ error: '請先執行 docs/add-photography-prompt-sets.sql', code: 'MIGRATION_REQUIRED' });
@@ -26440,7 +26472,12 @@ app.get('/api/admin/photography-prompt-sets', async (req, res) => {
             console.error('GET /api/admin/photography-prompt-sets:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        res.json({ items: data || [] });
+        const migrationHints = [];
+        if (usedNoI18nFallback) migrationHints.push('若要儲存多語系名稱，請執行 docs/add-photography-prompt-sets-multilang.sql');
+        res.json({
+            items: data || [],
+            migration_hint: migrationHints.length ? migrationHints.join('；') : undefined
+        });
     } catch (e) {
         console.error('GET /api/admin/photography-prompt-sets 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -26467,13 +26504,25 @@ app.post('/api/admin/photography-prompt-sets', express.json(), async (req, res) 
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active
         };
+        appendPromoSceneMultilangFields(payload, body);
         if (payload.is_material_fallback) {
             await supabase.from('photography_prompt_sets').update({ is_material_fallback: false }).eq('is_material_fallback', true);
         }
         let { data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT).single();
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+            for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete payload[col];
+            ({ data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT_NO_I18N).single());
+            if (!error && data && Object.keys(body).some((k) => /^name_(en|ja|es|de|fr)$/.test(k))) {
+                return res.status(201).json({
+                    item: data,
+                    warning: '已新增（尚無多語系欄位）。請執行 docs/add-photography-prompt-sets-multilang.sql'
+                });
+            }
+        }
         // UPDATE/INSERT 缺欄位時 PostgREST 常回 PGRST204（非 42703）
         if (isSupabaseMissingColumnError(error, 'use_for_promo')) {
             delete payload.use_for_promo;
+            for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete payload[col];
             ({ data, error } = await supabase.from('photography_prompt_sets').insert(payload).select(PHOTOGRAPHY_SET_SELECT_LEGACY).single());
             if (!error && data) data = { ...data, use_for_promo: false };
             if (!error && wantedPromo) {
@@ -26527,12 +26576,24 @@ app.put('/api/admin/photography-prompt-sets/:id', express.json(), async (req, re
                 await supabase.from('photography_prompt_sets').update({ is_material_fallback: false }).neq('id', id).eq('is_material_fallback', true);
             }
         }
+        appendPromoSceneMultilangFields(updates, body);
         let { data, error } = await supabase.from('photography_prompt_sets').update(updates).eq('id', id).select(PHOTOGRAPHY_SET_SELECT).single();
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+            for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete updates[col];
+            ({ data, error } = await supabase.from('photography_prompt_sets').update(updates).eq('id', id).select(PHOTOGRAPHY_SET_SELECT_NO_I18N).single());
+            if (!error && Object.keys(body).some((k) => /^name_(en|ja|es|de|fr)$/.test(k))) {
+                return res.json({
+                    item: data,
+                    warning: '已儲存（尚無多語系欄位）。請執行 docs/add-photography-prompt-sets-multilang.sql'
+                });
+            }
+        }
         // UPDATE 缺欄位時為 PGRST204，不是 42703
         if (isSupabaseMissingColumnError(error, 'use_for_promo')) {
             const stripped = { ...updates };
             const wantedPromo = Object.prototype.hasOwnProperty.call(stripped, 'use_for_promo');
             delete stripped.use_for_promo;
+            for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete stripped[col];
             ({ data, error } = await supabase.from('photography_prompt_sets').update(stripped).eq('id', id).select(PHOTOGRAPHY_SET_SELECT_LEGACY).single());
             if (!error && data) data = { ...data, use_for_promo: false };
             if (!error && wantedPromo) {
@@ -26575,8 +26636,28 @@ app.delete('/api/admin/photography-prompt-sets/:id', async (req, res) => {
     }
 });
 
-const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT_NO_I18N = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
 const PROMO_SCENE_TEMPLATE_SELECT_LEGACY = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, sort_order, is_active, created_at, updated_at';
+const PROMO_SCENE_LOCALE_COL = { en: 'name_en', ja: 'name_ja', es: 'name_es', de: 'name_de', fr: 'name_fr' };
+
+function appendPromoSceneMultilangFields(payload, body) {
+    if (!body || typeof body !== 'object') return payload;
+    if (body.name_en !== undefined) payload.name_en = body.name_en != null && String(body.name_en).trim() !== '' ? String(body.name_en).trim() : null;
+    for (const col of ['name_ja', 'name_es', 'name_de', 'name_fr']) {
+        if (body[col] !== undefined) payload[col] = body[col] != null && String(body[col]).trim() !== '' ? String(body[col]).trim() : null;
+    }
+    return payload;
+}
+
+function applyPromoSceneTemplateLocale(row, lang) {
+    if (!row) return row;
+    const localeCol = PROMO_SCENE_LOCALE_COL[lang];
+    let displayName = row.name;
+    if (lang === 'en' && row.name_en) displayName = row.name_en;
+    else if (localeCol && row[localeCol]) displayName = row[localeCol];
+    return { ...row, name: displayName };
+}
 
 function normalizePromoSceneTemplateKey(raw) {
     return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '').slice(0, 64);
@@ -26602,11 +26683,20 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
         const user = await requireAdmin(req, res);
         if (!user) return;
         const slotFilter = req.query.slot ? normalizePromoTemplateSlot(req.query.slot) : '';
+        let usedNoI18nFallback = false;
         let { data, error } = await supabase
             .from('promo_scene_templates')
             .select(PROMO_SCENE_TEMPLATE_SELECT)
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+            usedNoI18nFallback = true;
+            ({ data, error } = await supabase
+                .from('promo_scene_templates')
+                .select(PROMO_SCENE_TEMPLATE_SELECT_NO_I18N)
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true }));
+        }
         if (isSupabaseMissingColumnError(error, 'slot')) {
             const legacy = await supabase
                 .from('promo_scene_templates')
@@ -26637,7 +26727,10 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
         }
         let items = data || [];
         if (slotFilter) items = items.filter((r) => normalizePromoTemplateSlot(r.slot) === slotFilter);
-        res.json({ items });
+        res.json({
+            items,
+            migration_hint: usedNoI18nFallback ? '若要儲存多語系名稱，請執行 docs/add-promo-scene-templates-multilang.sql' : undefined
+        });
     } catch (e) {
         console.error('GET /api/admin/promo-scene-templates 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -26667,9 +26760,21 @@ app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) =>
             is_active: body.is_active === undefined ? true : !!body.is_active,
             updated_at: new Date().toISOString()
         };
+        appendPromoSceneMultilangFields(payload, body);
         let { data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+            for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete payload[col];
+            ({ data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY).single());
+            if (!error && data && Object.keys(body).some((k) => /^name_(en|ja|es|de|fr)$/.test(k))) {
+                return res.status(201).json({
+                    item: data,
+                    warning: '已新增（尚無多語系欄位）。請執行 docs/add-promo-scene-templates-multilang.sql'
+                });
+            }
+        }
         if (isSupabaseMissingColumnError(error, 'slot')) {
             delete payload.slot;
+            for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete payload[col];
             ({ data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY).single());
             if (!error && data) data = { ...data, slot: 'theme' };
             if (!error) {
@@ -26721,7 +26826,19 @@ app.put('/api/admin/promo-scene-templates/:id', express.json(), async (req, res)
         if (body.slot !== undefined) updates.slot = normalizePromoTemplateSlot(body.slot);
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        appendPromoSceneMultilangFields(updates, body);
         let { data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT).single();
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+            for (const col of ['name_en', 'name_ja', 'name_es', 'name_de', 'name_fr']) delete updates[col];
+            ({ data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY).single());
+            if (!error && Object.keys(body).some((k) => /^name_(en|ja|es|de|fr)$/.test(k))) {
+                if (data && data.slot === undefined) data = { ...data, slot: normalizePromoTemplateSlot(body.slot) };
+                return res.json({
+                    item: data,
+                    warning: '已儲存（尚無多語系欄位）。請執行 docs/add-promo-scene-templates-multilang.sql'
+                });
+            }
+        }
         if (isSupabaseMissingColumnError(error, 'slot')) {
             const stripped = { ...updates };
             delete stripped.slot;

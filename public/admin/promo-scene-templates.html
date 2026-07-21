@@ -18,6 +18,7 @@
           前台推廣圖有兩個下拉：<strong>主題</strong>與<strong>場景</strong>（同一張表 <code>promo_scene_templates</code>，以 <code>slot</code> 區分）。
           請先執行 <code>docs/add-promo-theme-scene-slots.sql</code>。
         </p>
+        <p class="text-muted small mb-2">若要儲存「英文名」與其他語系欄位，請先在 Supabase SQL Editor 執行 <code>docs/add-promo-scene-templates-multilang.sql</code>，執行後重新整理本頁即可。</p>
         <div class="alert alert-info small py-2 mb-3">
           <strong>如何影響提示詞（送進 FLUX）：</strong>
           系統先套用固定的英文「廣告／DM、禁止只換背景」底稿，再依序併入你選的
@@ -38,7 +39,17 @@
             <input type="hidden" id="tplSlot" value="theme">
             <div class="row g-2">
               <div class="col-md-2"><label class="form-label small mb-0">key</label><input id="tplKey" class="form-control form-control-sm" placeholder="flyer_dm"></div>
-              <div class="col-md-3"><label class="form-label small mb-0">名稱（UI 顯示）</label><input id="tplName" class="form-control form-control-sm" placeholder="DM／傳單風"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">名稱（UI 顯示）</label><input id="tplName" class="form-control form-control-sm" placeholder="DM／傳單風"></div>
+              <div class="col-md-2"><label class="form-label small mb-0">名稱（英文）</label><input id="tplNameEn" class="form-control form-control-sm" placeholder="Flyer / DM style" title="選填，前台 lang=en 時顯示"></div>
+              <div class="col-md-4">
+                <label class="form-label small mb-0">其他語系（選填，預留）</label>
+                <div class="d-flex flex-wrap gap-1">
+                  <input type="text" id="tplNameJa" class="form-control form-control-sm" style="width:72px;" placeholder="日文" title="日文">
+                  <input type="text" id="tplNameEs" class="form-control form-control-sm" style="width:72px;" placeholder="西文" title="西班牙文">
+                  <input type="text" id="tplNameDe" class="form-control form-control-sm" style="width:72px;" placeholder="德文" title="德文">
+                  <input type="text" id="tplNameFr" class="form-control form-control-sm" style="width:72px;" placeholder="法文" title="法文">
+                </div>
+              </div>
               <div class="col-md-2"><label class="form-label small mb-0">分類標籤</label><input id="tplCategory" class="form-control form-control-sm" placeholder="print"></div>
               <div class="col-md-1"><label class="form-label small mb-0">排序</label><input id="tplSort" type="number" class="form-control form-control-sm" value="10"></div>
               <div class="col-md-4"><label class="form-label small mb-0">說明（選填，UI 提示）</label><input id="tplDesc" class="form-control form-control-sm" placeholder="清楚好印，適合DM"></div>
@@ -92,6 +103,7 @@
                 <div class="row g-2">
                   <div class="col-md-3"><label class="form-label">key</label><input id="editKey" class="form-control"></div>
                   <div class="col-md-3"><label class="form-label">名稱</label><input id="editName" class="form-control"></div>
+                  <div class="col-md-3"><label class="form-label">名稱（英文）</label><input id="editNameEn" class="form-control" placeholder="選填"></div>
                   <div class="col-md-3"><label class="form-label">類型</label>
                     <select id="editSlot" class="form-select">
                       <option value="theme">主題</option>
@@ -99,6 +111,15 @@
                     </select>
                   </div>
                   <div class="col-md-3"><label class="form-label">分類標籤</label><input id="editCategory" class="form-control"></div>
+                  <div class="col-12">
+                    <label class="form-label">其他語系（選填，預留）</label>
+                    <div class="d-flex flex-wrap gap-2">
+                      <input type="text" id="editNameJa" class="form-control" style="max-width:140px;" placeholder="日文">
+                      <input type="text" id="editNameEs" class="form-control" style="max-width:140px;" placeholder="西文">
+                      <input type="text" id="editNameDe" class="form-control" style="max-width:140px;" placeholder="德文">
+                      <input type="text" id="editNameFr" class="form-control" style="max-width:140px;" placeholder="法文">
+                    </div>
+                  </div>
                   <div class="col-12"><label class="form-label">說明（UI）</label><input id="editDesc" class="form-control"></div>
                   <div class="col-12"><label class="form-label">提示詞 scene_prompt（進 FLUX）</label><textarea id="editScene" class="form-control" rows="4"></textarea></div>
                   <div class="col-12"><label class="form-label">構圖提示 composition_hint（進 FLUX）</label><textarea id="editComp" class="form-control" rows="3"></textarea></div>
@@ -161,6 +182,20 @@
     return t.length > n ? t.slice(0, n) + '…' : t;
   }
   function slotLabel(s) { return s === 'scene' ? '場景' : '主題'; }
+  function promoMultilangBody(prefix, alwaysSend) {
+    var body = {};
+    var fields = [{ id: prefix + 'NameEn', key: 'name_en' }];
+    ['Ja', 'Es', 'De', 'Fr'].forEach(function (suffix) {
+      fields.push({ id: prefix + 'Name' + suffix, key: 'name_' + suffix.toLowerCase() });
+    });
+    fields.forEach(function (f) {
+      var el = document.getElementById(f.id);
+      if (!el) return;
+      var v = String(el.value || '').trim();
+      if (alwaysSend || v) body[f.key] = v || null;
+    });
+    return body;
+  }
 
   var LEGACY_SCENE_KEYS = {
     lifestyle_home: 1,
@@ -220,6 +255,7 @@
       return '<tr>' +
         '<td><code>' + esc(s.key) + '</code>' + legacyBadge + '</td>' +
         '<td>' + esc(s.name) +
+          (s.name_en ? '<div class="small text-muted">EN: ' + esc(s.name_en) + '</div>' : '') +
           (s.description ? '<div class="small text-muted">' + esc(s.description) + '</div>' : '') +
         '</td>' +
         '<td class="small text-muted" title="' + esc(s.scene_prompt || '') + '">' + esc(shortText(s.scene_prompt, 48)) + '</td>' +
@@ -244,7 +280,7 @@
     var headers = await authHeaders();
     var r = await fetch(API, {
       method: 'POST', headers: headers,
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         key: document.getElementById('tplKey').value,
         name: document.getElementById('tplName').value,
         category: document.getElementById('tplCategory').value,
@@ -254,13 +290,17 @@
         recommended_ratios: document.getElementById('tplRatios').value,
         sort_order: Number(document.getElementById('tplSort').value) || 0,
         slot: document.getElementById('tplSlot').value
-      })
+      }, promoMultilangBody('tpl')))
     });
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) { showStatus(d.error || '新增失敗', false); return; }
     showStatus(d.warning || '已新增', d.warning ? 'warn' : true);
     document.getElementById('tplKey').value = '';
     document.getElementById('tplName').value = '';
+    ['tplNameEn', 'tplNameJa', 'tplNameEs', 'tplNameDe', 'tplNameFr'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     document.getElementById('tplCategory').value = '';
     document.getElementById('tplDesc').value = '';
     document.getElementById('tplScene').value = '';
@@ -277,6 +317,11 @@
       document.getElementById('editId').value = s.id;
       document.getElementById('editKey').value = s.key || '';
       document.getElementById('editName').value = s.name || '';
+      document.getElementById('editNameEn').value = s.name_en || '';
+      document.getElementById('editNameJa').value = s.name_ja || '';
+      document.getElementById('editNameEs').value = s.name_es || '';
+      document.getElementById('editNameDe').value = s.name_de || '';
+      document.getElementById('editNameFr').value = s.name_fr || '';
       document.getElementById('editSlot').value = s.slot === 'scene' ? 'scene' : 'theme';
       document.getElementById('editCategory').value = s.category || '';
       document.getElementById('editDesc').value = s.description || '';
@@ -305,7 +350,7 @@
     var headers = await authHeaders();
     var r = await fetch(API + '/' + encodeURIComponent(id), {
       method: 'PUT', headers: headers,
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         key: document.getElementById('editKey').value,
         name: document.getElementById('editName').value,
         category: document.getElementById('editCategory').value,
@@ -316,7 +361,7 @@
         sort_order: Number(document.getElementById('editSort').value) || 0,
         is_active: document.getElementById('editActive').checked,
         slot: document.getElementById('editSlot').value
-      })
+      }, promoMultilangBody('edit', true)))
     });
     var d = await r.json().catch(function () { return {}; });
     if (!r.ok) { showStatus(d.error || '儲存失敗', false); return; }

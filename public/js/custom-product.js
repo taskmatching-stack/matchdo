@@ -6110,7 +6110,8 @@ $(document).ready(function () {
         if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.loadOptions !== 'function') {
             return Promise.resolve();
         }
-        return window.MatchdoPromoImage.loadOptions().then(function (res) {
+        var promoLang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
+        return window.MatchdoPromoImage.loadOptions(promoLang).then(function (res) {
             var data = (res && res.data) || {};
             var themes = data.themes || data.templates || [];
             var scenes = data.scenes || [];
