@@ -14,7 +14,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-3">設計風向分類</h4>
-        <p class="text-muted small mb-3">建立並管理前台「設計風向」使用的分類與 AI 提示詞，供設計意圖分析與廠商作品集對齊。分類語意與範例內容規劃中。key 請用英文或數字（會自動轉小寫、空格改底線）。</p>
+        <p class="text-muted small mb-3">建立並管理前台「設計風向 → 設計意圖分析」使用的分類與 AI 提示詞。主分類 prompt 描述品類域分析方向；生圖時後端會自動附錄<strong>【平台生圖數據參考】</strong>（同品類分類量、tags 熱門與成長趨勢）。若資料仍是舊再製內容，請執行 <code>docs/seed-design-direction-categories.sql</code>。</p>
         <p class="text-muted small mb-3">若要儲存「英文名」與其他語系欄位，請先在 Supabase SQL Editor 執行 <code>docs/add-remake-categories-multilang.sql</code>，執行後重新整理本頁即可。</p>
 
         <!-- 登入狀態：讓使用者清楚知道是否已登入 -->
@@ -41,11 +41,11 @@
             <div class="row g-2 align-items-end">
               <div class="col-md-2">
                 <label class="form-label small mb-0">key（英文）</label>
-                <input type="text" id="newKey" class="form-control form-control-sm" placeholder="例：apparel_remake" />
+                <input type="text" id="newKey" class="form-control form-control-sm" placeholder="例：formal_wear" />
               </div>
               <div class="col-md-2">
                 <label class="form-label small mb-0">顯示名稱</label>
-                <input type="text" id="newName" class="form-control form-control-sm" placeholder="例：風格方向" />
+                <input type="text" id="newName" class="form-control form-control-sm" placeholder="例：正裝與禮服" />
               </div>
               <div class="col-md-2">
                 <label class="form-label small mb-0">顯示名稱（英文）</label>
@@ -62,7 +62,7 @@
               </div>
               <div class="col-md-3">
                 <label class="form-label small mb-0">提示詞（AI 設計用，可含 {subcategory}）</label>
-                <textarea id="newPrompt" class="form-control form-control-sm" rows="2" placeholder="選填，供 AI 分析／估價用"></textarea>
+                <textarea id="newPrompt" class="form-control form-control-sm" rows="2" placeholder="例：【設計風向｜設計意圖分析】主品類：…；子品類：{subcategory}。解析風格、材質、情境…"></textarea>
               </div>
               <div class="col-md-1">
                 <label class="form-label small mb-0">排序</label>
@@ -96,7 +96,7 @@
             </div>
             <p class="text-muted small mt-2">主分類與子分類皆由後端 API 讀取，可新增、編輯、停用、永久刪除。各主分類列表最下方有「新增子分類」欄位；刪除子分類請按該列的「刪除」。</p>
             <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnReload">重新載入</button>
-            <p id="emptyList" class="text-muted small mb-0" style="display:none;">尚無分類，請先執行 <code>docs/remake-categories-schema.sql</code> 建立資料表與種子資料，或在上方新增。</p>
+            <p id="emptyList" class="text-muted small mb-0" style="display:none;">尚無分類：請先執行 <code>docs/remake-categories-schema.sql</code> 建表，再執行 <code>docs/seed-design-direction-categories.sql</code> 寫入設計風向種子，或在上方新增。</p>
           </div>
         </div>
 
@@ -114,7 +114,7 @@
                 <input type="hidden" id="editCatCategoryKey" value="" />
                 <div class="mb-3">
                   <label class="form-label">key（英文，可編輯）</label>
-                  <input type="text" id="editCatKeyInput" class="form-control" placeholder="例：alter" />
+                  <input type="text" id="editCatKeyInput" class="form-control" placeholder="例：suit" />
                   <div class="form-text">用於 API、資料庫與程式對應，請用英文或數字。</div>
                 </div>
                 <div class="mb-3">

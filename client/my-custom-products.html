@@ -168,7 +168,7 @@
                 var homeLabel = lang === 'en' ? 'Home' : '首頁';
                 var sectionLabel = lang === 'en' ? 'Design Direction' : '設計風向';
                 bc.innerHTML = '<li class="breadcrumb-item"><a href="/index.html">' + homeLabel + '</a></li>'
-                    + '<li class="breadcrumb-item"><a href="/remake/">' + sectionLabel + '</a></li>'
+                    + '<li class="breadcrumb-item"><a href="/design-direction/">' + sectionLabel + '</a></li>'
                     + '<li class="breadcrumb-item active">' + c.title + '</li>';
             }
             const tabIcon = document.getElementById('tabDesignsIcon');
@@ -186,12 +186,12 @@
                 advisorBox.classList.remove('d-none');
             }
             const createBtn = document.getElementById('btnCreateDesign');
-            if (createBtn) createBtn.href = '/remake-product.html';
+            if (createBtn) createBtn.href = '/design-direction/analysis.html';
             setText('btnCreateDesignText', c.btnCreate);
             setText('emptyTitle', c.emptyTitle);
             setText('emptyDesc', c.emptyDesc);
             const emptyBtn = document.getElementById('emptyCreateBtn');
-            if (emptyBtn) emptyBtn.href = '/remake-product.html';
+            if (emptyBtn) emptyBtn.href = '/design-direction/analysis.html';
             setText('emptyCreateBtnText', c.btnCreate);
         }
 

@@ -1,5 +1,6 @@
--- 再製子分類（隸屬於 remake_categories）
+-- 設計風向子分類（隸屬 remake_categories；表名沿用 remake_*）
 -- 執行：Supabase SQL Editor（請先執行 remake-categories-schema.sql）
+-- 種子請執行 docs/seed-design-direction-categories.sql
 
 CREATE TABLE IF NOT EXISTS public.remake_subcategories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -17,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.remake_subcategories (
 CREATE INDEX IF NOT EXISTS idx_remake_subcategories_category ON public.remake_subcategories(category_key);
 CREATE INDEX IF NOT EXISTS idx_remake_subcategories_sort ON public.remake_subcategories(category_key, sort_order);
 
-COMMENT ON TABLE public.remake_subcategories IS '再製服務子分類（隸屬主分類）';
+COMMENT ON TABLE public.remake_subcategories IS '設計風向子分類（具體品類；表名沿用 remake_*）';
 
 ALTER TABLE public.remake_subcategories ENABLE ROW LEVEL SECURITY;
 
@@ -31,18 +32,4 @@ CREATE POLICY "Allow all for remake_subcategories"
     ON public.remake_subcategories FOR ALL
     USING (true);
 
--- 種子
-INSERT INTO public.remake_subcategories (category_key, key, name, sort_order) VALUES
-('apparel_remake', 'alter', '修改尺寸／版型', 10),
-('apparel_remake', 'dye', '染色／改色', 20),
-('apparel_remake', 'patch', '補丁／拼布', 30),
-('furniture_remake', 'repaint', '重新塗裝', 10),
-('furniture_remake', 'reupholster', '重新包布', 20),
-('furniture_remake', 'restore', '修復／古董翻新', 30),
-('leather_care', 'clean', '清潔保養', 10),
-('leather_care', 'recolor', '改色／染色', 20),
-('shoes_repair', 'resole', '換底', 10),
-('shoes_repair', 'stretch', '撐大／改楦', 20),
-('electronics_mod', 'case', '機殼改裝', 10),
-('electronics_mod', 'paint', '外觀塗裝', 20)
-ON CONFLICT (category_key, key) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order;
+-- 建表後請執行 docs/seed-design-direction-categories.sql 寫入正確種子

@@ -1,6 +1,6 @@
 /**
  * 設計風向表單 - 分類來自 /api/remake-categories，須有參考圖
- * 檔案：public/js/remake-product.js，頁面：public/remake-product.html
+ * 檔案：public/js/remake-product.js，頁面：public/design-direction/analysis.html
  */
 $(document).ready(function () {
     let generatedImageData = null;
@@ -47,20 +47,56 @@ $(document).ready(function () {
                     $(this).addClass('selected');
                     mainHidden.val(selectedKey);
                     updateSubList(selectedKey);
+                    refreshMarketSignals();
                 });
                 mainList.append(opt);
             });
-            function updateSubList(mainKeyFromClick) {
+            function refreshMarketSignals() {
+            var wrap = $('#designDirectionMarketSignals');
+            var body = $('#designDirectionMarketSignalsBody');
+            if (!wrap.length || !body.length) return;
+            var mainKey = mainHidden.val() || '';
+            var subKey = subHidden.val() || '';
+            if (!mainKey) {
+                wrap.hide();
+                return;
+            }
+            var url = '/api/design-direction/market-signals?category_key=' + encodeURIComponent(mainKey);
+            if (subKey) url += '&subcategory_key=' + encodeURIComponent(subKey);
+            body.html('<span class="text-muted">載入趨勢…</span>');
+            wrap.show();
+            $.get(url).done(function (res) {
+                var s = res && res.signals;
+                if (!s || !s.sample_size) {
+                    body.text('同品類尚無足夠生圖樣本；分析將以您的參考圖與描述為主。');
+                    return;
+                }
+                var parts = [];
+                parts.push('樣本 ' + s.sample_size + ' 筆；近' + s.window_days + '日 ' + s.category_recent + ' 筆（' + (s.category_growth_pct >= 0 ? '▲' : '▼') + Math.abs(s.category_growth_pct) + '%）');
+                if (s.tags_top && s.tags_top.style && s.tags_top.style.length) {
+                    parts.push('熱門 style：' + s.tags_top.style.map(function (t) { return t.tag; }).join('、'));
+                }
+                if (s.tags_rising && s.tags_rising.length) {
+                    parts.push('成長：' + s.tags_rising.map(function (t) { return t.tag + ' ▲' + t.growth_pct + '%'; }).join('、'));
+                }
+                body.text(parts.join(' · '));
+            }).fail(function () {
+                body.text('趨勢資料暫不可用；生圖仍會依分類 prompt 分析。');
+            });
+        }
+        function updateSubList(mainKeyFromClick) {
                 var mainKey = mainKeyFromClick != null ? mainKeyFromClick : mainHidden.val();
                 subList.removeClass('empty').empty();
                 subHidden.val('');
                 if (!mainKey) {
                     subList.addClass('empty').text(tKey('customProduct.selectMainFirst'));
+                    refreshMarketSignals();
                     return;
                 }
                 var cat = categoriesData.find(function (c) { return (c.key != null ? String(c.key) : '') === String(mainKey); });
                 if (!cat || !cat.subcategories || cat.subcategories.length === 0) {
                     subList.addClass('empty').text(tKey('customProduct.noSubcategory'));
+                    refreshMarketSignals();
                     return;
                 }
                 (cat.subcategories || []).forEach(function (sub) {
@@ -70,12 +106,14 @@ $(document).ready(function () {
                     opt.on('click', function () {
                         subList.find('.cat-option').removeClass('selected');
                         $(this).addClass('selected');
-                        subHidden.val($(this).attr('data-key'));
-                    });
+                    subHidden.val($(this).attr('data-key'));
+                    refreshMarketSignals();
+                });
                     subList.append(opt);
                 });
                 subList.find('.cat-option').first().addClass('selected');
                 subHidden.val(cat.subcategories[0].key);
+                refreshMarketSignals();
             }
             if (categoriesData.length > 0) {
                 mainList.find('.cat-option').first().addClass('selected');

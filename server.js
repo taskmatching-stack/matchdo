@@ -121,6 +121,7 @@ const {
 const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const embedSimulator = require('./lib/embed-simulator');
+const designDirectionMarketSignals = require('./lib/design-direction-market-signals');
 const { registerSitemapRoutes } = require('./routes/sitemap');
 
 async function vendorAssetFileFromMulter(file) {
@@ -4578,10 +4579,18 @@ function redirectWithQuery(req, res, targetPath) {
     const q = raw.indexOf('?') >= 0 ? raw.slice(raw.indexOf('?')) : '';
     res.redirect(302, targetPath + q);
 }
+function redirectWithQuery301(req, res, targetPath) {
+    const raw = req.originalUrl || req.url || '';
+    const q = raw.indexOf('?') >= 0 ? raw.slice(raw.indexOf('?')) : '';
+    res.redirect(301, targetPath + q);
+}
 app.get('/manufacturer-dashboard.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-dashboard.html'));
 app.get('/manufacturer-materials.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-materials.html'));
 app.get('/manufacturer-portfolio.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-portfolio.html'));
 app.get('/manufacturer-inquiries.html', (req, res) => redirectWithQuery(req, res, '/client/manufacturer-inquiries.html'));
+// 設計風向：舊再製路徑 301 → /design-direction/
+app.get(['/remake', '/remake/', '/remake/index.html'], (req, res) => redirectWithQuery301(req, res, '/design-direction/'));
+app.get('/remake-product.html', (req, res) => redirectWithQuery301(req, res, '/design-direction/analysis.html'));
 
 // 圖庫找廠商：由伺服器注入資料，避免前端 fetch 失敗導致永遠沒顯示
 async function getGalleryComparisonItems() {
@@ -10042,14 +10051,33 @@ async function buildPromptFromRemakeCategoryKeys(categoryKeys, userPrompt) {
     const { data: mains } = await supabase.from('remake_categories').select('key, prompt').in('key', keys).eq('is_active', true);
     const mainMap = {};
     (mains || []).forEach(m => { mainMap[m.key] = (m.prompt || '').trim(); });
-    const { data: subs } = await supabase.from('remake_subcategories').select('key, prompt').in('key', keys).eq('is_active', true);
+    const { data: subs } = await supabase.from('remake_subcategories').select('key, name, prompt').in('key', keys).eq('is_active', true);
     const subMap = {};
-    (subs || []).forEach(s => { if (!mainMap[s.key]) subMap[s.key] = (s.prompt || '').trim(); });
+    const subNameMap = {};
+    (subs || []).forEach(s => {
+        if (!mainMap[s.key]) subMap[s.key] = (s.prompt || '').trim();
+        subNameMap[s.key] = (s.name || '').trim();
+    });
     keys.forEach(k => {
         const p = mainMap[k] || subMap[k] || '';
         if (p) prompts.push(p);
     });
-    const base = prompts.join('\n\n').trim();
+    let base = prompts.join('\n\n').trim();
+    const subKey = keys.find(k => subNameMap[k]);
+    const subLabel = (subKey && subNameMap[subKey]) ? subNameMap[subKey] : '此品類';
+    if (base.includes('{subcategory}')) base = base.replace(/\{subcategory\}/g, subLabel);
+    const mainKey = keys.find(k => mainMap[k]) || keys[0];
+    try {
+        const signals = await designDirectionMarketSignals.aggregateDesignDirectionMarketSignals(
+            supabase,
+            { mainCategoryKey: mainKey, subCategoryKey: subKey || null },
+            isSupabaseMissingColumnError
+        );
+        const marketAppendix = designDirectionMarketSignals.formatDesignDirectionMarketSignalsAppendix(signals, subLabel);
+        if (marketAppendix) base = (base ? base + '\n\n' : '') + marketAppendix;
+    } catch (e) {
+        console.warn('buildPromptFromRemakeCategoryKeys market signals:', e.message || e);
+    }
     return base ? base + '\n\n' + userPrompt : userPrompt;
 }
 
@@ -27325,6 +27353,29 @@ app.delete('/api/admin/custom-product-subcategories/:category_key/:key', async (
     } catch (e) {
         console.error('DELETE /api/admin/custom-product-subcategories 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// GET /api/design-direction/market-signals — 同品類生圖分類／tags 數量與趨勢（供設計意圖分析）
+app.get('/api/design-direction/market-signals', async (req, res) => {
+    try {
+        const mainCategoryKey = (req.query.category_key || req.query.category || '').trim();
+        if (!mainCategoryKey) {
+            return res.status(400).json({ error: '請提供 category_key' });
+        }
+        const subCategoryKey = (req.query.subcategory_key || '').trim() || null;
+        const signals = await designDirectionMarketSignals.aggregateDesignDirectionMarketSignals(
+            supabase,
+            { mainCategoryKey: mainCategoryKey, subCategoryKey: subCategoryKey },
+            isSupabaseMissingColumnError
+        );
+        if (!signals) {
+            return res.status(500).json({ error: '無法讀取平台生圖數據' });
+        }
+        res.json({ success: true, signals: signals });
+    } catch (e) {
+        console.error('GET /api/design-direction/market-signals:', e);
+        res.status(500).json({ error: e.message || '讀取失敗' });
     }
 });
 

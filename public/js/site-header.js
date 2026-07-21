@@ -339,7 +339,7 @@ function isCustomProductSection() {
 }
 function isRemakeSection() {
     const p = (typeof window !== 'undefined' && window.location && window.location.pathname) ? window.location.pathname : '';
-    return p.startsWith('/remake') || p.includes('remake-product');
+    return p.startsWith('/design-direction') || p.startsWith('/remake') || p.includes('remake-product');
 }
 
 /**
@@ -390,7 +390,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     const customActive = isCustom ? ' active' : '';
     const remakeActive = isRemake ? ' active' : '';
     const customUrl = '/custom/';
-    const remakeUrl = '/remake/';
+    const remakeUrl = '/design-direction/';
         const loginHref = (typeof AuthService !== 'undefined' && AuthService.getLoginUrl) ? AuthService.getLoginUrl(path) : ('/login.html?returnUrl=' + encodeURIComponent(path || '/'));
     if ((isCustom || isRemake) && typeof document !== 'undefined' && document.documentElement) {
         document.documentElement.setAttribute('data-theme', isRemake ? 'remake' : 'custom');
@@ -448,7 +448,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
                         <div class="dropdown-menu nav-hover-menu">
                             <h6 class="dropdown-header text-muted small">` + t('nav.remakeSection') + `</h6>
                             <a href="${remakeUrl}" class="dropdown-item"><i class="bi bi-compass"></i>` + t('nav.remakeHome') + `</a>
-                            <a href="/remake-product.html" class="dropdown-item"><i class="bi bi-lightbulb"></i>` + t('nav.remakeAnalysis') + `</a>
+                            <a href="/design-direction/analysis.html" class="dropdown-item"><i class="bi bi-lightbulb"></i>` + t('nav.remakeAnalysis') + `</a>
                             <a href="/client/my-custom-products.html?view=design-direction" class="dropdown-item"><i class="bi bi-collection"></i>` + t('nav.remakeMyDesigns') + `</a>
                             <div class="dropdown-divider"></div>
                             <a href="/client/find-makers.html" class="dropdown-item"><i class="bi bi-shop"></i>` + t('nav.findMakers') + `</a>
