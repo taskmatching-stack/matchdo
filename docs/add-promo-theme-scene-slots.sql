@@ -53,12 +53,9 @@ INSERT INTO public.promo_scene_templates (key, name, description, scene_prompt, 
  'outdoor campaign ad look; forbid inventing unrelated home-interior lifestyle stories',
  'scene', 50, 'scene')
 ON CONFLICT (key) DO UPDATE SET
-    name = EXCLUDED.name,
-    description = EXCLUDED.description,
-    scene_prompt = EXCLUDED.scene_prompt,
-    composition_hint = EXCLUDED.composition_hint,
+    slot = 'scene',
     category = EXCLUDED.category,
     sort_order = EXCLUDED.sort_order,
-    slot = 'scene',
     is_active = TRUE,
     updated_at = NOW();
+-- 衝突時不覆寫 name／description／scene_prompt／composition_hint，避免蓋掉後台自訂內容

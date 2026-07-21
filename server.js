@@ -122,6 +122,8 @@ const productLinkTreePdf = require('./lib/product-link-tree-pdf');
 const manufacturerTaxonomy = require('./lib/manufacturer-taxonomy');
 const embedSimulator = require('./lib/embed-simulator');
 const designDirectionMarketSignals = require('./lib/design-direction-market-signals');
+const designDirectionSeed = require('./lib/design-direction-seed');
+const promoSceneSeed = require('./lib/promo-scene-seed');
 const { registerSitemapRoutes } = require('./routes/sitemap');
 
 async function vendorAssetFileFromMulter(file) {
@@ -10492,8 +10494,50 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
 });
 
 // —— 產品推廣圖（獨立槽 bfl_flux_model_promo_image；基礎 20 點；不影響寫實化／生圖）——
+const PROMO_SCENE_LOCALE_COL = { en: 'name_en', ja: 'name_ja', es: 'name_es', de: 'name_de', fr: 'name_fr' };
+
+function appendPromoSceneMultilangFields(payload, body) {
+    if (!body || typeof body !== 'object') return payload;
+    if (body.name_en !== undefined) payload.name_en = body.name_en != null && String(body.name_en).trim() !== '' ? String(body.name_en).trim() : null;
+    for (const col of ['name_ja', 'name_es', 'name_de', 'name_fr']) {
+        if (body[col] !== undefined) payload[col] = body[col] != null && String(body[col]).trim() !== '' ? String(body[col]).trim() : null;
+    }
+    return payload;
+}
+
+function applyPromoSceneTemplateLocale(row, lang) {
+    if (!row) return row;
+    const localeCol = PROMO_SCENE_LOCALE_COL[lang];
+    let displayName = row.name;
+    if (lang === 'en' && row.name_en) displayName = row.name_en;
+    else if (localeCol && row[localeCol]) displayName = row[localeCol];
+    return { ...row, name: displayName };
+}
+
+/** 前台主題／場景分欄：以 slot 為準；相容 key=scene_* 或 category=scene 的舊資料 */
+function resolvePromoTemplateSlot(row) {
+    const slot = String((row && row.slot) || '').trim().toLowerCase();
+    if (slot === 'scene') return 'scene';
+    const key = String((row && row.key) || '').trim().toLowerCase();
+    const cat = String((row && row.category) || '').trim().toLowerCase();
+    if (key.startsWith('scene_') || cat === 'scene') return 'scene';
+    return 'theme';
+}
+
+function partitionPromoTemplateRows(rows, lang) {
+    const themes = [];
+    const scenes = [];
+    (rows || []).forEach((r) => {
+        const localized = applyPromoSceneTemplateLocale({ ...r, slot: resolvePromoTemplateSlot(r) }, lang);
+        if (localized.slot === 'scene') scenes.push(localized);
+        else themes.push(localized);
+    });
+    return { themes, scenes };
+}
+
 app.get('/api/promo-image/options', async (req, res) => {
     try {
+        res.set('Cache-Control', 'no-store');
         const lang = (req.query.lang || '').toLowerCase().replace(/-.*$/, '');
         let themes = [];
         let scenes = [];
@@ -10523,16 +10567,17 @@ app.get('/api/promo-image/options', async (req, res) => {
                 }
             }
             if (isSupabaseMissingColumnError(tErr, 'slot')) {
-                themes = (tRows || []).map((r) => applyPromoSceneTemplateLocale({ ...r, slot: 'theme' }, lang));
+                const themed = (tRows || []).map((r) => applyPromoSceneTemplateLocale({ ...r, slot: 'theme' }, lang));
+                themes = themed;
                 scenes = [];
                 slotMigrationHint = '請執行 docs/add-promo-theme-scene-slots.sql 以啟用「主題／場景」雙選';
             } else if (tErr) {
                 themes = [];
                 scenes = [];
             } else {
-                const rows = (tRows || []).map((r) => applyPromoSceneTemplateLocale(r, lang));
-                themes = rows.filter((r) => String(r.slot || 'theme') !== 'scene');
-                scenes = rows.filter((r) => String(r.slot || '') === 'scene');
+                const partitioned = partitionPromoTemplateRows(tRows, lang);
+                themes = partitioned.themes;
+                scenes = partitioned.scenes;
             }
         } catch (_) { themes = []; scenes = []; }
         try {
@@ -26639,25 +26684,6 @@ app.delete('/api/admin/photography-prompt-sets/:id', async (req, res) => {
 const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
 const PROMO_SCENE_TEMPLATE_SELECT_NO_I18N = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
 const PROMO_SCENE_TEMPLATE_SELECT_LEGACY = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, sort_order, is_active, created_at, updated_at';
-const PROMO_SCENE_LOCALE_COL = { en: 'name_en', ja: 'name_ja', es: 'name_es', de: 'name_de', fr: 'name_fr' };
-
-function appendPromoSceneMultilangFields(payload, body) {
-    if (!body || typeof body !== 'object') return payload;
-    if (body.name_en !== undefined) payload.name_en = body.name_en != null && String(body.name_en).trim() !== '' ? String(body.name_en).trim() : null;
-    for (const col of ['name_ja', 'name_es', 'name_de', 'name_fr']) {
-        if (body[col] !== undefined) payload[col] = body[col] != null && String(body[col]).trim() !== '' ? String(body[col]).trim() : null;
-    }
-    return payload;
-}
-
-function applyPromoSceneTemplateLocale(row, lang) {
-    if (!row) return row;
-    const localeCol = PROMO_SCENE_LOCALE_COL[lang];
-    let displayName = row.name;
-    if (lang === 'en' && row.name_en) displayName = row.name_en;
-    else if (localeCol && row[localeCol]) displayName = row[localeCol];
-    return { ...row, name: displayName };
-}
 
 function normalizePromoSceneTemplateKey(raw) {
     return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '').slice(0, 64);
@@ -26715,7 +26741,9 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
             else if (slotFilter === 'theme') items = items.filter((r) => r.slot === 'theme');
             return res.json({
                 items,
-                migration_hint: '請執行 docs/add-promo-theme-scene-slots.sql 以啟用「主題／場景」分欄'
+                migration_hint: '請執行 docs/add-promo-theme-scene-slots.sql 以啟用「主題／場景」分欄',
+                scene_count: 0,
+                slot_ready: false
             });
         }
         if (error) {
@@ -26726,10 +26754,13 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
             return res.status(500).json({ error: '查詢失敗' });
         }
         let items = data || [];
-        if (slotFilter) items = items.filter((r) => normalizePromoTemplateSlot(r.slot) === slotFilter);
+        items = items.map((r) => ({ ...r, slot: resolvePromoTemplateSlot(r) }));
+        if (slotFilter) items = items.filter((r) => resolvePromoTemplateSlot(r) === slotFilter);
         res.json({
             items,
-            migration_hint: usedNoI18nFallback ? '若要儲存多語系名稱，請執行 docs/add-promo-scene-templates-multilang.sql' : undefined
+            migration_hint: usedNoI18nFallback ? '若要儲存多語系名稱，請執行 docs/add-promo-scene-templates-multilang.sql' : undefined,
+            scene_count: promoSceneSeed.countSceneTemplates(items),
+            slot_ready: true
         });
     } catch (e) {
         console.error('GET /api/admin/promo-scene-templates 異常:', e);
@@ -26879,6 +26910,41 @@ app.delete('/api/admin/promo-scene-templates/:id', async (req, res) => {
     } catch (e) {
         console.error('DELETE /api/admin/promo-scene-templates 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/promo-scene-templates/apply-scene-seed — 寫入預設場景（可再於後台編輯）
+app.post('/api/admin/promo-scene-templates/apply-scene-seed', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        if (DB_URL) {
+            try {
+                const pool = new Pool({ connectionString: DB_URL });
+                const client = await pool.connect();
+                try {
+                    const st = await adminMigrations.getMigrationStatuses(client);
+                    const slotMig = st.find((m) => m.id === 'promo-theme-scene-slots');
+                    if (slotMig && !slotMig.applied) {
+                        await adminMigrations.runMigrationById('promo-theme-scene-slots', client);
+                    }
+                } finally {
+                    client.release();
+                    await pool.end();
+                }
+            } catch (migErr) {
+                console.warn('apply-scene-seed slot migration:', migErr && migErr.message);
+            }
+        }
+        const result = await promoSceneSeed.applyPromoSceneDefaults(supabase);
+        if (!result.success) {
+            const code = result.code === 'SLOT_MIGRATION_REQUIRED' ? 503 : 500;
+            return res.status(code).json(result);
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('POST apply-scene-seed:', e);
+        res.status(500).json({ error: e.message || '套用失敗' });
     }
 });
 
@@ -27584,10 +27650,51 @@ app.get('/api/admin/remake-categories', async (req, res) => {
             });
         }
         const categories = list.map(c => ({ ...c, prompt: c.prompt || '', subcategories: subMap[c.key] || [] }));
-        res.json({ categories });
+        res.json({
+            categories,
+            seed_status: {
+                needs_apply: designDirectionSeed.needsDesignDirectionSeed(categories),
+                legacy_keys: designDirectionSeed.LEGACY_REMAKE_KEYS
+            }
+        });
     } catch (e) {
         console.error('GET /api/admin/remake-categories 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
+    }
+});
+
+// POST /api/admin/remake-categories/apply-design-direction-seed — 一鍵套用設計風向種子（不需 SQL Editor）
+app.post('/api/admin/remake-categories/apply-design-direction-seed', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        if (DB_URL) {
+            try {
+                const pool = new Pool({ connectionString: DB_URL });
+                const client = await pool.connect();
+                try {
+                    const st = await adminMigrations.getMigrationStatuses(client);
+                    const seedMig = st.find((m) => m.id === 'design-direction-categories-seed');
+                    if (seedMig && !seedMig.applied) {
+                        await adminMigrations.runMigrationById('design-direction-categories-seed', client);
+                        return res.json({ success: true, message: '已透過資料庫 migration 套用設計風向種子' });
+                    }
+                } finally {
+                    client.release();
+                    await pool.end();
+                }
+            } catch (migErr) {
+                console.warn('apply-design-direction-seed migration:', migErr && migErr.message);
+            }
+        }
+        const result = await designDirectionSeed.applyDesignDirectionSeed(supabase);
+        if (!result.success) {
+            return res.status(result.errors && result.errors.length ? 207 : 500).json(result);
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('POST apply-design-direction-seed:', e);
+        res.status(500).json({ error: e.message || '套用失敗' });
     }
 });
 

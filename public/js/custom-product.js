@@ -6105,13 +6105,13 @@ $(document).ready(function () {
             }).catch(function () {});
         }
     }
-    function ensurePromoImageOptions() {
-        if (promoImageOptionsLoaded) return Promise.resolve();
+    function ensurePromoImageOptions(forceReload) {
+        if (promoImageOptionsLoaded && !forceReload) return Promise.resolve();
         if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.loadOptions !== 'function') {
             return Promise.resolve();
         }
         var promoLang = (window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : '';
-        return window.MatchdoPromoImage.loadOptions(promoLang).then(function (res) {
+        return window.MatchdoPromoImage.loadOptions(promoLang, !!forceReload).then(function (res) {
             var data = (res && res.data) || {};
             var themes = data.themes || data.templates || [];
             var scenes = data.scenes || [];
@@ -6155,6 +6155,9 @@ $(document).ready(function () {
                 $('#promoImageThemeHint').text(data.slot_migration_hint);
             } else if (data.migration_hint) {
                 $('#promoImageThemeHint').text(data.migration_hint);
+            }
+            if (!scenes.length && !data.slot_migration_hint) {
+                $('#promoImageEnvHint').text('尚無場景選項：請至後台「推廣圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql');
             }
             refreshPromoImagePointsDisplay();
         }).catch(function (err) {
@@ -6226,7 +6229,7 @@ $(document).ready(function () {
     }
 
     $('#tab-promo-image').on('shown.bs.tab', function () {
-        ensurePromoImageOptions();
+        ensurePromoImageOptions(true);
     });
     $('#promoImageRatioSelect').on('change', refreshPromoImagePointsDisplay);
     $('#promoImageMpSelect').on('change', refreshPromoImagePointsDisplay);

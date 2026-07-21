@@ -173,13 +173,16 @@
     });
   }
 
-  function loadOptions(lang) {
+  function loadOptions(lang, bustCache) {
     var q = '';
     if (lang != null && String(lang).trim()) {
       q = '?lang=' + encodeURIComponent(String(lang).trim().toLowerCase().replace(/-.*$/, ''));
     }
+    if (bustCache) {
+      q += (q ? '&' : '?') + '_=' + Date.now();
+    }
     return authHeaders(false).then(function (headers) {
-      return fetch('/api/promo-image/options' + q, { headers: headers }).then(function (r) {
+      return fetch('/api/promo-image/options' + q, { headers: headers, cache: 'no-store' }).then(function (r) {
         return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
       });
     });

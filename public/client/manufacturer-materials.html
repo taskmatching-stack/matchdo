@@ -1094,7 +1094,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-photo-multilang-20260721';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-scene-reload-20260722';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7486,7 +7486,7 @@
                 btnAddOpen.classList.toggle('d-none', showPromo);
             }
             if (showPromo) {
-                if (typeof ensurePromoVendorOptions === 'function') ensurePromoVendorOptions();
+                if (typeof ensurePromoVendorOptions === 'function') ensurePromoVendorOptions(true);
                 if (typeof loadPromoAssetsLite === 'function') {
                     loadPromoAssetsLite(false).then(function () {
                         if (typeof renderPromoAssetList === 'function') renderPromoAssetList();
@@ -7576,14 +7576,14 @@
             }
         }
 
-        function ensurePromoVendorOptions() {
-            if (promoVendorOptionsLoaded) {
+        function ensurePromoVendorOptions(forceReload) {
+            if (promoVendorOptionsLoaded && !forceReload) {
                 refreshPromoVendorPoints();
                 return;
             }
             if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.loadOptions !== 'function') return;
             var promoLang = (typeof getUiLocaleForUpload === 'function') ? getUiLocaleForUpload() : '';
-            window.MatchdoPromoImage.loadOptions(promoLang).then(function (res) {
+            window.MatchdoPromoImage.loadOptions(promoLang, !!forceReload).then(function (res) {
                 var data = (res && res.data) || {};
                 var themes = data.themes || data.templates || [];
                 var scenes = data.scenes || [];
@@ -7597,6 +7597,9 @@
                 if (data.slot_migration_hint) {
                     var th = document.getElementById('promoVendorThemeHint');
                     if (th) th.textContent = data.slot_migration_hint;
+                } else if (!scenes.length) {
+                    var eh = document.getElementById('promoVendorEnvHint');
+                    if (eh) eh.textContent = '尚無場景選項：請至後台「推廣圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql';
                 }
                 promoVendorOptionsLoaded = true;
                 refreshPromoVendorPoints();

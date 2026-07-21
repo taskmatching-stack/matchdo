@@ -33,6 +33,13 @@
           <span id="status"></span>
         </div>
 
+        <div id="seedBanner" class="alert alert-danger mb-3 py-3 d-none">
+          <div class="fw-semibold mb-1">資料仍是舊「再製／改裝」分類，與設計風向不符</div>
+          <p class="small mb-2 mb-0">請按下方按鈕一鍵套用正確的 12 品類域種子（會停用舊再製 key、寫入正裝／運動／包袋等）。套用後仍可在列表中編輯名稱與提示詞。</p>
+          <button type="button" class="btn btn-sm btn-danger mt-2 me-2" id="btnApplyDesignSeed">一鍵套用設計風向種子</button>
+          <a class="btn btn-sm btn-outline-secondary mt-2" href="/admin/db-migrations.html">或至資料庫維護執行 migration</a>
+        </div>
+
         <!-- 新增一筆 -->
         <div class="card mb-4">
           <div class="card-body">
@@ -477,6 +484,11 @@
       categories = data.categories || [];
       hideLoading();
       renderTable();
+      var seedBanner = document.getElementById('seedBanner');
+      if (seedBanner) {
+        var needs = data.seed_status && data.seed_status.needs_apply;
+        seedBanner.classList.toggle('d-none', !needs);
+      }
     } catch (e) {
       hideLoading();
       if (e && e.name === 'AbortError') showStatus('載入逾時（超過 15 秒），請檢查網路或按「重新載入」再試', 'danger');
@@ -644,7 +656,22 @@
     document.addEventListener('click', handleTableClick, true);
     document.getElementById('editCatSaveBtn')?.addEventListener('click', () => saveEditModal());
     document.getElementById('btnReload')?.addEventListener('click', () => loadList());
-    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+  document.getElementById('btnApplyDesignSeed')?.addEventListener('click', async function () {
+    if (!confirm('將停用舊再製分類並寫入設計風向 12 主分類＋子分類。確定？')) return;
+    var headers = await getAuthHeaders();
+    if (!headers.Authorization) { showStatus('請先登入', 'warning'); return; }
+    showStatus('套用種子中…', 'secondary');
+    try {
+      var res = await fetch(API + '/apply-design-direction-seed', { method: 'POST', headers: headers, body: '{}' });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok && res.status !== 207) throw new Error(data.error || data.message || '套用失敗');
+      showStatus(data.message || '已套用設計風向種子', data.errors && data.errors.length ? 'warning' : 'success');
+      await loadList();
+    } catch (e) {
+      showStatus('套用失敗：' + (e.message || String(e)), 'danger');
+    }
+  });
+  document.getElementById('logoutBtn')?.addEventListener('click', async () => {
       if (!window.AuthService?.signOut) return;
       try {
         await AuthService.signOut();

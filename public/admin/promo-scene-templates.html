@@ -19,6 +19,7 @@
           請先執行 <code>docs/add-promo-theme-scene-slots.sql</code>。
         </p>
         <p class="text-muted small mb-2">若要儲存「英文名」與其他語系欄位，請先在 Supabase SQL Editor 執行 <code>docs/add-promo-scene-templates-multilang.sql</code>，執行後重新整理本頁即可。</p>
+        <p class="text-muted small mb-2">若後台「場景」分頁是空的但前台仍看到舊選項，請執行 <code>docs/fix-promo-scene-slot-mismatch.sql</code> 修正 slot 標記。</p>
         <div class="alert alert-info small py-2 mb-3">
           <strong>如何影響提示詞（送進 FLUX）：</strong>
           系統先套用固定的英文「廣告／DM、禁止只換背景」底稿，再依序併入你選的
@@ -27,6 +28,13 @@
           中文「名稱／說明」只給人看，<strong>不會</strong>進提示詞——要改生成結果請改英文提示詞欄。
         </div>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
+
+        <div id="sceneSetupBanner" class="alert alert-warning mb-3 py-3 d-none">
+          <div class="fw-semibold mb-1">尚無可編輯的「場景」資料</div>
+          <p class="small mb-2">推廣圖的<strong>場景</strong>與<strong>主題</strong>分開管理。若「場景」分頁是空的，請先初始化（或至「資料庫維護」執行「推廣圖主題／場景 slot 欄位」）。</p>
+          <button type="button" class="btn btn-sm btn-warning me-2" id="btnApplySceneSeed">一鍵寫入預設場景（5 筆，可再編輯）</button>
+          <a class="btn btn-sm btn-outline-secondary" href="/admin/db-migrations.html">資料庫維護</a>
+        </div>
 
         <ul class="nav nav-tabs mb-3" role="tablist">
           <li class="nav-item"><button class="nav-link active" type="button" id="tabTheme" data-slot="theme">主題</button></li>
@@ -228,6 +236,12 @@
     }
     items = d.items || [];
     renderList();
+    var sceneBanner = document.getElementById('sceneSetupBanner');
+    if (sceneBanner) {
+      var sc = d.scene_count != null ? d.scene_count : 0;
+      var show = !d.slot_ready || sc === 0;
+      sceneBanner.classList.toggle('d-none', !show);
+    }
     if (d.migration_hint) showStatus(d.migration_hint, 'warn');
     var legacyCount = items.filter(function (s) { return LEGACY_SCENE_KEYS[s.key]; }).length;
     if (legacyCount > 0) {
@@ -239,6 +253,9 @@
     var showInactive = document.getElementById('showInactive') && document.getElementById('showInactive').checked;
     return items.filter(function (s) {
       var slot = (s.slot === 'scene') ? 'scene' : 'theme';
+      var key = String(s.key || '').toLowerCase();
+      var cat = String(s.category || '').toLowerCase();
+      if (slot !== 'scene' && currentSlot === 'scene' && (key.indexOf('scene_') === 0 || cat === 'scene')) slot = 'scene';
       if (slot !== currentSlot) return false;
       if (showInactive) return true;
       return s.is_active !== false;
@@ -255,6 +272,7 @@
       return '<tr>' +
         '<td><code>' + esc(s.key) + '</code>' + legacyBadge + '</td>' +
         '<td>' + esc(s.name) +
+          (s.slot === 'scene' ? ' <span class="badge bg-secondary">scene</span>' : '') +
           (s.name_en ? '<div class="small text-muted">EN: ' + esc(s.name_en) + '</div>' : '') +
           (s.description ? '<div class="small text-muted">' + esc(s.description) + '</div>' : '') +
         '</td>' +
@@ -371,6 +389,16 @@
   });
 
   document.getElementById('btnReload').addEventListener('click', loadList);
+  document.getElementById('btnApplySceneSeed').addEventListener('click', async function () {
+    if (!confirm('寫入 5 筆預設場景模板（乾淨棚拍、零售陳列等）。已有相同 key 會更新 slot=scene。確定？')) return;
+    var headers = await authHeaders();
+    var r = await fetch(API + '/apply-scene-seed', { method: 'POST', headers: headers, body: '{}' });
+    var d = await r.json().catch(function () { return {}; });
+    if (!r.ok) { showStatus(d.message || d.error || '寫入失敗', false); return; }
+    showStatus(d.message || '已寫入場景', true);
+    setSlot('scene');
+    await loadList();
+  });
   document.getElementById('showInactive').addEventListener('change', renderList);
   document.getElementById('btnPurgeLegacy').addEventListener('click', async function () {
     var legacy = items.filter(function (s) { return LEGACY_SCENE_KEYS[s.key]; });
@@ -388,7 +416,8 @@
     showStatus('已清除 ' + ok + '／' + legacy.length + ' 筆舊模板', ok === legacy.length);
     await loadList();
   });
-  setSlot('theme');
+  var initTab = (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase();
+  setSlot(initTab === 'scene' ? 'scene' : 'theme');
   loadList();
 })();
   </script>
