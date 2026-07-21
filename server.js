@@ -10563,6 +10563,8 @@ app.get('/api/promo-image/options', async (req, res) => {
                 '16:9': { w: 1344, h: 756 },
                 '9:16': { w: 756, h: 1344 },
                 '21:9': { w: 1536, h: 658 },
+                '3:1': { w: 1728, h: 576 },
+                '4:1': { w: 2048, h: 512 },
                 '9:21': { w: 658, h: 1536 }
             },
             migration_hint: themes.length ? undefined : '請於 Supabase 執行 docs/add-product-promo-image.sql'
