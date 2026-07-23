@@ -434,6 +434,50 @@ function truncateMediaWallTitle(text, maxLen = 56) {
     return s.slice(0, maxLen) + '…';
 }
 
+const CUSTOM_PRODUCT_MEDIA_WALL_SELECT = 'id, title, title_en, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources';
+const CUSTOM_PRODUCT_MEDIA_WALL_SELECT_NO_TITLE_EN = 'id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources';
+
+function buildCustomProductMediaWallQuery(selectCols, filters) {
+    const { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey, withHomepageFilter, searchPattern } = filters || {};
+    let q = supabase.from('custom_products').select(selectCols)
+        .not('ai_generated_image_url', 'eq', null);
+    if (withHomepageFilter !== false) {
+        q = q.or('show_on_homepage.eq.true,show_on_homepage.is.null');
+    }
+    if (searchPattern) {
+        q = q.or(`title.ilike.${searchPattern},generation_prompt.ilike.${searchPattern},description.ilike.${searchPattern}`);
+    }
+    if (categoryKeysToMatch && categoryKeysToMatch.length) q = q.in('category', categoryKeysToMatch);
+    else if (filterCategoryKey) q = q.eq('category', filterCategoryKey);
+    if (filterSubcategoryKey) q = q.eq('subcategory_key', filterSubcategoryKey);
+    return q;
+}
+
+/** 靈感牆設計圖：created_at 降序；title_en 缺欄時只重試 select，不可拿掉 show_on_homepage 篩選 */
+async function fetchCustomProductMediaWallRows(filters, rangeFrom, rangeTo) {
+    const orderRange = (q) => q.order('created_at', { ascending: false }).range(rangeFrom, rangeTo);
+    let res = await orderRange(buildCustomProductMediaWallQuery(CUSTOM_PRODUCT_MEDIA_WALL_SELECT, filters));
+    if (res.error && isSupabaseMissingColumnError(res.error, 'title_en')) {
+        res = await orderRange(buildCustomProductMediaWallQuery(CUSTOM_PRODUCT_MEDIA_WALL_SELECT_NO_TITLE_EN, filters));
+    }
+    if (!res.error) return res.data || [];
+    if (isSupabaseMissingColumnError(res.error, 'show_on_homepage') || isSupabaseMissingColumnError(res.error, 'subcategory_key')) {
+        let q = supabase.from('custom_products')
+            .select('id, title, category, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed')
+            .not('ai_generated_image_url', 'eq', null);
+        if (filters && filters.categoryKeysToMatch && filters.categoryKeysToMatch.length) q = q.in('category', filters.categoryKeysToMatch);
+        else if (filters && filters.filterCategoryKey) q = q.eq('category', filters.filterCategoryKey);
+        res = await q.order('created_at', { ascending: false }).range(rangeFrom, rangeTo);
+        let rows = res.data || [];
+        if (filters && filters.filterSubcategoryKey && rows.length) {
+            rows = rows.filter((p) => (p.subcategory_key || '') === filters.filterSubcategoryKey);
+        }
+        return rows;
+    }
+    if (res.error && res.error.code !== '42703') console.warn('fetchCustomProductMediaWallRows:', res.error.message);
+    return [];
+}
+
 function parseImageSemanticsJson(raw) {
     if (!raw) return null;
     if (typeof raw === 'object') return raw;
@@ -790,8 +834,8 @@ async function loadMediaWallSearchResults(searchQ, opts) {
     const pool = Math.min(500, Math.max(perPage * 10, 150));
     const hasCategoryFilter = !!(filterCategoryKey || filterSubcategoryKey);
     const merged = [];
-    const userSelect = 'id, title, title_en, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources';
     const portfolioSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, created_at';
+    const cpFilters = { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey };
 
     const pushIfMatch = (item, createdAt) => {
         if (!item || !mediaWallItemSearchHaystack(item).includes(qLower)) return;
@@ -816,21 +860,24 @@ async function loadMediaWallSearchResults(searchQ, opts) {
                 merged.push({ item, created_at: p.created_at || '' });
             });
         };
-        let qText = supabase.from('custom_products').select(userSelect)
-            .not('ai_generated_image_url', 'is', null)
-            .or('show_on_homepage.eq.true,show_on_homepage.is.null')
-            .or(`title.ilike.${pattern},generation_prompt.ilike.${pattern},description.ilike.${pattern}`);
-        qText = applyCustomProductCategoryFilters(qText, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
+        let qText = buildCustomProductMediaWallQuery(CUSTOM_PRODUCT_MEDIA_WALL_SELECT, { ...cpFilters, searchPattern: pattern });
         const textRes = await qText.order('created_at', { ascending: false }).limit(pool);
-        await ingestUsers(textRes.data);
-        scheduleCustomProductTitleFromSemanticsBackfill(textRes.data);
-        let qPool = supabase.from('custom_products').select(userSelect)
-            .not('ai_generated_image_url', 'is', null)
-            .or('show_on_homepage.eq.true,show_on_homepage.is.null');
-        qPool = applyCustomProductCategoryFilters(qPool, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
-        const poolRes = await qPool.order('created_at', { ascending: false }).limit(pool);
-        await ingestUsers(poolRes.data);
-        scheduleCustomProductTitleFromSemanticsBackfill(poolRes.data);
+        let textRows = textRes.data || [];
+        if (textRes.error && isSupabaseMissingColumnError(textRes.error, 'title_en')) {
+            qText = buildCustomProductMediaWallQuery(CUSTOM_PRODUCT_MEDIA_WALL_SELECT_NO_TITLE_EN, { ...cpFilters, searchPattern: pattern });
+            const retry = await qText.order('created_at', { ascending: false }).limit(pool);
+            textRows = retry.data || [];
+        }
+        await ingestUsers(textRows);
+        let qPool = buildCustomProductMediaWallQuery(CUSTOM_PRODUCT_MEDIA_WALL_SELECT, cpFilters);
+        let poolRes = await qPool.order('created_at', { ascending: false }).limit(pool);
+        let poolRows = poolRes.data || [];
+        if (poolRes.error && isSupabaseMissingColumnError(poolRes.error, 'title_en')) {
+            qPool = buildCustomProductMediaWallQuery(CUSTOM_PRODUCT_MEDIA_WALL_SELECT_NO_TITLE_EN, cpFilters);
+            poolRes = await qPool.order('created_at', { ascending: false }).limit(pool);
+            poolRows = poolRes.data || [];
+        }
+        await ingestUsers(poolRows);
     }
 
     if (layoutOnly === 'promo_scene') {
@@ -4314,29 +4361,6 @@ function schedulePromoGenerationSemanticsEnrich(generationId, ownerId, ctx) {
     if (!generationId || !process.env.GEMINI_API_KEY) return;
     setImmediate(function () {
         enrichPromoGenerationSemantics(generationId, ownerId, ctx || {}).catch(function () {});
-    });
-}
-
-function scheduleCustomProductTitleFromSemanticsBackfill(rows) {
-    if (!rows || !rows.length) return;
-    const pending = rows.filter(function (p) {
-        if (!p || !p.id) return false;
-        const needZh = isGenericMediaWallTitle(p.title);
-        const needEn = isGenericMediaWallTitle(p.title_en);
-        if (!needZh && !needEn) return false;
-        return !!visualSemantics.buildCustomProductTitlePairFromSemantics(parseImageSemanticsJson(p.image_semantics_json));
-    }).slice(0, 6);
-    pending.forEach(function (p) {
-        const pair = visualSemantics.buildCustomProductTitlePairFromSemantics(parseImageSemanticsJson(p.image_semantics_json));
-        if (!pair) return;
-        const patch = {};
-        if (pair.zh && isGenericMediaWallTitle(p.title)) patch.title = pair.zh;
-        if (pair.en && isGenericMediaWallTitle(p.title_en)) patch.title_en = pair.en;
-        if (!Object.keys(patch).length) return;
-        supabase.from('custom_products').update(patch).eq('id', p.id).then(function () {
-            if (patch.title) p.title = patch.title;
-            if (patch.title_en) p.title_en = patch.title_en;
-        }).catch(function () {});
     });
 }
 
@@ -14670,30 +14694,12 @@ app.get('/api/media-wall', async (req, res) => {
         // 用戶設計：只查「有圖」且允許顯示在首頁的；可依 category / subcategory_key 篩選
         let userRows = [];
         if (!layoutOnly || layoutOnly === 'user_design') {
-        let userQuery = supabase
-            .from('custom_products')
-            .select('id, title, title_en, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources')
-            .not('ai_generated_image_url', 'eq', null)
-            .or('show_on_homepage.eq.true,show_on_homepage.is.null');
-        if (categoryKeysToMatch && categoryKeysToMatch.length) userQuery = userQuery.in('category', categoryKeysToMatch);
-        else if (filterCategoryKey) userQuery = userQuery.eq('category', filterCategoryKey);
-        if (filterSubcategoryKey) userQuery = userQuery.eq('subcategory_key', filterSubcategoryKey);
-        userQuery = userQuery.order('created_at', { ascending: false }).range(dbOffset, dbOffset + (hasCategoryFilter && !clientFilterActive ? perPage : nUserLimit) - 1);
-        const userRes = await userQuery;
-        if (!userRes.error) userRows = userRes.data || [];
-        if (userRes.error && userRes.error.code !== '42703') console.warn('GET /api/media-wall 用戶設計查詢失敗:', userRes.error.message);
-        if (userRes.error && /column.*show_on_homepage|column.*subcategory_key|42703/i.test(userRes.error.message || userRes.error.code)) {
-            let fallbackQuery = supabase
-                .from('custom_products')
-                .select('id, title, category, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed')
-                .not('ai_generated_image_url', 'eq', null);
-            if (categoryKeysToMatch && categoryKeysToMatch.length) fallbackQuery = fallbackQuery.in('category', categoryKeysToMatch);
-            else if (filterCategoryKey) fallbackQuery = fallbackQuery.eq('category', filterCategoryKey);
-            fallbackQuery = fallbackQuery.order('created_at', { ascending: false }).range(dbOffset, dbOffset + (hasCategoryFilter && !clientFilterActive ? perPage : nUserLimit) - 1);
-            const fallback = await fallbackQuery;
-            userRows = (fallback.data && fallback.data.length) ? fallback.data : [];
-            if (filterSubcategoryKey && userRows.length) userRows = userRows.filter(p => (p.subcategory_key || '') === filterSubcategoryKey);
-        }
+        const userRangeTo = dbOffset + (hasCategoryFilter && !clientFilterActive ? perPage : nUserLimit) - 1;
+        userRows = await fetchCustomProductMediaWallRows(
+            { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey },
+            dbOffset,
+            userRangeTo
+        );
         let ownerDisplayMap = {};
         if (userRows && userRows.length) {
             const ownerIds = [...new Set(userRows.map(p => p.owner_id).filter(Boolean))];
@@ -14703,8 +14709,6 @@ app.get('/api/media-wall', async (req, res) => {
                     if (profs) profs.forEach(pr => { ownerDisplayMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
                 } catch (_) {}
             }
-            scheduleCustomProductTitleFromSemanticsBackfill(userRows);
-            // 照抄 GET /api/custom-products 的 product 形狀；確保 analysis_json 為物件，且 generation_seed 從 analysis_json 帶出
             userRows.forEach(p => {
                 let ownerMap = ownerDisplayMap;
                 const userItem = mapUserRowToMediaWallItem(p, ownerMap, contentLang);
@@ -14998,6 +15002,8 @@ app.get('/api/media-wall', async (req, res) => {
             }
             items.sort(function (a, b) { return new Date(b.created_at || 0) - new Date(a.created_at || 0); });
             items = items.slice(offset, offset + perPage);
+        } else if (layoutOnly === 'user_design') {
+            items.sort(function (a, b) { return new Date(b.created_at || 0) - new Date(a.created_at || 0); });
         }
 
         await enrichMediaWallRefManufacturers(items);
