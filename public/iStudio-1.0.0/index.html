@@ -301,8 +301,16 @@
                 #media-wall-lightbox .modal-body.is-promo-scene-body { overflow-y: auto; display: block; }
                 #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene { flex: 0 1 auto; flex-direction: column; align-items: stretch; justify-content: flex-start; overflow: visible; min-height: 0; padding: 0.5rem 0.5rem 0; }
                 #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner { flex: 0 0 auto; width: 100%; height: auto; min-height: 0; padding: 0; display: block; overflow: visible; }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner img { display: block; max-width: 100%; max-height: min(48vh, 400px); width: auto; height: auto; margin: 0 auto; }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-detail { position: static; flex: 0 0 auto; background: #2d4059; overflow: visible; padding: 0.5rem 0.65rem 0.6rem; border-radius: 0 0 8px 8px; margin-top: 0; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner img { display: block; max-width: 100%; max-height: min(72vh, 620px); width: auto; height: auto; margin: 0 auto; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-detail { position: static; flex: 0 0 auto; background: #2d4059; overflow: visible; padding: 0.35rem 0.55rem 0.45rem; border-radius: 0 0 8px 8px; margin-top: 0; font-size: 0.65rem; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-category-row,
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-subcategory-row,
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-prompt-row,
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-owner-row { display: none !important; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-promo-desc-wrap { display: block !important; margin-bottom: 0.15rem; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene .mw-lb-promo-desc-details summary { cursor: pointer; color: rgba(255,255,255,.95); font-weight: 600; list-style: none; display: inline-flex; align-items: center; gap: 0.3rem; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene .mw-lb-promo-desc-details summary::-webkit-details-marker { display: none; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene .mw-lb-promo-desc-full { margin-top: 0.35rem; word-break: break-word; white-space: pre-wrap; max-height: 28vh; overflow-y: auto; color: #fff; font-weight: 400; line-height: 1.45; }
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-label { color: rgba(255,255,255,.85); margin-bottom: 0; margin-right: 0.25rem; }
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-value { color: #fff; margin-bottom: 0.15rem; word-break: break-word; display: inline; }
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-row { margin-bottom: 0.15rem; }
@@ -331,9 +339,15 @@
                         <div id="media-wall-lightbox-detail" class="d-none">
                             <div class="detail-row" id="media-wall-lightbox-category-row" style="display:none;"><span class="detail-label" data-i18n="home.mainCategory">主分類</span><span id="media-wall-lightbox-category" class="detail-value"></span></div>
                             <div class="detail-row" id="media-wall-lightbox-subcategory-row" style="display:none;"><span class="detail-label" data-i18n="home.subcategory">子分類</span><span id="media-wall-lightbox-subcategory" class="detail-value"></span></div>
-                            <div class="detail-row"><span class="detail-label" data-i18n="home.prompt">提示詞</span><span id="media-wall-lightbox-prompt" class="detail-value"></span></div>
+                            <div class="detail-row" id="media-wall-lightbox-prompt-row"><span class="detail-label" data-i18n="home.prompt">提示詞</span><span id="media-wall-lightbox-prompt" class="detail-value"></span></div>
+                            <div class="detail-row d-none" id="media-wall-lightbox-promo-desc-wrap">
+                                <details class="mw-lb-promo-desc-details">
+                                    <summary><i class="bi bi-card-text" aria-hidden="true"></i><span>情境描述</span></summary>
+                                    <div id="media-wall-lightbox-promo-desc-full" class="mw-lb-promo-desc-full"></div>
+                                </details>
+                            </div>
                             <div class="detail-row" id="media-wall-lightbox-seed-row"><span class="detail-label" data-i18n="home.seed">SEED</span><span id="media-wall-lightbox-seed" class="detail-value"></span></div>
-                            <div class="detail-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="media-wall-lightbox-owner" class="detail-value"></span></div>
+                            <div class="detail-row" id="media-wall-lightbox-owner-row"><span class="detail-label" data-i18n="home.account">帳號</span><span id="media-wall-lightbox-owner" class="detail-value"></span></div>
                             <div class="detail-row" id="media-wall-lightbox-display-tags-row" style="display:none;">
                                 <details class="mw-lb-tags">
                                     <summary><i class="bi bi-tags" aria-hidden="true"></i><span data-i18n="home.tags">標籤</span> (<span id="media-wall-lightbox-display-tags-n">0</span>)</summary>
@@ -1795,6 +1809,9 @@
                     var seedEl = document.getElementById('media-wall-lightbox-seed');
                     var seedRow = document.getElementById('media-wall-lightbox-seed-row');
                     var ownerEl = document.getElementById('media-wall-lightbox-owner');
+                    var promoDescWrap = document.getElementById('media-wall-lightbox-promo-desc-wrap');
+                    var promoDescFull = document.getElementById('media-wall-lightbox-promo-desc-full');
+                    var promoDescDetails = promoDescWrap && promoDescWrap.querySelector('.mw-lb-promo-desc-details');
                     var highlightRow = document.getElementById('media-wall-lightbox-highlight-row');
                     var highlightEl = document.getElementById('media-wall-lightbox-highlight');
                     var tagsRow = document.getElementById('media-wall-lightbox-tags-row');
@@ -1808,6 +1825,8 @@
                     if (item.type === 'user_design' && detailWrap) {
                         if (lbBody) lbBody.classList.remove('is-promo-scene');
                         if (lbModalBody) lbModalBody.classList.remove('is-promo-scene-body');
+                        if (promoDescWrap) promoDescWrap.classList.add('d-none');
+                        if (promoDescDetails) promoDescDetails.open = false;
                         detailWrap.classList.remove('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
                         var catKey = item.category_key || item.category || '';
@@ -1839,36 +1858,26 @@
                     } else if (item.type === 'promo_scene' && detailWrap) {
                         if (lbBody) lbBody.classList.add('is-promo-scene');
                         if (lbModalBody) lbModalBody.classList.add('is-promo-scene-body');
+                        if (promoDescWrap) promoDescWrap.classList.remove('d-none');
+                        if (promoDescDetails) promoDescDetails.open = false;
                         detailWrap.classList.remove('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
-                        var promoCatKey = item.category_key || '';
-                        var promoSubKey = item.subcategory_key || '';
-                        var promoCatLabel = ''; var promoSubLabel = '';
-                        if (cats && cats.length) {
-                            var promoCat = promoCatKey ? cats.find(function (c) { return (c.key || '') === promoCatKey; }) : null;
-                            if (promoCat) promoCatLabel = promoCat.name || promoCatKey;
-                            if (promoSubKey && promoCat && promoCat.subcategories && promoCat.subcategories.length) {
-                                var promoSub = promoCat.subcategories.find(function (s) { return (s.key || '') === promoSubKey; });
-                                promoSubLabel = promoSub ? (promoSub.name || promoSubKey) : promoSubKey;
-                            } else if (promoSubKey) promoSubLabel = promoSubKey;
-                        }
-                        if (categoryRow && categoryEl) { categoryEl.textContent = promoCatLabel || promoCatKey || '（無）'; categoryRow.style.display = (promoCatKey || promoCatLabel) ? '' : 'none'; }
-                        if (subcategoryRow && subcategoryEl) { subcategoryEl.textContent = promoSubLabel || '（無）'; subcategoryRow.style.display = promoSubLabel ? '' : 'none'; }
-                        var promptRowPromo = promptEl && promptEl.closest('.detail-row');
-                        var promptLabelPromo = promptRowPromo && promptRowPromo.querySelector('.detail-label');
-                        if (promptLabelPromo) promptLabelPromo.textContent = '情境描述';
-                        if (promptEl) promptEl.textContent = item.scene_description || item.user_prompt || '（無）';
+                        var promoDescText = (item.scene_description || item.user_prompt || '').trim();
+                        if (promoDescFull) promoDescFull.textContent = promoDescText || '（無）';
                         if (seedRow) seedRow.style.display = 'none';
-                        if (ownerEl) ownerEl.textContent = item.owner_display || '（無）';
                         var promoTags = getDisplayTags(item);
                         if (displayTagsRow && displayTagsEl && displayTagsN) {
                             displayTagsEl.innerHTML = buildTagsBadgesHtml(promoTags);
                             displayTagsN.textContent = String(promoTags.length);
                             displayTagsRow.style.display = promoTags.length ? '' : 'none';
+                        } else if (displayTagsRow) {
+                            displayTagsRow.style.display = 'none';
                         }
                     } else if (item.type === 'comparison' || item.type === 'collection' || item.type === 'series') {
                         if (lbBody) lbBody.classList.remove('is-promo-scene');
                         if (lbModalBody) lbModalBody.classList.remove('is-promo-scene-body');
+                        if (promoDescWrap) promoDescWrap.classList.add('d-none');
+                        if (promoDescDetails) promoDescDetails.open = false;
                         if (detailWrap) detailWrap.classList.add('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.remove('d-none');
                         var hi = (item.design_highlight || '').trim();
@@ -1891,6 +1900,8 @@
                     } else {
                         if (lbBody) lbBody.classList.remove('is-promo-scene');
                         if (lbModalBody) lbModalBody.classList.remove('is-promo-scene-body');
+                        if (promoDescWrap) promoDescWrap.classList.add('d-none');
+                        if (promoDescDetails) promoDescDetails.open = false;
                         if (detailWrap) detailWrap.classList.add('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
                         if (categoryRow) categoryRow.style.display = 'none';
