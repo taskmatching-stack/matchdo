@@ -1,6 +1,6 @@
 # SEO 實作進度摘要
 
-> **更新日期**：2026-06-01  
+> **更新日期**：2026-07-22  
 > **網域**：https://matchdo.cc  
 > **完整規劃**：`docs/SEO-PLAN.md`  
 > **架構 Step 0～4 × B 線頁型**：`docs/architecture-and-seo-principles.md`（A5 已還原，勿當完成）  
@@ -169,14 +169,17 @@
 | **後台平台帳號設定** | `admin/site-settings.html` 新增平台官方社群帳號管理（FB/IG/Threads/X/LINE/YouTube/Pinterest） |
 | **contact_info 欄位** | `docs/add-threads-twitter-to-contact-info.sql`：為 `contact_info` 資料表補 `threads_url`、`twitter_url` 欄位（需在 Supabase 執行） |
 
-### ⏸ 優先 4：Google Search Console 提交 Sitemap（暫緩）
+### ⚠️ 優先 4：Google Search Console — Sitemap 報告（已知異常，勿重複操作）
 
-> **暫緩原因**：站上仍有大量測試 / 假資料，現在提交會讓 Google 抓到無效內容，等正式內容充實後再執行。
+> **2026-07-22 查證**：`https://matchdo.cc/sitemap.xml` 技術面完全正常（200、有效 XML、robots.txt 已宣告）。  
+> **GSC 手動提交**（`sitemap.xml`／完整 URL）對 `sc-domain:matchdo.cc` **無法成功**；2026-07-20 提交後至 2026-07-22 仍「無法讀取」。Cloudflare Worker 跨域提交亦被拒。  
+> **完整紀錄**：`docs/gsc-sitemap-troubleshooting.md`
 
-待執行（真實內容上線後）：
-1. 前往 https://search.google.com/search-console
-2. 資源已驗證（matchdo.cc）
-3. 左側「Sitemap」→ 新增 `https://matchdo.cc/sitemap.xml`
+**現行策略（不要再叫使用者重提 sitemap）：**
+1. 依 **`robots.txt`** 讓 Google 自動發現 sitemap
+2. 用 GSC **「網頁索引」**、`site:matchdo.cc` 看實際收錄
+3. 對首頁、重要 landing、單篇 `/inspiration/*` 用 **網址檢查 → 要求建立索引**
+4. 持續補公開內容品質（官方亦說明「檢索需求量偏低」時 Sitemap 報告可能長期異常）
 
 ### ✅ BreadcrumbList、vendor-profile 動態 OG、GA4 事件、次要頁 meta（2026-03-05 已完成）
 
@@ -191,7 +194,7 @@
 
 | 優先 | 項目 | 說明 |
 |------|------|------|
-| **1** | **Google Search Console 提交 Sitemap** | 等正式內容充實後執行（見上方 ⏸ 優先 4）；提交後可查看索引狀態、搜尋成效。 |
+| **1** | **GSC 索引監控（非 Sitemap 重提）** | Sitemap 手動提交已知失敗；改監控「網頁索引」、個別 URL 要求索引、搜尋成效（見上方 ⚠️ 優先 4、`docs/gsc-sitemap-troubleshooting.md`）。 |
 | **2** | **英文頁 meta 文案** | 目前 `description`、`og:title`、`og:description` 多為中文；若希望英文搜尋也有對應摘要，可為 `?lang=en` 或英文版頁面提供英文 meta（或由後台／i18n 動態輸出）。 |
 
 #### 獨立 URL 三項技術細節評估（最小幅修改可行性）
@@ -354,7 +357,7 @@ CREATE INDEX IF NOT EXISTS idx_manufacturers_name_desc_trgm
 | Google Rich Results Test | 驗證 JSON-LD | https://search.google.com/test/rich-results |
 | Facebook Sharing Debugger | 驗證 OG 圖片 | https://developers.facebook.com/tools/debug/ |
 | PageSpeed Insights | Core Web Vitals | https://pagespeed.web.dev/ |
-| Google Search Console | 提交 Sitemap | https://search.google.com/search-console |
+| Google Search Console | 索引監控（Sitemap 手動提交已知失敗，見 `docs/gsc-sitemap-troubleshooting.md`） | https://search.google.com/search-console |
 
 ---
 

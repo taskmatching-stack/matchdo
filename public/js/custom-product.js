@@ -5375,6 +5375,7 @@ $(document).ready(function () {
         if (buttonId === 'tab-scene-sim') return 'scene-sim';
         if (buttonId === 'tab-pattern-extract') return 'pattern-extract';
         if (buttonId === 'tab-design-to-physical') return 'design-to-physical';
+        if (buttonId === 'tab-promo-image') return 'promo-image';
         return 'product-design';
     }
     function getTabButtonIdFromParam(param) {
@@ -5382,12 +5383,13 @@ $(document).ready(function () {
         if (param === 'scene-sim') return 'tab-scene-sim';
         if (param === 'pattern-extract') return 'tab-pattern-extract';
         if (param === 'design-to-physical') return 'tab-design-to-physical';
+        if (param === 'promo-image') return 'tab-promo-image';
         return 'tab-product-design';
     }
     function applyTabFromUrl() {
         var params = new URLSearchParams(window.location.search);
         var tabParam = params.get('tab') || 'product-design';
-        if (tabParam !== 'product-design' && tabParam !== 'vendor-styles' && tabParam !== 'scene-sim' && tabParam !== 'pattern-extract' && tabParam !== 'design-to-physical') tabParam = 'product-design';
+        if (tabParam !== 'product-design' && tabParam !== 'vendor-styles' && tabParam !== 'scene-sim' && tabParam !== 'pattern-extract' && tabParam !== 'design-to-physical' && tabParam !== 'promo-image') tabParam = 'product-design';
         var tabId = getTabButtonIdFromParam(tabParam);
         var tabEl = document.getElementById(tabId);
         showBootstrapTab(tabEl);
@@ -6178,7 +6180,8 @@ $(document).ready(function () {
         if (!imageDataUrl && !(meta && meta.image_url)) return;
         var wrap = $('#promoImageResultWrap');
         var displayUrl = (meta && meta.image_url) || imageDataUrl;
-        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖已存成公開網址，可下載或複製連結分享。</p>';
+        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
+            (t('customProduct.promoImageResultNote') || '生成後可下載，並儲存至「我的數位資產 → 推廣圖」。') + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
         $inner.append($('<img>').attr('src', displayUrl).attr('alt', '推廣圖')
             .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
@@ -6203,39 +6206,19 @@ $(document).ready(function () {
             $urlRow.append($copy).append($open);
             $inner.append($urlRow);
         }
-        var $btn = $('<a href="#" class="btn btn-sm btn-outline-primary mt-2"><i class="fas fa-download me-1"></i>下載圖片</a>');
-        $btn.on('click', function (e) {
-            e.preventDefault();
-            try {
-                if (meta && meta.image_url && !String(displayUrl).startsWith('data:')) {
-                    var a = document.createElement('a');
-                    a.href = meta.image_url;
-                    a.download = 'promo-image.jpg';
-                    a.target = '_blank';
-                    a.rel = 'noopener';
-                    a.click();
-                    return;
-                }
-                var dataUrl = (imageDataUrl || '');
-                var mimeMatch = dataUrl.match(/^data:image\/(jpeg|jpg|png);base64,/i);
-                var ext = (mimeMatch && mimeMatch[1]) ? (mimeMatch[1].toLowerCase() === 'png' ? 'png' : 'jpg') : 'jpg';
-                var mime = ext === 'png' ? 'image/png' : 'image/jpeg';
-                var base64 = dataUrl.split(',')[1];
-                if (!base64) return;
-                var bin = atob(base64);
-                var arr = new Uint8Array(bin.length);
-                for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-                var blob = new Blob([arr], { type: mime });
-                var url = URL.createObjectURL(blob);
-                var a2 = document.createElement('a');
-                a2.href = url;
-                a2.download = 'promo-image.' + ext;
-                a2.click();
-                URL.revokeObjectURL(url);
-            } catch (err) { console.warn(err); }
-        });
-        $inner.append($btn).append($(note));
         wrap.html('').append($inner);
+        var actionsHost = $inner[0];
+        if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.appendPromoResultActions === 'function') {
+            window.MatchdoPromoImage.appendPromoResultActions(actionsHost, meta || {}, imageDataUrl, {
+                labels: {
+                    download: t('customProduct.downloadImage') || '下載圖片',
+                    save: t('customProduct.promoSaveToLibrary') || '儲存到數位資產庫',
+                    saved: t('customProduct.promoSavedToLibrary') || '已存入數位資產庫',
+                    viewLibrary: t('customProduct.promoViewLibrary') || '查看資產庫'
+                }
+            });
+        }
+        $inner.append($(note));
     }
 
     $('#tab-promo-image').on('shown.bs.tab', function () {
@@ -6259,7 +6242,8 @@ $(document).ready(function () {
         }
         var $btn = $('#promoImageApplyBtn');
         var $wrap = $('#promoImageResultWrap');
-        var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">此圖已存成公開網址，可下載或複製連結分享。</p>';
+        var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
+            (t('customProduct.promoImageResultNote') || '生成後可下載，並儲存至「我的數位資產 → 推廣圖」。') + '</p>';
         var dims = getPromoImageDims();
         var payload = {
             images: urls,
@@ -6296,7 +6280,15 @@ $(document).ready(function () {
                 return;
             }
             if (data.success && (data.imageData || data.image_url)) {
-                renderPromoImageResult(data.imageData, data);
+                var promoMeta = {
+                    id: data.id,
+                    image_url: data.image_url,
+                    width: data.width,
+                    height: data.height,
+                    aspect_ratio: payload.aspect_ratio,
+                    points_deducted: data.points_deducted
+                };
+                renderPromoImageResult(data.imageData, promoMeta);
             } else {
                 $wrap.html('<p class="text-danger small mb-0">' + (data.error || t('customProduct.loadFailed')) + '</p>' + noteHtml);
             }

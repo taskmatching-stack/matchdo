@@ -10831,6 +10831,153 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
     }
 });
 
+/** 推廣圖：使用者數位資產庫列表（product_promo_generations） */
+app.get('/api/promo-image/generations', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 24));
+        const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
+        const rangeEnd = offsetN + limitN;
+        const selectCols = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status';
+        let { data, error } = await supabase
+            .from('product_promo_generations')
+            .select(selectCols)
+            .eq('user_id', user.id)
+            .eq('status', 'success')
+            .not('result_image_url', 'is', null)
+            .neq('result_image_url', '')
+            .order('created_at', { ascending: false })
+            .range(offsetN, rangeEnd);
+        if (error) {
+            console.error('GET /api/promo-image/generations:', error);
+            return res.status(500).json({ error: error.message || '載入失敗' });
+        }
+        const rawList = data || [];
+        const hasMore = rawList.length > limitN;
+        const items = (hasMore ? rawList.slice(0, limitN) : rawList).map(function (row) {
+            return {
+                id: row.id,
+                image_url: row.result_image_url,
+                aspect_ratio: row.aspect_ratio || null,
+                width: row.width,
+                height: row.height,
+                megapixels: row.megapixels,
+                theme_key: row.scene_template_key || null,
+                scene_key: row.scene_key || null,
+                user_prompt: row.user_prompt || null,
+                points_charged: row.points_charged,
+                created_at: row.created_at
+            };
+        });
+        res.json({ success: true, items: items, count: items.length, offset: offsetN, hasMore: hasMore });
+    } catch (e) {
+        console.error('GET /api/promo-image/generations:', e);
+        res.status(500).json({ error: e.message || '載入失敗' });
+    }
+});
+
+/** 推廣圖：確認／補寫入數位資產庫（生成成功時通常已寫入；此 API 供補傳 imageData） */
+app.post('/api/promo-image/save-to-library', express.json({ limit: '15mb' }), async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ success: false, error: '請先登入' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ success: false, error: '請先登入' });
+
+        const body = req.body || {};
+        const generationId = body.id ? String(body.id).trim() : '';
+        if (generationId) {
+            const { data: existing, error: findErr } = await supabase
+                .from('product_promo_generations')
+                .select('id, user_id, result_image_url')
+                .eq('id', generationId)
+                .maybeSingle();
+            if (findErr) return res.status(500).json({ success: false, error: findErr.message });
+            if (!existing || existing.user_id !== user.id) {
+                return res.status(404).json({ success: false, error: '找不到推廣圖紀錄' });
+            }
+            if (existing.result_image_url) {
+                return res.json({ success: true, id: existing.id, image_url: existing.result_image_url, already_saved: true });
+            }
+        }
+
+        let buffer = null;
+        const imageData = body.imageData || body.image_data;
+        if (imageData && typeof imageData === 'string' && imageData.startsWith('data:image/')) {
+            const comma = imageData.indexOf(',');
+            if (comma >= 0) {
+                try { buffer = Buffer.from(imageData.slice(comma + 1), 'base64'); } catch (_) { buffer = null; }
+            }
+        }
+        if (!buffer) {
+            return res.status(400).json({ success: false, error: '無可儲存的圖片' });
+        }
+
+        let resultImageUrl = null;
+        try {
+            const uploaded = await uploadToSupabaseStorage(
+                'custom-products',
+                `promo/${user.id}`,
+                { buffer, mimetype: 'image/jpeg', originalname: `promo-${Date.now()}.jpg` },
+                { ext: 'jpg', contentType: 'image/jpeg' }
+            );
+            resultImageUrl = uploaded && uploaded.publicUrl ? uploaded.publicUrl : null;
+        } catch (upErr) {
+            console.warn('promo save-to-library upload:', upErr?.message || upErr);
+            return res.status(500).json({ success: false, error: '上傳失敗' });
+        }
+        if (!resultImageUrl) return res.status(500).json({ success: false, error: '上傳失敗' });
+
+        const w = Math.min(2048, Math.max(512, parseInt(body.width, 10) || 1024));
+        const h = Math.min(2048, Math.max(512, parseInt(body.height, 10) || 1024));
+        const aspectRatio = String(body.aspect_ratio || '').trim() || `${w}:${h}`;
+
+        if (generationId) {
+            const { error: updErr } = await supabase
+                .from('product_promo_generations')
+                .update({ result_image_url: resultImageUrl, completed_at: new Date().toISOString() })
+                .eq('id', generationId)
+                .eq('user_id', user.id);
+            if (updErr) console.warn('promo save-to-library update:', updErr.message);
+            return res.json({ success: true, id: generationId, image_url: resultImageUrl });
+        }
+
+        const { data: inserted, error: insErr } = await supabase
+            .from('product_promo_generations')
+            .insert({
+                user_id: user.id,
+                source_type: 'upload',
+                aspect_ratio: aspectRatio,
+                width: w,
+                height: h,
+                megapixels: promoImageMegapixelsFromResolution(w, h),
+                scene_template_key: body.theme_key || body.scene_template_key || null,
+                scene_key: body.scene_key || null,
+                user_prompt: body.user_prompt || null,
+                result_image_url: resultImageUrl,
+                status: 'success',
+                points_charged: 0,
+                completed_at: new Date().toISOString()
+            })
+            .select('id')
+            .single();
+        if (insErr) {
+            console.warn('promo save-to-library insert:', insErr.message);
+            return res.json({ success: true, image_url: resultImageUrl });
+        }
+        res.json({ success: true, id: inserted && inserted.id ? inserted.id : null, image_url: resultImageUrl });
+    } catch (e) {
+        console.error('POST /api/promo-image/save-to-library:', e);
+        res.status(500).json({ success: false, error: e.message || '儲存失敗' });
+    }
+});
+
 // API: 生成產品示意圖（categoryKeys 必填，後端組合基礎提示詞 + 使用者描述）
 // categorySource: 'remake' 時使用 remake_categories 的 prompt，否則使用訂製分類
 app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (req, res) => {

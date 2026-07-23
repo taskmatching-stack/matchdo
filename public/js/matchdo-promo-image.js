@@ -209,6 +209,136 @@
     });
   }
 
+  function triggerPromoDownload(displayUrl, imageDataUrl, filename) {
+    var name = filename || 'promo-image.jpg';
+    try {
+      if (displayUrl && !String(displayUrl).startsWith('data:')) {
+        fetch(displayUrl, { mode: 'cors' }).then(function (r) { return r.blob(); }).then(function (blob) {
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = name;
+          a.click();
+          URL.revokeObjectURL(url);
+        }).catch(function () {
+          var a = document.createElement('a');
+          a.href = displayUrl;
+          a.download = name;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.click();
+        });
+        return;
+      }
+      var dataUrl = imageDataUrl || displayUrl || '';
+      var mimeMatch = dataUrl.match(/^data:image\/(jpeg|jpg|png);base64,/i);
+      var ext = (mimeMatch && mimeMatch[1]) ? (mimeMatch[1].toLowerCase() === 'png' ? 'png' : 'jpg') : 'jpg';
+      var mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+      var base64 = dataUrl.split(',')[1];
+      if (!base64) return;
+      var bin = atob(base64);
+      var arr = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      var blob = new Blob([arr], { type: mime });
+      var url = URL.createObjectURL(blob);
+      var a2 = document.createElement('a');
+      a2.href = url;
+      a2.download = 'promo-image.' + ext;
+      a2.click();
+      URL.revokeObjectURL(url);
+    } catch (err) { console.warn(err); }
+  }
+
+  function savePromoToLibrary(meta, imageDataUrl) {
+    var payload = {
+      id: meta && meta.id ? meta.id : undefined,
+      imageData: imageDataUrl || undefined,
+      width: meta && meta.width,
+      height: meta && meta.height,
+      aspect_ratio: meta && meta.aspect_ratio,
+      theme_key: meta && (meta.theme_key || meta.scene_template_key),
+      scene_key: meta && meta.scene_key,
+      user_prompt: meta && meta.user_prompt
+    };
+    return authHeaders(true).then(function (headers) {
+      return fetch('/api/promo-image/save-to-library', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload)
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      });
+    });
+  }
+
+  /**
+   * 推廣圖結果區：下載 + 儲存到數位資產庫按鈕（回傳 DOM 元素）
+   * opts: { labels: { download, save, saved, viewLibrary }, libraryHref }
+   */
+  function appendPromoResultActions(container, meta, imageDataUrl, opts) {
+    if (!container) return;
+    opts = opts || {};
+    var labels = opts.labels || {};
+    var downloadLabel = labels.download || '下載圖片';
+    var saveLabel = labels.save || '儲存到數位資產庫';
+    var savedLabel = labels.saved || '已存入數位資產庫';
+    var viewLabel = labels.viewLibrary || '查看資產庫';
+    var libraryHref = opts.libraryHref || '/client/my-custom-products.html?tab=promo';
+    var displayUrl = (meta && meta.image_url) || imageDataUrl || '';
+    var row = document.createElement('div');
+    row.className = 'd-flex flex-wrap gap-2 mt-2 promo-result-actions';
+
+    var dlBtn = document.createElement('button');
+    dlBtn.type = 'button';
+    dlBtn.className = 'btn btn-sm btn-outline-primary';
+    dlBtn.innerHTML = '<i class="fas fa-download me-1"></i>' + downloadLabel;
+    dlBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      triggerPromoDownload(displayUrl, imageDataUrl, 'promo-image.jpg');
+    });
+    row.appendChild(dlBtn);
+
+    var alreadySaved = !!(meta && meta.id && meta.image_url);
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn-sm ' + (alreadySaved ? 'btn-success' : 'btn-outline-success');
+    saveBtn.innerHTML = '<i class="fas fa-' + (alreadySaved ? 'check' : 'box') + ' me-1"></i>' +
+      (alreadySaved ? savedLabel : saveLabel);
+    if (alreadySaved) saveBtn.disabled = true;
+    saveBtn.addEventListener('click', function () {
+      if (saveBtn.disabled) return;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>…';
+      savePromoToLibrary(meta, imageDataUrl).then(function (res) {
+        var data = res.data || {};
+        if (res.ok && data.success) {
+          if (data.id && meta) meta.id = data.id;
+          if (data.image_url && meta) meta.image_url = data.image_url;
+          saveBtn.className = 'btn btn-sm btn-success';
+          saveBtn.innerHTML = '<i class="fas fa-check me-1"></i>' + savedLabel;
+        } else {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="fas fa-box me-1"></i>' + saveLabel;
+          alert(data.error || '儲存失敗');
+        }
+      }).catch(function () {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-box me-1"></i>' + saveLabel;
+        alert('儲存失敗');
+      });
+    });
+    row.appendChild(saveBtn);
+
+    var viewLink = document.createElement('a');
+    viewLink.className = 'btn btn-sm btn-outline-secondary';
+    viewLink.href = libraryHref;
+    viewLink.innerHTML = '<i class="bi bi-images me-1"></i>' + viewLabel;
+    row.appendChild(viewLink);
+
+    container.appendChild(row);
+    return row;
+  }
+
   global.MatchdoPromoImage = {
     RATIO_PRESETS: RATIO_PRESETS,
     MP_TIERS: MP_TIERS,
@@ -222,6 +352,9 @@
     bindSelectHint: bindSelectHint,
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,
-    generate: generate
+    generate: generate,
+    triggerPromoDownload: triggerPromoDownload,
+    savePromoToLibrary: savePromoToLibrary,
+    appendPromoResultActions: appendPromoResultActions
   };
 })(typeof window !== 'undefined' ? window : this);

@@ -359,7 +359,7 @@ app.get('/sitemap-products.xml', async (req, res) => {
 
 | 工具 | 用途 | 網址 |
 |------|------|------|
-| Google Search Console | 提交 Sitemap、監控索引狀態 | https://search.google.com/search-console |
+| Google Search Console | 監控索引狀態（matchdo.cc Sitemap 手動提交已知異常 → `docs/gsc-sitemap-troubleshooting.md`） | https://search.google.com/search-console |
 | Google Rich Results Test | 驗證 JSON-LD 結構化資料 | https://search.google.com/test/rich-results |
 | Facebook Sharing Debugger | 驗證 OG 標籤 | https://developers.facebook.com/tools/debug/ |
 | PageSpeed Insights | 測量 Core Web Vitals | https://pagespeed.web.dev/ |

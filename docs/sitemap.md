@@ -184,7 +184,7 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 - **會員頁面**（`/client/*`、`/profile/*`、`/expert/*`、`/admin/*`）**不放進 sitemap**，僅收錄對外公開頁與廠商相關頁。
 - **唯一可能手動**：若新增一種**全新的公開頁面**，在 **`routes/sitemap.js`** 的 **SITEMAP_PAGES** 加一筆即可；其餘皆自動。目前已含：`/`、三種 `/?layout_type=...`、四筆 `?lang=en` 變體、`/subscription-plans.html`、`/custom/`、`/custom/gallery.html`、`/custom-product.html`、`/custom-product.html?tab=scene-sim`、`/custom-product.html?tab=pattern-extract`、`/remake/`、`/remake-product.html`、about/contact、login/register 等。
 - **GET /robots.txt**：內含 `Sitemap: {BASE_URL}/sitemap.xml` 與 `Disallow: /admin/`、`/api/`、`/payment/`。
-- 部署後在 **Google Search Console** 提交 `https://你的網域/sitemap.xml` 即可。
+- **Google Search Console**：檔案與 robots.txt 已正確；**GSC「Sitemap 報告」手動提交對 matchdo.cc 目前無法成功**（2026-07-22 已反覆驗證）。**勿再叫使用者重複提交 `sitemap.xml`。** 詳見 **`docs/gsc-sitemap-troubleshooting.md`**。索引成效改看 GSC「網頁索引」、`site:matchdo.cc`、個別 URL「要求建立索引」。
 
 ### 什麼該進 Sitemap（簡表）
 
@@ -203,4 +203,4 @@ app.use('/admin', express.static('admin'));   // 管理員後台
 
 ---
 
-最後更新: 2026-03-05（已依實際專案檔案核對客戶/專家/後台狀態）
+最後更新: 2026-07-22（GSC Sitemap 提交異常見 `docs/gsc-sitemap-troubleshooting.md`）

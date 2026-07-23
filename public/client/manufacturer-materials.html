@@ -1094,7 +1094,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-scene-reload-20260722';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-save-library-20260723';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7864,16 +7864,40 @@
                         }
                         if (data.success && (data.imageData || data.image_url)) {
                             var displayUrl = data.image_url || data.imageData;
-                            var html = '<img src="' + displayUrl + '" class="img-fluid rounded mb-2" alt="推廣圖" style="max-height:360px">';
-                            if (data.points_deducted != null) html += '<p class="small text-muted mb-2">已扣除 ' + data.points_deducted + ' 點</p>';
-                            if (data.image_url) {
-                                html += '<div class="mb-2"><input type="text" class="form-control form-control-sm mb-1" readonly value="' + promoVendorEsc(data.image_url) + '">';
-                                html += '<a class="btn btn-sm btn-outline-primary me-1" href="' + promoVendorEsc(data.image_url) + '" target="_blank" rel="noopener">開啟網址</a>';
-                                html += '<a class="btn btn-sm btn-outline-secondary" href="' + promoVendorEsc(data.image_url) + '" download="promo-image.jpg" target="_blank" rel="noopener">下載</a></div>';
-                            } else {
-                                html += '<a class="btn btn-sm btn-outline-primary" href="' + data.imageData + '" download="promo-image.jpg">下載圖片</a>';
+                            if (wrap) {
+                                wrap.innerHTML = '';
+                                var img = document.createElement('img');
+                                img.src = displayUrl;
+                                img.className = 'img-fluid rounded mb-2';
+                                img.alt = '推廣圖';
+                                img.style.maxHeight = '360px';
+                                wrap.appendChild(img);
+                                if (data.points_deducted != null) {
+                                    var pts = document.createElement('p');
+                                    pts.className = 'small text-muted mb-2';
+                                    pts.textContent = '已扣除 ' + data.points_deducted + ' 點';
+                                    wrap.appendChild(pts);
+                                }
+                                if (data.image_url) {
+                                    var urlDiv = document.createElement('div');
+                                    urlDiv.className = 'mb-2';
+                                    urlDiv.innerHTML = '<input type="text" class="form-control form-control-sm mb-1" readonly value="' + promoVendorEsc(data.image_url) + '">' +
+                                        '<a class="btn btn-sm btn-outline-primary me-1" href="' + promoVendorEsc(data.image_url) + '" target="_blank" rel="noopener">開啟網址</a>';
+                                    wrap.appendChild(urlDiv);
+                                }
+                                var promoMeta = {
+                                    id: data.id,
+                                    image_url: data.image_url,
+                                    width: data.width,
+                                    height: data.height,
+                                    aspect_ratio: payload.aspect_ratio
+                                };
+                                if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.appendPromoResultActions === 'function') {
+                                    window.MatchdoPromoImage.appendPromoResultActions(wrap, promoMeta, data.imageData, {
+                                        libraryHref: '/client/my-custom-products.html?tab=promo'
+                                    });
+                                }
                             }
-                            if (wrap) wrap.innerHTML = html;
                         } else {
                             if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || '生成失敗') + '</p>';
                             showToast(data.error || '生成失敗', 'danger');
