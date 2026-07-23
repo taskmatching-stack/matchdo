@@ -7,3 +7,5 @@ COMMENT ON COLUMN public.product_promo_generations.show_on_homepage IS '是否�
 CREATE INDEX IF NOT EXISTS idx_product_promo_generations_show_on_homepage
     ON public.product_promo_generations (show_on_homepage, created_at DESC)
     WHERE show_on_homepage = true AND status = 'success';
+
+-- 既有資料補上牆：見 docs/backfill-promo-media-wall.sql（migration 後執行一次）
