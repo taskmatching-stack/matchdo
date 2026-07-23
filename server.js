@@ -595,6 +595,24 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap, lang) {
     }));
 }
 
+/** 4:3、3:4 與 1:1 同為單格 contain；其餘依極橫／極直拼格 */
+function isPromoSceneSingleCellRatio(aspectRatio, width, height) {
+    const ar = String(aspectRatio || '').trim().replace(/\s+/g, '');
+    if (ar === '1:1' || ar === '4:3' || ar === '3:4') return true;
+    let w = parseInt(width, 10) || 0;
+    let h = parseInt(height, 10) || 0;
+    if ((!w || !h) && aspectRatio) {
+        const m = String(aspectRatio).trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
+        if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
+    }
+    if (!w || !h) return false;
+    const r = w / h;
+    if (Math.abs(r - 1) <= 0.08) return true;
+    if (Math.abs(r - 4 / 3) / (4 / 3) <= 0.04) return true;
+    if (Math.abs(r - 3 / 4) / (3 / 4) <= 0.04) return true;
+    return false;
+}
+
 /** 情境圖長寬比分類（含 3:1、4:1、1:3、1:4 等） */
 function classifyPromoSceneOrientation(width, height, aspectRatio) {
     let w = parseInt(width, 10) || 0;
@@ -606,6 +624,7 @@ function classifyPromoSceneOrientation(width, height, aspectRatio) {
             h = parseFloat(m[2]);
         }
     }
+    if (isPromoSceneSingleCellRatio(aspectRatio, w, h)) return 'square';
     if (!w || !h) return 'square';
     const r = w / h;
     if (r > 1.08) return 'landscape';
@@ -14864,7 +14883,7 @@ app.get('/api/media-wall', async (req, res) => {
             }
             items = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(items);
             items = items.slice(offset, offset + perPage);
-        } else if (layoutOnly === 'user_design' || layoutOnly === 'promo_scene') {
+        } else if (layoutOnly === 'user_design' || layoutOnly === 'promo_scene' || layoutOnly === 'comparison' || layoutOnly === 'series' || layoutOnly === 'collection') {
             items = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(items);
         }
 

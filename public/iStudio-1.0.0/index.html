@@ -467,7 +467,7 @@
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
-    <script src="/js/media-wall-promo-scene.js?v=20260724-ncols"></script>
+    <script src="/js/media-wall-promo-scene.js?v=20260724-single-43"></script>
     <script src="/js/main.js"></script>
     <script>
         (function () {
@@ -1382,9 +1382,13 @@
                 for (var i = 0; i < buttons.length; i++) {
                     (function (btn) {
                         var type = (btn.getAttribute('data-layout-type') || '').trim();
-                        btn.addEventListener('click', function () { setLayoutType(type); });
+                        btn.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setLayoutType(type);
+                        });
                         btn.addEventListener('keydown', function (e) {
-                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLayoutType(type); }
+                            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setLayoutType(type); }
                         });
                     })(buttons[i]);
                 }
@@ -1464,12 +1468,25 @@
                 isLoading = true;
                 var thisRequestId = ++loadMediaWallRequestId;
                 var layoutFilter = currentLayoutType;
-                if (!append) { grid.innerHTML = ''; loading.classList.remove('d-none'); empty.classList.add('d-none'); }
+                var savedScrollY = (!append && typeof window !== 'undefined') ? window.scrollY : 0;
+                if (!append) {
+                    if (gridWrap && gridWrap.offsetHeight > 0) gridWrap.style.minHeight = gridWrap.offsetHeight + 'px';
+                    grid.innerHTML = '';
+                    loading.classList.remove('d-none');
+                    empty.classList.add('d-none');
+                }
                 var url = buildMediaWallUrl(page, q);
                 // 系列圖順序等會即時變動；不可用預設 HTTP cache（API 曾設 max-age，會讓首頁卡住舊順序）
                 var fetchOpts = { cache: 'no-store' };
-                function showMediaWallLoadError() {
+                function clearMediaWallLoadingShell() {
                     loading.classList.add('d-none');
+                    if (gridWrap) gridWrap.style.minHeight = '';
+                    if (!append && savedScrollY > 0 && typeof window !== 'undefined') {
+                        try { window.scrollTo(0, savedScrollY); } catch (scrollErr) {}
+                    }
+                }
+                function showMediaWallLoadError() {
+                    clearMediaWallLoadingShell();
                     if (!append) {
                         empty.classList.remove('d-none');
                         empty.innerHTML = '無法載入作品牆，請稍後再試。<button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="media-wall-retry-btn">重試</button>';
@@ -1479,7 +1496,7 @@
                 }
                 function renderMediaWallItems(data) {
                     if (thisRequestId !== loadMediaWallRequestId) return;
-                    loading.classList.add('d-none');
+                    clearMediaWallLoadingShell();
                     if (data.error) { showMediaWallLoadError(); return; }
                     var items = data.items || [];
                     if (layoutFilter) items = items.filter(function (p) { return (p.type || '') === layoutFilter; });

@@ -1,18 +1,37 @@
 /**
  * 情境圖媒體牆拼格（欄數同首頁 auto-fill；由 index.html 傳入 colCount）
- * 橫圖 2×1、直圖 1×2、方圖 1×1
+ * 1:1／4:3／3:4 → 單格 contain；極橫 2×1、極直 1×2
  */
 (function (global) {
     'use strict';
 
+    /** 4:3、3:4 與 1:1 同為單格，object-fit: contain 不裁圖 */
+    function isSingleCellPromoRatio(aspectRatio, width, height) {
+        var ar = String(aspectRatio || '').trim().replace(/\s+/g, '');
+        if (ar === '1:1' || ar === '4:3' || ar === '3:4') return true;
+        var w = parseInt(width, 10) || 0;
+        var h = parseInt(height, 10) || 0;
+        if ((!w || !h) && aspectRatio) {
+            var m = String(aspectRatio).trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
+            if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
+        }
+        if (!w || !h) return false;
+        var r = w / h;
+        if (Math.abs(r - 1) <= 0.08) return true;
+        if (Math.abs(r - 4 / 3) / (4 / 3) <= 0.04) return true;
+        if (Math.abs(r - 3 / 4) / (3 / 4) <= 0.04) return true;
+        return false;
+    }
+
     function orientOf(item) {
-        if (item && item.promo_orient) return item.promo_orient;
         var w = parseInt(item && item.width, 10) || 0;
         var h = parseInt(item && item.height, 10) || 0;
         if ((!w || !h) && item && item.aspect_ratio) {
             var m = String(item.aspect_ratio).trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
             if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
         }
+        if (isSingleCellPromoRatio(item && item.aspect_ratio, w, h)) return 'square';
+        if (item && item.promo_orient) return item.promo_orient;
         if (!w || !h) return 'square';
         var r = w / h;
         if (r > 1.08) return 'landscape';
@@ -146,6 +165,7 @@
     }
 
     global.MatchdoMediaWallPromoScene = {
+        isSingleCellPromoRatio: isSingleCellPromoRatio,
         orientOf: orientOf,
         packPromoSceneItems: packPromoSceneItems,
         applyPlacement: applyPlacement
