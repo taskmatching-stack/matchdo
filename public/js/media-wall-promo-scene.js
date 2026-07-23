@@ -1,5 +1,6 @@
 /**
- * 情境圖媒體牆拼格（2 欄底格，格寬高同首頁 260px）
+ * 情境圖媒體牆拼格（2 欄邏輯底格；實際 px 由 index.html getMediaWallCellMetrics 同步「全部」）
+ * 桌面：列高 260px；欄寬 = (容器寬 − 8×(n−1)) / n，n = floor((W+8)/268)
  * 橫圖 2×1、直圖 1×2、方圖 1×1
  */
 (function (global) {

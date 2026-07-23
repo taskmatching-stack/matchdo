@@ -144,25 +144,10 @@
                 #media-wall-grid .media-wall-comparison-pos5 { grid-column: 1 !important; grid-row: 11 / 12 !important; }
                 @media (max-width: 767px) {
                     #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
-                    #media-wall-grid.mw-promo-scene-grid {
-                        grid-template-columns: repeat(2, calc((100% - 8px) / 3)) !important;
-                        grid-auto-rows: minmax(120px, 28vw);
-                        width: max-content;
-                        max-width: 100%;
-                    }
                 }
+                /* 情境圖：欄寬/列高由 JS 同步首頁媒體牆單格；此處只定義 contain 與對齊 */
                 #media-wall-grid.mw-promo-scene-grid {
-                    /* 兩欄底格各 260px（同首頁媒體牆單格）；橫 2×1=520×260、直 1×2=260×520 */
-                    grid-template-columns: repeat(2, 260px);
-                    grid-auto-rows: 260px;
                     grid-auto-flow: dense;
-                    gap: 8px;
-                    width: max-content;
-                    max-width: 100%;
-                }
-                #media-wall-grid-wrap.mw-promo-scene-wrap {
-                    display: flex;
-                    justify-content: flex-start;
                 }
                 #media-wall-grid.mw-promo-scene-grid .media-wall-item.media-wall-promo-item {
                     min-height: 0;
@@ -468,6 +453,38 @@
         (function () {
             var grid = document.getElementById('media-wall-grid');
             var gridWrap = document.getElementById('media-wall-grid-wrap');
+            var MW_GRID_GAP = 8;
+            var MW_COL_MIN = 260;
+
+            /** 與 #media-wall-grid「全部」模式相同的一格寬高（見 inline style 第 129、146 行） */
+            function getMediaWallCellMetrics(containerWidth) {
+                var w = Math.max(0, containerWidth || 0);
+                if (window.matchMedia('(max-width: 767px)').matches) {
+                    var colW = w > 0 ? (w - 2 * MW_GRID_GAP) / 3 : 0;
+                    return { colW: colW, rowCss: 'minmax(120px, 28vw)' };
+                }
+                var n = Math.max(1, Math.floor((w + MW_GRID_GAP) / (MW_COL_MIN + MW_GRID_GAP)));
+                var colW = (w - MW_GRID_GAP * (n - 1)) / n;
+                return { colW: colW, rowCss: '260px' };
+            }
+
+            function applyPromoSceneGridMetrics() {
+                if (!grid) return;
+                var w = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : grid.clientWidth;
+                var m = getMediaWallCellMetrics(w);
+                if (m.colW > 0) {
+                    grid.style.setProperty('grid-template-columns', 'repeat(2, ' + m.colW + 'px)', 'important');
+                }
+                grid.style.setProperty('grid-auto-rows', m.rowCss, 'important');
+                grid.style.setProperty('gap', MW_GRID_GAP + 'px', 'important');
+            }
+
+            function clearPromoSceneGridMetrics() {
+                if (!grid) return;
+                grid.style.removeProperty('grid-template-columns');
+                grid.style.removeProperty('grid-auto-rows');
+                grid.style.removeProperty('gap');
+            }
             var empty = document.getElementById('media-wall-empty');
             var loading = document.getElementById('media-wall-loading');
             var loadMoreBtn = document.getElementById('media-wall-load-more');
@@ -1423,7 +1440,7 @@
                         listForLD = [];
                         if (layoutFilter === 'promo_scene' && window.MatchdoMediaWallPromoScene && typeof window.MatchdoMediaWallPromoScene.packPromoSceneItems === 'function') {
                             grid.classList.add('mw-promo-scene-grid');
-                            if (gridWrap) gridWrap.classList.add('mw-promo-scene-wrap');
+                            applyPromoSceneGridMetrics();
                             var packed = window.MatchdoMediaWallPromoScene.packPromoSceneItems(items);
                             packed.forEach(function (entry) {
                                 var rendered = appendRenderedItem(entry.item);
@@ -1436,7 +1453,7 @@
                             });
                         } else {
                             grid.classList.remove('mw-promo-scene-grid');
-                            if (gridWrap) gridWrap.classList.remove('mw-promo-scene-wrap');
+                            clearPromoSceneGridMetrics();
                             items.forEach(function (p) {
                                 var rendered = appendRenderedItem(p);
                                 if (rendered) listForLD.push(rendered);
@@ -1444,7 +1461,7 @@
                         }
                     } else {
                         grid.classList.remove('mw-promo-scene-grid');
-                        if (gridWrap) gridWrap.classList.remove('mw-promo-scene-wrap');
+                        clearPromoSceneGridMetrics();
                         var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
                         var collections = items.filter(is1x2);
                         var ones = items.filter(function (p) { return !is1x2(p); });
@@ -1518,6 +1535,12 @@
             // 立即載入靈感牆，不等待 Auth / 分類 API，避免首次進入頁面時因非同步延遲而空白
             reloadMediaWall(1, false);
             renderActiveFilterChips();
+            var promoGridResizeTimer;
+            window.addEventListener('resize', function () {
+                if (currentLayoutType !== 'promo_scene' || !grid) return;
+                clearTimeout(promoGridResizeTimer);
+                promoGridResizeTimer = setTimeout(applyPromoSceneGridMetrics, 120);
+            });
             function runFilterMain(key) {
                 currentCategoryKey = key || '';
                 currentSubcategoryKey = '';
