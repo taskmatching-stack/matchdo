@@ -297,11 +297,12 @@
                 #media-wall-lightbox #media-wall-lightbox-body-inner img { max-width: 100%; max-height: 78vh; width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 12px rgba(68,93,126,.2); }
                 /* 詳情疊在圖底部，與主色同色系 */
                 #media-wall-lightbox #media-wall-lightbox-detail { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.4rem 0.6rem 0.5rem; background: linear-gradient(transparent, rgba(45,64,89,.95)); color: #fff; text-align: left; font-size: 0.7rem; }
-                /* 情境圖：說明改在圖下方，避免橫圖被底部文字壓住 */
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene { flex-direction: column; align-items: stretch; overflow-y: auto; }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner { flex: 0 0 auto; min-height: 0; padding-bottom: 0; }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner img { max-height: min(62vh, 520px); }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-detail { position: static; background: #2d4059; max-height: 22vh; overflow-y: auto; border-radius: 0 0 8px 8px; }
+                /* 情境圖：說明在圖下方，圖區不撐滿高度 */
+                #media-wall-lightbox .modal-body.is-promo-scene-body { overflow-y: auto; display: block; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene { flex: 0 1 auto; flex-direction: column; align-items: stretch; justify-content: flex-start; overflow: visible; min-height: 0; padding: 0.5rem 0.5rem 0; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner { flex: 0 0 auto; width: 100%; height: auto; min-height: 0; padding: 0; display: block; overflow: visible; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner img { display: block; max-width: 100%; max-height: min(48vh, 400px); width: auto; height: auto; margin: 0 auto; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-detail { position: static; flex: 0 0 auto; background: #2d4059; overflow: visible; padding: 0.5rem 0.65rem 0.6rem; border-radius: 0 0 8px 8px; margin-top: 0; }
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-label { color: rgba(255,255,255,.85); margin-bottom: 0; margin-right: 0.25rem; }
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-value { color: #fff; margin-bottom: 0.15rem; word-break: break-word; display: inline; }
                 #media-wall-lightbox #media-wall-lightbox-detail .detail-row { margin-bottom: 0.15rem; }
@@ -1783,6 +1784,7 @@
 
                 function setLightboxDetailAndShow(cats) {
                     var lbBody = document.getElementById('media-wall-lightbox-body');
+                    var lbModalBody = lbBody && lbBody.closest('.modal-body');
                     var detailWrap = document.getElementById('media-wall-lightbox-detail');
                     var portfolioDetailWrap = document.getElementById('media-wall-lightbox-detail-portfolio');
                     var categoryRow = document.getElementById('media-wall-lightbox-category-row');
@@ -1805,6 +1807,7 @@
                     var descriptionEl = document.getElementById('media-wall-lightbox-description');
                     if (item.type === 'user_design' && detailWrap) {
                         if (lbBody) lbBody.classList.remove('is-promo-scene');
+                        if (lbModalBody) lbModalBody.classList.remove('is-promo-scene-body');
                         detailWrap.classList.remove('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
                         var catKey = item.category_key || item.category || '';
@@ -1835,6 +1838,7 @@
                         }
                     } else if (item.type === 'promo_scene' && detailWrap) {
                         if (lbBody) lbBody.classList.add('is-promo-scene');
+                        if (lbModalBody) lbModalBody.classList.add('is-promo-scene-body');
                         detailWrap.classList.remove('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
                         var promoCatKey = item.category_key || '';
@@ -1864,6 +1868,7 @@
                         }
                     } else if (item.type === 'comparison' || item.type === 'collection' || item.type === 'series') {
                         if (lbBody) lbBody.classList.remove('is-promo-scene');
+                        if (lbModalBody) lbModalBody.classList.remove('is-promo-scene-body');
                         if (detailWrap) detailWrap.classList.add('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.remove('d-none');
                         var hi = (item.design_highlight || '').trim();
@@ -1885,6 +1890,7 @@
                         }
                     } else {
                         if (lbBody) lbBody.classList.remove('is-promo-scene');
+                        if (lbModalBody) lbModalBody.classList.remove('is-promo-scene-body');
                         if (detailWrap) detailWrap.classList.add('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
                         if (categoryRow) categoryRow.style.display = 'none';
