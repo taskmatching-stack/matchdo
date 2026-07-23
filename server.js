@@ -420,7 +420,136 @@ function stripMediaWallHeavyFields(item) {
     return item;
 }
 
-function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
+function isGenericMediaWallTitle(title) {
+    const t = String(title || '').trim();
+    if (!t) return true;
+    const generic = ['產品設計圖', '未命名', '推廣圖', '情境圖', 'Untitled', 'Product design'];
+    return generic.some((g) => t === g || t.toLowerCase() === g.toLowerCase());
+}
+
+function truncateMediaWallTitle(text, maxLen = 56) {
+    const s = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    if (s.length <= maxLen) return s;
+    return s.slice(0, maxLen) + '…';
+}
+
+function parseImageSemanticsJson(raw) {
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    if (typeof raw === 'string') {
+        try { return JSON.parse(raw); } catch (_) { return null; }
+    }
+    return null;
+}
+
+function intentSummaryTitleFromSemantics(sem) {
+    const pair = intentSummaryTitlePairFromSemantics(sem);
+    return pair.zh || pair.en || '';
+}
+
+function intentSummaryTitlePairFromSemantics(sem) {
+    const pair = visualSemantics.buildCustomProductTitlePairFromSemantics(sem);
+    if (pair && (pair.zh || pair.en)) {
+        return {
+            zh: pair.zh ? truncateMediaWallTitle(pair.zh) : '',
+            en: pair.en ? truncateMediaWallTitle(pair.en) : ''
+        };
+    }
+    return { zh: '', en: '' };
+}
+
+function pickMediaWallLocalizedTitle(zh, en, lang) {
+    return pickVendorLocalizedText(zh, en, lang) || String(zh || en || '').trim();
+}
+
+function resolveUserDesignMediaWallTitlePair(p) {
+    let aj = p.analysis_json;
+    if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
+    const genPrompt = (p.generation_prompt || (aj && aj.generation_prompt) || '').trim();
+    const sem = parseImageSemanticsJson(p.image_semantics_json);
+    const fromSem = intentSummaryTitlePairFromSemantics(sem);
+    if (fromSem.zh || fromSem.en) return fromSem;
+
+    const dbZh = (p.title || '').trim();
+    const dbEn = (p.title_en || '').trim();
+    const zhOk = dbZh && !isGenericMediaWallTitle(dbZh) ? truncateMediaWallTitle(dbZh) : '';
+    const enOk = dbEn && !isGenericMediaWallTitle(dbEn) ? truncateMediaWallTitle(dbEn) : '';
+    if (zhOk || enOk) return { zh: zhOk, en: enOk };
+
+    if (genPrompt) return { zh: truncateMediaWallTitle(genPrompt), en: '' };
+
+    const zhDesc = sem && sem.product_description_zh ? firstSentenceFromText(sem.product_description_zh) : '';
+    const enDesc = sem && sem.product_description_en ? firstSentenceFromText(sem.product_description_en) : '';
+    if (zhDesc || enDesc) {
+        return {
+            zh: zhDesc ? truncateMediaWallTitle(zhDesc) : '',
+            en: enDesc ? truncateMediaWallTitle(enDesc) : ''
+        };
+    }
+    return { zh: dbZh || '未命名', en: dbEn || '' };
+}
+
+function resolveUserDesignMediaWallTitle(p, lang) {
+    const pair = resolveUserDesignMediaWallTitlePair(p);
+    const localized = pickMediaWallLocalizedTitle(pair.zh, pair.en, lang);
+    if (localized) return localized;
+    return pair.zh || pair.en || '未命名';
+}
+
+function resolvePromoSceneCardTitlePair(row, ownerDisplayMap, sourceProductMap, templateNameMap) {
+    const sem = parseImageSemanticsJson(row && row.image_semantics_json);
+    const fromSem = intentSummaryTitlePairFromSemantics(sem);
+    if (fromSem.zh || fromSem.en) return fromSem;
+
+    const sourceId = row && row.source_id ? String(row.source_id).trim() : '';
+    const srcProd = (sourceId && sourceProductMap && sourceProductMap[sourceId]) ? sourceProductMap[sourceId] : null;
+    const srcPair = intentSummaryTitlePairFromSemantics(parseImageSemanticsJson(srcProd && srcProd.image_semantics_json));
+    if (srcPair.zh || srcPair.en) return srcPair;
+
+    const tplMap = templateNameMap && typeof templateNameMap === 'object' ? templateNameMap : {};
+    const themeKey = row && row.scene_template_key ? String(row.scene_template_key).trim() : '';
+    const sceneKey = row && row.scene_key ? String(row.scene_key).trim() : '';
+    const themeName = themeKey ? (tplMap[themeKey] || themeKey) : '';
+    const sceneName = sceneKey ? (tplMap[sceneKey] || sceneKey) : '';
+    const templateParts = [];
+    if (themeName) templateParts.push(themeName);
+    if (sceneName && sceneName !== themeName) templateParts.push(sceneName);
+    const templateLabel = templateParts.join(' · ');
+    if (templateLabel) return { zh: truncateMediaWallTitle(templateLabel), en: '' };
+
+    const sceneDescription = resolvePromoSceneDescriptionFromRow(row, templateNameMap);
+    const descLine = sceneDescription ? firstSentenceFromText(sceneDescription) : '';
+    if (descLine) return { zh: truncateMediaWallTitle(descLine), en: '' };
+
+    const userPrompt = row && row.user_prompt ? String(row.user_prompt).trim() : '';
+    if (userPrompt) return { zh: truncateMediaWallTitle(userPrompt), en: '' };
+
+    const productTitle = srcProd && srcProd.title ? String(srcProd.title).trim() : '';
+    const productTitleEn = srcProd && srcProd.title_en ? String(srcProd.title_en).trim() : '';
+    const zhOk = productTitle && !isGenericMediaWallTitle(productTitle) ? truncateMediaWallTitle(productTitle) : '';
+    const enOk = productTitleEn && !isGenericMediaWallTitle(productTitleEn) ? truncateMediaWallTitle(productTitleEn) : '';
+    if (zhOk || enOk) return { zh: zhOk, en: enOk };
+
+    const ownerName = (ownerDisplayMap && row && row.user_id) ? String(ownerDisplayMap[row.user_id] || '').trim() : '';
+    if (ownerName) return { zh: ownerName, en: '' };
+
+    return { zh: '情境圖', en: 'Scene image' };
+}
+
+function resolvePromoSceneCardTitle(row, ownerDisplayMap, sourceProductMap, templateNameMap, lang) {
+    const pair = resolvePromoSceneCardTitlePair(row, ownerDisplayMap, sourceProductMap, templateNameMap);
+    return pickMediaWallLocalizedTitle(pair.zh, pair.en, lang) || pair.zh || pair.en || '情境圖';
+}
+
+function firstSentenceFromText(text) {
+    const s = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    const m = s.match(/^[^。.\n]+[。.]?/);
+    return m ? m[0].replace(/[。.]$/, '').trim() : s.slice(0, 80);
+}
+
+function mapUserRowToMediaWallItem(p, ownerDisplayMap, lang) {
     let aj = p.analysis_json;
     if (typeof aj === 'string') try { aj = JSON.parse(aj); } catch (_) { aj = null; }
     const seed = p.generation_seed ?? (aj && (aj.generation_seed ?? aj.seed));
@@ -433,11 +562,14 @@ function mapUserRowToMediaWallItem(p, ownerDisplayMap) {
     if (refMfrId) {
         link = '/vendor-profile.html?id=' + encodeURIComponent(refMfrId);
     }
+    const titlePair = resolveUserDesignMediaWallTitlePair(p);
     return stripMediaWallHeavyFields(attachDisplayTags({
         id,
         type: 'user_design',
         size: '1x1',
-        title: p.title || '未命名',
+        title: pickMediaWallLocalizedTitle(titlePair.zh, titlePair.en, lang) || titlePair.zh || titlePair.en || '未命名',
+        title_zh: titlePair.zh || null,
+        title_en: titlePair.en || null,
         image_url: p.ai_generated_image_url || p.reference_image_url,
         link,
         ref_manufacturer_id: refMfrId || null,
@@ -499,7 +631,7 @@ function resolvePromoSceneDescriptionFromRow(row, templateNameMap) {
     return fallback || null;
 }
 
-function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, templateNameMap) {
+function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, templateNameMap, lang) {
     const orient = classifyPromoSceneOrientation(row.width, row.height, row.aspect_ratio);
     let size = '1x1';
     if (orient === 'landscape') size = '2x1';
@@ -511,8 +643,8 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
     const link = inspirationUrl;
     const ownerName = (ownerDisplayMap && row.user_id) ? String(ownerDisplayMap[row.user_id] || '').trim() : '';
     const productTitle = srcProd && srcProd.title ? String(srcProd.title).trim() : '';
-    const promptSnippet = row.user_prompt ? String(row.user_prompt).trim().slice(0, 48) : '';
-    const title = productTitle || ownerName || promptSnippet || '推廣圖';
+    const titlePair = resolvePromoSceneCardTitlePair(row, ownerDisplayMap, sourceProductMap, templateNameMap);
+    const title = pickMediaWallLocalizedTitle(titlePair.zh, titlePair.en, lang) || titlePair.zh || titlePair.en || '情境圖';
     const userPrompt = row.user_prompt ? String(row.user_prompt).trim() : '';
     const sceneDescription = resolvePromoSceneDescriptionFromRow(row, templateNameMap);
     const themeKey = row.scene_template_key ? String(row.scene_template_key).trim() : '';
@@ -523,6 +655,8 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
         size,
         promo_orient: orient,
         title,
+        title_zh: titlePair.zh || null,
+        title_en: titlePair.en || null,
         source_product_title: productTitle || null,
         image_url: row.result_image_url,
         aspect_ratio: row.aspect_ratio || null,
@@ -550,7 +684,7 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
     return stripMediaWallHeavyFields(item);
 }
 
-async function fetchPromoMediaWallItemById(id) {
+async function fetchPromoMediaWallItemById(id, lang) {
     const promoId = String(id || '').trim();
     if (!promoId) return null;
     const fullSelect = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, scene_template_key, scene_key, final_prompt, result_image_url, ai_tags, image_semantics_json, description, semantics_generated_at, created_at, show_on_homepage';
@@ -580,11 +714,11 @@ async function fetchPromoMediaWallItemById(id) {
     }
     const sourceProductMap = {};
     if (row.source_type === 'custom_product' && row.source_id) {
-        const { data: prod } = await supabase.from('custom_products').select('id, title, category, subcategory_key').eq('id', row.source_id).maybeSingle();
+        const { data: prod } = await supabase.from('custom_products').select('id, title, title_en, category, subcategory_key, image_semantics_json').eq('id', row.source_id).maybeSingle();
         if (prod) sourceProductMap[row.source_id] = prod;
     }
     const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows([row]));
-    return mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, tplMap);
+    return mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, tplMap, lang);
 }
 
 async function fetchPromoTemplateNameMap(keys) {
@@ -648,14 +782,15 @@ function mapPortfolioRowToMediaWallItem(p, compMfrMap) {
 async function loadMediaWallSearchResults(searchQ, opts) {
     const {
         page, perPage, offset, layoutOnly,
-        categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey
+        categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey,
+        lang
     } = opts;
     const qLower = searchQ.toLowerCase();
     const pattern = `%${escapeForIlike(searchQ)}%`;
     const pool = Math.min(500, Math.max(perPage * 10, 150));
     const hasCategoryFilter = !!(filterCategoryKey || filterSubcategoryKey);
     const merged = [];
-    const userSelect = 'id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources';
+    const userSelect = 'id, title, title_en, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources';
     const portfolioSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, series_image_urls, created_at';
 
     const pushIfMatch = (item, createdAt) => {
@@ -675,7 +810,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
             const ownerMap = await fetchOwnerDisplayMap([...new Set(rows.map((p) => p.owner_id).filter(Boolean))]);
             rows.forEach((p) => {
                 if (!p || !p.id || seen.has(p.id)) return;
-                const item = mapUserRowToMediaWallItem(p, ownerMap);
+                const item = mapUserRowToMediaWallItem(p, ownerMap, lang);
                 if (!mediaWallItemSearchHaystack(item).includes(qLower)) return;
                 seen.add(p.id);
                 merged.push({ item, created_at: p.created_at || '' });
@@ -688,12 +823,14 @@ async function loadMediaWallSearchResults(searchQ, opts) {
         qText = applyCustomProductCategoryFilters(qText, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
         const textRes = await qText.order('created_at', { ascending: false }).limit(pool);
         await ingestUsers(textRes.data);
+        scheduleCustomProductTitleFromSemanticsBackfill(textRes.data);
         let qPool = supabase.from('custom_products').select(userSelect)
             .not('ai_generated_image_url', 'is', null)
             .or('show_on_homepage.eq.true,show_on_homepage.is.null');
         qPool = applyCustomProductCategoryFilters(qPool, { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey });
         const poolRes = await qPool.order('created_at', { ascending: false }).limit(pool);
         await ingestUsers(poolRes.data);
+        scheduleCustomProductTitleFromSemanticsBackfill(poolRes.data);
     }
 
     if (layoutOnly === 'promo_scene') {
@@ -704,13 +841,13 @@ async function loadMediaWallSearchResults(searchQ, opts) {
             const srcIds = [...new Set(rows.filter((r) => r.source_type === 'custom_product' && r.source_id).map((r) => r.source_id))];
             const srcMap = {};
             if (srcIds.length) {
-                const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
+                const { data: prods } = await supabase.from('custom_products').select('id, title, title_en, category, subcategory_key, image_semantics_json').in('id', srcIds);
                 (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
             }
             const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows(rows));
             rows.forEach((row) => {
                 if (!row || !row.id || seenPromo.has(row.id)) return;
-                const item = mapPromoRowToMediaWallItem(row, ownerMap, srcMap, tplMap);
+                const item = mapPromoRowToMediaWallItem(row, ownerMap, srcMap, tplMap, lang);
                 if (!mediaWallItemSearchHaystack(item).includes(qLower)) return;
                 seenPromo.add(row.id);
                 merged.push({ item, created_at: row.created_at || '' });
@@ -743,7 +880,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
             const srcIds = [...new Set(promoRows.map((r) => r.source_id).filter(Boolean))];
             const srcMap = {};
             if (srcIds.length) {
-                const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
+                const { data: prods } = await supabase.from('custom_products').select('id, title, title_en, category, subcategory_key, image_semantics_json').in('id', srcIds);
                 (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
             }
             promoRows = promoRows.filter((row) => {
@@ -3993,14 +4130,35 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
             }
         }
         const tagsByDim = visualSemantics.buildTagsByDimension(imgResult.semantics);
+        let currentTitle = (ctx.title || '').trim();
+        let currentTitleEn = (ctx.title_en || '').trim();
+        if (!currentTitle || !currentTitleEn) {
+            try {
+                const { data: row } = await supabase.from('custom_products').select('title, title_en').eq('id', productId).maybeSingle();
+                if (row) {
+                    if (!currentTitle) currentTitle = (row.title) ? String(row.title).trim() : '';
+                    if (!currentTitleEn) currentTitleEn = (row.title_en) ? String(row.title_en).trim() : '';
+                }
+            } catch (_) {}
+        }
+        const titlePair = visualSemantics.buildCustomProductTitlePairFromSemantics(imgResult.semantics);
         const updates = {
             ai_tags: mergedTags,
             image_semantics_json: imgResult.semantics,
             ai_tags_by_dimension: tagsByDim,
             semantics_generated_at: new Date().toISOString()
         };
+        if (titlePair) {
+            if (titlePair.zh && (!currentTitle || isGenericMediaWallTitle(currentTitle))) updates.title = titlePair.zh;
+            if (titlePair.en && (!currentTitleEn || isGenericMediaWallTitle(currentTitleEn))) updates.title_en = titlePair.en;
+        }
         if (promptSemantics) updates.prompt_semantics_json = promptSemantics;
-        const { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId);
+        let { error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId);
+        if (updErr && updErr.code === '42703' && updates.title_en) {
+            delete updates.title_en;
+            ({ error: updErr } = await supabase.from('custom_products').update(updates).eq('id', productId));
+            if (!updErr) console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-title-i18n.sql 以寫入 title_en');
+        }
         if (updErr) {
             if (updErr.code === '42703') {
                 console.warn('enrichCustomProductSemantics: 請執行 docs/add-custom-products-semantics.sql 與 add-custom-products-semantics-taxonomy.sql');
@@ -4051,8 +4209,8 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
                 category_key: ctx.categoryKey || null
             });
         }
-        console.log('custom_products 語意標籤完成 id=%s tags=%d', productId, mergedTags.length);
-        return { ai_tags: mergedTags };
+        console.log('custom_products 語意標籤完成 id=%s tags=%d title=%s title_en=%s', productId, mergedTags.length, updates.title || currentTitle || '(unchanged)', updates.title_en || currentTitleEn || '(unchanged)');
+        return { ai_tags: mergedTags, title: updates.title || null, title_en: updates.title_en || null };
     } catch (e) {
         console.error('enrichCustomProductSemantics:', e.message);
         return null;
@@ -4156,6 +4314,29 @@ function schedulePromoGenerationSemanticsEnrich(generationId, ownerId, ctx) {
     if (!generationId || !process.env.GEMINI_API_KEY) return;
     setImmediate(function () {
         enrichPromoGenerationSemantics(generationId, ownerId, ctx || {}).catch(function () {});
+    });
+}
+
+function scheduleCustomProductTitleFromSemanticsBackfill(rows) {
+    if (!rows || !rows.length) return;
+    const pending = rows.filter(function (p) {
+        if (!p || !p.id) return false;
+        const needZh = isGenericMediaWallTitle(p.title);
+        const needEn = isGenericMediaWallTitle(p.title_en);
+        if (!needZh && !needEn) return false;
+        return !!visualSemantics.buildCustomProductTitlePairFromSemantics(parseImageSemanticsJson(p.image_semantics_json));
+    }).slice(0, 6);
+    pending.forEach(function (p) {
+        const pair = visualSemantics.buildCustomProductTitlePairFromSemantics(parseImageSemanticsJson(p.image_semantics_json));
+        if (!pair) return;
+        const patch = {};
+        if (pair.zh && isGenericMediaWallTitle(p.title)) patch.title = pair.zh;
+        if (pair.en && isGenericMediaWallTitle(p.title_en)) patch.title_en = pair.en;
+        if (!Object.keys(patch).length) return;
+        supabase.from('custom_products').update(patch).eq('id', p.id).then(function () {
+            if (patch.title) p.title = patch.title;
+            if (patch.title_en) p.title_en = patch.title_en;
+        }).catch(function () {});
     });
 }
 
@@ -14375,6 +14556,7 @@ app.get('/api/media-wall', async (req, res) => {
     const filterSubcategoryKey = (req.query.subcategory_key && String(req.query.subcategory_key).trim()) || '';
     const filterLayoutType = (req.query.layout_type && String(req.query.layout_type).trim()) || '';
     const layoutOnly = ['user_design', 'comparison', 'collection', 'series', 'promo_scene'].includes(filterLayoutType) ? filterLayoutType : null;
+    const contentLang = normalizeVendorContentLang(req.query.lang || req.query.content_lang || '');
 
     const out = [];
     const hasCategoryFilter = !!(filterCategoryKey || filterSubcategoryKey);
@@ -14438,7 +14620,7 @@ app.get('/api/media-wall', async (req, res) => {
                 const srcIds = [...new Set(promoRows.map((r) => r.source_id).filter(Boolean))];
                 const srcMap = {};
                 if (srcIds.length) {
-                    const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
+                    const { data: prods } = await supabase.from('custom_products').select('id, title, title_en, category, subcategory_key, image_semantics_json').in('id', srcIds);
                     (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
                 }
                 promoRows = promoRows.filter((row) => {
@@ -14461,13 +14643,13 @@ app.get('/api/media-wall', async (req, res) => {
                 const srcIds = [...new Set(promoRows.filter((r) => r.source_id).map((r) => r.source_id))];
                 const srcMap = {};
                 if (srcIds.length) {
-                    const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
+                    const { data: prods } = await supabase.from('custom_products').select('id, title, title_en, category, subcategory_key, image_semantics_json').in('id', srcIds);
                     (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
                 }
                 const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows(promoRows));
                 scheduleMissingPromoSemanticsBackfill(promoRows, srcMap, tplMap);
                 promoRows.forEach((row) => {
-                    out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, srcMap, tplMap));
+                    out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, srcMap, tplMap, contentLang));
                 });
             }
             let promoItems = out;
@@ -14490,7 +14672,7 @@ app.get('/api/media-wall', async (req, res) => {
         if (!layoutOnly || layoutOnly === 'user_design') {
         let userQuery = supabase
             .from('custom_products')
-            .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources')
+            .select('id, title, title_en, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources')
             .not('ai_generated_image_url', 'eq', null)
             .or('show_on_homepage.eq.true,show_on_homepage.is.null');
         if (categoryKeysToMatch && categoryKeysToMatch.length) userQuery = userQuery.in('category', categoryKeysToMatch);
@@ -14521,10 +14703,11 @@ app.get('/api/media-wall', async (req, res) => {
                     if (profs) profs.forEach(pr => { ownerDisplayMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
                 } catch (_) {}
             }
+            scheduleCustomProductTitleFromSemanticsBackfill(userRows);
             // 照抄 GET /api/custom-products 的 product 形狀；確保 analysis_json 為物件，且 generation_seed 從 analysis_json 帶出
             userRows.forEach(p => {
                 let ownerMap = ownerDisplayMap;
-                const userItem = mapUserRowToMediaWallItem(p, ownerMap);
+                const userItem = mapUserRowToMediaWallItem(p, ownerMap, contentLang);
                 out.push(userItem);
             });
         }
@@ -14974,15 +15157,16 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
         return res.status(400).json({ error: 'type 須為 user_design、comparison、series、collection、prototype、part、material、promo_scene，且 id 必填' });
     }
     try {
+        const contentLang = normalizeVendorContentLang(req.query.lang || req.query.content_lang || '');
         if (type === 'promo_scene') {
-            const item = await fetchPromoMediaWallItemById(id);
+            const item = await fetchPromoMediaWallItemById(id, contentLang);
             if (!item) return res.status(404).json({ error: '找不到該情境圖' });
             return res.set('Cache-Control', 'public, max-age=120').json({ item });
         }
         if (type === 'user_design') {
             const { data: row, error } = await supabase
                 .from('custom_products')
-                .select('id, title, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources')
+                .select('id, title, title_en, category, subcategory_key, ai_generated_image_url, reference_image_url, created_at, owner_id, analysis_json, generation_prompt, generation_seed, show_on_homepage, ai_tags, image_semantics_json, reference_sources')
                 .eq('id', id)
                 .maybeSingle();
             if (error || !row) return res.status(404).json({ error: '找不到該作品' });
@@ -14992,7 +15176,7 @@ app.get('/api/media-wall-item/:type/:id', async (req, res) => {
                 const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.owner_id).maybeSingle();
                 if (prof) ownerDisplayMap[row.owner_id] = (prof.full_name && prof.full_name.trim()) || prof.email || '';
             }
-            const item = mapUserRowToMediaWallItem(row, ownerDisplayMap);
+            const item = mapUserRowToMediaWallItem(row, ownerDisplayMap, contentLang);
             await enrichMediaWallRefManufacturers([item]);
             return res.set('Cache-Control', 'private, max-age=0, must-revalidate').json({ item });
         }
