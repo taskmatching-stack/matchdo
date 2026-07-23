@@ -1,5 +1,6 @@
 /**
- * 首頁媒體牆「情境圖」專用拼格（2 欄；橫 2×2、直/方 1×2 子列）
+ * 情境圖媒體牆拼格（2 欄底格，格寬高同首頁 260px）
+ * 橫圖 2×1、直圖 1×2、方圖 1×1
  */
 (function (global) {
     'use strict';
@@ -45,8 +46,8 @@
         var list = [];
         var maxRow = 240;
         if (orient === 'landscape') {
-            for (var r = 0; r < maxRow; r += 2) {
-                list.push({ r: r, c: 0, rs: 2, cs: 2 });
+            for (var r = 0; r < maxRow; r++) {
+                list.push({ r: r, c: 0, rs: 1, cs: 2 });
             }
             return list;
         }
@@ -54,16 +55,12 @@
             for (var r2 = 0; r2 < maxRow; r2++) {
                 list.push({ r: r2, c: 0, rs: 2, cs: 1 });
                 list.push({ r: r2, c: 1, rs: 2, cs: 1 });
-                list.push({ r: r2 + 1, c: 0, rs: 2, cs: 1 });
-                list.push({ r: r2 + 1, c: 1, rs: 2, cs: 1 });
             }
             return list;
         }
-        for (var r3 = 0; r3 < maxRow; r3 += 2) {
-            list.push({ r: r3, c: 0, rs: 2, cs: 1 });
-            list.push({ r: r3, c: 1, rs: 2, cs: 1 });
-            list.push({ r: r3 + 1, c: 0, rs: 2, cs: 1 });
-            list.push({ r: r3 + 1, c: 1, rs: 2, cs: 1 });
+        for (var r3 = 0; r3 < maxRow; r3++) {
+            list.push({ r: r3, c: 0, rs: 1, cs: 1 });
+            list.push({ r: r3, c: 1, rs: 1, cs: 1 });
         }
         return list;
     }
@@ -79,30 +76,24 @@
         return null;
     }
 
-    /** 兩格為一組：若 band 內只剩單格空格，優先塞方圖 */
     function fillBandOrphans(occ, squares, placedOut) {
         if (!squares.length) return;
-        var maxR = occ.length;
+        var maxR = Math.max(occ.length, 2);
         for (var band = 0; band < maxR + 2; band += 2) {
-            var cells = [
-                occFree(occ, band, 0, 2, 1),
-                occFree(occ, band, 1, 2, 1),
-                occFree(occ, band + 1, 0, 2, 1),
-                occFree(occ, band + 1, 1, 2, 1)
-            ];
-            var freeCount = cells.filter(Boolean).length;
-            if (freeCount !== 1 || !squares.length) continue;
-            var slots = [
-                { r: band, c: 0 }, { r: band, c: 1 }, { r: band + 1, c: 0 }, { r: band + 1, c: 1 }
-            ];
-            for (var s = 0; s < slots.length; s++) {
-                if (!occFree(occ, slots[s].r, slots[s].c, 2, 1)) continue;
-                var sq = squares.shift();
-                var pl = { r: slots[s].r + 1, c: slots[s].c + 1, rs: 2, cs: 1, orient: 'square' };
-                occMark(occ, slots[s].r, slots[s].c, 2, 1);
-                placedOut.push({ item: sq, placement: pl });
-                break;
+            var freeSlots = [];
+            for (var dr = 0; dr < 2; dr++) {
+                for (var dc = 0; dc < 2; dc++) {
+                    if (occFree(occ, band + dr, dc, 1, 1)) {
+                        freeSlots.push({ r: band + dr, c: dc });
+                    }
+                }
             }
+            if (freeSlots.length !== 1 || !squares.length) continue;
+            var slot = freeSlots[0];
+            var sq = squares.shift();
+            var pl = { r: slot.r + 1, c: slot.c + 1, rs: 1, cs: 1, orient: 'square' };
+            occMark(occ, slot.r, slot.c, 1, 1);
+            placedOut.push({ item: sq, placement: pl });
         }
     }
 
@@ -136,8 +127,9 @@
 
     function applyPlacement(wrap, placement) {
         if (!wrap || !placement) return;
-        wrap.style.gridRow = placement.r + ' / span ' + placement.rs;
-        wrap.style.gridColumn = placement.c + ' / span ' + placement.cs;
+        wrap.classList.remove('media-wall-1x2', 'media-wall-comparison');
+        wrap.style.setProperty('grid-row', placement.r + ' / span ' + placement.rs, 'important');
+        wrap.style.setProperty('grid-column', placement.c + ' / span ' + placement.cs, 'important');
         wrap.classList.add('media-wall-promo-item');
         wrap.classList.add('media-wall-promo-' + (placement.orient || 'square'));
     }

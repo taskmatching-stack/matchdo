@@ -144,11 +144,19 @@
                 #media-wall-grid .media-wall-comparison-pos5 { grid-column: 1 !important; grid-row: 11 / 12 !important; }
                 @media (max-width: 767px) {
                     #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
+                    #media-wall-grid.mw-promo-scene-grid {
+                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                        grid-auto-rows: minmax(120px, 28vw);
+                    }
                 }
                 #media-wall-grid.mw-promo-scene-grid {
-                    grid-template-columns: repeat(2, 1fr) !important;
-                    grid-auto-rows: 130px;
+                    grid-template-columns: repeat(2, minmax(260px, 1fr)) !important;
+                    grid-auto-rows: 260px;
                     grid-auto-flow: dense;
+                    gap: 8px;
+                }
+                #media-wall-grid.mw-promo-scene-grid .media-wall-item.media-wall-promo-item {
+                    min-height: 0;
                 }
                 #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap {
                     background: #eef1f5;
@@ -883,7 +891,7 @@
             function renderOne(p, opts) {
                     var wrap = document.createElement('div');
                     var cls = 'media-wall-item';
-                    if (p.size === '1x2' || p.type === 'series' || p.type === 'collection') cls += ' media-wall-1x2';
+                    if (p.type !== 'promo_scene' && (p.size === '1x2' || p.type === 'series' || p.type === 'collection')) cls += ' media-wall-1x2';
                     if (p.type === 'comparison') cls += ' media-wall-comparison';
                     wrap.className = cls;
                     wrap.setAttribute('data-type', p.type || '');
