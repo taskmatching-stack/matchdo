@@ -8,7 +8,8 @@
     "db:init": "node scripts/apply_schema.js",
     "db:test": "node scripts/test_db.js",
     "supabase:health": "node scripts/supabase_health.js",
-    "supabase:import-default": "node scripts/import_default_categories.js"
+    "supabase:import-default": "node scripts/import_default_categories.js",
+    "test:media-wall-queries": "node scripts/test-media-wall-queries.js"
   },
   "dependencies": {
     "@google/genai": "^1.42.0",
