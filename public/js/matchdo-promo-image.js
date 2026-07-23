@@ -1,6 +1,6 @@
 /**
- * Matchdo 產品推廣圖 — 共用前端輔助（比例／解析度 MP／點數預覽／API）
- * 僅供推廣圖 TAB 使用；不改動既有寫實化／圖樣提取邏輯。
+ * Matchdo 產品情境圖 — 共用前端輔助（比例／解析度 MP／點數預覽／API）
+ * 僅供情境圖 TAB 使用；不改動既有寫實化／圖樣提取邏輯。
  */
 (function (global) {
   'use strict';
@@ -272,7 +272,7 @@
   }
 
   /**
-   * 推廣圖結果區：下載 + 儲存到數位資產庫按鈕（回傳 DOM 元素）
+   * 情境圖結果區：下載 + 儲存到數位資產庫按鈕（回傳 DOM 元素）
    * opts: { labels: { download, save, saved, viewLibrary }, libraryHref }
    */
   function appendPromoResultActions(container, meta, imageDataUrl, opts) {

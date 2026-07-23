@@ -5115,9 +5115,21 @@ $(document).ready(function () {
         applyPastItemModalFindVendorLink(findVendorUrl);
         if (productId) {
             $showSection.removeClass('d-none');
-            $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
-            $('#pastItemModalShowOnHomepageHint').text(t('customProduct.freeUserShowHint')).css('color', '');
             $('#pastItemModalDelete').removeClass('d-none').data('product-id', productId).data('source-wrap', wrap);
+            var applyShowCheckbox = function (canControl) {
+                if (canControl) {
+                    $checkbox.prop('checked', showOnHomepage).prop('disabled', false).data('product-id', productId).data('source-wrap', wrap);
+                    $('#pastItemModalShowOnHomepageHint').text(t('customProduct.paidUserShowHint')).css('color', '');
+                } else {
+                    $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
+                    $('#pastItemModalShowOnHomepageHint').text(t('customProduct.freeUserShowHint')).css('color', '');
+                }
+            };
+            if (typeof canControlDesignShowOnHomepage === 'function') {
+                canControlDesignShowOnHomepage().then(applyShowCheckbox).catch(function () { applyShowCheckbox(false); });
+            } else {
+                applyShowCheckbox(false);
+            }
         } else {
             $showSection.addClass('d-none');
             $checkbox.removeData('product-id').removeData('source-wrap');
@@ -6033,7 +6045,7 @@ $(document).ready(function () {
             });
     });
 
-    // —— 推廣圖（獨立 Tab；可多圖參考，最多 8 張）——
+    // —— 情境圖（獨立 Tab；可多圖參考，最多 8 張）——
     window.promoImageImageUrls = [];
     window.promoImageSourceType = 'digital_asset';
     var promoImageOptionsLoaded = false;
@@ -6169,7 +6181,7 @@ $(document).ready(function () {
                 $('#promoImageThemeHint').text(data.migration_hint);
             }
             if (!scenes.length && !data.slot_migration_hint) {
-                $('#promoImageEnvHint').text('尚無場景選項：請至後台「推廣圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql');
+                $('#promoImageEnvHint').text('尚無場景選項：請至後台「情境圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql');
             }
             refreshPromoImagePointsDisplay();
         }).catch(function (err) {
@@ -6181,9 +6193,9 @@ $(document).ready(function () {
         var wrap = $('#promoImageResultWrap');
         var displayUrl = (meta && meta.image_url) || imageDataUrl;
         var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
-            (t('customProduct.promoImageResultNote') || '生成後可下載，並儲存至「我的數位資產 → 推廣圖」。') + '</p>';
+            (t('customProduct.promoImageResultNote') || '生成後可下載，並儲存至「我的數位資產 → 情境圖」。') + '</p>';
         var $inner = $('<div class="scene-sim-result-inner"></div>');
-        $inner.append($('<img>').attr('src', displayUrl).attr('alt', '推廣圖')
+        $inner.append($('<img>').attr('src', displayUrl).attr('alt', '情境圖')
             .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
         if (meta && meta.points_deducted != null) {
             $inner.append($('<p class="small text-muted mt-2 mb-0"></p>').text('已扣除 ' + meta.points_deducted + ' 點'));
@@ -6243,7 +6255,7 @@ $(document).ready(function () {
         var $btn = $('#promoImageApplyBtn');
         var $wrap = $('#promoImageResultWrap');
         var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
-            (t('customProduct.promoImageResultNote') || '生成後可下載，並儲存至「我的數位資產 → 推廣圖」。') + '</p>';
+            (t('customProduct.promoImageResultNote') || '生成後可下載，並儲存至「我的數位資產 → 情境圖」。') + '</p>';
         var dims = getPromoImageDims();
         var payload = {
             images: urls,
@@ -6265,7 +6277,7 @@ $(document).ready(function () {
             : null;
         if (!genFn) {
             $btn.prop('disabled', false);
-            $wrap.html('<p class="text-danger small mb-0">推廣圖模組未載入</p>' + noteHtml);
+            $wrap.html('<p class="text-danger small mb-0">情境圖模組未載入</p>' + noteHtml);
             return;
         }
         genFn(payload).then(function (result) {

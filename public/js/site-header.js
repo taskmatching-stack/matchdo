@@ -161,6 +161,12 @@ async function fetchMeCapabilities() {
     }
 }
 
+/** 付費會員或管理員／測試員：數位資產庫可勾選是否上媒體牆 */
+async function canControlDesignShowOnHomepage() {
+    var caps = await fetchMeCapabilities();
+    return !!(caps && caps.can_control_design_show_on_homepage);
+}
+
 function ensureNavLocaleReady() {
     if (window.i18n && window.i18n.ready) {
         return window.i18n.ready.then(function () {

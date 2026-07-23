@@ -757,8 +757,20 @@ $(document).ready(function () {
         }
         if (productId) {
             $showSection.removeClass('d-none');
-            $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
-            $('#pastItemModalShowOnHomepageHint').text('免費用戶預設展示在首頁，無法取消').css('color', '');
+            var applyShowCheckbox = function (canControl) {
+                if (canControl) {
+                    $checkbox.prop('checked', showOnHomepage).prop('disabled', false).data('product-id', productId).data('source-wrap', wrap);
+                    $('#pastItemModalShowOnHomepageHint').text('可勾選是否展示在首頁媒體牆').css('color', '');
+                } else {
+                    $checkbox.prop('checked', true).prop('disabled', true).data('product-id', productId).data('source-wrap', wrap);
+                    $('#pastItemModalShowOnHomepageHint').text('免費用戶預設展示在首頁，無法取消').css('color', '');
+                }
+            };
+            if (typeof canControlDesignShowOnHomepage === 'function') {
+                canControlDesignShowOnHomepage().then(applyShowCheckbox).catch(function () { applyShowCheckbox(false); });
+            } else {
+                applyShowCheckbox(false);
+            }
         } else {
             $showSection.addClass('d-none');
             $checkbox.removeData('product-id').removeData('source-wrap');

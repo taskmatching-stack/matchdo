@@ -26,7 +26,7 @@
             object-fit: cover;
             border-radius: 8px;
         }
-        /* 推廣圖 tab：固定 200px 高度、object-fit contain，橫圖排列整齊；不動設計圖 .product-image */
+        /* 情境圖 tab：固定 200px 高度、object-fit contain，橫圖排列整齊；不動設計圖 .product-image */
         .promo-asset-thumb-wrap {
             width: 100%;
             height: 200px;
@@ -77,7 +77,7 @@
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="tab-promo" data-bs-toggle="tab" href="#pane-promo">
-                    <i class="bi bi-bullhorn me-1"></i>推廣圖
+                    <i class="bi bi-bullhorn me-1"></i>情境圖
                     <span class="badge bg-secondary ms-1" id="badgePromo">…</span>
                 </a>
             </li>
@@ -115,25 +115,25 @@
                 </div>
             </div>
 
-            <!-- ── Tab 2：推廣圖 ── -->
+            <!-- ── Tab 2：情境圖 ── -->
             <div class="tab-pane fade" id="pane-promo">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <p class="text-muted mb-0 small">產品推廣圖生成紀錄；橫式／直式比例不同，縮圖以灰底置中顯示。</p>
+                    <p class="text-muted mb-0 small">產品情境圖生成紀錄；橫式／直式比例不同，縮圖以灰底置中顯示。</p>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary btn-sm">
-                        <i class="bi bi-bullhorn me-1"></i>生成推廣圖
+                        <i class="bi bi-bullhorn me-1"></i>生成情境圖
                     </a>
                 </div>
                 <div id="promoLoading" class="text-center py-5">
                     <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 text-muted">載入推廣圖…</p>
+                    <p class="mt-3 text-muted">載入情境圖…</p>
                 </div>
                 <div id="promoList" class="row g-4" style="display:none;"></div>
                 <div id="promoEmpty" class="empty-state" style="display:none;">
                     <i class="bi bi-bullhorn" style="font-size:4rem;color:#dee2e6;"></i>
-                    <h4 class="mt-3">尚無推廣圖</h4>
-                    <p>在產品設計或素材管理的「推廣圖」分頁生成後，按「儲存到數位資產庫」即可顯示於此。</p>
+                    <h4 class="mt-3">尚無情境圖</h4>
+                    <p>在產品設計或素材管理的「情境圖」分頁生成後，按「儲存到數位資產庫」即可顯示於此。</p>
                     <a href="/custom-product.html?tab=promo-image" class="btn btn-primary mt-3">
-                        <i class="bi bi-bullhorn me-1"></i>去生成推廣圖
+                        <i class="bi bi-bullhorn me-1"></i>去生成情境圖
                     </a>
                 </div>
             </div>
@@ -256,7 +256,7 @@
             loadPromoImages();
             loadFavorites();
 
-            // ?tab=promo 直接開推廣圖
+            // ?tab=promo 直接開情境圖
             var tabParam = (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase();
             if (tabParam === 'promo') {
                 var promoTab = document.getElementById('tab-promo');
@@ -297,7 +297,7 @@
                     });
                 }
             } catch (error) {
-                console.error('載入推廣圖失敗:', error);
+                console.error('載入情境圖失敗:', error);
                 if (loading) loading.style.display = 'none';
                 if (empty) {
                     empty.style.display = 'block';
@@ -310,7 +310,7 @@
             const col = document.createElement('div');
             col.className = 'col-md-6 col-lg-4';
             const ratio = item.aspect_ratio || (item.width && item.height ? (item.width + ':' + item.height) : '');
-            const title = ratio ? ('推廣圖 ' + ratio) : '推廣圖';
+            const title = ratio ? ('情境圖 ' + ratio) : '情境圖';
             col.innerHTML = `
                 <div class="card product-card h-100">
                     <div class="promo-asset-thumb-wrap card-img-top border-0">

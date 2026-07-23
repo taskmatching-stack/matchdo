@@ -10499,7 +10499,7 @@ app.post('/api/design-to-physical', express.json({ limit: '15mb' }), async (req,
     }
 });
 
-// —— 產品推廣圖（獨立槽 bfl_flux_model_promo_image；基礎 20 點；不影響寫實化／生圖）——
+// —— 產品情境圖（獨立槽 bfl_flux_model_promo_image；基礎 20 點；不影響寫實化／生圖）——
 const PROMO_SCENE_LOCALE_COL = { en: 'name_en', ja: 'name_ja', es: 'name_es', de: 'name_de', fr: 'name_fr' };
 
 function appendPromoSceneMultilangFields(payload, body) {
@@ -10605,7 +10605,7 @@ app.get('/api/promo-image/options', async (req, res) => {
             }
             if (isSupabaseMissingColumnError(pErr, 'use_for_promo')) {
                 photographySets = [];
-                photoMigrationHint = '請執行 docs/add-photography-use-for-promo.sql，並在後台勾選「推廣圖使用」';
+                photoMigrationHint = '請執行 docs/add-photography-use-for-promo.sql，並在後台勾選「情境圖使用」';
             } else {
                 photographySets = (pRows || []).map((r) => applyPromoSceneTemplateLocale(r, lang));
             }
@@ -10678,7 +10678,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             }
         }
         if (!currentUser) {
-            return res.status(401).json({ success: false, error: '請先登入後再使用推廣圖生成' });
+            return res.status(401).json({ success: false, error: '請先登入後再使用情境圖生成' });
         }
         const body = req.body || {};
         const resolvedRefs = await resolvePromoImageReferences(body);
@@ -10708,7 +10708,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             }
         }
         if (!process.env.BFL_API_KEY) {
-            return res.status(503).json({ success: false, error: '推廣圖服務暫未設定，請稍後再試' });
+            return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
         }
         const finalPrompt = await buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, refBases.length);
         const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
@@ -10752,7 +10752,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 currentUser.id,
                 pointsToDeduct,
                 'promo_image',
-                '產品推廣圖',
+                '產品情境圖',
                 { width: w, height: h, theme_key: themeKey || null, scene_key: sceneKey || null, scene_template_key: themeKey || null, reference_count: refBases.length }
             );
             if (!consumed.ok) {
@@ -10823,15 +10823,15 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             seed
         });
     } catch (error) {
-        console.error('推廣圖生成錯誤:', error);
+        console.error('情境圖生成錯誤:', error);
         res.status(500).json({
             success: false,
-            error: error.message || '推廣圖生成失敗，請稍後再試'
+            error: error.message || '情境圖生成失敗，請稍後再試'
         });
     }
 });
 
-/** 推廣圖：使用者數位資產庫列表（product_promo_generations） */
+/** 情境圖：使用者數位資產庫列表（product_promo_generations） */
 app.get('/api/promo-image/generations', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -10881,7 +10881,7 @@ app.get('/api/promo-image/generations', async (req, res) => {
     }
 });
 
-/** 推廣圖：確認／補寫入數位資產庫（生成成功時通常已寫入；此 API 供補傳 imageData） */
+/** 情境圖：確認／補寫入數位資產庫（生成成功時通常已寫入；此 API 供補傳 imageData） */
 app.post('/api/promo-image/save-to-library', express.json({ limit: '15mb' }), async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -10900,7 +10900,7 @@ app.post('/api/promo-image/save-to-library', express.json({ limit: '15mb' }), as
                 .maybeSingle();
             if (findErr) return res.status(500).json({ success: false, error: findErr.message });
             if (!existing || existing.user_id !== user.id) {
-                return res.status(404).json({ success: false, error: '找不到推廣圖紀錄' });
+                return res.status(404).json({ success: false, error: '找不到情境圖紀錄' });
             }
             if (existing.result_image_url) {
                 return res.json({ success: true, id: existing.id, image_url: existing.result_image_url, already_saved: true });
@@ -11163,7 +11163,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                     const generationPromptVal = (prompt && String(prompt).trim()) ? String(prompt).trim() : null;
                     const mainCategoryKey = (categoryKeys && categoryKeys[0]) ? String(categoryKeys[0]).trim() || null : null;
                     const subCategoryKey = (categoryKeys && categoryKeys.length >= 2 && categoryKeys[1]) ? String(categoryKeys[1]).trim() || null : null;
-                    const showOnHomepage = !(await hasActivePaidSubscription(currentUser.id));
+                    const showOnHomepage = await defaultShowOnHomepageForNewDesign(currentUser.id);
                     const autoLineage = hasRefs && fluxReferenceSources.length
                         ? await customProductLineage.computeCustomProductLineage(
                             supabase, currentUser.id, fluxReferenceSources
@@ -11430,6 +11430,19 @@ async function hasActivePaidSubscription(userId) {
         return true;
     }
     return isPaidMemberLevel(await readProfileMemberLevel(userId));
+}
+
+/** 付費會員或管理員／測試員：可選是否上媒體牆；免費會員強制公開 */
+async function canControlDesignShowOnHomepage(userId) {
+    if (!userId) return false;
+    if (await isStaffProfileUserId(userId)) return true;
+    return hasActivePaidSubscription(userId);
+}
+
+/** 新設計寫入時媒體牆預設：免費＝公開；付費／管理員／測試員＝預設不公開（可於資產庫勾選） */
+async function defaultShowOnHomepageForNewDesign(userId) {
+    if (!userId) return true;
+    return !(await canControlDesignShowOnHomepage(userId));
 }
 
 const VENDOR_ASSET_MEMBERSHIP_HIDE_COL = 'public_hidden_by_membership';
@@ -11901,7 +11914,7 @@ async function getPointsPatternExtract() {
     return Math.max(0, parseInt(v, 10) || 20);
 }
 
-/** 推廣圖計價：獨立函式（精神同圖樣提取，不共用／不改 patternExtract*） */
+/** 情境圖計價：獨立函式（精神同圖樣提取，不共用／不改 patternExtract*） */
 function promoImageMegapixelsFromResolution(width, height) {
     const w = Math.min(2048, Math.max(512, parseInt(width, 10) || 1024));
     const h = Math.min(2048, Math.max(512, parseInt(height, 10) || 1024));
@@ -11949,7 +11962,7 @@ async function loadPromoTemplatePartsByKey(templateKey) {
 }
 
 /**
- * 推廣圖提示詞組裝：
+ * 情境圖提示詞組裝：
  * 1) 固定英文廣告底稿（後端硬編碼）
  * 2) 主題 theme 的 scene_prompt + composition_hint（DB，管理區可編）
  * 3) 場景 scene 的 scene_prompt + composition_hint（DB，管理區可編）
@@ -11996,7 +12009,7 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
     return prompt || 'Create a brand-new product advertising key visual from the reference, not a background-only retouch.';
 }
 
-/** 推廣圖參考圖：支援 images[]（最多 8）或舊版單張 image */
+/** 情境圖參考圖：支援 images[]（最多 8）或舊版單張 image */
 async function resolvePromoImageReferences(body) {
     const MAX = 8;
     const raw = [];
@@ -13614,8 +13627,13 @@ app.post('/api/custom-products', async (req, res) => {
             status: 'draft',
             generation_prompt: promptVal,
             generation_seed: seedVal,
-            show_on_homepage: true
+            show_on_homepage: typeof show_on_homepage !== 'undefined'
+                ? !!show_on_homepage
+                : await defaultShowOnHomepageForNewDesign(user.id)
         };
+        if (insertPayload.show_on_homepage === false && !(await canControlDesignShowOnHomepage(user.id))) {
+            return res.status(403).json({ error: '需付費訂閱才能將設計圖設為不公開' });
+        }
         const lineage = await customProductLineage.computeCustomProductLineage(
             supabase,
             user.id,
@@ -15024,10 +15042,10 @@ app.patch('/api/custom-products/:id', express.json(), async (req, res) => {
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ error: '無可更新欄位' });
         }
-        // 只有付費會員才可將圖片設為不公開（show_on_homepage: false）
+        // 付費會員或管理員／測試員才可將圖片設為不公開（show_on_homepage: false）
         if (updates.show_on_homepage === false) {
-            const isPaid = await hasActivePaidSubscription(user.id);
-            if (!isPaid) {
+            const canControl = await canControlDesignShowOnHomepage(user.id);
+            if (!canControl) {
                 return res.status(403).json({ error: '需付費訂閱才能將設計圖設為不公開' });
             }
         }
@@ -17751,7 +17769,7 @@ async function listAdminGenerationRecords(opts) {
                 const prompt = (row.final_prompt || row.user_prompt || '').trim();
                 const themeLabel = (row.scene_template_key || '').trim();
                 const sceneLabel = (row.scene_key || '').trim();
-                const titleParts = ['產品推廣圖'];
+                const titleParts = ['產品情境圖'];
                 if (themeLabel) titleParts.push(themeLabel);
                 if (sceneLabel) titleParts.push(sceneLabel);
                 const hay = [prompt, row.user_prompt, themeLabel, sceneLabel, row.source_type, row.source_id, row.source_image_url].join(' ').toLowerCase();
@@ -20400,7 +20418,7 @@ app.get('/api/me/vendor-assets', async (req, res) => {
             manufacturerName = (mfrRow && mfrRow.name) ? mfrRow.name : null;
         } catch (_) { /* ignore */ }
 
-        /** 推廣圖選卡：輕量列表（跳過語意／關聯／分享 URL 等重處理） */
+        /** 情境圖選卡：輕量列表（跳過語意／關聯／分享 URL 等重處理） */
         const lite = String(req.query.lite || '').trim() === '1' || String(req.query.lite || '').toLowerCase() === 'true';
         if (lite) {
             const LITE_SELECT = 'id, manufacturer_id, title, image_url, gallery_images, asset_kind, cover_image_label, cover_link_group, is_public, created_at, updated_at';
@@ -23044,6 +23062,7 @@ app.get('/api/me/capabilities', async (req, res) => {
                 can_edit_vendor_content: true,
                 supplier_catalog_ready: catalogReady,
                 can_upload_products_and_assets: true,
+                can_control_design_show_on_homepage: true,
                 can_browse_supplier_catalog: false,
                 can_use_supplier_catalog: false,
                 can_import_supplier_catalog: false,
@@ -23089,6 +23108,7 @@ app.get('/api/me/capabilities', async (req, res) => {
         const canImport = catalogReady && isQualifiedManufacturer;
         const qualifiesForSupplierImport = isQualifiedManufacturer;
         const canUploadProductsAndAssets = await canUploadProductsAndAssetsUserId(user.id);
+        const canControlDesignShowOnHomepageFlag = await canControlDesignShowOnHomepage(user.id);
         let isIndustrySupplier = false;
         let industrySupplierId = null;
         if (catalogReady) {
@@ -23121,6 +23141,7 @@ app.get('/api/me/capabilities', async (req, res) => {
             can_edit_vendor_content: canEditVendorContent,
             supplier_catalog_ready: catalogReady,
             can_upload_products_and_assets: canUploadProductsAndAssets,
+            can_control_design_show_on_homepage: canControlDesignShowOnHomepageFlag,
             can_browse_supplier_catalog: canBrowseCatalog,
             can_use_supplier_catalog: canImport,
             can_import_supplier_catalog: canImport,
@@ -26663,7 +26684,7 @@ app.get('/api/admin/photography-prompt-sets', async (req, res) => {
                 }
                 return res.json({
                     items: (legacy.data || []).map((r) => ({ ...r, use_for_promo: false })),
-                    migration_hint: '請執行 docs/add-photography-use-for-promo.sql 以啟用「推廣圖使用」開關'
+                    migration_hint: '請執行 docs/add-photography-use-for-promo.sql 以啟用「情境圖使用」開關'
                 });
             }
             console.error('GET /api/admin/photography-prompt-sets:', error);
@@ -26725,7 +26746,7 @@ app.post('/api/admin/photography-prompt-sets', express.json(), async (req, res) 
             if (!error && wantedPromo) {
                 return res.status(201).json({
                     item: data,
-                    warning: '其他欄位已儲存。請先執行 docs/add-photography-use-for-promo.sql，才能啟用「推廣圖使用」'
+                    warning: '其他欄位已儲存。請先執行 docs/add-photography-use-for-promo.sql，才能啟用「情境圖使用」'
                 });
             }
         }
@@ -26797,7 +26818,7 @@ app.put('/api/admin/photography-prompt-sets/:id', express.json(), async (req, re
                 // 其他欄位仍寫入成功；提醒執行 migration（勿再回 500）
                 return res.json({
                     item: data,
-                    warning: '其他欄位已儲存。請先執行 docs/add-photography-use-for-promo.sql，才能啟用「推廣圖使用」'
+                    warning: '其他欄位已儲存。請先執行 docs/add-photography-use-for-promo.sql，才能啟用「情境圖使用」'
                 });
             }
         }
@@ -26855,7 +26876,7 @@ function parsePromoRecommendedRatios(raw) {
     return ['1:1', '4:3', '16:9'];
 }
 
-// GET /api/admin/promo-scene-templates — 推廣圖主題／場景
+// GET /api/admin/promo-scene-templates — 情境圖主題／場景
 app.get('/api/admin/promo-scene-templates', async (req, res) => {
     try {
         const user = await requireAdmin(req, res);

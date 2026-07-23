@@ -314,7 +314,7 @@
 
         <div id="official-platform-banner" class="alert alert-info border mb-3 d-none" role="status">
             <i class="bi bi-collection me-2"></i>
-            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、推廣圖、零件、材料、產品關聯圖）。內容會出現在設計頁「官方版型」。
+            <strong>官方版型庫（管理員）</strong> — 與廠商「上傳數位版型」相同功能（AI 重繪、寫實化、情境圖、零件、材料、產品關聯圖）。內容會出現在設計頁「官方版型」。
         </div>
 
         <div id="main-content" class="d-none">
@@ -347,7 +347,7 @@
                 </li>
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" type="button" data-kind="promo" id="tab-promo" role="tab">
-                        <i class="bi bi-megaphone me-1"></i>推廣圖
+                        <i class="bi bi-megaphone me-1"></i>情境圖
                     </button>
                 </li>
             </ul>
@@ -796,7 +796,7 @@
                         <p class="small text-muted mt-2 mb-1" id="promoVendorPointsDisplay">預估 20 點</p>
                         <div id="promoVendorApplyWrap" class="d-inline-block">
                         <button type="button" class="btn btn-warning" id="promoVendorApplyBtn" disabled>
-                            <i class="bi bi-megaphone me-1"></i>生成推廣圖
+                            <i class="bi bi-megaphone me-1"></i>生成情境圖
                         </button>
                         </div>
                         <div id="promoVendorResultWrap" class="mt-3">
@@ -7514,7 +7514,7 @@
             btn.addEventListener('click', function () { switchKind(btn.getAttribute('data-kind')); });
         });
 
-        // —— 推廣圖 TAB（獨立輕量列表，不依賴整包 materialsAll）——
+        // —— 情境圖 TAB（獨立輕量列表，不依賴整包 materialsAll）——
         var promoVendorSelectedAssetId = null;
         var promoVendorSelectedImageUrls = [];
         var promoVendorOptionsLoaded = false;
@@ -7599,7 +7599,7 @@
                     if (th) th.textContent = data.slot_migration_hint;
                 } else if (!scenes.length) {
                     var eh = document.getElementById('promoVendorEnvHint');
-                    if (eh) eh.textContent = '尚無場景選項：請至後台「推廣圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql';
+                    if (eh) eh.textContent = '尚無場景選項：請至後台「情境圖主題／場景」→ 場景分頁新增，或執行 docs/add-promo-theme-scene-slots.sql';
                 }
                 promoVendorOptionsLoaded = true;
                 refreshPromoVendorPoints();
@@ -7846,7 +7846,7 @@
                     if (wrap) wrap.innerHTML = '<p class="text-muted small mb-0">生成中…</p>';
                     if (!window.MatchdoPromoImage || typeof window.MatchdoPromoImage.generate !== 'function') {
                         applyBtn.disabled = false;
-                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">推廣圖模組未載入</p>';
+                        if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">情境圖模組未載入</p>';
                         return;
                     }
                     window.__MATCHDO_ACCESS_TOKEN = token || window.__MATCHDO_ACCESS_TOKEN || '';
@@ -7854,7 +7854,7 @@
                         applyBtn.disabled = !promoVendorSelectedImageUrls.length;
                         var data = result.data || {};
                         if (result.status === 401) {
-                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || '請重新登入後再生成推廣圖') + '</p>';
+                            if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">' + promoVendorEsc(data.error || '請重新登入後再生成情境圖') + '</p>';
                             showToast(data.error || '請重新登入', 'warning');
                             return;
                         }
@@ -7869,7 +7869,7 @@
                                 var img = document.createElement('img');
                                 img.src = displayUrl;
                                 img.className = 'img-fluid rounded mb-2';
-                                img.alt = '推廣圖';
+                                img.alt = '情境圖';
                                 img.style.maxHeight = '360px';
                                 wrap.appendChild(img);
                                 if (data.points_deducted != null) {
@@ -7905,7 +7905,7 @@
                     }).catch(function (err) {
                         applyBtn.disabled = !promoVendorSelectedImageUrls.length;
                         if (wrap) wrap.innerHTML = '<p class="text-danger small mb-0">生成失敗</p>';
-                        showToast('推廣圖生成失敗', 'danger');
+                        showToast('情境圖生成失敗', 'danger');
                         console.warn('promo vendor', err);
                     });
                 });
@@ -9136,7 +9136,7 @@
                     var titleH4 = document.querySelector('.page-title-bar h4');
                     if (titleH4) titleH4.textContent = '官方版型庫（管理員）';
                     var titleSmall = document.querySelector('.page-title-bar small');
-                    if (titleSmall) titleSmall.textContent = '與廠商「上傳數位版型」相同介面：數位原型、配件／零件、材料／顏色，含 AI 重繪、寫實化、推廣圖、放大、產品關聯圖。';
+                    if (titleSmall) titleSmall.textContent = '與廠商「上傳數位版型」相同介面：數位原型、配件／零件、材料／顏色，含 AI 重繪、寫實化、情境圖、放大、產品關聯圖。';
                     document.title = '官方版型庫（管理員）';
                 }
 

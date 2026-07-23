@@ -86,9 +86,9 @@
               <p class="form-text small text-muted mb-0"><code>bfl_flux_model_design_to_physical</code> — 設計頁／廠商寫實化（獨立槽，勿與產品重繪混用）</p>
             </div>
             <div class="mb-3">
-              <label class="form-label small mb-1">產品推廣圖</label>
+              <label class="form-label small mb-1">產品情境圖</label>
               <input type="text" id="bflFluxModelPromoImage" class="form-control form-control-sm" placeholder="flux-2-pro" />
-              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_image</code> — 設計頁／廠商「推廣圖」TAB（獨立槽）</p>
+              <p class="form-text small text-muted mb-0"><code>bfl_flux_model_promo_image</code> — 設計頁／廠商「情境圖」TAB（獨立槽）</p>
             </div>
             <button type="button" class="btn btn-sm btn-success" id="btnSaveBflFluxConfig">儲存 FLUX 模型</button>
             <span id="bflFluxConfigDbHint" class="small text-muted ms-2"></span>
@@ -198,7 +198,7 @@
       if (s.bfl_flux_model_vendor_material) parts.push('材料');
       if (s.bfl_flux_model_scene_pattern) parts.push('實境/圖樣');
       if (s.bfl_flux_model_design_to_physical) parts.push('寫實化');
-      if (s.bfl_flux_model_promo_image) parts.push('推廣圖');
+      if (s.bfl_flux_model_promo_image) parts.push('情境圖');
       hint.textContent = parts.length ? '（已從資料庫載入：' + parts.join('、') + '）' : '（程式預設 flux-2-pro，儲存後寫入 DB）';
     }
   }
@@ -349,7 +349,7 @@
         return;
       }
       loadAiConfig();
-      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，官方版型「' + payload.bfl_flux_model_official + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，寫實化「' + payload.bfl_flux_model_design_to_physical + '」，推廣圖「' + payload.bfl_flux_model_promo_image + '」');
+      showMsg('FLUX 模型已儲存：設計頁「' + payload.bfl_flux_model_generate + '」，官方版型「' + payload.bfl_flux_model_official + '」，產品重繪「' + payload.bfl_flux_model_vendor_product + '」，寫實化「' + payload.bfl_flux_model_design_to_physical + '」，情境圖「' + payload.bfl_flux_model_promo_image + '」');
     } catch (e) {
       showMsg('儲存失敗：' + (e.message || ''), true);
     } finally {

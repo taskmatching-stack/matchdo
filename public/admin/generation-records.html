@@ -25,7 +25,7 @@
       <aside id="admin-sidebar" class="col-md-3 col-lg-2 bg-white border-end min-vh-100"></aside>
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">生圖紀錄</h4>
-        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品推廣圖（含成圖、描述、參考來源）</p>
+        <p class="text-muted small mb-3">主站訂製生圖、Embed iframe 訪客生圖、產品情境圖（含成圖、描述、參考來源）</p>
 
         <div class="row g-2 mb-3" id="summaryRow">
           <div class="col-6 col-md-3">
@@ -48,7 +48,7 @@
           </div>
           <div class="col-6 col-md-3">
             <div class="card stat-card"><div class="card-body py-2 px-3">
-              <div class="text-muted small">推廣圖</div>
+              <div class="text-muted small">情境圖</div>
               <div class="stat-num text-success" id="sumPromo">—</div>
             </div></div>
           </div>
@@ -64,7 +64,7 @@
                   <option value="all">全部</option>
                   <option value="site">主站</option>
                   <option value="embed">Embed</option>
-                  <option value="promo">推廣圖</option>
+                  <option value="promo">情境圖</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -151,7 +151,7 @@
 
     function sourceBadge(row) {
       if (row.source === 'embed') return '<span class="badge badge-embed">Embed</span>';
-      if (row.source === 'promo') return '<span class="badge badge-promo">推廣圖</span>';
+      if (row.source === 'promo') return '<span class="badge badge-promo">情境圖</span>';
       return '<span class="badge badge-site">主站</span>';
     }
 
