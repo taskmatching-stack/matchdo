@@ -22,16 +22,18 @@ function registerSitemapRoutes(app, deps) {
     const { supabase, BASE_URL } = deps;
 
     // GET /sitemap.xml — SEO 用網站地圖「索引」；子 sitemap 持續由 DB/靜態清單更新（見 docs/sitemap.md）
-    // 首頁：全部(/) + 三種 layout_type + 中英文變體（與 hreflang 對應，利於收錄）
+    // 首頁：全部(/) + 四種 layout_type + 中英文變體（與 hreflang 對應，利於收錄）
     const SITEMAP_PAGES = [
         { path: '/',                        priority: '1.0', changefreq: 'weekly' },
         { path: '/?layout_type=user_design', priority: '0.9', changefreq: 'weekly' },
         { path: '/?layout_type=comparison', priority: '0.9', changefreq: 'weekly' },
         { path: '/?layout_type=collection', priority: '0.9', changefreq: 'weekly' },
+        { path: '/?layout_type=promo_scene', priority: '0.9', changefreq: 'weekly' },
         { path: '/?lang=en',                priority: '0.95', changefreq: 'weekly' },
         { path: '/?layout_type=user_design&lang=en', priority: '0.9', changefreq: 'weekly' },
         { path: '/?layout_type=comparison&lang=en',  priority: '0.9', changefreq: 'weekly' },
         { path: '/?layout_type=collection&lang=en',  priority: '0.9', changefreq: 'weekly' },
+        { path: '/?layout_type=promo_scene&lang=en',  priority: '0.9', changefreq: 'weekly' },
         { path: '/custom/',                 priority: '0.9', changefreq: 'weekly' },
         { path: '/custom/gallery.html',     priority: '0.9', changefreq: 'weekly' },
         { path: '/design-direction/',                 priority: '0.9', changefreq: 'weekly' },

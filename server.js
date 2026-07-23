@@ -247,6 +247,7 @@ function mediaWallItemSearchHaystack(item) {
         item.description,
         item.generation_prompt,
         item.user_prompt,
+        item.scene_description,
         item.design_highlight,
         item.category_key,
         item.subcategory_key,
@@ -475,7 +476,30 @@ function classifyPromoSceneOrientation(width, height, aspectRatio) {
     return 'square';
 }
 
-function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap) {
+function resolvePromoSceneDescriptionFromRow(row, templateNameMap) {
+    const stored = row && row.description ? String(row.description).trim() : '';
+    if (stored) return stored;
+    let sem = row && row.image_semantics_json;
+    if (typeof sem === 'string') {
+        try { sem = JSON.parse(sem); } catch (_) { sem = null; }
+    }
+    const fromSem = sem ? visualSemantics.buildVendorAssetDescriptionFromSemantics(sem) : null;
+    if (fromSem) return fromSem;
+    const tplMap = templateNameMap && typeof templateNameMap === 'object' ? templateNameMap : {};
+    const themeKey = row && row.scene_template_key ? String(row.scene_template_key).trim() : '';
+    const sceneKey = row && row.scene_key ? String(row.scene_key).trim() : '';
+    const themeName = themeKey ? (tplMap[themeKey] || themeKey) : '';
+    const sceneName = sceneKey ? (tplMap[sceneKey] || sceneKey) : '';
+    const sceneParts = [];
+    if (themeName) sceneParts.push(themeName);
+    if (sceneName && sceneName !== themeName) sceneParts.push(sceneName);
+    const userPrompt = row && row.user_prompt ? String(row.user_prompt).trim() : '';
+    let fallback = sceneParts.join(' · ');
+    if (userPrompt) fallback = fallback ? (fallback + ' — ' + userPrompt) : userPrompt;
+    return fallback || null;
+}
+
+function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, templateNameMap) {
     const orient = classifyPromoSceneOrientation(row.width, row.height, row.aspect_ratio);
     let size = '1x1';
     if (orient === 'landscape') size = '2x1';
@@ -493,7 +517,11 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap) {
     const productTitle = srcProd && srcProd.title ? String(srcProd.title).trim() : '';
     const promptSnippet = row.user_prompt ? String(row.user_prompt).trim().slice(0, 48) : '';
     const title = productTitle || ownerName || promptSnippet || '推廣圖';
-    return stripMediaWallHeavyFields({
+    const userPrompt = row.user_prompt ? String(row.user_prompt).trim() : '';
+    const sceneDescription = resolvePromoSceneDescriptionFromRow(row, templateNameMap);
+    const themeKey = row.scene_template_key ? String(row.scene_template_key).trim() : '';
+    const sceneKey = row.scene_key ? String(row.scene_key).trim() : '';
+    const item = attachDisplayTags({
         id: row.id,
         type: 'promo_scene',
         size,
@@ -510,12 +538,43 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap) {
         source_id: sourceId || null,
         source_product_id: (sourceType === 'custom_product' && sourceId) ? sourceId : null,
         source_image_url: row.source_image_url || null,
-        user_prompt: row.user_prompt || null,
+        user_prompt: userPrompt || null,
+        scene_description: sceneDescription || null,
+        description: sceneDescription || null,
+        theme_key: themeKey || null,
+        scene_key: sceneKey || null,
         owner_display: (ownerDisplayMap && row.user_id) ? (ownerDisplayMap[row.user_id] || null) : null,
         category_key: srcProd ? (srcProd.category || null) : null,
         subcategory_key: srcProd ? (srcProd.subcategory_key || null) : null,
+        ai_tags: Array.isArray(row.ai_tags) ? row.ai_tags : [],
+        tags: [],
+        image_semantics_json: row.image_semantics_json || null,
         created_at: row.created_at || null
     });
+    return stripMediaWallHeavyFields(item);
+}
+
+async function fetchPromoTemplateNameMap(keys) {
+    const uniq = [...new Set((keys || []).map((k) => String(k || '').trim()).filter(Boolean))];
+    const map = {};
+    if (!uniq.length) return map;
+    try {
+        const { data } = await supabase.from('promo_scene_templates').select('key, name').in('key', uniq);
+        (data || []).forEach((r) => {
+            if (r && r.key) map[r.key] = (r.name && String(r.name).trim()) || r.key;
+        });
+    } catch (_) { /* 表未建 */ }
+    uniq.forEach((k) => { if (!map[k]) map[k] = k; });
+    return map;
+}
+
+function promoTemplateKeysFromRows(rows) {
+    const keys = [];
+    (rows || []).forEach((row) => {
+        if (row && row.scene_template_key) keys.push(row.scene_template_key);
+        if (row && row.scene_key) keys.push(row.scene_key);
+    });
+    return keys;
 }
 
 function mapPortfolioRowToMediaWallItem(p, compMfrMap) {
@@ -615,16 +674,17 @@ async function loadMediaWallSearchResults(searchQ, opts) {
                 const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
                 (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
             }
+            const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows(rows));
             rows.forEach((row) => {
                 if (!row || !row.id || seenPromo.has(row.id)) return;
-                const item = mapPromoRowToMediaWallItem(row, ownerMap, srcMap);
+                const item = mapPromoRowToMediaWallItem(row, ownerMap, srcMap, tplMap);
                 if (!mediaWallItemSearchHaystack(item).includes(qLower)) return;
                 seenPromo.add(row.id);
                 merged.push({ item, created_at: row.created_at || '' });
             });
         };
         let qPromo = supabase.from('product_promo_generations')
-            .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, result_image_url, created_at, show_on_homepage')
+            .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, scene_template_key, scene_key, final_prompt, result_image_url, ai_tags, image_semantics_json, description, semantics_generated_at, created_at, show_on_homepage')
             .eq('status', 'success')
             .eq('source_type', 'custom_product')
             .not('result_image_url', 'is', null)
@@ -638,7 +698,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
         let promoRows = promoRes.data || [];
         if (promoRes.error && isSupabaseMissingColumnError(promoRes.error, 'show_on_homepage')) {
             const fb = await supabase.from('product_promo_generations')
-                .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, result_image_url, created_at')
+                .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, scene_template_key, final_prompt, result_image_url, created_at')
                 .eq('status', 'success')
                 .eq('source_type', 'custom_product')
                 .not('result_image_url', 'is', null)
@@ -3851,6 +3911,135 @@ async function enrichCustomProductSemantics(productId, ownerId, ctx = {}) {
         console.error('enrichCustomProductSemantics:', e.message);
         return null;
     }
+}
+
+/** 情境圖成圖 → ai_tags／描述；失敗不拋出（背景執行） */
+async function enrichPromoGenerationSemantics(generationId, ownerId, ctx = {}) {
+    if (!generationId || !process.env.GEMINI_API_KEY) return null;
+    try {
+        const deps = getVisualSemanticsDeps();
+        let imagePart;
+        if (ctx.imageBuffer) {
+            imagePart = visualSemantics.bufferToImagePart(ctx.imageBuffer, 'image/jpeg');
+        } else {
+            const imageUrl = (ctx.imageUrl || '').trim();
+            if (!imageUrl) return null;
+            imagePart = await visualSemantics.fetchUrlToImagePart(deps.fetch, imageUrl);
+        }
+        const contextParts = [];
+        let productTitle = ctx.productTitle || null;
+        let categoryKey = ctx.categoryKey || null;
+        if (!productTitle && ctx.sourceType === 'custom_product' && ctx.sourceId) {
+            try {
+                const { data: prodRow } = await supabase.from('custom_products').select('title, category').eq('id', ctx.sourceId).maybeSingle();
+                if (prodRow) {
+                    productTitle = prodRow.title || productTitle;
+                    categoryKey = prodRow.category || categoryKey;
+                }
+            } catch (_) {}
+        }
+        let themeName = ctx.themeName || null;
+        let sceneName = ctx.sceneName || null;
+        if ((!themeName && ctx.themeKey) || (!sceneName && ctx.sceneKey)) {
+            const tplMap = await fetchPromoTemplateNameMap([ctx.themeKey, ctx.sceneKey].filter(Boolean));
+            if (ctx.themeKey && !themeName) themeName = tplMap[ctx.themeKey] || ctx.themeKey;
+            if (ctx.sceneKey && !sceneName) sceneName = tplMap[ctx.sceneKey] || ctx.sceneKey;
+        }
+        if (productTitle) contextParts.push('來源品項名稱：' + productTitle);
+        if (categoryKey) contextParts.push('品類 key：' + categoryKey);
+        if (themeName) contextParts.push('主題模板：' + themeName);
+        if (sceneName) contextParts.push('場景模板：' + sceneName);
+        const imgResult = await visualSemantics.analyzePromoSceneImageSemantics(deps, imagePart, {
+            context_text: contextParts.join('\n'),
+            user_prompt: ctx.userPrompt || null,
+            final_prompt: ctx.finalPrompt || null
+        });
+        let mergedTags = imgResult.tags || [];
+        const genPrompt = [(ctx.userPrompt || '').trim(), (ctx.finalPrompt || '').trim()].filter(Boolean).join('\n');
+        if (genPrompt) {
+            try {
+                const pResult = await visualSemantics.analyzePromptSemantics(deps, genPrompt, {
+                    title: ctx.productTitle || null,
+                    category_key: ctx.categoryKey || null
+                });
+                mergedTags = visualSemantics.mergeTags(mergedTags, pResult.tags);
+            } catch (pe) {
+                console.warn('enrichPromoGenerationSemantics prompt:', pe.message);
+            }
+        }
+        const tagsByDim = visualSemantics.buildTagsByDimension(imgResult.semantics);
+        const description = visualSemantics.buildVendorAssetDescriptionFromSemantics(imgResult.semantics)
+            || (imgResult.semantics && imgResult.semantics.intent_summary) || null;
+        const updates = {
+            ai_tags: mergedTags,
+            image_semantics_json: imgResult.semantics,
+            description: description,
+            semantics_generated_at: new Date().toISOString()
+        };
+        const { error: updErr } = await supabase.from('product_promo_generations').update(updates).eq('id', generationId);
+        if (updErr) {
+            if (updErr.code === '42703') {
+                console.warn('enrichPromoGenerationSemantics: 請執行 docs/add-promo-generations-semantics.sql');
+            } else {
+                console.warn('enrichPromoGenerationSemantics update:', updErr.message);
+            }
+            return null;
+        }
+        await recordVisualSemanticsEvent({
+            source_type: 'promo_scene',
+            source_id: generationId,
+            image_url: ctx.imageUrl || null,
+            text_input: genPrompt || null,
+            semantics_kind: 'promo_scene_image',
+            ai_tags: mergedTags,
+            semantics_json: { ...imgResult.semantics, ai_tags_by_dimension: tagsByDim },
+            model: imgResult.model,
+            prompt_version: imgResult.prompt_version,
+            owner_id: ownerId || null,
+            category_key: ctx.categoryKey || null
+        });
+        console.log('product_promo_generations 語意標籤完成 id=%s tags=%d', generationId, mergedTags.length);
+        return { ai_tags: mergedTags, description };
+    } catch (e) {
+        console.error('enrichPromoGenerationSemantics:', e.message);
+        return null;
+    }
+}
+
+function schedulePromoGenerationSemanticsEnrich(generationId, ownerId, ctx) {
+    if (!generationId || !process.env.GEMINI_API_KEY) return;
+    setImmediate(function () {
+        enrichPromoGenerationSemantics(generationId, ownerId, ctx || {}).catch(function () {});
+    });
+}
+
+function scheduleMissingPromoSemanticsBackfill(rows, sourceProductMap, templateNameMap) {
+    if (!process.env.GEMINI_API_KEY || !rows || !rows.length) return;
+    const pending = rows.filter(function (row) {
+        if (!row || !row.id || !row.result_image_url) return false;
+        if (row.semantics_generated_at) return false;
+        const hasTags = Array.isArray(row.ai_tags) && row.ai_tags.length > 0;
+        return !hasTags;
+    }).slice(0, 4);
+    pending.forEach(function (row) {
+        const srcProd = row.source_id && sourceProductMap ? sourceProductMap[row.source_id] : null;
+        const tplMap = templateNameMap || {};
+        const themeKey = row.scene_template_key ? String(row.scene_template_key).trim() : '';
+        const sceneKey = row.scene_key ? String(row.scene_key).trim() : '';
+        schedulePromoGenerationSemanticsEnrich(row.id, row.user_id, {
+            imageUrl: row.result_image_url,
+            userPrompt: row.user_prompt || null,
+            finalPrompt: row.final_prompt || null,
+            themeKey: themeKey || null,
+            sceneKey: sceneKey || null,
+            sourceType: row.source_type || null,
+            sourceId: row.source_id || null,
+            productTitle: srcProd && srcProd.title ? srcProd.title : null,
+            categoryKey: srcProd && srcProd.category ? srcProd.category : null,
+            themeName: themeKey ? (tplMap[themeKey] || themeKey) : null,
+            sceneName: sceneKey ? (tplMap[sceneKey] || sceneKey) : null
+        });
+    });
 }
 
 function finalizeVendorAssetSemantics(semanticsJson, tags, assetKind) {
@@ -10935,6 +11124,18 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         } catch (logErr) {
             console.warn('product_promo_generations insert skipped:', logErr?.message || logErr);
         }
+        if (generationId) {
+            schedulePromoGenerationSemanticsEnrich(generationId, currentUser.id, {
+                imageBuffer: buffer,
+                imageUrl: resultImageUrl,
+                userPrompt,
+                finalPrompt,
+                themeKey: themeKey || null,
+                sceneKey: sceneKey || null,
+                sourceType,
+                sourceId
+            });
+        }
         res.json({
             success: true,
             id: generationId,
@@ -14139,7 +14340,7 @@ app.get('/api/media-wall', async (req, res) => {
             const promoDbOffset = clientFilterActive ? 0 : offset;
             let promoQuery = supabase
                 .from('product_promo_generations')
-                .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, result_image_url, created_at, show_on_homepage')
+                .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, scene_template_key, scene_key, final_prompt, result_image_url, ai_tags, image_semantics_json, description, semantics_generated_at, created_at, show_on_homepage')
                 .eq('status', 'success')
                 .eq('source_type', 'custom_product')
                 .not('result_image_url', 'is', null)
@@ -14151,7 +14352,7 @@ app.get('/api/media-wall', async (req, res) => {
             if (promoRes.error && isSupabaseMissingColumnError(promoRes.error, 'show_on_homepage')) {
                 promoQuery = supabase
                     .from('product_promo_generations')
-                    .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, result_image_url, created_at')
+                    .select('id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, scene_template_key, final_prompt, result_image_url, created_at')
                     .eq('status', 'success')
                     .eq('source_type', 'custom_product')
                     .not('result_image_url', 'is', null)
@@ -14192,8 +14393,10 @@ app.get('/api/media-wall', async (req, res) => {
                     const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
                     (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
                 }
+                const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows(promoRows));
+                scheduleMissingPromoSemanticsBackfill(promoRows, srcMap, tplMap);
                 promoRows.forEach((row) => {
-                    out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, srcMap));
+                    out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, srcMap, tplMap));
                 });
             }
             let promoItems = out;

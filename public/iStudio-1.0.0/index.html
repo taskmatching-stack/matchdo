@@ -923,7 +923,8 @@
                     var titleRaw = (p.title || '').trim();
                     var promptText = (p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt || p.title || '') : '';
                     var descRaw = (p.description || p.title || '').trim();
-                    var shortDescSrc = (p.type === 'user_design') ? (promptText || titleRaw) : descRaw;
+                    var promoDesc = (p.type === 'promo_scene') ? ((p.scene_description || p.user_prompt || '').trim()) : '';
+                    var shortDescSrc = (p.type === 'user_design') ? (promptText || titleRaw) : (p.type === 'promo_scene' ? (promoDesc || titleRaw) : descRaw);
                     var shortDesc = (shortDescSrc || '').slice(0, 80);
                     if (shortDesc.length >= 80 && shortDescSrc.length > 80) shortDesc += '\u2026';
                     var altSuffix = (shortDesc && shortDesc !== titleRaw) ? (' \u2014 ' + (shortDesc.slice(0, 60))) : '';
@@ -996,6 +997,7 @@
                     }
                     if (p.type === 'promo_scene') {
                         dataItem.user_prompt = p.user_prompt || null;
+                        dataItem.scene_description = p.scene_description || null;
                         dataItem.owner_display = p.owner_display || null;
                         dataItem.category_key = p.category_key || null;
                         dataItem.subcategory_key = p.subcategory_key || null;
@@ -1004,6 +1006,7 @@
                         dataItem.source_id = p.source_id || null;
                         dataItem.aspect_ratio = p.aspect_ratio || null;
                         dataItem.promo_orient = p.promo_orient || null;
+                        dataItem.ai_tags = Array.isArray(p.ai_tags) ? p.ai_tags : [];
                     }
                     var displayTags = getDisplayTags(p);
                     dataItem.display_tags = displayTags;
@@ -1384,7 +1387,7 @@
                 var baseUrl = (typeof location !== 'undefined' && location.origin) ? location.origin : 'https://matchdo.cc';
                 var elements = list.slice(0, 50).map(function (p, i) {
                     var name = (p.title || '').trim();
-                    var desc = ((p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt) : p.description) || p.title || '';
+                    var desc = ((p.type === 'user_design') ? ((p.analysis_json && p.analysis_json.generation_prompt) || p.generation_prompt) : (p.type === 'promo_scene' ? (p.scene_description || p.user_prompt) : p.description)) || p.title || '';
                     var img = (p.image_url || p.cover_image_url || '').trim();
                     var pagePath = (p.inspiration_url && String(p.inspiration_url).trim())
                         || ('/inspiration/' + encodeURIComponent(p.type || 'user_design') + '/' + encodeURIComponent(p.id || ''));
@@ -1834,10 +1837,15 @@
                         }
                         if (categoryRow && categoryEl) { categoryEl.textContent = promoCatLabel || promoCatKey || '（無）'; categoryRow.style.display = (promoCatKey || promoCatLabel) ? '' : 'none'; }
                         if (subcategoryRow && subcategoryEl) { subcategoryEl.textContent = promoSubLabel || '（無）'; subcategoryRow.style.display = promoSubLabel ? '' : 'none'; }
-                        if (promptEl) promptEl.textContent = item.user_prompt || '（無）';
+                        if (promptEl) promptEl.textContent = item.scene_description || item.user_prompt || '（無）';
                         if (seedEl) seedEl.textContent = '（無）';
                         if (ownerEl) ownerEl.textContent = item.owner_display || '（無）';
-                        if (displayTagsRow) displayTagsRow.style.display = 'none';
+                        var promoTags = getDisplayTags(item);
+                        if (displayTagsRow && displayTagsEl && displayTagsN) {
+                            displayTagsEl.innerHTML = buildTagsBadgesHtml(promoTags);
+                            displayTagsN.textContent = String(promoTags.length);
+                            displayTagsRow.style.display = promoTags.length ? '' : 'none';
+                        }
                     } else if (item.type === 'comparison' || item.type === 'collection' || item.type === 'series') {
                         if (detailWrap) detailWrap.classList.add('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.remove('d-none');
