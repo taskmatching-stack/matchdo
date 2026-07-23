@@ -608,6 +608,8 @@
   "home.layoutDesign": "設計圖",
   "home.layoutComparison": "對照圖",
   "home.layoutSeries": "系列圖",
+  "home.layoutPromoScene": "情境圖",
+  "home.viewSourceDesign": "查看原設計",
 
   "auth.login": "登入",
   "auth.register": "註冊",

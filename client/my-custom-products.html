@@ -176,6 +176,7 @@
 
         let currentUser = null;
         let authToken = null;
+        let promoCanControlHomepage = false;
 
         const isDesignDirectionView = (function () {
             const v = (new URLSearchParams(window.location.search).get('view') || '').toLowerCase();
@@ -253,7 +254,7 @@
 
             // 載入 tab 內容
             loadProducts();
-            loadPromoImages();
+            loadPromoCapabilities().then(loadPromoImages);
             loadFavorites();
 
             // ?tab=promo 直接開情境圖
@@ -267,6 +268,23 @@
 
             document.getElementById('tab-favs').addEventListener('shown.bs.tab', () => {});
         });
+
+        async function loadPromoCapabilities() {
+            try {
+                if (typeof canControlDesignShowOnHomepage === 'function') {
+                    promoCanControlHomepage = await canControlDesignShowOnHomepage();
+                    return;
+                }
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) return;
+                const res = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
+                const data = await res.json();
+                promoCanControlHomepage = !!(data && data.can_control_design_show_on_homepage);
+            } catch (e) {
+                promoCanControlHomepage = false;
+            }
+        }
 
         async function loadPromoImages() {
             const loading = document.getElementById('promoLoading');
@@ -311,24 +329,47 @@
             col.className = 'col-md-6 col-lg-4';
             const ratio = item.aspect_ratio || (item.width && item.height ? (item.width + ':' + item.height) : '');
             const title = ratio ? ('情境圖 ' + ratio) : '情境圖';
+            const showOn = item.show_on_homepage === true;
+            const canControl = promoCanControlHomepage;
+            const showChecked = canControl ? showOn : true;
+            const showDisabled = !canControl;
+            const showHint = canControl
+                ? '可勾選是否展示在首頁媒體牆「情境圖」'
+                : '免費用戶預設展示在首頁，無法取消';
+            const sourceLink = (item.source_type === 'custom_product' && item.source_id)
+                ? ('/inspiration/user_design/' + encodeURIComponent(item.source_id))
+                : '';
             col.innerHTML = `
-                <div class="card product-card h-100">
+                <div class="card product-card h-100" data-promo-id="${escapeHtml(String(item.id || ''))}">
                     <div class="promo-asset-thumb-wrap card-img-top border-0">
                         <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.style.opacity='0.3'">
                     </div>
                     <div class="card-body d-flex flex-column">
                         <h6 class="card-title mb-1">${escapeHtml(title)}</h6>
                         <p class="text-muted small mb-2">${item.width && item.height ? (item.width + '×' + item.height) : ''}${item.megapixels ? ' · ' + item.megapixels + ' MP' : ''}</p>
-                        <div class="text-muted small mb-3">
+                        <div class="text-muted small mb-2">
                             <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
                         </div>
+                        <div class="form-check form-switch mb-2 promo-show-homepage-wrap">
+                            <input class="form-check-input promo-show-homepage" type="checkbox" role="switch" id="promoShow-${escapeHtml(String(item.id || ''))}" ${showChecked ? 'checked' : ''} ${showDisabled ? 'disabled' : ''}>
+                            <label class="form-check-label small" for="promoShow-${escapeHtml(String(item.id || ''))}">展示在媒體牆</label>
+                        </div>
+                        <p class="text-muted small mb-2 promo-show-homepage-hint">${escapeHtml(showHint)}</p>
                         <div class="d-grid gap-2 mt-auto">
+                            ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>查看原設計</a>') : ''}
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
                         </div>
                     </div>
                 </div>
             `;
+            const showInput = col.querySelector('.promo-show-homepage');
+            const hintEl = col.querySelector('.promo-show-homepage-hint');
+            if (showInput && !showDisabled) {
+                showInput.addEventListener('change', function () {
+                    patchPromoShowOnHomepage(item.id, showInput.checked, hintEl, showInput);
+                });
+            }
             const dlBtn = col.querySelector('.btn-promo-download');
             if (dlBtn) {
                 dlBtn.addEventListener('click', function () {
@@ -340,6 +381,35 @@
                 });
             }
             return col;
+        }
+
+        async function patchPromoShowOnHomepage(id, checked, hintEl, inputEl) {
+            if (!id) return;
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('未登入');
+                const url = '/api/promo-image/generations/' + encodeURIComponent(id) + '?show_on_homepage=' + (checked ? 'true' : 'false');
+                const res = await fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                    body: JSON.stringify({ show_on_homepage: checked })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error((data && data.error) || '更新失敗');
+                if (hintEl) {
+                    hintEl.textContent = checked ? '已設定為展示在首頁' : '已取消展示在首頁';
+                    hintEl.classList.remove('text-danger');
+                    hintEl.classList.add('text-success');
+                }
+            } catch (err) {
+                if (inputEl) inputEl.checked = !checked;
+                if (hintEl) {
+                    hintEl.textContent = err.message || '更新失敗';
+                    hintEl.classList.remove('text-success');
+                    hintEl.classList.add('text-danger');
+                }
+            }
         }
 
         async function loadProducts() {

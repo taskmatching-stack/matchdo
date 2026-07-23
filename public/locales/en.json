@@ -570,6 +570,8 @@
   "home.layoutDesign": "Design",
   "home.layoutComparison": "Comparison",
   "home.layoutSeries": "Series",
+  "home.layoutPromoScene": "Scene images",
+  "home.viewSourceDesign": "View source design",
 
   "auth.login": "Log in",
   "auth.register": "Register",

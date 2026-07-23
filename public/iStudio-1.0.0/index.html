@@ -145,6 +145,30 @@
                 @media (max-width: 767px) {
                     #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
                 }
+                #media-wall-grid.mw-promo-scene-grid {
+                    grid-template-columns: repeat(2, 1fr) !important;
+                    grid-auto-rows: 130px;
+                    grid-auto-flow: dense;
+                }
+                #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap {
+                    background: #eef1f5;
+                }
+                #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap::after {
+                    display: none;
+                }
+                #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap > img.mw-promo-contain-img {
+                    object-fit: contain !important;
+                    width: 100%;
+                    height: 100%;
+                }
+                #media-wall-grid.mw-promo-scene-grid .media-wall-promo-landscape .card-img-wrap,
+                #media-wall-grid.mw-promo-scene-grid .media-wall-promo-portrait .card-img-wrap,
+                #media-wall-grid.mw-promo-scene-grid .media-wall-promo-square .card-img-wrap {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .media-wall-type-promo { background: rgba(100, 85, 60, .92); color: #fff; }
                 #media-wall-grid .card { border: none; border-radius: 8px; overflow: hidden; box-shadow: none; height: 100%; display: flex; flex-direction: column; background: transparent; }
                 #media-wall-grid .media-wall-1x2 .card,
                 #media-wall-grid .media-wall-comparison .card { border: 2px solid #445D7E; box-shadow: 0 2px 8px rgba(68,93,126,.35); }
@@ -240,6 +264,7 @@
                 <span class="filter-tag mw-layout-filter" data-layout-type="user_design" role="button" tabindex="0" title="單圖" data-i18n="home.layoutDesign">設計圖</span>
                 <span class="filter-tag mw-layout-filter" data-layout-type="comparison" role="button" tabindex="0" title="對照圖" data-i18n="home.layoutComparison">對照圖</span>
                 <span class="filter-tag mw-layout-filter" data-layout-type="series" role="button" tabindex="0" title="系列圖" data-i18n="home.layoutSeries">系列圖</span>
+                <span class="filter-tag mw-layout-filter" data-layout-type="promo_scene" role="button" tabindex="0" title="情境圖" data-i18n="home.layoutPromoScene">情境圖</span>
                 <button type="button" id="media-wall-load-more" class="btn btn-sm btn-outline-secondary d-none" data-i18n="home.loadMore">載入更多</button>
             </div>
             <div id="media-wall-filter" class="mb-2 d-none">
@@ -420,6 +445,7 @@
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
+    <script src="/js/media-wall-promo-scene.js"></script>
     <script src="/js/main.js"></script>
     <script>
         (function () {
@@ -833,6 +859,13 @@
                     linkEl.style.display = 'inline-block';
                     return;
                 }
+                if (item.type === 'promo_scene' && (item.source_product_id || item.inspiration_url)) {
+                    var srcUrl = (item.inspiration_url || item.link || '').trim();
+                    linkEl.innerHTML = '<i class="bi bi-image me-1"></i>' + ((window.i18n && window.i18n.t) ? (window.i18n.t('home.viewSourceDesign') || '查看原設計') : '查看原設計');
+                    linkEl.onclick = function () { if (srcUrl) window.location.href = srcUrl; };
+                    linkEl.style.display = 'inline-block';
+                    return;
+                }
                 if (item.type === 'user_design') {
                     var findVendorText = (window.i18n && window.i18n.t) ? window.i18n.t('home.findVendor') : '找廠商訂製';
                     var destUrl = resolveUserDesignFindVendorUrl(item);
@@ -872,6 +905,10 @@
                     if (p.type === 'user_design') {
                         var img = (p.image_url || '').trim();
                         content = (img ? '<img src="' + escAttr(imageSrcForShare(img)) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
+                    } else if (p.type === 'promo_scene') {
+                        var promoImg = (p.image_url || '').trim();
+                        content = (promoImg ? '<img class="mw-promo-contain-img" src="' + escAttr(imageSrcForShare(promoImg)) + '" alt="' + escAttr(altText) + '" loading="lazy">' : '<div class="media-wall-placeholder"><span>無圖</span></div>');
+                        wrapExtra = ' card-img-wrap-promo';
                     } else if (p.type === 'comparison') {
                         var compAfter = (p.image_url || '').trim() || placeholdAfter;
                         var compBefore = (p.image_url_before || '').trim() || placeholdBefore;
@@ -927,6 +964,17 @@
                         dataItem.has_vendor_reference = p.has_vendor_reference === true;
                         dataItem.ai_tags = Array.isArray(p.ai_tags) ? p.ai_tags : [];
                     }
+                    if (p.type === 'promo_scene') {
+                        dataItem.user_prompt = p.user_prompt || null;
+                        dataItem.owner_display = p.owner_display || null;
+                        dataItem.category_key = p.category_key || null;
+                        dataItem.subcategory_key = p.subcategory_key || null;
+                        dataItem.source_product_id = p.source_product_id || null;
+                        dataItem.source_type = p.source_type || null;
+                        dataItem.source_id = p.source_id || null;
+                        dataItem.aspect_ratio = p.aspect_ratio || null;
+                        dataItem.promo_orient = p.promo_orient || null;
+                    }
                     var displayTags = getDisplayTags(p);
                     dataItem.display_tags = displayTags;
                     if (p.type === 'comparison' || p.type === 'series' || p.type === 'collection') {
@@ -937,6 +985,7 @@
                     var typeBadge = '';
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
                     else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
+                    else if (p.type === 'promo_scene') typeBadge = '<span class="media-wall-type-badge media-wall-type-promo" title="情境圖">情境</span>';
                     else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時使用了廠商公開素材">實品素材</span>';
                     var itemId = String(p.id || (p.title + p.type));
                     var inspirationHref = (p.inspiration_url && String(p.inspiration_url).trim())
@@ -1126,7 +1175,7 @@
             function applyStateFromURL() {
                 var p = new URLSearchParams(typeof window !== 'undefined' && window.location ? window.location.search : '');
                 var layout = (p.get('layout_type') || '').trim();
-                currentLayoutType = (layout === 'user_design' || layout === 'comparison' || layout === 'series') ? layout : '';
+                currentLayoutType = (layout === 'user_design' || layout === 'comparison' || layout === 'series' || layout === 'promo_scene') ? layout : '';
                 currentCategoryKey = (p.get('category_key') || '').trim();
                 currentSubcategoryKey = (p.get('subcategory_key') || '').trim();
                 currentQ = (p.get('q') || '').trim();
@@ -1178,7 +1227,7 @@
                     chips.push({ kind: 'tag', label: '\u6a19\u7c64\uff1a' + t, clear: function () { toggleTagFilter(t); } });
                 });
                 if (currentLayoutType) {
-                    var layoutLabels = { user_design: '\u8a2d\u8a08\u5716', comparison: '\u5c0d\u7167\u5716', series: '\u7cfb\u5217\u5716' };
+                    var layoutLabels = { user_design: '\u8a2d\u8a08\u5716', comparison: '\u5c0d\u7167\u5716', series: '\u7cfb\u5217\u5716', promo_scene: '\u60c5\u5883\u5716' };
                     chips.push({ kind: 'layout', label: layoutLabels[currentLayoutType] || currentLayoutType, clear: function () { setLayoutType(''); } });
                 }
                 if (currentCategoryKey) {
@@ -1230,7 +1279,7 @@
             // 類型篩選（新寫）：三種卡片類型，點哪個就只顯示該類型
             function setLayoutType(type) {
                 type = String(type || '').trim();
-                currentLayoutType = (type === 'user_design' || type === 'comparison' || type === 'series') ? type : '';
+                currentLayoutType = (type === 'user_design' || type === 'comparison' || type === 'series' || type === 'promo_scene') ? type : '';
                 updateMediaWallURL();
                 document.querySelectorAll('.mw-layout-filter').forEach(function (btn) {
                     var btnType = (btn.getAttribute('data-layout-type') || '').trim();
@@ -1354,11 +1403,27 @@
                     }
                     if (layoutFilter) {
                         listForLD = [];
-                        items.forEach(function (p) {
-                            var rendered = appendRenderedItem(p);
-                            if (rendered) listForLD.push(rendered);
-                        });
+                        if (layoutFilter === 'promo_scene' && window.MatchdoMediaWallPromoScene && typeof window.MatchdoMediaWallPromoScene.packPromoSceneItems === 'function') {
+                            grid.classList.add('mw-promo-scene-grid');
+                            var packed = window.MatchdoMediaWallPromoScene.packPromoSceneItems(items);
+                            packed.forEach(function (entry) {
+                                var rendered = appendRenderedItem(entry.item);
+                                if (rendered) {
+                                    listForLD.push(rendered);
+                                    var wraps = grid.querySelectorAll('.media-wall-item');
+                                    var wrap = wraps[wraps.length - 1];
+                                    window.MatchdoMediaWallPromoScene.applyPlacement(wrap, entry.placement);
+                                }
+                            });
+                        } else {
+                            grid.classList.remove('mw-promo-scene-grid');
+                            items.forEach(function (p) {
+                                var rendered = appendRenderedItem(p);
+                                if (rendered) listForLD.push(rendered);
+                            });
+                        }
                     } else {
+                        grid.classList.remove('mw-promo-scene-grid');
                         var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
                         var collections = items.filter(is1x2);
                         var ones = items.filter(function (p) { return !is1x2(p); });
@@ -1710,6 +1775,26 @@
                             displayTagsN.textContent = String(udTags.length);
                             displayTagsRow.style.display = udTags.length ? '' : 'none';
                         }
+                    } else if (item.type === 'promo_scene' && detailWrap) {
+                        detailWrap.classList.remove('d-none');
+                        if (portfolioDetailWrap) portfolioDetailWrap.classList.add('d-none');
+                        var promoCatKey = item.category_key || '';
+                        var promoSubKey = item.subcategory_key || '';
+                        var promoCatLabel = ''; var promoSubLabel = '';
+                        if (cats && cats.length) {
+                            var promoCat = promoCatKey ? cats.find(function (c) { return (c.key || '') === promoCatKey; }) : null;
+                            if (promoCat) promoCatLabel = promoCat.name || promoCatKey;
+                            if (promoSubKey && promoCat && promoCat.subcategories && promoCat.subcategories.length) {
+                                var promoSub = promoCat.subcategories.find(function (s) { return (s.key || '') === promoSubKey; });
+                                promoSubLabel = promoSub ? (promoSub.name || promoSubKey) : promoSubKey;
+                            } else if (promoSubKey) promoSubLabel = promoSubKey;
+                        }
+                        if (categoryRow && categoryEl) { categoryEl.textContent = promoCatLabel || promoCatKey || '（無）'; categoryRow.style.display = (promoCatKey || promoCatLabel) ? '' : 'none'; }
+                        if (subcategoryRow && subcategoryEl) { subcategoryEl.textContent = promoSubLabel || '（無）'; subcategoryRow.style.display = promoSubLabel ? '' : 'none'; }
+                        if (promptEl) promptEl.textContent = item.user_prompt || '（無）';
+                        if (seedEl) seedEl.textContent = '（無）';
+                        if (ownerEl) ownerEl.textContent = item.owner_display || '（無）';
+                        if (displayTagsRow) displayTagsRow.style.display = 'none';
                     } else if (item.type === 'comparison' || item.type === 'collection' || item.type === 'series') {
                         if (detailWrap) detailWrap.classList.add('d-none');
                         if (portfolioDetailWrap) portfolioDetailWrap.classList.remove('d-none');
@@ -1745,7 +1830,7 @@
                 if (!currentLang) try { currentLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || ''; } catch (err) {}
                 if (!currentLang && window.i18n && typeof window.i18n.getLang === 'function') currentLang = window.i18n.getLang() || '';
                 var useEn = currentLang && String(currentLang).toLowerCase().indexOf('zh') !== 0;
-                if (item.type === 'user_design' && useEn && (item.category_key || item.category || item.subcategory_key)) {
+                if ((item.type === 'user_design' || item.type === 'promo_scene') && useEn && (item.category_key || item.category || item.subcategory_key)) {
                     var url = '/api/custom-product-categories?lang=' + encodeURIComponent(String(currentLang).split('-')[0]);
                     fetch(url).then(function (r) { return r.json(); }).then(function (json) {
                         var cats = (json && json.categories && json.categories.length) ? json.categories : (categoriesData.categories || []);

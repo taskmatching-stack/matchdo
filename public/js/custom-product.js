@@ -5545,6 +5545,7 @@ $(document).ready(function () {
                         var title = (p.title || p.generation_prompt || '').toString().substring(0, 40);
                         var $col = $('<div class="col-6 col-md-4 col-lg-3"></div>');
                         var $card = $('<div class="card border scene-sim-asset-item" style="cursor:pointer;"></div>').attr('data-image-url', url);
+                        if (p.id) $card.attr('data-product-id', p.id);
                         var $img = $('<img class="card-img-top scene-sim-asset-img" style="height:120px;object-fit:cover;cursor:zoom-in;">').attr('src', url).attr('alt', title).attr('title', t('customProduct.zoomImage') || '點擊放大').attr('loading', 'lazy').attr('decoding', 'async');
                         $card.append($img);
                         $card.append($('<div class="card-body py-1"><p class="small text-muted mb-0 text-truncate">').text(title || t('customProduct.noTitle')));
@@ -5564,8 +5565,9 @@ $(document).ready(function () {
                             if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
                             else if (window.assetPickerContext === 'designToPhysical') setDesignToPhysicalPreview(u);
                             else if (window.assetPickerContext === 'promoImage') {
-                                if (typeof setPromoImagePreview === 'function') setPromoImagePreview(u, 'digital_asset');
-                                else if (typeof window.setPromoImagePreview === 'function') window.setPromoImagePreview(u, 'digital_asset');
+                                var pid = ($(this).attr('data-product-id') || '').trim();
+                                if (typeof setPromoImagePreview === 'function') setPromoImagePreview(u, pid ? 'custom_product' : 'digital_asset', pid || null);
+                                else if (typeof window.setPromoImagePreview === 'function') window.setPromoImagePreview(u, pid ? 'custom_product' : 'digital_asset', pid || null);
                             }
                             else setSceneSimPreview(u);
                         }
@@ -6048,12 +6050,14 @@ $(document).ready(function () {
     // —— 情境圖（獨立 Tab；可多圖參考，最多 8 張）——
     window.promoImageImageUrls = [];
     window.promoImageSourceType = 'digital_asset';
+    window.promoImageSourceProductId = null;
     var promoImageOptionsLoaded = false;
     var PROMO_IMAGE_MAX_REFS = 8;
 
     function clearPromoImagePreview() {
         window.promoImageImageUrls = [];
         window.promoImageSourceType = 'digital_asset';
+        window.promoImageSourceProductId = null;
         renderPromoImageSelectedThumbs();
     }
     function renderPromoImageSelectedThumbs() {
@@ -6085,11 +6089,14 @@ $(document).ready(function () {
             $clear.addClass('d-none');
         }
     }
-    function setPromoImagePreview(imageUrl, sourceType) {
+    function setPromoImagePreview(imageUrl, sourceType, productId) {
         if (!imageUrl || !String(imageUrl).trim()) return;
         var url = String(imageUrl).trim();
-        window.promoImageSourceType = sourceType || 'digital_asset';
         window.promoImageImageUrls = window.promoImageImageUrls || [];
+        if (window.promoImageImageUrls.length === 0) {
+            window.promoImageSourceType = sourceType || 'digital_asset';
+            window.promoImageSourceProductId = productId ? String(productId).trim() : null;
+        }
         if (window.promoImageImageUrls.indexOf(url) >= 0) {
             renderPromoImageSelectedThumbs();
             return;
@@ -6268,7 +6275,8 @@ $(document).ready(function () {
             scene_key: ($('#promoImageEnvSelect').val() || '').trim(),
             user_prompt: ($('#promoImagePrompt').val() || '').trim(),
             photography_set_id: ($('#promoImagePhotoSelect').val() || '').trim() || undefined,
-            source_type: 'digital_asset'
+            source_type: window.promoImageSourceProductId ? 'custom_product' : (window.promoImageSourceType || 'digital_asset'),
+            source_id: window.promoImageSourceProductId || undefined
         };
         $btn.prop('disabled', true);
         $wrap.html('<p class="text-muted small mb-0">' + (t('home.loading') || '載入中…') + '</p>' + noteHtml);
