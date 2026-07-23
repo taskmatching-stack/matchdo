@@ -145,15 +145,24 @@
                 @media (max-width: 767px) {
                     #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
                     #media-wall-grid.mw-promo-scene-grid {
-                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                        grid-template-columns: repeat(2, calc((100% - 8px) / 3)) !important;
                         grid-auto-rows: minmax(120px, 28vw);
+                        width: max-content;
+                        max-width: 100%;
                     }
                 }
                 #media-wall-grid.mw-promo-scene-grid {
-                    grid-template-columns: repeat(2, minmax(260px, 1fr)) !important;
+                    /* 兩欄底格各 260px（同首頁媒體牆單格）；橫 2×1=520×260、直 1×2=260×520 */
+                    grid-template-columns: repeat(2, 260px);
                     grid-auto-rows: 260px;
                     grid-auto-flow: dense;
                     gap: 8px;
+                    width: max-content;
+                    max-width: 100%;
+                }
+                #media-wall-grid-wrap.mw-promo-scene-wrap {
+                    display: flex;
+                    justify-content: flex-start;
                 }
                 #media-wall-grid.mw-promo-scene-grid .media-wall-item.media-wall-promo-item {
                     min-height: 0;
@@ -453,11 +462,12 @@
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
-    <script src="/js/media-wall-promo-scene.js"></script>
+    <script src="/js/media-wall-promo-scene.js?v=20260724-2x1"></script>
     <script src="/js/main.js"></script>
     <script>
         (function () {
             var grid = document.getElementById('media-wall-grid');
+            var gridWrap = document.getElementById('media-wall-grid-wrap');
             var empty = document.getElementById('media-wall-empty');
             var loading = document.getElementById('media-wall-loading');
             var loadMoreBtn = document.getElementById('media-wall-load-more');
@@ -1413,6 +1423,7 @@
                         listForLD = [];
                         if (layoutFilter === 'promo_scene' && window.MatchdoMediaWallPromoScene && typeof window.MatchdoMediaWallPromoScene.packPromoSceneItems === 'function') {
                             grid.classList.add('mw-promo-scene-grid');
+                            if (gridWrap) gridWrap.classList.add('mw-promo-scene-wrap');
                             var packed = window.MatchdoMediaWallPromoScene.packPromoSceneItems(items);
                             packed.forEach(function (entry) {
                                 var rendered = appendRenderedItem(entry.item);
@@ -1425,6 +1436,7 @@
                             });
                         } else {
                             grid.classList.remove('mw-promo-scene-grid');
+                            if (gridWrap) gridWrap.classList.remove('mw-promo-scene-wrap');
                             items.forEach(function (p) {
                                 var rendered = appendRenderedItem(p);
                                 if (rendered) listForLD.push(rendered);
@@ -1432,6 +1444,7 @@
                         }
                     } else {
                         grid.classList.remove('mw-promo-scene-grid');
+                        if (gridWrap) gridWrap.classList.remove('mw-promo-scene-wrap');
                         var is1x2 = function (p) { return p.type === 'collection' || p.type === 'series' || p.size === '1x2'; };
                         var collections = items.filter(is1x2);
                         var ones = items.filter(function (p) { return !is1x2(p); });
