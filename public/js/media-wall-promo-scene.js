@@ -1,6 +1,5 @@
 /**
- * 情境圖媒體牆拼格（2 欄邏輯底格；實際 px 由 index.html getMediaWallCellMetrics 同步「全部」）
- * 桌面：列高 260px；欄寬 = (容器寬 − 8×(n−1)) / n，n = floor((W+8)/268)
+ * 情境圖媒體牆拼格（欄數同首頁 auto-fill；由 index.html 傳入 colCount）
  * 橫圖 2×1、直圖 1×2、方圖 1×1
  */
 (function (global) {
@@ -21,14 +20,19 @@
         return 'square';
     }
 
-    function occEnsure(occ, r) {
-        while (occ.length <= r) occ.push([0, 0]);
+    function normGridCols(gridCols) {
+        return Math.max(2, parseInt(gridCols, 10) || 2);
     }
 
-    function occFree(occ, r, c, rs, cs) {
-        if (c < 0 || c + cs > 2) return false;
+    function occEnsure(occ, r, gridCols) {
+        while (occ.length <= r) occ.push([]);
+        while (occ[r].length < gridCols) occ[r].push(0);
+    }
+
+    function occFree(occ, r, c, rs, cs, gridCols) {
+        if (c < 0 || c + cs > gridCols) return false;
         for (var dr = 0; dr < rs; dr++) {
-            occEnsure(occ, r + dr);
+            occEnsure(occ, r + dr, gridCols);
             for (var dc = 0; dc < cs; dc++) {
                 if (occ[r + dr][c + dc]) return false;
             }
@@ -36,55 +40,60 @@
         return true;
     }
 
-    function occMark(occ, r, c, rs, cs) {
+    function occMark(occ, r, c, rs, cs, gridCols) {
         for (var dr = 0; dr < rs; dr++) {
-            occEnsure(occ, r + dr);
+            occEnsure(occ, r + dr, gridCols);
             for (var dc = 0; dc < cs; dc++) occ[r + dr][c + dc] = 1;
         }
     }
 
-    function footprintCandidates(orient) {
+    function footprintCandidates(orient, gridCols) {
         var list = [];
         var maxRow = 240;
+        var c;
         if (orient === 'landscape') {
             for (var r = 0; r < maxRow; r++) {
-                list.push({ r: r, c: 0, rs: 1, cs: 2 });
+                for (c = 0; c <= gridCols - 2; c++) {
+                    list.push({ r: r, c: c, rs: 1, cs: 2 });
+                }
             }
             return list;
         }
         if (orient === 'portrait') {
             for (var r2 = 0; r2 < maxRow; r2++) {
-                list.push({ r: r2, c: 0, rs: 2, cs: 1 });
-                list.push({ r: r2, c: 1, rs: 2, cs: 1 });
+                for (c = 0; c < gridCols; c++) {
+                    list.push({ r: r2, c: c, rs: 2, cs: 1 });
+                }
             }
             return list;
         }
         for (var r3 = 0; r3 < maxRow; r3++) {
-            list.push({ r: r3, c: 0, rs: 1, cs: 1 });
-            list.push({ r: r3, c: 1, rs: 1, cs: 1 });
+            for (c = 0; c < gridCols; c++) {
+                list.push({ r: r3, c: c, rs: 1, cs: 1 });
+            }
         }
         return list;
     }
 
-    function findEarliest(occ, orient) {
-        var cands = footprintCandidates(orient);
+    function findEarliest(occ, orient, gridCols) {
+        var cands = footprintCandidates(orient, gridCols);
         for (var i = 0; i < cands.length; i++) {
             var p = cands[i];
-            if (occFree(occ, p.r, p.c, p.rs, p.cs)) {
+            if (occFree(occ, p.r, p.c, p.rs, p.cs, gridCols)) {
                 return { r: p.r + 1, c: p.c + 1, rs: p.rs, cs: p.cs, orient: orient };
             }
         }
         return null;
     }
 
-    function fillBandOrphans(occ, squares, placedOut) {
-        if (!squares.length) return;
+    function fillBandOrphans(occ, squares, placedOut, gridCols) {
+        if (!squares.length || gridCols !== 2) return;
         var maxR = Math.max(occ.length, 2);
         for (var band = 0; band < maxR + 2; band += 2) {
             var freeSlots = [];
             for (var dr = 0; dr < 2; dr++) {
                 for (var dc = 0; dc < 2; dc++) {
-                    if (occFree(occ, band + dr, dc, 1, 1)) {
+                    if (occFree(occ, band + dr, dc, 1, 1, gridCols)) {
                         freeSlots.push({ r: band + dr, c: dc });
                     }
                 }
@@ -93,12 +102,13 @@
             var slot = freeSlots[0];
             var sq = squares.shift();
             var pl = { r: slot.r + 1, c: slot.c + 1, rs: 1, cs: 1, orient: 'square' };
-            occMark(occ, slot.r, slot.c, 1, 1);
+            occMark(occ, slot.r, slot.c, 1, 1, gridCols);
             placedOut.push({ item: sq, placement: pl });
         }
     }
 
-    function packPromoSceneItems(items) {
+    function packPromoSceneItems(items, gridCols) {
+        gridCols = normGridCols(gridCols);
         var occ = [];
         var main = [];
         var squares = [];
@@ -110,17 +120,17 @@
         });
         var placed = [];
         main.forEach(function (item) {
-            fillBandOrphans(occ, squares, placed);
-            var pl = findEarliest(occ, item._promoOrient);
+            fillBandOrphans(occ, squares, placed, gridCols);
+            var pl = findEarliest(occ, item._promoOrient, gridCols);
             if (!pl) return;
-            occMark(occ, pl.r - 1, pl.c - 1, pl.rs, pl.cs);
+            occMark(occ, pl.r - 1, pl.c - 1, pl.rs, pl.cs, gridCols);
             placed.push({ item: item, placement: pl });
         });
-        fillBandOrphans(occ, squares, placed);
+        fillBandOrphans(occ, squares, placed, gridCols);
         while (squares.length) {
-            var pl2 = findEarliest(occ, 'square');
+            var pl2 = findEarliest(occ, 'square', gridCols);
             if (!pl2) break;
-            occMark(occ, pl2.r - 1, pl2.c - 1, pl2.rs, pl2.cs);
+            occMark(occ, pl2.r - 1, pl2.c - 1, pl2.rs, pl2.cs, gridCols);
             placed.push({ item: squares.shift(), placement: pl2 });
         }
         return placed;

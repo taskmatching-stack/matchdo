@@ -447,7 +447,7 @@
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
-    <script src="/js/media-wall-promo-scene.js?v=20260724-2x1"></script>
+    <script src="/js/media-wall-promo-scene.js?v=20260724-ncols"></script>
     <script src="/js/main.js"></script>
     <script>
         (function () {
@@ -461,22 +461,16 @@
                 var w = Math.max(0, containerWidth || 0);
                 if (window.matchMedia('(max-width: 767px)').matches) {
                     var colW = w > 0 ? (w - 2 * MW_GRID_GAP) / 3 : 0;
-                    return { colW: colW, rowCss: 'minmax(120px, 28vw)' };
+                    return { colW: colW, rowCss: 'minmax(120px, 28vw)', colCount: 3 };
                 }
                 var n = Math.max(1, Math.floor((w + MW_GRID_GAP) / (MW_COL_MIN + MW_GRID_GAP)));
                 var colW = (w - MW_GRID_GAP * (n - 1)) / n;
-                return { colW: colW, rowCss: '260px' };
+                return { colW: colW, rowCss: '260px', colCount: n };
             }
 
-            function applyPromoSceneGridMetrics() {
-                if (!grid) return;
-                var w = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : grid.clientWidth;
-                var m = getMediaWallCellMetrics(w);
-                if (m.colW > 0) {
-                    grid.style.setProperty('grid-template-columns', 'repeat(2, ' + m.colW + 'px)', 'important');
-                }
-                grid.style.setProperty('grid-auto-rows', m.rowCss, 'important');
-                grid.style.setProperty('gap', MW_GRID_GAP + 'px', 'important');
+            function promoPackColCount() {
+                var w = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : (grid ? grid.clientWidth : 0);
+                return getMediaWallCellMetrics(w).colCount || 2;
             }
 
             function clearPromoSceneGridMetrics() {
@@ -485,6 +479,7 @@
                 grid.style.removeProperty('grid-auto-rows');
                 grid.style.removeProperty('gap');
             }
+            var lastPromoPackColCount = 0;
             var empty = document.getElementById('media-wall-empty');
             var loading = document.getElementById('media-wall-loading');
             var loadMoreBtn = document.getElementById('media-wall-load-more');
@@ -1440,8 +1435,10 @@
                         listForLD = [];
                         if (layoutFilter === 'promo_scene' && window.MatchdoMediaWallPromoScene && typeof window.MatchdoMediaWallPromoScene.packPromoSceneItems === 'function') {
                             grid.classList.add('mw-promo-scene-grid');
-                            applyPromoSceneGridMetrics();
-                            var packed = window.MatchdoMediaWallPromoScene.packPromoSceneItems(items);
+                            clearPromoSceneGridMetrics();
+                            var promoCols = promoPackColCount();
+                            lastPromoPackColCount = promoCols;
+                            var packed = window.MatchdoMediaWallPromoScene.packPromoSceneItems(items, promoCols);
                             packed.forEach(function (entry) {
                                 var rendered = appendRenderedItem(entry.item);
                                 if (rendered) {
@@ -1539,7 +1536,9 @@
             window.addEventListener('resize', function () {
                 if (currentLayoutType !== 'promo_scene' || !grid) return;
                 clearTimeout(promoGridResizeTimer);
-                promoGridResizeTimer = setTimeout(applyPromoSceneGridMetrics, 120);
+                promoGridResizeTimer = setTimeout(function () {
+                    if (promoPackColCount() !== lastPromoPackColCount) reloadMediaWall(1, false);
+                }, 200);
             });
             function runFilterMain(key) {
                 currentCategoryKey = key || '';
