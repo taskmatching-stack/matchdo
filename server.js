@@ -507,12 +507,8 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
     const sourceType = row.source_type ? String(row.source_type).trim() : '';
     const sourceId = row.source_id ? String(row.source_id).trim() : '';
     const srcProd = (sourceId && sourceProductMap && sourceProductMap[sourceId]) ? sourceProductMap[sourceId] : null;
-    let link = '/custom-product.html?tab=promo-image';
-    let inspirationUrl = null;
-    if (sourceType === 'custom_product' && sourceId) {
-        inspirationUrl = `/inspiration/user_design/${sourceId}`;
-        link = inspirationUrl;
-    }
+    const inspirationUrl = `/inspiration/promo_scene/${row.id}`;
+    const link = inspirationUrl;
     const ownerName = (ownerDisplayMap && row.user_id) ? String(ownerDisplayMap[row.user_id] || '').trim() : '';
     const productTitle = srcProd && srcProd.title ? String(srcProd.title).trim() : '';
     const promptSnippet = row.user_prompt ? String(row.user_prompt).trim().slice(0, 48) : '';
@@ -552,6 +548,43 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
         created_at: row.created_at || null
     });
     return stripMediaWallHeavyFields(item);
+}
+
+async function fetchPromoMediaWallItemById(id) {
+    const promoId = String(id || '').trim();
+    if (!promoId) return null;
+    const fullSelect = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, scene_template_key, scene_key, final_prompt, result_image_url, ai_tags, image_semantics_json, description, semantics_generated_at, created_at, show_on_homepage';
+    const legacySelect = 'id, user_id, source_type, source_id, source_image_url, aspect_ratio, width, height, user_prompt, scene_template_key, scene_key, final_prompt, result_image_url, created_at';
+    let { data: row, error } = await supabase
+        .from('product_promo_generations')
+        .select(fullSelect)
+        .eq('id', promoId)
+        .eq('status', 'success')
+        .not('result_image_url', 'is', null)
+        .maybeSingle();
+    if (error && isSupabaseMissingColumnError(error, 'show_on_homepage')) {
+        ({ data: row, error } = await supabase
+            .from('product_promo_generations')
+            .select(legacySelect)
+            .eq('id', promoId)
+            .eq('status', 'success')
+            .not('result_image_url', 'is', null)
+            .maybeSingle());
+    }
+    if (error || !row) return null;
+    if (Object.prototype.hasOwnProperty.call(row, 'show_on_homepage') && row.show_on_homepage === false) return null;
+    let ownerDisplayMap = {};
+    if (row.user_id) {
+        const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.user_id).maybeSingle();
+        if (prof) ownerDisplayMap[row.user_id] = (prof.full_name && prof.full_name.trim()) || prof.email || '';
+    }
+    const sourceProductMap = {};
+    if (row.source_type === 'custom_product' && row.source_id) {
+        const { data: prod } = await supabase.from('custom_products').select('id, title, category, subcategory_key').eq('id', row.source_id).maybeSingle();
+        if (prod) sourceProductMap[row.source_id] = prod;
+    }
+    const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows([row]));
+    return mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, tplMap);
 }
 
 async function fetchPromoTemplateNameMap(keys) {
@@ -800,6 +833,119 @@ function buildInspirationTagsBlockHtml(tags) {
 
 function escapeHtmlText(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function inspirationFullBodyText(item, type) {
+    if (!item) return '';
+    if (type === 'promo_scene') {
+        return String(item.scene_description || item.description || item.user_prompt || item.title || '').trim();
+    }
+    if (type === 'user_design') {
+        return String(item.generation_prompt || item.description || item.title || '').trim();
+    }
+    return String(item.description || item.generation_prompt || item.title || '').trim();
+}
+
+function inspirationDescLabelForType(type) {
+    if (type === 'promo_scene') return '情境描述';
+    if (type === 'user_design') return '設計提示詞';
+    return '作品說明';
+}
+
+function buildInspirationBodySectionHtml(bodyText, type) {
+    if (!bodyText) return '';
+    const label = inspirationDescLabelForType(type);
+    const htmlBody = escapeHtmlText(bodyText).replace(/\n/g, '<br>');
+    return '<section class="inspiration-desc"><h2 class="inspiration-desc-label">' + escapeHtmlText(label) + '</h2><p class="inspiration-desc-text">' + htmlBody + '</p></section>';
+}
+
+function buildInspirationUgcDetailHtml(item, base, type, id, options) {
+    options = options || {};
+    attachDisplayTags(item);
+    const displayTags = item.display_tags || [];
+    const tagsKeywords = displayTags.slice(0, 24).join(', ');
+    const title = escapeHtmlText(item.title || '作品');
+    const fullBody = inspirationFullBodyText(item, type);
+    let descRaw = fullBody || String(item.title || 'MATCHDO 靈感牆作品');
+    if (tagsKeywords) descRaw = (descRaw + ' — ' + tagsKeywords).slice(0, 500);
+    const metaDesc = escapeHtmlAttr(descRaw.slice(0, 160));
+    const metaKeywords = escapeHtmlAttr(tagsKeywords);
+    const imgUrl = proxyPublicImageUrl(item.image_url || item.cover_image_url || '', base);
+    const pageUrl = base + '/inspiration/' + encodeURIComponent(type) + '/' + encodeURIComponent(id);
+    const itemParam = encodeURIComponent(type) + '-' + encodeURIComponent(id);
+    const lightboxUrl = base + '/?item=' + itemParam;
+    const imgAlt = escapeHtmlAttr((item.title || '作品') + (fullBody ? (' — ' + fullBody.slice(0, 120)) : ''));
+    const bodySection = buildInspirationBodySectionHtml(fullBody, type);
+    const seedHtml = (type === 'user_design' && item.generation_seed != null && item.generation_seed !== '')
+        ? '<p class="inspiration-seed"><small>Seed：' + escapeHtmlText(String(item.generation_seed)) + '</small></p>'
+        : '';
+    let sourceLinkHtml = '';
+    if (type === 'promo_scene' && item.source_product_id) {
+        const srcUrl = base + '/inspiration/user_design/' + encodeURIComponent(item.source_product_id);
+        sourceLinkHtml = '<p class="inspiration-source-link"><a href="' + escapeHtmlAttr(srcUrl) + '">查看原設計</a></p>';
+    }
+    const jsonLdDesc = (fullBody || descRaw).slice(0, 2000);
+    const openLightbox = !!options.openLightbox;
+    return `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} - MATCHDO 靈感牆</title>
+<meta name="description" content="${metaDesc}">
+${metaKeywords ? `<meta name="keywords" content="${metaKeywords}">` : ''}
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MATCHDO 合做">
+<meta property="og:title" content="${title} - MATCHDO 靈感牆">
+<meta property="og:description" content="${metaDesc}">
+<meta property="og:url" content="${pageUrl}">
+<link rel="canonical" href="${pageUrl.replace(/"/g, '&quot;')}">
+${imgUrl ? `<meta property="og:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${title} - MATCHDO 靈感牆">
+<meta name="twitter:description" content="${metaDesc}">
+${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'CreativeWork',
+    name: item.title || '作品',
+    description: jsonLdDesc,
+    ...(imgUrl ? { image: imgUrl } : {}),
+    url: pageUrl,
+    ...(displayTags.length ? { keywords: displayTags.slice(0, 30).join(', ') } : {})
+}).replace(/</g, '\\u003c')}</script>
+<style>
+.inspiration-page{max-width:720px;margin:1.5rem auto;padding:0 1rem;font-family:system-ui,sans-serif}
+.inspiration-page h1{font-size:1.25rem;margin:0 0 .75rem}
+.inspiration-page .inspiration-img{max-width:100%;height:auto;border-radius:8px}
+.inspiration-desc{margin:1rem 0;font-size:.95rem;line-height:1.6;color:#333}
+.inspiration-desc-label{font-size:.875rem;font-weight:600;color:#445D7E;margin:0 0 .35rem}
+.inspiration-desc-text{margin:0;white-space:normal;word-break:break-word}
+.inspiration-seed,.inspiration-source-link{margin:.75rem 0;font-size:.875rem}
+.inspiration-tags-details{margin:1rem 0;font-size:.875rem}
+.inspiration-tags-details summary{cursor:pointer;color:#445D7E;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:.35rem}
+.inspiration-tags-details summary::-webkit-details-marker{display:none}
+.inspiration-tags-list{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.inspiration-tag{display:inline-block;padding:.2rem .5rem;background:#f0f4f8;border-radius:4px;font-size:.75rem;color:#333}
+.inspiration-open-btn{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#445D7E;color:#fff!important;text-decoration:none;border-radius:6px;font-size:.9rem}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body>
+<article class="inspiration-page">
+<h1>${title}</h1>
+${imgUrl ? `<img class="inspiration-img" src="${imgUrl.replace(/"/g, '&quot;')}" alt="${imgAlt}">` : ''}
+${bodySection}
+${seedHtml}
+${sourceLinkHtml}
+${buildInspirationTagsBlockHtml(displayTags)}
+<p class="inspiration-url-hint"><small>永久連結：</small> <a href="${pageUrl.replace(/"/g, '&quot;')}">${pageUrl.replace(/</g, '&lt;')}</a></p>
+<p><a class="inspiration-open-btn" href="${lightboxUrl.replace(/"/g, '&quot;')}">在首頁靈感牆中開啟</a></p>
+</article>
+${openLightbox ? `<script>setTimeout(function(){window.location.replace(${JSON.stringify(lightboxUrl)});},800);</script>` : ''}
+<noscript><p><a href="${lightboxUrl.replace(/"/g, '&quot;')}">前往靈感牆</a></p></noscript>
+</body>
+</html>`;
 }
 
 function proxyPublicImageUrl(raw, base) {
@@ -4776,7 +4922,7 @@ app.get(['/iStudio-1.0.0', '/iStudio-1.0.0/', '/iStudio-1.0.0/index.html'], (req
 app.get('/inspiration/:type/:id', async (req, res) => {
     const type = (req.params.type || '').trim();
     const id = (req.params.id || '').trim();
-    const allowedTypes = ['user_design', 'comparison', 'series', 'collection', 'prototype', 'part', 'material'];
+    const allowedTypes = ['user_design', 'comparison', 'series', 'collection', 'prototype', 'part', 'material', 'promo_scene'];
     if (!allowedTypes.includes(type) || !id) {
         res.status(400).send('Invalid type or id');
         return;
@@ -4794,7 +4940,6 @@ app.get('/inspiration/:type/:id', async (req, res) => {
             res.status(404).send('找不到該作品');
             return;
         }
-        attachDisplayTags(item);
         const isVendorCard = ['prototype', 'part', 'material', 'comparison', 'series'].includes(type);
         if (isVendorCard) {
             const html = buildPublicVendorCardDetailHtml(item, base);
@@ -4802,82 +4947,8 @@ app.get('/inspiration/:type/:id', async (req, res) => {
             res.setHeader('Cache-Control', 'public, max-age=120');
             return res.send(html);
         }
-        const displayTags = item.display_tags || [];
-        const tagsKeywords = displayTags.slice(0, 24).join(', ');
-        const title = (item.title || '作品').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-        let descRaw = (item.description || item.generation_prompt || item.title || 'MATCHDO 靈感牆作品').toString();
-        if (tagsKeywords) descRaw = (descRaw + ' — ' + tagsKeywords).slice(0, 300);
-        const desc = descRaw.slice(0, 160).replace(/</g, '&lt;').replace(/"/g, '&quot;');
-        const metaKeywords = tagsKeywords.replace(/</g, '&lt;').replace(/"/g, '&quot;');
-        const img = item.image_url || item.cover_image_url || '';
-        let imgUrl = '';
-        if (img) {
-            const supabaseOrigin = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
-            if (img.startsWith('http')) {
-                imgUrl = (supabaseOrigin && img.startsWith(supabaseOrigin + '/'))
-                    ? (base + '/api/proxy-image?url=' + encodeURIComponent(img))
-                    : img;
-            } else {
-                imgUrl = base + (img.startsWith('/') ? '' : '/') + img;
-            }
-        }
-        const pageUrl = `${base}/inspiration/${encodeURIComponent(type)}/${encodeURIComponent(id)}`;
-        const itemParam = `${encodeURIComponent(type)}-${encodeURIComponent(id)}`;
-        const lightboxUrl = `${base}/?item=${itemParam}`;
         const openLightbox = req.query.open === '1' || req.query.open === 'true';
-        const html = `<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} - MATCHDO 靈感牆</title>
-<meta name="description" content="${desc}">
-${metaKeywords ? `<meta name="keywords" content="${metaKeywords}">` : ''}
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="MATCHDO 合做">
-<meta property="og:title" content="${title} - MATCHDO 靈感牆">
-<meta property="og:description" content="${desc}">
-<meta property="og:url" content="${pageUrl}">
-<link rel="canonical" href="${pageUrl.replace(/"/g, '&quot;')}">
-${imgUrl ? `<meta property="og:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${title} - MATCHDO 靈感牆">
-<meta name="twitter:description" content="${desc}">
-${imgUrl ? `<meta name="twitter:image" content="${imgUrl.replace(/"/g, '&quot;')}">` : ''}
-<script type="application/ld+json">${JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'CreativeWork',
-    name: item.title || '作品',
-    description: descRaw.slice(0, 200),
-    ...(imgUrl ? { image: imgUrl } : {}),
-    url: pageUrl,
-    ...(displayTags.length ? { keywords: displayTags.slice(0, 30).join(', ') } : {})
-}).replace(/</g, '\\u003c')}</script>
-<style>
-.inspiration-page{max-width:720px;margin:1.5rem auto;padding:0 1rem;font-family:system-ui,sans-serif}
-.inspiration-page h1{font-size:1.25rem;margin:0 0 .75rem}
-.inspiration-page .inspiration-img{max-width:100%;height:auto;border-radius:8px}
-.inspiration-tags-details{margin:1rem 0;font-size:.875rem}
-.inspiration-tags-details summary{cursor:pointer;color:#445D7E;font-weight:600;list-style:none;display:inline-flex;align-items:center;gap:.35rem}
-.inspiration-tags-details summary::-webkit-details-marker{display:none}
-.inspiration-tags-list{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
-.inspiration-tag{display:inline-block;padding:.2rem .5rem;background:#f0f4f8;border-radius:4px;font-size:.75rem;color:#333}
-.inspiration-open-btn{display:inline-block;margin-top:1rem;padding:.5rem 1rem;background:#445D7E;color:#fff!important;text-decoration:none;border-radius:6px;font-size:.9rem}
-</style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-</head>
-<body>
-<article class="inspiration-page">
-<h1>${title}</h1>
-${imgUrl ? `<img class="inspiration-img" src="${imgUrl.replace(/"/g, '&quot;')}" alt="${title}">` : ''}
-${buildInspirationTagsBlockHtml(displayTags)}
-<p class="inspiration-url-hint"><small>永久連結：</small> <a href="${pageUrl.replace(/"/g, '&quot;')}">${pageUrl.replace(/</g, '&lt;')}</a></p>
-<p><a class="inspiration-open-btn" href="${lightboxUrl.replace(/"/g, '&quot;')}">在首頁靈感牆中開啟</a></p>
-</article>
-${openLightbox ? `<script>setTimeout(function(){window.location.replace(${JSON.stringify(lightboxUrl)});},800);</script>` : ''}
-<noscript><p><a href="${lightboxUrl.replace(/"/g, '&quot;')}">前往靈感牆</a></p></noscript>
-</body>
-</html>`;
+        const html = buildInspirationUgcDetailHtml(item, base, type, id, { openLightbox });
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=120');
         res.send(html);
@@ -14895,14 +14966,19 @@ app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
 });
 
 // GET /api/media-wall-item/:type/:id — 單一靈感牆作品（供獨立 URL 頁與 lightbox 使用）
-const MEDIA_WALL_ITEM_TYPES = ['user_design', 'comparison', 'series', 'collection', 'prototype', 'part', 'material'];
+const MEDIA_WALL_ITEM_TYPES = ['user_design', 'comparison', 'series', 'collection', 'prototype', 'part', 'material', 'promo_scene'];
 app.get('/api/media-wall-item/:type/:id', async (req, res) => {
     const type = (req.params.type || '').trim();
     const id = (req.params.id || '').trim();
     if (!MEDIA_WALL_ITEM_TYPES.includes(type) || !id) {
-        return res.status(400).json({ error: 'type 須為 user_design、comparison、series、collection、prototype、part、material，且 id 必填' });
+        return res.status(400).json({ error: 'type 須為 user_design、comparison、series、collection、prototype、part、material、promo_scene，且 id 必填' });
     }
     try {
+        if (type === 'promo_scene') {
+            const item = await fetchPromoMediaWallItemById(id);
+            if (!item) return res.status(404).json({ error: '找不到該情境圖' });
+            return res.set('Cache-Control', 'public, max-age=120').json({ item });
+        }
         if (type === 'user_design') {
             const { data: row, error } = await supabase
                 .from('custom_products')

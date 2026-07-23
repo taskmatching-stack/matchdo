@@ -184,7 +184,7 @@ function registerSitemapRoutes(app, deps) {
     });
 
     // 動態：靈感牆單一作品獨立 URL（/inspiration/:type/:id），收錄近期作品供搜尋引擎索引
-    const SITEMAP_INSPIRATION_LIMIT = 150; // 單一 sitemap 建議不超過 5000，此處保守取 150
+    const SITEMAP_INSPIRATION_LIMIT = 260; // user 50 + port 60 + coll 40 + assets 80 + promo 30
     app.get('/sitemap-inspiration.xml', async (req, res) => {
         const base = siteBase();
         const today = new Date().toISOString().slice(0, 10);
@@ -235,6 +235,31 @@ function registerSitemapRoutes(app, deps) {
                 if (kind !== 'prototype' && kind !== 'part' && kind !== 'material') continue;
                 const lastmod = (r.updated_at || r.created_at) ? new Date(r.updated_at || r.created_at).toISOString().slice(0, 10) : today;
                 urls.push('  <url><loc>' + escapeXml(base + '/inspiration/' + kind + '/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
+            }
+            let promoRows = [];
+            const promoRes = await supabase
+                .from('product_promo_generations')
+                .select('id, created_at, semantics_generated_at')
+                .eq('status', 'success')
+                .eq('show_on_homepage', true)
+                .not('result_image_url', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(30);
+            if (promoRes.error && (promoRes.error.code === '42703' || String(promoRes.error.message || '').includes('show_on_homepage'))) {
+                const promoFb = await supabase
+                    .from('product_promo_generations')
+                    .select('id, created_at')
+                    .eq('status', 'success')
+                    .not('result_image_url', 'is', null)
+                    .order('created_at', { ascending: false })
+                    .limit(30);
+                promoRows = promoFb.data || [];
+            } else {
+                promoRows = promoRes.data || [];
+            }
+            for (const r of promoRows) {
+                const lastmod = (r.semantics_generated_at || r.created_at) ? new Date(r.semantics_generated_at || r.created_at).toISOString().slice(0, 10) : today;
+                urls.push('  <url><loc>' + escapeXml(base + '/inspiration/promo_scene/' + encodeURIComponent(r.id)) + '</loc><lastmod>' + lastmod + '</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>');
             }
             if (urls.length > SITEMAP_INSPIRATION_LIMIT) urls.length = SITEMAP_INSPIRATION_LIMIT;
         } catch (e) {

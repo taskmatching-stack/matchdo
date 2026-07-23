@@ -889,10 +889,10 @@
                     linkEl.style.display = 'inline-block';
                     return;
                 }
-                if (item.type === 'promo_scene' && (item.source_product_id || item.inspiration_url)) {
-                    var srcUrl = (item.inspiration_url || item.link || '').trim();
-                    linkEl.innerHTML = '<i class="bi bi-image me-1"></i>' + ((window.i18n && window.i18n.t) ? (window.i18n.t('home.viewSourceDesign') || '查看原設計') : '查看原設計');
-                    linkEl.onclick = function () { if (srcUrl) window.location.href = srcUrl; };
+                if (item.type === 'promo_scene' && item.inspiration_url) {
+                    var promoPageUrl = (item.inspiration_url || '').trim();
+                    linkEl.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>' + ((window.i18n && window.i18n.t) ? (window.i18n.t('home.viewFullPage') || '查看完整頁面') : '查看完整頁面');
+                    linkEl.onclick = function () { if (promoPageUrl) window.location.href = promoPageUrl; };
                     linkEl.style.display = 'inline-block';
                     return;
                 }
@@ -1907,7 +1907,7 @@
                 var params = typeof window !== 'undefined' && window.location && window.location.search ? new URLSearchParams(window.location.search) : null;
                 var itemParam = params && params.get('item') ? params.get('item').trim() : '';
                 if (!itemParam) return;
-                var knownTypes = ['user_design', 'comparison', 'series', 'collection'];
+                var knownTypes = ['user_design', 'comparison', 'series', 'collection', 'promo_scene'];
                 var parts = itemParam.split('-');
                 var type = parts.length >= 1 && knownTypes.indexOf(parts[0]) >= 0 ? parts[0] : '';
                 var id = parts.length >= 2 ? parts.slice(1).join('-') : '';
