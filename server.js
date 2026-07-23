@@ -489,14 +489,17 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap) {
         inspirationUrl = `/inspiration/user_design/${sourceId}`;
         link = inspirationUrl;
     }
-    const ratioLabel = row.aspect_ratio ? String(row.aspect_ratio).trim() : '';
-    const title = ratioLabel ? ('情境圖 ' + ratioLabel) : '情境圖';
+    const ownerName = (ownerDisplayMap && row.user_id) ? String(ownerDisplayMap[row.user_id] || '').trim() : '';
+    const productTitle = srcProd && srcProd.title ? String(srcProd.title).trim() : '';
+    const promptSnippet = row.user_prompt ? String(row.user_prompt).trim().slice(0, 48) : '';
+    const title = productTitle || ownerName || promptSnippet || '推廣圖';
     return stripMediaWallHeavyFields({
         id: row.id,
         type: 'promo_scene',
         size,
         promo_orient: orient,
         title,
+        source_product_title: productTitle || null,
         image_url: row.result_image_url,
         aspect_ratio: row.aspect_ratio || null,
         width: row.width || null,
@@ -609,7 +612,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
             const srcIds = [...new Set(rows.filter((r) => r.source_type === 'custom_product' && r.source_id).map((r) => r.source_id))];
             const srcMap = {};
             if (srcIds.length) {
-                const { data: prods } = await supabase.from('custom_products').select('id, category, subcategory_key').in('id', srcIds);
+                const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
                 (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
             }
             rows.forEach((row) => {
@@ -647,7 +650,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
             const srcIds = [...new Set(promoRows.map((r) => r.source_id).filter(Boolean))];
             const srcMap = {};
             if (srcIds.length) {
-                const { data: prods } = await supabase.from('custom_products').select('id, category, subcategory_key').in('id', srcIds);
+                const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
                 (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
             }
             promoRows = promoRows.filter((row) => {
@@ -14163,7 +14166,7 @@ app.get('/api/media-wall', async (req, res) => {
                 const srcIds = [...new Set(promoRows.map((r) => r.source_id).filter(Boolean))];
                 const srcMap = {};
                 if (srcIds.length) {
-                    const { data: prods } = await supabase.from('custom_products').select('id, category, subcategory_key').in('id', srcIds);
+                    const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
                     (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
                 }
                 promoRows = promoRows.filter((row) => {
@@ -14186,7 +14189,7 @@ app.get('/api/media-wall', async (req, res) => {
                 const srcIds = [...new Set(promoRows.filter((r) => r.source_id).map((r) => r.source_id))];
                 const srcMap = {};
                 if (srcIds.length) {
-                    const { data: prods } = await supabase.from('custom_products').select('id, category, subcategory_key').in('id', srcIds);
+                    const { data: prods } = await supabase.from('custom_products').select('id, title, category, subcategory_key').in('id', srcIds);
                     (prods || []).forEach((p) => { if (p && p.id) srcMap[p.id] = p; });
                 }
                 promoRows.forEach((row) => {

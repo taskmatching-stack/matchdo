@@ -1015,7 +1015,7 @@
                     var typeBadge = '';
                     if (p.type === 'comparison') typeBadge = '<span class="media-wall-type-badge media-wall-type-comparison" title="對照圖（滑桿）">對照</span>';
                     else if (p.type === 'series' || p.type === 'collection') typeBadge = '<span class="media-wall-type-badge media-wall-type-collection" title="系列圖（多圖）">系列</span>';
-                    else if (p.type === 'promo_scene') typeBadge = '<span class="media-wall-type-badge media-wall-type-promo" title="情境圖">情境</span>';
+                    else if (p.type === 'promo_scene') typeBadge = '';
                     else if (hasVendorReference(p)) typeBadge = '<span class="media-wall-type-badge media-wall-type-vendor-ref" title="生圖時使用了廠商公開素材">實品素材</span>';
                     var itemId = String(p.id || (p.title + p.type));
                     var inspirationHref = (p.inspiration_url && String(p.inspiration_url).trim())
