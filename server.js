@@ -14534,10 +14534,13 @@ app.get('/api/media-wall', async (req, res) => {
                 promoDbOffset + promoLimit - 1,
                 mediaWallQueryLog
             );
-            if (hasCategoryFilter && promoRows.length) {
+            let promoSrcMap = {};
+            if (promoRows.length) {
                 const srcIds = [...new Set(promoRows.map((r) => r.source_id).filter(Boolean))];
-                const srcMap = await mediaWallQueries.fetchCustomProductSourceMap(supabase, srcIds, mediaWallQueryLog);
-                promoRows = mediaWallQueries.filterPromoRowsBySourceCategory(promoRows, srcMap, categoryKeysToMatch, filterSubcategoryKey);
+                if (srcIds.length) promoSrcMap = await mediaWallQueries.fetchCustomProductSourceMap(supabase, srcIds, mediaWallQueryLog);
+            }
+            if (hasCategoryFilter && promoRows.length) {
+                promoRows = mediaWallQueries.filterPromoRowsBySourceCategory(promoRows, promoSrcMap, categoryKeysToMatch, filterSubcategoryKey);
             }
             let promoOwnerMap = {};
             if (promoRows.length) {
@@ -14548,12 +14551,10 @@ app.get('/api/media-wall', async (req, res) => {
                         if (profs) profs.forEach((pr) => { promoOwnerMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
                     } catch (_) {}
                 }
-                const srcIds = [...new Set(promoRows.filter((r) => r.source_id).map((r) => r.source_id))];
-                const srcMap = await mediaWallQueries.fetchCustomProductSourceMap(supabase, srcIds, mediaWallQueryLog);
                 const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows(promoRows));
-                scheduleMissingPromoSemanticsBackfill(promoRows, srcMap, tplMap);
+                scheduleMissingPromoSemanticsBackfill(promoRows, promoSrcMap, tplMap);
                 promoRows.forEach((row) => {
-                    out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, srcMap, tplMap, contentLang));
+                    out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, promoSrcMap, tplMap, contentLang));
                 });
             }
             let promoItems = mediaWallQueries.sortMediaWallItemsByCreatedAtDesc(out);

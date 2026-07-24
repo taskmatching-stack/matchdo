@@ -1,11 +1,11 @@
 /**
  * 情境圖媒體牆拼格（欄數同首頁 auto-fill；由 index.html 傳入 colCount）
- * 1:1／4:3／3:4 → 單格 contain；極橫 2×1、極直 1×2
+ * 拼格：先欄後列、每欄由上往下填空格（不先塞滿第一列）；遇占用則跳過
  */
 (function (global) {
     'use strict';
 
-    /** 4:3、3:4 與 1:1 同為單格，object-fit: contain 不裁圖 */
+    /** 4:3、3:4 與 1:1 同為單格 */
     function isSingleCellPromoRatio(aspectRatio, width, height) {
         var ar = String(aspectRatio || '').trim().replace(/\s+/g, '');
         if (ar === '1:1' || ar === '4:3' || ar === '3:4') return true;
@@ -66,40 +66,23 @@
         }
     }
 
-    function footprintCandidates(orient, gridCols) {
-        var list = [];
-        var maxRow = 240;
-        var c;
-        if (orient === 'landscape') {
-            for (var r = 0; r < maxRow; r++) {
-                for (c = 0; c <= gridCols - 2; c++) {
-                    list.push({ r: r, c: c, rs: 1, cs: 2 });
-                }
-            }
-            return list;
-        }
-        if (orient === 'portrait') {
-            for (var r2 = 0; r2 < maxRow; r2++) {
-                for (c = 0; c < gridCols; c++) {
-                    list.push({ r: r2, c: c, rs: 2, cs: 1 });
-                }
-            }
-            return list;
-        }
-        for (var r3 = 0; r3 < maxRow; r3++) {
-            for (c = 0; c < gridCols; c++) {
-                list.push({ r: r3, c: c, rs: 1, cs: 1 });
-            }
-        }
-        return list;
+    function footprintSize(orient) {
+        if (orient === 'landscape') return { rs: 1, cs: 2 };
+        if (orient === 'portrait') return { rs: 2, cs: 1 };
+        return { rs: 1, cs: 1 };
     }
 
+    /** 先欄後列：每欄由上往下找最早空格（直圖下、橫圖右的空隙優先於同一列更右側） */
     function findEarliest(occ, orient, gridCols) {
-        var cands = footprintCandidates(orient, gridCols);
-        for (var i = 0; i < cands.length; i++) {
-            var p = cands[i];
-            if (occFree(occ, p.r, p.c, p.rs, p.cs, gridCols)) {
-                return { r: p.r + 1, c: p.c + 1, rs: p.rs, cs: p.cs, orient: orient };
+        var fp = footprintSize(orient);
+        var rs = fp.rs;
+        var cs = fp.cs;
+        var maxRow = Math.max(occ.length, 1) + 32;
+        for (var c = 0; c <= gridCols - cs; c++) {
+            for (var r = 0; r < maxRow; r++) {
+                if (occFree(occ, r, c, rs, cs, gridCols)) {
+                    return { r: r + 1, c: c + 1, rs: rs, cs: cs, orient: orient };
+                }
             }
         }
         return null;
@@ -155,36 +138,18 @@
         return placed;
     }
 
-    /** 橫圖（含 4:3）塞滿格高；直圖（含 3:4）塞滿格寬；近 1:1 雙向 contain */
-    function imageFillModeOf(item) {
-        var w = parseInt(item && item.width, 10) || 0;
-        var h = parseInt(item && item.height, 10) || 0;
-        if ((!w || !h) && item && item.aspect_ratio) {
-            var m = String(item.aspect_ratio).trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
-            if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
-        }
-        if (!w || !h) return 'both';
-        var r = w / h;
-        if (Math.abs(r - 1) <= 0.08) return 'both';
-        if (r > 1) return 'height';
-        return 'width';
-    }
-
-    function applyPlacement(wrap, placement, item) {
+    function applyPlacement(wrap, placement) {
         if (!wrap || !placement) return;
         wrap.classList.remove('media-wall-1x2', 'media-wall-comparison');
-        wrap.classList.remove('mw-promo-fill-height', 'mw-promo-fill-width', 'mw-promo-fill-both');
         wrap.style.setProperty('grid-row', placement.r + ' / span ' + placement.rs, 'important');
         wrap.style.setProperty('grid-column', placement.c + ' / span ' + placement.cs, 'important');
         wrap.classList.add('media-wall-promo-item');
         wrap.classList.add('media-wall-promo-' + (placement.orient || 'square'));
-        wrap.classList.add('mw-promo-fill-' + imageFillModeOf(item || {}));
     }
 
     global.MatchdoMediaWallPromoScene = {
         isSingleCellPromoRatio: isSingleCellPromoRatio,
         orientOf: orientOf,
-        imageFillModeOf: imageFillModeOf,
         packPromoSceneItems: packPromoSceneItems,
         applyPlacement: applyPlacement
     };
