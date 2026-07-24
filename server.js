@@ -14502,7 +14502,9 @@ app.get('/api/media-wall', async (req, res) => {
     const searchPool = clientFilterActive ? Math.min(100, Math.max(offset + perPage * 2, perPage * 2)) : 0;
     const dbOffset = clientFilterActive ? 0 : offset;
     const nUserLimit = (layoutOnly === 'user_design' || layoutOnly === null) ? (clientFilterActive ? searchPool : perPage) : 0;
-    const nComparisonLimit = (layoutOnly === 'comparison' || layoutOnly === null) ? (clientFilterActive ? searchPool : perPage) : 0;
+    const nComparisonLimit = (layoutOnly === 'comparison' || layoutOnly === null)
+        ? (clientFilterActive ? searchPool : (layoutOnly === null ? Math.min(12, perPage) : perPage))
+        : 0;
     const nSeriesLimit = (layoutOnly === 'series' || layoutOnly === 'collection') ? (clientFilterActive ? searchPool : perPage) : 0;
     // 混合模式時 1x2 只取少數，避免壓過 1x1；篩選「系列／資料夾」時才取滿一頁
     const nCollectionLimit = (layoutOnly === 'series' || layoutOnly === 'collection')
@@ -14510,7 +14512,6 @@ app.get('/api/media-wall', async (req, res) => {
         : (layoutOnly === null ? (clientFilterActive ? Math.min(12, Math.max(6, Math.floor(searchPool / 8))) : 6) : 0);
 
     try {
-        {
         // 主分類篩選時：custom_products.category 可能存「主分類 key」或「子分類 key」（表單只送一個欄位），故需包含該主分類下所有子分類 key
         let categoryKeysToMatch = filterCategoryKey ? [filterCategoryKey] : null;
         if (filterCategoryKey) {
@@ -14545,13 +14546,16 @@ app.get('/api/media-wall', async (req, res) => {
             let promoOwnerMap = {};
             if (promoRows.length) {
                 const ownerIds = [...new Set(promoRows.map((r) => r.user_id).filter(Boolean))];
-                if (ownerIds.length) {
-                    try {
-                        const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', ownerIds);
-                        if (profs) profs.forEach((pr) => { promoOwnerMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
-                    } catch (_) {}
+                const tplKeys = promoTemplateKeysFromRows(promoRows);
+                const [tplMap, profsRes] = await Promise.all([
+                    fetchPromoTemplateNameMap(tplKeys),
+                    ownerIds.length
+                        ? supabase.from('profiles').select('id, full_name, email').in('id', ownerIds)
+                        : Promise.resolve({ data: [] })
+                ]);
+                if (profsRes && profsRes.data) {
+                    profsRes.data.forEach((pr) => { promoOwnerMap[pr.id] = (pr.full_name && pr.full_name.trim()) || pr.email || ''; });
                 }
-                const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows(promoRows));
                 scheduleMissingPromoSemanticsBackfill(promoRows, promoSrcMap, tplMap);
                 promoRows.forEach((row) => {
                     out.push(mapPromoRowToMediaWallItem(row, promoOwnerMap, promoSrcMap, tplMap, contentLang));
@@ -14571,17 +14575,61 @@ app.get('/api/media-wall', async (req, res) => {
             return res.json({ items: promoItems, page, per_page: perPage, filtered: clientFilterActive, tags: tagFilters });
         }
 
-        // 用戶設計：只查「有圖」且允許顯示在首頁的；可依 category / subcategory_key 篩選
+        // 用戶設計 + 廠商對比：並行查詢（混合首頁不再串行等待）
         let userRows = [];
-        if (!layoutOnly || layoutOnly === 'user_design') {
+        let compRows = [];
         const userRangeTo = dbOffset + (hasCategoryFilter && !clientFilterActive ? perPage : nUserLimit) - 1;
-        userRows = await mediaWallQueries.fetchCustomProductMediaWallRows(
-            supabase,
-            { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey },
-            dbOffset,
-            userRangeTo,
-            mediaWallQueryLog
-        );
+        const fetchUserRowsP = (!layoutOnly || layoutOnly === 'user_design') && nUserLimit > 0
+            ? mediaWallQueries.fetchCustomProductMediaWallRows(
+                supabase,
+                { categoryKeysToMatch, filterCategoryKey, filterSubcategoryKey },
+                dbOffset,
+                userRangeTo,
+                mediaWallQueryLog
+            )
+            : Promise.resolve([]);
+        const fetchCompRowsP = (async () => {
+            if (layoutOnly && layoutOnly !== 'comparison') return [];
+            if (nComparisonLimit <= 0) return [];
+            const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until, series_image_urls, created_at';
+            if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
+                let compQuery = supabase
+                    .from('manufacturer_portfolio')
+                    .select(compSelect)
+                    .eq('show_on_media_wall', true)
+                    .in('category_key', categoryKeysToMatch)
+                    .order('created_at', { ascending: false })
+                    .range(dbOffset, dbOffset + nComparisonLimit - 1);
+                if (layoutOnly === 'comparison') compQuery = compQuery.not('image_url_before', 'is', null);
+                if (filterSubcategoryKey) compQuery = compQuery.eq('subcategory_key', filterSubcategoryKey);
+                const compRes = await compQuery;
+                if (!compRes.error) return compRes.data || [];
+                if (compRes.error && compRes.error.code !== '42703') console.warn('GET /api/media-wall 廠商對比（依分類）查詢:', compRes.error.message);
+                return [];
+            }
+            let compQuery = supabase
+                .from('manufacturer_portfolio')
+                .select(compSelect)
+                .eq('show_on_media_wall', true)
+                .order('created_at', { ascending: false })
+                .range(dbOffset, dbOffset + nComparisonLimit - 1);
+            if (layoutOnly === 'comparison') compQuery = compQuery.not('image_url_before', 'is', null);
+            const compRes = await compQuery;
+            if (!compRes.error) return compRes.data || [];
+            if (compRes.error && compRes.error.code !== '42703') console.warn('GET /api/media-wall 廠商對比查詢:', compRes.error.message);
+            if (compRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(compRes.error.message || compRes.error.code)) {
+                let fallbackQuery = supabase
+                    .from('manufacturer_portfolio')
+                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, series_image_valid_until, before_image_valid_until, series_image_urls')
+                    .order('created_at', { ascending: false })
+                    .range(dbOffset, dbOffset + nComparisonLimit - 1);
+                if (layoutOnly === 'comparison') fallbackQuery = fallbackQuery.not('image_url_before', 'is', null);
+                const fallback = await fallbackQuery;
+                return fallback.data || [];
+            }
+            return [];
+        })();
+        [userRows, compRows] = await Promise.all([fetchUserRowsP, fetchCompRowsP]);
         let ownerDisplayMap = {};
         if (userRows && userRows.length) {
             const ownerIds = [...new Set(userRows.map(p => p.owner_id).filter(Boolean))];
@@ -14592,53 +14640,8 @@ app.get('/api/media-wall', async (req, res) => {
                 } catch (_) {}
             }
             userRows.forEach(p => {
-                let ownerMap = ownerDisplayMap;
-                const userItem = mapUserRowToMediaWallItem(p, ownerMap, contentLang);
-                out.push(userItem);
+                out.push(mapUserRowToMediaWallItem(p, ownerDisplayMap, contentLang));
             });
-        }
-        }
-
-        // 廠商對比：有分類篩選時只回傳該分類的對比圖，無篩選時回傳 show_on_media_wall 的項目（需 category_key 欄位請執行 docs/add-manufacturer-portfolio-category-fields.sql）
-        // 篩選「對照圖」時只查有 image_url_before 的項目，沒傳對照圖的不能出現在對照圖區
-        let compRows = [];
-        if (!layoutOnly || layoutOnly === 'comparison') {
-        const compSelect = 'id, manufacturer_id, title, image_url, image_url_before, design_highlight, tags, ai_tags, image_semantics_json, description, show_on_media_wall, category_key, subcategory_key, series_image_valid_until, before_image_valid_until, series_image_urls, created_at';
-        if (hasCategoryFilter && categoryKeysToMatch && categoryKeysToMatch.length) {
-            let compQuery = supabase
-                .from('manufacturer_portfolio')
-                .select(compSelect)
-                .eq('show_on_media_wall', true)
-                .in('category_key', categoryKeysToMatch)
-                .order('created_at', { ascending: false })
-                .range(dbOffset, dbOffset + nComparisonLimit - 1);
-            if (layoutOnly === 'comparison') compQuery = compQuery.not('image_url_before', 'is', null);
-            if (filterSubcategoryKey) compQuery = compQuery.eq('subcategory_key', filterSubcategoryKey);
-            const compRes = await compQuery;
-            if (!compRes.error) compRows = compRes.data || [];
-            if (compRes.error && compRes.error.code !== '42703') console.warn('GET /api/media-wall 廠商對比（依分類）查詢:', compRes.error.message);
-        } else {
-            let compQuery = supabase
-                .from('manufacturer_portfolio')
-                .select(compSelect)
-                .eq('show_on_media_wall', true)
-                .order('created_at', { ascending: false })
-                .range(dbOffset, dbOffset + nComparisonLimit - 1);
-            if (layoutOnly === 'comparison') compQuery = compQuery.not('image_url_before', 'is', null);
-            const compRes = await compQuery;
-            if (!compRes.error) compRows = compRes.data || [];
-            if (compRes.error && compRes.error.code !== '42703') console.warn('GET /api/media-wall 廠商對比查詢:', compRes.error.message);
-            if (compRes.error && /column.*show_on_media_wall|column.*category_key|42703/i.test(compRes.error.message || compRes.error.code)) {
-                let fallbackQuery = supabase
-                    .from('manufacturer_portfolio')
-                    .select('id, manufacturer_id, title, image_url, image_url_before, design_highlight, series_image_valid_until, before_image_valid_until, series_image_urls')
-                    .order('created_at', { ascending: false })
-                    .range(dbOffset, dbOffset + nComparisonLimit - 1);
-                if (layoutOnly === 'comparison') fallbackQuery = fallbackQuery.not('image_url_before', 'is', null);
-                const fallback = await fallbackQuery;
-                compRows = fallback.data || [];
-            }
-        }
         }
         if (compRows && compRows.length) {
             // Batch-fetch manufacturer user_id so the lightbox can offer in-app contact
@@ -14687,8 +14690,6 @@ app.get('/api/media-wall', async (req, res) => {
                 if (layoutOnly === 'comparison' && itemType !== 'comparison') return;
                 out.push(stripMediaWallHeavyFields(payload));
             });
-        }
-        // 沒有對比圖時不顯示對比（不塞 demo），每種類型都要有分類
         }
 
         // 系列圖專用：篩選「系列圖」或「資料夾」時皆查 image_url_before 為 null 的廠商作品（與資料夾整合為同一種）
@@ -14890,8 +14891,11 @@ app.get('/api/media-wall', async (req, res) => {
 
         await enrichMediaWallRefManufacturers(items);
 
-        // private + 短效：避免 CDN／瀏覽器共用快取卡住系列圖順序；首頁 fetch 另用 cache:no-store
-        res.set('Cache-Control', 'private, max-age=0, must-revalidate');
+        if (!clientFilterActive && !hasCategoryFilter && !searchQ) {
+            res.set('Cache-Control', 'public, max-age=45, stale-while-revalidate=120');
+        } else {
+            res.set('Cache-Control', 'private, max-age=0, must-revalidate');
+        }
         res.json({ items: items, page, per_page: perPage, filtered: clientFilterActive, tags: tagFilters });
     } catch (e) {
         console.error('GET /api/media-wall 異常:', e);

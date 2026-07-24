@@ -758,7 +758,8 @@
             var currentPage = 1;
             var currentQ = '';
             var currentTagFilters = [];
-            var perPage = 48;
+            var perPage = 24;
+            var mediaWallHasRendered = false;
             var isLoading = false;
             function itemMatchesTagFilters(item, tagFilters) {
                 if (!tagFilters || !tagFilters.length) return true;
@@ -806,7 +807,69 @@
                 if (searchInput) searchInput.value = currentQ;
                 loadMediaWall(page || 1, currentQ, !!append, adminOpts);
             }
-            function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+            function appendMediaWallAdminActions(wrap, opts) {
+                if (!opts || !opts.isAdmin || !wrap || wrap.querySelector('.media-wall-admin-actions')) return;
+                var card = wrap.querySelector('.card');
+                if (!card) return;
+                var actions = document.createElement('div');
+                actions.className = 'media-wall-admin-actions';
+                var hideBtn = document.createElement('button');
+                hideBtn.type = 'button';
+                hideBtn.className = 'media-wall-admin-hide';
+                hideBtn.textContent = '隱藏';
+                hideBtn.title = '從首頁隱藏，可還原';
+                hideBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var type = wrap.getAttribute('data-type');
+                    var id = wrap.getAttribute('data-id');
+                    if (!type || !id) return;
+                    (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
+                        if (!token) { alert('請先登入'); return; }
+                        fetch('/api/admin/media-wall-item', {
+                            method: 'PATCH',
+                            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: type, id: id, show: false })
+                        }).then(function (r) { return r.json(); }).then(function (data) {
+                            if (data.success) wrap.remove();
+                            else alert((data.error || '無法關閉顯示') + (data.hint ? '\n\n' + data.hint : ''));
+                        }).catch(function () { alert('無法關閉顯示'); });
+                    });
+                });
+                var deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'media-wall-admin-hide media-wall-admin-delete';
+                deleteBtn.textContent = '刪除';
+                deleteBtn.title = '用戶設計會永久刪除；對比/系列僅從首頁隱藏';
+                deleteBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var type = wrap.getAttribute('data-type');
+                    var id = wrap.getAttribute('data-id');
+                    if (!type || !id) return;
+                    if (type === 'user_design' && !confirm('確定要永久刪除這張作品？刪除後無法復原。')) return;
+                    (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
+                        if (!token) { alert('請先登入'); return; }
+                        fetch('/api/admin/media-wall-item', {
+                            method: 'DELETE',
+                            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: type, id: id })
+                        }).then(function (r) { return r.json(); }).then(function (data) {
+                            if (data.success) wrap.remove();
+                            else alert((data.error || '無法刪除') + (data.hint ? '\n\n' + data.hint : ''));
+                        }).catch(function () { alert('無法刪除'); });
+                    });
+                });
+                actions.appendChild(hideBtn);
+                actions.appendChild(deleteBtn);
+                card.appendChild(actions);
+            }
+            function patchMediaWallAdminButtons() {
+                if (!adminOpts.isAdmin || !grid) return;
+                grid.querySelectorAll('.media-wall-item').forEach(function (wrap) {
+                    appendMediaWallAdminActions(wrap, adminOpts);
+                });
+            }
             function escAttr(s) { return (s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
             /** Supabase 圖片改為自家網域可分享網址（複製圖片網址／開新分頁時顯示 matchdo.cc） */
             function getDisplayTags(p) {
@@ -1122,61 +1185,7 @@
                         });
                     }
                     if (opts && opts.isAdmin && p.id && p.id !== 'demo-comparison') {
-                        var card = wrap.querySelector('.card');
-                        if (card) {
-                            var actions = document.createElement('div');
-                            actions.className = 'media-wall-admin-actions';
-                            var hideBtn = document.createElement('button');
-                            hideBtn.type = 'button';
-                            hideBtn.className = 'media-wall-admin-hide';
-                            hideBtn.textContent = '隱藏';
-                            hideBtn.title = '從首頁隱藏，可還原';
-                            hideBtn.addEventListener('click', function (e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                var type = wrap.getAttribute('data-type');
-                                var id = wrap.getAttribute('data-id');
-                                if (!type || !id) return;
-                                (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
-                                    if (!token) { alert('請先登入'); return; }
-                                    fetch('/api/admin/media-wall-item', {
-                                        method: 'PATCH',
-                                        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ type: type, id: id, show: false })
-                                    }).then(function (r) { return r.json(); }).then(function (data) {
-                                        if (data.success) wrap.remove();
-                                        else alert((data.error || '無法關閉顯示') + (data.hint ? '\n\n' + data.hint : ''));
-                                    }).catch(function () { alert('無法關閉顯示'); });
-                                });
-                            });
-                            var deleteBtn = document.createElement('button');
-                            deleteBtn.type = 'button';
-                            deleteBtn.className = 'media-wall-admin-hide media-wall-admin-delete';
-                            deleteBtn.textContent = '刪除';
-                            deleteBtn.title = '用戶設計會永久刪除；對比/系列僅從首頁隱藏';
-                            deleteBtn.addEventListener('click', function (e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                var type = wrap.getAttribute('data-type');
-                                var id = wrap.getAttribute('data-id');
-                                if (!type || !id) return;
-                                if (type === 'user_design' && !confirm('確定要永久刪除這張作品？刪除後無法復原。')) return;
-                                (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
-                                    if (!token) { alert('請先登入'); return; }
-                                    fetch('/api/admin/media-wall-item', {
-                                        method: 'DELETE',
-                                        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ type: type, id: id })
-                                    }).then(function (r) { return r.json(); }).then(function (data) {
-                                        if (data.success) wrap.remove();
-                                        else alert((data.error || '無法刪除') + (data.hint ? '\n\n' + data.hint : ''));
-                                    }).catch(function () { alert('無法刪除'); });
-                                });
-                            });
-                            actions.appendChild(hideBtn);
-                            actions.appendChild(deleteBtn);
-                            card.appendChild(actions);
-                        }
+                        appendMediaWallAdminActions(wrap, opts);
                     }
                     var compWrap = wrap.querySelector('.comparison-slider-wrap');
                     if (compWrap) {
@@ -1243,7 +1252,7 @@
                 }
                 if (adminOpts.isAdmin !== wasAdmin) {
                     if (typeof showingFavoritesOnly !== 'undefined' && showingFavoritesOnly) renderFavoritesGrid();
-                    else if (typeof reloadMediaWall === 'function') reloadMediaWall(1, false);
+                    else if (mediaWallHasRendered) patchMediaWallAdminButtons();
                 }
             }
             (function resolveMediaWallAdminEarly() {
@@ -1480,8 +1489,9 @@
                     empty.classList.add('d-none');
                 }
                 var url = buildMediaWallUrl(page, q);
-                // 系列圖順序等會即時變動；不可用預設 HTTP cache（API 曾設 max-age，會讓首頁卡住舊順序）
-                var fetchOpts = { cache: 'no-store' };
+                var fetchOpts = (layoutFilter || currentCategoryKey || currentSubcategoryKey || q || currentTagFilters.length)
+                    ? { cache: 'no-store' }
+                    : {};
                 function clearMediaWallLoadingShell() {
                     loading.classList.add('d-none');
                     if (gridWrap) gridWrap.style.minHeight = '';
@@ -1507,9 +1517,13 @@
                     if (!append && items.length === 0) { empty.classList.remove('d-none'); loadMoreBtn.classList.add('d-none'); return; }
                     empty.classList.add('d-none');
                     var listForLD = [];
+                    var renderFrag = document.createDocumentFragment();
                     function appendRenderedItem(p) {
-                        try { grid.appendChild(renderOne(p, opts)); return p; }
-                        catch (renderErr) { console.warn('media-wall render skip', p && p.id, renderErr); return null; }
+                        try {
+                            var el = renderOne(p, opts);
+                            renderFrag.appendChild(el);
+                            return p;
+                        } catch (renderErr) { console.warn('media-wall render skip', p && p.id, renderErr); return null; }
                     }
                     if (layoutFilter) {
                         listForLD = [];
@@ -1522,9 +1536,9 @@
                             packed.forEach(function (entry) {
                                 try {
                                     var wrapEl = renderOne(entry.item, opts);
-                                    grid.appendChild(wrapEl);
-                                    listForLD.push(entry.item);
                                     window.MatchdoMediaWallPromoScene.applyPlacement(wrapEl, entry.placement);
+                                    renderFrag.appendChild(wrapEl);
+                                    listForLD.push(entry.item);
                                 } catch (renderErr) {
                                     console.warn('media-wall promo render skip', entry.item && entry.item.id, renderErr);
                                 }
@@ -1561,8 +1575,16 @@
                             if (rendered) listForLD.push(rendered);
                         });
                     }
+                    if (renderFrag.childNodes.length) grid.appendChild(renderFrag);
+                    mediaWallHasRendered = listForLD.length > 0 || grid.querySelectorAll('.media-wall-item').length > 0;
                     if (!append && items.length > 0 && listForLD.length === 0) { showMediaWallLoadError(); return; }
-                    if (!append && listForLD.length > 0) updateMediaWallItemListLD(listForLD);
+                    if (!append && listForLD.length > 0) {
+                        var ldList = listForLD.slice();
+                        var scheduleLd = (typeof requestIdleCallback === 'function')
+                            ? function (fn) { requestIdleCallback(fn, { timeout: 2000 }); }
+                            : function (fn) { setTimeout(fn, 0); };
+                        scheduleLd(function () { updateMediaWallItemListLD(ldList); });
+                    }
                     if (!layoutFilter) {
                         var twoRows = grid.querySelectorAll('.media-wall-1x2');
                         for (var i = 0; i < twoRows.length; i++) {
