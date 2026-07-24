@@ -870,6 +870,7 @@
                     appendMediaWallAdminActions(wrap, adminOpts);
                 });
             }
+            function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
             function escAttr(s) { return (s || '').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
             /** Supabase 圖片改為自家網域可分享網址（複製圖片網址／開新分頁時顯示 matchdo.cc） */
             function getDisplayTags(p) {
