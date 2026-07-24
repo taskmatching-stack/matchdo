@@ -155,18 +155,36 @@
         return placed;
     }
 
-    function applyPlacement(wrap, placement) {
+    /** 橫圖（含 4:3）塞滿格高；直圖（含 3:4）塞滿格寬；近 1:1 雙向 contain */
+    function imageFillModeOf(item) {
+        var w = parseInt(item && item.width, 10) || 0;
+        var h = parseInt(item && item.height, 10) || 0;
+        if ((!w || !h) && item && item.aspect_ratio) {
+            var m = String(item.aspect_ratio).trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
+            if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
+        }
+        if (!w || !h) return 'both';
+        var r = w / h;
+        if (Math.abs(r - 1) <= 0.08) return 'both';
+        if (r > 1) return 'height';
+        return 'width';
+    }
+
+    function applyPlacement(wrap, placement, item) {
         if (!wrap || !placement) return;
         wrap.classList.remove('media-wall-1x2', 'media-wall-comparison');
+        wrap.classList.remove('mw-promo-fill-height', 'mw-promo-fill-width', 'mw-promo-fill-both');
         wrap.style.setProperty('grid-row', placement.r + ' / span ' + placement.rs, 'important');
         wrap.style.setProperty('grid-column', placement.c + ' / span ' + placement.cs, 'important');
         wrap.classList.add('media-wall-promo-item');
         wrap.classList.add('media-wall-promo-' + (placement.orient || 'square'));
+        wrap.classList.add('mw-promo-fill-' + imageFillModeOf(item || {}));
     }
 
     global.MatchdoMediaWallPromoScene = {
         isSingleCellPromoRatio: isSingleCellPromoRatio,
         orientOf: orientOf,
+        imageFillModeOf: imageFillModeOf,
         packPromoSceneItems: packPromoSceneItems,
         applyPlacement: applyPlacement
     };

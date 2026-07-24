@@ -145,30 +145,49 @@
                 @media (max-width: 767px) {
                     #media-wall-grid { grid-template-columns: repeat(3, 1fr); grid-auto-rows: minmax(120px, 28vw); }
                 }
-                /* 情境圖：欄寬/列高由 JS 同步首頁媒體牆單格；此處只定義 contain 與對齊 */
+                /* 情境圖：只保留圓角；橫圖塞滿格高、直圖塞滿格寬（4:3／3:4 同規則），不裁圖 */
                 #media-wall-grid.mw-promo-scene-grid {
                     grid-auto-flow: dense;
                 }
                 #media-wall-grid.mw-promo-scene-grid .media-wall-item.media-wall-promo-item {
                     min-height: 0;
                 }
+                #media-wall-grid.mw-promo-scene-grid .card {
+                    border: none;
+                    box-shadow: none;
+                }
+                #media-wall-grid.mw-promo-scene-grid .card:hover {
+                    box-shadow: none;
+                }
                 #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap {
-                    background: #eef1f5;
+                    background: #fff;
                 }
                 #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap::after {
                     display: none;
                 }
-                #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap > img.mw-promo-contain-img {
-                    object-fit: contain !important;
-                    width: 100%;
-                    height: 100%;
-                }
-                #media-wall-grid.mw-promo-scene-grid .media-wall-promo-landscape .card-img-wrap,
-                #media-wall-grid.mw-promo-scene-grid .media-wall-promo-portrait .card-img-wrap,
-                #media-wall-grid.mw-promo-scene-grid .media-wall-promo-square .card-img-wrap {
+                #media-wall-grid.mw-promo-scene-grid .media-wall-promo-item .card-img-wrap {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                }
+                #media-wall-grid.mw-promo-scene-grid .card .card-img-wrap > img.mw-promo-contain-img {
+                    object-fit: contain !important;
+                    display: block;
+                    flex-shrink: 0;
+                }
+                #media-wall-grid.mw-promo-scene-grid .mw-promo-fill-height .card-img-wrap > img.mw-promo-contain-img {
+                    width: auto !important;
+                    height: 100% !important;
+                    max-width: 100%;
+                }
+                #media-wall-grid.mw-promo-scene-grid .mw-promo-fill-width .card-img-wrap > img.mw-promo-contain-img {
+                    width: 100% !important;
+                    height: auto !important;
+                    max-height: 100%;
+                }
+                #media-wall-grid.mw-promo-scene-grid .mw-promo-fill-both .card-img-wrap > img.mw-promo-contain-img {
+                    width: 100% !important;
+                    height: 100% !important;
                 }
                 .media-wall-type-promo { background: rgba(100, 85, 60, .92); color: #fff; }
                 #media-wall-grid .card { border: none; border-radius: 8px; overflow: hidden; box-shadow: none; height: 100%; display: flex; flex-direction: column; background: transparent; }
@@ -467,7 +486,7 @@
     <!-- Template Javascript -->
     <script src="/js/ai-categories.js"></script>
     <script src="/iStudio-1.0.0/js/site-common.js"></script>
-    <script src="/js/media-wall-promo-scene.js?v=20260724-single-43"></script>
+    <script src="/js/media-wall-promo-scene.js?v=20260724-promo-fill"></script>
     <script src="/js/main.js"></script>
     <script>
         (function () {
@@ -1522,7 +1541,7 @@
                                     listForLD.push(rendered);
                                     var wraps = grid.querySelectorAll('.media-wall-item');
                                     var wrap = wraps[wraps.length - 1];
-                                    window.MatchdoMediaWallPromoScene.applyPlacement(wrap, entry.placement);
+                                    window.MatchdoMediaWallPromoScene.applyPlacement(wrap, entry.placement, entry.item);
                                 }
                             });
                         } else {
