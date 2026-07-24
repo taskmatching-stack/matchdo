@@ -298,11 +298,13 @@
                 #media-wall-lightbox #media-wall-lightbox-body-inner img { max-width: 100%; max-height: 78vh; width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 12px rgba(68,93,126,.2); }
                 /* 詳情疊在圖底部，與主色同色系 */
                 #media-wall-lightbox #media-wall-lightbox-detail { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.4rem 0.6rem 0.5rem; background: linear-gradient(transparent, rgba(45,64,89,.95)); color: #fff; text-align: left; font-size: 0.7rem; }
-                /* 情境圖：說明在圖下方，圖區不撐滿高度 */
-                #media-wall-lightbox .modal-body.is-promo-scene-body { overflow-y: auto; display: block; }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene { flex: 0 1 auto; flex-direction: column; align-items: stretch; justify-content: flex-start; overflow: visible; min-height: 0; padding: 0.5rem 0.5rem 0; }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner { flex: 0 0 auto; width: 100%; height: auto; min-height: 0; padding: 0; display: block; overflow: visible; }
-                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner img { display: block; max-width: 100%; max-height: min(72vh, 620px); width: auto; height: auto; margin: 0 auto; }
+                /* 情境圖：說明在圖下方；圖區固定可視高度，放大至少不小於縮圖 */
+                #media-wall-lightbox .modal-body.is-promo-scene-body { overflow-y: auto; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene { flex: 1 1 auto; flex-direction: column; align-items: stretch; justify-content: flex-start; overflow: hidden; min-height: 0; padding: 0; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner { flex: 1 1 auto; width: 100%; min-height: min(52vh, 440px); height: auto; padding: 0.5rem; display: flex; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene .mw-lb-promo-img-wrap { width: 100%; height: min(72vh, 620px); min-height: min(52vh, 440px); display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene .mw-lb-promo-img-wrap img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 12px rgba(68,93,126,.2); }
+                #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-body-inner > img { display: block; max-width: 100%; max-height: min(72vh, 620px); width: auto; height: auto; object-fit: contain; border-radius: 8px; box-shadow: 0 2px 12px rgba(68,93,126,.2); }
                 #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-detail { position: static; flex: 0 0 auto; background: #2d4059; overflow: visible; padding: 0.35rem 0.55rem 0.45rem; border-radius: 0 0 8px 8px; margin-top: 0; font-size: 0.65rem; }
                 #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-category-row,
                 #media-wall-lightbox #media-wall-lightbox-body.is-promo-scene #media-wall-lightbox-subcategory-row,
@@ -1773,6 +1775,15 @@
                 var titleEl = document.getElementById('media-wall-lightbox-title');
                 var bodyEl = document.getElementById('media-wall-lightbox-body-inner');
                 var linkEl = document.getElementById('media-wall-lightbox-link');
+                var lbBodyEarly = document.getElementById('media-wall-lightbox-body');
+                var lbModalBodyEarly = lbBodyEarly && lbBodyEarly.closest('.modal-body');
+                if (item.type === 'promo_scene') {
+                    if (lbBodyEarly) lbBodyEarly.classList.add('is-promo-scene');
+                    if (lbModalBodyEarly) lbModalBodyEarly.classList.add('is-promo-scene-body');
+                } else {
+                    if (lbBodyEarly) lbBodyEarly.classList.remove('is-promo-scene');
+                    if (lbModalBodyEarly) lbModalBodyEarly.classList.remove('is-promo-scene-body');
+                }
                 if (titleEl) titleEl.textContent = item.title || '';
                 if (linkEl) configureLightboxFindVendorLink(item, linkEl);
                 syncLightboxVendorRef(item);
@@ -1836,7 +1847,11 @@
                 } else {
                     var imgUrl = item.image_url || item.cover_image_url || '';
                     var noImageText = (window.i18n && window.i18n.t) ? window.i18n.t('home.noImage') : '無圖';
-                    bodyEl.innerHTML = imgUrl ? '<img src="' + imageSrcForShare(imgUrl).replace(/"/g, '&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">' + noImageText + '</p>';
+                    if (imgUrl && item.type === 'promo_scene') {
+                        bodyEl.innerHTML = '<div class="mw-lb-promo-img-wrap"><img src="' + imageSrcForShare(imgUrl).replace(/"/g, '&quot;') + '" alt=""></div>';
+                    } else {
+                        bodyEl.innerHTML = imgUrl ? '<img src="' + imageSrcForShare(imgUrl).replace(/"/g, '&quot;') + '" alt="">' : '<p class="text-muted py-4 mb-0">' + noImageText + '</p>';
+                    }
                 }
                 // 同步 lightbox 愛心按鈕狀態
                 var lbFavId = item.id || (item.title + item.type);
