@@ -1,6 +1,6 @@
 /**
  * 情境圖媒體牆拼格（欄數同首頁 auto-fill；由 index.html 傳入 colCount）
- * 拼格：每兩列為一組，組內依欄「上→下→上→下…」填空格；遇占用跳過，不先塞滿整列
+ * 拼格：以兩列為一組決定「上下上下」掃描順序（非禁直圖跨組）；直圖 1×2 上格對齊組內任一行即可
  */
 (function (global) {
     'use strict';
@@ -73,8 +73,8 @@
     }
 
     /**
-     * 兩列一組：在每個 band（row 0–1、2–3…）內，依欄交替掃上列/下列找最早空格。
-     * 例：直圖 1×2 + 橫圖 2×1 後，下一張 1×1 落在第 2 列第 2 欄（非第 1 列最右）。
+     * 掃描順序：band（0–1、2–3…）→ 欄 → 上/下。
+     * 直圖 1×2 可跨 band（下格延伸到下一組）；上格只需落在該 band 的上列或下列。
      */
     function findEarliest(occ, orient, gridCols) {
         var fp = footprintSize(orient);
@@ -83,16 +83,10 @@
         var maxRow = Math.max(occ.length, 1) + 34;
         for (var bandStart = 0; bandStart < maxRow; bandStart += 2) {
             for (var c = 0; c <= gridCols - cs; c++) {
-                if (rs >= 2) {
-                    if (occFree(occ, bandStart, c, rs, cs, gridCols)) {
-                        return { r: bandStart + 1, c: c + 1, rs: rs, cs: cs, orient: orient };
-                    }
-                } else {
-                    for (var dr = 0; dr < 2; dr++) {
-                        var r = bandStart + dr;
-                        if (occFree(occ, r, c, rs, cs, gridCols)) {
-                            return { r: r + 1, c: c + 1, rs: rs, cs: cs, orient: orient };
-                        }
+                for (var dr = 0; dr < 2; dr++) {
+                    var r = bandStart + dr;
+                    if (occFree(occ, r, c, rs, cs, gridCols)) {
+                        return { r: r + 1, c: c + 1, rs: rs, cs: cs, orient: orient };
                     }
                 }
             }
