@@ -28,6 +28,7 @@
           </div>
         </div>
         <p class="text-muted small mb-2">儲存變更＝將目前列表寫入資料庫。一鍵匯入＝依預設檔補齊缺漏，<strong>不會覆寫您已填寫的主分類提示詞</strong>。可「新增主分類」、用「↑」「↓」調整主分類順序、在任一大項按「＋ 子分類」增列，再按儲存。若儲存時出現 sort_order 錯誤，請在 Supabase SQL Editor 執行 <code>docs/add-ai-categories-sort-order.sql</code>。</p>
+        <p class="text-muted small mb-2">FLUX 審核（<code>safety_tolerance</code> 0–6，空白＝預設 2）僅後台使用，前台使用者看不到。首次請執行 <code>docs/add-flux-safety-tolerance.sql</code>。</p>
         <div id="statusWrap" class="alert mb-3 py-2" style="display:none;" role="alert">
           <span id="status"></span>
         </div>
@@ -43,9 +44,10 @@
                 <th style="width:15%;">類型</th>
                 <th style="width:15%;">key</th>
                 <th style="width:15%;">名稱</th>
-                <th style="width:35%;">提示詞 (Prompt) <small class="text-muted" title="建議結構：角色說明 → 【分析流程】→ 輸出格式 JSON 陣列 [{\"item_name\",\"spec\",\"quantity\",\"unit\"}] → 【注意事項】；可用 {subcategory} 代表子分類">ⓘ</small></th>
-                <th style="width:10%;">排序</th>
-                <th style="width:10%;">刪除</th>
+                <th style="width:30%;">提示詞 (Prompt) <small class="text-muted" title="建議結構：角色說明 → 【分析流程】→ 輸出格式 JSON 陣列 [{\"item_name\",\"spec\",\"quantity\",\"unit\"}] → 【注意事項】；可用 {subcategory} 代表子分類">ⓘ</small></th>
+                <th style="width:8%;" title="BFL safety_tolerance；空白＝預設2">FLUX審核</th>
+                <th style="width:8%;">排序</th>
+                <th style="width:8%;">刪除</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -82,10 +84,37 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
   <script>
 
+    async function adminAuthHeaders() {
+      if (!window.AuthService || !AuthService.getSession) return {};
+      try {
+        const session = await AuthService.getSession();
+        const token = session && session.access_token;
+        if (!token) return {};
+        return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+      } catch (_) { return {}; }
+    }
+
+    function fluxTolCellHtml(level, value) {
+      const v = (value != null && value !== '') ? String(value) : '';
+      return '<input type="number" min="0" max="6" step="1" class="form-control form-control-sm" data-field="flux_safety_tolerance" data-level="' + level + '" value="' + v + '" placeholder="2" style="width:56px;" title="0最嚴 6最寬；空白=預設2" />';
+    }
+
     async function loadCategories() {
       try {
-        const res = await fetch('/api/categories', { cache: 'no-store' });
+        const headers = await adminAuthHeaders();
+        const res = await fetch('/api/admin/categories', { cache: 'no-store', headers: headers });
         const data = await res.json();
+        if (!res.ok) {
+          document.getElementById('statusWrap').style.display = 'block';
+          document.getElementById('statusWrap').className = 'alert alert-danger mb-3 py-2';
+          document.getElementById('status').textContent = '✖ 載入失敗：' + (data.error || res.status);
+          return;
+        }
+        if (data.migration_hint) {
+          document.getElementById('statusWrap').style.display = 'block';
+          document.getElementById('statusWrap').className = 'alert alert-warning mb-3 py-2';
+          document.getElementById('status').textContent = data.migration_hint;
+        }
         
         console.log('API 返回數據:', data);
         const list = Array.isArray(data.categories) ? data.categories : [];
@@ -125,6 +154,7 @@
             <td><input class="form-control form-control-sm fw-bold" value="${cat.key || ''}" data-field="key" data-level="main" /></td>
             <td><input class="form-control form-control-sm fw-bold" value="${cat.name || ''}" data-field="name" data-level="main" /></td>
             <td><textarea class="form-control" rows="2" data-field="prompt" data-level="main" placeholder="建議含：角色、【分析流程】、{subcategory}、輸出格式 JSON 陣列、【注意事項】">${(cat.prompt || '').replace(/<\/textarea>/gi, '<\\/textarea>')}</textarea></td>
+            <td>${fluxTolCellHtml('main', cat.flux_safety_tolerance)}</td>
             <td>-</td>
             <td><button class="btn btn-sm btn-danger del-main" data-key="${cat.key}">刪除</button></td>
           `;
@@ -140,6 +170,7 @@
               subTr.dataset.subName = sub;
               const subConfig = cat.sub_configs && cat.sub_configs[sub] ? cat.sub_configs[sub] : null;
               const subPrompt = (subConfig && !Array.isArray(subConfig) && typeof subConfig.prompt !== 'undefined') ? subConfig.prompt : '';
+              const subFlux = (subConfig && !Array.isArray(subConfig) && subConfig.flux_safety_tolerance != null) ? subConfig.flux_safety_tolerance : '';
               const configToStore = Array.isArray(subConfig) ? { _formFields: subConfig } : (subConfig && typeof subConfig === 'object' ? subConfig : {});
               subTr.dataset.subConfig = JSON.stringify(configToStore);
               subTr.innerHTML = `
@@ -147,6 +178,7 @@
                 <td><input class="form-control form-control-sm" value="${cat.key}__${sub}" data-field="key" data-level="sub" readonly /></td>
                 <td><input class="form-control form-control-sm" value="${sub}" data-field="name" data-level="sub" data-original="${sub}" /></td>
                 <td><textarea class="form-control form-control-sm" rows="2" data-field="prompt" data-level="sub" placeholder="空白則繼承主分類；可含 {subcategory}">${subPrompt}</textarea></td>
+                <td>${fluxTolCellHtml('sub', subFlux)}</td>
                 <td><input type="number" class="form-control form-control-sm" value="${subIdx}" data-field="sort" style="width:60px;" /></td>
                 <td><button class="btn btn-sm btn-danger del-sub" data-parent="${cat.key}" data-name="${sub}">刪除</button></td>
               `;
@@ -193,6 +225,7 @@
           <td><input class="form-control form-control-sm" data-field="key" data-level="main" /></td>
           <td><input class="form-control form-control-sm" data-field="name" data-level="main" /></td>
           <td><textarea class="form-control" rows="2" data-field="prompt" data-level="main"></textarea></td>
+          <td>${fluxTolCellHtml('main', '')}</td>
           <td>-</td>
           <td><button class="btn btn-sm btn-danger del-main">刪除</button></td>
         `;
@@ -265,6 +298,7 @@
           <td><input class="form-control form-control-sm" value="${keyPlaceholder}" data-field="key" data-level="sub" readonly placeholder="儲存後自動產生" /></td>
           <td><input class="form-control form-control-sm" data-field="name" data-level="sub" placeholder="輸入子分類名稱" /></td>
           <td><textarea class="form-control form-control-sm" rows="2" data-field="prompt" data-level="sub" placeholder="空白則繼承主分類；可含 {subcategory}"></textarea></td>
+          <td>${fluxTolCellHtml('sub', '')}</td>
           <td><input type="number" class="form-control form-control-sm" value="0" data-field="sort" style="width:60px;" /></td>
           <td><button class="btn btn-sm btn-danger del-sub" data-parent="${mainKey}">刪除</button></td>
         `;
@@ -328,6 +362,7 @@
           const keyInput = row.querySelector('[data-field="key"][data-level="main"]');
           const nameInput = row.querySelector('[data-field="name"][data-level="main"]');
           const promptTextarea = row.querySelector('[data-field="prompt"][data-level="main"]');
+          const fluxInput = row.querySelector('[data-field="flux_safety_tolerance"][data-level="main"]');
           
           if (keyInput && nameInput) {
             const key = keyInput.value.trim();
@@ -338,10 +373,12 @@
               status.textContent = '✖ 請填寫每一筆主分類的 key（英文）與名稱，不可留白。';
               return;
             }
+            const fluxRaw = fluxInput ? fluxInput.value.trim() : '';
             currentMain = {
               key,
               name,
               prompt: promptTextarea ? promptTextarea.value.trim() : '',
+              flux_safety_tolerance: fluxRaw === '' ? null : fluxRaw,
               sub: [],
               sort_order: mainCategories.length
             };
@@ -350,6 +387,7 @@
         } else if (row.classList.contains('subcategory-row') && currentMain) {
           const nameInput = row.querySelector('[data-field="name"][data-level="sub"]');
           const promptTextarea = row.querySelector('[data-field="prompt"][data-level="sub"]');
+          const fluxInput = row.querySelector('[data-field="flux_safety_tolerance"][data-level="sub"]');
           if (nameInput) {
             const subName = nameInput.value.trim();
             if (subName) {
@@ -360,7 +398,11 @@
                 const raw = row.dataset.subConfig;
                 if (raw) existing = JSON.parse(raw);
               } catch (_) {}
-              currentMain.sub_configs[subName] = Object.assign({}, existing, { prompt: promptTextarea ? promptTextarea.value.trim() : '' });
+              const fluxRaw = fluxInput ? fluxInput.value.trim() : '';
+              currentMain.sub_configs[subName] = Object.assign({}, existing, {
+                prompt: promptTextarea ? promptTextarea.value.trim() : '',
+                flux_safety_tolerance: fluxRaw === '' ? null : fluxRaw
+              });
             }
           }
         }
@@ -379,15 +421,18 @@
       status.textContent = '儲存中...';
       
       try {
-        const res = await fetch('/api/categories', {
+        const headers = await adminAuthHeaders();
+        const res = await fetch('/api/admin/categories', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({ categories: mainCategories })
         });
         const data = await res.json();
         if (data && data.success) {
           statusWrap.className = 'alert alert-success mb-3 py-2';
-          status.innerHTML = `✔ 已儲存（${data.count != null ? data.count : ''} 筆主分類已寫入）。<button type="button" class="btn btn-sm btn-link p-0 ms-1" onclick="loadCategories()">重新載入列表</button>`;
+          let msg = `✔ 已儲存（${data.count != null ? data.count : ''} 筆主分類已寫入）。`;
+          if (data.migration_hint) msg += ' ' + data.migration_hint;
+          status.innerHTML = msg + `<button type="button" class="btn btn-sm btn-link p-0 ms-1" onclick="loadCategories()">重新載入列表</button>`;
           // 不再自動重整列表，避免打斷編輯
         } else {
           statusWrap.className = 'alert alert-danger mb-3 py-2';

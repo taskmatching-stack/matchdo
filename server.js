@@ -3902,12 +3902,13 @@ async function runDesignToPhysicalFlux(fileBuffer, mimeType, userExtra, category
     const prompt = skipPhoto
         ? buildDesignToPhysicalPrompt(userExtra)
         : await buildDesignToPhysicalPromptWithPhoto(userExtra, categoryKey, subcategoryKey);
+    const fluxSafetyTolerance = await resolveFluxSafetyToleranceFromCategoryPair(categoryKey, subcategoryKey);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_design_to_physical'),
         width: 1024,
         height: 1024,
         skipPromptTranslation: true,
-        safetyTolerance: 2
+        safetyTolerance: fluxSafetyTolerance
     };
     const dataUrl = `data:${finalMime};base64,${finalBuffer.toString('base64')}`;
     const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], DESIGN_TO_PHYSICAL_SEED, 'jpeg', fluxOpts);
@@ -10086,6 +10087,182 @@ app.put('/api/categories', express.json(), async (req, res) => {
     }
 });
 
+// 後台分類（含 FLUX safety_tolerance；前台 GET /api/categories 不暴露）
+app.get('/api/admin/categories', async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        let mainRows = null;
+        let mainError = null;
+        let fluxColumnReady = true;
+        const { data: mainData, error: mainErr } = await supabase
+            .from('ai_categories')
+            .select('key, name, prompt, sort_order, flux_safety_tolerance');
+        mainRows = mainData;
+        mainError = mainErr;
+        if (isSupabaseMissingColumnError(mainErr, 'flux_safety_tolerance')) {
+            fluxColumnReady = false;
+            const fb = await supabase.from('ai_categories').select('key, name, prompt, sort_order');
+            mainRows = fb.data;
+            mainError = fb.error;
+        } else if (mainError) {
+            const { data: fallback } = await supabase.from('ai_categories').select('key, name, prompt');
+            if (fallback && fallback.length > 0) {
+                mainRows = fallback;
+                mainError = null;
+            }
+        }
+        let subSelect = 'key, name, category_key, form_config, sort_order, flux_safety_tolerance';
+        let { data: subRows, error: subError } = await supabase.from('ai_subcategories').select(subSelect);
+        if (isSupabaseMissingColumnError(subError, 'flux_safety_tolerance')) {
+            fluxColumnReady = false;
+            ({ data: subRows, error: subError } = await supabase
+                .from('ai_subcategories')
+                .select('key, name, category_key, form_config, sort_order'));
+        }
+        if (mainError || !mainRows) {
+            return res.status(500).json({ error: '讀取分類失敗：' + (mainError ? mainError.message : '無資料') });
+        }
+        const mainList = Array.isArray(mainRows) ? mainRows : [];
+        if (mainList.length && mainList[0].sort_order != null) {
+            mainList.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+        }
+        const subByCategory = {};
+        if (!subError && Array.isArray(subRows)) {
+            subRows.forEach((s) => {
+                if (!subByCategory[s.category_key]) subByCategory[s.category_key] = [];
+                subByCategory[s.category_key].push(s);
+            });
+            Object.keys(subByCategory).forEach((k) => {
+                subByCategory[k].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+            });
+        }
+        const categories = mainList.map((m) => {
+            const subs = subByCategory[m.key] || [];
+            const sub_configs = {};
+            subs.forEach((s) => {
+                let cfg = s.form_config;
+                if (Array.isArray(cfg)) cfg = { _formFields: cfg };
+                else if (!cfg || typeof cfg !== 'object') cfg = {};
+                if (s.flux_safety_tolerance != null) cfg.flux_safety_tolerance = s.flux_safety_tolerance;
+                sub_configs[s.name] = cfg;
+            });
+            return {
+                key: m.key,
+                name: m.name,
+                prompt: m.prompt || '',
+                sort_order: m.sort_order != null ? m.sort_order : 0,
+                flux_safety_tolerance: m.flux_safety_tolerance != null ? m.flux_safety_tolerance : null,
+                sub: subs.map((s) => s.name),
+                sub_configs
+            };
+        });
+        res.set('Cache-Control', 'no-store');
+        res.json({
+            categories,
+            via: 'admin-split-db',
+            flux_safety_tolerance_ready: fluxColumnReady,
+            migration_hint: fluxColumnReady ? undefined : '請執行 docs/add-flux-safety-tolerance.sql 以啟用分類 FLUX 審核設定'
+        });
+    } catch (e) {
+        console.error('GET /api/admin/categories 異常:', e);
+        res.status(500).json({ error: '載入分類失敗：' + e.message });
+    }
+});
+
+app.put('/api/admin/categories', express.json(), async (req, res) => {
+    try {
+        const user = await requireAdmin(req, res);
+        if (!user) return;
+        const categories = Array.isArray(req.body.categories) ? req.body.categories : [];
+        if (!categories.length) return res.status(400).json({ error: '無有效資料' });
+        let fluxColumnReady = true;
+
+        for (let idx = 0; idx < categories.length; idx++) {
+            const cat = categories[idx];
+            if (!cat.key || !String(cat.key).trim()) continue;
+            const mainPayload = {
+                key: cat.key.trim(),
+                name: (cat.name || '').trim(),
+                prompt: cat.prompt || '',
+                sort_order: cat.sort_order != null ? cat.sort_order : idx
+            };
+            if (cat.flux_safety_tolerance !== undefined) {
+                mainPayload.flux_safety_tolerance = parseFluxSafetyToleranceInput(cat.flux_safety_tolerance);
+            }
+            let { error: mainErr } = await supabase.from('ai_categories').upsert(mainPayload, { onConflict: 'key' });
+            if (isSupabaseMissingColumnError(mainErr, 'flux_safety_tolerance')) {
+                fluxColumnReady = false;
+                delete mainPayload.flux_safety_tolerance;
+                ({ error: mainErr } = await supabase.from('ai_categories').upsert(mainPayload, { onConflict: 'key' }));
+            }
+            if (mainErr) console.warn('admin ai_categories upsert failed:', mainErr.message);
+
+            if (cat.sub && Array.isArray(cat.sub) && cat.sub.length > 0) {
+                const { data: existingSubs, error: existingSubsErr } = await supabase
+                    .from('ai_subcategories')
+                    .select('key, name, form_config, flux_safety_tolerance')
+                    .eq('category_key', cat.key);
+                if (isSupabaseMissingColumnError(existingSubsErr, 'flux_safety_tolerance')) {
+                    fluxColumnReady = false;
+                }
+                const existingByName = {};
+                if (existingSubs && existingSubs.length > 0) {
+                    existingSubs.forEach((s) => {
+                        existingByName[s.name] = { key: s.key, form_config: s.form_config, flux_safety_tolerance: s.flux_safety_tolerance };
+                    });
+                    await supabase.from('ai_subcategories').delete().eq('category_key', cat.key);
+                }
+                const subPayload = cat.sub.map((subName, subIdx) => {
+                    const existing = existingByName[subName];
+                    const subKey = (existing && existing.key) ? existing.key : (cat.key + '__' + String(subName).replace(/\s+/g, '_').slice(0, 100));
+                    const fromFront = cat.sub_configs && cat.sub_configs[subName];
+                    const fromDb = existing && existing.form_config;
+                    let form_config = fromFront !== undefined && fromFront !== null
+                        ? fromFront
+                        : (fromDb !== undefined && fromDb !== null ? fromDb : []);
+                    if (form_config && typeof form_config === 'object' && !Array.isArray(form_config)) {
+                        const clone = { ...form_config };
+                        delete clone.flux_safety_tolerance;
+                        form_config = clone;
+                    }
+                    const row = {
+                        key: subKey,
+                        name: subName,
+                        category_key: cat.key,
+                        form_config,
+                        sort_order: subIdx
+                    };
+                    if (fromFront && fromFront.flux_safety_tolerance !== undefined) {
+                        row.flux_safety_tolerance = parseFluxSafetyToleranceInput(fromFront.flux_safety_tolerance);
+                    } else if (existing && existing.flux_safety_tolerance != null) {
+                        row.flux_safety_tolerance = existing.flux_safety_tolerance;
+                    }
+                    return row;
+                });
+                let { error: subErr } = await supabase.from('ai_subcategories').upsert(subPayload, { onConflict: 'key' });
+                if (isSupabaseMissingColumnError(subErr, 'flux_safety_tolerance')) {
+                    fluxColumnReady = false;
+                    subPayload.forEach((r) => delete r.flux_safety_tolerance);
+                    ({ error: subErr } = await supabase.from('ai_subcategories').upsert(subPayload, { onConflict: 'key' }));
+                }
+                if (subErr) console.warn('admin ai_subcategories upsert failed:', subErr.message);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: '分類資料已儲存',
+            count: categories.length,
+            flux_safety_tolerance_ready: fluxColumnReady,
+            migration_hint: fluxColumnReady ? undefined : '請執行 docs/add-flux-safety-tolerance.sql 以儲存 FLUX 審核設定'
+        });
+    } catch (e) {
+        console.error('PUT /api/admin/categories 異常:', e);
+        res.status(500).json({ error: '儲存失敗：' + e.message });
+    }
+});
+
 // 除錯：容器內路徑與首頁檔案是否存在（修好 File not found 後可刪或改為僅 NODE_ENV!==production）
 app.get('/api/debug-path', (req, res) => {
     const p = path.join(__dirname, 'public');
@@ -10184,6 +10361,124 @@ app.post('/api/categories/seed-defaults', async (req, res) => {
 
 // ===== 客製產品 API =====
 
+/** BFL FLUX safety_tolerance：0 最嚴、6 最寬；NULL／未設＝2（BFL 預設） */
+const FLUX_SAFETY_TOLERANCE_DEFAULT = 2;
+
+function clampFluxSafetyTolerance(raw) {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return FLUX_SAFETY_TOLERANCE_DEFAULT;
+    return Math.max(0, Math.min(6, Math.round(n)));
+}
+
+/** 後台輸入：空白＝null（沿用預設 2） */
+function parseFluxSafetyToleranceInput(raw) {
+    if (raw == null || raw === '') return null;
+    return clampFluxSafetyTolerance(raw);
+}
+
+async function lookupCategoryFluxSafetyTolerance(categoryKey) {
+    const ck = String(categoryKey || '').trim();
+    if (!ck) return null;
+    try {
+        let { data, error } = await supabase
+            .from('ai_categories')
+            .select('flux_safety_tolerance')
+            .eq('key', ck)
+            .maybeSingle();
+        if (isSupabaseMissingColumnError(error, 'flux_safety_tolerance')) return null;
+        if (error || !data) return null;
+        return parseFluxSafetyToleranceInput(data.flux_safety_tolerance);
+    } catch (_) {
+        return null;
+    }
+}
+
+async function lookupSubcategoryFluxSafetyTolerance(subcategoryKey) {
+    const sk = String(subcategoryKey || '').trim();
+    if (!sk) return null;
+    try {
+        let { data, error } = await supabase
+            .from('ai_subcategories')
+            .select('flux_safety_tolerance')
+            .eq('key', sk)
+            .maybeSingle();
+        if (isSupabaseMissingColumnError(error, 'flux_safety_tolerance')) return null;
+        if (error || !data) return null;
+        return parseFluxSafetyToleranceInput(data.flux_safety_tolerance);
+    } catch (_) {
+        return null;
+    }
+}
+
+async function lookupPromoTemplateFluxSafetyTolerance(templateKey) {
+    const key = String(templateKey || '').trim();
+    if (!key) return null;
+    try {
+        let { data, error } = await supabase
+            .from('promo_scene_templates')
+            .select('flux_safety_tolerance')
+            .eq('key', key)
+            .maybeSingle();
+        if (isSupabaseMissingColumnError(error, 'flux_safety_tolerance')) return null;
+        if (error || !data) return null;
+        return parseFluxSafetyToleranceInput(data.flux_safety_tolerance);
+    } catch (_) {
+        return null;
+    }
+}
+
+async function resolveFluxSafetyToleranceFromCategoryPair(categoryKey, subcategoryKey) {
+    const subT = await lookupSubcategoryFluxSafetyTolerance(subcategoryKey);
+    if (subT != null) return subT;
+    const mainT = await lookupCategoryFluxSafetyTolerance(categoryKey);
+    if (mainT != null) return mainT;
+    return FLUX_SAFETY_TOLERANCE_DEFAULT;
+}
+
+async function resolveFluxSafetyToleranceFromCategoryKeys(categoryKeys) {
+    const keys = [...new Set((categoryKeys || []).filter(Boolean).map((k) => String(k).trim()))];
+    if (!keys.length) return FLUX_SAFETY_TOLERANCE_DEFAULT;
+    const found = [];
+    for (let i = 0; i < keys.length; i++) {
+        const k = keys[i];
+        let t = await lookupSubcategoryFluxSafetyTolerance(k);
+        if (t == null) t = await lookupCategoryFluxSafetyTolerance(k);
+        if (t != null) found.push(t);
+    }
+    if (!found.length) return FLUX_SAFETY_TOLERANCE_DEFAULT;
+    return Math.max.apply(null, found);
+}
+
+async function resolveCategoryKeysFromPromoSource(sourceType, sourceId) {
+    const sid = String(sourceId || '').trim();
+    if (!sid) return [];
+    const st = String(sourceType || '').trim();
+    try {
+        if (st === 'custom_product') {
+            const { data } = await supabase.from('custom_products').select('category, subcategory_key').eq('id', sid).maybeSingle();
+            return [data && data.subcategory_key, data && data.category].filter(Boolean);
+        }
+        if (st === 'vendor_asset') {
+            const { data } = await supabase.from('vendor_assets').select('category_key, subcategory_key').eq('id', sid).maybeSingle();
+            return [data && data.subcategory_key, data && data.category_key].filter(Boolean);
+        }
+    } catch (_) { /* ignore */ }
+    return [];
+}
+
+/** 情境圖：場景 > 主題 > 來源產品分類 > 預設 2 */
+async function resolveFluxSafetyToleranceForPromo(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const sceneT = await lookupPromoTemplateFluxSafetyTolerance(o.sceneKey);
+    if (sceneT != null) return sceneT;
+    const themeT = await lookupPromoTemplateFluxSafetyTolerance(o.themeKey);
+    if (themeT != null) return themeT;
+    const srcKeys = await resolveCategoryKeysFromPromoSource(o.sourceType, o.sourceId);
+    const extra = Array.isArray(o.categoryKeys) ? o.categoryKeys : [];
+    const allKeys = [...new Set([...extra, ...srcKeys].filter(Boolean))];
+    return resolveFluxSafetyToleranceFromCategoryKeys(allKeys);
+}
+
 const BFL_BASE = 'https://api.bfl.ai';
 const BFL_FLUX_PRO = BFL_BASE + '/v1/flux-2-pro';
 
@@ -10272,7 +10567,7 @@ async function pollBflResult(createData, BFL_API_KEY) {
 }
 
 /** FLUX 2.0 PRO 純文字生圖；BFL 僅 body.prompt（無 negative_prompt），prompt 可含製造限制句 */
-async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, endpointUrl, captureOut) {
+async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, endpointUrl, captureOut, textToImageOpts) {
     const BFL_API_KEY = process.env.BFL_API_KEY;
     if (!BFL_API_KEY) return null;
     prompt = await translatePromptToEnglishForFlux(prompt);
@@ -10280,13 +10575,16 @@ async function generateImageWithFlux2ProTextToImage(prompt, seed, outputFormat, 
         captureOut.prompt = prompt;
         captureOut.referenceCount = 0;
     }
+    const tOpts = textToImageOpts && typeof textToImageOpts === 'object' ? textToImageOpts : {};
     const fmt = (outputFormat === 'png' || outputFormat === 'jpeg') ? outputFormat : 'jpeg';
     const body = {
         prompt,
         width: 1024,
         height: 1024,
         output_format: fmt,
-        safety_tolerance: 2
+        safety_tolerance: clampFluxSafetyTolerance(
+            tOpts.safetyTolerance != null ? tOpts.safetyTolerance : FLUX_SAFETY_TOLERANCE_DEFAULT
+        )
     };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
     const endpoint = endpointUrl || BFL_FLUX_PRO;
@@ -10331,9 +10629,9 @@ async function generateImageWithFlux2Pro(prompt, referenceImages, seed, outputFo
     });
     const body = { prompt, output_format: fmt, width: outW, height: outH };
     if (seed != null && Number.isInteger(Number(seed))) body.seed = Number(seed);
-    if (opts.safetyTolerance != null && Number.isFinite(Number(opts.safetyTolerance))) {
-        body.safety_tolerance = Math.max(0, Math.min(6, Math.round(Number(opts.safetyTolerance))));
-    }
+    body.safety_tolerance = clampFluxSafetyTolerance(
+        opts.safetyTolerance != null ? opts.safetyTolerance : FLUX_SAFETY_TOLERANCE_DEFAULT
+    );
     body.input_image = images[0];
     for (let i = 1; i < images.length; i++) body[`input_image_${i + 1}`] = images[i];
     const createRes = await fetch(endpoint, {
@@ -10360,11 +10658,13 @@ async function optimizeVendorAssetImageWithFlux(
     if (isMaterial) {
         const prepared = await prepareVendorMaterialFluxImage(fileBuffer);
         const prompt = await buildVendorAssetMaterialFluxOptimizePromptWithPhoto(materialSurfaceType);
+        const fluxSafetyTolerance = await resolveFluxSafetyToleranceFromCategoryPair(ctx.categoryKey, ctx.subcategoryKey);
         const fluxOpts = {
             endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_material'),
             width: 1024,
             height: 1024,
-            skipPromptTranslation: true
+            skipPromptTranslation: true,
+            safetyTolerance: fluxSafetyTolerance
         };
         const dataUrl = `data:${prepared.mimetype};base64,${prepared.buffer.toString('base64')}`;
         const buf = await generateImageWithFlux2Pro(prompt, [dataUrl], VENDOR_MATERIAL_FLUX_SEED, 'jpeg', fluxOpts);
@@ -10377,9 +10677,11 @@ async function optimizeVendorAssetImageWithFlux(
     );
     const fluxBuffer = fileBuffer;
     const fluxMime = mimeType || 'image/jpeg';
+    const fluxSafetyTolerance = await resolveFluxSafetyToleranceFromCategoryPair(ctx.categoryKey, ctx.subcategoryKey);
     const fluxOpts = {
         endpointUrl: await getBflFluxEndpointForConfigKey('bfl_flux_model_vendor_product'),
-        skipPromptTranslation: true
+        skipPromptTranslation: true,
+        safetyTolerance: fluxSafetyTolerance
     };
     const dataUrl = `data:${fluxMime};base64,${fluxBuffer.toString('base64')}`;
     const fluxSeed = seed != null ? seed : fluxSeedFromImageBuffer(fluxBuffer);
@@ -11213,6 +11515,13 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             return res.status(503).json({ success: false, error: '情境圖服務暫未設定，請稍後再試' });
         }
         const finalPrompt = await buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photographySetId, refBases.length);
+        const fluxSafetyTolerance = await resolveFluxSafetyToleranceForPromo({
+            themeKey,
+            sceneKey,
+            sourceType,
+            sourceId,
+            categoryKeys: body.category_keys || body.categoryKeys
+        });
         const endpointUrl = await getBflFluxEndpointForConfigKey('bfl_flux_model_promo_image');
         const seed = Math.floor(Math.random() * 2147483647);
         let buffer;
@@ -11226,7 +11535,7 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
                 seed,
                 'jpeg',
                 process.env.BFL_API_KEY,
-                { promptUpsampling: false }
+                { promptUpsampling: false, safetyTolerance: fluxSafetyTolerance }
             );
         } catch (fluxErr) {
             console.error('promo-image BFL:', fluxErr);
@@ -11649,6 +11958,7 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
         // ── 步驟 2：呼叫 BFL 生圖 ──
         if (process.env.BFL_API_KEY) {
             try {
+                const fluxSafetyTolerance = await resolveFluxSafetyToleranceFromCategoryKeys(categoryKeys);
                 const fluxModelKey = (hasRefs && referenceSourcesIncludeOfficial(referenceSources || []))
                     ? 'bfl_flux_model_official'
                     : 'bfl_flux_model_generate';
@@ -11656,11 +11966,15 @@ app.post('/api/generate-product-image', express.json({ limit: '15mb' }), async (
                 if (hasRefs) {
                     const buffer = await generateImageWithFlux2Pro(fullPrompt, fluxReferenceImages, seedNum, outputFormat, {
                         endpointUrl: fluxGenerateEndpoint,
-                        captureOut: fluxCaptureOut
+                        captureOut: fluxCaptureOut,
+                        safetyTolerance: fluxSafetyTolerance
                     });
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 } else {
-                    const buffer = await generateImageWithFlux2ProTextToImage(fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint, fluxCaptureOut);
+                    const buffer = await generateImageWithFlux2ProTextToImage(
+                        fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint, fluxCaptureOut,
+                        { safetyTolerance: fluxSafetyTolerance }
+                    );
                     if (buffer) { imageData = buffer.toString('base64'); usedFlux = true; }
                 }
             } catch (e) {
@@ -20041,13 +20355,18 @@ app.post('/api/embed/simulator/generate', express.json({ limit: '15mb' }), async
 
         if (process.env.BFL_API_KEY) {
             try {
+                const fluxSafetyTolerance = await resolveFluxSafetyToleranceFromCategoryKeys(categoryKeys);
                 if (hasRefs) {
                     const buffer = await generateImageWithFlux2Pro(composed.fullPrompt, composed.fluxReferenceImages, seedNum, outputFormat, {
-                        endpointUrl: fluxGenerateEndpoint
+                        endpointUrl: fluxGenerateEndpoint,
+                        safetyTolerance: fluxSafetyTolerance
                     });
                     if (buffer) imageData = buffer.toString('base64');
                 } else {
-                    const buffer = await generateImageWithFlux2ProTextToImage(composed.fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint);
+                    const buffer = await generateImageWithFlux2ProTextToImage(
+                        composed.fullPrompt, seedNum, outputFormat, fluxGenerateEndpoint, null,
+                        { safetyTolerance: fluxSafetyTolerance }
+                    );
                     if (buffer) imageData = buffer.toString('base64');
                 }
             } catch (fluxErr) {
@@ -27472,9 +27791,10 @@ app.delete('/api/admin/photography-prompt-sets/:id', async (req, res) => {
     }
 });
 
-const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
-const PROMO_SCENE_TEMPLATE_SELECT_NO_I18N = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT = 'id, key, name, name_en, name_ja, name_es, name_de, name_fr, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, flux_safety_tolerance, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT_NO_I18N = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, slot, sort_order, is_active, flux_safety_tolerance, created_at, updated_at';
 const PROMO_SCENE_TEMPLATE_SELECT_LEGACY = 'id, key, name, description, scene_prompt, composition_hint, recommended_ratios, category, sort_order, is_active, created_at, updated_at';
+const PROMO_SCENE_TEMPLATE_SELECT_LEGACY_NO_FLUX = PROMO_SCENE_TEMPLATE_SELECT_LEGACY;
 
 function normalizePromoSceneTemplateKey(raw) {
     return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '').slice(0, 64);
@@ -27506,11 +27826,18 @@ app.get('/api/admin/promo-scene-templates', async (req, res) => {
             .select(PROMO_SCENE_TEMPLATE_SELECT)
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
-        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
+        if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja|flux_safety_tolerance/.test(error.message)))) {
             usedNoI18nFallback = true;
             ({ data, error } = await supabase
                 .from('promo_scene_templates')
                 .select(PROMO_SCENE_TEMPLATE_SELECT_NO_I18N)
+                .order('sort_order', { ascending: true })
+                .order('key', { ascending: true }));
+        }
+        if (error && (error.code === '42703' || (error.message && /flux_safety_tolerance/.test(error.message)))) {
+            ({ data, error } = await supabase
+                .from('promo_scene_templates')
+                .select(PROMO_SCENE_TEMPLATE_SELECT_LEGACY_NO_FLUX)
                 .order('sort_order', { ascending: true })
                 .order('key', { ascending: true }));
         }
@@ -27580,8 +27907,12 @@ app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) =>
             slot: normalizePromoTemplateSlot(body.slot),
             sort_order: body.sort_order != null ? Number(body.sort_order) || 0 : 0,
             is_active: body.is_active === undefined ? true : !!body.is_active,
+            flux_safety_tolerance: body.flux_safety_tolerance !== undefined
+                ? parseFluxSafetyToleranceInput(body.flux_safety_tolerance)
+                : undefined,
             updated_at: new Date().toISOString()
         };
+        if (payload.flux_safety_tolerance === undefined) delete payload.flux_safety_tolerance;
         appendPromoSceneMultilangFields(payload, body);
         let { data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT).single();
         if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
@@ -27603,6 +27934,16 @@ app.post('/api/admin/promo-scene-templates', express.json(), async (req, res) =>
                 return res.status(201).json({
                     item: data,
                     warning: '已新增（尚無 slot 欄）。請執行 docs/add-promo-theme-scene-slots.sql 才能區分主題／場景'
+                });
+            }
+        }
+        if (isSupabaseMissingColumnError(error, 'flux_safety_tolerance')) {
+            delete payload.flux_safety_tolerance;
+            ({ data, error } = await supabase.from('promo_scene_templates').insert(payload).select(PROMO_SCENE_TEMPLATE_SELECT_NO_I18N.replace(', flux_safety_tolerance', '')).single());
+            if (!error) {
+                return res.status(201).json({
+                    item: data,
+                    warning: '已新增（尚無 FLUX 審核欄位）。請執行 docs/add-flux-safety-tolerance.sql'
                 });
             }
         }
@@ -27648,6 +27989,9 @@ app.put('/api/admin/promo-scene-templates/:id', express.json(), async (req, res)
         if (body.slot !== undefined) updates.slot = normalizePromoTemplateSlot(body.slot);
         if (body.sort_order !== undefined) updates.sort_order = Number(body.sort_order) || 0;
         if (body.is_active !== undefined) updates.is_active = !!body.is_active;
+        if (body.flux_safety_tolerance !== undefined) {
+            updates.flux_safety_tolerance = parseFluxSafetyToleranceInput(body.flux_safety_tolerance);
+        }
         appendPromoSceneMultilangFields(updates, body);
         let { data, error } = await supabase.from('promo_scene_templates').update(updates).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT).single();
         if (error && (error.code === '42703' || (error.message && /column.*does not exist|name_en|name_ja/.test(error.message)))) {
@@ -27670,6 +28014,17 @@ app.put('/api/admin/promo-scene-templates/:id', express.json(), async (req, res)
                 return res.json({
                     item: data,
                     warning: '其他欄位已儲存。請執行 docs/add-promo-theme-scene-slots.sql 才能設定主題／場景'
+                });
+            }
+        }
+        if (isSupabaseMissingColumnError(error, 'flux_safety_tolerance')) {
+            const strippedFlux = { ...updates };
+            delete strippedFlux.flux_safety_tolerance;
+            ({ data, error } = await supabase.from('promo_scene_templates').update(strippedFlux).eq('id', id).select(PROMO_SCENE_TEMPLATE_SELECT_NO_I18N.replace(', flux_safety_tolerance', '')).single());
+            if (!error) {
+                return res.json({
+                    item: data,
+                    warning: '其他欄位已儲存（尚無 FLUX 審核欄位）。請執行 docs/add-flux-safety-tolerance.sql'
                 });
             }
         }

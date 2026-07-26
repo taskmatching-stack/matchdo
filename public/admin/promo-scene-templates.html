@@ -26,6 +26,7 @@
           <em>主題</em>的 <code>scene_prompt</code>＋<code>composition_hint</code>、
           <em>場景</em>的同名字段、使用者額外描述、攝影參數。
           中文「名稱／說明」只給人看，<strong>不會</strong>進提示詞——要改生成結果請改英文提示詞欄。
+          <strong>FLUX 審核</strong>（0–6，空白＝預設 2）僅後台生效；首次請執行 <code>docs/add-flux-safety-tolerance.sql</code>。
         </div>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
 
@@ -64,6 +65,7 @@
               <div class="col-12"><label class="form-label small mb-0">提示詞 scene_prompt（進 FLUX）</label><textarea id="tplScene" class="form-control form-control-sm" rows="2" placeholder="print-ready promotional flyer visual…"></textarea></div>
               <div class="col-12"><label class="form-label small mb-0">構圖提示 composition_hint（進 FLUX，選填）</label><textarea id="tplComp" class="form-control form-control-sm" rows="2" placeholder="centered product hero…"></textarea></div>
               <div class="col-md-6"><label class="form-label small mb-0">建議比例（逗號分隔）</label><input id="tplRatios" class="form-control form-control-sm" value="1:1,4:3,16:9"></div>
+              <div class="col-md-2"><label class="form-label small mb-0" title="BFL safety_tolerance；空白=預設2">FLUX審核</label><input id="tplFluxTol" type="number" min="0" max="6" step="1" class="form-control form-control-sm" placeholder="2"></div>
               <div class="col-12"><button type="button" id="btnAdd" class="btn btn-primary btn-sm">新增</button></div>
             </div>
           </div>
@@ -89,6 +91,7 @@
                   <th>名稱</th>
                   <th>提示詞（進 FLUX）</th>
                   <th>構圖</th>
+                  <th title="BFL safety_tolerance">FLUX</th>
                   <th>排序</th>
                   <th>狀態</th>
                   <th></th>
@@ -132,7 +135,8 @@
                   <div class="col-12"><label class="form-label">提示詞 scene_prompt（進 FLUX）</label><textarea id="editScene" class="form-control" rows="4"></textarea></div>
                   <div class="col-12"><label class="form-label">構圖提示 composition_hint（進 FLUX）</label><textarea id="editComp" class="form-control" rows="3"></textarea></div>
                   <div class="col-md-6"><label class="form-label">建議比例</label><input id="editRatios" class="form-control"></div>
-                  <div class="col-md-3"><label class="form-label">排序</label><input id="editSort" type="number" class="form-control"></div>
+                  <div class="col-md-2"><label class="form-label" title="BFL safety_tolerance；空白=預設2">FLUX審核</label><input id="editFluxTol" type="number" min="0" max="6" step="1" class="form-control" placeholder="2"></div>
+                  <div class="col-md-2"><label class="form-label">排序</label><input id="editSort" type="number" class="form-control"></div>
                   <div class="col-md-3 d-flex align-items-end">
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="editActive">
@@ -278,13 +282,14 @@
         '</td>' +
         '<td class="small text-muted" title="' + esc(s.scene_prompt || '') + '">' + esc(shortText(s.scene_prompt, 48)) + '</td>' +
         '<td class="small text-muted" title="' + esc(s.composition_hint || '') + '">' + esc(shortText(s.composition_hint, 36)) + '</td>' +
+        '<td class="small">' + (s.flux_safety_tolerance != null ? esc(s.flux_safety_tolerance) : '<span class="text-muted">2</span>') + '</td>' +
         '<td>' + esc(s.sort_order) + '</td>' +
         '<td>' + (s.is_active === false ? '<span class="text-danger">停用</span>' : '<span class="text-success">啟用＝前台可見</span>') + '</td>' +
         '<td class="text-nowrap">' +
           '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-edit" data-id="' + esc(s.id) + '">編輯</button>' +
           '<button type="button" class="btn btn-sm btn-outline-danger btn-del" data-id="' + esc(s.id) + '">刪除</button>' +
         '</td></tr>';
-    }).join('') || '<tr><td colspan="7" class="text-muted text-center">' +
+    }).join('') || '<tr><td colspan="8" class="text-muted text-center">' +
       (items.length && !rows.length
         ? '目前沒有啟用中的' + slotLabel(currentSlot) + '（勾選「顯示已停用」可查看）'
         : '尚無資料') +
@@ -306,6 +311,10 @@
         scene_prompt: document.getElementById('tplScene').value,
         composition_hint: document.getElementById('tplComp').value,
         recommended_ratios: document.getElementById('tplRatios').value,
+        flux_safety_tolerance: (function () {
+          var v = String((document.getElementById('tplFluxTol') || {}).value || '').trim();
+          return v === '' ? null : v;
+        })(),
         sort_order: Number(document.getElementById('tplSort').value) || 0,
         slot: document.getElementById('tplSlot').value
       }, promoMultilangBody('tpl')))
@@ -323,6 +332,8 @@
     document.getElementById('tplDesc').value = '';
     document.getElementById('tplScene').value = '';
     document.getElementById('tplComp').value = '';
+    var tplFlux = document.getElementById('tplFluxTol');
+    if (tplFlux) tplFlux.value = '';
     await loadList();
   });
 
@@ -347,6 +358,7 @@
       document.getElementById('editComp').value = s.composition_hint || '';
       document.getElementById('editRatios').value = ratiosToText(s.recommended_ratios);
       document.getElementById('editSort').value = s.sort_order != null ? s.sort_order : 0;
+      document.getElementById('editFluxTol').value = s.flux_safety_tolerance != null ? s.flux_safety_tolerance : '';
       document.getElementById('editActive').checked = s.is_active !== false;
       document.getElementById('editModalTitle').textContent = '編輯' + slotLabel(s.slot === 'scene' ? 'scene' : 'theme');
       if (!editModal) editModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -376,6 +388,10 @@
         scene_prompt: document.getElementById('editScene').value,
         composition_hint: document.getElementById('editComp').value,
         recommended_ratios: document.getElementById('editRatios').value,
+        flux_safety_tolerance: (function () {
+          var v = String((document.getElementById('editFluxTol') || {}).value || '').trim();
+          return v === '' ? null : v;
+        })(),
         sort_order: Number(document.getElementById('editSort').value) || 0,
         is_active: document.getElementById('editActive').checked,
         slot: document.getElementById('editSlot').value
