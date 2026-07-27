@@ -3531,15 +3531,17 @@ $(document).ready(function () {
             (t('browseStyles.linkCountBadge') || '可搭配 {n} 項').replace('{n}', String(linkCount)).replace(/</g, '&lt;') + '</span> '
             : '';
         var zoomTitle = (t('customProduct.zoomImage') || '放大預覽').replace(/"/g, '&quot;');
-        var pickHint = (t('customProduct.vendorAssetPickHint') || '單擊加入參考圖；雙擊或按 🔍 放大').replace(/"/g, '&quot;');
+        var pickHint = (official
+            ? tr('customProduct.vendorStyleBrowsePickHintOfficial', '單擊放大預覽；按「加入參考圖」帶入設計')
+            : tr('customProduct.vendorStyleBrowsePickHint', '單擊放大預覽；按「用此款進行設計」帶入參考圖')).replace(/"/g, '&quot;');
         var multiBadge = imageUrls.length > 1
             ? '<span class="badge bg-dark position-absolute top-0 start-0 m-1" style="z-index:2;font-size:.65rem">' +
             imageUrls.length + ' ' + (t('customProduct.imageCountUnit') || '張') + '</span>' : '';
         var thumb = imgUrl
             ? '<div class="bs-card-thumb-wrap position-relative" title="' + pickHint + '">' + multiBadge +
             '<button type="button" class="vendor-asset-zoom-btn" title="' + zoomTitle + '" aria-label="' + zoomTitle + '"><i class="bi bi-zoom-in"></i></button>' +
-            '<a href="' + designUrl + '" class="text-decoration-none text-dark d-block bs-card-thumb-link" data-prototype-id="' +
-            escAttr(item.id || '') + '"><img src="' + imgUrl + '" alt="" class="bs-card-thumb-img" loading="lazy"></a></div>'
+            '<div class="bs-card-thumb-link" role="button" tabindex="0" title="' + pickHint + '" data-prototype-id="' +
+            escAttr(item.id || '') + '"><img src="' + imgUrl + '" alt="" class="bs-card-thumb-img" loading="lazy"></div></div>'
             : '<div class="bs-card-thumb-placeholder"><i class="bi bi-image fs-2"></i></div>';
         var coverLabel = (imageItems[0] && imageItems[0].label) ? String(imageItems[0].label).trim() : '';
         var coverLabelHtml = (coverLabel && !isAutoStorageImageLabel(coverLabel, item.title || ''))
@@ -3684,7 +3686,11 @@ $(document).ready(function () {
             e.stopPropagation();
             openVendorAssetCardLightbox($(this).closest('.bs-card'));
         });
-        $grid.find('.bs-card-thumb-img').off('dblclick.bsCardZoom').on('dblclick.bsCardZoom', function (e) {
+        $grid.find('.bs-card-thumb-link, .bs-card-thumb-img').off('click.bsCardZoom keydown.bsCardZoom').on('click.bsCardZoom keydown.bsCardZoom', function (e) {
+            if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+            if (e.type === 'keydown') e.preventDefault();
+            if (e.type === 'click' && (e.detail > 1 || e.defaultPrevented)) return;
+            if ($(e.target).closest('.vendor-asset-zoom-btn').length) return;
             e.preventDefault();
             e.stopPropagation();
             openVendorAssetCardLightbox($(this).closest('.bs-card'));
