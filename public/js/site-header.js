@@ -147,18 +147,27 @@ function getPublicConfig() {
 /** 登入後能力（頁面/API 用；選單全顯示不依此隱藏 — 見 docs/account-one-login-capabilities.md） */
 async function fetchMeCapabilities() {
     if (typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return null;
-    try {
-        var getter = window.AuthService.getSessionForApi || window.AuthService.getSession;
-        var session = typeof getter === 'function' ? await getter.call(window.AuthService) : null;
-        if (!session || !session.access_token) return null;
-        var r = await fetch('/api/me/capabilities', {
-            headers: { Authorization: 'Bearer ' + session.access_token }
-        });
-        if (!r.ok) return null;
-        return await r.json();
-    } catch (e) {
-        return null;
-    }
+    if (window.__ME_CAPABILITIES__) return window.__ME_CAPABILITIES__;
+    if (window.__ME_CAPABILITIES_PROMISE__) return window.__ME_CAPABILITIES_PROMISE__;
+    window.__ME_CAPABILITIES_PROMISE__ = (async function () {
+        try {
+            var getter = window.AuthService.getSessionForApi || window.AuthService.getSession;
+            var session = typeof getter === 'function' ? await getter.call(window.AuthService) : null;
+            if (!session || !session.access_token) return null;
+            var r = await fetch('/api/me/capabilities', {
+                headers: { Authorization: 'Bearer ' + session.access_token }
+            });
+            if (!r.ok) return null;
+            var data = await r.json();
+            window.__ME_CAPABILITIES__ = data;
+            return data;
+        } catch (e) {
+            return null;
+        } finally {
+            window.__ME_CAPABILITIES_PROMISE__ = null;
+        }
+    })();
+    return window.__ME_CAPABILITIES_PROMISE__;
 }
 
 /** 付費會員或管理員／測試員：數位資產庫可勾選是否上媒體牆 */
@@ -208,6 +217,11 @@ function bindSiteHeaderAuthListeners(initialSession) {
         _siteHeaderAuthListenersBound = true;
         AuthService.onAuthStateChange(function (event, newSession) {
             if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+                clearHeaderNavLinkCache();
+                try {
+                    window.__ME_CAPABILITIES__ = null;
+                    window.__ME_CAPABILITIES_PROMISE__ = null;
+                } catch (_) {}
                 _navFullyRendered = false;
                 loadSiteHeader(newSession);
                 return;
@@ -323,7 +337,11 @@ function loadSiteHeader(sessionFromEvent, options) {
         if (_navFullyRendered && uid === _lastRenderedUserId) return;
 
         if (fastFirst) {
-            await renderHeader(headerContainer, user, { enableServiceMatching: false }, null, { skipProfile: true, skipCapabilities: true });
+            await renderHeader(headerContainer, user, { enableServiceMatching: false }, null, {
+                skipProfile: true,
+                skipCapabilities: true,
+                skipDeferredLoads: true
+            });
             _lastRenderedUserId = uid;
             _navFullyRendered = true;
             return;
@@ -581,7 +599,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     initSiteHeaderDropdowns(headerContainer);
     initMobileNavDrawer(headerContainer);
 
-    if (user && typeof AuthService !== 'undefined' && AuthService.getSession) {
+    if (user && typeof AuthService !== 'undefined' && AuthService.getSession && !renderOpts.skipDeferredLoads) {
         loadRenewalReminderBanner(headerContainer);
         loadHeaderCredits(headerContainer);
         loadHeaderManufacturerNavLinks(headerContainer);
@@ -602,6 +620,12 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     }
 }
 
+var _HEADER_MFR_NAV_CACHE_KEY = 'matchdo_header_mfr_nav';
+
+function clearHeaderNavLinkCache() {
+    try { sessionStorage.removeItem(_HEADER_MFR_NAV_CACHE_KEY); } catch (_) {}
+}
+
 /** 已登入時設定「我的廠商首頁」連結（無廠商資料則導向控制台） */
 function loadHeaderManufacturerNavLinks(headerContainer) {
     if (!headerContainer || typeof window.AuthService === 'undefined' || !window.AuthService.getSession) return;
@@ -611,13 +635,26 @@ function loadHeaderManufacturerNavLinks(headerContainer) {
         if (!link) return;
         var fallback = '/client/manufacturer-dashboard.html';
         link.href = fallback;
+        var cached = null;
+        try { cached = sessionStorage.getItem(_HEADER_MFR_NAV_CACHE_KEY); } catch (_) {}
+        if (cached === 'none') return;
+        if (cached && cached !== 'none') {
+            link.href = '/vendor-profile.html?id=' + encodeURIComponent(cached);
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+            return;
+        }
         fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + session.access_token } })
             .then(function (r) {
-                if (r.status === 404) return null;
+                if (r.status === 404) {
+                    try { sessionStorage.setItem(_HEADER_MFR_NAV_CACHE_KEY, 'none'); } catch (_) {}
+                    return null;
+                }
                 return r.ok ? r.json() : null;
             })
             .then(function (mfr) {
                 if (mfr && mfr.id) {
+                    try { sessionStorage.setItem(_HEADER_MFR_NAV_CACHE_KEY, String(mfr.id)); } catch (_) {}
                     link.href = '/vendor-profile.html?id=' + encodeURIComponent(mfr.id);
                     link.setAttribute('target', '_blank');
                     link.setAttribute('rel', 'noopener noreferrer');
