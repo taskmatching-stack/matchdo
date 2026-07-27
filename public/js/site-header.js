@@ -252,27 +252,16 @@ function bootSiteHeader() {
 
     ensureNavLocaleReady()
         .then(function () {
-            return loadSiteHeader(session, { fastFirst: true });
-        })
-        .then(function () {
             bindSiteHeaderAuthListeners(session);
             return resolveBootHeaderSession(session);
         })
         .then(function (sess) {
-            if (!sess || !sess.user) return null;
-            _navFullyRendered = false;
-            return loadSiteHeader(sess, { fastFirst: false });
+            return loadSiteHeader(sess || session);
         })
         .catch(function (err) {
             console.error('site-header init:', err);
-            return resolveBootHeaderSession(session || window.__authSessionForHeader || null).then(function (sess) {
-                bindSiteHeaderAuthListeners(session);
-                if (sess && sess.user) {
-                    _navFullyRendered = false;
-                    return loadSiteHeader(sess, { fastFirst: false });
-                }
-                return loadSiteHeader(session || window.__authSessionForHeader || null, { fastFirst: true });
-            });
+            bindSiteHeaderAuthListeners(session);
+            return loadSiteHeader(session || window.__authSessionForHeader || null);
         });
 }
 
@@ -347,27 +336,23 @@ function loadSiteHeader(sessionFromEvent, options) {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return Promise.resolve();
     return (async function () {
-        var fastFirst = !!options.fastFirst;
-        var user = await resolveHeaderUser(sessionFromEvent, { allowNetworkSession: !fastFirst });
+        var user = await resolveHeaderUser(sessionFromEvent, { allowNetworkSession: true });
         var uid = user ? (user.id || user.email || 'user') : null;
         if (_navFullyRendered && uid === _lastRenderedUserId) return;
 
-        if (fastFirst) {
-            await renderHeader(headerContainer, user, { enableServiceMatching: false }, null, {
-                skipProfile: true,
-                skipCapabilities: true,
-                skipDeferredLoads: true
-            });
-            _lastRenderedUserId = uid;
-            _navFullyRendered = true;
-            return;
-        }
-
-        var configCaps = await Promise.all([
+        var profilePromise = (user && window.AuthService && AuthService.getUserProfile)
+            ? AuthService.getUserProfile().catch(function () { return null; })
+            : Promise.resolve(null);
+        var results = await Promise.all([
             getPublicConfig(),
-            user ? fetchMeCapabilities() : Promise.resolve(null)
+            user ? fetchMeCapabilities() : Promise.resolve(null),
+            profilePromise
         ]);
-        await renderHeader(headerContainer, user, configCaps[0], configCaps[1], { skipProfile: false });
+        var profile = results[2];
+        if (profile && profile.role) {
+            try { sessionStorage.setItem(_HEADER_PROFILE_ROLE_KEY, String(profile.role)); } catch (_) {}
+        }
+        await renderHeader(headerContainer, user, results[0], results[1], { preloadedProfile: profile });
         _lastRenderedUserId = uid;
         _navFullyRendered = true;
     })();
@@ -413,7 +398,9 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     let isAdmin = false;
     let isTesterOrAdmin = false;
     var profile = null;
-    if (user && window.AuthService && !renderOpts.skipProfile) {
+    if (renderOpts.preloadedProfile !== undefined) {
+        profile = renderOpts.preloadedProfile;
+    } else if (user && window.AuthService && !renderOpts.skipProfile) {
         try {
             profile = await AuthService.getUserProfile();
             if (profile && profile.role) {
@@ -620,7 +607,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     initSiteHeaderDropdowns(headerContainer);
     initMobileNavDrawer(headerContainer);
 
-    if (user && typeof AuthService !== 'undefined' && AuthService.getSession && !renderOpts.skipDeferredLoads) {
+    if (user && typeof AuthService !== 'undefined' && AuthService.getSession) {
         loadRenewalReminderBanner(headerContainer);
         loadHeaderCredits(headerContainer);
         loadHeaderManufacturerNavLinks(headerContainer);
@@ -654,7 +641,7 @@ function resolveHeaderRoles(user, profile, renderOpts) {
     var role = '';
     if (profile && profile.role) role = String(profile.role).trim();
     if (!role && user.user_metadata && user.user_metadata.role) role = String(user.user_metadata.role).trim();
-    if (!role && renderOpts && renderOpts.skipProfile) {
+    if (!role) {
         try {
             var cached = sessionStorage.getItem(_HEADER_PROFILE_ROLE_KEY);
             if (cached) role = String(cached).trim();
