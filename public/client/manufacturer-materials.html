@@ -727,6 +727,9 @@
                 <div class="alert alert-warning border small py-2 mb-3" role="note">
                     選擇<strong>數位原型</strong>或<strong>配件</strong>產品卡，多選角度／色款當產品參考，再<strong>重新拍攝／設計成廣告主視覺</strong>（不是原圖換背景）。1 MP＝20 點，每多 1 MP ＋10 點（最高 4 MP）。此分頁不影響上傳／編輯流程。
                 </div>
+                <div class="alert alert-info border small py-2 mb-3" role="note">
+                    生成紀錄在 <a href="/client/my-custom-products.html?tab=promo" class="alert-link fw-semibold">我的數位資產 → 情境圖</a>（不在「設計圖」、也不在下方素材列表）。要上首頁請在該頁勾「展示在媒體牆」，再到首頁點「情境圖」篩選。
+                </div>
                 <div class="row g-3">
                     <div class="col-lg-5">
                         <label class="form-label fw-semibold small mb-1">選擇產品卡</label>
@@ -737,7 +740,7 @@
                                 <option value="all">原型＋配件</option>
                             </select>
                         </div>
-                        <div id="promo-asset-list" class="row g-2" style="max-height:28rem;overflow-y:auto"></div>
+                        <div id="promo-asset-list" class="row g-2"></div>
                         <p id="promo-asset-empty" class="text-muted small d-none mb-0">尚無可用產品卡，請先在「數位原型」或「配件」上傳。</p>
                     </div>
                     <div class="col-lg-7">
@@ -784,9 +787,7 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small mb-1" for="promoVendorPhotoSelect">攝影參數（選填）</label>
-                                <select id="promoVendorPhotoSelect" class="form-select form-select-sm">
-                                    <option value="">（不追加）</option>
-                                </select>
+                                <select id="promoVendorPhotoSelect" class="form-select form-select-sm"></select>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small mb-1" for="promoVendorPrompt">額外描述（選填）</label>
@@ -1089,12 +1090,12 @@
     <script src="/js/image-lightbox.js"></script>
     <script src="/js/vendor-asset-share-urls.js"></script>
     <script src="/js/matchdo-upscale-scale.js?v=no-ai-edit-link-20260719"></script>
-    <script src="/js/matchdo-promo-image.js?v=20260721b"></script>
+    <script src="/js/matchdo-promo-image.js?v=20260728a"></script>
     <script src="/js/site-header.js"></script>
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'gallery-drag-label-sync-20260727';
+        window.__MATCHDO_MATERIALS_BUILD = 'promo-defaults-20260728';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -7560,6 +7561,7 @@
                 btnAddOpen.classList.toggle('d-none', showPromo);
             }
             if (showPromo) {
+                unlockPageScroll(false);
                 if (typeof ensurePromoVendorOptions === 'function') ensurePromoVendorOptions(true);
                 if (typeof loadPromoAssetsLite === 'function') {
                     loadPromoAssetsLite(false).then(function () {
@@ -7663,7 +7665,11 @@
                 var scenes = data.scenes || [];
                 window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorThemeSelect'), themes, 'key', 'name', '');
                 window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorEnvSelect'), scenes, 'key', 'name', '（不指定場景）');
-                window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorPhotoSelect'), data.photography_sets || [], 'id', 'name', '（不追加）');
+                if (typeof window.MatchdoPromoImage.fillPhotographySelect === 'function') {
+                    window.MatchdoPromoImage.fillPhotographySelect(document.getElementById('promoVendorPhotoSelect'), data.photography_sets || [], '（不追加）');
+                } else {
+                    window.MatchdoPromoImage.fillSelect(document.getElementById('promoVendorPhotoSelect'), data.photography_sets || [], 'id', 'name', '（不追加）');
+                }
                 if (typeof window.MatchdoPromoImage.bindSelectHint === 'function') {
                     window.MatchdoPromoImage.bindSelectHint(document.getElementById('promoVendorThemeSelect'), document.getElementById('promoVendorThemeHint'), themes, 'key');
                     window.MatchdoPromoImage.bindSelectHint(document.getElementById('promoVendorEnvSelect'), document.getElementById('promoVendorEnvHint'), scenes, 'key');
@@ -7970,6 +7976,11 @@
                                     window.MatchdoPromoImage.appendPromoResultActions(wrap, promoMeta, data.imageData, {
                                         libraryHref: '/client/my-custom-products.html?tab=promo'
                                     });
+                                }
+                                if (!data.id) {
+                                    showToast((data.library_warning || '圖已生成但未寫入資產庫，請按「儲存到數位資產庫」'), 'warning');
+                                } else {
+                                    showToast('已存入「我的數位資產 → 情境圖」', 'success');
                                 }
                             }
                         } else {
@@ -9183,6 +9194,7 @@
 
         async function init() {
             bindAllPageModalsScrollUnlock();
+            unlockPageScroll(false);
             bindAddFormPanelControls();
             initPrototypeMetaFields();
             showMaterialsListLoading();

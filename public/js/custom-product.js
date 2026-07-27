@@ -6160,13 +6160,21 @@ $(document).ready(function () {
                 'name',
                 '（不指定場景）'
             );
-            window.MatchdoPromoImage.fillSelect(
-                document.getElementById('promoImagePhotoSelect'),
-                data.photography_sets || [],
-                'id',
-                'name',
-                '（不追加）'
-            );
+            if (typeof window.MatchdoPromoImage.fillPhotographySelect === 'function') {
+                window.MatchdoPromoImage.fillPhotographySelect(
+                    document.getElementById('promoImagePhotoSelect'),
+                    data.photography_sets || [],
+                    '（不追加）'
+                );
+            } else {
+                window.MatchdoPromoImage.fillSelect(
+                    document.getElementById('promoImagePhotoSelect'),
+                    data.photography_sets || [],
+                    'id',
+                    'name',
+                    '（不追加）'
+                );
+            }
             if (typeof window.MatchdoPromoImage.bindSelectHint === 'function') {
                 window.MatchdoPromoImage.bindSelectHint(
                     document.getElementById('promoImageThemeSelect'),

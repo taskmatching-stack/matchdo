@@ -143,6 +143,36 @@
     el.innerHTML = html;
   }
 
+  /** 情境圖攝影參數：預設「通用預設」；「（不追加）」固定在最下方 */
+  function resolveDefaultPhotographySetId(items) {
+    var list = items || [];
+    var exact = list.find(function (it) { return String(it.name || '').trim() === '通用預設'; });
+    if (exact && exact.id) return String(exact.id);
+    var byKey = list.find(function (it) {
+      var k = String(it.key || '').trim().toLowerCase();
+      return k === 'general_default' || k === 'promo_default' || k === 'default';
+    });
+    if (byKey && byKey.id) return String(byKey.id);
+    if (list.length && list[0].id) return String(list[0].id);
+    return '';
+  }
+
+  function fillPhotographySelect(el, items, emptyLabel) {
+    if (!el) return;
+    var list = items || [];
+    var label = emptyLabel || '（不追加）';
+    var defaultId = resolveDefaultPhotographySetId(list);
+    var html = '';
+    list.forEach(function (it) {
+      var val = String(it.id || '').replace(/"/g, '&quot;');
+      var selected = defaultId && val === defaultId ? ' selected' : '';
+      html += '<option value="' + val + '"' + selected + '>' +
+        String(it.name || it.key || val).replace(/</g, '&lt;') + '</option>';
+    });
+    html += '<option value="">' + label + '</option>';
+    el.innerHTML = html;
+  }
+
   /** 依選項 description 更新提示文字（名稱不進 FLUX，說明只給人看） */
   function bindSelectHint(selectEl, hintEl, items, valueKey) {
     if (!selectEl || !hintEl) return;
@@ -349,6 +379,8 @@
     ratioSelectHtml: ratioSelectHtml,
     mpSelectHtml: mpSelectHtml,
     fillSelect: fillSelect,
+    fillPhotographySelect: fillPhotographySelect,
+    resolveDefaultPhotographySetId: resolveDefaultPhotographySetId,
     bindSelectHint: bindSelectHint,
     loadOptions: loadOptions,
     pointsPreview: pointsPreview,

@@ -708,6 +708,16 @@ function mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, temp
     return stripMediaWallHeavyFields(item);
 }
 
+async function fetchPromoSourceMapForRows(rows) {
+    const customIds = [...new Set((rows || []).filter((r) => r && r.source_type === 'custom_product' && r.source_id).map((r) => r.source_id))];
+    const vendorIds = [...new Set((rows || []).filter((r) => r && r.source_type === 'vendor_asset' && r.source_id).map((r) => r.source_id))];
+    const [customMap, vendorMap] = await Promise.all([
+        mediaWallQueries.fetchCustomProductSourceMap(supabase, customIds, mediaWallQueryLog),
+        mediaWallQueries.fetchVendorAssetSourceMap(supabase, vendorIds, mediaWallQueryLog)
+    ]);
+    return Object.assign({}, customMap, vendorMap);
+}
+
 async function fetchPromoMediaWallItemById(id, lang) {
     const row = await mediaWallQueries.fetchPromoSceneMediaWallRowById(supabase, id, mediaWallQueryLog);
     if (!row) return null;
@@ -716,9 +726,7 @@ async function fetchPromoMediaWallItemById(id, lang) {
         const { data: prof } = await supabase.from('profiles').select('full_name, email').eq('id', row.user_id).maybeSingle();
         if (prof) ownerDisplayMap[row.user_id] = (prof.full_name && prof.full_name.trim()) || prof.email || '';
     }
-    const sourceProductMap = row.source_type === 'custom_product' && row.source_id
-        ? await mediaWallQueries.fetchCustomProductSourceMap(supabase, [row.source_id], mediaWallQueryLog)
-        : {};
+    const sourceProductMap = await fetchPromoSourceMapForRows([row]);
     const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows([row]));
     return mapPromoRowToMediaWallItem(row, ownerDisplayMap, sourceProductMap, tplMap, lang);
 }
@@ -834,8 +842,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
         const ingestPromo = async (rows) => {
             if (!rows || !rows.length) return;
             const ownerMap = await fetchOwnerDisplayMap([...new Set(rows.map((r) => r.user_id).filter(Boolean))]);
-            const srcIds = [...new Set(rows.filter((r) => r.source_type === 'custom_product' && r.source_id).map((r) => r.source_id))];
-            const srcMap = await mediaWallQueries.fetchCustomProductSourceMap(supabase, srcIds, mediaWallQueryLog);
+            const srcMap = await fetchPromoSourceMapForRows(rows);
             const tplMap = await fetchPromoTemplateNameMap(promoTemplateKeysFromRows(rows));
             rows.forEach((row) => {
                 if (!row || !row.id || seenPromo.has(row.id)) return;
@@ -847,8 +854,7 @@ async function loadMediaWallSearchResults(searchQ, opts) {
         };
         let promoRows = await mediaWallQueries.fetchPromoSceneMediaWallPool(supabase, pool, mediaWallQueryLog);
         if (hasCategoryFilter && promoRows.length) {
-            const srcIds = [...new Set(promoRows.map((r) => r.source_id).filter(Boolean))];
-            const srcMap = await mediaWallQueries.fetchCustomProductSourceMap(supabase, srcIds, mediaWallQueryLog);
+            const srcMap = await fetchPromoSourceMapForRows(promoRows);
             promoRows = mediaWallQueries.filterPromoRowsBySourceCategory(promoRows, srcMap, categoryKeysToMatch, filterSubcategoryKey);
         }
         await ingestPromo(promoRows);
@@ -11572,55 +11578,52 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             balanceAfter = consumed.balance_after;
         }
         let generationId = null;
+        let librarySaveWarning = null;
         const primaryUrl = refUrls[0] || '';
-        const promoShowOnHomepage = await defaultShowOnHomepageForNewDesign(currentUser.id);
+        const promoShowOnHomepage = true;
+        const promoInsertBase = {
+            user_id: currentUser.id,
+            source_type: sourceType,
+            source_id: sourceId || null,
+            source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+            aspect_ratio: aspectRatio,
+            width: w,
+            height: h,
+            megapixels: promoImageMegapixelsFromResolution(w, h),
+            scene_template_key: themeKey || null,
+            scene_key: sceneKey || null,
+            user_prompt: userPrompt || null,
+            photography_set_id: photographySetId || null,
+            final_prompt: finalPrompt,
+            result_image_url: resultImageUrl,
+            status: 'success',
+            points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+            completed_at: new Date().toISOString(),
+            show_on_homepage: promoShowOnHomepage
+        };
         try {
-            const { data: row, error: insErr } = await supabase.from('product_promo_generations').insert({
-                user_id: currentUser.id,
-                source_type: sourceType,
-                source_id: sourceId || null,
-                source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
-                aspect_ratio: aspectRatio,
-                width: w,
-                height: h,
-                megapixels: promoImageMegapixelsFromResolution(w, h),
-                scene_template_key: themeKey || null,
-                scene_key: sceneKey || null,
-                user_prompt: userPrompt || null,
-                photography_set_id: photographySetId || null,
-                final_prompt: finalPrompt,
-                result_image_url: resultImageUrl,
-                status: 'success',
-                points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
-                completed_at: new Date().toISOString(),
-                show_on_homepage: promoShowOnHomepage
-            }).select('id').single();
+            let insPayload = Object.assign({}, promoInsertBase);
+            let { data: row, error: insErr } = await supabase.from('product_promo_generations').insert(insPayload).select('id').single();
+            if (insErr && isSupabaseMissingColumnError(insErr, 'show_on_homepage')) {
+                insPayload = Object.assign({}, promoInsertBase);
+                delete insPayload.show_on_homepage;
+                ({ data: row, error: insErr } = await supabase.from('product_promo_generations').insert(insPayload).select('id').single());
+            }
             if (insErr && isSupabaseMissingColumnError(insErr, 'scene_key')) {
-                const retry = await supabase.from('product_promo_generations').insert({
-                    user_id: currentUser.id,
-                    source_type: sourceType,
-                    source_id: sourceId || null,
-                    source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
-                    aspect_ratio: aspectRatio,
-                    width: w,
-                    height: h,
-                    megapixels: promoImageMegapixelsFromResolution(w, h),
-                    scene_template_key: themeKey || null,
-                    user_prompt: userPrompt || null,
-                    photography_set_id: photographySetId || null,
-                    final_prompt: finalPrompt,
-                    result_image_url: resultImageUrl,
-                    status: 'success',
-                    points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
-                    completed_at: new Date().toISOString(),
-                    show_on_homepage: promoShowOnHomepage
-                }).select('id').single();
-                if (retry.error) console.warn('product_promo_generations insert:', retry.error.message);
-                else generationId = retry.data && retry.data.id ? retry.data.id : null;
-            } else if (insErr) console.warn('product_promo_generations insert:', insErr.message);
-            else generationId = row && row.id ? row.id : null;
+                insPayload = Object.assign({}, promoInsertBase);
+                delete insPayload.scene_key;
+                delete insPayload.show_on_homepage;
+                ({ data: row, error: insErr } = await supabase.from('product_promo_generations').insert(insPayload).select('id').single());
+            }
+            if (insErr) {
+                console.warn('product_promo_generations insert:', insErr.message);
+                librarySaveWarning = '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」或聯絡管理員檢查 product_promo_generations 資料表';
+            } else {
+                generationId = row && row.id ? row.id : null;
+            }
         } catch (logErr) {
             console.warn('product_promo_generations insert skipped:', logErr?.message || logErr);
+            librarySaveWarning = '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」';
         }
         if (generationId) {
             schedulePromoGenerationSemanticsEnrich(generationId, currentUser.id, {
@@ -11637,6 +11640,8 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         res.json({
             success: true,
             id: generationId,
+            saved_to_library: !!generationId,
+            library_warning: librarySaveWarning,
             imageData: `data:image/jpeg;base64,${imageData}`,
             image_url: resultImageUrl,
             points_deducted: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
@@ -11850,7 +11855,8 @@ app.post('/api/promo-image/save-to-library', express.json({ limit: '15mb' }), as
                 result_image_url: resultImageUrl,
                 status: 'success',
                 points_charged: 0,
-                completed_at: new Date().toISOString()
+                completed_at: new Date().toISOString(),
+                show_on_homepage: true
             })
             .select('id')
             .single();
@@ -12875,6 +12881,10 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
     parts.push('CRITICAL FORBIDDEN: keeping the same mannequin pose, crop, framing, camera height, and overall composition while only changing the backdrop or lighting — that is failure');
     parts.push('Create a fresh advertising shot: new camera angle and crop, stronger hero composition, premium commercial lighting, magazine or campaign energy');
     parts.push('The product must remain clearly the same real product (cut, fabric, color, surface details)');
+    parts.push('CRITICAL: the product must be clearly visible and immediately recognizable as the advertising hero — show the primary selling face, key design details, color, texture, and form so a viewer knows exactly what is being sold within one second');
+    parts.push('The product must occupy a substantial portion of the frame as the focal subject — not a tiny distant object lost in background blur or bokeh');
+    parts.push('CRITICAL FORBIDDEN: product lying flat face-down on a surface (back-only view), edge-only sliver, partially hidden under props, or ambiguous placement where the product identity is unclear');
+    parts.push('Prefer hero three-quarter or front-facing product presentation suitable for e-commerce and print ads — the product design must read clearly, not just mood or environment');
     parts.push('Use a clean commercial advertising environment that serves the promo; do not invent unrelated lifestyle room stories');
     if (refN > 1) {
         parts.push(
@@ -12898,7 +12908,7 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
     if (user) parts.push('Advertising brief: ' + user);
     let prompt = parts.join('. ').trim();
     prompt = appendPhotographyParams(prompt, photo);
-    return prompt || 'Create a brand-new product advertising key visual from the reference, not a background-only retouch.';
+    return prompt || 'Create a brand-new product advertising key visual from the reference with the product clearly visible as the hero subject — not face-down, not back-only, not a background-only retouch.';
 }
 
 /** 情境圖參考圖：支援 images[]（最多 8）或舊版單張 image */
@@ -14851,8 +14861,7 @@ app.get('/api/media-wall', async (req, res) => {
             );
             let promoSrcMap = {};
             if (promoRows.length) {
-                const srcIds = [...new Set(promoRows.map((r) => r.source_id).filter(Boolean))];
-                if (srcIds.length) promoSrcMap = await mediaWallQueries.fetchCustomProductSourceMap(supabase, srcIds, mediaWallQueryLog);
+                promoSrcMap = await fetchPromoSourceMapForRows(promoRows);
             }
             if (hasCategoryFilter && promoRows.length) {
                 promoRows = mediaWallQueries.filterPromoRowsBySourceCategory(promoRows, promoSrcMap, categoryKeysToMatch, filterSubcategoryKey);
