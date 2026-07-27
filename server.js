@@ -15441,11 +15441,16 @@ app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
         const type = (req.body && req.body.type) || req.query.type;
         const id = (req.body && req.body.id) || req.query.id;
         if (!type || !id) {
-            return res.status(400).json({ error: '請提供 type（user_design|comparison|series|collection）與 id' });
+            return res.status(400).json({ error: '請提供 type（user_design|comparison|series|collection|promo_scene）與 id' });
         }
         const tid = String(type).toLowerCase();
         if (tid === 'user_design') {
             const { error } = await supabase.from('custom_products').delete().eq('id', id);
+            if (error) return res.status(500).json({ error: error.message });
+            return res.json({ success: true, deleted: true });
+        }
+        if (tid === 'promo_scene') {
+            const { error } = await supabase.from('product_promo_generations').delete().eq('id', id);
             if (error) return res.status(500).json({ error: error.message });
             return res.json({ success: true, deleted: true });
         }
@@ -15459,7 +15464,7 @@ app.delete('/api/admin/media-wall-item', express.json(), async (req, res) => {
             if (error) return res.status(500).json({ error: error.message });
             return res.json({ success: true, deleted: false, hidden: true });
         }
-        return res.status(400).json({ error: 'type 須為 user_design、comparison、series 或 collection' });
+        return res.status(400).json({ error: 'type 須為 user_design、comparison、series、collection 或 promo_scene' });
     } catch (e) {
         console.error('DELETE /api/admin/media-wall-item 異常:', e);
         if (!res.headersSent) res.status(500).json({ error: '系統錯誤' });

@@ -854,14 +854,14 @@
                 deleteBtn.type = 'button';
                 deleteBtn.className = 'media-wall-admin-hide media-wall-admin-delete';
                 deleteBtn.textContent = '刪除';
-                deleteBtn.title = '用戶設計會永久刪除；對比/系列僅從首頁隱藏';
+                deleteBtn.title = '用戶設計與情境圖會永久刪除；對比/系列僅從首頁隱藏';
                 deleteBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     var type = wrap.getAttribute('data-type');
                     var id = wrap.getAttribute('data-id');
                     if (!type || !id) return;
-                    if (type === 'user_design' && !confirm('確定要永久刪除這張作品？刪除後無法復原。')) return;
+                    if ((type === 'user_design' || type === 'promo_scene') && !confirm('確定要永久刪除這張作品？刪除後無法復原。')) return;
                     (opts.getToken || function () { return Promise.resolve(null); })().then(function (token) {
                         if (!token) { alert('請先登入'); return; }
                         fetch('/api/admin/media-wall-item', {
