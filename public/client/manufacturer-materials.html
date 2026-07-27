@@ -1094,7 +1094,7 @@
     <script>
     (function () {
         /** 部署後在編輯視窗底部可見；用來確認線上是否為最新 HTML */
-        window.__MATCHDO_MATERIALS_BUILD = 'promo-save-library-20260723';
+        window.__MATCHDO_MATERIALS_BUILD = 'gallery-drag-label-sync-20260727';
         var EDIT_GALLERY_REDRAW_BATCH_GAP_MS = 2500;
         var editGalleryRenderDeferred = false;
         var editGalleryImeComposing = false;
@@ -2013,8 +2013,44 @@
             return isEditGalleryMetaInputEl(document.activeElement);
         }
 
-        /** 讀取編輯圖庫 DOM 上目前的名稱／連動組／設計者可選 */
+        /** 讀取編輯圖庫 DOM 上目前的名稱／連動組／設計者可選（依欄位 DOM 順序，拖曳後仍正確） */
         function readEditGalleryLiveMetaFromDom() {
+            var grid = document.getElementById('edit-gallery-grid');
+            if (grid) {
+                var cols = grid.querySelectorAll('.edit-gallery-col');
+                if (cols.length) {
+                    var live = { hasCoverFields: false, byUrl: {} };
+                    cols.forEach(function (col, idx) {
+                        var localId = col.getAttribute('data-local-id');
+                        if (localId) {
+                            var loc = findEditLocalById(localId);
+                            var locIn = col.querySelector('.edit-local-image-label, .pending-card-label');
+                            if (loc && locIn) loc.label = (locIn.value || '').trim();
+                            return;
+                        }
+                        var url = col.getAttribute('data-gallery-url');
+                        if (!url) return;
+                        var labelIn = col.querySelector('.pending-card-label, .edit-gallery-label-input');
+                        var linkIn = col.querySelector('.edit-cover-link-group, .edit-gallery-link-group-input');
+                        var selIn = col.querySelector('.edit-cover-designer-selectable, .edit-gallery-designer-selectable');
+                        var label = labelIn ? (labelIn.value || '') : '';
+                        var link_group = linkIn ? (linkIn.value || '') : '';
+                        var designer_selectable = selIn ? !!selIn.checked : undefined;
+                        if (idx === 0) {
+                            live.hasCoverFields = true;
+                            live.cover_label = label;
+                            live.cover_link_group = link_group;
+                            if (designer_selectable !== undefined) live.cover_designer_selectable = designer_selectable;
+                        } else {
+                            if (!live.byUrl[url]) live.byUrl[url] = {};
+                            live.byUrl[url].label = label;
+                            live.byUrl[url].link_group = link_group;
+                            if (designer_selectable !== undefined) live.byUrl[url].designer_selectable = designer_selectable;
+                        }
+                    });
+                    return live;
+                }
+            }
             var coverLabel = document.getElementById('edit-cover-label');
             var hasGalleryField = !!(coverLabel || document.querySelector('.edit-gallery-label-input')
                 || document.querySelector('.edit-cover-link-group')
@@ -2132,12 +2168,36 @@
             editImageLabelSaveInFlight = true;
             editImageLabelSaveQueuedId = null;
             syncEditGalleryLiveMetaToMaterialsAll(assetId);
-            var coverIn = document.getElementById('edit-cover-label');
-            var coverLgIn = document.getElementById('edit-cover-link-group');
+            var live = readEditGalleryLiveMetaFromDom();
+            var coverIn = null;
+            var coverLgIn = null;
+            var coverSelectableIn = null;
+            if (live && live.hasCoverFields) {
+                coverIn = { value: live.cover_label != null ? live.cover_label : '' };
+                coverLgIn = { value: live.cover_link_group != null ? live.cover_link_group : '' };
+                if (live.cover_designer_selectable !== undefined) {
+                    coverSelectableIn = { checked: live.cover_designer_selectable };
+                }
+            } else {
+                coverIn = document.getElementById('edit-cover-label');
+                coverLgIn = document.getElementById('edit-cover-link-group');
+                coverSelectableIn = document.querySelector('.edit-cover-designer-selectable');
+            }
             var byUrl = {};
+            if (live && live.byUrl) {
+                Object.keys(live.byUrl).forEach(function (url) {
+                    var p = live.byUrl[url];
+                    byUrl[url] = {
+                        url: url,
+                        label: (p.label != null ? p.label : '').trim(),
+                        link_group: (p.link_group != null ? p.link_group : '').trim(),
+                        designer_selectable: p.designer_selectable
+                    };
+                });
+            }
             document.querySelectorAll('.edit-gallery-label-input').forEach(function (inp) {
                 var url = inp.getAttribute('data-url');
-                if (!url) return;
+                if (!url || byUrl[url]) return;
                 if (!byUrl[url]) byUrl[url] = { url: url };
                 byUrl[url].label = (inp.value || '').trim();
             });
@@ -2159,15 +2219,15 @@
                 if (!tok) return;
                 var body = { entries: entries };
                 if (coverIn) body.cover_label = (coverIn.value || '').trim();
-                var coverSelectableIn = document.querySelector('.edit-cover-designer-selectable');
-                var coverSelectableOk = !coverSelectableIn || coverSelectableIn.checked;
+                var coverSelectableIn2 = coverSelectableIn || document.querySelector('.edit-cover-designer-selectable');
+                var coverSelectableOk = !coverSelectableIn2 || coverSelectableIn2.checked;
                 var mSave = materialsAll.find(function (x) { return x.id === assetId; });
                 if (mSave && normalizeKind(mSave.asset_kind) === 'material') {
                     body.cover_designer_selectable = false;
                     body.cover_link_group = '';
-                } else if (coverSelectableIn) {
-                    body.cover_designer_selectable = !!coverSelectableIn.checked;
-                    if (!coverSelectableIn.checked) body.cover_link_group = '';
+                } else if (coverSelectableIn2) {
+                    body.cover_designer_selectable = !!coverSelectableIn2.checked;
+                    if (!coverSelectableIn2.checked) body.cover_link_group = '';
                     else if (coverLgIn) body.cover_link_group = (coverLgIn.value || '').trim();
                 } else if (coverLgIn && coverSelectableOk) {
                     body.cover_link_group = (coverLgIn.value || '').trim();
@@ -3921,6 +3981,22 @@
             });
         }
 
+        function syncPendingLabelsFromDom(wrap, list) {
+            if (!wrap || !list) return;
+            wrap.querySelectorAll(':scope > [class*="col-"]').forEach(function (col) {
+                var pid = col.getAttribute('data-pending-id');
+                if (!pid) return;
+                var item = list.find(function (x) { return x.id === pid; });
+                if (!item) return;
+                var labelIn = col.querySelector('.pending-image-label');
+                if (labelIn) item.label = (labelIn.value || '').trim();
+                var linkIn = col.querySelector('.pending-link-group');
+                if (linkIn) item.link_group = (linkIn.value || '').trim();
+                var selIn = col.querySelector('.pending-designer-selectable');
+                if (selIn) item.designer_selectable = !!selIn.checked;
+            });
+        }
+
         function reorderPendingListFromDom(wrap, list) {
             if (!wrap || !list) return;
             var ids = Array.from(wrap.querySelectorAll(':scope > [class*="col-"]')).map(function (col) {
@@ -3957,6 +4033,7 @@
                 });
                 col.addEventListener('dragend', function () {
                     col.classList.remove('dragging');
+                    syncPendingLabelsFromDom(wrap, list);
                     var prevOrder = list.map(function (x) { return x.id; }).join('\0');
                     reorderPendingListFromDom(wrap, list);
                     var formEl = wrap.closest('form');
@@ -5070,9 +5147,10 @@
         function applyEditGalleryOrderFromGrid(grid, opts) {
             if (!grid) return;
             opts = opts || {};
-            syncEditGalleryLocalOrderFromGrid(grid);
             var id = document.getElementById('edit-id').value;
             if (!id) return;
+            syncEditGalleryLiveMetaToMaterialsAll(id);
+            syncEditGalleryLocalOrderFromGrid(grid);
             var m = materialsAll.find(function (x) { return x.id === id; });
             var prev = m ? assetImageUrls(m) : [];
             var next = collectEditGalleryOrderFromGrid(grid);
@@ -5081,12 +5159,8 @@
                 if (mIdx >= 0) materialsAll[mIdx] = reorderLocalAssetByUrls(materialsAll[mIdx], next);
                 schedulePersistGalleryOrder(next, { notify: !!(opts && opts.notify) });
             }
-            // 一律依 display order 重繪，保留新圖夾在已上傳圖中間的位置（輸入中則延後）
-            if (isEditGalleryMetaEditing()) {
-                editGalleryRenderDeferred = true;
-            } else {
-                renderEditGallery(materialsAll.find(function (x) { return x.id === id; }) || m);
-            }
+            // 拖曳後強制依欄位順序重繪，封面 badge／名稱 input 才會跟著圖走
+            renderEditGallery(materialsAll.find(function (x) { return x.id === id; }) || m, { force: true, skipLiveMeta: true });
         }
 
         function collectEditGalleryOrderFromGrid(grid) {
