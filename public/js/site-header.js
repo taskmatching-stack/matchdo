@@ -363,7 +363,6 @@ function loadSiteHeader(sessionFromEvent, options) {
                 skipDeferredLoads: true
             });
             _lastRenderedUserId = uid;
-            _navFullyRendered = true;
             return;
         }
 
