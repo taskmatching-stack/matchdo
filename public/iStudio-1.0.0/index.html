@@ -774,6 +774,7 @@
             var perPage = 24;
             var mediaWallHasRendered = false;
             var isLoading = false;
+            var allLoadedPromoItems = []; // 情境圖模式：已載入的所有 items（避免 append 亂疊）
             function itemMatchesTagFilters(item, tagFilters) {
                 if (!tagFilters || !tagFilters.length) return true;
                 var tags = getDisplayTags(item).map(function (t) { return String(t).trim().toLowerCase(); });
@@ -1460,7 +1461,8 @@
             var categoriesData = { categories: [] };
             var categoriesLang = '';
             function buildMediaWallUrl(page, q) {
-                var url = '/api/media-wall?per_page=' + perPage + '&page=' + page + (q ? '&q=' + encodeURIComponent(q) : '');
+                var pagePerPage = (currentLayoutType === 'promo_scene') ? 100 : perPage;
+                var url = '/api/media-wall?per_page=' + pagePerPage + '&page=' + page + (q ? '&q=' + encodeURIComponent(q) : '');
                 url += '&lang=' + encodeURIComponent(getMediaWallLang());
                 if (currentTagFilters.length) url += '&tag=' + encodeURIComponent(currentTagFilters.join(','));
                 if (currentCategoryKey) url += '&category_key=' + encodeURIComponent(currentCategoryKey);
@@ -1546,6 +1548,13 @@
                             applyPromoSceneGridMetrics();
                             var promoCols = promoPackColCount();
                             lastPromoPackColCount = promoCols;
+                            if (append) {
+                                allLoadedPromoItems = allLoadedPromoItems.concat(items);
+                                grid.innerHTML = '';
+                                items = allLoadedPromoItems;
+                            } else {
+                                allLoadedPromoItems = items.slice();
+                            }
                             var packed = window.MatchdoMediaWallPromoScene.packPromoSceneItems(items, promoCols);
                             packed.forEach(function (entry) {
                                 try {
@@ -1619,7 +1628,8 @@
                     currentQ = q;
                     renderFavSection();
                     renderActiveFilterChips();
-                    if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', page < 2 || items.length < perPage);
+                    var hideLoadMore = (page < 2 || items.length < perPage) || (layoutFilter === 'promo_scene');
+                    if (loadMoreBtn) loadMoreBtn.classList.toggle('d-none', hideLoadMore);
                 }
                 function attemptFetch(retryCount) {
                     var retryScheduled = false;
@@ -1805,6 +1815,7 @@
                 var io = new IntersectionObserver(function (entries) {
                     if (!entries[0] || !entries[0].isIntersecting) return;
                     if (showingFavoritesOnly || isLoading || currentPage !== 1) return;
+                    if (currentLayoutType === 'promo_scene') return;
                     reloadMediaWall(2, true);
                 }, { root: null, rootMargin: '0px', threshold: 0 });
                 io.observe(sentinel);
