@@ -222,6 +222,10 @@ function bindSiteHeaderAuthListeners(initialSession) {
                     window.__ME_CAPABILITIES__ = null;
                     window.__ME_CAPABILITIES_PROMISE__ = null;
                 } catch (_) {}
+                var newUid = newSession && newSession.user
+                    ? (newSession.user.id || newSession.user.email || 'user')
+                    : null;
+                if (event === 'SIGNED_IN' && newUid && newUid === _lastRenderedUserId) return;
                 _navFullyRendered = false;
                 loadSiteHeader(newSession);
                 return;
@@ -252,16 +256,27 @@ function bootSiteHeader() {
 
     ensureNavLocaleReady()
         .then(function () {
+            return loadSiteHeader(session, { fastFirst: true });
+        })
+        .then(function () {
             bindSiteHeaderAuthListeners(session);
             return resolveBootHeaderSession(session);
         })
         .then(function (sess) {
-            return loadSiteHeader(sess || session);
+            if (!sess || !sess.user) return null;
+            _navFullyRendered = false;
+            return loadSiteHeader(sess, { fastFirst: false });
         })
         .catch(function (err) {
             console.error('site-header init:', err);
-            bindSiteHeaderAuthListeners(session);
-            return loadSiteHeader(session || window.__authSessionForHeader || null);
+            return resolveBootHeaderSession(session || window.__authSessionForHeader || null).then(function (sess) {
+                bindSiteHeaderAuthListeners(session);
+                if (sess && sess.user) {
+                    _navFullyRendered = false;
+                    return loadSiteHeader(sess, { fastFirst: false });
+                }
+                return loadSiteHeader(session || window.__authSessionForHeader || null, { fastFirst: true });
+            });
         });
 }
 
@@ -336,23 +351,27 @@ function loadSiteHeader(sessionFromEvent, options) {
     var headerContainer = document.getElementById('site-header');
     if (!headerContainer) return Promise.resolve();
     return (async function () {
-        var user = await resolveHeaderUser(sessionFromEvent, { allowNetworkSession: true });
+        var fastFirst = !!options.fastFirst;
+        var user = await resolveHeaderUser(sessionFromEvent, { allowNetworkSession: !fastFirst });
         var uid = user ? (user.id || user.email || 'user') : null;
         if (_navFullyRendered && uid === _lastRenderedUserId) return;
 
-        var profilePromise = (user && window.AuthService && AuthService.getUserProfile)
-            ? AuthService.getUserProfile().catch(function () { return null; })
-            : Promise.resolve(null);
-        var results = await Promise.all([
-            getPublicConfig(),
-            user ? fetchMeCapabilities() : Promise.resolve(null),
-            profilePromise
-        ]);
-        var profile = results[2];
-        if (profile && profile.role) {
-            try { sessionStorage.setItem(_HEADER_PROFILE_ROLE_KEY, String(profile.role)); } catch (_) {}
+        if (fastFirst) {
+            await renderHeader(headerContainer, user, { enableServiceMatching: false }, null, {
+                skipProfile: true,
+                skipCapabilities: true,
+                skipDeferredLoads: true
+            });
+            _lastRenderedUserId = uid;
+            _navFullyRendered = true;
+            return;
         }
-        await renderHeader(headerContainer, user, results[0], results[1], { preloadedProfile: profile });
+
+        var configCaps = await Promise.all([
+            getPublicConfig(),
+            user ? fetchMeCapabilities() : Promise.resolve(null)
+        ]);
+        await renderHeader(headerContainer, user, configCaps[0], configCaps[1], { skipProfile: false });
         _lastRenderedUserId = uid;
         _navFullyRendered = true;
     })();
@@ -398,9 +417,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     let isAdmin = false;
     let isTesterOrAdmin = false;
     var profile = null;
-    if (renderOpts.preloadedProfile !== undefined) {
-        profile = renderOpts.preloadedProfile;
-    } else if (user && window.AuthService && !renderOpts.skipProfile) {
+    if (user && window.AuthService && !renderOpts.skipProfile) {
         try {
             profile = await AuthService.getUserProfile();
             if (profile && profile.role) {
@@ -607,7 +624,7 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     initSiteHeaderDropdowns(headerContainer);
     initMobileNavDrawer(headerContainer);
 
-    if (user && typeof AuthService !== 'undefined' && AuthService.getSession) {
+    if (user && typeof AuthService !== 'undefined' && AuthService.getSession && !renderOpts.skipDeferredLoads) {
         loadRenewalReminderBanner(headerContainer);
         loadHeaderCredits(headerContainer);
         loadHeaderManufacturerNavLinks(headerContainer);
@@ -641,7 +658,7 @@ function resolveHeaderRoles(user, profile, renderOpts) {
     var role = '';
     if (profile && profile.role) role = String(profile.role).trim();
     if (!role && user.user_metadata && user.user_metadata.role) role = String(user.user_metadata.role).trim();
-    if (!role) {
+    if (!role && renderOpts && renderOpts.skipProfile) {
         try {
             var cached = sessionStorage.getItem(_HEADER_PROFILE_ROLE_KEY);
             if (cached) role = String(cached).trim();
