@@ -2101,15 +2101,20 @@ function buildFluxStyleReferenceLead(list) {
 function buildFluxCatalogCompositeRefLead() {
     return [
         'Catalog composite mode (follow Split-view 1–4 in the category prompt above): output ONE image with a 2x2 grid only.',
-        'Exactly four panels — top-left, bottom-left, top-right, bottom-right — with no fifth view, no extra rows, and no separate product-photo series.',
+        'Exactly four panels filling the 2x2 grid — one panel per Split-view 1–4 above — with no fifth view, no extra rows, and no separate product-photo series.',
         'CRITICAL: All four panels must show the SAME SINGLE FINISHED PRODUCT with perfectly consistent design across every panel.',
-        'Every visible attribute — body shape, body color, surface texture, surface print/artwork/logo/graphics, hardware/parts, and finish — must be IDENTICAL in all four panels. Do not vary any design element between panels.',
+        'Every visible attribute — product shape, product color, surface texture, surface print/artwork/logo/graphics, hardware/parts, and finish — must be IDENTICAL in all four panels. Do not vary any design element between panels.',
         'STRUCTURAL COMPLETENESS: The reference images show the COMPLETE product structure. You must preserve ALL structural elements visible in the reference images, including but not limited to: elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, and any other physical components. Do not simplify, omit, reinterpret, or redesign any structural element shown in the reference.',
         'Only the studio camera angle changes from panel to panel per the Split-view instructions; the product itself does not change.',
         'If a logo, icon, text, or graphic appears on the product surface, it must appear in EXACTLY the same form on the same surface area in every panel where that surface is visible.',
         'One identical product instance in all four panels; do not render multiple different variants, color variations, or modified versions of the product.',
         'Reference input images supply product features only; never show each reference photo in its own panel; never replace Split-view angles with reference photo compositions or backgrounds.'
     ].join(' ');
+}
+
+/** 材料參考：只套在「被設計的產品」外表面；host device 僅展示時不可換色（通用，非品類硬編碼） */
+function fluxMaterialDesignedProductGuard() {
+    return ' Apply material color/texture ONLY to exterior surfaces of the designed product being cataloged (per category prompt above). If a phone, tablet, or other host device appears only as mounting or display context, do NOT recolor, retexture, or modify the host device.';
 }
 
 /** 各參考槽 FLUX 角色句（特徵來源；套用在四格同一成品上） */
@@ -2124,9 +2129,9 @@ function fluxReferenceKindRoleLine(kind, isEn, imageNum, protoImageNum, patternI
         if (k === 'prototype') return 'Prototype shape, silhouette, proportions, and complete structure from image ' + n + ': replicate ALL visible structural elements exactly as shown in the reference, including every component, attachment, band, strap, closure, pocket, seam, and detail. Do not simplify or omit any structural feature.' + panelNote;
         if (k === 'material') {
             if (protoImageNum != null) {
-                return 'Recolor the main product body using material reference (image ' + n + '): keep the same body opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + panelNote;
+                return 'Recolor the designed product exterior surfaces using material reference (image ' + n + '): keep the same surface opacity, thickness, side-edge treatment, and material class visible in prototype image ' + p + '; apply only the color and surface texture from image ' + n + ' to matching regions of the designed product including side edges. Do not introduce transparency, frosted acrylic, or a printed color layer unless the prototype or material reference clearly shows it.' + fluxMaterialDesignedProductGuard() + panelNote;
             }
-            return 'Apply color and surface texture from material reference (image ' + n + ') to matching main-body regions in every panel.' + panelNote;
+            return 'Apply color and surface texture from material reference (image ' + n + ') to matching exterior surfaces of the designed product in every panel.' + fluxMaterialDesignedProductGuard() + panelNote;
         }
         if (k === 'part') {
             if (protoImageNum != null) {
@@ -2240,21 +2245,27 @@ function buildFluxReferenceApplySummary(sources, lang) {
                 bits.push('hardware from image ' + n + ' on the same product in all panels');
             }
         } else if (k === 'material') {
-            const materialNote = hasPrintPattern 
-                ? ' to visible body regions not covered by the pattern'
-                : ' in all panels';
+            const materialNote = hasPrintPattern
+                ? ' to visible designed-product surfaces not covered by the pattern'
+                : ' on the designed product in all panels';
             if (protoN != null) {
-                bits.push('body color/texture from image ' + n + ' with opacity and material class from prototype image ' + protoN + materialNote);
+                bits.push('designed-product surface color/texture from image ' + n + ' with opacity and material class from prototype image ' + protoN + materialNote);
             } else {
-                bits.push('body color/texture from image ' + n + materialNote);
+                bits.push('designed-product surface color/texture from image ' + n + materialNote);
             }
         }
     });
     if (!bits.length) return '';
     let result = '\nMerge into one product for every 2x2 panel: ' + bits.join('; ') + '.';
+    const hasMaterial = list.some(function (s) {
+        return normalizeVendorAssetKind(s.asset_kind) === 'material';
+    });
+    if (hasMaterial) {
+        result += fluxMaterialDesignedProductGuard();
+    }
     result += '\nCONSISTENCY ENFORCEMENT: The finished product must look absolutely identical across all four 2x2 panels — same design, same color, same surface artwork, same logo/print placement, and same complete structure. Treat this as photographing one physical object from four different angles, not as creating four separate product renders. STRUCTURAL INTEGRITY: Every structural element visible in the reference images (elastic bands, straps, handles, pockets, zippers, closures, fasteners, dividers, seams, reinforcements, attachments) must appear in the generated product in all four panels. Do not simplify, omit, redesign, or reinterpret any structural component. For surface prints and labels: place each artwork element on the product\'s primary flat face so it reads clearly from all catalog angles; the artwork perspective-foreshortens with the surface geometry but remains structurally complete in every panel — all elements present, none hidden by product edges or omitted due to geometry.';
     if (hasOriginalPrint) {
-        result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to body regions visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
+        result += '\nIMPORTANT: The pattern is an opaque rectangular overlay with its own complete background. Apply the pattern reference exactly as a solid rectangular sticker - all colors including background colors from the pattern reference override any material colors beneath. Material colors apply only to designed-product surfaces visible outside the pattern area. Do not blend, do not make pattern background transparent, do not replace pattern background with material color.';
     }
     if (hasStylePattern) {
         result += '\nStyle reference: apply surface colors and design from the style reference image(s) onto the product body in all panels; reference input images are read-only and must not be used as panel backgrounds.';
@@ -2314,10 +2325,11 @@ function buildFluxReferenceFactsAppendix(orderedSources, lang) {
             return normalizeVendorAssetKind(s.asset_kind) === 'prototype' ? String(i + 1) : null;
         }).filter(Boolean).join(', ');
         if (hasProto && protoNumsForMat) {
-            lines.push('Material tab: image ' + matNums + ' — color/texture only; body opacity, thickness, and material class follow prototype image(s) ' + protoNumsForMat + '.');
+            lines.push('Material tab: image ' + matNums + ' — color/texture on designed-product exterior surfaces only; opacity, thickness, and material class follow prototype image(s) ' + protoNumsForMat + '.');
         } else {
-            lines.push('Material tab: image ' + matNums + ' — apply color and texture from this reference to matching main-body regions in every panel.');
+            lines.push('Material tab: image ' + matNums + ' — apply color and texture from this reference to matching exterior surfaces of the designed product in every panel.');
         }
+        lines.push('Material scope:' + fluxMaterialDesignedProductGuard());
     }
     if (hasPrintPattern) {
         const patNums = list.map(function (s, i) {
