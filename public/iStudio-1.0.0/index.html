@@ -496,6 +496,19 @@
                 return getMediaWallCellMetrics(w).colCount || 2;
             }
 
+            /** 情境圖拼格：JS 欄數須與 packPromoSceneItems 一致（70b856c 誤刪此函式導致亂疊） */
+            function applyPromoSceneGridMetrics() {
+                if (!grid) return;
+                var w = (gridWrap && gridWrap.clientWidth) ? gridWrap.clientWidth : (grid ? grid.clientWidth : 0);
+                var m = getMediaWallCellMetrics(w);
+                var n = m.colCount || 2;
+                if (m.colW > 0) {
+                    grid.style.setProperty('grid-template-columns', 'repeat(' + n + ', ' + m.colW + 'px)', 'important');
+                }
+                grid.style.setProperty('grid-auto-rows', m.rowCss, 'important');
+                grid.style.setProperty('gap', MW_GRID_GAP + 'px', 'important');
+            }
+
             function clearPromoSceneGridMetrics() {
                 if (!grid) return;
                 grid.style.removeProperty('grid-template-columns');
@@ -1530,7 +1543,7 @@
                         listForLD = [];
                         if (layoutFilter === 'promo_scene' && window.MatchdoMediaWallPromoScene && typeof window.MatchdoMediaWallPromoScene.packPromoSceneItems === 'function') {
                             grid.classList.add('mw-promo-scene-grid');
-                            clearPromoSceneGridMetrics();
+                            applyPromoSceneGridMetrics();
                             var promoCols = promoPackColCount();
                             lastPromoPackColCount = promoCols;
                             var packed = window.MatchdoMediaWallPromoScene.packPromoSceneItems(items, promoCols);
@@ -1641,7 +1654,9 @@
                 if (currentLayoutType !== 'promo_scene' || !grid) return;
                 clearTimeout(promoGridResizeTimer);
                 promoGridResizeTimer = setTimeout(function () {
-                    if (promoPackColCount() !== lastPromoPackColCount) reloadMediaWall(1, false);
+                    var cols = promoPackColCount();
+                    if (cols !== lastPromoPackColCount) reloadMediaWall(1, false);
+                    else applyPromoSceneGridMetrics();
                 }, 200);
             });
             function runFilterMain(key) {
