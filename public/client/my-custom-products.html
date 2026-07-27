@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="custom">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的數位資產 - MatchDO 合做</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="/css/style.css" rel="stylesheet">
+    <link href="/css/theme-custom.css" rel="stylesheet">
+    <style>
+        .product-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        .status-badge {
+            font-size: 0.85rem;
+            padding: 0.35rem 0.75rem;
+        }
+        .product-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+        /* 情境圖 tab：固定 200px 高度、object-fit contain，橫圖排列整齊；不動設計圖 .product-image */
+        .promo-asset-thumb-wrap {
+            width: 100%;
+            height: 200px;
+            background: #f1f3f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .promo-asset-thumb-wrap img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        .empty-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <div class="container-fluid page-title-bar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0 text-dark" id="pageHeading"><i class="bi bi-images me-2" id="pageHeadingIcon"></i><span id="pageHeadingText">我的數位資產</span></h3>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0" id="pageBreadcrumb">
+                        <li class="breadcrumb-item"><a href="/index.html">首頁</a></li>
+                        <li class="breadcrumb-item active" id="breadcrumbActive">我的數位資產</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+    <div class="container py-4">
+        <!-- Tab 切換 -->
+        <ul class="nav nav-tabs mb-4" id="assetTabs">
+            <li class="nav-item">
+                <a class="nav-link active" id="tab-designs" data-bs-toggle="tab" href="#pane-designs">
+                    <i class="bi bi-pencil-square me-1" id="tabDesignsIcon"></i><span id="tabDesignsLabel">設計圖</span>
+                    <span class="badge bg-secondary ms-1" id="badgeDesigns">…</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="tab-promo" data-bs-toggle="tab" href="#pane-promo">
+                    <i class="bi bi-bullhorn me-1"></i>情境圖
+                    <span class="badge bg-secondary ms-1" id="badgePromo">…</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="tab-favs" data-bs-toggle="tab" href="#pane-favs">
+                    <i class="bi bi-heart-fill me-1 text-danger"></i>我的最愛
+                    <span class="badge bg-danger ms-1" id="badgeFavs">…</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- ── Tab 1：我的設計 ── -->
+            <div class="tab-pane fade show active" id="pane-designs">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="text-muted mb-0 small" id="designsIntro">管理您的設計，開啟開關讓廠商搜尋</p>
+                    <a href="/custom-product.html" class="btn btn-primary btn-sm" id="btnCreateDesign">
+                        <i class="bi bi-plus-lg me-1"></i><span id="btnCreateDesignText">建立新設計</span>
+                    </a>
+                </div>
+                <div id="designDirectionAdvisorTeaser" class="alert alert-light border small mb-3 d-none" role="note"></div>
+                <div id="loadingSpinner" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">載入中...</p>
+                </div>
+                <div id="productsList" class="row g-4" style="display:none;"></div>
+                <p class="text-muted small mb-3 d-none" id="designDirectionFilterNote"></p>
+                <div id="emptyState" class="empty-state" style="display:none;">
+                    <i class="bi bi-inbox" style="font-size:4rem;color:#dee2e6;"></i>
+                    <h4 class="mt-3" id="emptyTitle">尚無設計資產</h4>
+                    <p id="emptyDesc">建立您的第一個設計，或從 AI 工具生成</p>
+                    <a href="/custom-product.html" class="btn btn-primary mt-3" id="emptyCreateBtn">
+                        <i class="bi bi-plus-lg me-1"></i><span id="emptyCreateBtnText">開始建立</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- ── Tab 2：情境圖 ── -->
+            <div class="tab-pane fade" id="pane-promo">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="text-muted mb-0 small">產品情境圖生成紀錄；橫式／直式比例不同，縮圖以灰底置中顯示。</p>
+                    <a href="/custom-product.html?tab=promo-image" class="btn btn-primary btn-sm">
+                        <i class="bi bi-bullhorn me-1"></i>生成情境圖
+                    </a>
+                </div>
+                <div id="promoLoading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">載入情境圖…</p>
+                </div>
+                <div id="promoList" class="row g-4" style="display:none;"></div>
+                <div id="promoEmpty" class="empty-state" style="display:none;">
+                    <i class="bi bi-bullhorn" style="font-size:4rem;color:#dee2e6;"></i>
+                    <h4 class="mt-3">尚無情境圖</h4>
+                    <p>生成成功後會自動出現於此。若當時未寫入資料庫，請在生成結果按「儲存到數位資產庫」。</p>
+                    <a href="/custom-product.html?tab=promo-image" class="btn btn-primary mt-3">
+                        <i class="bi bi-bullhorn me-1"></i>去生成情境圖
+                    </a>
+                </div>
+            </div>
+
+            <!-- ── Tab 3：我的最愛 ── -->
+            <div class="tab-pane fade" id="pane-favs">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <p class="text-muted mb-0 small">從媒體牆收藏的廠商作品，可直接聯絡廠商發案</p>
+                    <a href="/" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-grid me-1"></i>去媒體牆收藏
+                    </a>
+                </div>
+                <div id="favsLoading" class="text-center py-5">
+                    <div class="spinner-border text-danger" role="status"></div>
+                    <p class="mt-3 text-muted">載入收藏中...</p>
+                </div>
+                <div id="favsList" class="row g-4" style="display:none;"></div>
+                <div id="favsEmpty" class="empty-state" style="display:none;">
+                    <i class="bi bi-heart" style="font-size:4rem;color:#dee2e6;"></i>
+                    <h4 class="mt-3">尚無收藏</h4>
+                    <p>在媒體牆按愛心即可收藏廠商作品</p>
+                    <a href="/" class="btn btn-outline-danger mt-3">
+                        <i class="bi bi-grid me-1"></i>前往媒體牆
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Supabase Auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config/auth-config.js"></script>
+    <script src="/js/auth-middleware.js"></script>
+    <script src="/js/site-header.js"></script>
+    <script src="/js/matchdo-promo-image.js?v=20260728b"></script>
+
+    <script>
+
+        let currentUser = null;
+        let authToken = null;
+        let promoCanControlHomepage = false;
+
+        const isDesignDirectionView = (function () {
+            const v = (new URLSearchParams(window.location.search).get('view') || '').toLowerCase();
+            return v === 'design-direction' || v === 'design_direction' || v === 'remake';
+        })();
+
+        var designDirectionCopyZh = {
+            title: '我的設計風向',
+            intro: '設計意圖分析與生圖的儲存紀錄；可開放廠商搜尋。',
+            filterNote: '目前顯示帳號內所有設計紀錄；僅顯示設計風向作品的篩選即將推出。',
+            advisorTeaser: '🪄 AI 產品顧問（籌備中）：日後可診斷您的設計是否貼合市場熱門風向。基礎廠商 ($300) 開通後預計每次 10 點；免費會員可先瀏覽首頁各分類熱門標籤。',
+            emptyTitle: '尚無設計風向紀錄',
+            emptyDesc: '完成設計意圖分析並儲存後，作品會顯示於此。',
+            btnCreate: '開始設計意圖分析'
+        };
+        var designDirectionCopyEn = {
+            title: 'My design directions',
+            intro: 'Saved intent analyses and generated designs; optional open-for-makers search.',
+            filterNote: 'Showing all designs on your account; design-direction-only filter coming soon.',
+            advisorTeaser: 'AI product advisor (coming soon): diagnose fit with market trends. Basic ($300) est. 10 credits per run; free users can preview homepage Top 3 tags.',
+            emptyTitle: 'No design directions yet',
+            emptyDesc: 'Complete intent analysis and save; items appear here.',
+            btnCreate: 'Start intent analysis'
+        };
+
+        function applyDesignDirectionView() {
+            if (!isDesignDirectionView) return;
+            var lang = (window.i18n && window.i18n.getLang) ? window.i18n.getLang() : 'zh-TW';
+            var c = (lang === 'en') ? designDirectionCopyEn : designDirectionCopyZh;
+            document.documentElement.setAttribute('data-theme', 'remake');
+            document.title = c.title + ' - MatchDO 合做';
+            const icon = document.getElementById('pageHeadingIcon');
+            if (icon) { icon.className = 'bi bi-compass me-2'; }
+            const setText = function (id, text) { const el = document.getElementById(id); if (el) el.textContent = text; };
+            setText('pageHeadingText', c.title);
+            const bc = document.getElementById('pageBreadcrumb');
+            if (bc) {
+                var homeLabel = lang === 'en' ? 'Home' : '首頁';
+                var sectionLabel = lang === 'en' ? 'Design Direction' : '設計風向';
+                bc.innerHTML = '<li class="breadcrumb-item"><a href="/index.html">' + homeLabel + '</a></li>'
+                    + '<li class="breadcrumb-item"><a href="/design-direction/">' + sectionLabel + '</a></li>'
+                    + '<li class="breadcrumb-item active">' + c.title + '</li>';
+            }
+            const tabIcon = document.getElementById('tabDesignsIcon');
+            if (tabIcon) { tabIcon.className = 'bi bi-collection me-1'; }
+            setText('tabDesignsLabel', c.title);
+            setText('designsIntro', c.intro);
+            const note = document.getElementById('designDirectionFilterNote');
+            if (note) {
+                note.textContent = c.filterNote;
+                note.classList.remove('d-none');
+            }
+            const advisorBox = document.getElementById('designDirectionAdvisorTeaser');
+            if (advisorBox) {
+                advisorBox.textContent = c.advisorTeaser;
+                advisorBox.classList.remove('d-none');
+            }
+            const createBtn = document.getElementById('btnCreateDesign');
+            if (createBtn) createBtn.href = '/design-direction/analysis.html';
+            setText('btnCreateDesignText', c.btnCreate);
+            setText('emptyTitle', c.emptyTitle);
+            setText('emptyDesc', c.emptyDesc);
+            const emptyBtn = document.getElementById('emptyCreateBtn');
+            if (emptyBtn) emptyBtn.href = '/design-direction/analysis.html';
+            setText('emptyCreateBtnText', c.btnCreate);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            applyDesignDirectionView();
+            const isAuth = await AuthMiddleware.requireAuth();
+            if (!isAuth) return;
+            currentUser = await AuthService.getCurrentUser();
+            const session = await AuthService.getSession();
+            authToken = session?.access_token || null;
+
+            // 載入 tab 內容
+            loadProducts();
+            loadPromoCapabilities().then(loadPromoImages);
+            loadFavorites();
+
+            // ?tab=promo 直接開情境圖
+            var tabParam = (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase();
+            if (tabParam === 'promo') {
+                var promoTab = document.getElementById('tab-promo');
+                if (promoTab && typeof bootstrap !== 'undefined') {
+                    bootstrap.Tab.getOrCreateInstance(promoTab).show();
+                }
+            }
+
+            document.getElementById('tab-favs').addEventListener('shown.bs.tab', () => {});
+        });
+
+        async function loadPromoCapabilities() {
+            try {
+                if (typeof canControlDesignShowOnHomepage === 'function') {
+                    promoCanControlHomepage = await canControlDesignShowOnHomepage();
+                    return;
+                }
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) return;
+                const res = await fetch('/api/me/capabilities', { headers: { Authorization: 'Bearer ' + token } });
+                const data = await res.json();
+                promoCanControlHomepage = !!(data && data.can_control_design_show_on_homepage);
+            } catch (e) {
+                promoCanControlHomepage = false;
+            }
+        }
+
+        async function loadPromoImages() {
+            const loading = document.getElementById('promoLoading');
+            const list = document.getElementById('promoList');
+            const empty = document.getElementById('promoEmpty');
+            const badge = document.getElementById('badgePromo');
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('未登入');
+                const response = await fetch('/api/promo-image/generations?limit=48', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '載入失敗');
+                const items = data.items || [];
+                if (badge) badge.textContent = items.length;
+                if (loading) loading.style.display = 'none';
+                if (!items.length) {
+                    if (empty) empty.style.display = 'block';
+                    return;
+                }
+                if (list) {
+                    list.style.display = 'flex';
+                    list.innerHTML = '';
+                    items.forEach(function (item) {
+                        list.appendChild(createPromoCard(item));
+                    });
+                }
+            } catch (error) {
+                console.error('載入情境圖失敗:', error);
+                if (loading) loading.style.display = 'none';
+                if (empty) {
+                    empty.style.display = 'block';
+                    empty.querySelector('p').textContent = '載入失敗：' + error.message;
+                }
+            }
+        }
+
+        function createPromoCard(item) {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+            const ratio = item.aspect_ratio || (item.width && item.height ? (item.width + ':' + item.height) : '');
+            const title = ratio ? ('情境圖 ' + ratio) : '情境圖';
+            const showOn = item.show_on_homepage === true;
+            const canControl = promoCanControlHomepage;
+            const showChecked = canControl ? showOn : true;
+            const showDisabled = !canControl;
+            const showHint = canControl
+                ? '可勾選是否展示在首頁媒體牆「情境圖」'
+                : '免費用戶預設展示在首頁，無法取消';
+            const sourceLink = (item.source_type === 'custom_product' && item.source_id)
+                ? ('/inspiration/user_design/' + encodeURIComponent(item.source_id))
+                : '';
+            col.innerHTML = `
+                <div class="card product-card h-100" data-promo-id="${escapeHtml(String(item.id || ''))}">
+                    <div class="promo-asset-thumb-wrap card-img-top border-0">
+                        <img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(title)}" loading="lazy" onerror="this.style.opacity='0.3'">
+                    </div>
+                    <div class="card-body d-flex flex-column">
+                        <h6 class="card-title mb-1">${escapeHtml(title)}</h6>
+                        <p class="text-muted small mb-2">${item.width && item.height ? (item.width + '×' + item.height) : ''}${item.megapixels ? ' · ' + item.megapixels + ' MP' : ''}</p>
+                        <div class="text-muted small mb-2">
+                            <i class="bi bi-calendar me-1"></i>${formatDate(item.created_at)}
+                        </div>
+                        <div class="form-check form-switch mb-2 promo-show-homepage-wrap">
+                            <input class="form-check-input promo-show-homepage" type="checkbox" role="switch" id="promoShow-${escapeHtml(String(item.id || ''))}" ${showChecked ? 'checked' : ''} ${showDisabled ? 'disabled' : ''}>
+                            <label class="form-check-label small" for="promoShow-${escapeHtml(String(item.id || ''))}">展示在媒體牆</label>
+                        </div>
+                        <p class="text-muted small mb-2 promo-show-homepage-hint">${escapeHtml(showHint)}</p>
+                        <div class="d-grid gap-2 mt-auto">
+                            ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>查看原設計</a>') : ''}
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
+                            <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const showInput = col.querySelector('.promo-show-homepage');
+            const hintEl = col.querySelector('.promo-show-homepage-hint');
+            if (showInput && !showDisabled) {
+                showInput.addEventListener('change', function () {
+                    patchPromoShowOnHomepage(item.id, showInput.checked, hintEl, showInput);
+                });
+            }
+            const dlBtn = col.querySelector('.btn-promo-download');
+            if (dlBtn) {
+                dlBtn.addEventListener('click', function () {
+                    if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.triggerPromoDownload === 'function') {
+                        window.MatchdoPromoImage.triggerPromoDownload(item.image_url, null, 'promo-' + (item.id || 'image') + '.jpg');
+                    } else {
+                        window.open(item.image_url, '_blank');
+                    }
+                });
+            }
+            return col;
+        }
+
+        async function patchPromoShowOnHomepage(id, checked, hintEl, inputEl) {
+            if (!id) return;
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('未登入');
+                const url = '/api/promo-image/generations/' + encodeURIComponent(id) + '?show_on_homepage=' + (checked ? 'true' : 'false');
+                const res = await fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                    body: JSON.stringify({ show_on_homepage: checked })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error((data && data.error) || '更新失敗');
+                if (hintEl) {
+                    hintEl.textContent = checked ? '已設定為展示在首頁' : '已取消展示在首頁';
+                    hintEl.classList.remove('text-danger');
+                    hintEl.classList.add('text-success');
+                }
+            } catch (err) {
+                if (inputEl) inputEl.checked = !checked;
+                if (hintEl) {
+                    hintEl.textContent = err.message || '更新失敗';
+                    hintEl.classList.remove('text-success');
+                    hintEl.classList.add('text-danger');
+                }
+            }
+        }
+
+        async function loadProducts() {
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+
+                if (!token) {
+                    throw new Error('未找到有效的登入 token');
+                }
+
+                const response = await fetch('/api/custom-products', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '載入失敗');
+                }
+
+                const products = data.products || [];
+                const badgeEl = document.getElementById('badgeDesigns');
+                if (badgeEl) badgeEl.textContent = products.length;
+
+                document.getElementById('loadingSpinner').style.display = 'none';
+
+                if (products.length === 0) {
+                    document.getElementById('emptyState').style.display = 'block';
+                } else {
+                    document.getElementById('productsList').style.display = 'flex';
+                    renderProducts(products);
+                }
+
+            } catch (error) {
+                console.error('載入產品列表失敗:', error);
+                document.getElementById('loadingSpinner').style.display = 'none';
+                showAlert('載入產品列表失敗: ' + error.message, 'danger');
+            }
+        }
+
+        function renderProducts(products) {
+            const container = document.getElementById('productsList');
+            container.innerHTML = '';
+
+            products.forEach(product => {
+                const card = createProductCard(product);
+                container.appendChild(card);
+            });
+        }
+
+        function createProductCard(product) {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+            col.dataset.productId = product.id;
+
+            const statusInfo = getStatusInfo(product.status);
+            const mfgStatus = product.manufacturing_status || 'open';
+            const isOpen = !!product.open_for_manufacturing && mfgStatus === 'open';
+            const isCompleted = mfgStatus === 'completed';
+
+            function toAbs(u) { if (!u || typeof u !== 'string') return ''; if (u.startsWith('http')) return u; return (window.location.origin || '') + (u.startsWith('/') ? '' : '/') + u; }
+            const imageUrl = (product.image_urls && product.image_urls[0]) ? toAbs(product.image_urls[0]) : toAbs(product.ai_generated_image_url || product.reference_image_url) || 'https://via.placeholder.com/400x300?text=No+Image';
+
+            const mfgBadge = isCompleted
+                ? '<span class="badge bg-success ms-1">已完成訂製</span>'
+                : isOpen
+                    ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-search me-1"></i>開放搜尋中</span>'
+                    : '';
+
+            col.innerHTML = `
+                <div class="card product-card h-100">
+                    <img src="${imageUrl}" class="card-img-top product-image" alt="${escapeHtml(product.title)}" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
+                            <h5 class="card-title mb-0">${escapeHtml(product.title)}</h5>
+                            <span class="badge ${statusInfo.class} status-badge">${statusInfo.text}</span>
+                        </div>
+                        ${mfgBadge ? `<div class="mb-2">${mfgBadge}</div>` : ''}
+                        <p class="card-text text-muted small flex-grow-1">${escapeHtml((product.description||'').substring(0, 100))}${(product.description||'').length > 100 ? '...' : ''}</p>
+                        <div class="text-muted small mb-3">
+                            <i class="bi bi-calendar me-1"></i>${formatDate(product.created_at)}
+                        </div>
+
+                        <!-- 開放廠商搜尋開關 -->
+                        ${!isCompleted ? `
+                        <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2 bg-light">
+                            <span class="small fw-semibold"><i class="bi bi-toggle-on me-1 text-success"></i>開放廠商搜尋</span>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input mfg-toggle" type="checkbox" role="switch"
+                                    id="mfg-toggle-${product.id}" data-id="${product.id}"
+                                    ${isOpen ? 'checked' : ''}>
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary btn-sm" onclick="viewProduct('${product.id}')">
+                                <i class="bi bi-eye me-1"></i>查看詳情
+                            </button>
+                            <a href="/client/find-makers.html${(product.category || product.category_key) ? '?category_key=' + encodeURIComponent(product.category || product.category_key) + (product.subcategory_key ? '&subcategory_key=' + encodeURIComponent(product.subcategory_key) : '') : ''}" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-shop me-1"></i>找製作方
+                            </a>
+                            ${!isCompleted ? `
+                            <button class="btn btn-outline-success btn-sm btn-mark-done" data-id="${product.id}">
+                                <i class="bi bi-check-circle me-1"></i>標記為已完成訂製
+                            </button>
+                            ` : ''}
+                            <button class="btn btn-outline-danger btn-sm btn-delete-design" data-id="${product.id}">
+                                <i class="bi bi-trash me-1"></i>刪除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 開關事件
+            const toggle = col.querySelector('.mfg-toggle');
+            if (toggle) {
+                toggle.addEventListener('change', () => toggleManufacturing(product.id, toggle.checked));
+            }
+            // 已完成按鈕
+            const doneBtn = col.querySelector('.btn-mark-done');
+            if (doneBtn) {
+                doneBtn.addEventListener('click', () => markCompleted(product.id));
+            }
+            const deleteBtn = col.querySelector('.btn-delete-design');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => deleteProduct(product.id, col));
+            }
+
+            return col;
+        }
+
+        async function deleteProduct(productId, colEl) {
+            if (!confirm('確定要刪除此設計？刪除後無法復原。')) return;
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('請先登入');
+                const response = await fetch(`/api/custom-products/${productId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || '刪除失敗');
+                if (colEl && colEl.parentNode) colEl.remove();
+                const badgeEl = document.getElementById('badgeDesigns');
+                if (badgeEl) {
+                    const n = Math.max(0, (parseInt(badgeEl.textContent, 10) || 1) - 1);
+                    badgeEl.textContent = String(n);
+                }
+                const list = document.getElementById('productsList');
+                if (list && !list.querySelector('[data-product-id]')) {
+                    list.style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'block';
+                }
+                showAlert('已刪除', 'success');
+            } catch (error) {
+                console.error('刪除失敗:', error);
+                showAlert('刪除失敗: ' + error.message, 'danger');
+            }
+        }
+
+        function getStatusInfo(status) {
+            const statusMap = {
+                'draft': { text: '草稿', class: 'bg-secondary' },
+                'analyzing': { text: '分析中', class: 'bg-info' },
+                'matched': { text: '已媒合', class: 'bg-success' },
+                'contacted': { text: '已聯繫', class: 'bg-warning' },
+                'completed': { text: '已完成', class: 'bg-primary' }
+            };
+            return statusMap[status] || { text: status, class: 'bg-secondary' };
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('zh-TW', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit' 
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.viewProduct = function(productId) {
+            window.location.href = `/client/custom-product-detail.html?id=${productId}`;
+        };
+
+        window.matchProduct = async function(productId) {
+            if (!confirm('確定要開始媒合廠商嗎？')) return;
+
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+
+                const response = await fetch(`/api/custom-products/${productId}/match`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '媒合失敗');
+                }
+
+                showAlert('媒合成功！正在跳轉...', 'success');
+                setTimeout(() => {
+                    window.location.href = `/client/custom-product-detail.html?id=${productId}`;
+                }, 1500);
+
+            } catch (error) {
+                console.error('媒合失敗:', error);
+                showAlert('媒合失敗: ' + error.message, 'danger');
+            }
+        };
+
+        window.viewMatches = function(productId) {
+            window.location.href = `/client/custom-product-detail.html?id=${productId}`;
+        };
+
+        async function patchManufacturing(productId, patch) {
+            const session = await AuthService.getSession();
+            const token = session?.access_token;
+            const r = await fetch(`/api/custom-products/${productId}/manufacturing`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(patch)
+            });
+            return r.json();
+        }
+
+        window.toggleManufacturing = async function(productId, isOpen) {
+            try {
+                const result = await patchManufacturing(productId, {
+                    open_for_manufacturing: isOpen,
+                    manufacturing_status: isOpen ? 'open' : 'closed'
+                });
+                if (result.ok) {
+                    showAlert(isOpen ? '已開放廠商搜尋' : '已關閉廠商搜尋', 'success');
+                    loadProducts(); // 重新渲染
+                } else {
+                    showAlert(result.error || '操作失敗', 'danger');
+                    loadProducts();
+                }
+            } catch (e) {
+                showAlert('操作失敗', 'danger');
+                loadProducts();
+            }
+        };
+
+        window.markCompleted = async function(productId) {
+            if (!confirm('確認標記為「已完成訂製」？標記後將自動關閉廠商搜尋，且無法復原。')) return;
+            try {
+                const result = await patchManufacturing(productId, { manufacturing_status: 'completed' });
+                if (result.ok) {
+                    showAlert('已標記為完成訂製', 'success');
+                    loadProducts();
+                } else {
+                    showAlert(result.error || '操作失敗', 'danger');
+                }
+            } catch (e) {
+                showAlert('操作失敗', 'danger');
+            }
+        };
+
+        // ── 我的最愛 tab ──
+        async function loadFavorites() {
+            const loading = document.getElementById('favsLoading');
+            const list = document.getElementById('favsList');
+            const empty = document.getElementById('favsEmpty');
+            const badge = document.getElementById('badgeFavs');
+            if (!authToken) { if (loading) loading.style.display = 'none'; if (empty) empty.style.display = 'block'; return; }
+            try {
+                const r = await fetch('/api/me/favorites', { headers: { Authorization: 'Bearer ' + authToken } });
+                const d = await r.json();
+                const favs = d.favorites || [];
+                if (badge) badge.textContent = favs.length;
+                if (loading) loading.style.display = 'none';
+                if (!favs.length) { if (empty) empty.style.display = 'block'; return; }
+                if (list) {
+                    list.style.display = 'flex';
+                    list.innerHTML = favs.map(f => {
+                        const item = f.item || {};
+                        const img = item.image_url || item.cover_image_url || '';
+                        const title = item.title || '（未命名）';
+                        const link = item.link || '';
+                        const mfrName = item.owner_display || item.manufacturer_name || '';
+                        const isPortfolio = item.type === 'comparison' || item.type === 'collection' || !!item.manufacturer_id || !!mfrName;
+                        const mfrId = item.manufacturer_id || '';
+                        const mfrUserId = item.manufacturer_user_id || '';
+                        // 聯絡按鈕：有 user_id → 站內訊息；有 mfrId → 查看廠商頁；都沒有 → 隱藏
+                        const contactBtnHtml = mfrUserId
+                            ? `<a href="/client/messages.html?open=${encodeURIComponent(mfrUserId)}" class="btn btn-success btn-sm"><i class="bi bi-chat-dots me-1"></i>站內聯絡廠商</a>`
+                            : (mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>前往廠商頁聯絡</a>` : '');
+                        return `<div class="col-md-6 col-lg-4">
+                            <div class="card product-card h-100">
+                                ${img ? `<img src="${img}" class="card-img-top product-image" alt="${escapeHtml(title)}" onerror="this.style.display='none'">` : '<div class="product-image bg-light d-flex align-items-center justify-content-center"><i class="bi bi-image text-muted" style="font-size:3rem;"></i></div>'}
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex align-items-start justify-content-between mb-1">
+                                        <h6 class="card-title mb-0 flex-grow-1">${escapeHtml(title)}</h6>
+                                        <span class="badge bg-danger ms-2 flex-shrink-0"><i class="bi bi-heart-fill"></i></span>
+                                    </div>
+                                    ${mfrName ? `<div class="text-muted small mb-2"><i class="bi bi-shop me-1"></i>${escapeHtml(mfrName)}</div>` : ''}
+                                    <div class="mt-auto d-grid gap-2 pt-2">
+                                        ${isPortfolio && mfrId ? `<a href="/vendor-profile.html?id=${encodeURIComponent(mfrId)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-badge me-1"></i>查看廠商</a>` : ''}
+                                        ${isPortfolio && contactBtnHtml ? contactBtnHtml : ''}
+                                        ${link ? `<a href="${link}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>前往廠商頁面</a>` : ''}
+                                        <button class="btn btn-outline-danger btn-sm btn-unfav" data-fav-id="${escapeHtml(f.id)}"><i class="bi bi-heart me-1"></i>取消收藏</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                    // 取消收藏按鈕
+                    list.querySelectorAll('.btn-unfav').forEach(btn => {
+                        btn.addEventListener('click', async function() {
+                            const favId = this.getAttribute('data-fav-id');
+                            await fetch('/api/me/favorites', {
+                                method: 'POST',
+                                headers: { Authorization: 'Bearer ' + authToken, 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ item_id: favId })
+                            });
+                            loadFavorites(); // 重新載入
+                        });
+                    });
+                }
+            } catch (e) {
+                console.warn('載入最愛失敗:', e);
+                if (loading) loading.style.display = 'none';
+                if (empty) empty.style.display = 'block';
+            }
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+            alertDiv.style.zIndex = '9999';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+    </script>
+    <div id="site-footer"></div>
+    <script src="/js/site-footer.js"></script>
+</body>
+</html>
