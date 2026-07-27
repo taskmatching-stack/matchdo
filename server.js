@@ -11484,20 +11484,29 @@ function extractMissingColumnFromSupabaseError(err) {
 async function insertProductPromoGenerationRow(payload) {
     let current = Object.assign({}, payload);
     const optionalStripOrder = ['show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at'];
+    let strippedColumns = [];
     for (let attempt = 0; attempt < 14; attempt++) {
         const { data, error } = await supabase.from('product_promo_generations').insert(current).select('id').single();
-        if (!error) return { id: data && data.id ? data.id : null, error: null };
+        if (!error) {
+            if (strippedColumns.length > 0) {
+                console.warn('⚠️ product_promo_generations 寫入時移除了欄位：', strippedColumns.join(', '));
+                console.warn('⚠️ 請執行對應的 migration SQL：', strippedColumns.includes('show_on_homepage') ? 'docs/add-promo-show-on-homepage.sql' : '');
+            }
+            return { id: data && data.id ? data.id : null, error: null, stripped: strippedColumns };
+        }
         if (String(error.code || '') === '42P01') {
             return { id: null, error: '尚未建立 product_promo_generations 表，請執行 docs/add-product-promo-image.sql' };
         }
         const missingCol = extractMissingColumnFromSupabaseError(error);
         if (missingCol && Object.prototype.hasOwnProperty.call(current, missingCol)) {
+            strippedColumns.push(missingCol);
             delete current[missingCol];
             continue;
         }
         if (isSupabaseMissingColumnError(error)) {
             const nextOpt = optionalStripOrder.find(function (c) { return Object.prototype.hasOwnProperty.call(current, c); });
             if (nextOpt) {
+                strippedColumns.push(nextOpt);
                 delete current[nextOpt];
                 continue;
             }
@@ -11679,6 +11688,9 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             generationId = ins.id;
             if (!generationId) {
                 librarySaveWarning = ins.error || '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」';
+            } else if (ins.stripped && ins.stripped.includes('show_on_homepage')) {
+                console.error('❌ 嚴重：show_on_homepage 欄位不存在！新圖無法顯示在首頁。請執行：docs/add-promo-show-on-homepage.sql');
+                librarySaveWarning = '⚠️ 圖已儲存但無法顯示在首頁（資料庫缺 show_on_homepage 欄位），請聯絡管理員執行 migration';
             }
         }
         if (generationId) {
