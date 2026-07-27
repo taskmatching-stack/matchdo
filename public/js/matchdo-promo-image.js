@@ -301,6 +301,17 @@
     });
   }
 
+  /** 生成後若後端未寫入資產庫，自動補存 */
+  function ensurePromoSavedToLibrary(meta, imageDataUrl) {
+    if (meta && meta.id && meta.image_url) {
+      return Promise.resolve({ ok: true, data: { success: true, id: meta.id, image_url: meta.image_url, already_saved: true } });
+    }
+    if (!imageDataUrl) {
+      return Promise.resolve({ ok: false, data: { error: '無圖片可儲存' } });
+    }
+    return savePromoToLibrary(meta, imageDataUrl);
+  }
+
   /**
    * 情境圖結果區：下載 + 儲存到數位資產庫按鈕（回傳 DOM 元素）
    * opts: { labels: { download, save, saved, viewLibrary }, libraryHref }
@@ -387,6 +398,7 @@
     generate: generate,
     triggerPromoDownload: triggerPromoDownload,
     savePromoToLibrary: savePromoToLibrary,
+    ensurePromoSavedToLibrary: ensurePromoSavedToLibrary,
     appendPromoResultActions: appendPromoResultActions
   };
 })(typeof window !== 'undefined' ? window : this);

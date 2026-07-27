@@ -11473,6 +11473,85 @@ app.get('/api/promo-image/points-preview', async (req, res) => {
     }
 });
 
+function extractMissingColumnFromSupabaseError(err) {
+    if (!err) return null;
+    const msg = String(err.message || '');
+    const m = msg.match(/column[s]?\s+"([^"]+)"/i) || msg.match(/'([^']+)'\s+column/i);
+    return m && m[1] ? m[1] : null;
+}
+
+/** 寫入 product_promo_generations；缺欄位時逐欄剝除重試（避免靜默寫入失敗） */
+async function insertProductPromoGenerationRow(payload) {
+    let current = Object.assign({}, payload);
+    const optionalStripOrder = ['show_on_homepage', 'scene_key', 'photography_set_id', 'final_prompt', 'megapixels', 'source_image_url', 'completed_at'];
+    for (let attempt = 0; attempt < 14; attempt++) {
+        const { data, error } = await supabase.from('product_promo_generations').insert(current).select('id').single();
+        if (!error) return { id: data && data.id ? data.id : null, error: null };
+        if (String(error.code || '') === '42P01') {
+            return { id: null, error: '尚未建立 product_promo_generations 表，請執行 docs/add-product-promo-image.sql' };
+        }
+        const missingCol = extractMissingColumnFromSupabaseError(error);
+        if (missingCol && Object.prototype.hasOwnProperty.call(current, missingCol)) {
+            delete current[missingCol];
+            continue;
+        }
+        if (isSupabaseMissingColumnError(error)) {
+            const nextOpt = optionalStripOrder.find(function (c) { return Object.prototype.hasOwnProperty.call(current, c); });
+            if (nextOpt) {
+                delete current[nextOpt];
+                continue;
+            }
+        }
+        console.warn('product_promo_generations insert:', error.message);
+        return { id: null, error: error.message || '寫入資產庫失敗' };
+    }
+    return { id: null, error: '寫入資產庫失敗' };
+}
+
+async function uploadPromoResultImageBuffer(userId, buffer) {
+    if (!buffer) return null;
+    try {
+        const uploaded = await uploadToSupabaseStorage(
+            'custom-products',
+            `promo/${userId}`,
+            { buffer, mimetype: 'image/jpeg', originalname: `promo-${Date.now()}.jpg` },
+            { ext: 'jpg', contentType: 'image/jpeg' }
+        );
+        return uploaded && uploaded.publicUrl ? uploaded.publicUrl : null;
+    } catch (upErr) {
+        console.warn('promo-image storage upload:', upErr?.message || upErr);
+        return null;
+    }
+}
+
+/** 使用者「我的數位資產 → 情境圖」列表（對齊管理區：缺欄位時 fallback，避免整頁空白） */
+async function fetchUserPromoGenerationListRows(userId, offsetN, rangeEnd) {
+    const uid = String(userId || '').trim();
+    if (!uid) return { data: [], error: null };
+    const baseQuery = (selectCols) => supabase.from('product_promo_generations')
+        .select(selectCols)
+        .eq('user_id', uid)
+        .eq('status', 'success')
+        .not('result_image_url', 'is', null)
+        .neq('result_image_url', '')
+        .order('created_at', { ascending: false })
+        .range(offsetN, rangeEnd);
+    const selectFull = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage';
+    const selectNoShow = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id';
+    const selectLegacy = 'id, aspect_ratio, width, height, megapixels, scene_template_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id';
+    let res = await baseQuery(selectFull);
+    if (res.error && isSupabaseMissingColumnError(res.error, 'show_on_homepage')) {
+        res = await baseQuery(selectNoShow);
+    }
+    if (res.error && isSupabaseMissingColumnError(res.error, 'scene_key')) {
+        res = await baseQuery(selectLegacy);
+    }
+    if (res.error && isSupabaseMissingColumnError(res.error, 'megapixels')) {
+        res = await baseQuery('id, aspect_ratio, width, height, scene_template_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id');
+    }
+    return res;
+}
+
 app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -11551,17 +11630,9 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
             return res.status(500).json({ success: false, error: '生成失敗，請稍後再試' });
         }
         const imageData = buffer.toString('base64');
-        let resultImageUrl = null;
-        try {
-            const uploaded = await uploadToSupabaseStorage(
-                'custom-products',
-                `promo/${currentUser.id}`,
-                { buffer, mimetype: 'image/jpeg', originalname: `promo-${Date.now()}.jpg` },
-                { ext: 'jpg', contentType: 'image/jpeg' }
-            );
-            resultImageUrl = uploaded && uploaded.publicUrl ? uploaded.publicUrl : null;
-        } catch (upErr) {
-            console.warn('promo-image storage upload:', upErr?.message || upErr);
+        let resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
+        if (!resultImageUrl) {
+            resultImageUrl = await uploadPromoResultImageBuffer(currentUser.id, buffer);
         }
         let balanceAfter = null;
         if (!isAdmin && pointsToDeduct > 0) {
@@ -11581,49 +11652,34 @@ app.post('/api/promo-image/generate', express.json({ limit: '15mb' }), async (re
         let librarySaveWarning = null;
         const primaryUrl = refUrls[0] || '';
         const promoShowOnHomepage = true;
-        const promoInsertBase = {
-            user_id: currentUser.id,
-            source_type: sourceType,
-            source_id: sourceId || null,
-            source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
-            aspect_ratio: aspectRatio,
-            width: w,
-            height: h,
-            megapixels: promoImageMegapixelsFromResolution(w, h),
-            scene_template_key: themeKey || null,
-            scene_key: sceneKey || null,
-            user_prompt: userPrompt || null,
-            photography_set_id: photographySetId || null,
-            final_prompt: finalPrompt,
-            result_image_url: resultImageUrl,
-            status: 'success',
-            points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
-            completed_at: new Date().toISOString(),
-            show_on_homepage: promoShowOnHomepage
-        };
-        try {
-            let insPayload = Object.assign({}, promoInsertBase);
-            let { data: row, error: insErr } = await supabase.from('product_promo_generations').insert(insPayload).select('id').single();
-            if (insErr && isSupabaseMissingColumnError(insErr, 'show_on_homepage')) {
-                insPayload = Object.assign({}, promoInsertBase);
-                delete insPayload.show_on_homepage;
-                ({ data: row, error: insErr } = await supabase.from('product_promo_generations').insert(insPayload).select('id').single());
+        if (!resultImageUrl) {
+            librarySaveWarning = '圖已生成但上傳失敗，請在結果區按「儲存到數位資產庫」';
+        } else {
+            const promoInsertBase = {
+                user_id: currentUser.id,
+                source_type: sourceType,
+                source_id: sourceId || null,
+                source_image_url: primaryUrl && !String(primaryUrl).startsWith('data:') ? String(primaryUrl).slice(0, 2000) : null,
+                aspect_ratio: aspectRatio,
+                width: w,
+                height: h,
+                megapixels: promoImageMegapixelsFromResolution(w, h),
+                scene_template_key: themeKey || null,
+                scene_key: sceneKey || null,
+                user_prompt: userPrompt || null,
+                photography_set_id: photographySetId || null,
+                final_prompt: finalPrompt,
+                result_image_url: resultImageUrl,
+                status: 'success',
+                points_charged: (!isAdmin && pointsToDeduct > 0) ? pointsToDeduct : 0,
+                completed_at: new Date().toISOString(),
+                show_on_homepage: promoShowOnHomepage
+            };
+            const ins = await insertProductPromoGenerationRow(promoInsertBase);
+            generationId = ins.id;
+            if (!generationId) {
+                librarySaveWarning = ins.error || '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」';
             }
-            if (insErr && isSupabaseMissingColumnError(insErr, 'scene_key')) {
-                insPayload = Object.assign({}, promoInsertBase);
-                delete insPayload.scene_key;
-                delete insPayload.show_on_homepage;
-                ({ data: row, error: insErr } = await supabase.from('product_promo_generations').insert(insPayload).select('id').single());
-            }
-            if (insErr) {
-                console.warn('product_promo_generations insert:', insErr.message);
-                librarySaveWarning = '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」或聯絡管理員檢查 product_promo_generations 資料表';
-            } else {
-                generationId = row && row.id ? row.id : null;
-            }
-        } catch (logErr) {
-            console.warn('product_promo_generations insert skipped:', logErr?.message || logErr);
-            librarySaveWarning = '圖已生成，但未寫入資產庫；請按「儲存到數位資產庫」';
         }
         if (generationId) {
             schedulePromoGenerationSemanticsEnrich(generationId, currentUser.id, {
@@ -11674,27 +11730,7 @@ app.get('/api/promo-image/generations', async (req, res) => {
         const limitN = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 24));
         const offsetN = Math.max(0, parseInt(req.query.offset, 10) || 0);
         const rangeEnd = offsetN + limitN;
-        const selectCols = 'id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id, show_on_homepage';
-        let { data, error } = await supabase
-            .from('product_promo_generations')
-            .select(selectCols)
-            .eq('user_id', user.id)
-            .eq('status', 'success')
-            .not('result_image_url', 'is', null)
-            .neq('result_image_url', '')
-            .order('created_at', { ascending: false })
-            .range(offsetN, rangeEnd);
-        if (error && isSupabaseMissingColumnError(error, 'show_on_homepage')) {
-            ({ data, error } = await supabase
-                .from('product_promo_generations')
-                .select('id, aspect_ratio, width, height, megapixels, scene_template_key, scene_key, user_prompt, result_image_url, points_charged, created_at, status, source_type, source_id')
-                .eq('user_id', user.id)
-                .eq('status', 'success')
-                .not('result_image_url', 'is', null)
-                .neq('result_image_url', '')
-                .order('created_at', { ascending: false })
-                .range(offsetN, rangeEnd));
-        }
+        let { data, error } = await fetchUserPromoGenerationListRows(user.id, offsetN, rangeEnd);
         if (error) {
             console.error('GET /api/promo-image/generations:', error);
             return res.status(500).json({ error: error.message || '載入失敗' });
