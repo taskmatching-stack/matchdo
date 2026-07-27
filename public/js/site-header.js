@@ -217,7 +217,7 @@ function bindSiteHeaderAuthListeners(initialSession) {
         _siteHeaderAuthListenersBound = true;
         AuthService.onAuthStateChange(function (event, newSession) {
             if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-                clearHeaderNavLinkCache();
+                clearHeaderSessionCaches();
                 try {
                     window.__ME_CAPABILITIES__ = null;
                     window.__ME_CAPABILITIES_PROMISE__ = null;
@@ -256,17 +256,33 @@ function bootSiteHeader() {
         })
         .then(function () {
             bindSiteHeaderAuthListeners(session);
-            var sess = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || session || null;
+            return resolveBootHeaderSession(session);
+        })
+        .then(function (sess) {
             if (!sess || !sess.user) return null;
             _navFullyRendered = false;
             return loadSiteHeader(sess, { fastFirst: false });
         })
         .catch(function (err) {
             console.error('site-header init:', err);
-            return loadSiteHeader(session || window.__authSessionForHeader || null, { fastFirst: true }).then(function () {
+            return resolveBootHeaderSession(session || window.__authSessionForHeader || null).then(function (sess) {
                 bindSiteHeaderAuthListeners(session);
+                if (sess && sess.user) {
+                    _navFullyRendered = false;
+                    return loadSiteHeader(sess, { fastFirst: false });
+                }
+                return loadSiteHeader(session || window.__authSessionForHeader || null, { fastFirst: true });
             });
         });
+}
+
+function resolveBootHeaderSession(fallbackSession) {
+    var sess = (window.getSessionFromStorage && window.getSessionFromStorage()) || window.__authSessionForHeader || fallbackSession || null;
+    if (sess && sess.user) return Promise.resolve(sess);
+    if (window.AuthService && typeof AuthService.getSession === 'function') {
+        return AuthService.getSession().then(function (s) { return (s && s.user) ? s : sess; }).catch(function () { return sess; });
+    }
+    return Promise.resolve(sess);
 }
 
 if (document.getElementById('site-header')) {
@@ -396,15 +412,20 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     var _initAvatarUrl = _nbCacheOk ? _nbCache.avatar : (user && (user.user_metadata?.avatar_url || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(_initDisplayName) + '&background=667eea&color=fff')) || '');
     let isAdmin = false;
     let isTesterOrAdmin = false;
+    var profile = null;
     if (user && window.AuthService && !renderOpts.skipProfile) {
         try {
-            const profile = await AuthService.getUserProfile();
-            isAdmin = user.user_metadata?.role === 'admin' || profile?.role === 'admin';
-            isTesterOrAdmin = isAdmin || user.user_metadata?.role === 'tester' || profile?.role === 'tester';
+            profile = await AuthService.getUserProfile();
+            if (profile && profile.role) {
+                try { sessionStorage.setItem(_HEADER_PROFILE_ROLE_KEY, String(profile.role)); } catch (_) {}
+            }
         } catch (error) {
             console.error('無法取得用戶角色:', error);
         }
     }
+    var roles = resolveHeaderRoles(user, profile, renderOpts);
+    isAdmin = roles.isAdmin;
+    isTesterOrAdmin = roles.isTesterOrAdmin;
     const isCustom = isCustomProductSection();
     const isRemake = isRemakeSection();
     const brandUrl = '/';
@@ -620,10 +641,28 @@ async function renderHeader(headerContainer, user, config, meCapabilitiesPreload
     }
 }
 
-var _HEADER_MFR_NAV_CACHE_KEY = 'matchdo_header_mfr_nav';
+var _HEADER_PROFILE_ROLE_KEY = 'nb_profile_role';
 
-function clearHeaderNavLinkCache() {
-    try { sessionStorage.removeItem(_HEADER_MFR_NAV_CACHE_KEY); } catch (_) {}
+function clearHeaderSessionCaches() {
+    try { sessionStorage.removeItem(_HEADER_PROFILE_ROLE_KEY); } catch (_) {}
+}
+
+function resolveHeaderRoles(user, profile, renderOpts) {
+    var isAdmin = false;
+    var isTesterOrAdmin = false;
+    if (!user) return { isAdmin: isAdmin, isTesterOrAdmin: isTesterOrAdmin };
+    var role = '';
+    if (profile && profile.role) role = String(profile.role).trim();
+    if (!role && user.user_metadata && user.user_metadata.role) role = String(user.user_metadata.role).trim();
+    if (!role && renderOpts && renderOpts.skipProfile) {
+        try {
+            var cached = sessionStorage.getItem(_HEADER_PROFILE_ROLE_KEY);
+            if (cached) role = String(cached).trim();
+        } catch (_) {}
+    }
+    isAdmin = role === 'admin';
+    isTesterOrAdmin = isAdmin || role === 'tester';
+    return { isAdmin: isAdmin, isTesterOrAdmin: isTesterOrAdmin };
 }
 
 /** 已登入時設定「我的廠商首頁」連結（無廠商資料則導向控制台） */
@@ -635,26 +674,13 @@ function loadHeaderManufacturerNavLinks(headerContainer) {
         if (!link) return;
         var fallback = '/client/manufacturer-dashboard.html';
         link.href = fallback;
-        var cached = null;
-        try { cached = sessionStorage.getItem(_HEADER_MFR_NAV_CACHE_KEY); } catch (_) {}
-        if (cached === 'none') return;
-        if (cached && cached !== 'none') {
-            link.href = '/vendor-profile.html?id=' + encodeURIComponent(cached);
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-            return;
-        }
         fetch('/api/me/manufacturer', { headers: { Authorization: 'Bearer ' + session.access_token } })
             .then(function (r) {
-                if (r.status === 404) {
-                    try { sessionStorage.setItem(_HEADER_MFR_NAV_CACHE_KEY, 'none'); } catch (_) {}
-                    return null;
-                }
+                if (r.status === 404) return null;
                 return r.ok ? r.json() : null;
             })
             .then(function (mfr) {
                 if (mfr && mfr.id) {
-                    try { sessionStorage.setItem(_HEADER_MFR_NAV_CACHE_KEY, String(mfr.id)); } catch (_) {}
                     link.href = '/vendor-profile.html?id=' + encodeURIComponent(mfr.id);
                     link.setAttribute('target', '_blank');
                     link.setAttribute('rel', 'noopener noreferrer');
