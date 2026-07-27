@@ -359,6 +359,7 @@
                             ${sourceLink ? ('<a href="' + escapeHtml(sourceLink) + '" class="btn btn-outline-secondary btn-sm"><i class="bi bi-image me-1"></i>查看原設計</a>') : ''}
                             <button type="button" class="btn btn-outline-primary btn-sm btn-promo-download"><i class="bi bi-download me-1"></i>下載</button>
                             <a href="${escapeHtml(item.image_url)}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>開啟原圖</a>
+                            <button type="button" class="btn btn-outline-danger btn-sm btn-promo-delete"><i class="bi bi-trash me-1"></i>刪除</button>
                         </div>
                     </div>
                 </div>
@@ -380,7 +381,44 @@
                     }
                 });
             }
+            const deleteBtn = col.querySelector('.btn-promo-delete');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', function () {
+                    deletePromoImage(item.id, col);
+                });
+            }
             return col;
+        }
+
+        async function deletePromoImage(id, colEl) {
+            if (!id) return;
+            if (!confirm('確定要刪除此情境圖？刪除後無法復原。')) return;
+            try {
+                const session = await AuthService.getSession();
+                const token = session?.access_token;
+                if (!token) throw new Error('未登入');
+                const res = await fetch('/api/promo-image/generations/' + encodeURIComponent(id), {
+                    method: 'DELETE',
+                    headers: { Authorization: 'Bearer ' + token }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error((data && data.error) || '刪除失敗');
+                if (colEl && colEl.parentNode) colEl.remove();
+                const badge = document.getElementById('badgePromo');
+                if (badge) {
+                    const n = Math.max(0, (parseInt(badge.textContent, 10) || 1) - 1);
+                    badge.textContent = String(n);
+                }
+                const list = document.getElementById('promoList');
+                if (list && !list.querySelector('[data-promo-id]')) {
+                    list.style.display = 'none';
+                    const empty = document.getElementById('promoEmpty');
+                    if (empty) empty.style.display = 'block';
+                }
+                showAlert('已刪除情境圖', 'success');
+            } catch (err) {
+                showAlert('刪除失敗: ' + err.message, 'danger');
+            }
         }
 
         async function patchPromoShowOnHomepage(id, checked, hintEl, inputEl) {

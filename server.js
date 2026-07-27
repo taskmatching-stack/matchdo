@@ -11809,6 +11809,61 @@ app.patch('/api/promo-image/generations/:id', express.json(), async (req, res) =
     }
 });
 
+/** DELETE 情境圖：用戶刪除自己的情境圖 */
+app.delete('/api/promo-image/generations/:id', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const { data: row, error: findErr } = await supabase
+            .from('product_promo_generations')
+            .select('id, user_id')
+            .eq('id', req.params.id)
+            .maybeSingle();
+        if (findErr) return res.status(500).json({ error: findErr.message });
+        if (!row || row.user_id !== user.id) return res.status(404).json({ error: '找不到情境圖紀錄' });
+
+        const { error } = await supabase
+            .from('product_promo_generations')
+            .delete()
+            .eq('id', req.params.id);
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ success: true, message: '已刪除情境圖' });
+    } catch (e) {
+        console.error('DELETE /api/promo-image/generations/:id:', e);
+        res.status(500).json({ error: e.message || '刪除失敗' });
+    }
+});
+
+/** DELETE 情境圖：管理員刪除任何情境圖 */
+app.delete('/api/admin/promo-image/generations/:id', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未授權：缺少 token' });
+        const token = authHeader.replace(/^\s*Bearer\s+/i, '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '未授權：token 無效' });
+
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+        if (!profile || profile.role !== 'admin') {
+            return res.status(403).json({ error: '需要管理員權限' });
+        }
+
+        const { error } = await supabase
+            .from('product_promo_generations')
+            .delete()
+            .eq('id', req.params.id);
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ success: true, message: '已刪除情境圖' });
+    } catch (e) {
+        console.error('DELETE /api/admin/promo-image/generations/:id:', e);
+        res.status(500).json({ error: e.message || '刪除失敗' });
+    }
+});
+
 /** 情境圖：確認／補寫入數位資產庫（生成成功時通常已寫入；此 API 供補傳 imageData） */
 app.post('/api/promo-image/save-to-library', express.json({ limit: '15mb' }), async (req, res) => {
     try {
