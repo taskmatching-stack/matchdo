@@ -3704,6 +3704,10 @@ $(document).ready(function () {
 
     function importOfficialStyleFromItem(item) {
         if (!item || !item.id) return Promise.resolve();
+        
+        // 顯示官方版型的訂製程度和工藝能力
+        if (item) renderPrototypeMetaDisplay(item);
+        
         var assetId = String(item.id).trim();
         var kind = (item.asset_kind || 'prototype').trim().toLowerCase();
         var targetKey = kind === 'material' ? 'material' : (kind === 'part' ? 'part' : 'prototype');

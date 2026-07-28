@@ -5651,7 +5651,7 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
     const contentLang = normalizeVendorContentLang(reqQuery.lang);
     const mfrIds = await listOfficialPlatformManufacturerIds();
     if (!mfrIds.length) return { items: [], total: 0, name: OFFICIAL_ASSET_DISPLAY_NAME };
-    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, min_order_quantity, customization_levels, is_public';
+    const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, usage_type, sort_order, style_key, material_key, color_key, asset_kind, part_key, ai_tags, min_order_quantity, customization_levels, production_type_key, capability_custom_labels, is_public';
     let q = supabase
         .from('vendor_assets')
         .select(selectCols)
@@ -5707,6 +5707,8 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
     if (protoRowsForLinks.length && (await vendorPrototypeLinksTableReady())) {
         linkCountsByProto = await batchPrototypeLinkCounts(protoRowsForLinks);
     }
+    // 批次查詢工藝能力
+    const capabilityMap = await batchVendorAssetCapabilities(list);
     const items = list.map((r) => {
         const kind = normalizeVendorAssetKind(r.asset_kind);
         const mapped = mapVendorAssetForApi(r, contentLang);
@@ -5716,6 +5718,7 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
         const linkCount = kind === 'prototype'
             ? (protoLinkCounts.material_count + protoLinkCounts.part_count)
             : 0;
+        const capabilities = capabilityMap[r.id] || [];
         const item = {
             id: r.id,
             manufacturer_id: null,
@@ -5736,6 +5739,9 @@ async function queryOfficialAssetsForApi(reqQuery, opts) {
             ai_tags: r.ai_tags || [],
             min_order_quantity: r.min_order_quantity != null ? r.min_order_quantity : null,
             customization_levels: normalizeCustomizationLevels(r.customization_levels),
+            production_type_key: r.production_type_key || null,
+            capabilities: capabilities,
+            capability_custom_labels: r.capability_custom_labels || [],
             material_count: kind === 'prototype' ? protoLinkCounts.material_count : undefined,
             part_count: kind === 'prototype' ? protoLinkCounts.part_count : undefined,
             link_count: kind === 'prototype' ? linkCount : undefined,
