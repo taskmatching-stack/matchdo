@@ -502,7 +502,10 @@ $(document).ready(function () {
         var $capabilities = $('#prototypeCapabilitiesDisplay');
         var $capBadges = $('#prototypeCapabilitiesBadges');
         
-        if (!$wrap.length) return;
+        if (!$wrap.length) {
+            console.warn('[renderPrototypeMetaDisplay] #prototypeMetaDisplay 元素不存在');
+            return;
+        }
         
         var customLevelLabels = {
             'mono_graphic': '單色圖文',
@@ -515,6 +518,15 @@ $(document).ready(function () {
         var hasCustomLevels = prototypeData.customization_levels && prototypeData.customization_levels.length > 0;
         var hasCaps = prototypeData.capabilities && prototypeData.capabilities.length > 0;
         
+        console.log('[renderPrototypeMetaDisplay]', {
+            id: prototypeData.id,
+            title: prototypeData.title,
+            customization_levels: prototypeData.customization_levels,
+            capabilities: prototypeData.capabilities,
+            hasCustomLevels: hasCustomLevels,
+            hasCaps: hasCaps
+        });
+        
         if (!hasCustomLevels && !hasCaps) {
             $wrap.addClass('d-none');
             return;
@@ -524,7 +536,7 @@ $(document).ready(function () {
             var levelHtml = prototypeData.customization_levels.map(function(lv) {
                 var label = customLevelLabels[lv] || lv;
                 var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<span class="badge bg-info text-white me-1 mb-1" style="font-size:.75rem">' + safe + '</span>';
+                return '<span class="badge bg-primary-subtle text-primary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
             }).join('');
             $customBadges.html(levelHtml);
             $customLevels.removeClass('d-none');
@@ -536,7 +548,7 @@ $(document).ready(function () {
             var capHtml = prototypeData.capabilities.map(function(c) {
                 var name = c.name || c.key || '';
                 var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<span class="badge bg-secondary text-white me-1 mb-1" style="font-size:.75rem">' + safe + '</span>';
+                return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
             }).join('');
             $capBadges.html(capHtml);
             $capabilities.removeClass('d-none');
@@ -3657,7 +3669,7 @@ $(document).ready(function () {
             customLevelBadges = item.customization_levels.map(function (lv) {
                 var label = customLevelLabels[lv] || lv;
                 var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<span class="badge bg-info text-white me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
+                return '<span class="badge bg-primary-subtle text-primary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
             }).join('');
         }
         // 工藝能力標籤
@@ -3667,12 +3679,21 @@ $(document).ready(function () {
             if (capNames.length) {
                 capabilityBadges = capNames.map(function (name) {
                     var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    return '<span class="badge bg-secondary text-white me-1 mb-1" style="font-size:.7rem" title="可執行工藝">' + safe + '</span>';
+                    return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem" title="可執行工藝">' + safe + '</span>';
                 }).join('');
                 if (item.capabilities.length > 3) {
-                    capabilityBadges += '<span class="badge bg-secondary text-white mb-1" style="font-size:.7rem">+' + (item.capabilities.length - 3) + '</span>';
+                    capabilityBadges += '<span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:.7rem">+' + (item.capabilities.length - 3) + '</span>';
                 }
             }
+        }
+        // Debug: 檢查資料
+        if (!customLevelBadges && !capabilityBadges) {
+            console.log('[buildVendorStyleBrowseCardHtml] 無訂製程度/工藝標籤:', {
+                id: item.id,
+                title: item.title,
+                customization_levels: item.customization_levels,
+                capabilities: item.capabilities
+            });
         }
         var mfrRow = official
             ? '<div class="small text-muted text-truncate">' + mfrName + '</div>'
@@ -3699,7 +3720,7 @@ $(document).ready(function () {
             (customLevelBadges ? '<div class="mb-1">' + customLevelBadges + '</div>' : '') +
             (capabilityBadges ? '<div class="mb-1">' + capabilityBadges + '</div>' : '') +
             mfrRow + '</div>' +
-            '<div class="p-2 pt-0 bs-card-actions d-grid gap-1">' + selectBtn + guideBtn + '</div></article>';
+            '<div class="p-2 pt-0 bs-card-actions d-grid gap-1">' + guideBtn + selectBtn + '</div></article>';
     }
 
     function importOfficialStyleFromItem(item) {
