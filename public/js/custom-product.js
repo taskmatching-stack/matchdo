@@ -508,7 +508,7 @@ $(document).ready(function () {
             return;
         }
         
-        console.log('[renderPrototypeMetaDisplay] ✓ 元素找到，數量:', $wrap.length);
+        console.log('[renderPrototypeMetaDisplay] ✓ 元素找到');
         
         var customLevelLabels = {
             'mono_graphic': '單色圖文',
@@ -529,14 +529,18 @@ $(document).ready(function () {
         });
         
         if (!hasCustomLevels && !hasCaps) {
-            console.warn('[renderPrototypeMetaDisplay] ⚠ 無資料，隱藏區塊');
-            $wrap.addClass('d-none');
+            console.warn('[renderPrototypeMetaDisplay] ⚠ 無資料，保持預設顯示');
+            // 保持灰色背景和「等待載入...」
             return;
         }
         
-        // 先移除 d-none，確保顯示
-        $wrap.removeClass('d-none');
-        console.log('[renderPrototypeMetaDisplay] ✓ 已移除 d-none class');
+        // 有數據！改成紫色漸變背景
+        $wrap.css({
+            'background': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            'border': '2px solid #667eea'
+        });
+        $wrap.find('.small').css('color', '#fff');
+        console.log('[renderPrototypeMetaDisplay] ✓ 已改為紫色背景');
         
         if (hasCustomLevels) {
             var levelHtml = prototypeData.customization_levels.map(function(lv) {
@@ -545,10 +549,9 @@ $(document).ready(function () {
                 return '<span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">' + safe + '</span>';
             }).join('');
             $customBadges.html(levelHtml);
-            $customLevels.removeClass('d-none');
             console.log('[renderPrototypeMetaDisplay] ✅ 訂製程度已顯示:', prototypeData.customization_levels);
         } else {
-            $customLevels.addClass('d-none');
+            $customBadges.html('<span class="badge bg-white text-secondary border me-1 mb-1" style="font-size:.75rem;">無資料</span>');
         }
         
         if (hasCaps) {
@@ -558,26 +561,30 @@ $(document).ready(function () {
                 return '<span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">' + safe + '</span>';
             }).join('');
             $capBadges.html(capHtml);
-            $capabilities.removeClass('d-none');
             console.log('[renderPrototypeMetaDisplay] ✅ 工藝能力已顯示:', prototypeData.capabilities.map(function(c) { return c.name; }));
         } else {
-            $capabilities.addClass('d-none');
+            $capBadges.html('<span class="badge bg-white text-secondary border me-1 mb-1" style="font-size:.75rem;">無資料</span>');
         }
         
-        console.log('[renderPrototypeMetaDisplay] ✅✅✅ 完成！區塊應該可見');
-        
-        // 雙重保險：延遲再檢查一次
-        setTimeout(function() {
-            if ($wrap.hasClass('d-none')) {
-                console.error('[renderPrototypeMetaDisplay] ❌❌❌ 被其他程式碼加回 d-none！強制移除！');
-                $wrap.removeClass('d-none');
-            }
-        }, 100);
+        console.log('[renderPrototypeMetaDisplay] ✅✅✅ 完成！紫色顯示');
     }
 
     function clearPrototypeMetaDisplay() {
         var $wrap = $('#prototypeMetaDisplay');
-        if ($wrap.length) $wrap.addClass('d-none');
+        if (!$wrap.length) return;
+        
+        // 恢復灰色背景
+        $wrap.css({
+            'background': '#e5e7eb',
+            'border': '2px solid #d1d5db'
+        });
+        $wrap.find('.small').css('color', '#6b7280');
+        
+        // 恢復「等待載入...」
+        $('#prototypeCustomLevelsBadges').html('<span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.75rem;">等待載入...</span>');
+        $('#prototypeCapabilitiesBadges').html('<span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.75rem;">等待載入...</span>');
+        
+        console.log('[clearPrototypeMetaDisplay] ✓ 已恢復灰色背景');
     }
 
     function clearPrototypeCapabilityPicker() {

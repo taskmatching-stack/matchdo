@@ -1413,34 +1413,20 @@
                                 <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
                                 <div id="refIntentSlots" class="mb-1"></div>
-                                <!-- 測試：永久顯示的標籤 -->
-                                <div class="mb-3 p-3 border rounded" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: 2px solid #667eea !important; display: block !important;">
-                                    <div class="small text-white mb-2"><strong>✨ 此版型支援：</strong></div>
-                                    <div class="mb-2">
-                                        <div class="small text-white mb-1"><strong>訂製程度：</strong></div>
-                                        <div>
-                                            <span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">彩色圖文</span>
-                                            <span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">顏色／材質</span>
-                                            <span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">尺寸／零件</span>
+                                <!-- 永久可見的標籤區，帶入數據後變色 -->
+                                <div id="prototypeMetaDisplay" class="mb-3 p-3 border rounded" style="background: #e5e7eb; border: 2px solid #d1d5db !important;">
+                                    <div class="small text-muted mb-2"><strong>此版型支援：</strong></div>
+                                    <div id="prototypeCustomLevelsDisplay" class="mb-2">
+                                        <div class="small text-muted mb-1"><strong>訂製程度：</strong></div>
+                                        <div id="prototypeCustomLevelsBadges">
+                                            <span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.75rem;">等待載入...</span>
                                         </div>
                                     </div>
-                                    <div>
-                                        <div class="small text-white mb-1"><strong>可執行工藝：</strong></div>
-                                        <div>
-                                            <span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">熱壓</span>
-                                            <span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">雷雕</span>
+                                    <div id="prototypeCapabilitiesDisplay">
+                                        <div class="small text-muted mb-1"><strong>可執行工藝：</strong></div>
+                                        <div id="prototypeCapabilitiesBadges">
+                                            <span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.75rem;">等待載入...</span>
                                         </div>
-                                    </div>
-                                </div>
-                                <div id="prototypeMetaDisplay" class="d-none mb-3 p-3 border rounded" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: 2px solid #667eea !important;">
-                                    <div class="small text-white mb-2"><strong>✨ 此版型支援：</strong></div>
-                                    <div id="prototypeCustomLevelsDisplay" class="mb-2 d-none">
-                                        <div class="small text-white mb-1"><strong>訂製程度：</strong></div>
-                                        <div id="prototypeCustomLevelsBadges"></div>
-                                    </div>
-                                    <div id="prototypeCapabilitiesDisplay" class="d-none">
-                                        <div class="small text-white mb-1"><strong>可執行工藝：</strong></div>
-                                        <div id="prototypeCapabilitiesBadges"></div>
                                     </div>
                                 </div>
                                 <div id="refCapabilityPicker" class="d-none mb-2">
