@@ -3718,7 +3718,9 @@ $(document).ready(function () {
             ' data-manufacturer-name="' + mfrName + '"' +
             ' data-asset-kind="' + escAttr(assetKind) + '"' +
             ' data-category-key="' + escAttr(item.category_key || '') + '"' +
-            ' data-subcategory-key="' + escAttr(item.subcategory_key || '') + '">' +
+            ' data-subcategory-key="' + escAttr(item.subcategory_key || '') + '"' +
+            ' data-customization-levels="' + escAttr(JSON.stringify(item.customization_levels || [])) + '"' +
+            ' data-capabilities="' + escAttr(JSON.stringify(item.capabilities || [])) + '">' +
             thumb +
             '<div class="bs-card-body p-2 flex-grow-1">' +
             kindBadge +
@@ -3814,13 +3816,24 @@ $(document).ready(function () {
             var u = ($card.attr('data-image-url') || '').trim();
             if (u) imageItems = [{ url: u, label: '' }];
         }
+        var customization_levels = [];
+        try {
+            customization_levels = JSON.parse($card.attr('data-customization-levels') || '[]');
+        } catch (e) { customization_levels = []; }
+        var capabilities = [];
+        try {
+            capabilities = JSON.parse($card.attr('data-capabilities') || '[]');
+        } catch (e) { capabilities = []; }
+        console.log('[importOfficialStyleFromBrowseCard] customization_levels:', customization_levels, 'capabilities:', capabilities);
         importOfficialStyleFromItem({
             id: ($card.attr('data-vendor-asset-id') || '').trim(),
             asset_kind: ($card.attr('data-asset-kind') || 'prototype').trim(),
             title: ($card.attr('data-title') || '').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim(),
             category_key: ($card.attr('data-category-key') || '').trim(),
             subcategory_key: ($card.attr('data-subcategory-key') || '').trim(),
-            image_items: imageItems
+            image_items: imageItems,
+            customization_levels: customization_levels,
+            capabilities: capabilities
         });
     }
 
