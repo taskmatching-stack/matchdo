@@ -3585,7 +3585,7 @@ $(document).ready(function () {
             customLevelBadges = item.customization_levels.map(function (lv) {
                 var label = customLevelLabels[lv] || lv;
                 var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<span class="badge bg-info-subtle text-info border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
+                return '<span class="badge bg-info text-white me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
             }).join('');
         }
         // 工藝能力標籤
@@ -3595,10 +3595,10 @@ $(document).ready(function () {
             if (capNames.length) {
                 capabilityBadges = capNames.map(function (name) {
                     var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem" title="可執行工藝">' + safe + '</span>';
+                    return '<span class="badge bg-secondary text-white me-1 mb-1" style="font-size:.7rem" title="可執行工藝">' + safe + '</span>';
                 }).join('');
                 if (item.capabilities.length > 3) {
-                    capabilityBadges += '<span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:.7rem">+' + (item.capabilities.length - 3) + '</span>';
+                    capabilityBadges += '<span class="badge bg-secondary text-white mb-1" style="font-size:.7rem">+' + (item.capabilities.length - 3) + '</span>';
                 }
             }
         }
