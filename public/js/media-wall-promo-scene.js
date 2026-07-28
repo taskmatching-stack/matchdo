@@ -30,7 +30,13 @@
             var m = String(item.aspect_ratio).trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/);
             if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
         }
-        if (isSingleCellPromoRatio(item && item.aspect_ratio, w, h)) return 'square';
+        if (isSingleCellPromoRatio(item && item.aspect_ratio, w, h)) {
+            // 高解析度方圖（≥2M pixels）→ 2×2 大圖
+            if (w > 0 && h > 0 && w * h >= 2000000) {
+                return 'large-square';
+            }
+            return 'square';
+        }
         if (item && item.promo_orient) return item.promo_orient;
         if (!w || !h) return 'square';
         var r = w / h;
@@ -69,6 +75,7 @@
     function footprintSize(orient) {
         if (orient === 'landscape') return { rs: 1, cs: 2 };
         if (orient === 'portrait') return { rs: 2, cs: 1 };
+        if (orient === 'large-square') return { rs: 2, cs: 2 };
         return { rs: 1, cs: 1 };
     }
 
@@ -106,12 +113,14 @@
                     }
                 }
             }
-            if (freeSlots.length !== 1 || !squares.length) continue;
-            var slot = freeSlots[0];
-            var sq = squares.shift();
-            var pl = { r: slot.r + 1, c: slot.c + 1, rs: 1, cs: 1, orient: 'square' };
-            occMark(occ, slot.r, slot.c, 1, 1, gridCols);
-            placedOut.push({ item: sq, placement: pl });
+            // 更積極填補：只要有空格且有方圖，就填補（不限孤兒格）
+            while (freeSlots.length > 0 && squares.length > 0) {
+                var slot = freeSlots.shift();
+                var sq = squares.shift();
+                var pl = { r: slot.r + 1, c: slot.c + 1, rs: 1, cs: 1, orient: 'square' };
+                occMark(occ, slot.r, slot.c, 1, 1, gridCols);
+                placedOut.push({ item: sq, placement: pl });
+            }
         }
     }
 
