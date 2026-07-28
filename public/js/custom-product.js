@@ -356,6 +356,14 @@ $(document).ready(function () {
     function getPrototypeAnchorSource() {
         var g = refSlots.prototype;
         if (!g || !g.items || !g.items.length) return null;
+        console.log('[getPrototypeAnchorSource] refSlots.prototype.items:', JSON.stringify(g.items.map(function(item) {
+            return {
+                has_source: !!item.source,
+                source_keys: item.source ? Object.keys(item.source) : [],
+                customization_levels: item.source && item.source.customization_levels,
+                capabilities: item.source && item.source.capabilities
+            };
+        })));
         var s = g.items[0].source || {};
         var vid = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
         console.log('[getPrototypeAnchorSource] s:', s, 'customization_levels:', s.customization_levels, 'capabilities:', s.capabilities);
@@ -1609,6 +1617,7 @@ $(document).ready(function () {
 
     function applyGuidePrototypeRefsToSlot(protoRefs, p) {
         if (!protoRefs || !protoRefs.length || !p) return Promise.resolve();
+        console.log('[applyGuidePrototypeRefsToSlot] p:', p, 'p.customization_levels:', p.customization_levels, 'p.capabilities:', p.capabilities);
         clearRefSlot('prototype');
         var chain = Promise.resolve();
         protoRefs.forEach(function (ref) {
@@ -1853,6 +1862,7 @@ $(document).ready(function () {
 
         function applyTreePayload(treeData) {
             var p = treeData.prototype;
+            console.log('[applyTreePayload] treeData.prototype:', p, 'customization_levels:', p && p.customization_levels, 'capabilities:', p && p.capabilities);
             var mainCat = (p.category_key || (urlParams.get('category_key') || '')).trim();
             var subCat = (p.subcategory_key || (urlParams.get('subcategory_key') || '')).trim();
             var session = consumeGuideSessionFromStorage();
