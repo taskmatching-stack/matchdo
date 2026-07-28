@@ -1151,9 +1151,47 @@ $(document).ready(function () {
         if (def.key === 'prototype') {
             var anchor = getPrototypeAnchorSource();
             if (anchor) {
-                var $scope = $('<div class="ref-intent-scope-block"></div>');
-                if (appendPrototypeScopeInline($scope, anchor)) $panel.append($scope);
-                // 已改用 prototypeMetaDisplay 顯示訂製程度和工藝能力，廢話提示已刪除
+                // 顯示訂製程度和工藝能力標籤
+                var $metaWrap = $('<div class="mb-2"></div>');
+                var $metaBadges = $('<div class="d-flex flex-wrap gap-1"></div>');
+                
+                // 訂製程度：永久顯示所有5個選項
+                var levels = anchor.customization_levels || [];
+                var levelSet = {};
+                levels.forEach(function(k) { levelSet[k] = true; });
+                
+                CUSTOMIZATION_LEVEL_DEFS.forEach(function(def) {
+                    var label = customizationLevelLabel(def.key);
+                    var hasLevel = !!levelSet[def.key];
+                    var className = hasLevel 
+                        ? 'badge bg-primary-subtle text-primary border me-1 mb-1'
+                        : 'badge bg-light text-secondary border me-1 mb-1';
+                    $metaBadges.append($('<span></span>').attr('class', className).css('font-size', '.7rem').text(label));
+                });
+                
+                // 工藝能力：有數據才顯示，超過3個摺疊
+                var caps = anchor.capabilities || [];
+                if (caps.length > 0) {
+                    var capLimit = 3;
+                    caps.slice(0, capLimit).forEach(function(c) {
+                        var name = c.name || c.key || '';
+                        $metaBadges.append($('<span></span>')
+                            .attr('class', 'badge bg-secondary-subtle text-secondary border me-1 mb-1')
+                            .css('font-size', '.7rem')
+                            .text(name));
+                    });
+                    if (caps.length > capLimit) {
+                        $metaBadges.append($('<span></span>')
+                            .attr('class', 'badge bg-secondary-subtle text-secondary border mb-1')
+                            .css('font-size', '.7rem')
+                            .text('+' + (caps.length - capLimit)));
+                    }
+                }
+                
+                $metaWrap.append($metaBadges);
+                $panel.append($metaWrap);
+                
+                // 廢話提示已刪除
                 var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
                 if (anchorId) {
                     var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
@@ -1647,9 +1685,6 @@ $(document).ready(function () {
     }
 
     function applyPrototypeRefsFromLinkTreeNode(p) {
-        // 顯示版型訂製程度和工藝能力
-        if (p) renderPrototypeMetaDisplay(p);
-        
         var allItems = [];
         if (p && p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
             allItems = p.image_items.filter(function (it) { return it && it.url; });
@@ -3701,9 +3736,6 @@ $(document).ready(function () {
 
     function importOfficialStyleFromItem(item) {
         if (!item || !item.id) return Promise.resolve();
-        
-        // 顯示官方版型的訂製程度和工藝能力
-        if (item) renderPrototypeMetaDisplay(item);
         
         var assetId = String(item.id).trim();
         var kind = (item.asset_kind || 'prototype').trim().toLowerCase();
