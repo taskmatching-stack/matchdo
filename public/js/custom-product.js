@@ -1135,28 +1135,33 @@ $(document).ready(function () {
         var $panel = $('<div class="ref-intent-panel"></div>').attr('data-ref-panel', slotKey);
         
         if (def.key === 'prototype') {
+            // 永久顯示訂製程度標籤（無論有沒有版型）
+            var $metaWrap = $('<div class="mb-2"></div>');
+            var $metaBadges = $('<div class="d-flex flex-wrap gap-1"></div>');
+            
             var anchor = getPrototypeAnchorSource();
+            console.log('[renderRefIntentPanel] anchor:', anchor);
+            
+            // 訂製程度：永久顯示所有5個選項
+            var levels = (anchor && anchor.customization_levels) ? anchor.customization_levels : [];
+            var levelSet = {};
+            levels.forEach(function(k) { levelSet[k] = true; });
+            
+            console.log('[renderRefIntentPanel] levels:', levels, 'levelSet:', levelSet);
+            
+            CUSTOMIZATION_LEVEL_DEFS.forEach(function(levelDef) {
+                var label = customizationLevelLabel(levelDef.key);
+                var hasLevel = !!levelSet[levelDef.key];
+                var className = hasLevel 
+                    ? 'badge bg-primary-subtle text-primary border me-1 mb-1'
+                    : 'badge bg-light text-secondary border me-1 mb-1';
+                $metaBadges.append($('<span></span>').attr('class', className).css('font-size', '.7rem').text(label));
+            });
+            
+            // 工藝能力：有數據才顯示，超過3個摺疊
             if (anchor) {
-                // 顯示訂製程度和工藝能力標籤
-                var $metaWrap = $('<div class="mb-2"></div>');
-                var $metaBadges = $('<div class="d-flex flex-wrap gap-1"></div>');
-                
-                // 訂製程度：永久顯示所有5個選項
-                var levels = anchor.customization_levels || [];
-                var levelSet = {};
-                levels.forEach(function(k) { levelSet[k] = true; });
-                
-                CUSTOMIZATION_LEVEL_DEFS.forEach(function(def) {
-                    var label = customizationLevelLabel(def.key);
-                    var hasLevel = !!levelSet[def.key];
-                    var className = hasLevel 
-                        ? 'badge bg-primary-subtle text-primary border me-1 mb-1'
-                        : 'badge bg-light text-secondary border me-1 mb-1';
-                    $metaBadges.append($('<span></span>').attr('class', className).css('font-size', '.7rem').text(label));
-                });
-                
-                // 工藝能力：有數據才顯示，超過3個摺疊
                 var caps = anchor.capabilities || [];
+                console.log('[renderRefIntentPanel] caps:', caps);
                 if (caps.length > 0) {
                     var capLimit = 3;
                     caps.slice(0, capLimit).forEach(function(c) {
@@ -1173,10 +1178,13 @@ $(document).ready(function () {
                             .text('+' + (caps.length - capLimit)));
                     }
                 }
-                
-                $metaWrap.append($metaBadges);
-                $panel.append($metaWrap);
-                
+            }
+            
+            $metaWrap.append($metaBadges);
+            $panel.append($metaWrap);
+            console.log('[renderRefIntentPanel] 標籤已加入 panel');
+            
+            if (anchor) {
                 // 廢話提示已刪除
                 var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
                 if (anchorId) {
