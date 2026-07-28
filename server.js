@@ -19301,7 +19301,7 @@ async function buildVendorProductLinkTreePayload(manufacturerId) {
 async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     const { data: proto, error: protoErr } = await supabase
         .from('vendor_assets')
-        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public')
+        .select('id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, cover_link_group, gallery_images, asset_kind, is_public, customization_levels, production_type_key, capability_custom_labels')
         .eq('id', prototypeAssetId)
         .maybeSingle();
     if (protoErr) throw protoErr;
@@ -19314,6 +19314,11 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
     const { data: mfr } = await supabase.from('manufacturers').select('id, name, is_active').eq('id', proto.manufacturer_id).eq('is_active', true).maybeSingle();
     if (!mfr) return { error: 'not_found' };
     mfrName = mfr.name || mfrName;
+    
+    // 查詢工藝能力
+    const capabilityMap = await batchVendorAssetCapabilities([proto]);
+    const capabilities = capabilityMap[proto.id] || [];
+    
     const linkPack = await getLinkedAssetIdsForPrototype(proto.manufacturer_id, prototypeAssetId);
     const linkedIds = linkPack.ids || [];
     let linkedAssets = [];
@@ -19344,7 +19349,11 @@ async function buildPublicPrototypeLinkTree(prototypeAssetId) {
             manufacturer_id: proto.manufacturer_id,
             manufacturer_name: mfrName,
             category_key: proto.category_key || null,
-            subcategory_key: proto.subcategory_key || null
+            subcategory_key: proto.subcategory_key || null,
+            customization_levels: proto.customization_levels || [],
+            production_type_key: proto.production_type_key || null,
+            capability_custom_labels: proto.capability_custom_labels || [],
+            capabilities: capabilities
         },
         linked_assets: linkedAssets,
         material_count: linkedAssets.filter((a) => a.asset_kind === 'material').length,

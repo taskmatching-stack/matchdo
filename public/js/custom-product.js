@@ -487,6 +487,72 @@ $(document).ready(function () {
     var prototypeCapabilityLoadSeq = 0;
 
     function clearPrototypeCapabilityPicker() {
+        prototypeCapabilityOptions = null;
+        var $box = $('#refCapabilityPicker');
+        var $opts = $('#refCapabilityOptions');
+        if ($box.length) $box.addClass('d-none');
+        if ($opts.length) $opts.empty();
+    }
+
+    /** 顯示版型訂製程度和工藝能力（只讀標籤） */
+    function renderPrototypeMetaDisplay(prototypeData) {
+        var $wrap = $('#prototypeMetaDisplay');
+        var $customLevels = $('#prototypeCustomLevelsDisplay');
+        var $customBadges = $('#prototypeCustomLevelsBadges');
+        var $capabilities = $('#prototypeCapabilitiesDisplay');
+        var $capBadges = $('#prototypeCapabilitiesBadges');
+        
+        if (!$wrap.length) return;
+        
+        var customLevelLabels = {
+            'mono_graphic': '單色圖文',
+            'color_graphic': '彩色圖文',
+            'color_material': '顏色／材質',
+            'size_part': '尺寸／零件',
+            'form_structure': '造型／結構'
+        };
+        
+        var hasCustomLevels = prototypeData.customization_levels && prototypeData.customization_levels.length > 0;
+        var hasCaps = prototypeData.capabilities && prototypeData.capabilities.length > 0;
+        
+        if (!hasCustomLevels && !hasCaps) {
+            $wrap.addClass('d-none');
+            return;
+        }
+        
+        if (hasCustomLevels) {
+            var levelHtml = prototypeData.customization_levels.map(function(lv) {
+                var label = customLevelLabels[lv] || lv;
+                var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<span class="badge bg-info text-white me-1 mb-1" style="font-size:.75rem">' + safe + '</span>';
+            }).join('');
+            $customBadges.html(levelHtml);
+            $customLevels.removeClass('d-none');
+        } else {
+            $customLevels.addClass('d-none');
+        }
+        
+        if (hasCaps) {
+            var capHtml = prototypeData.capabilities.map(function(c) {
+                var name = c.name || c.key || '';
+                var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<span class="badge bg-secondary text-white me-1 mb-1" style="font-size:.75rem">' + safe + '</span>';
+            }).join('');
+            $capBadges.html(capHtml);
+            $capabilities.removeClass('d-none');
+        } else {
+            $capabilities.addClass('d-none');
+        }
+        
+        $wrap.removeClass('d-none');
+    }
+
+    function clearPrototypeMetaDisplay() {
+        var $wrap = $('#prototypeMetaDisplay');
+        if ($wrap.length) $wrap.addClass('d-none');
+    }
+
+    function clearPrototypeCapabilityPicker() {
         prototypeCapabilityOptions = { capabilities: [], custom_labels: [] };
         var $box = $('#refCapabilityPicker');
         var $opts = $('#refCapabilityOptions');
@@ -802,7 +868,10 @@ $(document).ready(function () {
     function clearRefSlot(key) {
         if (!refSlots[key]) return;
         refSlots[key] = emptyRefSlotGroup();
-        if (key === 'prototype') clearPrototypeLinkSummary();
+        if (key === 'prototype') {
+            clearPrototypeLinkSummary();
+            clearPrototypeMetaDisplay();
+        }
     }
 
     function addRefImageToSlot(key, url, source) {
@@ -1590,6 +1659,9 @@ $(document).ready(function () {
     }
 
     function applyPrototypeRefsFromLinkTreeNode(p) {
+        // 顯示版型訂製程度和工藝能力
+        if (p) renderPrototypeMetaDisplay(p);
+        
         var allItems = [];
         if (p && p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
             allItems = p.image_items.filter(function (it) { return it && it.url; });

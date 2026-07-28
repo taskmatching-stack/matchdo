@@ -1412,6 +1412,17 @@
                                 <button type="button" class="btn btn-outline-secondary btn-sm d-none mb-2" id="btnRefFromThisVendorAssets" data-i18n="customProduct.selectFromThisVendorBase" title="從此廠商的版型庫選擇">從此廠商版型庫選擇</button>
                                 <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
+                                <div id="prototypeMetaDisplay" class="d-none mb-3 p-2 border rounded bg-light">
+                                    <div class="small text-muted mb-1"><strong>此版型支援：</strong></div>
+                                    <div id="prototypeCustomLevelsDisplay" class="mb-2 d-none">
+                                        <div class="small text-muted mb-1">訂製程度：</div>
+                                        <div id="prototypeCustomLevelsBadges"></div>
+                                    </div>
+                                    <div id="prototypeCapabilitiesDisplay" class="d-none">
+                                        <div class="small text-muted mb-1">可執行工藝：</div>
+                                        <div id="prototypeCapabilitiesBadges"></div>
+                                    </div>
+                                </div>
                                 <div id="refIntentSlots" class="mb-1"></div>
                                 <div id="refCapabilityPicker" class="d-none mb-2">
                                     <span class="label mb-1 d-block" data-i18n="customProduct.refCapabilityTitle">表面工藝（選填）</span>
