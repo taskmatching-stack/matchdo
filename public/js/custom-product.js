@@ -496,6 +496,7 @@ $(document).ready(function () {
 
     /** 顯示版型訂製程度和工藝能力（只讀標籤） */
     function renderPrototypeMetaDisplay(prototypeData) {
+        console.log('[renderPrototypeMetaDisplay] ===== 開始執行 =====', prototypeData);
         var $wrap = $('#prototypeMetaDisplay');
         var $customLevels = $('#prototypeCustomLevelsDisplay');
         var $customBadges = $('#prototypeCustomLevelsBadges');
@@ -503,9 +504,11 @@ $(document).ready(function () {
         var $capBadges = $('#prototypeCapabilitiesBadges');
         
         if (!$wrap.length) {
-            console.warn('[renderPrototypeMetaDisplay] #prototypeMetaDisplay 元素不存在');
+            console.error('[renderPrototypeMetaDisplay] ❌ #prototypeMetaDisplay 元素不存在！');
             return;
         }
+        
+        console.log('[renderPrototypeMetaDisplay] ✓ 元素找到，數量:', $wrap.length);
         
         var customLevelLabels = {
             'mono_graphic': '單色圖文',
@@ -518,9 +521,7 @@ $(document).ready(function () {
         var hasCustomLevels = prototypeData.customization_levels && prototypeData.customization_levels.length > 0;
         var hasCaps = prototypeData.capabilities && prototypeData.capabilities.length > 0;
         
-        console.log('[renderPrototypeMetaDisplay] 📊 版型詳情', {
-            id: prototypeData.id,
-            title: prototypeData.title,
+        console.log('[renderPrototypeMetaDisplay] 📊 資料檢查:', {
             customization_levels: prototypeData.customization_levels,
             capabilities: prototypeData.capabilities,
             hasCustomLevels: hasCustomLevels,
@@ -528,10 +529,14 @@ $(document).ready(function () {
         });
         
         if (!hasCustomLevels && !hasCaps) {
+            console.warn('[renderPrototypeMetaDisplay] ⚠ 無資料，隱藏區塊');
             $wrap.addClass('d-none');
-            console.log('[renderPrototypeMetaDisplay] ⚠ 無資料，隱藏區塊');
             return;
         }
+        
+        // 先移除 d-none，確保顯示
+        $wrap.removeClass('d-none');
+        console.log('[renderPrototypeMetaDisplay] ✓ 已移除 d-none class');
         
         if (hasCustomLevels) {
             var levelHtml = prototypeData.customization_levels.map(function(lv) {
@@ -541,7 +546,7 @@ $(document).ready(function () {
             }).join('');
             $customBadges.html(levelHtml);
             $customLevels.removeClass('d-none');
-            console.log('[renderPrototypeMetaDisplay] ✅ 顯示訂製程度:', prototypeData.customization_levels);
+            console.log('[renderPrototypeMetaDisplay] ✅ 訂製程度已顯示:', prototypeData.customization_levels);
         } else {
             $customLevels.addClass('d-none');
         }
@@ -554,13 +559,20 @@ $(document).ready(function () {
             }).join('');
             $capBadges.html(capHtml);
             $capabilities.removeClass('d-none');
-            console.log('[renderPrototypeMetaDisplay] ✅ 顯示工藝能力:', prototypeData.capabilities.map(function(c) { return c.name; }));
+            console.log('[renderPrototypeMetaDisplay] ✅ 工藝能力已顯示:', prototypeData.capabilities.map(function(c) { return c.name; }));
         } else {
             $capabilities.addClass('d-none');
         }
         
-        $wrap.removeClass('d-none');
-        console.log('[renderPrototypeMetaDisplay] ✅✅✅ 區塊已顯示！');
+        console.log('[renderPrototypeMetaDisplay] ✅✅✅ 完成！區塊應該可見');
+        
+        // 雙重保險：延遲再檢查一次
+        setTimeout(function() {
+            if ($wrap.hasClass('d-none')) {
+                console.error('[renderPrototypeMetaDisplay] ❌❌❌ 被其他程式碼加回 d-none！強制移除！');
+                $wrap.removeClass('d-none');
+            }
+        }, 100);
     }
 
     function clearPrototypeMetaDisplay() {
