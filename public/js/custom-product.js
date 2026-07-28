@@ -1133,21 +1133,7 @@ $(document).ready(function () {
         var canAdd = canAddMoreRefImages(def.key, 1);
         var slotKey = def.key;
         var $panel = $('<div class="ref-intent-panel"></div>').attr('data-ref-panel', slotKey);
-        var hintText = tr(def.hintKey, def.hintFb);
-        if (def.key === 'prototype' && items.length && !hasVendorPrototypeLock()) {
-            hintText = tr('customProduct.refPrototypeLocalHint',
-                '目前為本機圖片，無廠商訂製範圍。請清空後從素材庫選擇數位原型以顯示可訂製項目。');
-        }
-        var $hintRow = $('<div class="ref-intent-hint-row d-flex align-items-start gap-1 mb-1"></div>');
-        $hintRow.append($('<div class="ref-intent-hint flex-grow-1 mb-0"></div>')
-            .attr('data-i18n', def.key === 'prototype' && items.length && !hasVendorPrototypeLock() ? 'customProduct.refPrototypeLocalHint' : def.hintKey)
-            .text(hintText));
-        if (shouldShowRefTabScopeWarn(def.key)) {
-            var scopeVariant = refSlotHasCustomizationContent(def.key) ? 'active' : 'muted';
-            var scopeMsg = getUnsupportedRefSlotWarningText(def.key, scopeVariant);
-            if (scopeMsg) $hintRow.append(createRefScopeWarnBtn(scopeMsg));
-        }
-        $panel.append($hintRow);
+        
         if (def.key === 'prototype') {
             var anchor = getPrototypeAnchorSource();
             if (anchor) {
