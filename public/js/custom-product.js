@@ -1699,7 +1699,9 @@ $(document).ready(function () {
             image_url: imageItems[0].url,
             asset_kind: 'prototype',
             category_key: (p.category_key || '').trim() || null,
-            subcategory_key: (p.subcategory_key || '').trim() || null
+            subcategory_key: (p.subcategory_key || '').trim() || null,
+            customization_levels: p.customization_levels || [],
+            capabilities: p.capabilities || []
         };
         clearRefSlot('prototype');
         if (p.manufacturer_id && !refVendorMfrId) {
@@ -3753,6 +3755,7 @@ $(document).ready(function () {
             customization_levels: Array.isArray(item.customization_levels)
                 ? item.customization_levels
                 : parseCustomizationLevelsClient(item.customization_levels),
+            capabilities: item.capabilities || [],
             min_order_quantity: item.min_order_quantity != null ? item.min_order_quantity : null
         };
         var cap = vendorImportCapacity(targetKey);
