@@ -1134,20 +1134,19 @@ $(document).ready(function () {
         var slotKey = def.key;
         var $panel = $('<div class="ref-intent-panel"></div>').attr('data-ref-panel', slotKey);
         
+        // 在原本「幾何結構與尺寸」的位置插入標籤
         if (def.key === 'prototype') {
-            // 永久顯示訂製程度標籤（無論有沒有版型）
-            var $metaWrap = $('<div class="mb-2"></div>');
-            var $metaBadges = $('<div class="d-flex flex-wrap gap-1"></div>');
-            
             var anchor = getPrototypeAnchorSource();
             console.log('[renderRefIntentPanel] anchor:', anchor);
             
-            // 訂製程度：永久顯示所有5個選項
+            // 永久顯示訂製程度標籤
+            var $metaBadges = $('<div class="d-flex flex-wrap gap-1 mb-2"></div>');
+            
             var levels = (anchor && anchor.customization_levels) ? anchor.customization_levels : [];
             var levelSet = {};
             levels.forEach(function(k) { levelSet[k] = true; });
             
-            console.log('[renderRefIntentPanel] levels:', levels, 'levelSet:', levelSet);
+            console.log('[renderRefIntentPanel] levels:', levels);
             
             CUSTOMIZATION_LEVEL_DEFS.forEach(function(levelDef) {
                 var label = customizationLevelLabel(levelDef.key);
@@ -1158,7 +1157,7 @@ $(document).ready(function () {
                 $metaBadges.append($('<span></span>').attr('class', className).css('font-size', '.7rem').text(label));
             });
             
-            // 工藝能力：有數據才顯示，超過3個摺疊
+            // 工藝能力
             if (anchor) {
                 var caps = anchor.capabilities || [];
                 console.log('[renderRefIntentPanel] caps:', caps);
@@ -1180,18 +1179,16 @@ $(document).ready(function () {
                 }
             }
             
-            $metaWrap.append($metaBadges);
-            $panel.append($metaWrap);
-            console.log('[renderRefIntentPanel] 標籤已加入 panel');
+            $panel.append($metaBadges);
+            console.log('[renderRefIntentPanel] 標籤已插入 panel 頂部');
             
             if (anchor) {
-                // 廢話提示已刪除
                 var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
                 if (anchorId) {
                     var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
                     var treeUrl = '/product-tree.html?prototype_asset_id=' + encodeURIComponent(anchorId) + '&return_to=' + returnTo;
                     var treeTpl = tr('customProduct.openMatchGuide', '看此款式的可搭配');
-                    $panel.append($('<p class="mb-2 mt-1"><a href="' + treeUrl + '" class="small"></a></p>')
+                    $panel.append($('<p class="mb-2"><a href="' + treeUrl + '" class="small"></a></p>')
                         .find('a').text(treeTpl));
                 }
             }
