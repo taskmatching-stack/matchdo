@@ -1460,8 +1460,12 @@
                             <strong id="bs-cat-main-label"></strong>／<strong id="bs-cat-sub-label"></strong>
                             <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline bs-change-cat-desktop" id="bs-go-set-category" data-i18n="customProduct.vendorStylesChangeCategory">變更分類</button>
                             <span class="btn-group btn-group-sm ms-2 align-baseline" role="group" id="bs-browse-mode-toggle" aria-label="版型來源">
-                                <button type="button" class="btn btn-outline-secondary active" id="bs-mode-vendor" data-bs-browse-mode="vendor" data-i18n="customProduct.vendorStylesBrowseVendor">廠商版型</button>
-                                <button type="button" class="btn btn-outline-secondary" id="bs-mode-official" data-bs-browse-mode="official" data-i18n="customProduct.vendorStylesBrowseOfficial">官方版型</button>
+                                <button type="button" class="btn btn-outline-primary active" id="bs-mode-vendor" data-bs-browse-mode="vendor" data-i18n="customProduct.vendorStylesBrowseVendor" title="由廠商提供的專屬版型，可搭配材料與配件">
+                                    <i class="bi bi-shop me-1"></i>廠商版型
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" id="bs-mode-official" data-bs-browse-mode="official" data-i18n="customProduct.vendorStylesBrowseOfficial" title="平台精選的通用版型，可快速套用">
+                                    <i class="bi bi-patch-check me-1"></i>官方版型
+                                </button>
                             </span>
                         </div>
                         <div id="bs-vendor-banner" class="bs-vendor-banner mb-3 d-none"></div>
@@ -1667,11 +1671,11 @@
                             <div class="create-panel-left">
                                 <p class="form-text text-muted small mb-2">把產品圖做成可當 DM、廣告、宣傳用的主視覺。1 MP＝20 點，每多 1 MP ＋10 點（最高 4 MP）。</p>
                                 <div class="form-row full scene-sim-images-row">
-                                    <span class="label w-100 mb-1">來源圖（可多選，最多 8 張；從數位資產加入）</span>
+                                    <span class="label w-100 mb-1">來源圖（可多選，最多 8 張；從數位資產選擇）</span>
                                     <div id="promoImageSelectedThumbs" class="d-flex flex-wrap gap-2 mb-2"></div>
                                     <p id="promoImageSelectedHint" class="form-text text-muted small mb-2">尚未選圖</p>
                                     <div class="d-flex flex-wrap gap-2">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="promoImagePickAssetBtn">加入數位資產</button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="promoImagePickAssetBtn">從數位資產選擇圖片</button>
                                         <button type="button" class="btn btn-outline-warning btn-sm d-none" id="promoImageClearBtn">清除全部</button>
                                     </div>
                                 </div>
