@@ -498,7 +498,6 @@ $(document).ready(function () {
     function renderPrototypeMetaDisplay(prototypeData) {
         console.log('[renderPrototypeMetaDisplay] 開始', prototypeData);
         var $wrap = $('#prototypeMetaDisplay');
-        var $customBadges = $('#prototypeCustomLevelsBadges');
         var $capBadges = $('#prototypeCapabilitiesBadges');
         
         if (!$wrap.length) {
@@ -506,51 +505,60 @@ $(document).ready(function () {
             return;
         }
         
-        var customLevelLabels = {
-            'mono_graphic': '單色圖文',
-            'color_graphic': '彩色圖文',
-            'color_material': '顏色／材質',
-            'size_part': '尺寸／零件',
-            'form_structure': '造型／結構'
-        };
+        // 處理訂製程度：將有數據的標亮
+        var levels = prototypeData.customization_levels || [];
+        var levelSet = {};
+        levels.forEach(function(k) { levelSet[k] = true; });
         
-        var hasCustomLevels = prototypeData.customization_levels && prototypeData.customization_levels.length > 0;
-        var hasCaps = prototypeData.capabilities && prototypeData.capabilities.length > 0;
+        $wrap.find('[data-level]').each(function() {
+            var $badge = $(this);
+            var level = $badge.attr('data-level');
+            if (levelSet[level]) {
+                // 有數據：藍色亮色
+                $badge.removeClass('bg-light text-secondary').addClass('bg-primary-subtle text-primary');
+            } else {
+                // 無數據：灰色
+                $badge.removeClass('bg-primary-subtle text-primary').addClass('bg-light text-secondary');
+            }
+        });
         
-        if (!hasCustomLevels && !hasCaps) {
-            $wrap.hide();
-            return;
-        }
-        
-        var allBadges = '';
-        
-        if (hasCustomLevels) {
-            allBadges += prototypeData.customization_levels.map(function(lv) {
-                var label = customLevelLabels[lv] || lv;
-                var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<span class="badge bg-primary-subtle text-primary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
-            }).join('');
-        }
-        
-        if (hasCaps) {
-            allBadges += prototypeData.capabilities.map(function(c) {
+        // 處理工藝能力：有數據才顯示，超過3個摺疊
+        var caps = prototypeData.capabilities || [];
+        if (caps.length === 0) {
+            $capBadges.html('');
+        } else if (caps.length <= 3) {
+            var html = caps.map(function(c) {
                 var name = c.name || c.key || '';
                 var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
             }).join('');
+            $capBadges.html(html);
+        } else {
+            // 超過3個：顯示前3個 + 「+N」
+            var html = caps.slice(0, 3).map(function(c) {
+                var name = c.name || c.key || '';
+                var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
+            }).join('');
+            var remaining = caps.length - 3;
+            html += '<span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:.7rem">+' + remaining + '</span>';
+            $capBadges.html(html);
         }
         
-        $customBadges.html('');
-        $capBadges.html('');
-        $wrap.find('.d-flex').html(allBadges);
-        $wrap.show();
-        
-        console.log('[renderPrototypeMetaDisplay] 完成，顯示', hasCustomLevels ? prototypeData.customization_levels.length : 0, '個訂製程度，', hasCaps ? prototypeData.capabilities.length : 0, '個工藝');
+        console.log('[renderPrototypeMetaDisplay] 完成：訂製程度', levels.length, '個，工藝', caps.length, '個');
     }
 
     function clearPrototypeMetaDisplay() {
         var $wrap = $('#prototypeMetaDisplay');
-        if ($wrap.length) $wrap.hide();
+        if (!$wrap.length) return;
+        
+        // 將所有訂製程度恢復為灰色
+        $wrap.find('[data-level]').removeClass('bg-primary-subtle text-primary').addClass('bg-light text-secondary');
+        
+        // 清空工藝標籤
+        $('#prototypeCapabilitiesBadges').html('');
+        
+        console.log('[clearPrototypeMetaDisplay] 已清除');
     }
 
     function clearPrototypeCapabilityPicker() {

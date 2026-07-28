@@ -1413,10 +1413,15 @@
                                 <button type="button" class="btn btn-outline-primary btn-sm d-none" id="btnRefFromVendorAssets" aria-hidden="true" tabindex="-1"></button>
                                 <div id="refMultiVendorWarning" class="alert alert-warning py-2 px-3 small mb-2 d-none" role="alert"></div>
                                 <div id="refIntentSlots" class="mb-1"></div>
-                                <div id="prototypeMetaDisplay" class="mb-2" style="display: none;">
+                                <!-- 永久顯示所有訂製程度選項 -->
+                                <div id="prototypeMetaDisplay" class="mb-2">
                                     <div class="d-flex flex-wrap gap-2 align-items-center">
-                                        <div id="prototypeCustomLevelsBadges"></div>
-                                        <div id="prototypeCapabilitiesBadges"></div>
+                                        <span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.7rem" data-level="mono_graphic">單色圖文</span>
+                                        <span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.7rem" data-level="color_graphic">彩色圖文</span>
+                                        <span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.7rem" data-level="color_material">顏色／材質</span>
+                                        <span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.7rem" data-level="size_part">尺寸／零件</span>
+                                        <span class="badge bg-light text-secondary border me-1 mb-1" style="font-size:.7rem" data-level="form_structure">造型／結構</span>
+                                        <span id="prototypeCapabilitiesBadges"></span>
                                     </div>
                                 </div>
                                 <div id="refCapabilityPicker" class="d-none mb-2">
