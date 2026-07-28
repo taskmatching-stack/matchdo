@@ -19482,6 +19482,43 @@ async function batchPrototypeLinkCounts(prototypeRows) {
     return out;
 }
 
+/** 批次查詢 vendor_asset 的工藝能力標籤（taxonomy capability） */
+async function batchVendorAssetCapabilities(assetRows) {
+    const out = {};
+    (assetRows || []).forEach((r) => {
+        if (r && r.id) out[r.id] = [];
+    });
+    const ids = Object.keys(out);
+    if (!ids.length) return out;
+    try {
+        const { data: links, error: linkErr } = await supabase
+            .from('vendor_asset_taxonomy_links')
+            .select('asset_id, taxonomy_key')
+            .in('asset_id', ids);
+        if (linkErr) return out;
+        const taxKeys = [...new Set((links || []).map((l) => l.taxonomy_key).filter(Boolean))];
+        if (!taxKeys.length) return out;
+        const { data: nodes, error: nodeErr } = await supabase
+            .from('taxonomy_nodes')
+            .select('key, name_zh, dimension')
+            .in('key', taxKeys)
+            .eq('dimension', 'capability')
+            .eq('is_active', true);
+        if (nodeErr) return out;
+        const nodeMap = {};
+        (nodes || []).forEach((n) => { nodeMap[n.key] = n; });
+        (links || []).forEach((l) => {
+            const node = nodeMap[l.taxonomy_key];
+            if (node && out[l.asset_id]) {
+                out[l.asset_id].push({ key: node.key, name: node.name_zh });
+            }
+        });
+    } catch (e) {
+        console.error('batchVendorAssetCapabilities error:', e);
+    }
+    return out;
+}
+
 /** 廠商素材對外分享用 absolute URL（試做／導覽） */
 function buildVendorAssetAbsoluteShareUrls(item, linkCount) {
     const base = String(BASE_URL || '').replace(/\/$/, '');
@@ -20010,7 +20047,7 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
             return res.status(400).json({ error: '請傳入 category_key 或 manufacturer_id' });
         }
         const assetKindFilter = 'prototype';
-        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, sort_order, created_at, asset_kind, is_public, style_key';
+        const selectCols = 'id, manufacturer_id, category_key, subcategory_key, title, description, image_url, cover_image_label, gallery_images, sort_order, created_at, asset_kind, is_public, style_key, customization_levels, production_type_key, capability_custom_labels';
         async function runBrowseQuery(cols) {
             let q = supabase
                 .from('vendor_assets')
@@ -20068,6 +20105,7 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
             });
         }
         const linkCounts = await batchPrototypeLinkCounts(list);
+        const capabilityMap = await batchVendorAssetCapabilities(list);
         const manufacturers = [...new Set(list.map((r) => r.manufacturer_id).filter(Boolean))].map((id) => {
             const mfr = getManufacturerFromMap(mfrMap, id);
             return {
@@ -20079,6 +20117,7 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
         }).sort((a, b) => String(a.name).localeCompare(String(b.name), 'zh-Hant'));
         const itemsAll = list.map((r) => {
             const counts = linkCounts[r.id] || { material_count: 0, part_count: 0 };
+            const capabilities = capabilityMap[r.id] || [];
             const mfr = getManufacturerFromMap(mfrMap, r.manufacturer_id);
             const node = mapVendorAssetLinkTreeNode(r) || {};
             const imageUrls = node.image_urls || [];
@@ -20100,7 +20139,11 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
                 material_count: counts.material_count,
                 part_count: counts.part_count,
                 link_count: counts.material_count + counts.part_count,
-                match_guide_url: '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id)
+                match_guide_url: '/product-tree.html?prototype_asset_id=' + encodeURIComponent(r.id),
+                customization_levels: r.customization_levels || [],
+                production_type_key: r.production_type_key || null,
+                capabilities: capabilities,
+                capability_custom_labels: r.capability_custom_labels || []
             };
         });
         const paged = paginateVendorAssetList(itemsAll, page);

@@ -3562,6 +3562,36 @@ $(document).ready(function () {
                 kindBadge = '<span class="badge bg-primary-subtle text-primary border mb-1">' + (t('customProduct.assetKindPrototype') || '數位原型') + '</span> ';
             }
         }
+        // 訂製程度標籤（從 manufacturer-customization-levels-ui.js 的對照表）
+        var customLevelLabels = {
+            'mono_graphic': '單色圖文',
+            'color_graphic': '彩色圖文',
+            'color_material': '顏色／材質',
+            'size_part': '尺寸／零件',
+            'form_structure': '造型／結構'
+        };
+        var customLevelBadges = '';
+        if (item.customization_levels && item.customization_levels.length) {
+            customLevelBadges = item.customization_levels.map(function (lv) {
+                var label = customLevelLabels[lv] || lv;
+                var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<span class="badge bg-info-subtle text-info border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
+            }).join('');
+        }
+        // 工藝能力標籤
+        var capabilityBadges = '';
+        if (item.capabilities && item.capabilities.length) {
+            var capNames = item.capabilities.slice(0, 3).map(function (c) { return c.name; });
+            if (capNames.length) {
+                capabilityBadges = capNames.map(function (name) {
+                    var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem" title="可執行工藝">' + safe + '</span>';
+                }).join('');
+                if (item.capabilities.length > 3) {
+                    capabilityBadges += '<span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:.7rem">+' + (item.capabilities.length - 3) + '</span>';
+                }
+            }
+        }
         var mfrRow = official
             ? '<div class="small text-muted text-truncate">' + mfrName + '</div>'
             : ('<div class="d-flex align-items-center gap-1">' + mfrLogo +
@@ -3584,6 +3614,8 @@ $(document).ready(function () {
             linkHint +
             '<div class="fw-semibold small text-truncate mb-1" title="' + title + '">' + title + '</div>' +
             coverLabelHtml +
+            (customLevelBadges ? '<div class="mb-1">' + customLevelBadges + '</div>' : '') +
+            (capabilityBadges ? '<div class="mb-1">' + capabilityBadges + '</div>' : '') +
             mfrRow + '</div>' +
             '<div class="p-2 pt-0 bs-card-actions d-grid gap-1">' + selectBtn + guideBtn + '</div></article>';
     }
