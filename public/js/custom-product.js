@@ -203,7 +203,7 @@ $(document).ready(function () {
     var MAX_REF_IMAGES_TOTAL = 8;
     var MAX_REF_IMAGES_PER_SLOT = 3;
     var REF_INTENT_SLOTS = [
-        { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', tabKey: 'customProduct.refSlotPrototypeTab', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', tabFb: '原型', hintFb: '幾何結構與尺寸', addonPhFb: '造型補充（選填）' },
+        { key: 'prototype', assetKind: 'prototype', titleKey: 'customProduct.refSlotPrototypeTitle', tabKey: 'customProduct.refSlotPrototypeTab', hintKey: 'customProduct.refSlotPrototypeHint', addonPhKey: 'customProduct.refSlotPrototypeAddonPh', titleFb: '主體原型', tabFb: '原型', hintFb: '', addonPhFb: '造型補充（選填）' },
         { key: 'material', assetKind: 'material', titleKey: 'customProduct.refSlotMaterialTitle', tabKey: 'customProduct.refSlotMaterialTab', hintKey: 'customProduct.refSlotMaterialHint', addonPhKey: 'customProduct.refSlotMaterialAddonPh', titleFb: '主體材料', tabFb: '材料', hintFb: '表面面料、皮革', addonPhFb: '材料補充（選填）' },
         { key: 'part', assetKind: 'part', titleKey: 'customProduct.refSlotPartTitle', tabKey: 'customProduct.refSlotPartTab', hintKey: 'customProduct.refSlotPartHint', addonPhKey: 'customProduct.refSlotPartAddonPh', titleFb: '配件／零件', tabFb: '配件', hintFb: '五金、拉鍊、掛繩', addonPhFb: '配件勿寫顏色' },
         { key: 'pattern_print', assetKind: 'other', patternIntent: 'print', titleKey: 'customProduct.refSlotPatternPrintTitle', tabKey: 'customProduct.refSlotPatternPrintTab', hintKey: 'customProduct.refSlotPatternPrintHint', addonPhKey: 'customProduct.refSlotPatternPrintAddonPh', titleFb: '原圖印刷', tabFb: '原圖印刷', hintFb: '圖稿原樣轉印；每張可選原圖／去背／提取重點。位置請寫在上方提示詞', addonPhFb: '位置補充（選填）' },
@@ -518,7 +518,7 @@ $(document).ready(function () {
         var hasCustomLevels = prototypeData.customization_levels && prototypeData.customization_levels.length > 0;
         var hasCaps = prototypeData.capabilities && prototypeData.capabilities.length > 0;
         
-        console.log('[renderPrototypeMetaDisplay]', {
+        console.log('[renderPrototypeMetaDisplay] 📊 版型詳情', {
             id: prototypeData.id,
             title: prototypeData.title,
             customization_levels: prototypeData.customization_levels,
@@ -529,6 +529,7 @@ $(document).ready(function () {
         
         if (!hasCustomLevels && !hasCaps) {
             $wrap.addClass('d-none');
+            console.log('[renderPrototypeMetaDisplay] ⚠ 無資料，隱藏區塊');
             return;
         }
         
@@ -536,10 +537,11 @@ $(document).ready(function () {
             var levelHtml = prototypeData.customization_levels.map(function(lv) {
                 var label = customLevelLabels[lv] || lv;
                 var safe = String(label).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<span class="badge bg-primary-subtle text-primary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
+                return '<span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">' + safe + '</span>';
             }).join('');
             $customBadges.html(levelHtml);
             $customLevels.removeClass('d-none');
+            console.log('[renderPrototypeMetaDisplay] ✅ 顯示訂製程度:', prototypeData.customization_levels);
         } else {
             $customLevels.addClass('d-none');
         }
@@ -548,15 +550,17 @@ $(document).ready(function () {
             var capHtml = prototypeData.capabilities.map(function(c) {
                 var name = c.name || c.key || '';
                 var safe = String(name).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<span class="badge bg-secondary-subtle text-secondary border me-1 mb-1" style="font-size:.7rem">' + safe + '</span>';
+                return '<span class="badge bg-white text-dark me-1 mb-1" style="font-size:.8rem; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">' + safe + '</span>';
             }).join('');
             $capBadges.html(capHtml);
             $capabilities.removeClass('d-none');
+            console.log('[renderPrototypeMetaDisplay] ✅ 顯示工藝能力:', prototypeData.capabilities.map(function(c) { return c.name; }));
         } else {
             $capabilities.addClass('d-none');
         }
         
         $wrap.removeClass('d-none');
+        console.log('[renderPrototypeMetaDisplay] ✅✅✅ 區塊已顯示！');
     }
 
     function clearPrototypeMetaDisplay() {
@@ -1156,16 +1160,7 @@ $(document).ready(function () {
             if (anchor) {
                 var $scope = $('<div class="ref-intent-scope-block"></div>');
                 if (appendPrototypeScopeInline($scope, anchor)) $panel.append($scope);
-                if (prototypeLinkSummary.loaded) {
-                    var mc = prototypeLinkSummary.material_count;
-                    var pc = prototypeLinkSummary.part_count;
-                    if (mc > 0 || pc > 0) {
-                        var sumTpl = tr('customProduct.prototypeLinkedSummary',
-                            '廠商已關聯：材料 {m} 筆、配件 {p} 筆。請在「材料」「配件」分頁點「廠商版型」；推薦項目會以品牌色標示。');
-                        $panel.append($('<div class="alert alert-light border small py-2 mb-2 ref-intent-linked-summary"></div>')
-                            .text(sumTpl.replace('{m}', String(mc)).replace('{p}', String(pc))));
-                    }
-                }
+                // 已改用 prototypeMetaDisplay 顯示訂製程度和工藝能力，廢話提示已刪除
                 var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
                 if (anchorId) {
                     var returnTo = encodeURIComponent(window.location.pathname + window.location.search);
@@ -1175,16 +1170,8 @@ $(document).ready(function () {
                         .find('a').text(treeTpl));
                 }
             }
-        } else if ((def.key === 'material' || def.key === 'part') && hasVendorPrototypeLock() && prototypeLinkSummary.loaded) {
-            var linkN = def.key === 'material' ? prototypeLinkSummary.material_count : prototypeLinkSummary.part_count;
-            if (linkN > 0) {
-                var tabLbl = tr(def.tabKey, def.tabFb);
-                var tabTpl = tr('customProduct.refTabLinkedSummary',
-                    '此主產品已關聯 {n} 筆「{tab}」素材。請點「廠商版型」；推薦項目會排前並標示「廠商推薦」。');
-                $panel.prepend($('<div class="alert alert-light border small py-2 mb-2 ref-intent-linked-summary"></div>')
-                    .text(tabTpl.replace('{n}', String(linkN)).replace('{tab}', tabLbl)));
-            }
         }
+        // 材料/配件的廢話提示已刪除，直接顯示標籤
         var $thumbs = $('<div class="ref-intent-thumbs"></div>');
         items.forEach(function (item, ii) {
             var capText = refIntentThumbCaption(item, ii);
@@ -1391,12 +1378,8 @@ $(document).ready(function () {
     function buildPrototypeScopeInlineHtml(item) {
         var badges = buildPrototypeCustomizationBadgesHtml(item);
         if (!badges) return '';
-        var label = tr('customProduct.vendorScopeInlineLabel', '此廠商／產品訂製範圍：');
-        var safeLabel = label.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return '<div class="prototype-scope-inline">' +
-            '<span class="prototype-scope-inline-label" data-i18n="customProduct.vendorScopeInlineLabel">' + safeLabel + '</span>' +
-            badges.replace('class="vendor-custom-badges', 'class="vendor-custom-badges prototype-scope-inline-badges') +
-            '</div>';
+        // 直接返回標籤，不要廢話標題
+        return '<div class="prototype-scope-inline">' + badges.replace('class="vendor-custom-badges', 'class="vendor-custom-badges prototype-scope-inline-badges') + '</div>';
     }
 
     function appendPrototypeScopeInline($parent, item) {
