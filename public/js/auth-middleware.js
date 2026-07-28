@@ -108,16 +108,10 @@ const AuthMiddleware = {
      */
     initAuthListener() {
         AuthService.onAuthStateChange((event, session) => {
-            console.log('Auth 狀態變化:', event);
-            
             if (event === 'SIGNED_OUT') {
                 // 登出時清除本地資料
                 localStorage.clear();
                 sessionStorage.clear();
-            }
-            
-            if (event === 'SIGNED_IN' && session) {
-                console.log('用戶已登入:', session.user.email);
             }
         });
     }

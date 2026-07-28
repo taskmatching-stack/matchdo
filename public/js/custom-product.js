@@ -104,9 +104,10 @@ $(document).ready(function () {
         return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    /** 管理員／測試員：API 回傳 debugFlux 時顯示實際送 BFL 的 prompt */
+    /** 管理員／測試員：API 回傳 debugFlux 時顯示實際送 BFL 的 prompt（須先通過 staff 身分檢查） */
     function buildFluxStaffDebugPreviewHtml(debugFlux) {
         if (!debugFlux || typeof debugFlux !== 'object') return '';
+        if (!window.__matchdoFluxStaffDebug) return '';
         var sent = (debugFlux.promptSentToBfl || '').trim();
         var composed = (debugFlux.promptComposed || '').trim();
         if (!sent && !composed) return '';
@@ -242,6 +243,47 @@ $(document).ready(function () {
         pattern_style: emptyRefSlotGroup()
     };
     var refIntentActiveTab = 'prototype';
+    /** 版型訂製程度／工藝（獨立於 refSlots，避免 render 時 source 欄位遺失） */
+    var prototypeAnchorMeta = null;
+
+    function clearPrototypeAnchorMeta() {
+        prototypeAnchorMeta = null;
+    }
+
+    function setPrototypeAnchorMetaFromSource(source) {
+        if (!source || !source.vendor_asset_id) return;
+        prototypeAnchorMeta = {
+            vendor_asset_id: String(source.vendor_asset_id).trim(),
+            customization_levels: parseCustomizationLevelsClient(source.customization_levels),
+            capabilities: Array.isArray(source.capabilities) ? source.capabilities.slice() : []
+        };
+    }
+
+    function setPrototypeAnchorMetaFromNode(p) {
+        if (!p || !p.id) return;
+        prototypeAnchorMeta = {
+            vendor_asset_id: String(p.id).trim(),
+            customization_levels: parseCustomizationLevelsClient(p.customization_levels),
+            capabilities: Array.isArray(p.capabilities) ? p.capabilities.slice() : []
+        };
+    }
+
+    function getPrototypeMetaForBadges() {
+        var anchor = getPrototypeAnchorSource();
+        var levels = [];
+        var caps = [];
+        if (prototypeAnchorMeta && prototypeAnchorMeta.vendor_asset_id) {
+            levels = prototypeAnchorMeta.customization_levels || [];
+            caps = prototypeAnchorMeta.capabilities || [];
+        } else if (anchor) {
+            levels = parseCustomizationLevelsClient(anchor.customization_levels);
+            caps = Array.isArray(anchor.capabilities) ? anchor.capabilities : [];
+        }
+        if ((!caps || !caps.length) && prototypeCapabilityOptions && prototypeCapabilityOptions.capabilities && prototypeCapabilityOptions.capabilities.length) {
+            caps = prototypeCapabilityOptions.capabilities;
+        }
+        return { anchor: anchor, levels: levels, caps: caps };
+    }
 
     function ensureRefIntentActiveTab() {
         if (refIntentActiveTab === 'pattern') refIntentActiveTab = 'pattern_print';
@@ -356,17 +398,8 @@ $(document).ready(function () {
     function getPrototypeAnchorSource() {
         var g = refSlots.prototype;
         if (!g || !g.items || !g.items.length) return null;
-        console.log('[getPrototypeAnchorSource] refSlots.prototype.items:', JSON.stringify(g.items.map(function(item) {
-            return {
-                has_source: !!item.source,
-                source_keys: item.source ? Object.keys(item.source) : [],
-                customization_levels: item.source && item.source.customization_levels,
-                capabilities: item.source && item.source.capabilities
-            };
-        })));
         var s = g.items[0].source || {};
         var vid = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
-        console.log('[getPrototypeAnchorSource] s:', s, 'customization_levels:', s.customization_levels, 'capabilities:', s.capabilities);
         return vid ? s : null;
     }
 
@@ -496,7 +529,7 @@ $(document).ready(function () {
     var prototypeCapabilityLoadSeq = 0;
 
     function clearPrototypeCapabilityPicker() {
-        prototypeCapabilityOptions = null;
+        prototypeCapabilityOptions = { capabilities: [], custom_labels: [] };
         var $box = $('#refCapabilityPicker');
         var $opts = $('#refCapabilityOptions');
         if ($box.length) $box.addClass('d-none');
@@ -505,14 +538,9 @@ $(document).ready(function () {
 
     /** 顯示版型訂製程度和工藝能力（只讀標籤） */
     function renderPrototypeMetaDisplay(prototypeData) {
-        console.log('[renderPrototypeMetaDisplay] 開始', prototypeData);
         var $wrap = $('#prototypeMetaDisplay');
         var $capBadges = $('#prototypeCapabilitiesBadges');
-        
-        if (!$wrap.length) {
-            console.error('[renderPrototypeMetaDisplay] 元素不存在');
-            return;
-        }
+        if (!$wrap.length) return;
         
         // 處理訂製程度：將有數據的標亮
         var levels = prototypeData.customization_levels || [];
@@ -553,8 +581,6 @@ $(document).ready(function () {
             html += '<span class="badge bg-secondary-subtle text-secondary border mb-1" style="font-size:.7rem">+' + remaining + '</span>';
             $capBadges.html(html);
         }
-        
-        console.log('[renderPrototypeMetaDisplay] 完成：訂製程度', levels.length, '個，工藝', caps.length, '個');
     }
 
     function clearPrototypeMetaDisplay() {
@@ -566,16 +592,6 @@ $(document).ready(function () {
         
         // 清空工藝標籤
         $('#prototypeCapabilitiesBadges').html('');
-        
-        console.log('[clearPrototypeMetaDisplay] 已清除');
-    }
-
-    function clearPrototypeCapabilityPicker() {
-        prototypeCapabilityOptions = { capabilities: [], custom_labels: [] };
-        var $box = $('#refCapabilityPicker');
-        var $opts = $('#refCapabilityOptions');
-        if ($box.length) $box.addClass('d-none');
-        if ($opts.length) $opts.empty();
     }
 
     function collectSelectedCapabilitiesForGenerate() {
@@ -652,6 +668,9 @@ $(document).ready(function () {
                     capabilities: res.data.capabilities || [],
                     custom_labels: res.data.custom_labels || []
                 };
+                if (prototypeAnchorMeta && res.data.capabilities && res.data.capabilities.length) {
+                    prototypeAnchorMeta.capabilities = res.data.capabilities.slice();
+                }
                 renderPrototypeCapabilityPicker(prototypeCapabilityOptions);
             })
             .catch(function () {
@@ -889,6 +908,7 @@ $(document).ready(function () {
         if (key === 'prototype') {
             clearPrototypeLinkSummary();
             clearPrototypeMetaDisplay();
+            clearPrototypeAnchorMeta();
         }
     }
 
@@ -898,7 +918,9 @@ $(document).ready(function () {
         if (key === 'prototype' && !validatePrototypeSlotAdd(source || {})) return false;
         var def = getRefSlotDef(key);
         var finalSource = Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {});
-        console.log('[addRefImageToSlot] key:', key, 'finalSource.customization_levels:', finalSource.customization_levels, 'finalSource.capabilities:', finalSource.capabilities);
+        if (key === 'prototype' && finalSource.vendor_asset_id) {
+            setPrototypeAnchorMetaFromSource(finalSource);
+        }
         refSlots[key].items.push({
             url: url,
             note: '',
@@ -1147,52 +1169,37 @@ $(document).ready(function () {
         
         // 在原本「幾何結構與尺寸」的位置插入標籤
         if (def.key === 'prototype') {
-            var anchor = getPrototypeAnchorSource();
-            console.log('[renderRefIntentPanel] anchor:', anchor);
-            
-            // 永久顯示訂製程度標籤
+            var metaForBadges = getPrototypeMetaForBadges();
+            var anchor = metaForBadges.anchor;
             var $metaBadges = $('<div class="d-flex flex-wrap gap-1 mb-2"></div>');
-            
-            var levels = (anchor && anchor.customization_levels) ? anchor.customization_levels : [];
             var levelSet = {};
-            levels.forEach(function(k) { levelSet[k] = true; });
-            
-            console.log('[renderRefIntentPanel] levels:', levels);
-            
-            CUSTOMIZATION_LEVEL_DEFS.forEach(function(levelDef) {
+            (metaForBadges.levels || []).forEach(function (k) { levelSet[k] = true; });
+            CUSTOMIZATION_LEVEL_DEFS.forEach(function (levelDef) {
                 var label = customizationLevelLabel(levelDef.key);
                 var hasLevel = !!levelSet[levelDef.key];
-                var className = hasLevel 
+                var className = hasLevel
                     ? 'badge bg-primary-subtle text-primary border me-1 mb-1'
                     : 'badge bg-light text-secondary border me-1 mb-1';
                 $metaBadges.append($('<span></span>').attr('class', className).css('font-size', '.7rem').text(label));
             });
-            
-            // 工藝能力
-            if (anchor) {
-                var caps = anchor.capabilities || [];
-                console.log('[renderRefIntentPanel] caps:', caps);
-                if (caps.length > 0) {
-                    var capLimit = 3;
-                    caps.slice(0, capLimit).forEach(function(c) {
-                        var name = c.name || c.key || '';
-                        $metaBadges.append($('<span></span>')
-                            .attr('class', 'badge bg-secondary-subtle text-secondary border me-1 mb-1')
-                            .css('font-size', '.7rem')
-                            .text(name));
-                    });
-                    if (caps.length > capLimit) {
-                        $metaBadges.append($('<span></span>')
-                            .attr('class', 'badge bg-secondary-subtle text-secondary border mb-1')
-                            .css('font-size', '.7rem')
-                            .text('+' + (caps.length - capLimit)));
-                    }
+            var caps = metaForBadges.caps || [];
+            if (caps.length > 0) {
+                var capLimit = 3;
+                caps.slice(0, capLimit).forEach(function (c) {
+                    var name = c.name || c.key || '';
+                    $metaBadges.append($('<span></span>')
+                        .attr('class', 'badge bg-secondary-subtle text-secondary border me-1 mb-1')
+                        .css('font-size', '.7rem')
+                        .text(name));
+                });
+                if (caps.length > capLimit) {
+                    $metaBadges.append($('<span></span>')
+                        .attr('class', 'badge bg-secondary-subtle text-secondary border mb-1')
+                        .css('font-size', '.7rem')
+                        .text('+' + (caps.length - capLimit)));
                 }
             }
-            
             $panel.append($metaBadges);
-            console.log('[renderRefIntentPanel] 標籤已插入 panel 頂部');
-            
             if (anchor) {
                 var anchorId = anchor && anchor.vendor_asset_id ? String(anchor.vendor_asset_id).trim() : '';
                 if (anchorId) {
@@ -1617,8 +1624,8 @@ $(document).ready(function () {
 
     function applyGuidePrototypeRefsToSlot(protoRefs, p) {
         if (!protoRefs || !protoRefs.length || !p) return Promise.resolve();
-        console.log('[applyGuidePrototypeRefsToSlot] p:', p, 'p.customization_levels:', p.customization_levels, 'p.capabilities:', p.capabilities);
         clearRefSlot('prototype');
+        setPrototypeAnchorMetaFromNode(p);
         var chain = Promise.resolve();
         protoRefs.forEach(function (ref) {
             var imgUrl = (ref.image_url || '').trim();
@@ -1690,7 +1697,6 @@ $(document).ready(function () {
     }
 
     function applyPrototypeRefsFromLinkTreeNode(p) {
-        console.log('[applyPrototypeRefsFromLinkTreeNode] p:', p, 'customization_levels:', p.customization_levels, 'capabilities:', p.capabilities);
         var allItems = [];
         if (p && p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
             allItems = p.image_items.filter(function (it) { return it && it.url; });
@@ -1719,6 +1725,7 @@ $(document).ready(function () {
             capabilities: p.capabilities || []
         };
         clearRefSlot('prototype');
+        setPrototypeAnchorMetaFromNode(p);
         if (p.manufacturer_id && !refVendorMfrId) {
             refVendorMfrId = p.manufacturer_id;
             if (p.manufacturer_name) refVendorName = p.manufacturer_name;
@@ -1862,7 +1869,7 @@ $(document).ready(function () {
 
         function applyTreePayload(treeData) {
             var p = treeData.prototype;
-            console.log('[applyTreePayload] treeData.prototype:', p, 'customization_levels:', p && p.customization_levels, 'capabilities:', p && p.capabilities);
+            setPrototypeAnchorMetaFromNode(p);
             var mainCat = (p.category_key || (urlParams.get('category_key') || '')).trim();
             var subCat = (p.subcategory_key || (urlParams.get('subcategory_key') || '')).trim();
             var session = consumeGuideSessionFromStorage();
@@ -1980,6 +1987,12 @@ $(document).ready(function () {
     }
 
     $(function () {
+        window.__matchdoFluxStaffDebug = false;
+        if (window.AuthService && typeof AuthService.isAdmin === 'function') {
+            AuthService.isAdmin().then(function (ok) {
+                if (ok) window.__matchdoFluxStaffDebug = true;
+            }).catch(function () {});
+        }
         $('#vendorAssetImagesPickConfirm').on('click', function () {
             var st = vendorAssetPickModalState;
             if (!st) return;
@@ -3706,15 +3719,6 @@ $(document).ready(function () {
                 }
             }
         }
-        // Debug: 檢查資料
-        if (!customLevelBadges && !capabilityBadges) {
-            console.log('[buildVendorStyleBrowseCardHtml] 無訂製程度/工藝標籤:', {
-                id: item.id,
-                title: item.title,
-                customization_levels: item.customization_levels,
-                capabilities: item.capabilities
-            });
-        }
         var mfrRow = official
             ? '<div class="small text-muted text-truncate">' + mfrName + '</div>'
             : ('<div class="d-flex align-items-center gap-1">' + mfrLogo +
@@ -3836,7 +3840,6 @@ $(document).ready(function () {
         try {
             capabilities = JSON.parse($card.attr('data-capabilities') || '[]');
         } catch (e) { capabilities = []; }
-        console.log('[importOfficialStyleFromBrowseCard] customization_levels:', customization_levels, 'capabilities:', capabilities);
         importOfficialStyleFromItem({
             id: ($card.attr('data-vendor-asset-id') || '').trim(),
             asset_kind: ($card.attr('data-asset-kind') || 'prototype').trim(),
