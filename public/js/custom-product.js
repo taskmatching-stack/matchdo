@@ -1178,8 +1178,8 @@ $(document).ready(function () {
                 var label = customizationLevelLabel(levelDef.key);
                 var hasLevel = !!levelSet[levelDef.key];
                 var className = hasLevel
-                    ? 'badge bg-primary-subtle text-primary border me-1 mb-1'
-                    : 'badge bg-light text-secondary border me-1 mb-1';
+                    ? 'badge vendor-custom-badge vendor-custom-badge--supported me-1 mb-1'
+                    : 'badge vendor-custom-badge vendor-custom-badge--unsupported me-1 mb-1';
                 $metaBadges.append($('<span></span>').attr('class', className).css('font-size', '.7rem').text(label));
             });
             var caps = metaForBadges.caps || [];

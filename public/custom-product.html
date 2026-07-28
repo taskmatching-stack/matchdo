@@ -878,16 +878,24 @@
             margin: 0;
         }
         #custom-product .ref-intent-scope-block .vendor-custom-badge,
+        #custom-product .ref-intent-panel .vendor-custom-badge,
         #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-custom-badge {
             font-size: 0.6875rem;
             font-weight: 600;
             padding: 0.15rem 0.4rem;
         }
         #custom-product .ref-intent-scope-block .vendor-custom-badge--supported,
+        #custom-product .ref-intent-panel .vendor-custom-badge--supported,
         #vendorAssetImagesPickModal .vendor-asset-pick-scope-block .vendor-custom-badge--supported {
             background: #dcfce7;
             color: #166534;
             border: 1px solid #86efac;
+        }
+        #custom-product .ref-intent-panel .vendor-custom-badge--unsupported {
+            background: transparent;
+            color: #94a3b8;
+            border: 1px dashed #e2e8f0;
+            font-weight: 500;
         }
         #custom-product .ref-intent-tab-label {
             max-width: 5.25rem;
@@ -1796,7 +1804,7 @@
     <script src="js/vendor-asset-share-urls.js" defer></script>
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
     <script src="/js/matchdo-promo-image.js?v=20260728b" defer></script>
-    <script src="js/custom-product.js?v=129" defer></script>
+    <script src="js/custom-product.js?v=130" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
