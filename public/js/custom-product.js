@@ -358,6 +358,7 @@ $(document).ready(function () {
         if (!g || !g.items || !g.items.length) return null;
         var s = g.items[0].source || {};
         var vid = s.vendor_asset_id ? String(s.vendor_asset_id).trim() : '';
+        console.log('[getPrototypeAnchorSource] s:', s, 'customization_levels:', s.customization_levels, 'capabilities:', s.capabilities);
         return vid ? s : null;
     }
 
@@ -888,11 +889,13 @@ $(document).ready(function () {
         if (!canAddMoreRefImages(key, 1)) return false;
         if (key === 'prototype' && !validatePrototypeSlotAdd(source || {})) return false;
         var def = getRefSlotDef(key);
+        var finalSource = Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {});
+        console.log('[addRefImageToSlot] key:', key, 'finalSource.customization_levels:', finalSource.customization_levels, 'finalSource.capabilities:', finalSource.capabilities);
         refSlots[key].items.push({
             url: url,
             note: '',
             pattern_apply_mode: key === 'pattern_print' ? 'original' : undefined,
-            source: Object.assign({ asset_kind: def ? def.assetKind : 'prototype' }, source || {})
+            source: finalSource
         });
         return true;
     }
@@ -1676,6 +1679,7 @@ $(document).ready(function () {
     }
 
     function applyPrototypeRefsFromLinkTreeNode(p) {
+        console.log('[applyPrototypeRefsFromLinkTreeNode] p:', p, 'customization_levels:', p.customization_levels, 'capabilities:', p.capabilities);
         var allItems = [];
         if (p && p.image_items && Array.isArray(p.image_items) && p.image_items.length) {
             allItems = p.image_items.filter(function (it) { return it && it.url; });
