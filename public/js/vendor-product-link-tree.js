@@ -1599,21 +1599,38 @@
 
     function wireStartDesignButton(p) {
         var startBtn = document.getElementById('btn-start-design');
-        if (!startBtn || !p || !p.id) return;
-        startBtn.href = buildStartDesignUrl(p);
+        var sidebarBtn = document.getElementById('btn-start-design-sidebar');
+        if (!p || !p.id) return;
+        var url = buildStartDesignUrl(p);
         var ret = qs('return_to');
-        var lbl = startBtn.querySelector('[data-i18n="productTree.startDesign"]') || startBtn.querySelector('span');
-        if (lbl && ret) {
-            lbl.textContent = tr('productTree.startDesignBack', '回到設計並帶入此款');
-        } else if (lbl) {
-            lbl.textContent = tr('productTree.startDesign', '用此款開始設計');
+        var labelText = ret ? tr('productTree.startDesignBack', '回到設計並帶入此款') : tr('productTree.startDesign', '用此款開始設計');
+        
+        // 更新頂部按鈕
+        if (startBtn) {
+            startBtn.href = url;
+            var lbl = startBtn.querySelector('[data-i18n="productTree.startDesign"]') || startBtn.querySelector('span');
+            if (lbl) lbl.textContent = labelText;
+            if (!startBtn.__vpltStartWired) {
+                startBtn.__vpltStartWired = true;
+                startBtn.addEventListener('mousedown', function (e) {
+                    if (e.button === 0) persistGuideSelectionForDesign();
+                }, true);
+                startBtn.addEventListener('click', persistGuideSelectionForDesign, true);
+            }
         }
-        if (!startBtn.__vpltStartWired) {
-            startBtn.__vpltStartWired = true;
-            startBtn.addEventListener('mousedown', function (e) {
-                if (e.button === 0) persistGuideSelectionForDesign();
-            }, true);
-            startBtn.addEventListener('click', persistGuideSelectionForDesign, true);
+        
+        // 更新側邊欄按鈕
+        if (sidebarBtn) {
+            sidebarBtn.href = url;
+            var lblSidebar = sidebarBtn.querySelector('[data-i18n="productTree.startDesign"]') || sidebarBtn.querySelector('span');
+            if (lblSidebar) lblSidebar.textContent = labelText;
+            if (!sidebarBtn.__vpltStartWired) {
+                sidebarBtn.__vpltStartWired = true;
+                sidebarBtn.addEventListener('mousedown', function (e) {
+                    if (e.button === 0) persistGuideSelectionForDesign();
+                }, true);
+                sidebarBtn.addEventListener('click', persistGuideSelectionForDesign, true);
+            }
         }
     }
 
