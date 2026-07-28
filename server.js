@@ -20062,7 +20062,11 @@ app.get('/api/vendor-assets/browse-prototypes', async (req, res) => {
         }
         let { data: rows, error } = await runBrowseQuery(selectCols);
         if (error && error.code === '42703') {
-            const legacyCols = selectCols.split(',').map((c) => c.trim()).filter((c) => c && c !== 'asset_kind' && c !== 'style_key').join(', ');
+            const legacyCols = selectCols.split(',').map((c) => c.trim())
+                .filter((c) => c && c !== 'asset_kind' && c !== 'style_key' && 
+                        c !== 'customization_levels' && c !== 'production_type_key' && 
+                        c !== 'capability_custom_labels')
+                .join(', ');
             ({ data: rows, error } = await runBrowseQuery(legacyCols));
         }
         if (error) {

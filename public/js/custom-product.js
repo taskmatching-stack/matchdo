@@ -380,8 +380,18 @@ $(document).ready(function () {
 
     function syncVendorStylesBrowseModeUi() {
         var official = isVendorStylesOfficialMode();
-        $('#bs-mode-vendor').toggleClass('active', !official);
-        $('#bs-mode-official').toggleClass('active', official);
+        var $vendor = $('#bs-mode-vendor');
+        var $official = $('#bs-mode-official');
+        
+        // 切換實心/空心樣式
+        if (official) {
+            $vendor.removeClass('btn-primary active').addClass('btn-outline-primary');
+            $official.removeClass('btn-outline-primary').addClass('btn-primary active');
+        } else {
+            $vendor.removeClass('btn-outline-primary').addClass('btn-primary active');
+            $official.removeClass('btn-primary active').addClass('btn-outline-primary');
+        }
+        
         $('#bs-filter-vendor-col').toggleClass('d-none', official);
         $('#bs-filter-official-kind-col').toggleClass('d-none', !official);
         if (official && typeof hideBsManufacturerSuggest === 'function') hideBsManufacturerSuggest();
