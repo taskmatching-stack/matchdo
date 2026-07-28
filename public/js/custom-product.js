@@ -1628,6 +1628,8 @@ $(document).ready(function () {
                         image_url: imgUrl,
                         asset_kind: 'prototype',
                         gallery_label: variantLabel || undefined,
+                        customization_levels: p.customization_levels || [],
+                        capabilities: p.capabilities || [],
                         link_group: (typeof MatchdoImageLinkGroups !== 'undefined')
                             ? MatchdoImageLinkGroups.linkGroupForUrl(prototypeImageItemsFromNode(p), imgUrl)
                             : ''
