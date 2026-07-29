@@ -7,7 +7,8 @@
   <title>攝影模擬 - MATCHDO</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260729m" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260730a" rel="stylesheet" />
+  <link href="/css/digital-asset-picker.css?v=1" rel="stylesheet" />
 </head>
 <body class="bg-light">
   <div id="site-header"></div>
@@ -168,6 +169,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <div id="pcAssetPickerTabs" class="dap-tabs" role="tablist" aria-label="數位資產分類"></div>
           <div id="pcAssetLoading" class="text-muted small">載入中…</div>
           <p id="pcAssetEmpty" class="text-muted small d-none mb-0"></p>
           <div id="pcAssetList" class="row g-2"></div>
@@ -183,9 +185,10 @@
   <script src="/js/auth-middleware.js"></script>
   <script src="/js/site-header.js"></script>
   <script src="/js/matchdo-promo-image.js?v=20260729m"></script>
-  <script src="/js/promo-camera/api.js?v=20260729m"></script>
-  <script src="/js/promo-camera/state.js?v=20260729m"></script>
-  <script src="/js/promo-camera/index.js?v=20260729m"></script>
+  <script src="/js/digital-asset-picker.js?v=1"></script>
+  <script src="/js/promo-camera/api.js?v=20260730a"></script>
+  <script src="/js/promo-camera/state.js?v=20260730a"></script>
+  <script src="/js/promo-camera/index.js?v=20260730a"></script>
   <script src="/js/site-footer.js"></script>
 </body>
 </html>

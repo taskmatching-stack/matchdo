@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729m';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730a';
 
   var ANGLE_FALLBACK = [
     { key: 'keep_reference', name: '維持參考角度', description: '不強制改角度，以參考圖構圖為主。' },
@@ -332,47 +332,32 @@
 
   function openAssetPicker() {
     var modalEl = document.getElementById('pcAssetModal');
-    var listEl = document.getElementById('pcAssetList');
-    var emptyEl = document.getElementById('pcAssetEmpty');
-    var loadingEl = document.getElementById('pcAssetLoading');
-    if (!modalEl || !listEl) return;
-    listEl.innerHTML = '';
-    emptyEl.classList.add('d-none');
-    loadingEl.classList.remove('d-none');
+    if (!modalEl) return;
     showBootstrapModal(modalEl);
-    Api.loadDigitalAssets(40, 0).then(function (res) {
-      loadingEl.classList.add('d-none');
-      var products = (res.data && res.data.products) ? res.data.products : [];
-      if (!products.length) {
+    if (!window.MatchdoDigitalAssetPicker || typeof window.MatchdoDigitalAssetPicker.mount !== 'function') {
+      var emptyEl = document.getElementById('pcAssetEmpty');
+      var loadingEl = document.getElementById('pcAssetLoading');
+      if (loadingEl) loadingEl.classList.add('d-none');
+      if (emptyEl) {
+        emptyEl.textContent = '載入失敗，請稍後再試。';
         emptyEl.classList.remove('d-none');
-        emptyEl.textContent = '尚無數位資產，請先上傳或從本機選圖。';
-        return;
       }
-      emptyEl.classList.add('d-none');
-      products.forEach(function (p) {
-        var url = (p.ai_generated_image_url || p.image_url || '').trim();
-        if (!url) return;
-        var title = (p.title || p.generation_prompt || '').toString().substring(0, 40);
-        var col = document.createElement('div');
-        col.className = 'col-6 col-md-4';
-        col.innerHTML = '<div class="card border h-100 pc-asset-pick" style="cursor:pointer" data-url="' + esc(url) + '" data-pid="' + esc(p.id || '') + '">' +
-          '<img class="card-img-top" src="' + esc(url) + '" alt="" style="height:100px;object-fit:cover">' +
-          '<div class="card-body py-1"><p class="small text-muted mb-0 text-truncate">' + esc(title || '未命名') + '</p></div></div>';
-        listEl.appendChild(col);
-      });
-      listEl.querySelectorAll('.pc-asset-pick').forEach(function (card) {
-        card.addEventListener('click', function () {
-          var u = card.getAttribute('data-url');
-          var pid = card.getAttribute('data-pid');
-          St.clearImages();
-          onImagesAdded([u], pid ? 'custom_product' : 'digital_asset', pid || null);
-          hideBootstrapModal(modalEl);
-        });
-      });
-    }).catch(function () {
-      loadingEl.classList.add('d-none');
-      emptyEl.classList.remove('d-none');
-      emptyEl.textContent = '載入失敗，請稍後再試。';
+      return;
+    }
+    window.__pcAssetPickerMount = window.MatchdoDigitalAssetPicker.mount({
+      tabsEl: document.getElementById('pcAssetPickerTabs'),
+      listEl: document.getElementById('pcAssetList'),
+      emptyEl: document.getElementById('pcAssetEmpty'),
+      loadingEl: document.getElementById('pcAssetLoading'),
+      onPick: function (pick) {
+        var u = pick && pick.url;
+        if (!u) return;
+        var st = pick.sourceType || 'digital_asset';
+        var sid = pick.sourceId || null;
+        St.clearImages();
+        onImagesAdded([u], st === 'custom_product' ? 'custom_product' : 'digital_asset', sid);
+        hideBootstrapModal(modalEl);
+      }
     });
   }
 

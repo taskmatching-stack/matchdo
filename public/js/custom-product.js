@@ -5630,9 +5630,12 @@ $(document).ready(function () {
     }
     // 初次載入：依 URL 切換 Tab
     applyTabFromUrl();
-    // 切換 Tab 時更新網址
+    // 切換 Tab 時更新網址（分組 Tab 列需手動清掉其他列的 active）
     $('#designTabs').on('shown.bs.tab', function (e) {
-        var targetId = (e.target && e.target.id) ? e.target.id : '';
+        var $target = $(e.target);
+        $('.design-func-nav .nav-link').not($target).removeClass('active').attr('aria-selected', 'false');
+        $target.addClass('active').attr('aria-selected', 'true');
+        var targetId = ($target.attr('id')) ? $target.attr('id') : '';
         var tabParam = getTabParamFromButtonId(targetId);
         updateUrlForTab(tabParam, !suppressTabHistoryWrite);
         if (tabParam === 'pattern-extract' && typeof updatePatternExtractResolutionDisplay === 'function') {
@@ -5709,68 +5712,34 @@ $(document).ready(function () {
         if (window.i18n && typeof window.i18n.applyPage === 'function') window.i18n.applyPage();
         var pickerEl = document.getElementById('sceneSimAssetPickerModal');
         showBootstrapModal(pickerEl);
-        var $list = $('#sceneSimAssetList');
         var $empty = $('#sceneSimAssetEmpty');
         var $loading = $('#sceneSimAssetLoading');
-        $list.empty();
         $empty.addClass('d-none');
         $loading.removeClass('d-none');
-        getAuthToken(function (token) {
-            if (!token) {
-                $loading.addClass('d-none');
-                $empty.removeClass('d-none').text(t('customProduct.loginToSelectAssets'));
-                return;
+        if (!window.MatchdoDigitalAssetPicker || typeof window.MatchdoDigitalAssetPicker.mount !== 'function') {
+            $loading.addClass('d-none');
+            $empty.removeClass('d-none').text(t('customProduct.loadFailed'));
+            return;
+        }
+        window.__sceneSimAssetPickerMount = window.MatchdoDigitalAssetPicker.mount({
+            tabsEl: document.getElementById('sceneSimAssetPickerTabs'),
+            listEl: document.getElementById('sceneSimAssetList'),
+            emptyEl: document.getElementById('sceneSimAssetEmpty'),
+            loadingEl: document.getElementById('sceneSimAssetLoading'),
+            onPick: function (pick) {
+                var u = pick && pick.url;
+                if (!u) return;
+                var st = (pick.sourceType || 'digital_asset');
+                var sid = pick.sourceId || null;
+                if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
+                else if (window.assetPickerContext === 'designToPhysical') setDesignToPhysicalPreview(u);
+                else if (window.assetPickerContext === 'promoImage') {
+                    if (typeof setPromoImagePreview === 'function') setPromoImagePreview(u, st, sid);
+                    else if (typeof window.setPromoImagePreview === 'function') window.setPromoImagePreview(u, st, sid);
+                } else setSceneSimPreview(u);
+                var hideInst = getBootstrapModal(pickerEl);
+                if (hideInst) hideInst.hide();
             }
-            fetch('/api/custom-products?gallery=1&limit=40&offset=0', { headers: { 'Authorization': 'Bearer ' + token } })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    $loading.addClass('d-none');
-                    var products = (data && data.products) ? data.products : [];
-                    if (products.length === 0) {
-                        $empty.removeClass('d-none').text(t('customProduct.noDigitalAssetsHint'));
-                        return;
-                    }
-                    $empty.addClass('d-none');
-                    products.forEach(function (p) {
-                        var url = (p.ai_generated_image_url || p.image_url || '').trim();
-                        if (!url) return;
-                        var title = (p.title || p.generation_prompt || '').toString().substring(0, 40);
-                        var $col = $('<div class="col-6 col-md-4 col-lg-3"></div>');
-                        var $card = $('<div class="card border scene-sim-asset-item" style="cursor:pointer;"></div>').attr('data-image-url', url);
-                        if (p.id) $card.attr('data-product-id', p.id);
-                        var $img = $('<img class="card-img-top scene-sim-asset-img" style="height:120px;object-fit:cover;cursor:zoom-in;">').attr('src', url).attr('alt', title).attr('title', t('customProduct.zoomImage') || '點擊放大').attr('loading', 'lazy').attr('decoding', 'async');
-                        $card.append($img);
-                        $card.append($('<div class="card-body py-1"><p class="small text-muted mb-0 text-truncate">').text(title || t('customProduct.noTitle')));
-                        $col.append($card);
-                        $list.append($col);
-                    });
-                    $list.find('.scene-sim-asset-img').on('dblclick', function (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        var u = $(this).attr('src');
-                        if (u) openImageLightbox(u, $(this).attr('alt') || '');
-                    });
-                    $list.find('.scene-sim-asset-item').on('click', function (e) {
-                        if (e.detail > 1) return;
-                        var u = $(this).attr('data-image-url');
-                        if (u) {
-                            if (window.assetPickerContext === 'patternExtract') setPatternExtractPreview(u);
-                            else if (window.assetPickerContext === 'designToPhysical') setDesignToPhysicalPreview(u);
-                            else if (window.assetPickerContext === 'promoImage') {
-                                var pid = ($(this).attr('data-product-id') || '').trim();
-                                if (typeof setPromoImagePreview === 'function') setPromoImagePreview(u, pid ? 'custom_product' : 'digital_asset', pid || null);
-                                else if (typeof window.setPromoImagePreview === 'function') window.setPromoImagePreview(u, pid ? 'custom_product' : 'digital_asset', pid || null);
-                            }
-                            else setSceneSimPreview(u);
-                        }
-                        var hideInst = getBootstrapModal(pickerEl);
-                        if (hideInst) hideInst.hide();
-                    });
-                })
-                .catch(function () {
-                    $loading.addClass('d-none');
-                    $empty.removeClass('d-none').text(t('customProduct.loadFailed'));
-                });
         });
     }
     $('#sceneSimPreviewWrap').on('click', function (e) {
@@ -6254,9 +6223,11 @@ $(document).ready(function () {
         renderPromoImageSelectedThumbs();
     }
     function renderPromoImageSelectedThumbs() {
+        var $zone = $('#promoImageSourceZone');
         var $wrap = $('#promoImageSelectedThumbs');
         var $hint = $('#promoImageSelectedHint');
         var $clear = $('#promoImageClearBtn');
+        var $btn = $('#promoImagePickAssetBtn');
         $wrap.empty();
         var urls = window.promoImageImageUrls || [];
         urls.forEach(function (url, idx) {
@@ -6273,11 +6244,15 @@ $(document).ready(function () {
             $wrap.append($chip);
         });
         if (urls.length) {
-            $hint.text('已選 ' + urls.length + ' 張（最多 ' + PROMO_IMAGE_MAX_REFS + '；第一張為主體，可再加入）');
+            $zone.addClass('has-images');
+            $hint.removeClass('d-none').text('已選 ' + urls.length + ' 張 · 第一張為主體 · 最多 ' + PROMO_IMAGE_MAX_REFS + ' 張');
             $clear.removeClass('d-none');
+            $btn.text('＋ 繼續加入');
         } else {
-            $hint.text('尚未選圖 — 可多次從數位資產加入');
+            $zone.removeClass('has-images');
+            $hint.addClass('d-none').text('');
             $clear.addClass('d-none');
+            $btn.html('<span class="promo-source-add-icon" aria-hidden="true">＋</span><span class="promo-source-add-label">從數位資產選擇產品圖</span><span class="promo-source-add-sub">支援多張，第一張為主體</span>');
         }
     }
     function setPromoImagePreview(imageUrl, sourceType, productId) {
