@@ -1,114 +1,112 @@
-# custom-product.html iOS APP 極簡風格改善
+# custom-product.html 極簡白色風格
 
 ## 改善日期
-2026-07-30 00:23
+2026-07-30 00:32
 
 ## 問題
-初版 Apple 風格改善不夠徹底：
-1. 按鈕漸變效果沒質感
-2. 參考圖框線亂七八糟
-3. 參考圖標籤一堆框線
-4. 不夠簡潔
+iOS 灰色風格造成「色塊」問題：
+1. 到處都是 `#f2f2f7` 灰色背景
+2. 輸入框、按鈕、Tab 全是灰色
+3. 視覺不清不楚
+4. 沒有清晰對比
 
-## 解決方案：iOS APP 極簡風格
+## 解決方案：白色為主 + 極細線條
 
-### 核心設計原則
-1. **零框線**：所有 `border` 用 `!important` 強制移除
-2. **扁平化**：按鈕純色，hover 只改 opacity
-3. **iOS 色系**：
-   - 背景：`#f2f2f7`（iOS 灰）
-   - 按鈕：`#007aff`（iOS 藍）
-   - 成功：`#34c759`（iOS 綠）
-4. **極簡陰影**：只用 `0 1px 3px rgba(0,0,0,.05)`
-5. **大圓角**：統一 10-16px
-6. **純背景分層**：不用框線，只用背景色差異
+### 核心原則
+1. **白色為主**：背景白色，減少色塊
+2. **極細線條**：1px `#e8e8e8` 灰線分隔
+3. **清晰對比**：黑色文字、藍色重點
+4. **底線式 Tab**：不用背景色塊
+5. **白色輪廓按鈕**：清晰、不擁擠
 
 ### 具體改變
 
-#### 1. 按鈕（扁平化）
+#### 1. 表單輸入框
 ```css
-/* 主按鈕：iOS 藍、零陰影 */
+/* 白色 + 極細灰線 */
+background: #fff;
+border: 1px solid #e8e8e8;
+/* 聚焦：藍框 + 光暈 */
+focus: border #007aff + shadow
+```
+
+#### 2. Tab 切換（底線式）
+```css
+/* 透明背景 + 底部邊框 */
+background: transparent;
+border-bottom: 1px solid #e8e8e8;
+/* 活動項：藍色底線 */
+active: border-bottom #007aff 2px;
+```
+
+#### 3. 縮圖
+```css
+/* 白色卡片 + 極細灰框 */
+background: #fff;
+border: 1px solid #e8e8e8;
+/* hover：藍框 + 陰影 */
+hover: border #007aff + shadow
+```
+
+#### 4. 次要按鈕
+```css
+/* 白色輪廓按鈕 */
+background: #fff;
+border: 1px solid #d0d0d0;
+color: #333;
+/* hover：藍色文字 + 藍框 */
+hover: color #007aff + border #007aff
+```
+
+#### 5. 主按鈕
+```css
+/* 純藍色、扁平 */
 background: #007aff;
-border-radius: 12px;
-box-shadow: none;
-/* hover 只改透明度 */
-opacity: 0.8;
-```
-
-#### 2. 參考圖 Tab（分段控制器）
-```css
-/* 背景：iOS 灰 */
-background: #f2f2f7;
-/* 活動項：白色卡片 */
-active: #fff + 極淡陰影
-/* 零框線 */
-border: none !important;
-```
-
-#### 3. 參考圖縮圖（零框線）
-```css
-/* 灰色背景、無框線、無陰影 */
-background: #f2f2f7;
 border: none;
-box-shadow: none;
-/* hover 只改透明度 */
-opacity: 0.7;
+/* hover：降低透明度 */
+hover: opacity 0.85
 ```
 
-#### 4. 標籤 Badge（純色）
-```css
-/* 成功：iOS 綠 */
-background: #34c759;
-color: #fff;
-border: none;
-```
+### 色彩系統
 
-#### 5. 強制覆蓋策略
-```css
-/* 全域移除框線 */
-#custom-product *,
-#custom-product *::before,
-#custom-product *::after {
-    border-color: transparent !important;
-}
-```
+| 用途 | 顏色 | 說明 |
+|------|------|------|
+| 主背景 | `#fff` | 白色為主 |
+| 次背景 | `#fafafa` | 僅畫布使用 |
+| 邊框 | `#e8e8e8` | 極細灰線 |
+| 虛線 | `#d0d0d0` | 上傳區等 |
+| 主色 | `#007aff` | iOS 藍 |
+| 文字 | `#1a1a1a` / `#333` / `#666` | 清晰對比 |
+| 成功 | `#34c759` | iOS 綠 |
 
-### iOS vs Apple Web 對比
+### 對比差異
 
-| 元素 | Apple Web（初版） | iOS APP（現版） |
-|------|------------------|----------------|
-| 按鈕 | 漸變 + 陰影 + 上浮 | 純色 + opacity |
-| 框線 | 部分保留 | 完全移除 |
-| 陰影 | 多層次 | 極簡（0-1px） |
-| 圓角 | 14-20px | 10-16px |
-| 互動 | transform | opacity only |
+| 元素 | iOS 灰版（X） | 白色版（✓） |
+|------|-------------|-----------|
+| 輸入框 | 灰色背景 | 白色 + 細框 |
+| Tab | 灰色背景塊 | 透明 + 底線 |
+| 按鈕 | 灰色背景 | 白色輪廓 |
+| 畫布 | 灰色 | 淺灰（僅此處） |
+| 整體 | 色塊感 | 清晰對比 |
 
-## 文件位置
-- **CSS**：`public/css/custom-product-apple-style.css`
-- **引入**：`custom-product.html` 第 73 行
+## 設計檢查
+- ✅ 白色為主（不是灰色色塊）
+- ✅ 極細線條（1px #e8e8e8）
+- ✅ 底線式 Tab（不用背景）
+- ✅ 白色輪廓按鈕（清晰）
+- ✅ 清晰對比（黑文字、藍重點）
+- ✅ 減少背景色（只有畫布）
 
-## 設計檢查清單
-- ✅ 零框線（100% 移除）
-- ✅ 扁平化按鈕（無漸變）
-- ✅ iOS 色系（#f2f2f7 / #007aff / #34c759）
-- ✅ 極簡陰影（0-1px blur）
-- ✅ 純背景分層（不用線條）
-- ✅ opacity 互動（不用 transform）
-- ✅ 統一圓角（10-16px）
-
-## 手機版
-- 背景改白色（避免雙層灰）
-- 間距再縮小
-- 零框線保持
+## 參考風格
+- Google Material Design（白色卡片 + 細線）
+- Stripe Dashboard（極簡白色）
+- Linear App（白色 + 底線 Tab）
 
 ## 預期效果
-- 極簡、扁平、呼吸感
-- 類 iOS 設定頁面風格
-- 零視覺噪音
-- 專注內容本身
+- 清晰、簡潔、不擁擠
+- 無色塊感
+- 視覺對比清晰
+- 專業、現代
 
 ## 回滾
-若仍有問題，可：
-1. 檢查 CSS 載入順序（確保最後載入）
-2. 清除瀏覽器快取
-3. 移除引入還原原樣式
+若仍有問題，請提供具體哪個區域需要調整。
