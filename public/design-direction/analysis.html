@@ -149,8 +149,8 @@
         #pastItemModal .modal-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-height: 90vh; }
         #pastItemModal .past-item-modal-dialog { width: 100%; max-width: min(720px, 94vw); max-height: 90vh; margin: 1rem auto; box-sizing: border-box; }
         #pastItemModal .modal-content { width: 100%; max-width: 100%; max-height: 90vh; border-radius: 12px; border: none; box-shadow: 0 12px 40px rgba(0,0,0,.2); overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
-        #pastItemModal .modal-header { padding: 0.75rem 1rem; background: #f0f4f8; border-bottom: 2px solid #445D7E; }
-        #pastItemModal .modal-title { font-size: 1rem; font-weight: 600; color: #445D7E; }
+        #pastItemModal .modal-header { padding: 0.75rem 1rem; background: #f0f4f8; border-bottom: 2px solid #7B8FA1; }
+        #pastItemModal .modal-title { font-size: 1rem; font-weight: 600; color: #7B8FA1; }
         #pastItemModal .modal-body { padding: 0; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; background: #f5f7fa; text-align: center; position: relative; display: flex; flex-direction: column; align-items: stretch; max-width: 100%; box-sizing: border-box; }
         #pastItemModal #pastItemModalBody { flex: 1; min-height: 200px; padding: 0.5rem; display: flex; align-items: center; justify-content: center; position: relative; max-width: 100%; overflow: hidden; box-sizing: border-box; }
         #pastItemModal #pastItemModalBodyInner { width: 100%; max-width: 100%; height: 100%; min-height: 200px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; box-sizing: border-box; }
@@ -165,8 +165,8 @@
         .past-lightbox { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; box-sizing: border-box; }
         .past-lightbox-backdrop { position: absolute; inset: 0; background: rgba(45,64,89,.85); cursor: pointer; }
         .past-lightbox-content { position: relative; max-width: 95vw; max-height: 95vh; display: flex; align-items: center; justify-content: center; }
-        .past-lightbox-close { position: absolute; top: -2.5rem; right: 0; z-index: 10; width: 2rem; height: 2rem; border: none; background: rgba(255,255,255,.95); color: #445D7E; font-size: 1.5rem; line-height: 1; cursor: pointer; border-radius: 4px; }
-        .past-lightbox-close:hover { background: #445D7E; color: #fff; }
+        .past-lightbox-close { position: absolute; top: -2.5rem; right: 0; z-index: 10; width: 2rem; height: 2rem; border: none; background: rgba(255,255,255,.95); color: #7B8FA1; font-size: 1.5rem; line-height: 1; cursor: pointer; border-radius: 4px; }
+        .past-lightbox-close:hover { background: #7B8FA1; color: #fff; }
         .past-lightbox-image-wrap { position: relative; max-width: 90vw; max-height: 85vh; border-radius: 12px; overflow: hidden; box-shadow: 0 12px 40px rgba(68,93,126,.35); }
         .past-lightbox-image { display: block; max-width: 100%; max-height: 85vh; width: auto; height: auto; vertical-align: middle; }
         .past-lightbox-overlay { position: absolute; left: 0; right: 0; bottom: 0; padding: 1rem 1.25rem; background: linear-gradient(transparent, rgba(45,64,89,.92)); color: #fff; }
@@ -231,7 +231,7 @@
         #custom-product .ref-slots { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.4rem; margin-top: 0.5rem; }
         #custom-product .ref-slot { aspect-ratio: 1; border-radius: 8px; border: 2px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 0; overflow: hidden; }
         #custom-product .ref-slot.filled { border-style: solid; border-color: #e5e7eb; padding: 0; }
-        #custom-product .ref-slot.filled.selected { border-color: var(--bs-primary, #0d9488); border-width: 3px; box-shadow: 0 0 0 1px var(--bs-primary, #0d9488); }
+        #custom-product .ref-slot.filled.selected { border-color: var(--bs-primary, #7B8FA1); border-width: 3px; box-shadow: 0 0 0 1px var(--bs-primary, #7B8FA1); }
         #custom-product .ref-slot .ref-slot-add { width: 100%; height: 100%; border: none; background: transparent; color: #64748b; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 0.2rem; }
         #custom-product .ref-slot .ref-slot-add:hover { background: #f1f5f9; color: #475569; }
         #custom-product .ref-slot .ref-slot-thumb { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
@@ -246,7 +246,7 @@
             border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.5rem;
             display: flex; align-items: flex-start; gap: 0.5rem; min-height: 0;
         }
-        #custom-product .ref-card.ref-card-selected { border-color: var(--bs-primary, #0d9488); background: rgba(13,148,136,.04); }
+        #custom-product .ref-card.ref-card-selected { border-color: var(--bs-primary, #7B8FA1); background: rgba(13,148,136,.04); }
         #custom-product .ref-card .ref-card-thumb { width: 36px; height: 36px; flex-shrink: 0; object-fit: cover; border-radius: 6px; background: #f3f4f6; }
         #custom-product .ref-card .ref-card-label { display: block; margin-bottom: 0.15rem; }
         #custom-product .ref-card .ref-card-right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -284,7 +284,7 @@
             #custom-product .create-panel-right.is-loading {
                 background: linear-gradient(90deg, #e8edf3 25%, #cfd8e6 50%, #e8edf3 75%);
                 background-size: 300% 100%; animation: canvas-pulse 1.5s ease-in-out infinite;
-                border-style: solid; border-color: #445D7E44;
+                border-style: solid; border-color: #7B8FA144;
             }
             #custom-product .create-panel-right.is-loading .placeholder-hint { display: none; }
             /* 分類：桌機雙面板隱藏 */
@@ -296,7 +296,7 @@
                 background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px;
                 color: #6b7280; font-size: 0.875rem; text-align: left; cursor: pointer;
             }
-            #catMobileBtn.has-value { border-color: #445D7E; color: #445D7E; font-weight: 500; }
+            #catMobileBtn.has-value { border-color: #7B8FA1; color: #7B8FA1; font-weight: 500; }
             /* Bottom Sheet */
             .cat-bottom-sheet {
                 display: flex; position: fixed; inset: 0; z-index: 1080;
@@ -318,8 +318,8 @@
             .cat-bs-list { overflow-y: auto; flex: 1; min-height: 0; }
             .cat-bs-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.875rem 1rem; font-size: 0.9375rem; color: #374151; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
             .cat-bs-item:active { background: #f1f5f9; }
-            .cat-bs-item.is-selected { color: #445D7E; font-weight: 600; }
-            .cat-bs-item .cat-bs-check { color: #445D7E; width: 1.1rem; flex-shrink: 0; }
+            .cat-bs-item.is-selected { color: #7B8FA1; font-weight: 600; }
+            .cat-bs-item .cat-bs-check { color: #7B8FA1; width: 1.1rem; flex-shrink: 0; }
             .cat-bs-item .cat-bs-placeholder-icon { width: 1.1rem; flex-shrink: 0; }
             .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #9ca3af; font-size: 0.75rem; }
             /* 參考圖橫向滾動 */

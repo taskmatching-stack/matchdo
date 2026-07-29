@@ -2,46 +2,46 @@
 
 /********** Template CSS **********/
 
-/*** 全站配色：版面底色 #ffffff、深灰文字 #333333、按鈕主色 #445D7E ***/
+/*** 全站配色：莫蘭迪 — 灰藍主色 #7B8FA1、暖灰文字 ***/
 :root {
-    --bs-body-bg: #ffffff;
-    --bs-body-color: #333333;
-    --bs-primary: #445D7E;
-    --bs-primary-rgb: 68, 93, 126;
-    --bs-primary-dark: #3a5169;
+    --bs-body-bg: #FAF9F7;
+    --bs-body-color: #6B6560;
+    --bs-primary: #7B8FA1;
+    --bs-primary-rgb: 123, 143, 161;
+    --bs-primary-dark: #687B8C;
 }
 body {
-    background-color: #ffffff !important;
-    color: #333333 !important;
+    background-color: #FAF9F7 !important;
+    color: #6B6560 !important;
 }
 .btn-primary, .bg-primary.btn {
-    background-color: #445D7E !important;
-    border-color: #445D7E !important;
+    background-color: #7B8FA1 !important;
+    border-color: #7B8FA1 !important;
 }
 .btn-primary:hover, .btn-primary:focus, .bg-primary.btn:hover {
-    background-color: #3a5169 !important;
-    border-color: #3a5169 !important;
+    background-color: #687B8C !important;
+    border-color: #687B8C !important;
 }
-.btn-outline-primary { color: #445D7E; border-color: #445D7E; }
-.btn-outline-primary:hover { background-color: #445D7E; border-color: #445D7E; color: #fff; }
-.text-primary { color: #445D7E !important; }
-.border-primary { border-color: #445D7E !important; }
+.btn-outline-primary { color: #7B8FA1; border-color: #7B8FA1; }
+.btn-outline-primary:hover { background-color: #7B8FA1; border-color: #7B8FA1; color: #fff; }
+.text-primary { color: #7B8FA1 !important; }
+.border-primary { border-color: #7B8FA1 !important; }
 
-/*** 頁腳：與主色 #445D7E 搭配之深色 ***/
+/*** 頁腳：莫蘭迪深暖灰 ***/
 #site-footer .container-fluid.footer,
 #site-footer .container-fluid.bg-dark {
-    background-color: #2d4059 !important;
+    background-color: #6A635D !important;
 }
 #site-footer .btn-link { color: rgba(255,255,255,.85); }
 #site-footer .btn-link:hover { color: #fff !important; }
 #site-footer h5.text-white { color: #fff !important; }
 
 .page-title-bar { background: #ffffff !important; border-bottom-color: #d0dce5 !important; }
-.navbar { border-bottom: 2px solid #445D7E; }
-.navbar .navbar-nav .nav-link:hover, .navbar .navbar-nav .nav-link.active { color: #445D7E !important; }
-.navbar .dropdown-menu .dropdown-item:hover, .navbar .dropdown-menu .dropdown-item.active { background-color: #445D7E !important; color: #fff !important; }
+.navbar { border-bottom: 1px solid rgba(123, 143, 161, 0.32); }
+.navbar .navbar-nav .nav-link:hover, .navbar .navbar-nav .nav-link.active { color: #7B8FA1 !important; }
+.navbar .dropdown-menu .dropdown-item:hover, .navbar .dropdown-menu .dropdown-item.active { background-color: #7B8FA1 !important; color: #fff !important; }
 .navbar .navbar-nav .nav-link { color: #333333; }
-.navbar .navbar-nav .nav-link .nav-hover-caret { color: #445D7E; font-size: 16px; line-height: 1; vertical-align: middle; margin-left: 4px; }
+.navbar .navbar-nav .nav-link .nav-hover-caret { color: #7B8FA1; font-size: 16px; line-height: 1; vertical-align: middle; margin-left: 4px; }
 
 /*** Spinner ***/
 #spinner {
@@ -141,7 +141,7 @@ body {
     color: #333333;
 }
 .navbar .navbar-nav .nav-link .nav-hover-caret {
-    color: #445D7E;
+    color: #7B8FA1;
     font-size: 16px;
     line-height: 1;
     vertical-align: middle;
@@ -227,7 +227,7 @@ body {
     background: none;
     border: none;
     font-size: 1rem;
-    color: #445D7E;
+    color: #7B8FA1;
     cursor: pointer;
     padding: 0.25rem 0;
 }
@@ -259,7 +259,7 @@ body {
 }
 .nav-mobile-drawer-body .dropdown-item:hover {
     background: #f0f0f0;
-    color: #445D7E;
+    color: #7B8FA1;
 }
 .nav-mobile-drawer-body .dropdown-divider {
     margin: 0.5rem 0;
@@ -674,7 +674,7 @@ body {
     -webkit-font-smoothing: subpixel-antialiased;
 }
 #site-header .nav-points-desktop:hover {
-    color: #445D7E;
+    color: #7B8FA1;
 }
 #site-header .nav-points-desktop #navPointsDesktopValue,
 #site-header #navPointsMobileValue {
@@ -693,7 +693,7 @@ body {
     -webkit-font-smoothing: subpixel-antialiased;
 }
 #site-header #navPointsMobile .nav-points-link:hover {
-    color: #445D7E;
+    color: #7B8FA1;
 }
 
 /* ===== Navbar：authSection 緊貼頭像，減少右側空白 ===== */
@@ -736,7 +736,7 @@ body {
         position: relative;
         z-index: 5;
     }
-    /* Logo 為圖檔 matchdo-logo.png；「DO」區塊請與下方登入按鈕同色：.btn-primary = #445D7E */
+    /* Logo 為圖檔 matchdo-logo.png；「DO」區塊請與下方登入按鈕同色：.btn-primary = #7B8FA1 */
     #site-header .navbar-brand img {
         height: 78px !important;
         background: #fff;

@@ -1,8 +1,9 @@
 /**
  * 客製產品線主題 — 莫蘭迪色系
- * 僅在 <html data-theme="custom"> 時套用（產品設計頁等）
+ * 客製／設計風向頁 — 莫蘭迪色系（data-theme=custom 或 remake）
  */
-[data-theme="custom"] {
+[data-theme="custom"],
+[data-theme="remake"] {
     /* 主色：灰藍 */
     --md-primary: #7B8FA1;
     --md-primary-dark: #687B8C;
@@ -51,76 +52,92 @@
     --bs-secondary-color: var(--md-text-muted);
 }
 
-[data-theme="custom"] .btn-primary {
-    background-color: var(--md-primary);
-    border-color: var(--md-primary);
+[data-theme="custom"], [data-theme="remake"] .btn-primary,
+[data-theme="custom"], [data-theme="remake"] .btn-primary.active,
+[data-theme="custom"], [data-theme="remake"] .btn-primary:active {
+    background-color: var(--md-primary) !important;
+    border-color: var(--md-primary) !important;
+    color: #fff !important;
 }
-[data-theme="custom"] .btn-primary:hover,
-[data-theme="custom"] .btn-primary:focus {
-    background-color: var(--md-primary-dark);
-    border-color: var(--md-primary-dark);
-}
-
-[data-theme="custom"] .btn-outline-primary {
-    color: var(--md-primary);
-    border-color: var(--md-primary);
-}
-[data-theme="custom"] .btn-outline-primary:hover {
-    background-color: var(--md-primary);
-    border-color: var(--md-primary);
-    color: #fff;
+[data-theme="custom"], [data-theme="remake"] .btn-primary:hover,
+[data-theme="custom"], [data-theme="remake"] .btn-primary:focus {
+    background-color: var(--md-primary-dark) !important;
+    border-color: var(--md-primary-dark) !important;
+    color: #fff !important;
 }
 
-[data-theme="custom"] .btn-outline-info {
+[data-theme="custom"], [data-theme="remake"] .btn-outline-primary {
+    color: var(--md-primary) !important;
+    border-color: rgba(123, 143, 161, 0.45) !important;
+    background-color: var(--md-white) !important;
+}
+[data-theme="custom"], [data-theme="remake"] .btn-outline-primary:hover,
+[data-theme="custom"], [data-theme="remake"] .btn-outline-primary.active,
+[data-theme="custom"], [data-theme="remake"] .btn-outline-primary:active {
+    background-color: var(--md-primary) !important;
+    border-color: var(--md-primary) !important;
+    color: #fff !important;
+}
+
+[data-theme="custom"], [data-theme="remake"] .btn-link {
+    color: var(--md-primary) !important;
+    text-decoration: none;
+}
+[data-theme="custom"], [data-theme="remake"] .btn-link:hover,
+[data-theme="custom"], [data-theme="remake"] .btn-link:focus {
+    color: var(--md-primary-dark) !important;
+}
+
+[data-theme="custom"], [data-theme="remake"] .btn-outline-info {
     color: var(--md-rose-text);
     border-color: var(--md-rose);
     background: var(--md-rose-bg);
 }
-[data-theme="custom"] .btn-outline-info:hover {
+[data-theme="custom"], [data-theme="remake"] .btn-outline-info:hover {
     background-color: var(--md-rose);
     border-color: var(--md-rose);
     color: #fff;
 }
 
-[data-theme="custom"] .alert-warning {
+[data-theme="custom"], [data-theme="remake"] .alert-warning {
     color: var(--md-clay-text);
     background-color: var(--md-clay-bg);
     border-color: var(--md-clay-border);
 }
 
-[data-theme="custom"] .text-warning {
+[data-theme="custom"], [data-theme="remake"] .text-warning {
     color: var(--md-clay-text) !important;
 }
 
-[data-theme="custom"] .navbar .navbar-nav .nav-link:hover,
-[data-theme="custom"] .navbar .navbar-nav .nav-link.active {
+[data-theme="custom"], [data-theme="remake"] .navbar .navbar-nav .nav-link:hover,
+[data-theme="custom"], [data-theme="remake"] .navbar .navbar-nav .nav-link.active {
     color: var(--md-primary);
 }
 
-[data-theme="custom"] .navbar-brand .text-primary,
-[data-theme="custom"] .text-primary {
+[data-theme="custom"], [data-theme="remake"] .navbar-brand .text-primary,
+[data-theme="custom"], [data-theme="remake"] .text-primary {
     color: var(--md-primary) !important;
 }
 
-[data-theme="custom"] .bg-primary {
+[data-theme="custom"], [data-theme="remake"] .bg-primary {
     background-color: var(--md-primary) !important;
 }
 
-[data-theme="custom"] .dropdown-menu .dropdown-item:hover,
-[data-theme="custom"] .dropdown-menu .dropdown-item.active {
+[data-theme="custom"], [data-theme="remake"] .dropdown-menu .dropdown-item:hover,
+[data-theme="custom"], [data-theme="remake"] .dropdown-menu .dropdown-item.active {
     background-color: var(--md-primary);
     color: #fff;
 }
 
-[data-theme="custom"] .border-primary {
+[data-theme="custom"], [data-theme="remake"] .border-primary {
     border-color: var(--md-primary) !important;
 }
 
-[data-theme="custom"] .btn-lg-square.back-to-top {
+[data-theme="custom"], [data-theme="remake"] .btn-lg-square.back-to-top {
     background: var(--md-primary);
     border-color: var(--md-primary);
 }
-[data-theme="custom"] .btn-lg-square.back-to-top:hover {
+[data-theme="custom"], [data-theme="remake"] .btn-lg-square.back-to-top:hover {
     background: var(--md-primary-dark);
     border-color: var(--md-primary-dark);
 }

@@ -1,0 +1,178 @@
+/**
+ * 全站莫蘭迪配色（載於 style.css 之後）
+ * 主色 #7B8FA1、暖灰文字、陶土警告、灰玫瑰 info
+ */
+:root {
+    --md-primary: #7B8FA1;
+    --md-primary-dark: #687B8C;
+    --md-primary-rgb: 123, 143, 161;
+    --md-primary-soft: rgba(123, 143, 161, 0.14);
+    --md-primary-softer: rgba(123, 143, 161, 0.08);
+    --md-text: #6B6560;
+    --md-text-muted: #9A958F;
+    --md-text-light: #B5B0AA;
+    --md-surface: #E8E5E0;
+    --md-surface-alt: #EDEAE6;
+    --md-card: #F5F3F0;
+    --md-white: #FAF9F7;
+    --md-border: rgba(107, 101, 96, 0.14);
+    --md-sage: #9CAF9A;
+    --md-sage-text: #6B8068;
+    --md-sage-bg: rgba(156, 175, 154, 0.22);
+    --md-clay: #C4A88A;
+    --md-clay-text: #8B7355;
+    --md-clay-bg: rgba(196, 168, 138, 0.22);
+    --md-clay-border: rgba(196, 168, 138, 0.45);
+    --md-rose: #B8A09A;
+    --md-rose-text: #8A7470;
+    --md-rose-bg: rgba(184, 160, 154, 0.2);
+    --md-footer: #6A635D;
+
+    --bs-primary: var(--md-primary);
+    --bs-primary-rgb: var(--md-primary-rgb);
+    --bs-primary-dark: var(--md-primary-dark);
+    --bs-body-color: var(--md-text);
+    --bs-secondary-color: var(--md-text-muted);
+    --bs-link-color: var(--md-primary);
+    --bs-link-hover-color: var(--md-primary-dark);
+    --bs-warning: var(--md-clay);
+    --bs-warning-rgb: 196, 168, 138;
+    --bs-info: #9BA8B4;
+    --bs-info-rgb: 155, 168, 180;
+}
+
+body {
+    color: var(--md-text) !important;
+}
+
+.btn-primary,
+.bg-primary.btn,
+.btn-primary.active,
+.btn-primary:active {
+    background-color: var(--md-primary) !important;
+    border-color: var(--md-primary) !important;
+    color: #fff !important;
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.bg-primary.btn:hover {
+    background-color: var(--md-primary-dark) !important;
+    border-color: var(--md-primary-dark) !important;
+    color: #fff !important;
+}
+
+.btn-outline-primary {
+    color: var(--md-primary) !important;
+    border-color: rgba(123, 143, 161, 0.45) !important;
+}
+.btn-outline-primary:hover,
+.btn-outline-primary.active,
+.btn-outline-primary:active {
+    background-color: var(--md-primary) !important;
+    border-color: var(--md-primary) !important;
+    color: #fff !important;
+}
+
+.btn-outline-info {
+    color: var(--md-rose-text) !important;
+    border-color: var(--md-rose) !important;
+    background: var(--md-rose-bg) !important;
+}
+.btn-outline-info:hover {
+    background-color: var(--md-rose) !important;
+    border-color: var(--md-rose) !important;
+    color: #fff !important;
+}
+
+.btn-link {
+    color: var(--md-primary) !important;
+}
+.btn-link:hover,
+.btn-link:focus {
+    color: var(--md-primary-dark) !important;
+}
+
+.text-primary { color: var(--md-primary) !important; }
+.border-primary { border-color: var(--md-primary) !important; }
+.bg-primary { background-color: var(--md-primary) !important; }
+
+a:not(.btn):not(.dropdown-item):not(.nav-link) {
+    color: var(--md-primary);
+}
+a:not(.btn):not(.dropdown-item):not(.nav-link):hover {
+    color: var(--md-primary-dark);
+}
+
+.navbar { border-bottom: 1px solid rgba(123, 143, 161, 0.32) !important; }
+#site-header .navbar-collapse {
+  border-bottom: 1px solid rgba(107, 101, 96, 0.14) !important;
+}
+.navbar .navbar-nav .nav-link:hover,
+.navbar .navbar-nav .nav-link.active {
+    color: var(--md-primary) !important;
+}
+.navbar .navbar-nav .nav-link .nav-hover-caret,
+.navbar .nav-avatar-toggle::after {
+    color: var(--md-primary) !important;
+    border-top-color: var(--md-primary) !important;
+}
+.navbar .dropdown-menu .dropdown-item:hover,
+.navbar .dropdown-menu .dropdown-item.active,
+.nav-hover-menu .dropdown-item:hover {
+    background-color: var(--md-primary) !important;
+    color: #fff !important;
+}
+
+.alert-warning {
+    color: var(--md-clay-text) !important;
+    background-color: var(--md-clay-bg) !important;
+    border-color: var(--md-clay-border) !important;
+}
+.text-warning { color: var(--md-clay-text) !important; }
+.bg-warning {
+    background-color: var(--md-clay) !important;
+    color: #fff !important;
+}
+.bg-warning.bg-opacity-10,
+.bg-warning.bg-opacity-25 {
+    background-color: var(--md-clay-bg) !important;
+    color: var(--md-clay-text) !important;
+}
+.badge.bg-warning {
+    background-color: var(--md-clay) !important;
+    color: #fff !important;
+}
+
+.alert-info {
+    color: var(--md-rose-text) !important;
+    background-color: var(--md-rose-bg) !important;
+    border-color: rgba(184, 160, 154, 0.35) !important;
+}
+
+.page-title-bar {
+    border-bottom-color: var(--md-border) !important;
+}
+
+#site-footer .container-fluid.footer,
+#site-footer .container-fluid.bg-dark {
+    background-color: var(--md-footer) !important;
+}
+
+.spinner-border.text-primary {
+    color: var(--md-primary) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--md-primary);
+    box-shadow: 0 0 0 0.2rem var(--md-primary-soft);
+}
+
+.list-group-item.active {
+    background-color: var(--md-primary);
+    border-color: var(--md-primary);
+}
+
+.progress-bar {
+    background-color: var(--md-primary);
+}

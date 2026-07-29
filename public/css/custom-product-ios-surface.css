@@ -155,3 +155,58 @@
 #custom-product .dap-title {
   color: #9A958F;
 }
+
+/* 設計頁 Tab、廠商版型切換鈕（覆蓋 style.css !important） */
+#custom-product #designTabs .nav-link {
+  color: var(--md-text-muted, #9A958F);
+}
+#custom-product #designTabs .nav-link:hover {
+  color: var(--md-text, #6B6560);
+}
+#custom-product #designTabs .nav-link.active {
+  color: var(--md-primary, #7B8FA1) !important;
+  border-bottom-color: var(--md-primary, #7B8FA1) !important;
+  background: transparent !important;
+}
+
+#custom-product #bs-category-summary {
+  background: var(--md-card, #F5F3F0) !important;
+  border-color: var(--md-border) !important;
+  color: var(--md-text, #6B6560);
+}
+
+#custom-product #bs-go-set-category {
+  color: var(--md-primary, #7B8FA1) !important;
+  font-weight: 500;
+}
+#custom-product #bs-go-set-category:hover {
+  color: var(--md-primary-dark, #687B8C) !important;
+  text-decoration: underline !important;
+}
+
+#custom-product #bs-browse-mode-toggle .btn-primary,
+#custom-product #bs-browse-mode-toggle .btn-primary.active {
+  background-color: var(--md-primary, #7B8FA1) !important;
+  border-color: var(--md-primary, #7B8FA1) !important;
+  color: #fff !important;
+}
+#custom-product #bs-browse-mode-toggle .btn-primary:hover {
+  background-color: var(--md-primary-dark, #687B8C) !important;
+  border-color: var(--md-primary-dark, #687B8C) !important;
+}
+#custom-product #bs-browse-mode-toggle .btn-outline-primary {
+  color: var(--md-text-muted, #9A958F) !important;
+  border-color: var(--md-border) !important;
+  background: var(--md-white, #FAF9F7) !important;
+}
+#custom-product #bs-browse-mode-toggle .btn-outline-primary:hover,
+#custom-product #bs-browse-mode-toggle .btn-outline-primary.active {
+  color: var(--md-primary, #7B8FA1) !important;
+  border-color: rgba(123, 143, 161, 0.45) !important;
+  background: var(--md-primary-softer, rgba(123, 143, 161, 0.08)) !important;
+}
+
+#custom-product .bs-btn-select-design.btn-primary {
+  background-color: var(--md-primary, #7B8FA1) !important;
+  border-color: var(--md-primary, #7B8FA1) !important;
+}

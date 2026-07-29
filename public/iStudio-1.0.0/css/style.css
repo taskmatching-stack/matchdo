@@ -5,34 +5,34 @@ html {
     scrollbar-gutter: stable;
 }
 
-/*** 全站配色：白底（Pinterest 風）、深灰文字 #333333、按鈕主色 #445D7E ***/
+/*** 全站配色：莫蘭迪 — 白底、暖灰文字、主色 #7B8FA1 ***/
 :root {
-    --bs-body-bg: #ffffff;
-    --bs-body-color: #333333;
-    --bs-primary: #445D7E;
-    --bs-primary-rgb: 68, 93, 126;
-    --bs-primary-dark: #3a5169;
+    --bs-body-bg: #FAF9F7;
+    --bs-body-color: #6B6560;
+    --bs-primary: #7B8FA1;
+    --bs-primary-rgb: 123, 143, 161;
+    --bs-primary-dark: #687B8C;
 }
 body {
-    background-color: #ffffff !important;
-    color: #333333;
+    background-color: #FAF9F7 !important;
+    color: #6B6560;
 }
 .btn-primary, .bg-primary.btn {
-    background-color: #445D7E !important;
-    border-color: #445D7E !important;
+    background-color: #7B8FA1 !important;
+    border-color: #7B8FA1 !important;
 }
 .btn-primary:hover, .btn-primary:focus, .bg-primary.btn:hover {
-    background-color: #3a5169 !important;
-    border-color: #3a5169 !important;
+    background-color: #687B8C !important;
+    border-color: #687B8C !important;
 }
-.btn-outline-primary { color: #445D7E; border-color: #445D7E; }
-.btn-outline-primary:hover { background-color: #445D7E; border-color: #445D7E; color: #fff; }
-.text-primary { color: #445D7E !important; }
-.border-primary { border-color: #445D7E !important; }
-.page-title-bar { background: #ffffff !important; border-bottom-color: #e0e0e0 !important; }
-.navbar .navbar-nav .nav-link:hover, .navbar .navbar-nav .nav-link.active { color: #445D7E !important; }
-.navbar .dropdown-menu .dropdown-item:hover, .navbar .dropdown-menu .dropdown-item.active { background-color: #445D7E !important; color: #fff !important; }
-.navbar .navbar-nav .nav-link { color: #333333; }
+.btn-outline-primary { color: #7B8FA1; border-color: #7B8FA1; }
+.btn-outline-primary:hover { background-color: #7B8FA1; border-color: #7B8FA1; color: #fff; }
+.text-primary { color: #7B8FA1 !important; }
+.border-primary { border-color: #7B8FA1 !important; }
+.page-title-bar { background: #FAF9F7 !important; border-bottom-color: rgba(107, 101, 96, 0.14) !important; }
+.navbar .navbar-nav .nav-link:hover, .navbar .navbar-nav .nav-link.active { color: #7B8FA1 !important; }
+.navbar .dropdown-menu .dropdown-item:hover, .navbar .dropdown-menu .dropdown-item.active { background-color: #7B8FA1 !important; color: #fff !important; }
+.navbar .navbar-nav .nav-link { color: #6B6560; }
 
 /*** Spinner ***/
 #spinner {
@@ -123,7 +123,7 @@ body {
     padding: 15px 0;
     font-family: "Space Grotesk", sans-serif;
     font-size: 18px;
-    border-bottom: 2px solid #445D7E;
+    border-bottom: 2px solid #7B8FA1;
 }
 
 .navbar .navbar-nav .nav-link {
@@ -474,7 +474,7 @@ body {
 }
 
 
-/*** Footer：與全站主色 #445D7E 同色系 ***/
+/*** Footer：與全站主色 #7B8FA1 同色系 ***/
 #site-footer .container-fluid.footer,
 #site-footer .container-fluid.bg-dark {
     background-color: #2d4059 !important;

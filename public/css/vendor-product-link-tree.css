@@ -86,9 +86,9 @@
     text-align: left;
     width: 100%;
 }
-.vplt-prototype-item:hover { border-color: #0d9488; }
+.vplt-prototype-item:hover { border-color: #7B8FA1; }
 .vplt-prototype-item.active {
-    border-color: #0d9488;
+    border-color: #7B8FA1;
     box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.2);
     background: #f0fdfa;
 }
@@ -112,7 +112,7 @@
     border-bottom: 1px solid #99f6e4;
 }
 .vplt-page .page-title-bar h1 {
-    color: #0d9488;
+    color: #7B8FA1;
     letter-spacing: -0.02em;
 }
 .vplt-page .vendor-flow-steps {
@@ -181,7 +181,7 @@
     flex: 1 1 100%;
 }
 .vplt-child-card--prototype {
-    border-color: #0d9488;
+    border-color: #7B8FA1;
     border-width: 2px;
 }
 .vplt-root-card {
@@ -251,7 +251,7 @@
     font-weight: 700;
     width: 32px;
     height: 32px;
-    background: #0d9488;
+    background: #7B8FA1;
     color: white;
     border-radius: 8px;
     display: inline-flex;
@@ -260,7 +260,7 @@
     flex-shrink: 0;
 }
 .vplt-guide-section-tag--prototype {
-    background: #0d9488;
+    background: #7B8FA1;
     color: white;
 }
 .vplt-guide-section-tag--part {
@@ -301,7 +301,7 @@
     color: inherit;
 }
 .vplt-guide-section--collapsible .vplt-guide-section-toggle:focus-visible {
-    outline: 2px solid #0d9488;
+    outline: 2px solid #7B8FA1;
     outline-offset: 2px;
     border-radius: 4px;
 }
@@ -432,12 +432,12 @@
     border-color: #e2e8f0;
 }
 .vplt-guide-tile--interactive:hover {
-    border-color: #0d9488;
+    border-color: #7B8FA1;
     box-shadow: 0 8px 20px rgba(13, 148, 136, 0.15);
     transform: translateY(-4px);
 }
 .vplt-guide-tile--interactive:hover .vplt-guide-tile-name {
-    color: #0d9488;
+    color: #7B8FA1;
     font-weight: 600;
 }
 .vplt-guide-tile-media {
@@ -456,7 +456,7 @@
     transition: box-shadow 0.15s ease;
 }
 .vplt-guide-tile--active-view .vplt-guide-tile-media {
-    border: 3px solid #0d9488;
+    border: 3px solid #7B8FA1;
     border-radius: 12px;
     box-shadow: none;
 }
@@ -475,7 +475,7 @@
     pointer-events: none;
 }
 .vplt-guide-tile-badge--picked {
-    background: #0d9488;
+    background: #7B8FA1;
     color: #fff;
     box-shadow: 0 2px 6px rgba(13, 148, 136, 0.35);
 }
@@ -531,7 +531,7 @@
     pointer-events: auto;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.92);
-    color: #0d9488;
+    color: #7B8FA1;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
     opacity: 0.92;
 }
@@ -569,7 +569,7 @@
     margin-top: 0.35rem;
     font-size: 0.7rem;
     line-height: 1.2;
-    color: #0d9488;
+    color: #7B8FA1;
     text-decoration: none;
     font-weight: 500;
 }
@@ -578,7 +578,7 @@
     text-decoration: underline;
 }
 .vplt-guide-tile--prototype .vplt-guide-tile-kind {
-    color: #0d9488;
+    color: #7B8FA1;
 }
 .vplt-guide-tile--material .vplt-guide-tile-kind {
     color: #16a34a;
@@ -587,12 +587,12 @@
     color: #d97706;
 }
 .vplt-guide-tile--picked {
-    border-color: #0d9488;
+    border-color: #7B8FA1;
     background: #f0fdfa;
     box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
 }
 .vplt-guide-tile--picked .vplt-guide-tile-media {
-    border: 3px solid #0d9488;
+    border: 3px solid #7B8FA1;
     border-radius: 12px;
     box-shadow: 0 4px 14px rgba(13, 148, 136, 0.22);
 }
@@ -607,11 +607,11 @@
     left: 0;
     right: 0;
     height: 4px;
-    background: #0d9488;
+    background: #7B8FA1;
     border-radius: 12px 12px 0 0;
 }
 .vplt-guide-tile--interactive:focus-visible {
-    outline: 2px solid #0d9488;
+    outline: 2px solid #7B8FA1;
     outline-offset: 3px;
 }
 .vplt-guide-rail-note {
@@ -774,7 +774,7 @@
     border: none;
     border-radius: 0;
     background: transparent;
-    color: #0d9488;
+    color: #7B8FA1;
     cursor: pointer;
     line-height: 1;
     box-sizing: border-box;
@@ -880,7 +880,7 @@
     border: none;
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.94);
-    color: #0d9488;
+    color: #7B8FA1;
     box-shadow: 0 1px 4px rgba(15, 23, 42, 0.15);
     display: flex;
     align-items: center;
@@ -903,7 +903,7 @@
     right: 0.2rem;
 }
 .vplt-variant-option.is-active {
-    border-color: #0d9488;
+    border-color: #7B8FA1;
     background: #f0fdfa;
     box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.3);
 }
@@ -971,7 +971,7 @@
         flex: 1 1 auto;
         font-size: 0.8rem;
         font-weight: 600;
-        color: #0d9488;
+        color: #7B8FA1;
         text-align: left;
         min-width: 0;
     }
@@ -1111,7 +1111,7 @@
     border-radius: 4px;
 }
 .vplt-canvas.vplt-drop-target {
-    outline: 2px dashed #0d9488;
+    outline: 2px dashed #7B8FA1;
     outline-offset: 4px;
 }
 .vplt-empty-children {
@@ -1151,7 +1151,7 @@
 }
 .vplt-sidebar--guide h2,
 .vplt-sidebar--guide h3 {
-    color: #0d9488;
+    color: #7B8FA1;
     font-weight: 700;
     font-size: 1rem;
     display: flex;
@@ -1163,7 +1163,7 @@
     content: '';
     width: 4px;
     height: 16px;
-    background: #0d9488;
+    background: #7B8FA1;
     border-radius: 2px;
 }
 .vplt-guide-selected {
