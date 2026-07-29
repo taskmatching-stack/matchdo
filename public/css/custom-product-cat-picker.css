@@ -1,52 +1,23 @@
-/* 訂製品主／子分類選單（與 custom-product.html 設計頁一致） */
-.cat-tablet {
-    display: flex;
-    gap: 0;
-    margin-bottom: 1rem;
-    align-items: stretch;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #fff;
+/* 訂製品主／子分類：左右雙欄並排，各欄固定顯示 3 列 */
+#custom-product .cat-scroll-picker {
+    --cat-row-h: 2.375rem;
 }
-.cat-tablet .cat-main-panel { flex: 1; min-width: 0; border-right: 1px solid #e5e7eb; }
-.cat-tablet .cat-sub-panel { flex: 1; min-width: 0; }
-.cat-tablet .cat-label {
-    font-size: 0.75rem;
-    color: #64748b;
-    font-weight: 500;
-    padding: 0.35rem 0.5rem;
-    background: #f8fafc;
-    display: block;
-    border-bottom: 1px solid #e5e7eb;
+#custom-product .cat-tablet {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
 }
-.cat-tablet .cat-label-required { color: #334155; font-weight: 600; }
-.cat-tablet .cat-sub-panel .cat-label { border-bottom: 1px solid #e5e7eb; }
-.cat-tablet .cat-list {
-    height: 7.5rem;
+#custom-product .cat-tablet .cat-list {
+    height: calc(var(--cat-row-h) * 3);
     overflow-y: auto;
-    overflow-x: hidden;
-    font-size: 0.875rem;
-    background: #fff;
+    -webkit-overflow-scrolling: touch;
 }
-.cat-tablet .cat-option {
-    padding: 0.4rem 0.5rem;
-    cursor: pointer;
+#custom-product .cat-tablet .cat-option {
+    min-height: var(--cat-row-h);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.cat-tablet .cat-option:hover { background: #f1f5f9; }
-.cat-tablet .cat-option.selected { background: #e2e8f0; color: #0f172a; }
-.cat-tablet .cat-sub-panel .cat-list.empty {
-    background: #f8fafc;
-    color: #94a3b8;
-    padding: 0.5rem;
-    display: flex;
-    align-items: center;
-}
-.cat-tablet .cat-list::-webkit-scrollbar { width: 6px; }
-.cat-tablet .cat-list::-webkit-scrollbar-track { background: #f1f5f9; }
-.cat-tablet .cat-list::-webkit-scrollbar-thumb { background: #94a3b8; }
-.cat-tablet .cat-list::-webkit-scrollbar-thumb:hover { background: #64748b; }
-.cat-tablet .cat-list { scrollbar-width: auto; scrollbar-color: #94a3b8 #f1f5f9; }

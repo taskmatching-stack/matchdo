@@ -4447,10 +4447,14 @@ $(document).ready(function () {
         autoGrowPrompt();
     }
 
-    // ── 分類 Bottom Sheet（產品設計 Tab + 廠商版型 Tab 共用；全裝置 iOS 風格）──
+    // ── 分類 Bottom Sheet（僅廠商版型 Tab 手機／桌機「變更分類」輔助）──
     (function catBottomSheet() {
         var catSheetInited = false;
         var currentMainCat = null;
+
+        function isMobileCategoryUi() {
+            return window.matchMedia('(max-width: 768px)').matches;
+        }
 
         function catSheetEls() {
             return {
@@ -4469,10 +4473,10 @@ $(document).ready(function () {
             var label = mainText
                 ? mainText + (subText ? ' › ' + subText : '')
                 : (t('customProduct.categoryRequired') || '分類（必選）');
-            $('#catMobileBtnLabel, #bsCatMobileBtnLabel').text(label);
-            var $mobileBtns = $('#catMobileBtn, #bs-cat-mobile-btn');
-            if (mainText) $mobileBtns.addClass('has-value');
-            else $mobileBtns.removeClass('has-value');
+            $('#bsCatMobileBtnLabel').text(label);
+            var $mobileBtn = $('#bs-cat-mobile-btn');
+            if (mainText) $mobileBtn.addClass('has-value');
+            else $mobileBtn.removeClass('has-value');
         }
         window.updateCategoryMobileBtnLabels = updateBtnLabel;
 
@@ -4555,8 +4559,8 @@ $(document).ready(function () {
             });
         }
 
-        function openSheet() {
-            ensureCatSheetBound();
+        function openSheet(forceDesktop) {
+            ensureCatSheetBound(!!forceDesktop);
             showMainStep();
             var els = catSheetEls();
             els.$sheet.addClass('open').attr('aria-hidden', 'false');
@@ -4571,34 +4575,34 @@ $(document).ready(function () {
             updateBtnLabel();
         }
 
-        function ensureCatSheetBound() {
+        function ensureCatSheetBound(forceDesktop) {
             if (catSheetInited) return;
+            if (!forceDesktop && !isMobileCategoryUi()) return;
             catSheetInited = true;
             var els = catSheetEls();
             els.$close.on('click', closeSheet);
             els.$back.on('click', showMainStep);
             els.$sheet.find('.cat-bs-backdrop').on('click', closeSheet);
-            $('#catMobileBtn').show();
-            if (window.matchMedia('(max-width: 768px)').matches) {
+            if (isMobileCategoryUi()) {
                 $('#bs-cat-mobile-btn').removeClass('d-none').show();
+                setTimeout(updateBtnLabel, 600);
             }
-            setTimeout(updateBtnLabel, 600);
         }
 
-        $(document).on('click', '#catMobileBtn, #bs-cat-mobile-btn', function (e) {
+        $(document).on('click', '#bs-cat-mobile-btn', function (e) {
+            if (!isMobileCategoryUi()) return;
             e.preventDefault();
-            openSheet();
+            openSheet(true);
         });
 
-        /** 廠商版型「變更分類」等：開同一套分類 sheet */
         window.matchdoOpenCategorySheet = function () {
-            openSheet();
+            openSheet(true);
         };
 
-        ensureCatSheetBound();
+        ensureCatSheetBound(false);
         try {
             window.matchMedia('(max-width: 768px)').addEventListener('change', function (e) {
-                if (e.matches) $('#bs-cat-mobile-btn').removeClass('d-none').show();
+                if (e.matches) ensureCatSheetBound(false);
             });
         } catch (e) { /* ignore */ }
     })();

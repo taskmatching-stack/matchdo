@@ -66,7 +66,7 @@
 
     <!-- Template Stylesheet -->
     <link href="/css/style.css" rel="stylesheet">
-    <link href="/css/custom-product-cat-picker.css" rel="stylesheet">
+    <link href="/css/custom-product-cat-picker.css?v=6" rel="stylesheet">
     <link href="/css/browse-styles.css?v=4" rel="stylesheet">
     <link href="/css/theme-custom.css" rel="stylesheet">
     <link href="/css/image-lightbox.css" rel="stylesheet">
@@ -397,71 +397,102 @@
             box-shadow: 0 2px 16px rgba(0,0,0,.06);
             border: 1px solid #e5e7eb;
         }
-        /* 手機按鈕：全裝置 iOS 風格分類列 + Bottom Sheet */
-        #custom-product .cat-tablet-sr-only {
-            position: absolute !important;
-            width: 1px !important;
-            height: 1px !important;
-            padding: 0 !important;
-            margin: -1px !important;
-            overflow: hidden !important;
-            clip: rect(0, 0, 0, 0) !important;
-            white-space: nowrap !important;
-            border: 0 !important;
+        /* 分類：左右雙欄，各欄固定顯示 3 列 */
+        #custom-product .cat-scroll-picker {
+            --cat-row-h: 2.375rem;
+            margin-bottom: 1rem;
         }
-        #custom-product .cat-picker-ios { margin-bottom: 1rem; }
-        #custom-product .cat-picker-ios-head {
+        #custom-product .cat-tablet {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            align-items: stretch;
+            background: #f2f2f7;
+            border-radius: 12px;
+            padding: 0.5rem;
+            border: none;
+        }
+        #custom-product .cat-main-panel,
+        #custom-product .cat-sub-panel {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(68, 93, 126, 0.12);
+        }
+        #custom-product .cat-tablet .cat-label {
+            flex: 0 0 auto;
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 500;
+            padding: 0.45rem 0.65rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #eef2f6;
+        }
+        #custom-product .cat-tablet .cat-label-required { color: #445D7E; font-weight: 600; }
+        #custom-product .cat-tablet .cat-list {
+            height: calc(var(--cat-row-h) * 3);
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            font-size: 0.875rem;
+            background: #fff;
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 #f1f5f9;
+        }
+        #custom-product .cat-tablet .cat-option {
+            min-height: var(--cat-row-h);
+            box-sizing: border-box;
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            margin-bottom: 0.4rem;
-            padding: 0 0.15rem;
+            padding: 0 0.65rem;
+            cursor: pointer;
+            color: #64748b;
+            font-weight: 400;
+            line-height: 1.3;
+            border-bottom: 1px solid #f1f5f9;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        #custom-product .cat-picker-ios-title {
-            font-size: 0.8125rem;
-            font-weight: 600;
-            color: #3c3c43;
+        #custom-product .cat-tablet .cat-option:hover { background: #f8fafc; }
+        #custom-product .cat-tablet .cat-option.selected {
+            background: rgba(68, 93, 126, 0.08);
+            color: #445D7E;
+            font-weight: 500;
         }
-        #custom-product .cat-picker-ios-badge {
-            font-size: 0.6875rem;
-            font-weight: 600;
-            color: #007aff;
-            background: rgba(0, 122, 255, 0.1);
-            padding: 0.15rem 0.45rem;
-            border-radius: 999px;
-        }
-        #custom-product .cat-mobile-btn,
-        #panel-vendor-styles .cat-mobile-btn {
+        #custom-product .cat-sub-panel .cat-list.empty {
+            background: #f8fafc;
+            color: #94a3b8;
+            padding: 0.65rem;
             display: flex;
+            align-items: center;
+            min-height: calc(var(--cat-row-h) * 3);
+            box-sizing: border-box;
+        }
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar { width: 6px; }
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar-track { background: #f1f5f9; }
+        #custom-product .cat-tablet .cat-list::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        #catMobileBtn { display: none !important; }
+        #panel-vendor-styles .cat-mobile-btn {
+            display: none;
             align-items: center;
             gap: 0.75rem;
             width: 100%;
             padding: 0.875rem 1rem;
-            margin-bottom: 0;
+            margin-bottom: 0.5rem;
             background: #fff;
             border: none;
             border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), inset 0 0 0 1px rgba(60, 60, 67, 0.12);
-            color: #8e8e93;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), inset 0 0 0 1px rgba(68, 93, 126, 0.12);
+            color: #64748b;
             font-size: 0.9375rem;
             text-align: left;
             cursor: pointer;
-            transition: background 0.15s ease, box-shadow 0.15s ease;
         }
-        #custom-product .cat-mobile-btn:hover,
-        #panel-vendor-styles .cat-mobile-btn:hover {
-            background: #fafafa;
-        }
-        #custom-product .cat-mobile-btn:active,
-        #panel-vendor-styles .cat-mobile-btn:active {
-            background: #f2f2f7;
-        }
-        #custom-product .cat-mobile-btn.has-value,
-        #panel-vendor-styles .cat-mobile-btn.has-value {
-            color: #1c1c1e;
-        }
-        #custom-product .cat-mobile-btn-body,
+        #panel-vendor-styles .cat-mobile-btn.has-value { color: #445D7E; }
         #panel-vendor-styles .cat-mobile-btn-body {
             flex: 1;
             min-width: 0;
@@ -469,33 +500,20 @@
             flex-direction: column;
             gap: 0.15rem;
         }
-        #custom-product .cat-mobile-btn-kicker,
         #panel-vendor-styles .cat-mobile-btn-kicker {
             font-size: 0.6875rem;
             font-weight: 600;
-            letter-spacing: 0.02em;
-            text-transform: uppercase;
-            color: #8e8e93;
+            color: #94a3b8;
         }
-        #custom-product .cat-mobile-btn.has-value .cat-mobile-btn-kicker,
-        #panel-vendor-styles .cat-mobile-btn.has-value .cat-mobile-btn-kicker {
-            color: #007aff;
-        }
-        #custom-product .cat-mobile-btn-value,
+        #panel-vendor-styles .cat-mobile-btn.has-value .cat-mobile-btn-kicker { color: #445D7E; }
         #panel-vendor-styles .cat-mobile-btn-value {
             font-size: 0.9375rem;
             font-weight: 500;
-            color: inherit;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        #custom-product .cat-mobile-btn-chevron,
-        #panel-vendor-styles .cat-mobile-btn-chevron {
-            flex-shrink: 0;
-            color: #c7c7cc;
-            font-size: 0.875rem;
-        }
+        #panel-vendor-styles .cat-mobile-btn-chevron { flex-shrink: 0; color: #cbd5e1; }
         .cat-bottom-sheet {
             display: none;
             position: fixed; inset: 0; z-index: 1080;
@@ -538,14 +556,14 @@
             padding: 0.35rem 0.75rem 0.65rem; gap: 0.25rem;
         }
         .cat-bs-title {
-            flex: 1; font-weight: 600; font-size: 1rem; text-align: center;
-            color: #1c1c1e;
+            flex: 1; font-weight: 600; font-size: 0.9375rem; text-align: center;
+            color: #445D7E;
         }
         .cat-bs-nav-btn {
             background: none; border: none; padding: 0.35rem 0.55rem;
-            font-size: 0.9375rem; color: #007aff; cursor: pointer; border-radius: 8px; min-width: 3rem;
+            font-size: 0.875rem; color: #445D7E; cursor: pointer; border-radius: 8px; min-width: 3rem;
         }
-        .cat-bs-nav-btn:hover { background: rgba(0, 122, 255, 0.08); }
+        .cat-bs-nav-btn:hover { background: rgba(68, 93, 126, 0.08); }
         .cat-bs-list {
             overflow-y: auto; flex: 1; min-height: 0;
             margin: 0 0.75rem 0.75rem;
@@ -555,16 +573,16 @@
         }
         .cat-bs-item {
             display: flex; align-items: center; gap: 0.65rem;
-            min-height: 48px;
-            padding: 0.75rem 1rem; font-size: 1rem; color: #1c1c1e;
-            border-bottom: 1px solid rgba(60, 60, 67, 0.08);
+            min-height: 44px;
+            padding: 0.65rem 1rem; font-size: 0.9375rem; color: #64748b;
+            border-bottom: 1px solid #f1f5f9;
             cursor: pointer;
         }
         .cat-bs-item:last-child { border-bottom: none; }
-        .cat-bs-item:hover { background: #f9f9fb; }
-        .cat-bs-item:active { background: #ececf1; }
-        .cat-bs-item.is-selected { color: #007aff; font-weight: 600; }
-        .cat-bs-item .cat-bs-check { color: #007aff; width: 1.15rem; flex-shrink: 0; font-size: 1.1rem; }
+        .cat-bs-item:hover { background: #f8fafc; }
+        .cat-bs-item:active { background: #f1f5f9; }
+        .cat-bs-item.is-selected { color: #445D7E; font-weight: 500; }
+        .cat-bs-item .cat-bs-check { color: #445D7E; width: 1.1rem; flex-shrink: 0; font-size: 1rem; }
         .cat-bs-item .cat-bs-placeholder-icon { width: 1.15rem; flex-shrink: 0; }
         .cat-bs-item .cat-bs-chevron { margin-left: auto; color: #c7c7cc; font-size: 0.8rem; }
         @media (max-width: 768px) {
@@ -626,7 +644,6 @@
             /* 避免按鈕蓋住最後的輸入內容 */
             #custom-product .create-panel-left { padding-bottom: 4.5rem; }
 
-            /* 分類：手機隱藏底部提示（picker 已有必選標籤） */
             #custom-product .cat-desktop-hint { display: none; }
 
             /* 廠商版型 Tab（手機） */
@@ -1459,31 +1476,19 @@
                                 <p class="form-text text-muted small mb-0 mt-1" data-i18n="customProduct.promptHint">要印的字請在描述句中用 &quot; &quot; 標示（? 說明）。有參考圖時材質／配件靠圖，不必寫長篇。</p>
                             </div>
 
-                            <!-- 分類資料源（視覺隱藏，供 picker / bottom sheet 同步） -->
-                            <div class="cat-tablet cat-tablet-sr-only" aria-hidden="true">
-                                <div class="cat-main-panel">
-                                    <span class="cat-label cat-label-required" data-i18n="customProduct.categoryMainRequired">主分類（必選）</span>
-                                    <div id="imageCategoryMainList" class="cat-list" role="listbox"></div>
-                                    <input type="hidden" id="imageCategoryMainSelect" name="imageCategoryMain" value="">
+                            <div class="cat-scroll-picker">
+                                <div class="cat-tablet">
+                                    <div class="cat-main-panel">
+                                        <span class="cat-label cat-label-required" data-i18n="customProduct.categoryMainRequired">主分類（必選）</span>
+                                        <div id="imageCategoryMainList" class="cat-list" role="listbox"></div>
+                                        <input type="hidden" id="imageCategoryMainSelect" name="imageCategoryMain" value="">
+                                    </div>
+                                    <div class="cat-sub-panel">
+                                        <span class="cat-label cat-label-required" data-i18n="customProduct.categorySubRequired">子分類（必選）</span>
+                                        <div id="imageCategorySubList" class="cat-list empty" role="listbox"></div>
+                                        <input type="hidden" id="imageCategorySubSelect" name="imageCategorySub" value="">
+                                    </div>
                                 </div>
-                                <div class="cat-sub-panel">
-                                    <span class="cat-label cat-label-required" data-i18n="customProduct.categorySubRequired">子分類（必選）</span>
-                                    <div id="imageCategorySubList" class="cat-list empty" role="listbox"></div>
-                                    <input type="hidden" id="imageCategorySubSelect" name="imageCategorySub" value="">
-                                </div>
-                            </div>
-                            <div class="cat-picker-ios">
-                                <div class="cat-picker-ios-head">
-                                    <span class="cat-picker-ios-title" data-i18n="customProduct.categoryPickerTitle">產品分類</span>
-                                    <span class="cat-picker-ios-badge" data-i18n="customProduct.categoryRequiredBadge">必選</span>
-                                </div>
-                                <button type="button" id="catMobileBtn" class="cat-mobile-btn" aria-haspopup="dialog" aria-controls="catBottomSheet">
-                                    <span class="cat-mobile-btn-body">
-                                        <span class="cat-mobile-btn-kicker" data-i18n="customProduct.categoryMainSubKicker">主分類 · 子分類</span>
-                                        <span id="catMobileBtnLabel" class="cat-mobile-btn-value" data-i18n="customProduct.categoryRequired">分類（必選）</span>
-                                    </span>
-                                    <i class="bi bi-chevron-right cat-mobile-btn-chevron" aria-hidden="true"></i>
-                                </button>
                             </div>
                             <p class="form-text text-muted small mb-0 mt-1 cat-desktop-hint" data-i18n="customProduct.categoryRequiredHint">必選，會影響生成的產品類型。</p>
 
@@ -1896,7 +1901,7 @@
     <script src="/js/vendor-asset-image-link-groups.js?v=20260713a" defer></script>
     <script src="/js/matchdo-promo-image.js?v=20260730e" defer></script>
     <script src="/js/digital-asset-picker.js?v=2" defer></script>
-    <script src="js/custom-product.js?v=139" defer></script>
+    <script src="js/custom-product.js?v=140" defer></script>
     <script>if (window.i18n && window.i18n.ready) { window.i18n.ready.then(function () { if (window.i18n.applyPage) window.i18n.applyPage(); if (typeof CustomProductCatPicker !== 'undefined' && CustomProductCatPicker.resyncFromHiddenInputs) CustomProductCatPicker.resyncFromHiddenInputs(); if (typeof window.__renderIntentSlots === 'function') window.__renderIntentSlots(); }); }</script>
 </body>
 
