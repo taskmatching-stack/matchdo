@@ -19,18 +19,18 @@
   display: flex;
   flex-direction: column;
   min-height: 420px;
-  max-height: calc(100vh - 160px);
 }
 #promo-camera-app .pc-chat-messages {
-  flex: 1 1 auto;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  overflow: visible;
   padding: 1rem;
-  min-height: 120px;
-  max-height: min(42vh, 360px);
+}
+#promo-camera-app .pc-chat-panel.has-result .pc-chat-messages {
+  display: none;
 }
 #promo-camera-app .pc-msg {
   margin-bottom: 0.75rem;
-  max-width: 92%;
+  max-width: 100%;
 }
 #promo-camera-app .pc-msg-system {
   margin-left: auto;
@@ -40,18 +40,15 @@
   color: #6c757d;
   font-size: 0.85rem;
 }
-#promo-camera-app .pc-msg-user {
-  margin-left: auto;
-  background: #e7f1ff;
-  border-radius: 12px 12px 4px 12px;
-  padding: 0.5rem 0.75rem;
+#promo-camera-app .pc-result-slot {
+  flex: 0 0 auto;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #e9ecef;
 }
-#promo-camera-app .pc-msg-assistant {
-  margin-right: auto;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 12px 12px 12px 4px;
-  padding: 0.5rem 0.75rem;
+#promo-camera-app .pc-result-slot .scene-sim-result-inner img {
+  max-width: 100%;
+  height: auto;
+  display: block;
 }
 #promo-camera-app .pc-thumb {
   width: 64px;
@@ -72,43 +69,6 @@
   background-color: #0d6efd;
   border-color: #0d6efd;
   color: #fff;
-}
-#promo-camera-app .pc-gen-status {
-  flex: 0 0 auto;
-  padding: 0.65rem 1rem;
-  border-top: 1px solid #e9ecef;
-  font-size: 0.875rem;
-  color: #495057;
-  text-align: center;
-  background: #f8fafc;
-}
-#promo-camera-app .pc-gen-status.is-error {
-  color: #dc3545;
-  background: #fff5f5;
-}
-#promo-camera-app .pc-result-area {
-  flex: 0 0 auto;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid #e9ecef;
-  background: #fff;
-  width: 100%;
-}
-#promo-camera-app .pc-result-area .pc-result-img {
-  width: 100%;
-  max-width: 100%;
-  max-height: min(52vh, 480px);
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-  border-radius: 8px;
-  background: #f1f5f9;
-}
-#promo-camera-app .pc-result-area .pc-result-caption {
-  margin-top: 0.5rem;
-  font-size: 0.8125rem;
-  color: #6c757d;
-  text-align: center;
 }
 
 /* —— 相機外殼 —— */

@@ -6509,47 +6509,21 @@ $(document).ready(function () {
     }
     function renderPromoImageResult(imageDataUrl, meta) {
         if (!imageDataUrl && !(meta && meta.image_url)) return;
-        var wrap = $('#promoImageResultWrap');
-        var displayUrl = (meta && meta.image_url) || imageDataUrl;
-        var note = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
+        var wrap = document.getElementById('promoImageResultWrap');
+        if (!wrap || !window.MatchdoPromoImage || typeof window.MatchdoPromoImage.renderPromoResultPanel !== 'function') return;
+        var noteHtml = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">' +
             (t('customProduct.promoImageResultNote') || '生成後可下載，並儲存至「我的數位資產 → 情境圖」。') + '</p>';
-        var $inner = $('<div class="scene-sim-result-inner"></div>');
-        $inner.append($('<img>').attr('src', displayUrl).attr('alt', '情境圖')
-            .addClass('img-fluid rounded js-preview-enlarge').css({ maxWidth: '100%', cursor: 'zoom-in' }).attr('title', '點擊放大'));
-        if (meta && meta.points_deducted != null) {
-            $inner.append($('<p class="small text-muted mt-2 mb-0"></p>').text('已扣除 ' + meta.points_deducted + ' 點'));
-        }
-        if (meta && meta.image_url) {
-            var $urlRow = $('<div class="mt-2"></div>');
-            $urlRow.append($('<input type="text" class="form-control form-control-sm mb-1" readonly>').val(meta.image_url));
-            var $copy = $('<button type="button" class="btn btn-sm btn-outline-secondary me-1">複製網址</button>');
-            $copy.on('click', function () {
-                try {
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(meta.image_url);
-                    } else {
-                        var inp = $urlRow.find('input')[0];
-                        if (inp) { inp.select(); document.execCommand('copy'); }
-                    }
-                } catch (err) { console.warn(err); }
-            });
-            var $open = $('<a class="btn btn-sm btn-outline-primary me-1" target="_blank" rel="noopener">開啟</a>').attr('href', meta.image_url);
-            $urlRow.append($copy).append($open);
-            $inner.append($urlRow);
-        }
-        wrap.html('').append($inner);
-        var actionsHost = $inner[0];
-        if (window.MatchdoPromoImage && typeof window.MatchdoPromoImage.appendPromoResultActions === 'function') {
-            window.MatchdoPromoImage.appendPromoResultActions(actionsHost, meta || {}, imageDataUrl, {
+        window.MatchdoPromoImage.renderPromoResultPanel(wrap, imageDataUrl, meta, {
+            resultNoteHtml: noteHtml,
+            actions: {
                 labels: {
                     download: t('customProduct.downloadImage') || '下載圖片',
                     save: t('customProduct.promoSaveToLibrary') || '儲存到數位資產庫',
                     saved: t('customProduct.promoSavedToLibrary') || '已存入數位資產庫',
                     viewLibrary: t('customProduct.promoViewLibrary') || '查看資產庫'
                 }
-            });
-        }
-        $inner.append($(note));
+            }
+        });
     }
 
     $('#tab-promo-image').on('shown.bs.tab', function () {

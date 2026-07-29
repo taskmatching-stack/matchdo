@@ -385,6 +385,96 @@
     return savePromoToLibrary(meta, imageDataUrl);
   }
 
+  function escHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  }
+
+  /**
+   * 情境圖／攝影模擬結果區（與 custom-product 情境圖 Tab 同一套 DOM）
+   * opts: { loadingText, errorText, resultNoteHtml, imageAlt, actions: { labels, libraryHref } }
+   */
+  function renderPromoResultPanel(container, imageDataUrl, meta, opts) {
+    if (!container) return;
+    opts = opts || {};
+    var noteHtml = opts.resultNoteHtml || '';
+    if (opts.errorText) {
+      container.classList.remove('has-result');
+      container.innerHTML = '<p class="text-danger small mb-0">' + escHtml(opts.errorText) + '</p>' + noteHtml;
+      return;
+    }
+    if (opts.loadingText) {
+      container.classList.remove('has-result');
+      container.innerHTML = '<p class="text-muted small mb-0">' + escHtml(opts.loadingText) + '</p>' + noteHtml;
+      return;
+    }
+    if (!imageDataUrl && !(meta && meta.image_url)) return;
+
+    var displayUrl = (meta && meta.image_url) || imageDataUrl;
+    container.classList.add('has-result');
+    container.innerHTML = '';
+    var inner = document.createElement('div');
+    inner.className = 'scene-sim-result-inner';
+    var img = document.createElement('img');
+    img.src = displayUrl;
+    img.alt = opts.imageAlt || '情境圖';
+    img.className = 'img-fluid rounded js-preview-enlarge';
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.display = 'block';
+    img.style.cursor = 'zoom-in';
+    img.title = '點擊放大';
+    inner.appendChild(img);
+
+    if (meta && meta.points_deducted != null) {
+      var pts = document.createElement('p');
+      pts.className = 'small text-muted mt-2 mb-0';
+      pts.textContent = '已扣除 ' + meta.points_deducted + ' 點';
+      inner.appendChild(pts);
+    }
+
+    if (meta && meta.image_url) {
+      var urlRow = document.createElement('div');
+      urlRow.className = 'mt-2';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'form-control form-control-sm mb-1';
+      inp.readOnly = true;
+      inp.value = meta.image_url;
+      urlRow.appendChild(inp);
+      var copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+      copyBtn.textContent = '複製網址';
+      copyBtn.addEventListener('click', function () {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(meta.image_url);
+          } else {
+            inp.select();
+            document.execCommand('copy');
+          }
+        } catch (err) { console.warn(err); }
+      });
+      var openLink = document.createElement('a');
+      openLink.className = 'btn btn-sm btn-outline-primary me-1';
+      openLink.target = '_blank';
+      openLink.rel = 'noopener';
+      openLink.textContent = '開啟';
+      openLink.href = meta.image_url;
+      urlRow.appendChild(copyBtn);
+      urlRow.appendChild(openLink);
+      inner.appendChild(urlRow);
+    }
+
+    container.appendChild(inner);
+    appendPromoResultActions(inner, meta || {}, imageDataUrl, opts.actions || {});
+    if (noteHtml) {
+      var noteHost = document.createElement('div');
+      noteHost.innerHTML = noteHtml;
+      while (noteHost.firstChild) container.appendChild(noteHost.firstChild);
+    }
+  }
+
   /**
    * 情境圖結果區：下載 + 儲存到數位資產庫按鈕（回傳 DOM 元素）
    * opts: { labels: { download, save, saved, viewLibrary }, libraryHref }
@@ -477,6 +567,7 @@
     triggerPromoDownload: triggerPromoDownload,
     savePromoToLibrary: savePromoToLibrary,
     ensurePromoSavedToLibrary: ensurePromoSavedToLibrary,
-    appendPromoResultActions: appendPromoResultActions
+    appendPromoResultActions: appendPromoResultActions,
+    renderPromoResultPanel: renderPromoResultPanel
   };
 })(typeof window !== 'undefined' ? window : this);

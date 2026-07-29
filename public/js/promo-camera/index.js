@@ -4,7 +4,9 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730c';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260730f';
+
+  var RESULT_NOTE_HTML = '<p class="scene-sim-result-note text-muted small mt-2 mb-0">生成後可下載，並儲存至「我的數位資產 → 情境圖」。</p>';
 
   var ANGLE_FALLBACK = [
     { key: 'keep_reference', name: '維持參考角度', description: '不強制改角度，以參考圖構圖為主。' },
@@ -53,52 +55,65 @@
     if (assetModal) assetModal.hide();
   }
 
-  function setGenStatus(text, isError) {
-    var el = document.getElementById('pcGenStatus');
-    if (!el) return;
-    if (!text) {
-      el.classList.add('d-none');
-      el.classList.remove('is-error');
-      el.textContent = '';
-      return;
-    }
-    el.textContent = text;
-    el.classList.toggle('is-error', !!isError);
-    el.classList.remove('d-none');
+  function getChatPanel() {
+    return document.querySelector('#promo-camera-app .pc-chat-panel');
+  }
+
+  function resultPanelOpts(extra) {
+    var base = {
+      resultNoteHtml: RESULT_NOTE_HTML,
+      actions: {
+        labels: { download: '下載', save: '儲存到數位資產庫', saved: '已儲存', viewLibrary: '查看情境圖' },
+        libraryHref: '/client/my-custom-products.html?tab=promo'
+      }
+    };
+    if (!extra) return base;
+    Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    return base;
   }
 
   function clearResultArea() {
     var el = document.getElementById('pcResultArea');
-    if (!el) return;
-    el.classList.add('d-none');
-    el.innerHTML = '';
+    var panel = getChatPanel();
+    if (el) {
+      el.classList.add('d-none');
+      el.innerHTML = '';
+      el.classList.remove('has-result');
+    }
+    if (panel) panel.classList.remove('has-result');
+  }
+
+  function showResultLoading() {
+    var el = document.getElementById('pcResultArea');
+    var panel = getChatPanel();
+    if (!el || !Promo.renderPromoResultPanel) return;
+    el.classList.remove('d-none');
+    if (panel) panel.classList.add('has-result');
+    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ loadingText: '生成中，請稍候…' }));
   }
 
   function showResultArea(url, data, payload) {
     var el = document.getElementById('pcResultArea');
-    if (!el || !url) return;
-    el.innerHTML =
-      '<img class="pc-result-img" src="' + esc(url) + '" alt="生成結果">' +
-      '<div class="pc-result-caption">生成完成。已存入「我的數位資產 → 情境圖」。</div>' +
-      '<div class="pc-result-actions mt-2 d-flex flex-wrap gap-2 justify-content-center"></div>';
+    var panel = getChatPanel();
+    if (!el || !url || !Promo.renderPromoResultPanel) return;
     el.classList.remove('d-none');
-    var actions = el.querySelector('.pc-result-actions');
-    if (actions && Promo.appendPromoResultActions) {
-      Promo.appendPromoResultActions(actions, {
-        id: data.id,
-        image_url: data.image_url,
-        width: data.width,
-        height: data.height,
-        aspect_ratio: payload.aspect_ratio,
-        theme_key: payload.theme_key,
-        scene_key: payload.scene_key,
-        user_prompt: payload.user_prompt
-      }, data.imageData, {
-        labels: { download: '下載', save: '儲存到數位資產庫', saved: '已儲存', viewLibrary: '查看情境圖' },
-        libraryHref: '/client/my-custom-products.html?tab=promo'
-      });
-    }
-    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (panel) panel.classList.add('has-result');
+    var meta = Object.assign({}, data || {}, {
+      aspect_ratio: payload.aspect_ratio,
+      theme_key: payload.theme_key,
+      scene_key: payload.scene_key,
+      user_prompt: payload.user_prompt
+    });
+    Promo.renderPromoResultPanel(el, data.imageData || url, meta, resultPanelOpts());
+  }
+
+  function showResultError(msg) {
+    var el = document.getElementById('pcResultArea');
+    var panel = getChatPanel();
+    if (!el || !Promo.renderPromoResultPanel) return;
+    el.classList.remove('d-none');
+    if (panel) panel.classList.add('has-result');
+    Promo.renderPromoResultPanel(el, null, null, resultPanelOpts({ errorText: msg || '生成失敗' }));
   }
 
   function renderMessages() {
@@ -482,25 +497,24 @@
       st.generating = true;
       updateGenerateBtn();
       clearResultArea();
-      setGenStatus('生成中，請稍候…');
+      showResultLoading();
 
       var payload = St.buildGeneratePayload();
       Api.generate(payload).then(function (res) {
         st.generating = false;
         updateGenerateBtn();
         if (!res.ok || !res.data || !res.data.success) {
-          setGenStatus((res.data && res.data.error) ? res.data.error : '生成失敗', true);
+          showResultError((res.data && res.data.error) ? res.data.error : '生成失敗');
           return;
         }
         var d = res.data;
         St.get().lastResult = d;
         var url = d.image_url || d.imageData || '';
-        setGenStatus('');
         showResultArea(url, d, payload);
       }).catch(function () {
         st.generating = false;
         updateGenerateBtn();
-        setGenStatus('生成失敗，請稍後再試。', true);
+        showResultError('生成失敗，請稍後再試。');
       });
     });
   }
