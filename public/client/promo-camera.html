@@ -7,7 +7,7 @@
   <title>攝影模擬 - MATCHDO</title>
   <link href="/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
-  <link href="/css/promo-camera.css?v=20260729d" rel="stylesheet" />
+  <link href="/css/promo-camera.css?v=20260729f" rel="stylesheet" />
 </head>
 <body class="bg-light">
   <div id="site-header"></div>
@@ -79,42 +79,72 @@
         </div>
       </section>
 
-      <aside class="pc-camera-body" aria-label="攝影模擬控制台">
-        <h6 class="text-white-50 small text-uppercase mb-2">攝影模擬控制台</h6>
-        <p class="small text-secondary mb-2">選項僅模擬 FLUX 畫質，不綁相機系統。</p>
-        <div class="mb-2">
-          <label for="pcCam_camera_brand">畫質／機身質感</label>
-          <select id="pcCam_camera_brand" class="form-select form-select-sm"></select>
-        </div>
-        <div class="mb-2">
-          <label for="pcCam_film_simulation">底片／風格</label>
-          <select id="pcCam_film_simulation" class="form-select form-select-sm"></select>
-        </div>
-        <div class="pc-settings-row mb-2">
-          <div>
-            <label for="pcCam_aperture">光圈</label>
-            <select id="pcCam_aperture" class="form-select form-select-sm"></select>
+      <aside class="pc-camera-shell" aria-label="攝影模擬控制台">
+        <div class="pc-camera-device">
+          <svg class="pc-camera-svg" viewBox="0 0 280 360" aria-hidden="true">
+            <defs>
+              <linearGradient id="pcBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3a3a3a"/>
+                <stop offset="100%" stop-color="#1f1f1f"/>
+              </linearGradient>
+              <radialGradient id="pcLensGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#111"/>
+                <stop offset="70%" stop-color="#222"/>
+                <stop offset="100%" stop-color="#444"/>
+              </radialGradient>
+            </defs>
+            <rect x="40" y="48" width="200" height="264" rx="22" fill="url(#pcBodyGrad)" stroke="#555" stroke-width="2"/>
+            <rect x="95" y="20" width="90" height="36" rx="8" fill="#2a2a2a" stroke="#666"/>
+            <circle cx="140" cy="200" r="72" fill="#111" stroke="#666" stroke-width="3"/>
+            <circle id="pcLensRing" class="pc-lens-ring" cx="140" cy="200" r="58" fill="none" stroke="#888" stroke-width="4" stroke-dasharray="8 6"/>
+            <circle cx="140" cy="200" r="44" fill="url(#pcLensGrad)" stroke="#333" stroke-width="2"/>
+            <circle cx="140" cy="200" r="18" fill="#0a0a0a" stroke="#222"/>
+            <circle cx="122" cy="182" r="6" fill="rgba(255,255,255,0.15)"/>
+            <rect x="210" y="88" width="14" height="36" rx="4" fill="#444" stroke="#666"/>
+            <rect x="56" y="88" width="14" height="36" rx="4" fill="#444" stroke="#666"/>
+            <circle id="pcDialAperture" class="pc-dial-indicator" cx="63" cy="106" r="5" fill="#f59e0b"/>
+            <circle id="pcDialEv" class="pc-dial-indicator" cx="217" cy="106" r="5" fill="#38bdf8"/>
+          </svg>
+          <div class="pc-camera-lcd-wrap">
+            <div class="pc-lcd" id="pcLcd" aria-live="polite">
+              <div class="pc-lcd-line pc-lcd-look">—</div>
+              <div class="pc-lcd-line pc-lcd-lens">—</div>
+              <div class="pc-lcd-line pc-lcd-optics">— · —</div>
+            </div>
           </div>
-          <div>
-            <label for="pcCam_exposure_ev">EV</label>
-            <select id="pcCam_exposure_ev" class="form-select form-select-sm"></select>
-          </div>
         </div>
-        <div class="pc-settings-row mb-2">
-          <div>
-            <label for="pcCam_focal_length">焦段</label>
+
+        <div class="pc-camera-controls">
+          <div class="mb-2">
+            <span class="pc-control-label" id="pcLookGroupLabel">成像風格</span>
+            <div class="btn-group btn-group-sm w-100 mb-1" role="group" aria-label="成像風格類型">
+              <input type="radio" class="btn-check" name="pcLookMode" id="pcLookDigital" value="digital" checked>
+              <label class="btn btn-outline-light" for="pcLookDigital" id="pcLookDigitalLabel">數位成像</label>
+              <input type="radio" class="btn-check" name="pcLookMode" id="pcLookFilm" value="film">
+              <label class="btn btn-outline-light" for="pcLookFilm" id="pcLookFilmLabel">底片模擬</label>
+            </div>
+            <select id="pcCam_look" class="form-select form-select-sm"></select>
+          </div>
+          <div class="mb-2">
+            <label for="pcCam_focal_length" id="pcLensLabel">鏡頭／焦段</label>
             <select id="pcCam_focal_length" class="form-select form-select-sm"></select>
           </div>
-          <div>
-            <label for="pcCam_lens_type">鏡頭</label>
-            <select id="pcCam_lens_type" class="form-select form-select-sm"></select>
+          <div class="pc-settings-row mb-2">
+            <div>
+              <label for="pcCam_aperture">光圈</label>
+              <select id="pcCam_aperture" class="form-select form-select-sm"></select>
+            </div>
+            <div>
+              <label for="pcCam_exposure_ev">EV</label>
+              <select id="pcCam_exposure_ev" class="form-select form-select-sm"></select>
+            </div>
           </div>
+          <div class="mb-0">
+            <label for="pcCam_aperture_blades">光圈葉片</label>
+            <select id="pcCam_aperture_blades" class="form-select form-select-sm"></select>
+          </div>
+          <p class="small text-secondary mb-0 mt-2">選項內容與 prompt 可在後台「攝影模擬參數」編輯；數位成像與底片模擬僅擇一。</p>
         </div>
-        <div class="mb-2">
-          <label for="pcCam_aperture_blades">光圈葉片（光斑／耀光）</label>
-          <select id="pcCam_aperture_blades" class="form-select form-select-sm"></select>
-        </div>
-        <div class="pc-lcd" id="pcLcd" aria-live="polite">—</div>
       </aside>
     </div>
   </div>
@@ -142,9 +172,9 @@
   <script src="/js/auth-middleware.js"></script>
   <script src="/js/site-header.js"></script>
   <script src="/js/matchdo-promo-image.js?v=20260729d"></script>
-  <script src="/js/promo-camera/api.js?v=20260729d"></script>
-  <script src="/js/promo-camera/state.js?v=20260729d"></script>
-  <script src="/js/promo-camera/index.js?v=20260729d"></script>
+  <script src="/js/promo-camera/api.js?v=20260729f"></script>
+  <script src="/js/promo-camera/state.js?v=20260729f"></script>
+  <script src="/js/promo-camera/index.js?v=20260729f"></script>
   <script src="/js/site-footer.js"></script>
 </body>
 </html>

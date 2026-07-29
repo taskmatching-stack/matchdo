@@ -40,16 +40,16 @@ ALTER TABLE public.product_promo_generations
 
 COMMENT ON COLUMN public.product_promo_generations.generation_mode IS 'standard=情境圖TAB；camera_advanced=攝影模擬頁';
 
--- 種子：畫質／風格導向，不綁相機系統
+-- 種子：各維度 prompt 片段由後台編輯；數位成像 vs 底片模擬前台僅擇一
 INSERT INTO public.promo_camera_param_options (category, key, name, name_en, prompt_fragment, sort_order, is_default) VALUES
-('camera_brand', 'neutral_studio', '中性棚拍質感', 'Neutral studio look',
- 'Shot with a clean neutral digital camera color science: accurate white balance, moderate contrast, natural skin and product tones', 10, true),
-('camera_brand', 'warm_filmic', '暖調電影感', 'Warm filmic digital',
+('camera_brand', 'neutral_studio', '中性棚拍', 'Neutral studio',
+ 'Clean neutral digital color science: accurate white balance, moderate contrast, natural product tones', 10, true),
+('camera_brand', 'warm_filmic', '暖調電影數位', 'Warm filmic digital',
  'Warm cinematic digital color: gentle orange shadows, soft highlight rolloff, premium advertising grade', 20, false),
-('camera_brand', 'cinematic_log', '電影 LOG 質感', 'Cinematic LOG grade',
+('camera_brand', 'cinematic_log', '電影 LOG 調', 'Cinematic LOG grade',
  'Cinematic LOG-style color grade: rich shadows, controlled highlights, filmic contrast curve suitable for hero product ads', 30, false),
-('camera_brand', 'vintage_rangefinder', '復古旁軸質感', 'Vintage rangefinder character',
- 'Vintage rangefinder camera character: subtle micro-contrast, gentle vignette, classic photographic rendering', 40, false),
+('camera_brand', 'vintage_rangefinder', '復古旁軸調', 'Vintage rangefinder tone',
+ 'Vintage rangefinder rendering: subtle micro-contrast, gentle vignette, classic photographic color', 40, false),
 
 ('film_simulation', 'portra_400', 'Portra 400 風', 'Portra 400 style',
  'Kodak Portra 400 film emulation: warm natural tones, fine grain, flattering highlight rolloff', 10, true),
@@ -82,16 +82,16 @@ INSERT INTO public.promo_camera_param_options (category, key, name, name_en, pro
 ('exposure_ev', 'ev_p2', 'EV +2', 'EV +2',
  'Exposure bias EV +2: high-key bright advertising exposure', 50, false),
 
-('focal_length', 'mm35', '35mm', '35mm',
- '35mm equivalent focal length: environmental context with natural perspective', 10, false),
-('focal_length', 'mm50', '50mm', '50mm',
- '50mm equivalent focal length: natural human-eye perspective for product hero shots', 20, true),
-('focal_length', 'mm85', '85mm', '85mm',
- '85mm equivalent focal length: flattering compression and subject-background separation', 30, false),
-('focal_length', 'mm135', '135mm', '135mm',
- '135mm equivalent focal length: strong background compression and telephoto product isolation', 40, false),
+('focal_length', 'mm35', '35mm 標準定焦', '35mm standard prime',
+ '35mm equivalent standard prime lens: environmental context with natural perspective, clean sharpness, minimal distortion', 10, false),
+('focal_length', 'mm50', '50mm 標準定焦', '50mm standard prime',
+ '50mm equivalent standard prime lens: natural human-eye perspective for product hero shots, clean sharpness', 20, true),
+('focal_length', 'mm85', '85mm 人像定焦', '85mm portrait prime',
+ '85mm equivalent portrait prime lens: flattering compression, smooth bokeh transitions, subject-background separation', 30, false),
+('focal_length', 'mm135', '135mm 望遠定焦', '135mm tele prime',
+ '135mm equivalent telephoto prime lens: strong background compression and product isolation', 40, false),
 
-('lens_type', 'standard_prime', '標準定焦', 'Standard prime',
+('lens_type', 'standard_prime', '標準定焦（legacy）', 'Standard prime',
  'Modern standard prime lens rendering: clean sharpness, minimal distortion', 10, true),
 ('lens_type', 'portrait_prime', '人像定焦', 'Portrait prime',
  'Portrait prime lens: smooth bokeh transitions, gentle background falloff', 20, false),

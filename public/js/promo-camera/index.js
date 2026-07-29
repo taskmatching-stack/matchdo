@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729e';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729f';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -12,6 +12,8 @@
   if (!Api || !St || !Promo) return;
 
   var assetModal = null;
+  var lcdFlashTimer = null;
+  var dialPulseTimer = null;
 
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -85,17 +87,89 @@
     });
   }
 
+  function pulseCameraDevice(className) {
+    var device = document.querySelector('.pc-camera-device');
+    if (!device || !className) return;
+    device.classList.remove('is-adjusting-lens', 'is-adjusting-aperture', 'is-adjusting-ev');
+    device.classList.add(className);
+    if (dialPulseTimer) clearTimeout(dialPulseTimer);
+    dialPulseTimer = setTimeout(function () {
+      device.classList.remove(className);
+    }, 450);
+  }
+
+  function flashLcd() {
+    var lines = document.querySelectorAll('#pcLcd .pc-lcd-line');
+    lines.forEach(function (line) {
+      line.classList.remove('pc-lcd-flash');
+      void line.offsetWidth;
+      line.classList.add('pc-lcd-flash');
+    });
+    if (lcdFlashTimer) clearTimeout(lcdFlashTimer);
+    lcdFlashTimer = setTimeout(function () {
+      lines.forEach(function (line) { line.classList.remove('pc-lcd-flash'); });
+    }, 500);
+  }
+
   function updateLcd() {
-    var lcd = document.getElementById('pcLcd');
-    if (!lcd) return;
     var s = St.getLcdSummary();
-    lcd.textContent = s.aperture + ' · ' + s.focal + '\n' + s.film + ' · ' + s.ev;
+    var lookEl = document.querySelector('#pcLcd .pc-lcd-look');
+    var lensEl = document.querySelector('#pcLcd .pc-lcd-lens');
+    var optEl = document.querySelector('#pcLcd .pc-lcd-optics');
+    var prefix = s.lookMode === 'film' ? 'FILM' : 'DIGI';
+    if (lookEl) lookEl.textContent = prefix + ' · ' + s.look;
+    if (lensEl) lensEl.textContent = s.lens;
+    if (optEl) optEl.textContent = s.aperture + ' · ' + s.ev + ' · ' + s.blades;
+
+    var ring = document.getElementById('pcLensRing');
+    if (ring) {
+      var lensIdx = ['mm35', 'mm50', 'mm85', 'mm135'].indexOf((St.get().camera || {}).focal_length);
+      var rot = lensIdx >= 0 ? lensIdx * 12 : 0;
+      ring.style.transform = 'rotate(' + rot + 'deg)';
+    }
+  }
+
+  function fillLookSelect() {
+    var sel = document.getElementById('pcCam_look');
+    if (!sel) return;
+    var opts = St.get().options;
+    if (!opts || !opts.camera_params) return;
+    var cat = St.get().lookMode === 'film' ? St.getFilmLookCategory() : St.getDigitalLookCategory();
+    var list = opts.camera_params[cat] || [];
+    var cur = (St.get().camera || {})[cat] || '';
+    sel.innerHTML = list.map(function (r) {
+      return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
+    }).join('');
+  }
+
+  function syncLookModeRadios() {
+    var mode = St.get().lookMode;
+    var digital = document.getElementById('pcLookDigital');
+    var film = document.getElementById('pcLookFilm');
+    if (digital) digital.checked = mode !== 'film';
+    if (film) film.checked = mode === 'film';
+  }
+
+  function applyUiLabels() {
+    var group = St.getLookGroup();
+    var groupLabel = document.getElementById('pcLookGroupLabel');
+    if (groupLabel && group && group.label) groupLabel.textContent = group.label;
+    var digitalLabel = document.getElementById('pcLookDigitalLabel');
+    var filmLabel = document.getElementById('pcLookFilmLabel');
+    if (digitalLabel) digitalLabel.textContent = St.getCategoryLabel(St.getDigitalLookCategory());
+    if (filmLabel) filmLabel.textContent = St.getCategoryLabel(St.getFilmLookCategory());
+    var lensLabel = document.getElementById('pcLensLabel');
+    if (lensLabel) lensLabel.textContent = St.getCategoryLabel('focal_length');
   }
 
   function fillCameraSelects() {
     var opts = St.get().options;
     if (!opts || !opts.camera_params) return;
-    Object.keys(St.CATEGORY_LABELS).forEach(function (cat) {
+    applyUiLabels();
+    syncLookModeRadios();
+    fillLookSelect();
+    St.visibleCategories().forEach(function (cat) {
+      if (cat === 'focal_length') return;
       var el = document.getElementById('pcCam_' + cat);
       if (!el) return;
       var list = opts.camera_params[cat] || [];
@@ -104,6 +178,14 @@
         return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
       }).join('');
     });
+    var lensEl = document.getElementById('pcCam_focal_length');
+    if (lensEl) {
+      var lensList = opts.camera_params.focal_length || [];
+      var lensCur = (St.get().camera || {}).focal_length || '';
+      lensEl.innerHTML = lensList.map(function (r) {
+        return '<option value="' + esc(r.key) + '"' + (r.key === lensCur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
+      }).join('');
+    }
     updateLcd();
   }
 
@@ -237,12 +319,38 @@
 
     document.getElementById('pcPickAssetBtn').addEventListener('click', openAssetPicker);
 
-    Object.keys(St.CATEGORY_LABELS).forEach(function (cat) {
+    ['pcLookDigital', 'pcLookFilm'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', function () {
+        if (!el.checked) return;
+        St.setLookMode(el.value);
+        fillLookSelect();
+        updateLcd();
+        flashLcd();
+      });
+    });
+
+    var lookSel = document.getElementById('pcCam_look');
+    if (lookSel) {
+      lookSel.addEventListener('change', function () {
+        var cat = St.get().lookMode === 'film' ? St.getFilmLookCategory() : St.getDigitalLookCategory();
+        St.setCameraKey(cat, lookSel.value);
+        updateLcd();
+        flashLcd();
+      });
+    }
+
+    St.visibleCategories().forEach(function (cat) {
       var el = document.getElementById('pcCam_' + cat);
       if (!el) return;
       el.addEventListener('change', function () {
         St.setCameraKey(cat, el.value);
         updateLcd();
+        flashLcd();
+        if (cat === 'focal_length') pulseCameraDevice('is-adjusting-lens');
+        if (cat === 'aperture') pulseCameraDevice('is-adjusting-aperture');
+        if (cat === 'exposure_ev') pulseCameraDevice('is-adjusting-ev');
       });
     });
 

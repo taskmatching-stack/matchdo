@@ -11830,6 +11830,7 @@ app.get('/api/promo-camera/options', async (req, res) => {
             camera_params: cameraParams,
             camera_defaults: cameraDefaults,
             camera_categories: PROMO_CAMERA_PARAM_CATEGORIES,
+            camera_ui: PROMO_CAMERA_UI_CONFIG,
             points_standard: pointsCfg.standard,
             points_subscriber: pointsCfg.subscriber,
             points_per_extra_mp: pointsCfg.perExtraMp,
@@ -13419,6 +13420,52 @@ const PROMO_CAMERA_PARAM_CATEGORIES = [
     'focal_length', 'lens_type', 'aperture_blades'
 ];
 
+/** 攝影模擬控制台 UI 規則（前台依此渲染，選項內容仍由 DB 管理） */
+const PROMO_CAMERA_UI_CONFIG = {
+    category_labels: {
+        camera_brand: '數位成像',
+        film_simulation: '底片模擬',
+        aperture: '光圈',
+        exposure_ev: 'EV 曝光',
+        focal_length: '鏡頭／焦段',
+        lens_type: '鏡頭類型（legacy）',
+        aperture_blades: '光圈葉片'
+    },
+    exclusive_groups: [
+        {
+            id: 'look',
+            label: '成像風格',
+            categories: ['camera_brand', 'film_simulation'],
+            default_category: 'camera_brand'
+        }
+    ],
+    ui_hidden_categories: ['lens_type'],
+    lens_primary_category: 'focal_length'
+};
+
+function sanitizePromoCameraKeys(cameraKeys) {
+    const keys = cameraKeys && typeof cameraKeys === 'object' ? { ...cameraKeys } : {};
+    const lookGroup = (PROMO_CAMERA_UI_CONFIG.exclusive_groups || [])[0];
+    if (lookGroup && lookGroup.categories && lookGroup.categories.length >= 2) {
+        const digitalCat = lookGroup.categories[0];
+        const filmCat = lookGroup.categories[1];
+        const mode = String(keys._look_mode || '').trim();
+        if (mode === 'film') {
+            delete keys[digitalCat];
+        } else if (mode === 'digital') {
+            delete keys[filmCat];
+        } else if (keys[digitalCat] && keys[filmCat]) {
+            delete keys[filmCat];
+        }
+    }
+    const lensPrimary = PROMO_CAMERA_UI_CONFIG.lens_primary_category || 'focal_length';
+    if (keys[lensPrimary] && keys.lens_type) {
+        delete keys.lens_type;
+    }
+    delete keys._look_mode;
+    return keys;
+}
+
 function normalizePromoCameraParamKey(raw) {
     return String(raw || '').trim().toLowerCase().replace(/\s+/g, '_').slice(0, 64);
 }
@@ -13451,7 +13498,7 @@ async function fetchPromoCameraParamOptionsGrouped(activeOnly) {
 }
 
 async function resolvePromoCameraPromptFragments(cameraKeys) {
-    const keys = cameraKeys && typeof cameraKeys === 'object' ? cameraKeys : {};
+    const keys = sanitizePromoCameraKeys(cameraKeys);
     const fragments = [];
     const resolved = {};
     for (let i = 0; i < PROMO_CAMERA_PARAM_CATEGORIES.length; i++) {

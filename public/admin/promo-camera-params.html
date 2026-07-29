@@ -15,9 +15,10 @@
       <main class="col-md-9 col-lg-10 py-4">
         <h4 class="mb-1">攝影模擬參數</h4>
         <p class="text-muted small mb-3">
-          供 <code>/client/promo-camera.html</code> 使用。各選項的 <code>prompt_fragment</code>（英文）送 FLUX，模擬畫質／光學，<strong>不綁</strong>相機系統。
-          可隨時新增 category 內選項或修改英文片段，無需改程式。
-          點數於 <a href="/admin/membership.html">方案／點數</a> 設定（一般／訂閱各多少點／張）。
+          供 <code>/client/promo-camera.html</code> 使用。各選項的 <code>prompt_fragment</code>（英文）送 FLUX。
+          <strong>數位成像</strong>（<code>camera_brand</code>）與<strong>底片模擬</strong>（<code>film_simulation</code>）前台僅擇一；
+          <strong>鏡頭／焦段</strong>請編輯 <code>focal_length</code>（含焦段＋鏡頭特性於同一 fragment），<code>lens_type</code> 為 legacy 預設、前台已隱藏。
+          點數於 <a href="/admin/membership.html">方案／點數</a> 設定。
           請先執行 <code>docs/add-promo-camera-params.sql</code>。
         </p>
         <div id="statusWrap" class="alert mb-3 py-2 d-none"><span id="statusMsg"></span></div>
@@ -105,12 +106,12 @@
   var editModal = null;
 
   var CAT_LABELS = {
-    camera_brand: '畫質／機身',
-    film_simulation: '底片／風格',
+    camera_brand: '數位成像',
+    film_simulation: '底片模擬',
     aperture: '光圈',
     exposure_ev: 'EV',
-    focal_length: '焦段',
-    lens_type: '鏡頭',
+    focal_length: '鏡頭／焦段',
+    lens_type: '鏡頭類型（legacy）',
     aperture_blades: '光圈葉片'
   };
 

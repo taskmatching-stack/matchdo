@@ -6,6 +6,22 @@
 
   var MAX_IMAGES = 1;
 
+  var DEFAULT_UI = {
+    category_labels: {
+      camera_brand: '數位成像',
+      film_simulation: '底片模擬',
+      aperture: '光圈',
+      exposure_ev: 'EV 曝光',
+      focal_length: '鏡頭／焦段',
+      aperture_blades: '光圈葉片'
+    },
+    exclusive_groups: [
+      { id: 'look', label: '成像風格', categories: ['camera_brand', 'film_simulation'], default_category: 'camera_brand' }
+    ],
+    ui_hidden_categories: ['lens_type'],
+    lens_primary_category: 'focal_length'
+  };
+
   var state = {
     options: null,
     images: [],
@@ -19,23 +35,72 @@
     height: 1024,
     userPrompt: '',
     camera: {},
+    lookMode: 'digital',
     messages: [],
     generating: false,
     lastResult: null
   };
 
-  var CATEGORY_LABELS = {
-    camera_brand: '畫質／機身質感',
-    film_simulation: '底片／風格',
-    aperture: '光圈',
-    exposure_ev: 'EV 曝光',
-    focal_length: '焦段',
-    lens_type: '鏡頭類型',
-    aperture_blades: '光圈葉片'
-  };
+  function getUiConfig() {
+    return (state.options && state.options.camera_ui) || DEFAULT_UI;
+  }
+
+  function getLookGroup() {
+    var ui = getUiConfig();
+    return (ui.exclusive_groups || [])[0] || null;
+  }
+
+  function getDigitalLookCategory() {
+    var g = getLookGroup();
+    return (g && g.categories && g.categories[0]) || 'camera_brand';
+  }
+
+  function getFilmLookCategory() {
+    var g = getLookGroup();
+    return (g && g.categories && g.categories[1]) || 'film_simulation';
+  }
+
+  function getCategoryLabel(cat) {
+    var labels = getUiConfig().category_labels || {};
+    return labels[cat] || cat;
+  }
+
+  function visibleCategories() {
+    var hidden = getUiConfig().ui_hidden_categories || ['lens_type'];
+    var hiddenSet = {};
+    hidden.forEach(function (c) { hiddenSet[c] = true; });
+    var out = ['focal_length', 'aperture', 'exposure_ev', 'aperture_blades'];
+    return out.filter(function (c) { return !hiddenSet[c]; });
+  }
 
   function cloneMessages() {
     return state.messages.slice();
+  }
+
+  function inferLookModeFromCamera() {
+    var digitalCat = getDigitalLookCategory();
+    var filmCat = getFilmLookCategory();
+    var cam = state.camera || {};
+    if (cam[filmCat] && !cam[digitalCat]) return 'film';
+    return 'digital';
+  }
+
+  function applyLookModeDefaults() {
+    var digitalCat = getDigitalLookCategory();
+    var filmCat = getFilmLookCategory();
+    var defs = (state.options && state.options.camera_defaults) || {};
+    var params = (state.options && state.options.camera_params) || {};
+    if (state.lookMode === 'film') {
+      delete state.camera[digitalCat];
+      if (!state.camera[filmCat]) {
+        state.camera[filmCat] = defs[filmCat] || ((params[filmCat] || [])[0] && (params[filmCat][0].key)) || '';
+      }
+    } else {
+      delete state.camera[filmCat];
+      if (!state.camera[digitalCat]) {
+        state.camera[digitalCat] = defs[digitalCat] || ((params[digitalCat] || [])[0] && (params[digitalCat][0].key)) || '';
+      }
+    }
   }
 
   function setOptions(data) {
@@ -43,6 +108,8 @@
     if (data && data.camera_defaults) {
       state.camera = Object.assign({}, data.camera_defaults);
     }
+    state.lookMode = inferLookModeFromCamera();
+    applyLookModeDefaults();
     if (data && data.themes && data.themes.length && !state.themeKey) {
       state.themeKey = data.themes[0].key || '';
     }
@@ -76,9 +143,17 @@
     state.sourceId = null;
   }
 
+  function setLookMode(mode) {
+    state.lookMode = mode === 'film' ? 'film' : 'digital';
+    applyLookModeDefaults();
+  }
+
   function setCameraKey(category, key) {
     if (!category) return;
     state.camera[category] = key || '';
+    if (category === getDigitalLookCategory()) state.lookMode = 'digital';
+    if (category === getFilmLookCategory()) state.lookMode = 'film';
+    applyLookModeDefaults();
   }
 
   function setDims(w, h, ratio, mp) {
@@ -98,6 +173,11 @@
   }
 
   function buildGeneratePayload() {
+    applyLookModeDefaults();
+    var cam = Object.assign({}, state.camera);
+    cam._look_mode = state.lookMode;
+    var hidden = getUiConfig().ui_hidden_categories || [];
+    hidden.forEach(function (cat) { delete cam[cat]; });
     return {
       images: state.images.slice(),
       theme_key: state.themeKey || undefined,
@@ -108,35 +188,48 @@
       user_prompt: state.userPrompt || undefined,
       source_type: state.sourceType,
       source_id: state.sourceId || undefined,
-      camera: Object.assign({}, state.camera)
+      camera: cam
     };
+  }
+
+  function labelFor(cat, key) {
+    var opts = state.options && state.options.camera_params ? state.options.camera_params : {};
+    var list = opts[cat] || [];
+    var hit = list.find(function (r) { return r.key === key; });
+    return hit ? (hit.name || key) : (key || '—');
   }
 
   function getLcdSummary() {
     var cam = state.camera || {};
-    var opts = state.options && state.options.camera_params ? state.options.camera_params : {};
-    function label(cat, key) {
-      var list = opts[cat] || [];
-      var hit = list.find(function (r) { return r.key === key; });
-      return hit ? (hit.name || key) : (key || '—');
-    }
+    var digitalCat = getDigitalLookCategory();
+    var filmCat = getFilmLookCategory();
+    var lookKey = state.lookMode === 'film' ? cam[filmCat] : cam[digitalCat];
+    var lookCat = state.lookMode === 'film' ? filmCat : digitalCat;
     return {
-      aperture: label('aperture', cam.aperture),
-      focal: label('focal_length', cam.focal_length),
-      film: label('film_simulation', cam.film_simulation),
-      ev: label('exposure_ev', cam.exposure_ev)
+      lookMode: state.lookMode,
+      look: labelFor(lookCat, lookKey),
+      lens: labelFor('focal_length', cam.focal_length),
+      aperture: labelFor('aperture', cam.aperture),
+      ev: labelFor('exposure_ev', cam.exposure_ev),
+      blades: labelFor('aperture_blades', cam.aperture_blades)
     };
   }
 
   global.PromoCameraState = {
     MAX_IMAGES: MAX_IMAGES,
-    CATEGORY_LABELS: CATEGORY_LABELS,
+    getUiConfig: getUiConfig,
+    getLookGroup: getLookGroup,
+    getDigitalLookCategory: getDigitalLookCategory,
+    getFilmLookCategory: getFilmLookCategory,
+    getCategoryLabel: getCategoryLabel,
+    visibleCategories: visibleCategories,
     get: function () { return state; },
     cloneMessages: cloneMessages,
     setOptions: setOptions,
     addImage: addImage,
     removeImage: removeImage,
     clearImages: clearImages,
+    setLookMode: setLookMode,
     setCameraKey: setCameraKey,
     setDims: setDims,
     pushMessage: pushMessage,
