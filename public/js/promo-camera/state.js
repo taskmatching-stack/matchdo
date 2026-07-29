@@ -12,15 +12,15 @@
       film_simulation: '底片模擬',
       aperture: '光圈',
       exposure_ev: 'EV 曝光',
-      focal_length: '鏡頭／焦段',
+      lens: '鏡頭',
       aperture_blades: '光圈葉片'
     },
     exclusive_groups: [
       { id: 'look', label: '成像來源', categories: ['camera_brand', 'film_simulation'], default_category: 'camera_brand' }
     ],
-    ui_hidden_categories: ['lens_type'],
-    lens_primary_category: 'focal_length',
-    groupable_categories: ['film_simulation', 'focal_length'],
+    ui_hidden_categories: ['focal_length', 'lens_type'],
+    lens_primary_category: 'lens',
+    groupable_categories: ['film_simulation', 'lens'],
     group_meta_key: 'group'
   };
 
@@ -67,12 +67,18 @@
     return labels[cat] || cat;
   }
 
+  function getLensCategory() {
+    return getUiConfig().lens_primary_category || 'lens';
+  }
+
   function visibleCategories() {
-    var hidden = getUiConfig().ui_hidden_categories || ['lens_type'];
+    var hidden = getUiConfig().ui_hidden_categories || ['focal_length', 'lens_type'];
     var hiddenSet = {};
     hidden.forEach(function (c) { hiddenSet[c] = true; });
-    var out = ['focal_length', 'aperture', 'exposure_ev', 'aperture_blades'];
-    return out.filter(function (c) { return !hiddenSet[c]; });
+    var lensCat = getLensCategory();
+    return [lensCat, 'aperture', 'exposure_ev', 'aperture_blades'].filter(function (c) {
+      return !hiddenSet[c];
+    });
   }
 
   function cloneMessages() {
@@ -92,6 +98,7 @@
     var filmCat = getFilmLookCategory();
     var defs = (state.options && state.options.camera_defaults) || {};
     var params = (state.options && state.options.camera_params) || {};
+    var lensCat = getLensCategory();
     if (state.lookMode === 'film') {
       delete state.camera[digitalCat];
       if (!state.camera[filmCat]) {
@@ -103,6 +110,11 @@
         state.camera[digitalCat] = defs[digitalCat] || ((params[digitalCat] || [])[0] && (params[digitalCat][0].key)) || '';
       }
     }
+    if (!state.camera[lensCat]) {
+      state.camera[lensCat] = defs[lensCat] || ((params[lensCat] || [])[0] && (params[lensCat][0].key)) || '';
+    }
+    delete state.camera.focal_length;
+    delete state.camera.lens_type;
   }
 
   function setOptions(data) {
@@ -207,10 +219,11 @@
     var filmCat = getFilmLookCategory();
     var lookKey = state.lookMode === 'film' ? cam[filmCat] : cam[digitalCat];
     var lookCat = state.lookMode === 'film' ? filmCat : digitalCat;
+    var lensCat = getLensCategory();
     return {
       lookMode: state.lookMode,
       look: labelFor(lookCat, lookKey),
-      lens: labelFor('focal_length', cam.focal_length),
+      lens: labelFor(lensCat, cam[lensCat]),
       aperture: labelFor('aperture', cam.aperture),
       ev: labelFor('exposure_ev', cam.exposure_ev),
       blades: labelFor('aperture_blades', cam.aperture_blades)
@@ -223,6 +236,7 @@
     getLookGroup: getLookGroup,
     getDigitalLookCategory: getDigitalLookCategory,
     getFilmLookCategory: getFilmLookCategory,
+    getLensCategory: getLensCategory,
     getCategoryLabel: getCategoryLabel,
     visibleCategories: visibleCategories,
     get: function () { return state; },

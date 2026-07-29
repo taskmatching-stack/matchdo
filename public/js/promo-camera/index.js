@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729h';
+  window.__MATCHDO_PROMO_CAMERA_BUILD = 'promo-camera-20260729i';
 
   var Api = window.PromoCameraApi;
   var St = window.PromoCameraState;
@@ -123,8 +123,11 @@
 
     var ring = document.getElementById('pcLensRing');
     if (ring) {
-      var lensIdx = ['mm35', 'mm50', 'mm85', 'mm135'].indexOf((St.get().camera || {}).focal_length);
-      var rot = lensIdx >= 0 ? lensIdx * 12 : 0;
+      var lensCat = St.getLensCategory ? St.getLensCategory() : 'lens';
+      var lensList = (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[lensCat] || [] : [];
+      var lensKey = (St.get().camera || {})[lensCat] || '';
+      var lensIdx = lensList.findIndex(function (r) { return r.key === lensKey; });
+      var rot = lensIdx >= 0 ? lensIdx * 10 : 0;
       ring.style.transform = 'rotate(' + rot + 'deg)';
     }
   }
@@ -172,7 +175,7 @@
     if (digitalLabel) digitalLabel.textContent = St.getCategoryLabel(St.getDigitalLookCategory());
     if (filmLabel) filmLabel.textContent = St.getCategoryLabel(St.getFilmLookCategory());
     var lensLabel = document.getElementById('pcLensLabel');
-    if (lensLabel) lensLabel.textContent = St.getCategoryLabel('focal_length');
+    if (lensLabel) lensLabel.textContent = St.getCategoryLabel(St.getLensCategory ? St.getLensCategory() : 'lens');
   }
 
   function fillCameraSelects() {
@@ -181,8 +184,9 @@
     applyUiLabels();
     syncLookModeRadios();
     fillLookSelect();
+    var lensCat = St.getLensCategory ? St.getLensCategory() : 'lens';
     St.visibleCategories().forEach(function (cat) {
-      if (cat === 'focal_length') return;
+      if (cat === lensCat) return;
       var el = document.getElementById('pcCam_' + cat);
       if (!el) return;
       var list = opts.camera_params[cat] || [];
@@ -191,10 +195,10 @@
         return '<option value="' + esc(r.key) + '"' + (r.key === cur ? ' selected' : '') + '>' + esc(r.name || r.key) + '</option>';
       }).join('');
     });
-    var lensEl = document.getElementById('pcCam_focal_length');
+    var lensEl = document.getElementById('pcCam_lens');
     if (lensEl) {
-      var lensList = opts.camera_params.focal_length || [];
-      var lensCur = (St.get().camera || {}).focal_length || '';
+      var lensList = opts.camera_params[lensCat] || [];
+      var lensCur = (St.get().camera || {})[lensCat] || '';
       if (Promo.fillSelectGrouped) {
         Promo.fillSelectGrouped(lensEl, lensList, 'key', 'name', lensCur);
       } else {
@@ -361,17 +365,18 @@
       });
     }
 
+    var lensCat = St.getLensCategory ? St.getLensCategory() : 'lens';
     St.visibleCategories().forEach(function (cat) {
       var el = document.getElementById('pcCam_' + cat);
       if (!el) return;
       el.addEventListener('change', function () {
         St.setCameraKey(cat, el.value);
-        if (cat === 'focal_length') {
-          refreshParamHint(el, document.getElementById('pcLensHint'), (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params.focal_length || [] : []);
+        if (cat === lensCat) {
+          refreshParamHint(el, document.getElementById('pcLensHint'), (St.get().options && St.get().options.camera_params) ? St.get().options.camera_params[lensCat] || [] : []);
         }
         updateLcd();
         flashLcd();
-        if (cat === 'focal_length') pulseCameraDevice('is-adjusting-lens');
+        if (cat === lensCat) pulseCameraDevice('is-adjusting-lens');
         if (cat === 'aperture') pulseCameraDevice('is-adjusting-aperture');
         if (cat === 'exposure_ev') pulseCameraDevice('is-adjusting-ev');
       });

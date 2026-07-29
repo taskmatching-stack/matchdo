@@ -35,32 +35,6 @@ UPDATE public.promo_camera_param_options SET
   meta = COALESCE(meta, '{}'::jsonb) || '{"group":"电影负片"}'::jsonb
 WHERE category = 'film_simulation' AND key = 'cinestill_800t';
 
--- 鏡頭／焦段（focal_length）＋分組
-UPDATE public.promo_camera_param_options SET
-  name = '35mm 标准定焦',
-  description = '35mm 定焦：带环境的产品构图，透视自然，适合情境较宽的主视觉。',
-  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"标准定焦"}'::jsonb
-WHERE category = 'focal_length' AND key = 'mm35';
+-- 鏡頭 → 請改跑 docs/patch-promo-camera-lens-category.sql（category=lens，依鏡頭類型分組）
 
-UPDATE public.promo_camera_param_options SET
-  name = '50mm 标准定焦',
-  description = '50mm 定焦：接近人眼透视，最常用的产品 Hero 镜头。',
-  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"标准定焦"}'::jsonb
-WHERE category = 'focal_length' AND key = 'mm50';
-
-UPDATE public.promo_camera_param_options SET
-  name = '85mm 人像定焦',
-  description = '85mm 人像定焦：背景压缩、虚化平滑，突出单一产品主体。',
-  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"人像／望遠"}'::jsonb
-WHERE category = 'focal_length' AND key = 'mm85';
-
-UPDATE public.promo_camera_param_options SET
-  name = '135mm 望遠定焦',
-  description = '135mm 望遠定焦：强背景压缩与主体隔离，适合特写型广告。',
-  meta = COALESCE(meta, '{}'::jsonb) || '{"group":"人像／望遠"}'::jsonb
-WHERE category = 'focal_length' AND key = 'mm135';
-
--- 若曾误建重复 key，可手动在后台删除；下列仅删除「同名且非最小 id」的重复列（可选，执行前请确认）
--- DELETE FROM public.promo_camera_param_options a
--- USING public.promo_camera_param_options b
--- WHERE a.category = b.category AND a.key = b.key AND a.id > b.id;
+-- 若曾误建重复 key，可手动在后台删除

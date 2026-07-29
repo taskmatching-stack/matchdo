@@ -13417,8 +13417,19 @@ async function buildPromoImagePrompt(themeKey, sceneKey, userPrompt, photography
 
 const PROMO_CAMERA_PARAM_CATEGORIES = [
     'camera_brand', 'film_simulation', 'aperture', 'exposure_ev',
-    'focal_length', 'lens_type', 'aperture_blades'
+    'lens', 'aperture_blades'
 ];
+
+const PROMO_CAMERA_LEGACY_LENS_CATEGORIES = ['focal_length', 'lens_type'];
+
+const PROMO_CAMERA_ADMIN_CATEGORIES = PROMO_CAMERA_PARAM_CATEGORIES.concat(PROMO_CAMERA_LEGACY_LENS_CATEGORIES);
+
+const PROMO_CAMERA_FOCAL_LENGTH_TO_LENS = {
+    mm35: 'std_35',
+    mm50: 'std_50',
+    mm85: 'portrait_85',
+    mm135: 'portrait_135'
+};
 
 /** 攝影模擬控制台 UI 規則（前台依此渲染，選項內容仍由 DB 管理） */
 const PROMO_CAMERA_UI_CONFIG = {
@@ -13427,7 +13438,8 @@ const PROMO_CAMERA_UI_CONFIG = {
         film_simulation: '底片模擬',
         aperture: '光圈',
         exposure_ev: 'EV 曝光',
-        focal_length: '鏡頭／焦段',
+        lens: '鏡頭',
+        focal_length: '焦段（legacy）',
         lens_type: '鏡頭類型（legacy）',
         aperture_blades: '光圈葉片'
     },
@@ -13439,9 +13451,9 @@ const PROMO_CAMERA_UI_CONFIG = {
             default_category: 'camera_brand'
         }
     ],
-    ui_hidden_categories: ['lens_type'],
-    lens_primary_category: 'focal_length',
-    groupable_categories: ['film_simulation', 'focal_length'],
+    ui_hidden_categories: ['focal_length', 'lens_type'],
+    lens_primary_category: 'lens',
+    groupable_categories: ['film_simulation', 'lens'],
     group_meta_key: 'group'
 };
 
@@ -13460,8 +13472,14 @@ function sanitizePromoCameraKeys(cameraKeys) {
             delete keys[filmCat];
         }
     }
-    const lensPrimary = PROMO_CAMERA_UI_CONFIG.lens_primary_category || 'focal_length';
-    if (keys[lensPrimary] && keys.lens_type) {
+    const lensPrimary = PROMO_CAMERA_UI_CONFIG.lens_primary_category || 'lens';
+    if (keys[lensPrimary]) {
+        delete keys.focal_length;
+        delete keys.lens_type;
+    } else if (keys.focal_length) {
+        const mapped = PROMO_CAMERA_FOCAL_LENGTH_TO_LENS[normalizePromoCameraParamKey(keys.focal_length)];
+        if (mapped) keys.lens = mapped;
+        delete keys.focal_length;
         delete keys.lens_type;
     }
     delete keys._look_mode;
@@ -28810,7 +28828,7 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
             .order('category', { ascending: true })
             .order('sort_order', { ascending: true })
             .order('key', { ascending: true });
-        if (category && PROMO_CAMERA_PARAM_CATEGORIES.includes(category)) {
+        if (category && PROMO_CAMERA_ADMIN_CATEGORIES.includes(category)) {
             q = q.eq('category', category);
         }
         const { data, error } = await q;
@@ -28821,7 +28839,7 @@ app.get('/api/admin/promo-camera-params', async (req, res) => {
             console.error('GET /api/admin/promo-camera-params:', error);
             return res.status(500).json({ error: '查詢失敗' });
         }
-        res.json({ items: data || [], categories: PROMO_CAMERA_PARAM_CATEGORIES });
+        res.json({ items: data || [], categories: PROMO_CAMERA_ADMIN_CATEGORIES });
     } catch (e) {
         console.error('GET /api/admin/promo-camera-params 異常:', e);
         res.status(500).json({ error: '系統錯誤' });
@@ -28837,7 +28855,7 @@ app.post('/api/admin/promo-camera-params', express.json(), async (req, res) => {
         const category = String(body.category || '').trim();
         const key = normalizePromoCameraParamKey(body.key);
         const name = String(body.name || '').trim();
-        if (!PROMO_CAMERA_PARAM_CATEGORIES.includes(category)) {
+        if (!PROMO_CAMERA_ADMIN_CATEGORIES.includes(category)) {
             return res.status(400).json({ error: '無效的 category' });
         }
         if (!key) return res.status(400).json({ error: '請填寫 key' });
@@ -28885,7 +28903,7 @@ app.put('/api/admin/promo-camera-params/:id', express.json(), async (req, res) =
         const updates = { updated_at: new Date().toISOString() };
         if (body.category !== undefined) {
             const category = String(body.category || '').trim();
-            if (!PROMO_CAMERA_PARAM_CATEGORIES.includes(category)) {
+            if (!PROMO_CAMERA_ADMIN_CATEGORIES.includes(category)) {
                 return res.status(400).json({ error: '無效的 category' });
             }
             updates.category = category;

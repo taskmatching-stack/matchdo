@@ -18,8 +18,9 @@
           供 <code>/client/promo-camera.html</code> 使用。各選項的 <code>prompt_fragment</code>（英文）送 FLUX。
           <strong>品牌色彩</strong>（<code>camera_brand</code>）僅寫機身／感測器色調，<strong>勿寫場景、光線、廣告氛圍</strong>（左側主題／場景已負責）。
           與<strong>底片模擬</strong>（<code>film_simulation</code>）前台僅擇一。
-          <strong>鏡頭／焦段</strong>請編輯 <code>focal_length</code>（含焦段＋鏡頭特性於同一 fragment），<code>lens_type</code> 為 legacy 預設、前台已隱藏。
-          <strong>底片模擬</strong>與<strong>鏡頭／焦段</strong>可用「分組」欄位（寫入 <code>meta.group</code>）在前台以群組下拉顯示。
+          <strong>鏡頭</strong>請編輯 <code>lens</code>（每個選項＝焦段＋鏡頭類型光學個性；<strong>分組</strong>填鏡頭類型如「標準定焦／微距鏡頭／老鏡頭」）。
+          <code>focal_length</code>、<code>lens_type</code> 為 legacy，前台已停用。
+          <strong>底片模擬</strong>與<strong>鏡頭</strong>可用「分組」欄位（寫入 <code>meta.group</code>）在前台以群組下拉顯示。
           點數於 <a href="/admin/membership.html">方案／點數</a> 設定。
           請先執行 <code>docs/add-promo-camera-params.sql</code>。
         </p>
@@ -115,7 +116,8 @@
     film_simulation: '底片模擬',
     aperture: '光圈',
     exposure_ev: 'EV',
-    focal_length: '鏡頭／焦段',
+    lens: '鏡頭',
+    focal_length: '焦段（legacy）',
     lens_type: '鏡頭類型（legacy）',
     aperture_blades: '光圈葉片'
   };
