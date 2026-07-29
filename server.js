@@ -13826,67 +13826,26 @@ async function resolvePromoCameraPromptFragments(cameraKeys, uiConfig) {
     return { fragments: fragments, fragmentsByCategory: fragmentsByCategory, resolved: resolved };
 }
 
-function buildPromoImageAdvertisingBaseParts(referenceCount) {
-    const refN = Math.min(8, Math.max(1, parseInt(referenceCount, 10) || 1));
-    const parts = [];
-    parts.push('Shoot and design a brand-new commercial advertising photograph of this product for store ads, DM flyers, and marketing campaigns');
-    parts.push('Goal: advertising creative design and new product photography look — NOT retouching, NOT background cleanup, NOT a lightly edited copy of the reference');
-    parts.push('CRITICAL FORBIDDEN: keeping the same mannequin pose, crop, framing, camera height, and overall composition while only changing the backdrop or lighting — that is failure');
-    parts.push('Create a fresh advertising shot: new camera angle and crop, stronger hero composition, premium commercial lighting, magazine or campaign energy');
-    parts.push('The product must remain clearly the same real product (cut, fabric, color, surface details)');
-    parts.push('CRITICAL: the product must be clearly visible and immediately recognizable as the advertising hero — show the primary selling face, key design details, color, texture, and form so a viewer knows exactly what is being sold within one second');
-    parts.push('The product must occupy a substantial portion of the frame as the focal subject — not a tiny distant object lost in background blur or bokeh');
-    parts.push('CRITICAL FORBIDDEN: product lying flat face-down on a surface (back-only view), edge-only sliver, partially hidden under props, or ambiguous placement where the product identity is unclear');
-    parts.push('Prefer hero three-quarter or front-facing product presentation suitable for e-commerce and print ads — the product design must read clearly, not just mood or environment');
-    parts.push('Use a clean commercial advertising environment that serves the promo; do not invent unrelated lifestyle room stories');
-    if (refN > 1) {
-        parts.push(
-            'Multiple reference images are provided (input_image through input_image_' + refN +
-            '). Treat them as product identity references (angles, colorways, variants). ' +
-            'Produce ONE newly directed advertising photograph. Image 1 is the primary product unless the brief says otherwise'
-        );
-    } else {
-        parts.push('Treat the reference as product identity only, then shoot a newly directed advertising photograph of that product');
-    }
-    return parts;
-}
-
-/** 攝影模擬頁專用 prompt（不用 photography_prompt_sets） */
+/** 攝影模擬頁專用 prompt：主題／場景沿用情境圖模板；攝影參數只用 DB prompt_fragment；描述由使用者填寫 */
 async function buildPromoCameraAdvancedPrompt(themeKey, sceneKey, userPrompt, cameraKeys, referenceCount) {
+    void referenceCount;
     const theme = await loadPromoTemplatePartsByKey(themeKey);
     const scene = await loadPromoTemplatePartsByKey(sceneKey);
     const user = String(userPrompt || '').trim();
-    const parts = buildPromoImageAdvertisingBaseParts(referenceCount);
-    if (theme.prompt || theme.composition) {
-        parts.push('Theme direction (advertising style)');
-        if (theme.prompt) parts.push(theme.prompt);
-        if (theme.composition) parts.push(theme.composition);
-    }
-    if (scene.prompt || scene.composition) {
-        parts.push('Scene setting (commercial environment for the ad)');
-        if (scene.prompt) parts.push(scene.prompt);
-        if (scene.composition) parts.push(scene.composition);
-    }
+    const parts = [];
+    if (theme.prompt) parts.push(theme.prompt);
+    if (theme.composition) parts.push(theme.composition);
+    if (scene.prompt) parts.push(scene.prompt);
+    if (scene.composition) parts.push(scene.composition);
     const catRes = await fetchPromoCameraParamCategories(true);
     const cameraUi = buildPromoCameraUiConfigFromCategories(catRes.categories || [], 'en');
     const cam = await resolvePromoCameraPromptFragments(cameraKeys, cameraUi);
-    const angleFrag = cam.fragmentsByCategory && cam.fragmentsByCategory.shooting_angle;
-    if (angleFrag) {
-        parts.push('Camera viewpoint and product presentation angle (same product identity, new shooting direction only; do not change scene theme)');
-        parts.push(angleFrag);
-    }
-    const opticalFrags = (cam.fragments || []).filter(function (f) {
-        return f !== angleFrag;
+    (cam.fragments || []).forEach(function (f) {
+        if (f) parts.push(f);
     });
-    if (opticalFrags.length) {
-        parts.push('Apply only camera body color science, film stock color, and optical parameters below; do not override theme, scene, environment, or lighting already specified above');
-        parts.push('Camera and optical simulation (follow exactly for sensor or film color and lens character)');
-        opticalFrags.forEach(function (f) { parts.push(f); });
-    }
-    if (user) parts.push('Advertising brief: ' + user);
-    const prompt = parts.join('. ').trim();
+    if (user) parts.push(user);
     return {
-        prompt: prompt || 'Create a brand-new product advertising key visual from the reference with the product clearly visible as the hero subject — not face-down, not back-only, not a background-only retouch.',
+        prompt: parts.join('. ').trim(),
         camera_resolved: cam.resolved
     };
 }
